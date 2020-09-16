@@ -20,6 +20,10 @@ use std::sync::Arc;
 use utils::write_to_file;
 use wallet::PersistentKeyStore;
 
+/// Number of tasks spawned for sync workers.
+// TODO benchmark and/or add this as a config option.
+const WORKER_TASKS: usize = 3;
+
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
     info!("Starting Forest daemon");
@@ -60,9 +64,13 @@ pub(super) async fn start(config: Config) {
         Libp2pService::new(config.network, Arc::clone(&db), net_keypair, &network_name);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
+
+    // Initialize StateManager
+    let state_manager = Arc::new(StateManager::new(Arc::clone(&db)));
+
     // Initialize mpool
-    let subscriber = chain_store.subscribe();
-    let provider = MpoolRpcProvider::new(subscriber.await, Arc::clone(&db));
+    let subscriber = chain_store.subscribe().await;
+    let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
     let mpool = Arc::new(
         MessagePool::new(provider, network_name.clone())
             .await
@@ -81,24 +89,23 @@ pub(super) async fn start(config: Config) {
     .await
     .unwrap();
 
+    let subscriber = chain_store.subscribe().await;
+
     // Initialize ChainSyncer
     let heaviest_tipset = chain_store.heaviest_tipset_ref();
-    let publisher = chain_store.publisher_ref();
     let chain_syncer = ChainSyncer::new(
-        chain_store.blockstore_arc(),
+        Arc::new(chain_store),
+        Arc::clone(&state_manager),
         Arc::new(beacon),
         network_send.clone(),
         network_rx,
-        genesis,
-        heaviest_tipset.clone(),
-        publisher,
-        chain_store.tip_index_ref(),
+        Arc::new(genesis),
     )
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
     let sync_task = task::spawn(async {
-        chain_syncer.start().await.unwrap();
+        chain_syncer.start(WORKER_TASKS).await;
     });
 
     // Start services
@@ -106,16 +113,15 @@ pub(super) async fn start(config: Config) {
         p2p_service.run().await;
     });
 
-    let subscriber = chain_store.subscribe().await;
+    
     let rpc_task = if config.enable_rpc {
-        let db_rpc = StateManager::new(Arc::clone(&db));
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(
                 RpcState {
-                    state_manager: db_rpc,
+                    state_manager,
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,

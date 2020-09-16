@@ -34,7 +34,7 @@ fn encode_assert_cbor(header: &BlockHeader, expected: &str, cid: &Cid) {
 
 #[test]
 fn header_cbor_vectors() {
-    let mut file = File::open("../serialization-vectors/block_headers.json").unwrap();
+    let mut file = File::open("serialization-vectors/block_headers.json").unwrap();
     let mut string = String::new();
     file.read_to_string(&mut string).unwrap();
 

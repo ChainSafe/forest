@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{init, ActorState, INIT_ACTOR_ADDR};
+use actor::{init, ActorState, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::{Address, SECP_PUB_LEN};
 use cid::{multihash::Identity, Cid};
 use ipld_blockstore::BlockStore;
@@ -23,11 +23,11 @@ fn get_set_cache() {
     // test address not in cache
     assert_eq!(tree.get_actor(&addr).unwrap(), None);
     // test successful insert
-    assert_eq!(tree.set_actor(&addr, act_s.clone()), Ok(()));
+    assert!(tree.set_actor(&addr, act_s.clone()).is_ok());
     // test inserting with different data
-    assert_eq!(tree.set_actor(&addr, act_a.clone()), Ok(()));
+    assert!(tree.set_actor(&addr, act_a.clone()).is_ok());
     // Assert insert with same data returns ok
-    assert_eq!(tree.set_actor(&addr, act_a.clone()), Ok(()));
+    assert!(tree.set_actor(&addr, act_a.clone()).is_ok());
     // test getting set item
     assert_eq!(tree.get_actor(&addr).unwrap().unwrap(), act_a);
 }
@@ -64,10 +64,8 @@ fn get_set_non_id() {
 
     let act_s = ActorState::new(empty_cid(), state_cid.clone(), Default::default(), 1);
 
-    // Test snapshot
-    let snapshot = tree.snapshot().unwrap();
+    tree.snapshot().unwrap();
     tree.set_actor(&INIT_ACTOR_ADDR, act_s.clone()).unwrap();
-    assert_ne!(&tree.snapshot().unwrap(), &snapshot);
 
     // Test mutate function
     tree.mutate_actor(&INIT_ACTOR_ADDR, |mut actor| {
@@ -91,9 +89,109 @@ fn get_set_non_id() {
     let assigned_addr = tree.register_new_address(&addr).unwrap();
 
     assert_eq!(assigned_addr, Address::new_id(100));
+}
 
-    // Test reverting snapshot to before init actor set
-    tree.revert_to_snapshot(&snapshot).unwrap();
-    assert_eq!(tree.snapshot().unwrap(), snapshot);
-    assert_eq!(tree.get_actor(&INIT_ACTOR_ADDR).unwrap(), None);
+#[test]
+fn test_snapshots() {
+    let store = db::MemoryDB::default();
+    let mut tree = StateTree::new(&store);
+    let mut addresses: Vec<Address> = Vec::new();
+    use num_bigint::BigInt;
+
+    let test_addresses = vec!["t0100", "t0101", "t0102"];
+    for a in test_addresses.iter() {
+        addresses.push(a.parse().unwrap());
+    }
+
+    tree.snapshot().unwrap();
+    tree.set_actor(
+        &addresses[0],
+        ActorState::new(
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            BigInt::from(55),
+            1,
+        ),
+    )
+    .unwrap();
+
+    tree.set_actor(
+        &addresses[1],
+        ActorState::new(
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            BigInt::from(55),
+            1,
+        ),
+    )
+    .unwrap();
+    tree.set_actor(
+        &addresses[2],
+        ActorState::new(
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            BigInt::from(55),
+            1,
+        ),
+    )
+    .unwrap();
+    tree.clear_snapshot().unwrap();
+    tree.flush().unwrap();
+
+    assert_eq!(
+        tree.get_actor(&addresses[0]).unwrap().unwrap(),
+        ActorState::new(
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            BigInt::from(55),
+            1
+        )
+    );
+    assert_eq!(
+        tree.get_actor(&addresses[1]).unwrap().unwrap(),
+        ActorState::new(
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            BigInt::from(55),
+            1
+        )
+    );
+
+    assert_eq!(
+        tree.get_actor(&addresses[2]).unwrap().unwrap(),
+        ActorState::new(
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            BigInt::from(55),
+            1
+        )
+    );
+}
+
+#[test]
+fn revert_snapshot() {
+    let store = db::MemoryDB::default();
+    let mut tree = StateTree::new(&store);
+    use num_bigint::BigInt;
+
+    let addr_str = "f01";
+    let addr: Address = addr_str.parse().unwrap();
+
+    tree.snapshot().unwrap();
+    tree.set_actor(
+        &addr,
+        ActorState::new(
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            ACCOUNT_ACTOR_CODE_ID.clone(),
+            BigInt::from(55),
+            1,
+        ),
+    )
+    .unwrap();
+    tree.revert_to_snapshot().unwrap();
+    tree.clear_snapshot().unwrap();
+
+    tree.flush().unwrap();
+
+    assert_eq!(tree.get_actor(&addr).unwrap(), None);
 }

@@ -20,13 +20,11 @@ ipld_blockstore = { path = "../../ipld/blockstore" }
 ipld_hamt = { path = "../../ipld/hamt" }
 ipld_amt = { path = "../../ipld/amt" }
 forest_ipld = { path = "../../ipld" }
-message = { package = "forest_message", path = "../message" }
 unsigned-varint = "0.5"
 integer-encoding = "1.1.5"
 crypto = { package = "forest_crypto", path = "../../crypto" }
 bitfield = { path = "../../utils/bitfield" }
 fil_types = { path = "../../types" }
-derive_builder = "0.9"
 byteorder = "1.3.4"
 ahash = "0.4"
 base64 = "0.12.1"
@@ -35,6 +33,7 @@ commcid = { path = "../../utils/commcid" }
 indexmap = { version = "1.3.2", features = ["serde-1"] }
 
 [dev-dependencies]
+derive_builder = "0.9"
 db = { path = "../../node/db" }
 hex = "0.4.2"
 libp2p = "0.24"

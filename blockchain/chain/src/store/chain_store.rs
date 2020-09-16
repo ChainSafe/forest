@@ -4,10 +4,9 @@
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
-use async_std::future;
 use async_std::sync::RwLock;
 use async_std::task;
-use beacon::BeaconEntry;
+use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -17,13 +16,10 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
-use futures::channel::mpsc::channel;
-use futures::channel::mpsc::Receiver;
-use futures::sink::SinkExt;
 use futures::StreamExt;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{info, warn};
+use log::{debug, info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -32,7 +28,7 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
-use std::time::Duration;
+
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -54,7 +50,9 @@ pub enum HeadChange {
     Revert(Arc<Tipset>),
 }
 
-/// Generic implementation of the datastore trait and structures
+/// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
+/// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
+/// `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     publisher: Arc<RwLock<Publisher<HeadChange>>>,
 
@@ -86,7 +84,7 @@ where
     }
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
-    pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         *self.heaviest.write().await = Some(ts.clone());
         self.publisher
@@ -98,29 +96,31 @@ where
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub async fn subscribe(&mut self) -> Subscriber<HeadChange> {
+    pub async fn subscribe(&self) -> Subscriber<HeadChange> {
         self.publisher.write().await.subscribe()
     }
 
     /// Sets tip_index tracker
-    pub async fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
-        let ts: Tipset = Tipset::new(vec![header.clone()])?;
+    // TODO this is really broken, should not be setting the tipset metadata to a tipset with just
+    // the one header.
+    pub async fn set_tipset_tracker(&self, header: &BlockHeader) -> Result<(), Error> {
+        let ts = Arc::new(Tipset::new(vec![header.clone()])?);
         let meta = TipsetMetadata {
             tipset_state_root: header.state_root().clone(),
             tipset_receipts_root: header.message_receipts().clone(),
             tipset: ts,
         };
-        self.tip_index.write().await.put(&meta);
+        self.tip_index.write().await.put(&meta).await;
         Ok(())
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&self, header: BlockHeader) -> Result<Cid, Error> {
+    pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
-    pub async fn put_tipset(&mut self, ts: &Tipset) -> Result<(), Error> {
+    pub async fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         persist_objects(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         self.update_heaviest(ts).await?;
@@ -133,7 +133,7 @@ where
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    pub async fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
+    pub async fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = get_heaviest_tipset(self.blockstore())?.ok_or_else(|| {
             warn!("No previous chain state found");
             Error::Other("No chain state found".to_owned())
@@ -157,10 +157,11 @@ where
 
     /// Returns heaviest tipset from blockstore
     pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
-        (*self.heaviest.read().await).clone()
+        self.heaviest.read().await.clone()
     }
 
-    pub fn heaviest_tipset_ref(&mut self) -> Arc<RwLock<Option<Arc<Tipset>>>> {
+    pub fn heaviest_tipset_ref(&self) -> Arc<RwLock<Option<Arc<Tipset>>>>
+    {
         self.heaviest.clone()
     }
 
@@ -188,12 +189,33 @@ where
 
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
-        fill_tipsets(self.blockstore(), ts)
+        let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
+
+        for header in ts.into_blocks() {
+            let (bls_messages, secp_messages) = block_messages(self.blockstore(), &header)?;
+            debug!(
+                "Fill Tipsets for header {:?} with bls_messages: {:?}",
+                header.cid(),
+                bls_messages
+                    .iter()
+                    .map(|b| b.cid().unwrap())
+                    .collect::<Vec<_>>()
+            );
+
+            blocks.push(Block {
+                header,
+                bls_messages,
+                secp_messages,
+            });
+        }
+
+        // the given tipset has already been verified, so this cannot fail
+        Ok(FullTipset::new(blocks).unwrap())
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    async fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
-        match &*self.heaviest.clone().read().await {
+    async fn update_heaviest(&self, ts: &Tipset) -> Result<(), Error> {
+        match self.heaviest.read().await.as_ref() {
             Some(heaviest) => {
                 let new_weight = weight(self.blockstore(), ts)?;
                 let curr_weight = weight(self.blockstore(), &heaviest)?;
@@ -362,7 +384,7 @@ where
     }
 }
 
-fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<Cid, Error>
+fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
     DB: BlockStore,
 {
@@ -415,6 +437,14 @@ where
             return Ok(entry);
         }
     }
+
+    if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
+        return Ok(BeaconEntry::new(
+            0,
+            vec![9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+        ));
+    }
+
     Err(Error::Other(
         "Found no beacon entries in the 20 latest tipsets".to_owned(),
     ))
@@ -608,7 +638,8 @@ where
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, BigInt> = HashMap::new();
-    let state = StateTree::new_from_root(db, ts.parent_state())?;
+    let state =
+        StateTree::new_from_root(db, ts.parent_state()).map_err(|e| Error::Other(e.to_string()))?;
 
     // message to get all messages for block_header into a single iterator
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
@@ -621,7 +652,8 @@ where
             let from_address = message.from();
             if applied.contains_key(&from_address) {
                 let actor_state = state
-                    .get_actor(from_address)?
+                    .get_actor(from_address)
+                    .map_err(|e| Error::Other(e.to_string()))?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
                 balances.insert(*from_address, actor_state.balance);
@@ -692,8 +724,11 @@ where
     DB: BlockStore,
 {
     let mut tpow = BigInt::zero();
-    let state = StateTree::new_from_root(db, ts.parent_state())?;
-    if let Some(act) = state.get_actor(&*STORAGE_POWER_ACTOR_ADDR)? {
+    let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
+    if let Some(act) = state
+        .get_actor(&*STORAGE_POWER_ACTOR_ADDR)
+        .map_err(|e| e.to_string())?
+    {
         if let Some(state) = db
             .get::<PowerState>(&act.state)
             .map_err(|e| e.to_string())?
@@ -722,7 +757,6 @@ where
 pub mod headchange_json {
     use super::*;
     use blocks::tipset_json::TipsetJson;
-    use futures::Sink;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -745,7 +779,7 @@ pub mod headchange_json {
     }
 
     pub async fn sub_head_changes(
-        mut publisher: Arc<RwLock<Publisher<HeadChangeJson>>>,
+        publisher: Arc<RwLock<Publisher<HeadChangeJson>>>,
         mut subscribed_head_change: Subscriber<HeadChange>,
         heaviest_tipset: &Option<Arc<Tipset>>,
         current_index : usize
@@ -791,7 +825,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(cs.genesis().unwrap(), None);
-        cs.set_genesis(gen_block.clone()).unwrap();
+        cs.set_genesis(&gen_block).unwrap();
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 }

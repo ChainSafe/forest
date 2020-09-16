@@ -18,10 +18,10 @@ use libp2p::{
     core::transport::boxed::Boxed,
     gossipsub::TopicHash,
     identity::{ed25519, Keypair},
-    mplex, secio, yamux, PeerId, Swarm, Transport,
+    mplex, noise, yamux, PeerId, Swarm, Transport,
 };
 use libp2p_request_response::{RequestId, ResponseChannel};
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
@@ -128,8 +128,8 @@ where
             warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
-        let (network_sender_in, network_receiver_in) = channel(20);
-        let (network_sender_out, network_receiver_out) = channel(20);
+        let (network_sender_in, network_receiver_in) = channel(30);
+        let (network_sender_out, network_receiver_out) = channel(50);
 
         Libp2pService {
             swarm,
@@ -154,7 +154,7 @@ where
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerDialed(peer_id) => {
                             debug!("Peer dialed, {:?}", peer_id);
-                            self.network_sender_out.send(NetworkEvent::PeerDialed{
+                            emit_event(&self.network_sender_out, NetworkEvent::PeerDialed {
                                 peer_id
                             }).await;
                         }
@@ -166,8 +166,8 @@ where
                             topics,
                             message,
                         } => {
-                            debug!("Got a Gossip Message from {:?}", source);
-                            self.network_sender_out.send(NetworkEvent::PubsubMessage {
+                            trace!("Got a Gossip Message from {:?}", source);
+                            emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage {
                                 source,
                                 topics,
                                 message
@@ -175,14 +175,14 @@ where
                         }
                         ForestBehaviourEvent::HelloRequest { request, channel, .. } => {
                             debug!("Received hello request: {:?}", request);
-                            self.network_sender_out.send(NetworkEvent::HelloRequest {
+                            emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
                                 channel,
                             }).await;
                         }
                         ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
-                            debug!("Received hello response (id: {:?}): {:?}", request_id, response);
-                            self.network_sender_out.send(NetworkEvent::HelloResponse {
+                            debug!("Received hello response (id: {:?})", request_id);
+                            emit_event(&self.network_sender_out, NetworkEvent::HelloResponse {
                                 request_id,
                                 response,
                             }).await;
@@ -193,15 +193,15 @@ where
                                 chain: vec![],
                                 status: 203,
                                 message: "handling requests not implemented".to_owned(),
-                            });
+                            }).await;
                         }
                         ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
-                            debug!("Received blocksync response (id: {:?}): {:?}", request_id, response);
+                            debug!("Received blocksync response (id: {:?})", request_id);
                             let tx = self.bs_request_table.remove(&request_id);
 
                             if let Some(tx) = tx {
                                 if let Err(e) = tx.send(response) {
-                                    debug!("RPCResponse receive failed: {:?}", e)
+                                    debug!("RPCResponse receive failed")
                                 }
                             }
                             else {
@@ -217,7 +217,7 @@ where
                                     } else {
                                         trace!("saved bitswap block with cid {:?}", cid);
                                     }
-                                    self.network_sender_out.send(NetworkEvent::BitswapBlock{cid}).await;
+                                    emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{cid}).await;
                                 }
                                 Err(e) => {
                                     warn!("failed to save bitswap block: {:?}", e.to_string());
@@ -253,6 +253,7 @@ where
                         }
                         NetworkMessage::BlockSyncRequest { peer_id, request, response_channel } => {
                             let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request));
+                            debug!("Sent BS Request with id: {:?}", id);
                             self.bs_request_table.insert(id, response_channel);
                         }
                     }
@@ -276,16 +277,31 @@ where
         self.network_receiver_out.clone()
     }
 }
+async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
+    if !sender.is_full() {
+        sender.send(event).await
+    } else {
+        // TODO this would be better to keep the events that would be ignored in some sort of buffer
+        // so that they can be pulled off and sent through the channel when there is available space
+        error!("network sender channel was full, ignoring event");
+    }
+}
 
 /// Builds the transport stack that LibP2P will communicate over
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
+    let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
+        .into_authentic(&local_key)
+        .expect("Noise key generation failed");
+    let mut yamux_config = yamux::Config::default();
+    yamux_config.set_max_buffer_size(1 << 20);
+    yamux_config.set_receive_window(1 << 20);
     transport
         .upgrade(core::upgrade::Version::V1)
-        .authenticate(secio::SecioConfig::new(local_key))
+        .authenticate(noise::NoiseConfig::xx(dh_keys).into_authenticated())
         .multiplex(core::upgrade::SelectUpgrade::new(
-            yamux::Config::default(),
+            yamux_config,
             mplex::MplexConfig::new(),
         ))
         .map(|(peer, muxer), _| (peer, core::muxing::StreamMuxerBox::new(muxer)))

@@ -10,7 +10,6 @@ use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 
-use async_std::prelude::*;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     signed_message,
@@ -57,21 +56,21 @@ where
     Ok(UnsignedMessageJson(ret).into())
 }
 
-pub(crate) async fn chain_notify<DB, KS>(data: Data<RpcState<DB, KS>>,Params(params): Params<usize>) -> Result<(), JsonRpcError>
+pub(crate) async fn chain_notify<DB, KS>(data: Data<RpcState<DB, KS>>,Params(params): Params<usize>) -> Result<usize, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
 
     let heaviest_tipset = data.heaviest_tipset.read().await;
-    chain::headchange_json::sub_head_changes(
+    let index = chain::headchange_json::sub_head_changes(
         data.publisher.clone(),
         data.subscriber.clone(),
         &heaviest_tipset,
         params
     )
     .await?;
-    Ok(())
+    Ok(index)
 }
 
 pub(crate) async fn chain_read_obj<DB, KS>(

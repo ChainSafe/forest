@@ -4,7 +4,7 @@
 use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::blocksync::{BlockSyncResponse, TipsetBundle};
+use forest_libp2p::blocksync::{BlockSyncResponse, CompactedMessages, TipsetBundle};
 use forest_message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use std::convert::TryFrom;
@@ -32,10 +32,12 @@ fn convert_single_tipset_bundle() {
     };
     let bundle = TipsetBundle {
         blocks: vec![block.header.clone()],
-        bls_msgs: Vec::new(),
-        bls_msg_includes: vec![Vec::new()],
-        secp_msgs: Vec::new(),
-        secp_msg_includes: vec![Vec::new()],
+        messages: Some(CompactedMessages {
+            bls_msgs: Vec::new(),
+            bls_msg_includes: vec![Vec::new()],
+            secp_msgs: Vec::new(),
+            secp_msg_includes: vec![Vec::new()],
+        }),
     };
 
     let res = BlockSyncResponse {
@@ -99,10 +101,12 @@ fn tipset_bundle_to_full_tipset() {
 
     let mut tsb = TipsetBundle {
         blocks: vec![h0, h1],
-        secp_msgs: vec![sa, sb, sc, sd],
-        secp_msg_includes: vec![vec![0, 1, 3], vec![1, 2, 0]],
-        bls_msgs: vec![ua, ub, uc, ud],
-        bls_msg_includes: vec![vec![0, 1], vec![2, 3]],
+        messages: Some(CompactedMessages {
+            secp_msgs: vec![sa, sb, sc, sd],
+            secp_msg_includes: vec![vec![0, 1, 3], vec![1, 2, 0]],
+            bls_msgs: vec![ua, ub, uc, ud],
+            bls_msg_includes: vec![vec![0, 1], vec![2, 3]],
+        }),
     };
 
     assert_eq!(
@@ -110,17 +114,22 @@ fn tipset_bundle_to_full_tipset() {
         FullTipset::new(vec![b0, b1]).unwrap()
     );
 
+    let mut cloned = tsb.clone();
+    if let Some(m) = cloned.messages.as_mut() {
+        m.secp_msg_includes = vec![vec![0, 4], vec![0]];
+    }
     // Invalidate tipset bundle by having invalid index
-    tsb.secp_msg_includes = vec![vec![0, 4], vec![0]];
     assert!(
-        FullTipset::try_from(tsb.clone()).is_err(),
+        FullTipset::try_from(cloned).is_err(),
         "Invalid index should return error"
     );
 
-    // Invalidate tipset bundle by not having includes same length as number of blocks
-    tsb.secp_msg_includes = vec![vec![0]];
+    if let Some(m) = tsb.messages.as_mut() {
+        // Invalidate tipset bundle by not having includes same length as number of blocks
+        m.secp_msg_includes = vec![vec![0]];
+    }
     assert!(
-        FullTipset::try_from(tsb.clone()).is_err(),
+        FullTipset::try_from(tsb).is_err(),
         "Invalid includes index vector should return error"
     );
 }

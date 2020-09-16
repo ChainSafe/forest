@@ -25,14 +25,14 @@ use forest_libp2p::NetworkMessage;
 use futures::sink::SinkExt;
 use futures::stream::{SplitSink, StreamExt};
 use jsonrpc_v2::{Data, MapRouter, RequestObject,RequestBuilder,ResponseObject, ResponseObjects, Server,V2,Error,Id};
-use log::{error, info, warn};
+use log::{info, warn};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::Serialize;
 use state_manager::StateManager;
 use wallet::KeyStore;
-use std::sync::atomic::AtomicUsize;
 
-type WS_Sink = SplitSink<WebSocketStream<TcpStream>, async_tungstenite::tungstenite::Message>;
+
+type WsSink = SplitSink<WebSocketStream<TcpStream>, async_tungstenite::tungstenite::Message>;
 
 const CHAIN_NOTIFY_METHOD_NAME : &str= "Filecoin.ChainNotify";
 #[derive(Serialize)]
@@ -48,20 +48,20 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    pub state_manager: StateManager<DB>,
+    pub state_manager: Arc<StateManager<DB>>,
     pub keystore: Arc<RwLock<KS>>,
-    pub heaviest_tipset: Arc<RwLock<Option<Arc<Tipset>>>>,
+    pub heaviest_tipset:Arc<RwLock<Option<Arc<Tipset>>>>,
     pub subscriber: Subscriber<HeadChange>,
     pub publisher: Arc<RwLock<Publisher<HeadChangeJson>>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
-    pub sync_state: Arc<RwLock<SyncState>>,
+    pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
     pub network_send: Sender<NetworkMessage>,
     pub network_name: String,
     pub next_id: u64,
 }
 
-pub async fn start_rpc<DB, KS>(mut state: RpcState<DB, KS>, rpc_endpoint: &str)
+pub async fn start_rpc<DB, KS>(state: RpcState<DB, KS>, rpc_endpoint: &str)
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
@@ -276,11 +276,11 @@ async fn handle_connection_and_log(
     span!("handle_connection_and_log", {
         if let Ok(ws_stream) = async_tungstenite::accept_async(tcp_stream).await {
             info!("accepted websocket connection at {:}", addr);
-            let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+            let (ws_sender, mut ws_receiver) = ws_stream.split();
             let ws_sender = Arc::new(RwLock::new(ws_sender));
             let mut chain_notify_count = 0;
             while let Some(message_result) = ws_receiver.next().await {
-                let response_text = match message_result {
+                match message_result {
                     Ok(message) => {
                         let request_text = message.into_text().unwrap();
                         info!(
@@ -289,14 +289,10 @@ async fn handle_connection_and_log(
                         );
                         match serde_json::from_str(&request_text) as Result<RequestObject, _> {
                             Ok(call) => {
-                                /// hacky but due to the limitations of jsonrpc_v2 impl
-                                /// if this expands, better to implement some sort of middleware
+                                // hacky but due to the limitations of jsonrpc_v2 impl
+                                // if this expands, better to implement some sort of middleware
                                 let call = if &*call.method==CHAIN_NOTIFY_METHOD_NAME
                                 {
-                                    info!(
-                                        "old request {:?}",
-                                        call
-                                    );
                                     
                                     chain_notify_count = chain_notify_count + 1;
                                     RequestBuilder::default()
@@ -313,13 +309,12 @@ async fn handle_connection_and_log(
                                 streaming_payload_and_log(
                                     ws_sender.clone(),
                                     response,
-                                    state.clone(),
                                     subscriber.clone(),
                                     chain_notify_count
                                 )
                                 .await;
                             }
-                            Err(e) => {
+                            Err(_) => {
                                 let response = ResponseObjects::One(ResponseObject::Error{
                                     jsonrpc: V2,
                                     error: Error::Provided{
@@ -331,7 +326,6 @@ async fn handle_connection_and_log(
                                 streaming_payload_and_log(
                                     ws_sender.clone(),
                                     response,
-                                    state.clone(),
                                     subscriber.clone(),
                                     chain_notify_count
                                 )
@@ -339,7 +333,7 @@ async fn handle_connection_and_log(
                             }
                         }
                     }
-                    Err(e) => {
+                    Err(_) => {
                         let response = ResponseObjects::One(ResponseObject::Error{
                             jsonrpc: V2,
                             error: Error::Provided{
@@ -351,7 +345,6 @@ async fn handle_connection_and_log(
                         streaming_payload_and_log(
                             ws_sender.clone(),
                             response,
-                            state.clone(),
                             subscriber.clone(),
                             chain_notify_count
                         )
@@ -366,9 +359,8 @@ async fn handle_connection_and_log(
 }
 
 async fn streaming_payload_and_log(
-    ws_sender: Arc<RwLock<WS_Sink>>,
+    ws_sender: Arc<RwLock<WsSink>>,
     response_object: ResponseObjects,
-    state: Arc<Server<MapRouter>>,
     mut subscriber: Subscriber<HeadChangeJson>,
     streaming_count : usize
 ) {
@@ -389,7 +381,6 @@ async fn streaming_payload_and_log(
         if streaming {
   
             task::spawn(async move {
-                let subcriber = subscriber.clone();
                 let sender = ws_sender.clone();
                 for resp in subscriber.next().await {
                     let data = StreamingData {

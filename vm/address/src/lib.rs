@@ -147,6 +147,14 @@ impl Address {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.payload.to_bytes()
     }
+
+    /// Get ID of the address. ID protocol only.
+    pub fn id(&self) -> Result<u64, Error> {
+        match self.payload {
+            Payload::ID(id) => Ok(id),
+            _ => Err(Error::NonIDAddress),
+        }
+    }
 }
 
 impl fmt::Display for Address {
