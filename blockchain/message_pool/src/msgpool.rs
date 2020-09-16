@@ -747,21 +747,7 @@ where
     T: Provider,
 {
     let actor = api.read().await.get_actor_after(&addr, cur_ts)?;
-    let mut base_sequence = actor.sequence;
-    // TODO here lotus has a todo, so I guess we should eventually remove cur_ts from one
-    // of the params for this method and just use the chain head
-    let msgs = api.read().await.messages_for_tipset(cur_ts)?;
-    drop(api);
-
-    for m in msgs {
-        if m.from() == addr {
-            println!("ms: {}, bs: {}", m.sequence(), base_sequence);
-            if m.sequence() != base_sequence {
-                return Err(Error::Other("tipset has bad sequence ordering".to_string()));
-            }
-            base_sequence += 1;
-        }
-    }
+    let base_sequence = actor.sequence;
 
     Ok(base_sequence)
 }
