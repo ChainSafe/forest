@@ -108,6 +108,10 @@ impl Message for SignedMessage {
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         self.message.set_gas_premium(prem);
     }
+
+    fn valid_for_block_inclusion(&self, min_gas: i64) -> Result<(), String> {
+        self.message.valid_for_block_inclusion(min_gas)
+    }
 }
 
 impl Cbor for SignedMessage {

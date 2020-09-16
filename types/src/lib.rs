@@ -12,6 +12,8 @@ use num_bigint::BigInt;
 
 /// Default bit width for the hamt in the filecoin protocol.
 pub const HAMT_BIT_WIDTH: u32 = 5;
+pub const BLOCK_GAS_LIMIT: i64 = 10_000_000_000;
+pub const TOTAL_FILECOIN: i64 = 2_000_000_000;
 
 /// Config trait which handles different network configurations.
 pub trait NetworkParams {
@@ -35,7 +37,7 @@ pub trait NetworkParams {
 // Not yet finalized
 pub struct DevnetParams;
 impl NetworkParams for DevnetParams {
-    const TOTAL_FILECOIN: i64 = 2_000_000_000;
+    const TOTAL_FILECOIN: i64 = TOTAL_FILECOIN;
     const MINING_REWARD_TOTAL: i64 = 1_400_000_000;
 }
 
