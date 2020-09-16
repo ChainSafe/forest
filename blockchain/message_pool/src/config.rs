@@ -1,5 +1,5 @@
 use address::Address;
-use db::{Error, Store};
+use db::Store;
 use encoding::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;

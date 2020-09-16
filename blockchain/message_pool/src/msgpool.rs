@@ -16,7 +16,7 @@ use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
 use flo_stream::Subscriber;
-use futures::{stream, StreamExt};
+use futures::StreamExt;
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -36,7 +36,7 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 /// which corresponds to that address
 #[derive(Clone, Default)]
 pub struct MsgSet {
-    msgs: HashMap<u64, SignedMessage>,
+    pub msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
     required_funds: BigInt,
 }
@@ -200,7 +200,7 @@ where
         chain::block_messages(self.cs.blockstore(), h).map_err(|err| err.into())
     }
 
-    async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+    async fn state_account_key(&self, _addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
         unimplemented!()
     }
 
@@ -404,11 +404,11 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        // TODO: Do we need to do syntactic validation on messages? Or can we assume theyre correct by construction?
-        // TODO: Make this a constant. I think it is supposed to represent the total filecoin in circ
-        if msg.value() > &BigInt::from(2_000_000_000u64) {
+        msg.valid_for_block_inclusion(0).map_err(|e| Error::Other(e.to_string()))?;
+        if msg.value() > &BigInt::from(types::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
+        // TODO: Check Minimum base fee
         self.verify_msg_sig(msg).await
     }
 
@@ -533,7 +533,6 @@ where
         let nonce = self.get_nonce(&addr).await?;
         let msg = cb(from_key, nonce)?;
         self.check_message(&msg).await?;
-        let msg_cid = msg.marshal_cbor()?;
         if &*self.cur_tipset.read().await != &cur_ts {
             return Err(Error::TryAgain);
         }
@@ -573,8 +572,8 @@ where
     }
 
     /// Remove a message given a sequence and address from the messagepool
-    pub async fn remove(&mut self, from: &Address, sequence: u64) -> Result<(), Error> {
-        remove(from, self.pending.as_ref(), sequence).await
+    pub async fn remove(&mut self, from: &Address, sequence: u64, applied: bool) -> Result<(), Error> {
+        remove(from, self.pending.as_ref(), sequence, applied).await
     }
 
     /// Return a tuple that contains a vector of all signed messages and the current tipset for
@@ -709,7 +708,7 @@ where
 fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
-
+    m.valid_for_block_inclusion(min_gas.total()).map_err(|e| Error::Other(e.to_string()))?;
     if cur_ts.blocks().len() > 0 {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
         let base_fee_lower_bound = base_fee / BASE_FEE_LOWER_BOUND_FACTOR;
@@ -731,28 +730,22 @@ pub async fn remove(
     from: &Address,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
+    applied: bool,
 ) -> Result<(), Error> {
     let mut pending = pending.write().await;
-
-    let mset = pending
-        .get_mut(from)
-        .ok_or_else(|| Error::InvalidFromAddr)?;
-    mset.msgs.remove(&sequence);
-
-    if mset.msgs.is_empty() {
-        pending.remove(from);
+    let mset = if let Some(mset) = pending
+        .get_mut(from) {
+        mset
     } else {
-        let mut max_sequence: u64 = 0;
-        for sequence_temp in mset.msgs.keys().cloned() {
-            if max_sequence < sequence_temp {
-                max_sequence = sequence_temp;
-            }
-        }
-        if max_sequence < sequence {
-            max_sequence = sequence;
-        }
-        mset.next_sequence = max_sequence + 1;
+        return Ok(());
+    };
+
+    mset.rm(sequence, applied);
+
+    if mset.msgs.len() == 0 {
+        pending.remove(from);
     }
+
     Ok(())
 }
 
@@ -854,6 +847,7 @@ where
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
         let pts = api.write().await.load_tipset(ts.parents())?;
+        *cur_tipset.write().await = pts;
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
@@ -865,7 +859,6 @@ where
                 msgs.push(smsg)
             }
         }
-        *cur_tipset.write().await = pts;
 
         for msg in msgs {
             add(msg, rmsgs.borrow_mut());
@@ -908,10 +901,11 @@ async fn rm(
     if let Some(temp) = rmsgs.get_mut(from) {
         if temp.get_mut(&sequence).is_some() {
             temp.remove(&sequence);
+        } else {
+            remove(from, pending, sequence, true).await?;
         }
-        remove(from, pending, sequence).await?;
     } else {
-        remove(from, pending, sequence).await?;
+        remove(from, pending, sequence, true).await?;
     }
     Ok(())
 }
@@ -919,9 +913,10 @@ async fn rm(
 /// This function is a helper method for head_change. This method will add a signed message to the given rmsgs HashMap
 fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
     let s = rmsgs.get_mut(m.from());
-    if let Some(temp) = s {
-        temp.insert(m.sequence(), m);
+    if let Some(s) = s {
+        s.insert(m.sequence(), m);
     } else {
+
         rmsgs.insert(*m.from(), HashMap::new());
         rmsgs.get_mut(m.from()).unwrap().insert(m.sequence(), m);
     }
@@ -1019,8 +1014,11 @@ pub mod test_provider {
             }
         }
 
-        async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
-            unimplemented!()
+        async fn state_account_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
+           match addr.protocol(){
+               Protocol::BLS | Protocol::Secp256k1 => Ok(addr.clone()),
+               _ => Err(Error::Other("given address was not a key addr".to_string()))
+           }
         }
 
         fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Errors> {
@@ -1160,23 +1158,20 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
-
+            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default()).await.unwrap();
             let mut smsg_vec = Vec::new();
             for i in 0..4 {
                 let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i);
                 smsg_vec.push(msg);
             }
 
+            mpool.api.write().await.set_state_sequence(&sender, 0);
             assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 0);
-            mpool.push(smsg_vec[0].clone()).await.unwrap();
+            mpool.add(&smsg_vec[0].clone()).await.unwrap();
             assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 1);
-            mpool.push(smsg_vec[1].clone()).await.unwrap();
+            mpool.add(&smsg_vec[1].clone()).await.unwrap();
             assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 2);
-            mpool.push(smsg_vec[2].clone()).await.unwrap();
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 3);
-            mpool.push(smsg_vec[3].clone()).await.unwrap();
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
+
 
             let a = mock_block(1, 1);
 
@@ -1197,9 +1192,7 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
-
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 2);
         })
     }
 
@@ -1223,7 +1216,7 @@ pub mod tests {
         }
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default()).await.unwrap();
 
             let mut api_temp = mpool.api.write().await;
             api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
@@ -1307,7 +1300,7 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string()).await.unwrap();
+            let mpool = MessagePool::new(tma, "mptest".to_string(), Default::default()).await.unwrap();
 
             let mut smsg_vec = Vec::new();
             for i in 0..3 {

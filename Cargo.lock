@@ -4362,6 +4362,7 @@ dependencies = [
  "blake2b_simd",
  "chain",
  "db",
+ "fil_types",
  "flo_stream",
  "forest_address",
  "forest_bigint",
