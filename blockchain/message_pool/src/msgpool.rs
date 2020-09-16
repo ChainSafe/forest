@@ -9,7 +9,7 @@ use async_std::task;
 use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
-use chain::{ChainStore, HeadChange};
+use chain::HeadChange;
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
@@ -142,78 +142,6 @@ pub trait Provider {
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
-}
-
-/// This is the mpool provider struct that will let us access and add messages to messagepool.
-pub struct MpoolProvider<DB> {
-    cs: ChainStore<DB>,
-}
-
-impl<'db, DB> MpoolProvider<DB>
-where
-    DB: BlockStore + Sync + Send,
-{
-    pub fn new(cs: ChainStore<DB>) -> Self
-    where
-        DB: BlockStore,
-    {
-        MpoolProvider { cs }
-    }
-}
-
-#[async_trait]
-impl<DB> Provider for MpoolProvider<DB>
-where
-    DB: BlockStore + Sync + Send,
-{
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-        self.cs.subscribe().await
-    }
-
-    async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        let ts = self.cs.heaviest_tipset().await?;
-        Some(ts.as_ref().clone())
-    }
-
-    fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
-        let cid = self
-            .cs
-            .db
-            .put(msg, Blake2b256)
-            .map_err(|err| Error::Other(err.to_string()))?;
-        Ok(cid)
-    }
-
-    fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
-        let state = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
-            .map_err(|e| Error::Other(e.to_string()))?;
-        let actor = state
-            .get_actor(addr)
-            .map_err(|e| Error::Other(e.to_string()))?;
-        actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
-    }
-
-    fn messages_for_block(
-        &self,
-        h: &BlockHeader,
-    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        chain::block_messages(self.cs.blockstore(), h).map_err(|err| err.into())
-    }
-
-    async fn state_account_key(&self, _addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
-        unimplemented!()
-    }
-
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        chain::unsigned_messages_for_tipset(self.cs.blockstore(), h).map_err(|err| err.into())
-    }
-
-    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        self.cs.tipset_from_keys(tsk).map_err(|err| err.into())
-    }
-    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
-        chain::compute_base_fee(self.cs.blockstore(), ts).map_err(|err| err.into())
-    }
 }
 
 /// This is the Provider implementation that will be used for the mpool RPC
