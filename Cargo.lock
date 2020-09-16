@@ -1290,6 +1290,7 @@ dependencies = [
  "num-traits 0.2.12",
  "rand 0.7.3",
  "serde",
+ "smallvec 1.4.2",
  "state_manager",
  "state_tree",
  "test_utils",
