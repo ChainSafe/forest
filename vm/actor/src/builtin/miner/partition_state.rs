@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{
     power_for_sectors, validate_partition_contains_sectors, BitFieldQueue, ExpirationQueue,
     ExpirationSet, QuantSpec, SectorOnChainInfo, Sectors, TerminationResult, NO_QUANTIZATION,
@@ -399,7 +402,7 @@ impl Partition {
     ) -> Result<ExpirationSet, Box<dyn StdError>> {
         let live_sectors = self.live_sectors();
         if live_sectors.contains_all(sector_numbers) {
-            Err(actor_error!(ErrIllegalArgument; "can only terminate live sectors"))?;
+            return Err(actor_error!(ErrIllegalArgument; "can only terminate live sectors").into());
         }
 
         let sector_infos = sectors.load(sector_numbers)?;

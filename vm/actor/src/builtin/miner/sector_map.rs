@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::WPOST_PERIOD_DEADLINES;
 use bitfield::BitField;
 use std::collections::HashMap;
@@ -23,14 +26,14 @@ impl DeadlineSectorMap {
             return Err(format!(
                 "too many partitions {}, max {}",
                 partition_count, max_partitions
-            ))?;
+            ));
         }
 
         if sector_count > max_sectors {
             return Err(format!(
                 "too many sectors {}, max {}",
                 sector_count, max_sectors
-            ))?;
+            ));
         }
 
         Ok(())
@@ -92,7 +95,7 @@ impl DeadlineSectorMap {
     /// Returns a sorted vec of deadlines in the map.
     pub fn deadlines(&self) -> Vec<u64> {
         let mut deadlines: Vec<_> = self.0.keys().copied().collect();
-        deadlines.sort();
+        deadlines.sort_unstable();
         deadlines
     }
 
@@ -140,7 +143,7 @@ impl PartitionSectorMap {
     /// Returns a sorted vec of partitions in the map.
     pub fn partitions(&self) -> Vec<u64> {
         let mut partitions: Vec<_> = self.0.keys().copied().collect();
-        partitions.sort();
+        partitions.sort_unstable();
         partitions
     }
 
@@ -151,5 +154,9 @@ impl PartitionSectorMap {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }

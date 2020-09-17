@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{power_for_sector, PowerPair, QuantSpec, SectorOnChainInfo, SECTORS_MAX};
 use bitfield::BitField;
 use cid::Cid;

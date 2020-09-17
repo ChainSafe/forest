@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{Deadline, SectorOnChainInfo};
 use std::{cmp::Ordering, collections::BinaryHeap};
 

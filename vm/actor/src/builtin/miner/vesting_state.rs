@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{QuantSpec, VestSpec};
 use clock::ChainEpoch;
 use encoding::tuple::*;
@@ -17,14 +20,14 @@ pub struct VestingFund {
 /// Represents the vesting table state for the miner.
 /// It is a slice of (VestingEpoch, VestingAmount).
 /// The slice will always be sorted by the VestingEpoch.
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct VestingFunds {
     pub funds: Vec<VestingFund>,
 }
 
 impl VestingFunds {
     pub fn new() -> Self {
-        Self { funds: Vec::new() }
+        Default::default()
     }
 
     pub fn unlock_vested_funds(&mut self, current_epoch: ChainEpoch) -> TokenAmount {

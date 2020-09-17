@@ -155,7 +155,7 @@ impl Deadlines {
             }
         }
 
-        return Err(format!("sector {} not due at any deadline", sector_number));
+        Err(format!("sector {} not due at any deadline", sector_number))
     }
 }
 

@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use clock::ChainEpoch;
 
 pub const NO_QUANTIZATION: QuantSpec = QuantSpec { unit: 1, offset: 0 };
@@ -25,11 +28,11 @@ impl QuantSpec {
         let remainder = (epoch - offset) % self.unit;
         let quotient = (epoch - offset) / self.unit;
 
-        if remainder == 0 {
-            // Don't round if epoch falls on a quantization epoch
-            self.unit * quotient + offset
-        } else if epoch - offset < 0 {
-            // Negative truncating division rounds up
+        // Don't round if epoch falls on a quantization epoch
+        if remainder == 0
+        // Negative truncating division rounds up
+        || epoch - offset < 0
+        {
             self.unit * quotient + offset
         } else {
             self.unit * (quotient + 1) + offset

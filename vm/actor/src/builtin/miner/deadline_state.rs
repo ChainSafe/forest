@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{
     BitFieldQueue, ExpirationSet, Partition, PartitionSectorMap, PoStPartition, PowerPair,
     QuantSpec, SectorOnChainInfo, Sectors, TerminationResult, WPOST_PERIOD_DEADLINES,
@@ -517,14 +520,14 @@ impl Deadline {
         }
 
         if let Some(partition_idx) = to_remove_set.iter().find(|&&i| i as u64 >= partition_count) {
-            Err(
-                actor_error!(ErrIllegalArgument; "partition index {} out of range [0, {})", partition_idx, partition_count),
-            )?;
+            return Err(
+                actor_error!(ErrIllegalArgument; "partition index {} out of range [0, {})", partition_idx, partition_count).into()
+            );
         }
 
         // Should already be checked earlier, but we might as well check again.
         if !self.early_terminations.is_empty() {
-            Err("cannot remove partitions from deadline with early terminations")?;
+            return Err("cannot remove partitions from deadline with early terminations".into());
         }
 
         let mut new_partitions = Amt::<Partition, BS>::new(store);
@@ -546,7 +549,7 @@ impl Deadline {
                 // Don't allow removing partitions with faulty sectors.
                 let has_no_faults = partition.faults.is_empty();
                 if !has_no_faults {
-                    Err(actor_error!(ErrIllegalArgument; "cannot remove partition {}: has faults", partition_idx))?;
+                    return Err(actor_error!(ErrIllegalArgument; "cannot remove partition {}: has faults", partition_idx).into());
                 }
 
                 // Get the live sectors.

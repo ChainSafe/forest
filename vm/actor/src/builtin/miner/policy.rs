@@ -36,10 +36,10 @@ pub const ADDRESSED_SECTORS_MAX: u64 = 10_000;
 /// The maximum number of partitions that may be required to be loaded in a single invocation,
 /// when all the sector infos for the partitions will be loaded.
 pub fn load_partitions_sectors_max(partition_sector_count: u64) -> u64 {
-    return cmp::min(
+    cmp::min(
         ADDRESSED_SECTORS_MAX / partition_sector_count,
         ADDRESSED_PARTITIONS_MAX,
-    );
+    )
 }
 
 /// The maximum number of new sectors that may be staged by a miner during a single proving period.
@@ -185,14 +185,14 @@ pub struct VestSpec {
 pub const PLEDGE_VESTING_SPEC: VestSpec = VestSpec {
     initial_delay: 180 * EPOCHS_IN_DAY, // PARAM_FINISH
     vest_period: 180 * EPOCHS_IN_DAY,   // PARAM_FINISH
-    step_duration: 1 * EPOCHS_IN_DAY,   // PARAM_FINISH
+    step_duration: EPOCHS_IN_DAY,       // PARAM_FINISH
     quantization: 12 * SECONDS_IN_HOUR, // PARAM_FINISH
 };
 
 pub const REWARD_VESTING_SPEC: VestSpec = VestSpec {
     initial_delay: 20 * EPOCHS_IN_DAY,  // PARAM_FINISH
     vest_period: 180 * EPOCHS_IN_DAY,   // PARAM_FINISH
-    step_duration: 1 * EPOCHS_IN_DAY,   // PARAM_FINISH
+    step_duration: EPOCHS_IN_DAY,       // PARAM_FINISH
     quantization: 12 * SECONDS_IN_HOUR, // PARAM_FINISH
 };
 

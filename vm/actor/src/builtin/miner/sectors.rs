@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::SectorOnChainInfo;
 use crate::{actor_error, ActorError, ExitCode};
 use bitfield::BitField;
@@ -38,6 +41,8 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
     pub fn store(&mut self, infos: Vec<SectorOnChainInfo>) -> Result<(), String> {
         for info in infos {
             let sector_number = info.sector_number;
+
+            #[allow(clippy::absurd_extreme_comparisons)]
             if sector_number > MAX_SECTOR_NUMBER {
                 return Err(format!("sector number {} out of range", info.sector_number));
             }

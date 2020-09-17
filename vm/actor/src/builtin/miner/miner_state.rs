@@ -159,6 +159,7 @@ impl State {
     ) -> Result<(), ActorError> {
         // This will likely already have been checked, but this is a good place
         // to catch any mistakes.
+        #[allow(clippy::absurd_extreme_comparisons)]
         if sector_number > MAX_SECTOR_NUMBER {
             return Err(
                 actor_error!(ErrIllegalArgument; "sector number out of range: {}", sector_number),
@@ -196,6 +197,7 @@ impl State {
             None => return Err(actor_error!(ErrIllegalArgument; "invalid mask bitfield")),
         };
 
+        #[allow(clippy::absurd_extreme_comparisons)]
         if last_sector_number > MAX_SECTOR_NUMBER {
             return Err(
                 actor_error!(ErrIllegalArgument; "masked sector number %d exceeded max sector number"),

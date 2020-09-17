@@ -390,7 +390,7 @@ impl Actor {
         if comm_rand != params.chain_commit_rand {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
-                format!("post commit randomness mismatched"),
+                "post commit randomness mismatched".to_string(),
             ));
         }
 
@@ -620,6 +620,7 @@ impl Actor {
             ));
         }
 
+        #[allow(clippy::absurd_extreme_comparisons)]
         if params.sector_number > MAX_SECTOR_NUMBER {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
@@ -694,6 +695,7 @@ impl Actor {
             ));
         }
 
+        #[allow(clippy::absurd_extreme_comparisons)]
         if params.replace_sector_number >= MAX_SECTOR_NUMBER {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
@@ -723,7 +725,7 @@ impl Actor {
                         "sector seal proof {:?} must match miner seal proof type {:?}",
                         params.seal_proof, info.seal_proof_type
                     ),
-                ))?;
+                ));
             }
 
             let max_deal_limit = deal_per_sector_limit(info.sector_size);
@@ -735,7 +737,7 @@ impl Actor {
                         params.deal_ids.len(),
                         max_deal_limit
                     ),
-                ))?;
+                ));
             }
 
             state
@@ -1148,7 +1150,7 @@ impl Actor {
                     seal_proof: pre_commit.info.seal_proof,
                     sealed_cid: pre_commit.info.sealed_cid,
                     deal_ids: pre_commit.info.deal_ids,
-                    activation: activation,
+                    activation,
                     expiration: pre_commit.info.expiration,
                     deal_weight: pre_commit.deal_weight,
                     verified_deal_weight: pre_commit.verified_deal_weight,
@@ -2004,7 +2006,7 @@ impl Actor {
                         "power changed when compacting partitions: was {:?}, is now {:?}",
                         removed_power, new_power
                     ),
-                ))?;
+                ));
             }
 
             Ok(())
@@ -2033,10 +2035,11 @@ impl Actor {
         let last_sector_number = params.mask_sector_numbers.iter().last().ok_or_else(|| {
             ActorError::new(
                 ExitCode::ErrIllegalArgument,
-                format!("invalid mask bitfield"),
+                "invalid mask bitfield".to_string(),
             )
         })? as SectorNumber;
 
+        #[allow(clippy::absurd_extreme_comparisons)]
         if last_sector_number > MAX_SECTOR_NUMBER {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,

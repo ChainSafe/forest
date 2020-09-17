@@ -1,6 +1,3 @@
-// // Copyright 2020 ChainSafe Systems
-// // SPDX-License-Identifier: Apache-2.0, MIT
-
 // use actor::miner::{
 //     assign_new_sectors, compute_partitions_sector, compute_proving_period_deadline,
 //     partitions_for_deadline, DeadlineInfo, Deadlines, FAULT_DECLARATION_CUTOFF,

@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::{actor_error, ActorError, ExitCode};
 
 use super::QuantSpec;
@@ -103,7 +106,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             quantized_values.entry(epoch).or_default().extend(entries);
         }
 
-        updated_epochs.sort();
+        updated_epochs.sort_unstable();
 
         for epoch in updated_epochs {
             self.add_to_queue_values(epoch, &quantized_values.remove(&epoch).unwrap_or_default())?;
