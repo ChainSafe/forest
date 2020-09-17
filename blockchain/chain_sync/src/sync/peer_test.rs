@@ -46,7 +46,7 @@ fn peer_manager_update() {
     )
     .unwrap();
 
-    let peer_manager = Arc::clone(&cs.peer_manager);
+    let peer_manager = Arc::clone(&cs.network.peer_manager_cloned());
 
     task::spawn(async {
         cs.start(0).await;
@@ -77,6 +77,6 @@ fn peer_manager_update() {
         task::sleep(Duration::from_millis(1000)).await;
 
         assert_eq!(peer_manager.len().await, 1);
-        assert_eq!(peer_manager.get_peer().await, Some(source_clone));
+        assert_eq!(peer_manager.sorted_peers().await, &[source_clone]);
     });
 }
