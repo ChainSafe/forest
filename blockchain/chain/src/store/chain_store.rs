@@ -742,26 +742,26 @@ where
 #[cfg(feature = "json")]
 pub mod headchange_json {
     use super::*;
-    use blocks::tipset_json::TipsetJson;
-    use serde::{Deserialize, Serialize};
+    use blocks::tipset_json::TipsetJsonRef;
+    use serde::Serialize;
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Clone)]
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
-    pub enum HeadChangeJson {
-        Current(TipsetJson),
-        Apply(TipsetJson),
-        Revert(TipsetJson),
+    pub enum HeadChangeJson<'a> {
+        Current(TipsetJsonRef<'a>),
+        Apply(TipsetJsonRef<'a>),
+        Revert(TipsetJsonRef<'a>),
     }
 
     #[derive(Debug, Clone)]
-    pub struct IndexToHeadChangeJson(pub usize, pub HeadChangeJson);
-    impl From<HeadChange> for HeadChangeJson {
-        fn from(wrapper: HeadChange) -> Self {
+    pub struct IndexToHeadChangeJson(pub usize, pub HeadChange);
+    impl<'a> From<&'a HeadChange> for HeadChangeJson<'a> {
+        fn from(wrapper: &'a HeadChange) -> Self {
             match wrapper {
-                HeadChange::Current(tipset) => HeadChangeJson::Current((*tipset).clone().into()),
-                HeadChange::Apply(tipset) => HeadChangeJson::Apply((*tipset).clone().into()),
-                HeadChange::Revert(tipset) => HeadChangeJson::Revert((*tipset).clone().into()),
+                HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJsonRef(&tipset)),
+                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJsonRef(&tipset)),
+                HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJsonRef(&tipset)),
             }
         }
     }
@@ -782,12 +782,12 @@ pub mod headchange_json {
             .await
             .publish(IndexToHeadChangeJson(
                 current_index,
-                HeadChange::Current(head.clone()).into(),
+                HeadChange::Current(head.clone()),
             ))
             .await;
         task::spawn(async move {
             while let Some(change) = subscribed_head_change.next().await {
-                let index_to_head_change = IndexToHeadChangeJson(current_index, change.into());
+                let index_to_head_change = IndexToHeadChangeJson(current_index, change);
                 publisher.write().await.publish(index_to_head_change).await;
             }
         });

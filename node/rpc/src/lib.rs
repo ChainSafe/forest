@@ -38,10 +38,10 @@ type WsSink = SplitSink<WebSocketStream<TcpStream>, async_tungstenite::tungsteni
 
 const CHAIN_NOTIFY_METHOD_NAME: &str = "Filecoin.ChainNotify";
 #[derive(Serialize)]
-struct StreamingData {
+struct StreamingData<'a> {
     json_rpc: String,
     method: String,
-    params: (usize, Vec<HeadChangeJson>),
+    params: (usize, Vec<HeadChangeJson<'a>>),
 }
 
 /// This is where you store persistant data, or at least access to stateful data.
@@ -380,10 +380,11 @@ async fn streaming_payload_and_log(
                 let sender = ws_sender.clone();
                 while let Some(index_to_head_change) = subscriber.next().await {
                     if streaming_count == index_to_head_change.0 {
+                        let head_change = (&index_to_head_change.1).into();
                         let data = StreamingData {
                             json_rpc: "2.0".to_string(),
                             method: "xrpc.ch.val".to_string(),
-                            params: (streaming_count, vec![index_to_head_change.1]),
+                            params: (streaming_count, vec![head_change]),
                         };
                         let response_text =
                             serde_json::to_string(&data).expect("Bad Serialization of Type");
