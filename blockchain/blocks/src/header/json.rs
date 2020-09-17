@@ -32,8 +32,8 @@ where
     #[serde(rename_all = "PascalCase")]
     struct BlockHeaderSer<'a> {
         miner: String,
-        #[serde(with = "ticket::json")]
-        ticket: &'a Ticket,
+        #[serde(with = "ticket::json::opt")]
+        ticket: &'a Option<Ticket>,
         #[serde(with = "election_proof::json::opt")]
         election_proof: &'a Option<ElectionProof>,
         #[serde(with = "beacon_entries::json::vec")]
@@ -90,8 +90,8 @@ where
     #[serde(rename_all = "PascalCase")]
     struct BlockHeaderDe {
         miner: String,
-        #[serde(with = "ticket::json")]
-        ticket: Ticket,
+        #[serde(with = "ticket::json::opt")]
+        ticket: Option<Ticket>,
         #[serde(default, with = "election_proof::json::opt")]
         election_proof: Option<ElectionProof>,
         #[serde(default, with = "beacon_entries::json::vec")]

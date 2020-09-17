@@ -9,12 +9,11 @@ use amt::Amt;
 use async_std::sync::{Receiver, RwLock};
 use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
 use chain::{persist_objects, ChainStore};
 use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
-use crypto::verify_bls_aggregate;
-use crypto::DomainSeparationTag;
+use crypto::{election_proof::ElectionProof, verify_bls_aggregate, DomainSeparationTag, Signature};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
@@ -435,12 +434,9 @@ where
         let mut validations = FuturesUnordered::new();
         let header = block.header();
 
-        // TODO this should be full sanity check
-        // check if block has been signed
-        if header.signature().is_none() {
-            // TODO This should return error
-            error_vec.push("Signature is nil in header".to_owned());
-        }
+        // Check to ensure all optional values exist
+        let (_election_proof, block_sig, _ticket) =
+            block_sanity_checks(header).map_err(|e| (block_cid.clone(), e.into()))?;
 
         let parent_tipset = Arc::new(
             cs.tipset_from_keys(header.parents())
@@ -517,19 +513,15 @@ where
             error_vec.push("Received block was from slashed or invalid miner".to_owned())
         }
 
-        // TODO signature can be unwrapped in sanity checks
-        let signature = block.header().signature().clone();
         let cid_bytes = block
             .header()
             .to_signing_bytes()
             .map_err(|e| (block_cid.clone(), e.into()))?;
 
         // * Block signature check
+        let block_sig = block_sig.clone();
         validations.push(task::spawn_blocking(move || {
-            signature
-                .ok_or_else(|| {
-                    blocks::Error::InvalidSignature("Signature is nil in header".to_owned())
-                })?
+            block_sig
                 .verify(&cid_bytes, &work_addr)
                 .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
         }));
@@ -551,8 +543,8 @@ where
 
         // collect the errors from the async validations
         while let Some(result) = validations.next().await {
-            if result.is_err() {
-                error_vec.push(result.err().unwrap().to_string());
+            if let Err(e) = result {
+                error_vec.push(e.to_string());
             }
         }
 
@@ -771,6 +763,29 @@ where
             Ok(())
         }
     }
+}
+
+/// Checks optional values in header and returns reference to the values.
+fn block_sanity_checks(
+    header: &BlockHeader,
+) -> Result<(&ElectionProof, &Signature, &Ticket), &'static str> {
+    let ep = header
+        .election_proof()
+        .as_ref()
+        .ok_or("Block cannot have no election proof")?;
+    let bs = header
+        .signature()
+        .as_ref()
+        .ok_or("Block had no signature")?;
+    header
+        .bls_aggregate()
+        .as_ref()
+        .ok_or("Block had no bls aggregate signature")?;
+    let ticket = header
+        .ticket()
+        .as_ref()
+        .ok_or("Block had no bls aggregate signature")?;
+    Ok((ep, bs, ticket))
 }
 
 /// Returns message root CID from bls and secp message contained in the param Block

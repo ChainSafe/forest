@@ -52,7 +52,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .weight(BigInt::from(0u8)) // optional
 ///     .epoch(0) // optional
 ///     .timestamp(0) // optional
-///     .ticket(Ticket::default()) // optional
+///     .ticket(Some(Ticket::default())) // optional
 ///     .fork_signal(0) // optional
 ///     .build_and_validate()
 ///     .unwrap();
@@ -117,7 +117,7 @@ pub struct BlockHeader {
     timestamp: u64,
     /// the ticket submitted with this block
     #[builder(default)]
-    ticket: Ticket,
+    ticket: Option<Ticket>,
     // SIGNATURES
     /// aggregate signature of miner in block
     #[builder(default)]
@@ -277,7 +277,7 @@ impl BlockHeader {
         self.timestamp
     }
     /// Getter for BlockHeader ticket
-    pub fn ticket(&self) -> &Ticket {
+    pub fn ticket(&self) -> &Option<Ticket> {
         &self.ticket
     }
     /// Getter for BlockHeader bls_aggregate
@@ -354,7 +354,7 @@ impl BlockHeader {
         Ok(())
     }
     /// Returns true if (h(vrfout) * totalPower) < (e * sectorSize * 2^256)
-    pub fn is_ticket_winner(&self, mpow: BigInt, net_pow: BigInt) -> bool {
+    pub fn is_ticket_winner(ticket: &Ticket, mpow: BigInt, net_pow: BigInt) -> bool {
         /*
         Need to check that
         (h(vrfout) + 1) / (max(h) + 1) <= e * myPower / totalPower
@@ -366,7 +366,7 @@ impl BlockHeader {
         */
 
         // TODO switch ticket for election_proof
-        let h = sha2::Sha256::digest(self.ticket.vrfproof.as_bytes());
+        let h = sha2::Sha256::digest(ticket.vrfproof.as_bytes());
         let mut lhs = BigInt::from_signed_bytes_le(&h);
         lhs *= net_pow;
 

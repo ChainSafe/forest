@@ -97,8 +97,8 @@ impl Tipset {
         self.blocks
     }
     /// Returns the smallest ticket of all blocks in the tipset
-    pub fn min_ticket(&self) -> Ticket {
-        self.min_ticket_block().ticket().clone()
+    pub fn min_ticket(&self) -> Option<&Ticket> {
+        self.min_ticket_block().ticket().as_ref()
     }
     /// Returns the block with the smallest ticket of all blocks in the tipset
     pub fn min_ticket_block(&self) -> &BlockHeader {

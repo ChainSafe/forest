@@ -386,9 +386,16 @@ pub fn get_chain_randomness<DB: BlockStore>(
 
     let rand_ts = tipset_by_height(db, search_height, ts, true)?;
 
-    let mtb = rand_ts.min_ticket_block();
-
-    draw_randomness(mtb.ticket().vrfproof.as_bytes(), pers, round, entropy)
+    draw_randomness(
+        rand_ts
+            .min_ticket()
+            .ok_or("No ticket exists for block")?
+            .vrfproof
+            .as_bytes(),
+        pers,
+        round,
+        entropy,
+    )
 }
 
 /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
