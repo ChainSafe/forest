@@ -4,6 +4,7 @@
 use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
+use async_std::sync::RwLock;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -46,15 +47,17 @@ pub enum HeadChange {
     Revert(Arc<Tipset>),
 }
 
-/// Generic implementation of the datastore trait and structures
+/// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
+/// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
+/// `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
-    publisher: Publisher<HeadChange>,
+    publisher: RwLock<Publisher<HeadChange>>,
 
     // key-value datastore
     pub db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
-    heaviest: Option<Arc<Tipset>>,
+    heaviest: RwLock<Option<Arc<Tipset>>>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
     tip_index: TipIndex,
@@ -71,44 +74,50 @@ where
             .map(Arc::new);
         Self {
             db,
-            publisher: Publisher::new(SINK_CAP),
+            publisher: Publisher::new(SINK_CAP).into(),
             tip_index: TipIndex::new(),
-            heaviest,
+            heaviest: heaviest.into(),
         }
     }
 
     /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
-    pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        self.heaviest = Some(ts.clone());
-        self.publisher.publish(HeadChange::Current(ts)).await;
+        *self.heaviest.write().await = Some(ts.clone());
+        self.publisher
+            .write()
+            .await
+            .publish(HeadChange::Current(ts))
+            .await;
         Ok(())
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub fn subscribe(&mut self) -> Subscriber<HeadChange> {
-        self.publisher.subscribe()
+    pub async fn subscribe(&self) -> Subscriber<HeadChange> {
+        self.publisher.write().await.subscribe()
     }
 
     /// Sets tip_index tracker
-    pub fn set_tipset_tracker(&mut self, header: &BlockHeader) -> Result<(), Error> {
-        let ts: Tipset = Tipset::new(vec![header.clone()])?;
+    // TODO this is really broken, should not be setting the tipset metadata to a tipset with just
+    // the one header.
+    pub async fn set_tipset_tracker(&self, header: &BlockHeader) -> Result<(), Error> {
+        let ts = Arc::new(Tipset::new(vec![header.clone()])?);
         let meta = TipsetMetadata {
             tipset_state_root: header.state_root().clone(),
             tipset_receipts_root: header.message_receipts().clone(),
             tipset: ts,
         };
-        self.tip_index.put(&meta);
+        self.tip_index.put(&meta).await;
         Ok(())
     }
 
     /// Writes genesis to blockstore
-    pub fn set_genesis(&self, header: BlockHeader) -> Result<Cid, Error> {
+    pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
-    pub async fn put_tipset(&mut self, ts: &Tipset) -> Result<(), Error> {
+    pub async fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         persist_objects(self.blockstore(), ts.blocks())?;
         // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
         self.update_heaviest(ts).await?;
@@ -121,7 +130,7 @@ where
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    pub async fn load_heaviest_tipset(&mut self) -> Result<(), Error> {
+    pub async fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = get_heaviest_tipset(self.blockstore())?.ok_or_else(|| {
             warn!("No previous chain state found");
             Error::Other("No chain state found".to_owned())
@@ -129,8 +138,10 @@ where
 
         // set as heaviest tipset
         let heaviest_ts = Arc::new(heaviest_ts);
-        self.heaviest = Some(heaviest_ts.clone());
+        *self.heaviest.write().await = Some(heaviest_ts.clone());
         self.publisher
+            .write()
+            .await
             .publish(HeadChange::Current(heaviest_ts))
             .await;
         Ok(())
@@ -142,8 +153,8 @@ where
     }
 
     /// Returns heaviest tipset from blockstore
-    pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
-        self.heaviest.clone()
+    pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+        self.heaviest.read().await.clone()
     }
 
     /// Returns key-value store instance
@@ -183,8 +194,8 @@ where
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    async fn update_heaviest(&mut self, ts: &Tipset) -> Result<(), Error> {
-        match &self.heaviest {
+    async fn update_heaviest(&self, ts: &Tipset) -> Result<(), Error> {
+        match self.heaviest.read().await.as_ref() {
             Some(heaviest) => {
                 let new_weight = weight(self.blockstore(), ts)?;
                 let curr_weight = weight(self.blockstore(), &heaviest)?;
@@ -266,7 +277,7 @@ where
     }
 }
 
-fn set_genesis<DB>(db: &DB, header: BlockHeader) -> Result<Cid, Error>
+fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
     DB: BlockStore,
 {
@@ -657,7 +668,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(cs.genesis().unwrap(), None);
-        cs.set_genesis(gen_block.clone()).unwrap();
+        cs.set_genesis(&gen_block).unwrap();
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 }

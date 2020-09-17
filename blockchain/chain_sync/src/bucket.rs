@@ -26,7 +26,6 @@ impl SyncBucket {
     }
     /// Returns true if tipset is from same chain
     pub fn is_same_chain_as(&self, ts: &Tipset) -> bool {
-        // TODO Confirm that comparing keys will be sufficient on full tipset impl
         self.tips
             .iter()
             .any(|t| ts.key() == t.key() || ts.key() == t.parents() || ts.parents() == t.key())
@@ -36,10 +35,6 @@ impl SyncBucket {
         if !self.tips.iter().any(|t| *t == ts) {
             self.tips.push(ts);
         }
-    }
-    /// Returns true if SyncBucket is empty
-    pub fn is_empty(&self) -> bool {
-        self.tips.is_empty()
     }
 }
 
@@ -75,13 +70,17 @@ impl SyncBucketSet {
 
         Some(self.buckets.swap_remove(i))
     }
-    /// Returns heaviest tipset from bucket set
-    pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
-        self.buckets
-            .iter()
-            .filter_map(SyncBucket::heaviest_tipset)
-            .max_by(|ts1, ts2| ts1.weight().cmp(ts2.weight()))
+
+    /// Returns true if tipset is related to any tipset in the bucket set.
+    pub(crate) fn related_to_any(&self, ts: &Tipset) -> bool {
+        for b in self.buckets.iter() {
+            if b.is_same_chain_as(ts) {
+                return true;
+            }
+        }
+        false
     }
+
     /// Returns a vector of SyncBuckets
     pub(crate) fn buckets(&self) -> &[SyncBucket] {
         &self.buckets
@@ -147,7 +146,7 @@ mod tests {
         assert_eq!(
             set.buckets.len(),
             2,
-            "Inserting seperate tipset should create new bucket"
+            "Inserting separate tipset should create new bucket"
         );
         assert_eq!(set.buckets[1].tips.len(), 1);
 

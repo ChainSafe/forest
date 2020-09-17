@@ -27,6 +27,8 @@ blake2b_simd = "0.5.10"
 log = "0.4.8"
 async-std = "1.6.0"
 wallet = { package = "key_management", path = "../../key_management/" }
+async-trait = "0.1"
+state_manager = { path = "../state_manager" }
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }
