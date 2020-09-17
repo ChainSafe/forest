@@ -169,28 +169,26 @@ impl ChannelInfo {
                 .map_err(|e| Error::Encoding(e.to_string()))?;
             if cbor_v == cbor_sv {
                 return Ok(Some(v.clone()));
-            } else {
-                return Ok(None);
             }
         }
 
         Ok(None)
     }
 
-    fn has_voucher(&self, sv: &SignedVoucher) -> Result<bool, Error> {
+    fn _has_voucher(&self, sv: &SignedVoucher) -> Result<bool, Error> {
         Ok(self.info_for_voucher(sv)?.is_some())
     }
     /// mark_voucher_submitted marks the voucher, and any vouchers of lower nonce
     /// in the same lane, as being submitted.
     /// Note: This method doesn't write anything to the store.
     pub fn mark_voucher_submitted(&mut self, sv: SignedVoucher) -> Result<(), Error> {
-        if let Some(vi) = self.info_for_voucher(&sv)? {
+        if let Some(mut vi) = self.info_for_voucher(&sv)? {
             // mark the voucher as submitted
             vi.submitted = true;
 
             // Mark lower-nonce vouchers in the same lane as submitted (lower-nonce
             // vouchers are superseded by the submitted voucher)
-            for v in &self.vouchers {
+            for mut v in self.vouchers.iter_mut() {
                 if v.voucher.lane == sv.lane && v.voucher.nonce < sv.nonce {
                     v.submitted = true;
                 }
@@ -212,7 +210,7 @@ impl ChannelInfo {
         }
     }
 }
-
+// TODO remove arc and do not need to wrap PaychStore with Rwlock
 #[derive(Clone)]
 pub struct PaychStore {
     ds: Arc<RwLock<HashMap<String, Vec<u8>>>>,
@@ -229,7 +227,7 @@ impl PaychStore {
     }
 
     /// Add ChannelInfo to PaychStore
-    pub async fn put_channel_info(&mut self, mut ci: ChannelInfo) -> Result<(), Error> {
+    pub async fn put_channel_info(&self, mut ci: ChannelInfo) -> Result<(), Error> {
         if ci.id.is_empty() {
             ci.id = Uuid::new_v4().to_string();
         }
@@ -259,7 +257,7 @@ impl PaychStore {
 
     /// Stores a channel, returning an error if the channel was already
     /// being tracked
-    pub async fn track_channel(&mut self, ch: ChannelInfo) -> Result<ChannelInfo, Error> {
+    pub async fn track_channel(&self, ch: ChannelInfo) -> Result<ChannelInfo, Error> {
         let addr = ch.channel.ok_or_else(|| Error::NoAddress)?;
         match self.by_address(addr).await {
             Err(Error::ChannelNotTracked) => {
@@ -556,6 +554,7 @@ mod tests {
                         signature: None,
                     },
                     proof: Vec::new(),
+                    submitted: false
                 }],
                 direction: DIR_OUTBOUND,
                 next_lane: 0,
@@ -586,6 +585,7 @@ mod tests {
                         signature: None,
                     },
                     proof: Vec::new(),
+                    submitted: false
                 }],
                 direction: DIR_OUTBOUND,
                 next_lane: 0,
@@ -657,6 +657,7 @@ mod tests {
                     signature: None,
                 },
                 proof: Vec::new(),
+                submitted: false
             }],
             direction: DIR_OUTBOUND,
             next_lane: 0,
@@ -690,6 +691,7 @@ mod tests {
                     signature: None,
                 },
                 proof: Vec::new(),
+                submitted: false
             }],
             direction: DIR_OUTBOUND,
             next_lane: 0,

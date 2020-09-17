@@ -22,6 +22,7 @@ use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
 use vm::ActorState;
+use wallet::KeyStore;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -555,6 +556,32 @@ where
 
         Ok(())
     }
+
+    pub async fn mpool_unsigned_msg_push<KS: KeyStore>(
+        &self,
+        umsg: UnsignedMessage,
+        keystore: Arc<RwLock<KS>>,
+    ) -> Result<SignedMessage, Error>
+    where
+        KS: KeyStore + Send + Sync + 'static,
+    {
+        let from = umsg.from();
+        let msg_cid = umsg.cid()?;
+
+        let ks = keystore.as_ref().write().await;
+        let key = wallet::find_key(&from, &*ks).unwrap(); // TODO fix
+        let sig = wallet::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            msg_cid.to_bytes().as_slice(),
+        )
+        .unwrap(); // TODO fix
+
+        let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap(); // TODO fix
+        self.push(smsg.clone()).await?;
+
+        Ok(smsg)
+    }
 }
 
 /// Remove a message from pending given the from address and sequence
@@ -867,13 +894,13 @@ pub mod tests {
     use blocks::{BlockHeader, Ticket, Tipset};
     use cid::Cid;
     use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
-    use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigInt;
     use std::borrow::BorrowMut;
     use std::convert::TryFrom;
     use std::thread::sleep;
     use std::time::Duration;
+    use wallet::{MemKeyStore, Wallet};
 
     fn create_smsg(
         to: &Address,

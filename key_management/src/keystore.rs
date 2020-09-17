@@ -90,7 +90,7 @@ pub mod json {
         })
     }
 }
-
+// TODO change definition
 /// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
 pub trait KeyStore {
     /// Return all of the keys that are stored in the KeyStore

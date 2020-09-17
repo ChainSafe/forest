@@ -8,35 +8,48 @@ use address::Address;
 use async_std::sync::{Arc, RwLock};
 use blockstore::BlockStore;
 use cid::Cid;
-use jsonrpsee::raw::RawClient;
-use jsonrpsee::transport::http::HttpTransportClient;
+use message_pool::{MessagePool, MpoolRpcProvider};
 use num_bigint::BigInt;
-use rpc_client::new_client;
 use std::collections::HashMap;
+use wallet::KeyStore;
 
-pub struct Manager<DB> {
-    // TODO need to add managerAPI (consists of some state and paych API calls)
+pub struct Manager<DB, KS>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
     pub store: Arc<RwLock<PaychStore>>,
     pub sa: Arc<StateAccessor<DB>>,
-    pub channels: Arc<RwLock<HashMap<String, Arc<ChannelAccessor<DB>>>>>,
-    pub client: RawClient<HttpTransportClient>,
+    #[allow(clippy::type_complexity)]
+    pub channels: Arc<RwLock<HashMap<String, Arc<ChannelAccessor<DB, KS>>>>>,
+    pub api: Arc<ResourceAccessor<DB, KS>>,
 }
 
-impl<DB> Manager<DB>
+pub struct ResourceAccessor<DB, KS>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
 {
-    pub fn new(sa: StateAccessor<DB>, store: PaychStore) -> Self {
+    pub keystore: Arc<RwLock<KS>>,
+    pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
+}
+
+impl<DB, KS> Manager<DB, KS>
+where
+    DB: BlockStore + Send + Sync,
+    KS: KeyStore + Send + Sync + 'static,
+{
+    pub fn new(sa: StateAccessor<DB>, store: PaychStore, state: ResourceAccessor<DB, KS>) -> Self {
         Manager {
             store: Arc::new(RwLock::new(store)),
             sa: Arc::new(sa),
             channels: Arc::new(RwLock::new(HashMap::new())),
-            client: new_client(),
+            api: Arc::new(state),
         }
     }
 
     pub async fn track_inbound_channel(&mut self, ch: Address) -> Result<ChannelInfo, Error> {
-        let mut store = self.store.write().await;
+        let store = self.store.write().await;
 
         // Check if channel is in store
         let ci = store.by_address(ch).await;
@@ -58,7 +71,7 @@ where
         &self,
         from: Address,
         to: Address,
-    ) -> Result<Arc<ChannelAccessor<DB>>, Error> {
+    ) -> Result<Arc<ChannelAccessor<DB, KS>>, Error> {
         let channels = self.channels.read().await;
         let key = accessor_cache_key(&from, &to);
 
@@ -91,7 +104,7 @@ where
         &self,
         from: Address,
         to: Address,
-    ) -> Result<Arc<ChannelAccessor<DB>>, Error> {
+    ) -> Result<Arc<ChannelAccessor<DB, KS>>, Error> {
         let key = accessor_cache_key(&from, &to);
         let ca = ChannelAccessor::new(&self);
         let mut channels = self.channels.write().await;
@@ -103,7 +116,7 @@ where
     pub async fn accessor_by_address(
         &self,
         ch: Address,
-    ) -> Result<Arc<ChannelAccessor<DB>>, Error> {
+    ) -> Result<Arc<ChannelAccessor<DB, KS>>, Error> {
         let store = self.store.read().await;
         let ci = store.by_address(ch).await?;
         self.accessor_by_from_to(ci.control, ci.target).await
@@ -155,7 +168,7 @@ where
     pub async fn inbound_channel_accessor(
         &mut self,
         ch: Address,
-    ) -> Result<Arc<ChannelAccessor<DB>>, Error> {
+    ) -> Result<Arc<ChannelAccessor<DB, KS>>, Error> {
         // Make sure channel is in store, or can be fetched from state, and that
         // the channel To address is owned by the wallet
         let ci = self.track_inbound_channel(ch).await?;

@@ -3,10 +3,13 @@
 
 use super::Error;
 use crate::{ChannelInfo, Manager, MsgListeners, PaychStore, StateAccessor, VoucherInfo};
+extern crate log;
+use super::ResourceAccessor;
 use actor::account::State as AccountState;
-use actor::init::ExecParams;
+use actor::init::{ExecParams, ExecReturn};
 use actor::paych::{
-    ConstructorParams, LaneState, SignedVoucher, State as PaychState, UpdateChannelStateParams,
+    ConstructorParams, LaneState, Method::Collect, Method::Settle, Method::UpdateChannelState,
+    SignedVoucher, State as PaychState, UpdateChannelStateParams,
 };
 use address::Address;
 use async_std::sync::{Arc, RwLock};
@@ -19,20 +22,26 @@ use num_bigint::BigInt;
 use num_traits::Zero;
 use std::collections::HashMap;
 use std::ops::{Add, Sub};
-extern crate log;
-use actor::Serialized;
+use actor::{ExitCode, Serialized};
+use encoding::Cbor;
 use futures::StreamExt;
-use jsonrpsee::raw::RawClient;
-use jsonrpsee::transport::http::HttpTransportClient;
-use rpc_client::new_client;
+use ipld_amt::Amt;
+use state_manager::StateManager;
+use wallet::KeyStore;
 
-// TODO need to add paychapi (ability to access chain, mpool and wallet stuff)
-pub struct ChannelAccessor<DB> {
+// TODO move
+const MESSAGE_CONFIDENCE: i64 = 5;
+
+pub struct ChannelAccessor<DB, KS>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
     store: Arc<RwLock<PaychStore>>,
-    _msg_listeners: MsgListeners,
+    msg_listeners: MsgListeners,
     sa: Arc<StateAccessor<DB>>,
     funds_req_queue: Arc<RwLock<Vec<FundsReq>>>,
-    _client: RawClient<HttpTransportClient>,
+    state: Arc<ResourceAccessor<DB, KS>>,
 }
 
 // VoucherCreateResult is the response to calling PaychVoucherCreate
@@ -45,17 +54,18 @@ struct _VoucherCreateResult {
     shortfall: BigInt,
 }
 
-impl<DB> ChannelAccessor<DB>
+impl<DB, KS> ChannelAccessor<DB, KS>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
 {
-    pub fn new(pm: &Manager<DB>) -> Self {
+    pub fn new(pm: &Manager<DB, KS>) -> Self {
         ChannelAccessor {
             store: pm.store.clone(),
-            _msg_listeners: MsgListeners::new(),
+            msg_listeners: MsgListeners::new(),
             sa: pm.sa.clone(),
             funds_req_queue: Arc::new(RwLock::new(Vec::new())),
-            _client: new_client(),
+            state: pm.api.clone(),
         }
     }
 
@@ -79,7 +89,13 @@ where
 
         // sign the voucher
         let _vb = voucher.signing_bytes().unwrap(); // TODO handle err properly
-                                                    // TODO call wallet sign and assign voucher signature accordingly
+
+        // TODO fix
+        // let ks = self.state.keystore.read().await;
+        // let mut w = Wallet::new(*ks);
+
+        // let sig = w.sign(&ci.control, &vb).unwrap(); // TODO fix
+        // voucher.signature = Some(sig);
 
         // store the voucher
         // TODO determine if returning insufficent error with shortfall is required?
@@ -97,7 +113,7 @@ where
         let sm = self.sa.sm.read().await;
         if sv.channel_addr != ch {
             return Err(Error::Other(
-                "voucher channel address dpesm't match channel address".to_string(),
+                "voucher channel address doesn't match channel address".to_string(),
             ));
         }
 
@@ -174,7 +190,16 @@ where
         secret: Vec<u8>,
         mut proof: Vec<u8>,
     ) -> Result<bool, Error> {
-        let _recipient = self.get_paych_recipient(&ch).await?;
+        let recipient = self.get_paych_recipient(&ch).await?;
+        let st = self.store.read().await;
+        let ci: ChannelInfo = st.by_address(ch).await?;
+
+        // check if voucher has already been submitted
+        let submitted = ci.was_voucher_submitted(&sv)?;
+        if submitted {
+            return Ok(false);
+        }
+
         if (sv.extra != None) & (!proof.is_empty()) {
             let store = self.store.read().await;
             let known = store.vouchers_for_paych(&ch).await?;
@@ -190,9 +215,29 @@ where
             }
         }
 
-        let _enc: UpdateChannelStateParams = UpdateChannelStateParams { sv, secret, proof };
-        // TODO figure out what remaining lotus code means and how it would translate here
-        unimplemented!();
+        let enc = Serialized::serialize(UpdateChannelStateParams { sv, secret, proof })?;
+
+        let sm = self.sa.sm.read().await;
+        let ret = sm
+            .call(
+                &mut UnsignedMessage::builder()
+                    .to(recipient)
+                    .from(ch)
+                    .method_num(UpdateChannelState as u64)
+                    .params(enc)
+                    .build()
+                    .map_err(Error::Other)?,
+                None,
+            )
+            .map_err(|e| Error::Other(e.to_string()))?;
+
+        if let Some(code) = ret.msg_rct {
+            if code.exit_code != ExitCode::Ok {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
     }
 
     pub async fn get_paych_recipient(&self, ch: &Address) -> Result<Address, Error> {
@@ -214,7 +259,7 @@ where
         proof: Vec<u8>,
         min_delta: BigInt,
     ) -> Result<BigInt, Error> {
-        let mut store = self.store.write().await;
+        let store = self.store.write().await;
         let mut ci = store.by_address(ch).await?;
 
         // Check if voucher has already been added
@@ -255,6 +300,7 @@ where
         ci.vouchers.push(VoucherInfo {
             voucher: sv.clone(),
             proof,
+            submitted: false,
         });
 
         if ci.next_lane <= sv.lane {
@@ -296,11 +342,50 @@ where
     // get the lanestates from chain, then apply all vouchers in the data store over the chain state
     pub async fn lane_state(
         &self,
-        _state: &PaychState,
-        _ch: Address,
+        state: &PaychState,
+        ch: Address,
     ) -> Result<HashMap<u64, LaneState>, Error> {
         // TODO should call update channel state with all vouchers to be fully correct (note taken from lotus)
-        unimplemented!()
+        let sm = self.sa.sm.read().await;
+        let ls_amt: Amt<LaneState, _> =
+            Amt::load(&state.lane_states, sm.get_block_store_ref()).unwrap();
+        // Note: we use a map instead of an array to store laneStates because the
+        // client sets the lane ID (the index) and potentially they could use a
+        // very large index.
+        let mut lane_states: HashMap<u64, LaneState> = HashMap::new();
+        ls_amt
+            .for_each(|i, v| {
+                lane_states.insert(i, v.clone());
+                Ok(())
+            })
+            .unwrap(); // TODO handle err
+
+        // apply locally stored vouchers
+        let st = self.store.read().await;
+        let vouchers = st.vouchers_for_paych(&ch).await?;
+
+        for v in vouchers {
+            // TODO ask about for range operation in lotus
+            let ok = lane_states.contains_key(&v.voucher.lane);
+            if !ok {
+                lane_states.insert(
+                    v.voucher.lane,
+                    LaneState {
+                        redeemed: BigInt::zero(),
+                        nonce: 0,
+                    },
+                );
+            }
+            let mut ls = lane_states.get_mut(&v.voucher.lane).unwrap();
+            if v.voucher.nonce < ls.nonce {
+                continue;
+            }
+
+            ls.nonce = v.voucher.nonce;
+            ls.redeemed = v.voucher.amount;
+        }
+
+        Ok(lane_states)
     }
 
     pub async fn total_redeemed_with_voucher(
@@ -336,35 +421,50 @@ where
     }
 
     pub async fn settle(&self, ch: Address) -> Result<Cid, Error> {
-        let mut store = self.store.write().await;
+        let store = self.store.write().await;
         let mut ci = store.by_address(ch).await?;
-        // TODO update method_num and add method_num to this message
-        let _umsg: UnsignedMessage = UnsignedMessage::builder()
+
+        let umsg: UnsignedMessage = UnsignedMessage::builder()
             .to(ch)
             .from(ci.control)
             .value(BigInt::default())
+            .method_num(Settle as u64)
             .build()
             .map_err(Error::Other)?;
-        // TODO need to push message to messagepool
-        // need to return signed message cid
+
+        let smgs = self
+            .state
+            .mpool
+            .mpool_unsigned_msg_push(umsg, self.state.keystore.clone())
+            .await
+            .unwrap();
+
         ci.settling = true;
         store.put_channel_info(ci).await?;
-        // TODO return msg cid
-        unimplemented!()
+
+        Ok(smgs.cid()?)
     }
 
     pub async fn collect(&self, ch: Address) -> Result<Cid, Error> {
         let store = self.store.read().await;
         let ci = store.by_address(ch).await?;
-        // TODO update method_num and add method_num to this message
-        let _umsg: UnsignedMessage = UnsignedMessage::builder()
+
+        let umsg: UnsignedMessage = UnsignedMessage::builder()
             .to(ch)
             .from(ci.control)
             .value(BigInt::default())
+            .method_num(Collect as u64)
             .build()
             .map_err(Error::Other)?;
-        // TODO sign message with message pool and return signed message cid
-        unimplemented!()
+
+        let smgs = self
+            .state
+            .mpool
+            .mpool_unsigned_msg_push(umsg, self.state.keystore.clone())
+            .await
+            .unwrap();
+
+        Ok(smgs.cid()?)
     }
 
     // getPaych ensures that a channel exists between the from and to addresses,
@@ -503,7 +603,7 @@ where
 
         // If the create channel message has been sent but the channel hasn't
         // been created on chain yet
-        let channel_info = channel_info_res.ok()?;
+        let mut channel_info = channel_info_res.ok()?;
         if channel_info.create_msg.is_some() {
             // Wait for the channel to be created before trying again
             return None;
@@ -518,7 +618,7 @@ where
 
         // We need to add more funds, so send an add funds message to
         // cover the amount for this request
-        let mcid = self.add_funds(&channel_info, amt).await.ok()?;
+        let mcid = self.add_funds(&mut channel_info, amt).await.ok()?;
 
         Some(PaychFundsRes {
             channel: channel_info.channel,
@@ -542,61 +642,100 @@ where
             constructor_params: serialized,
         };
         let param = Serialized::serialize(exec).map_err(|err| Error::Other(err.to_string()))?;
-        let _msg: UnsignedMessage = UnsignedMessage::builder()
+        let umsg: UnsignedMessage = UnsignedMessage::builder()
             .from(from)
             .to(to)
             .value(amt.clone())
             .params(param)
             .build()
             .map_err(Error::Other)?;
-        // TODO sign message and push to message pool then get smsg cid
-        let mcid = Cid::default();
+
+        let smgs = self
+            .state
+            .mpool
+            .mpool_unsigned_msg_push(umsg, self.state.keystore.clone())
+            .await
+            .unwrap();
+
+        let mcid = smgs.cid()?;
 
         // create a new channel in the store
         let mut store = self.store.write().await;
-        let _ci = store.create_channel(from, to, mcid.clone(), amt).await?;
+        let ci = store.create_channel(from, to, mcid.clone(), amt).await?;
 
-        // TODO add functionality to wait for mcid to appear on chain and store the address of the created paych
+        // TODO ask about the use of go routine here
+        self.wait_paych_create_msg(ci.id, mcid.clone()).await?;
 
         Ok(mcid)
     }
 
-    pub async fn add_funds(&self, ci: &ChannelInfo, amt: BigInt) -> Result<Cid, Error> {
+    pub async fn wait_paych_create_msg(&self, ch_id: String, mcid: Cid) -> Result<(), Error> {
+        let sm = self.sa.sm.read().await;
+
+        let (ts, msg) = StateManager::wait_for_message(
+            sm.get_block_store(),
+            sm.get_subscriber(),
+            &mcid,
+            MESSAGE_CONFIDENCE,
+        )
+        .await
+        .unwrap();
+
+        let _t = ts.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
+        let m = msg.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
+
+        let mut store = self.store.write().await;
+        if m.exit_code != ExitCode::Ok {
+            // channel creation failed, remove the channel from the datastore
+            let _d = store.remove_channel(ch_id.clone()).await.unwrap();
+            // TODO handle err
+        }
+
+        let exec_ret: ExecReturn = Serialized::deserialize(&m.return_data).unwrap(); // TODO handle err
+
+        // store robust address of channel
+        let mut ch_info = store.by_channel_id(&ch_id).await?;
+        ch_info.channel = Some(exec_ret.robust_address);
+        ch_info.amount = ch_info.pending_amount;
+        ch_info.pending_amount = BigInt::zero();
+        ch_info.create_msg = None;
+
+        store.put_channel_info(ch_info).await?;
+
+        Ok(())
+    }
+
+    pub async fn add_funds(&self, ci: &mut ChannelInfo, amt: BigInt) -> Result<Cid, Error> {
         let to = ci
             .channel
             .clone()
             .ok_or_else(|| Error::Other("no addr".to_owned()))?;
         let from = ci.control;
-        let _msg: UnsignedMessage = UnsignedMessage::builder()
+        let umsg: UnsignedMessage = UnsignedMessage::builder()
             .to(to)
             .from(from)
             .value(amt.clone())
             .method_num(0)
             .build()
             .unwrap();
-        // TODO sign msg and get the cid of signed message
-        let mcid = Cid::default();
+
+        let smgs = self
+            .state
+            .mpool
+            .mpool_unsigned_msg_push(umsg, self.state.keystore.clone())
+            .await
+            .unwrap();
+
+        let mcid = smgs.cid()?;
 
         let mut store = self.store.write().await;
 
-        // If there's an error reading or writing to the store just log an error.
-        // For now we're assuming it's unlikely to happen in practice.
-        // Later we may want to implement a transactional approach, whereby
-        // we record to the store that we're going to send a message, send
-        // the message, and then record that the message was sent.
-        let ci_res = store.by_channel_id(&ci.id).await;
-        match ci_res {
-            Ok(mut channel_info) => {
-                channel_info.pending_amount = amt;
-                channel_info.add_funds_msg = Some(mcid.clone());
+        ci.pending_amount = amt;
+        ci.add_funds_msg = Some(mcid.clone());
 
-                // call mutate function
-                let res = store.put_channel_info(channel_info.clone()).await;
-                if res.is_err() {
-                    warn!("Error writing channel info to store: {}", res.unwrap_err());
-                }
-            }
-            Err(err) => warn!("Error reading channel info from store: {}", err),
+        let res = store.put_channel_info(ci.clone()).await;
+        if res.is_err() {
+            warn!("Error writing channel info to store: {}", res.unwrap_err());
         }
 
         let res = store.save_new_message(ci.id.clone(), mcid.clone()).await;
@@ -604,9 +743,68 @@ where
             warn!("saving add funds message cid: {}", res.unwrap_err())
         }
 
-        // need to add ability to wait for mcid to appear on the chain
+        // TODO ask about go routine usage
+        self.wait_add_funds_msg(ci, mcid.clone()).await?;
 
         Ok(mcid)
+    }
+
+    pub async fn wait_add_funds_msg(
+        &self,
+        channel_info: &mut ChannelInfo,
+        mcid: Cid,
+    ) -> Result<(), Error> {
+        let sm = self.sa.sm.read().await;
+
+        let (ts, msg) = StateManager::wait_for_message(
+            sm.get_block_store(),
+            sm.get_subscriber(),
+            &mcid,
+            MESSAGE_CONFIDENCE,
+        )
+        .await
+        .unwrap();
+
+        let _t = ts.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
+        let m = msg.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
+
+        if m.exit_code != ExitCode::Ok {
+            channel_info.pending_amount = BigInt::zero();
+            channel_info.add_funds_msg = None;
+            return Err(Error::Other(format!(
+                "voucher channel creation failed: adding funds (exit code {:?})",
+                m.exit_code
+            )));
+        }
+
+        channel_info.amount += &channel_info.pending_amount;
+        channel_info.pending_amount = BigInt::zero();
+        channel_info.add_funds_msg = None;
+
+        // TODO refactor to handle error return for msg wait completed
+        // self.msg_wait_completed(mcid, err: Option<Error>)
+        Ok(())
+    }
+
+    pub async fn msg_wait_completed(&mut self, mcid: Cid, err: Option<Error>) -> Result<(), Error> {
+        // save the message result to the store
+        let mut st = self.store.write().await;
+        st.save_msg_result(mcid.clone(), err.clone()).await?;
+
+        // inform listeners that the message has completed
+        // TODO handle option err
+        self.msg_listeners
+            .fire_msg_complete(mcid, err.unwrap())
+            .await;
+
+        // the queue may have been waiting for msg completion to proceed, process the next queue item
+        let req = self.funds_req_queue.read().await;
+        if req.len() > 0 {
+            // TODO ask about go routine AND handle err
+            self.process_queue().await.unwrap();
+        }
+
+        Ok(())
     }
 }
 

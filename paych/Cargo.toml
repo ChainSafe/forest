@@ -29,3 +29,5 @@ rpc_client = {package = "rpc-client", path = "../node/rpc-client/" }
 message_pool = { path = "../blockchain/message_pool/" }
 wallet = {package = "key_management", path = "../key_management/", features = ["json"] }
 num-traits = "0.2"
+async-trait = "0.1"
+forest_blocks = { path = "../blockchain/blocks/" }
