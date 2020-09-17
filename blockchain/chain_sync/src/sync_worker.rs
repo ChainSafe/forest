@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::bad_block_cache::BadBlockCache;
-use super::peer_manager::PeerManager;
 use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
 use address::{Address, Protocol};
@@ -14,19 +13,17 @@ use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::{persist_objects, ChainStore};
 use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
-use core::time::Duration;
 use crypto::verify_bls_aggregate;
 use crypto::DomainSeparationTag;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::SectorInfo;
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
-use forest_libp2p::{BlockSyncRequest, MESSAGES};
+use forest_libp2p::blocksync::TipsetBundle;
 use futures::{
     executor::block_on,
     stream::{FuturesUnordered, StreamExt},
 };
 use ipld_blockstore::BlockStore;
-use libp2p::core::PeerId;
 use log::{debug, error, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
 use state_manager::{utils, StateManager};
@@ -35,6 +32,7 @@ use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
+use std::time::Duration;
 use vm::TokenAmount;
 
 /// Message data used to ensure valid state transition
@@ -66,9 +64,6 @@ pub(crate) struct SyncWorker<DB, TBeacon> {
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache.
     pub bad_blocks: Arc<BadBlockCache>,
-
-    /// Peer manager to handle full peers to send ChainSync requests to.
-    pub peer_manager: Arc<PeerManager>,
 }
 
 impl<DB, TBeacon> SyncWorker<DB, TBeacon>
@@ -94,7 +89,7 @@ where
         // TODO increase bootstrap peer count before syncing
         const MIN_PEERS: usize = 1;
         loop {
-            let peer_count = self.peer_manager.len().await;
+            let peer_count = self.network.peer_manager().len().await;
             if peer_count < MIN_PEERS {
                 debug!("bootstrapping peers, have {}", peer_count);
                 task::sleep(Duration::from_secs(2)).await;
@@ -151,18 +146,6 @@ where
         self.state.write().await.set_stage(new_stage);
     }
 
-    async fn get_peer(&self) -> PeerId {
-        while self.peer_manager.is_empty().await {
-            warn!("No valid peers to sync, waiting for other nodes");
-            task::sleep(Duration::from_secs(5)).await;
-        }
-
-        self.peer_manager
-            .get_peer()
-            .await
-            .expect("Peer set is not empty here")
-    }
-
     /// Syncs chain data and persists it to blockstore
     async fn sync_headers_reverse(&self, head: Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
         info!("Syncing headers from: {:?}", head.key());
@@ -206,21 +189,13 @@ where
             debug!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);
 
-            let peer_id = self.get_peer().await;
-
             // Load blocks from network using blocksync
-            let tipsets: Vec<Tipset> = match self
+            // TODO consider altering window size before returning error for failed sync.
+            let tipsets = self
                 .network
-                .blocksync_headers(peer_id.clone(), cur_ts.parents(), window as u64)
-                .await
-            {
-                Ok(ts) => ts,
-                Err(e) => {
-                    warn!("Failed blocksync request to peer {:?}: {}", peer_id, e);
-                    self.peer_manager.remove_peer(&peer_id).await;
-                    continue;
-                }
-            };
+                .blocksync_headers(None, cur_ts.parents(), window as u64)
+                .await?;
+
             info!(
                 "Got tipsets: Height: {}, Len: {}",
                 tipsets[0].epoch(),
@@ -291,16 +266,15 @@ where
 
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
     async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
-        let peer_id = self.get_peer().await;
         // TODO move to shared parameter (from actors crate most likely)
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
-        // Load blocks from network using blocksync
-        let tips: Vec<Tipset> = self
+        // TODO make this request more flexible with the window size, shouldn't require a node
+        // to have to request all fork length headers at once.
+        let tips = self
             .network
-            .blocksync_headers(peer_id, head.parents(), FORK_LENGTH_THRESHOLD)
-            .await
-            .map_err(|_| Error::Other("Could not retrieve tipset".to_string()))?;
+            .blocksync_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
+            .await?;
 
         let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
 
@@ -338,66 +312,53 @@ where
                 Err(_) => {
                     // no full tipset in storage; request messages via blocksync
 
-                    // retrieve peerId used for blocksync request
-                    if let Some(peer_id) = self.peer_manager.get_peer().await {
-                        let mut batch_size = REQUEST_WINDOW;
-                        if i < batch_size {
-                            batch_size = i;
-                        }
+                    let mut batch_size = REQUEST_WINDOW;
+                    if i < batch_size {
+                        batch_size = i;
+                    }
 
-                        // set params for blocksync request
-                        let idx = i - batch_size;
-                        let next = &ts[idx as usize];
-                        let req_len = batch_size + 1;
-                        debug!(
-                            "BlockSync message sync tipsets: epoch: {}, len: {}",
-                            next.epoch(),
-                            req_len
-                        );
-                        // receive tipset bundle from block sync
-                        let mut ts_bundle = match self
-                            .network
-                            .blocksync_request(
-                                peer_id,
-                                BlockSyncRequest {
-                                    start: next.cids().to_vec(),
-                                    request_len: req_len as u64,
-                                    options: MESSAGES,
-                                },
-                            )
-                            .await
-                        {
-                            Ok(k) => k,
-                            Err(e) => {
-                                warn!("BlockSyncRequest for message failed: {}", e);
-                                continue;
-                            }
-                        }
-                        .chain;
-                        let mut ts_r = ts[(idx) as usize..(idx + 1 + req_len) as usize].to_vec();
-                        // since the bundle only has messages, we have to put the headers in them
-                        for b in ts_bundle.iter_mut() {
-                            let t = ts_r.pop().unwrap();
-                            b.blocks = t.blocks().to_vec();
-                        }
-                        for b in ts_bundle {
-                            // construct full tipsets from fetched messages
-                            let fts: FullTipset = (&b).try_into().map_err(Error::Other)?;
+                    // set params for blocksync request
+                    let idx = i - batch_size;
+                    let next = &ts[idx as usize];
+                    let req_len = batch_size + 1;
+                    debug!(
+                        "BlockSync message sync tipsets: epoch: {}, len: {}",
+                        next.epoch(),
+                        req_len
+                    );
 
-                            // validate tipset and messages
-                            let curr_epoch = fts.epoch();
-                            self.validate_tipset(fts).await?;
-                            self.state.write().await.set_epoch(curr_epoch);
+                    // receive tipset bundle from block sync
+                    let compacted_messages = self
+                        .network
+                        .blocksync_messages(None, next.key(), req_len as u64)
+                        .await?;
 
-                            // store messages
-                            if let Some(m) = b.messages {
-                                self.chain_store.put_messages(&m.bls_msgs)?;
-                                self.chain_store.put_messages(&m.secp_msgs)?;
-                            } else {
-                                warn!("Blocksync request for messages returned null messages");
-                            }
+                    let mut ts_r = ts[(idx) as usize..(idx + 1 + req_len) as usize].to_vec();
+                    // since the bundle only has messages, we have to put the headers in them
+                    for messages in compacted_messages.into_iter() {
+                        let t = ts_r.pop().unwrap();
+
+                        let bundle = TipsetBundle {
+                            blocks: t.into_blocks(),
+                            messages: Some(messages),
+                        };
+                        // construct full tipsets from fetched messages
+                        let fts: FullTipset = (&bundle).try_into().map_err(Error::Other)?;
+
+                        // validate tipset and messages
+                        let curr_epoch = fts.epoch();
+                        self.validate_tipset(fts).await?;
+                        self.state.write().await.set_epoch(curr_epoch);
+
+                        // store messages
+                        if let Some(m) = bundle.messages {
+                            self.chain_store.put_messages(&m.bls_msgs)?;
+                            self.chain_store.put_messages(&m.secp_msgs)?;
+                        } else {
+                            warn!("Blocksync request for messages returned null messages");
                         }
                     }
+
                     i -= REQUEST_WINDOW;
                     continue;
                 }
@@ -794,6 +755,7 @@ mod tests {
     use beacon::MockBeacon;
     use db::MemoryDB;
     use forest_libp2p::NetworkMessage;
+    use libp2p::PeerId;
     use std::sync::Arc;
     use std::time::Duration;
     use test_utils::{construct_blocksync_response, construct_dummy_header, construct_tipset};
@@ -817,10 +779,9 @@ mod tests {
                 beacon,
                 state_manager: Arc::new(StateManager::new(db)),
                 chain_store,
-                network: SyncNetworkContext::new(local_sender),
+                network: SyncNetworkContext::new(local_sender, Default::default()),
                 genesis: genesis_ts,
                 bad_blocks: Default::default(),
-                peer_manager: Default::default(),
             },
             test_receiver,
         )
@@ -832,9 +793,7 @@ mod tests {
         task::block_on(async {
             match blocksync_message.recv().await.unwrap() {
                 NetworkMessage::BlockSyncRequest {
-                    peer_id: _,
-                    request: _,
-                    response_channel,
+                    response_channel, ..
                 } => {
                     response_channel.send(rpc_response).unwrap();
                 }
@@ -846,18 +805,22 @@ mod tests {
     #[test]
     fn sync_headers_reverse_given_tipsets_test() {
         let db = Arc::new(MemoryDB::default());
-        let (cs, network_receiver) = sync_worker_setup(db);
+        let (sw, network_receiver) = sync_worker_setup(db);
 
         // params for sync_headers_reverse
         let source = PeerId::random();
-        let head = construct_tipset(4, 10);
+        let head = Arc::new(construct_tipset(4, 10));
         let to = construct_tipset(1, 10);
 
         task::block_on(async move {
-            cs.peer_manager.add_peer(source.clone(), None).await;
-            assert_eq!(cs.peer_manager.len().await, 1);
+            sw.network
+                .peer_manager()
+                .update_peer_head(source.clone(), Some(head.clone()))
+                .await;
+            assert_eq!(sw.network.peer_manager().len().await, 1);
             // make blocksync request
-            let return_set = task::spawn(async move { cs.sync_headers_reverse(head, &to).await });
+            let return_set =
+                task::spawn(async move { sw.sync_headers_reverse((*head).clone(), &to).await });
             // send blocksync response to channel
             send_blocksync_response(network_receiver);
             assert_eq!(return_set.await.unwrap().len(), 4);
