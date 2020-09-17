@@ -332,8 +332,7 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        msg.valid_for_block_inclusion(0)
-            .map_err(|e| Error::Other(e.to_string()))?;
+        msg.valid_for_block_inclusion(0).map_err(Error::Other)?;
         if msg.value() > &BigInt::from(types::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
@@ -398,7 +397,7 @@ where
     /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
     /// and push it to the pending phashmap
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
-        let from = msg.from().clone();
+        let from = *msg.from();
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
@@ -450,10 +449,9 @@ where
         let cur_ts = self.cur_tipset.read().await.clone();
         let from_key = match addr.protocol() {
             Protocol::ID => {
-                self.api
-                    .read()
-                    .await
-                    .state_account_key(&addr, &*self.cur_tipset.read().await)
+                let api = self.api.read().await;
+
+                api.state_account_key(&addr, &self.cur_tipset.read().await.clone())
                     .await?
             }
             _ => *addr,
@@ -462,7 +460,7 @@ where
         let nonce = self.get_nonce(&addr).await?;
         let msg = cb(from_key, nonce)?;
         self.check_message(&msg).await?;
-        if &*self.cur_tipset.read().await != &cur_ts {
+        if *self.cur_tipset.read().await != cur_ts {
             return Err(Error::TryAgain);
         }
 
@@ -612,7 +610,7 @@ where
             let local_addrs = self.local_addrs.read().await;
             for a in local_addrs.iter() {
                 if let Some(mset) = self.pending.read().await.get(&a) {
-                    for (_, m) in &mset.msgs {
+                    for m in mset.msgs.values() {
                         if !self.local_msgs.write().await.remove(&m) {
                             warn!("error deleting local message");
                         }
@@ -643,8 +641,8 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
     let epoch = cur_ts.epoch();
     let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
     m.valid_for_block_inclusion(min_gas.total())
-        .map_err(|e| Error::Other(e.to_string()))?;
-    if cur_ts.blocks().len() > 0 {
+        .map_err(Error::Other)?;
+    if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
         let base_fee_lower_bound = base_fee / BASE_FEE_LOWER_BOUND_FACTOR;
         if m.gas_fee_cap() < &base_fee_lower_bound {
@@ -676,7 +674,7 @@ pub async fn remove(
 
     mset.rm(sequence, applied);
 
-    if mset.msgs.len() == 0 {
+    if mset.msgs.is_empty() {
         pending.remove(from);
     }
 
@@ -914,7 +912,7 @@ pub mod test_provider {
                     }
                 }
             }
-            msgs.sort_by(|m, m2| m.sequence().cmp(&m2.sequence()));
+            msgs.sort_by_key(|m| m.sequence());
             let mut sequence: u64 = self.state_sequence.get(addr).copied().unwrap_or_default();
             for m in msgs {
                 if m.sequence() != sequence {
@@ -950,7 +948,7 @@ pub mod test_provider {
 
         async fn state_account_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
             match addr.protocol() {
-                Protocol::BLS | Protocol::Secp256k1 => Ok(addr.clone()),
+                Protocol::BLS | Protocol::Secp256k1 => Ok(*addr),
                 _ => Err(Error::Other("given address was not a key addr".to_string())),
             }
         }
