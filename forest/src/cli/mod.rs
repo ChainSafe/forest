@@ -61,7 +61,7 @@ pub struct DaemonOpts {
     pub config: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
     pub genesis: Option<String>,
-    #[structopt(short, long, help = "Allow rpc to be active or not")]
+    #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "The port used for communication")]
     pub port: Option<String>,
