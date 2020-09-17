@@ -6,7 +6,9 @@ use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::Sign;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use types::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
@@ -163,6 +165,37 @@ impl Message for UnsignedMessage {
     fn required_funds(&self) -> TokenAmount {
         let total: TokenAmount = self.gas_fee_cap() * self.gas_limit();
         total + self.value()
+    }
+    fn valid_for_block_inclusion(&self, min_gas: i64) -> Result<(), String> {
+        if self.version != 0 {
+            return Err(format!("Message version: {} not  supported", self.version));
+        }
+        if self.value.sign() == Sign::Minus {
+            return Err("message value cannot be negative".to_string());
+        }
+        if self.value > TOTAL_FILECOIN.into() {
+            return Err("message value cannot be greater than total FIL supply".to_string());
+        }
+        if self.gas_fee_cap.sign() == Sign::Minus {
+            return Err("gas_fee_cap cannot be negative".to_string());
+        }
+        if self.gas_premium.sign() == Sign::Minus {
+            return Err("gas_premium cannot be negative".to_string());
+        }
+        if self.gas_premium > self.gas_fee_cap {
+            return Err("gas_fee_cap less than gas_premium".to_string());
+        }
+        if self.gas_limit > BLOCK_GAS_LIMIT {
+            return Err("gas_limit cannot be greater than block gas limit".to_string());
+        }
+
+        if self.gas_limit < min_gas {
+            return Err(
+                "gas_limit cannot be less than cost of storing a message on chain".to_string(),
+            );
+        }
+
+        Ok(())
     }
 }
 
