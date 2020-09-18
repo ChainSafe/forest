@@ -4,6 +4,7 @@
 use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
+use actor::{make_map_with_root, power, STORAGE_POWER_ACTOR_ADDR};
 use address::{Address, Protocol};
 use amt::Amt;
 use async_std::sync::{Receiver, RwLock};
@@ -15,7 +16,7 @@ use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
 use crypto::{election_proof::ElectionProof, verify_bls_aggregate, DomainSeparationTag, Signature};
 use encoding::{Cbor, Error as EncodingError};
-use fil_types::SectorInfo;
+use fil_types::{SectorInfo, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS};
 use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::blocksync::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -28,7 +29,7 @@ use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use vm::TokenAmount;
 
 /// Message data used to ensure valid state transition
@@ -393,10 +394,11 @@ where
                 Ok(b) => {
                     self.chain_store.set_tipset_tracker(b.header()).await?;
                 }
-                // TODO temporal errors, timestamp in future, should not be put in bad blocks cache
-                // as it's not always invalid
                 Err((cid, e)) => {
-                    self.bad_blocks.put(cid, e.to_string()).await;
+                    // If the error is temporally invalidated, don't add to bad blocks cache.
+                    if !matches!(e, Error::Temporal(_, _)) {
+                        self.bad_blocks.put(cid, e.to_string()).await;
+                    }
                     return Err(Error::Other(format!("Invalid block detected: {}", e)));
                 }
             }
@@ -457,41 +459,73 @@ where
             )
         })?;
 
-        let prev_beacon = chain::latest_beacon_entry(
-            cs.blockstore(),
-            &cs.tipset_from_keys(header.parents())
-                .map_err(|e| (block_cid.clone(), e.into()))?,
-        )
-        .map_err(|e| (block_cid.clone(), e.into()))?;
-
-        // time stamp checks
-        header
-            .validate_timestamps(&base_ts)
+        let prev_beacon = chain::latest_beacon_entry(cs.blockstore(), base_ts.as_ref())
             .map_err(|e| (block_cid.clone(), e.into()))?;
+
+        // Timestamp checks
+        let nulls = (header.epoch() - (base_ts.epoch() + 1)) as u64;
+        let target_timestamp = base_ts.min_timestamp() + BLOCK_DELAY_SECS * nulls + 1;
+        if target_timestamp != header.timestamp() {
+            return Err((
+                block_cid.clone(),
+                Error::Validation(format!(
+                    "block had the wrong timestamp: {} != {}",
+                    header.timestamp(),
+                    target_timestamp
+                )),
+            ));
+        }
+        let time_now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Retrieved system time before UNIX epoch")
+            .as_secs();
+        if header.timestamp() > time_now + ALLOWABLE_CLOCK_DRIFT {
+            return Err((
+                block_cid.clone(),
+                Error::Temporal(time_now, header.timestamp()),
+            ));
+        } else if header.timestamp() > time_now {
+            warn!(
+                "Got block from the future, but within clock drift threshold, {} > {}",
+                header.timestamp(),
+                time_now
+            );
+        }
 
         // * Check block messages and their signatures as well as message root
         let b = Arc::clone(&block);
-        let parent_clone = Arc::clone(&base_ts);
+        let base_ts_clone = Arc::clone(&base_ts);
         let sm_c = Arc::clone(&sm);
-        let x = task::spawn_blocking(move || Self::check_block_msgs(sm_c, &b, &parent_clone));
+        let x = task::spawn_blocking(move || Self::check_block_msgs(sm_c, &b, &base_ts_clone));
         validations.push(x);
 
-        // TODO miner check here
+        // * Miner validations
+        let sm_c = Arc::clone(&sm);
+        let parent_state = base_ts.parent_state().clone();
+        let miner_addr = *header.miner_address();
+        let x = task::spawn_blocking(move || {
+            Self::validate_miner(sm_c.as_ref(), &miner_addr, &parent_state)
+        });
+        validations.push(x);
 
         // * base fee check
-        // TODO make async
-        let base_fee = chain::compute_base_fee(cs.db.as_ref(), &base_ts)
-            .map_err(|e| {
-                Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
-            })
-            .map_err(|e| (block_cid.clone(), e))?;
-        if &base_fee != block.header().parent_base_fee() {
-            error_vec.push(format!(
-                "base fee doesnt match: {} (header), {} (computed)",
-                block.header().parent_base_fee(),
-                base_fee
-            ));
-        }
+        let base_ts_clone = Arc::clone(&base_ts);
+        let bs_cloned = sm.get_block_store();
+        let parent_base_fee = header.parent_base_fee().clone();
+        let x = task::spawn_blocking(move || {
+            let base_fee =
+                chain::compute_base_fee(bs_cloned.as_ref(), &base_ts_clone).map_err(|e| {
+                    Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
+                })?;
+            if base_fee != parent_base_fee {
+                return Err(Error::Validation(format!(
+                    "base fee doesnt match: {} (header), {} (computed)",
+                    parent_base_fee, base_fee
+                )));
+            }
+            Ok(())
+        });
+        validations.push(x);
 
         // * Parent weight calculation check
         // TODO get and check parent weight
@@ -766,6 +800,20 @@ where
             Err(Error::Validation("Winning post was invalid".to_string()))
         } else {
             Ok(())
+        }
+    }
+
+    fn validate_miner(sm: &StateManager<DB>, maddr: &Address, ts_state: &Cid) -> Result<(), Error> {
+        let spast: power::State = sm.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts_state)?;
+
+        let cm = make_map_with_root::<_, power::Claim>(&spast.claims, sm.get_block_store_ref())?;
+
+        if cm.contains_key(&maddr.to_bytes())? {
+            Ok(())
+        } else {
+            Err(Error::Validation(
+                "Miner isn't valid from power state".to_string(),
+            ))
         }
     }
 }

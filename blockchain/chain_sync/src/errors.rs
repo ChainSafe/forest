@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use amt::Error as AmtErr;
+use hamt::Error as HamtErr;
 use blocks::Error as BlkErr;
 use chain::Error as StoreErr;
 use cid::Error as CidErr;
@@ -36,6 +37,9 @@ pub enum Error {
     /// Error in validating arbitrary data
     #[error("{0}")]
     Validation(String),
+    /// Block validated was from the future, this is intended to be a temporal error.
+    #[error("Block received was from the future (now={0}, blk={1}")]
+    Temporal(u64, u64),
     /// Any other error that does not need to be specifically handled
     #[error("{0}")]
     Other(String),
@@ -61,6 +65,12 @@ impl From<SerdeErr> for Error {
 
 impl From<AmtErr> for Error {
     fn from(e: AmtErr) -> Error {
+        Error::Other(e.to_string())
+    }
+}
+
+impl From<HamtErr> for Error {
+    fn from(e: HamtErr) -> Error {
         Error::Other(e.to_string())
     }
 }

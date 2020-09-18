@@ -8,7 +8,7 @@ pub mod sector;
 pub use self::piece::*;
 pub use self::sector::*;
 
-use clock::ChainEpoch;
+use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use num_bigint::BigInt;
 
 /// Default bit width for the hamt in the filecoin protocol.
@@ -48,3 +48,10 @@ impl NetworkParams for DevnetParams {
 
 /// Ratio of integer values to token value.
 pub const FILECOIN_PRECISION: i64 = 1_000_000_000_000_000_000;
+
+/// Block delay, or epoch duration, to be used in blockchain system.
+pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;
+
+/// Allowable clock drift in validations.
+pub const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
+

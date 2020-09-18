@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, Ticket, Tipset, TipsetKeys};
+use super::{Error, Ticket, TipsetKeys};
 use address::Address;
 use beacon::{self, Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
@@ -18,7 +18,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
-use std::time::{SystemTime, UNIX_EPOCH};
 use vm::TokenAmount;
 
 #[cfg(feature = "json")]
@@ -321,35 +320,6 @@ impl BlockHeader {
         signature
             .verify(&self.cid().to_bytes(), &addr)
             .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
-
-        Ok(())
-    }
-    /// Validates timestamps to ensure BlockHeader was generated at the correct time
-    pub fn validate_timestamps(&self, base_tipset: &Tipset) -> Result<(), Error> {
-        // first check that it is not in the future; see https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-        // allowing for some small grace period to deal with small asynchrony
-        // using ALLOWABLE_CLOCK_DRIFT from Lotus; see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L34:7
-        const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
-        let time_now = SystemTime::now().duration_since(UNIX_EPOCH)?;
-        if self.timestamp() > time_now.as_secs() + ALLOWABLE_CLOCK_DRIFT
-            || self.timestamp() > time_now.as_secs()
-        {
-            return Err(Error::Validation("Header was from the future".to_string()));
-        }
-        // TODO: This is a devnet param. When we start testing on other networks, we'll change it.
-        const FIXED_BLOCK_DELAY: u64 = 2;
-        // check that it is appropriately delayed from its parents including null blocks
-        if self.timestamp()
-            < base_tipset.min_timestamp()
-                + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64
-        {
-            return Err(Error::Validation(format!(
-                "Header was generated too soon: timestamp: {}, max time: {}",
-                self.timestamp(),
-                base_tipset.min_timestamp()
-                    + FIXED_BLOCK_DELAY * (self.epoch() - base_tipset.epoch()) as u64
-            )));
-        }
 
         Ok(())
     }
