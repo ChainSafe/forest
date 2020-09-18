@@ -438,14 +438,19 @@ where
         let (_election_proof, block_sig, _ticket) =
             block_sanity_checks(header).map_err(|e| (block_cid.clone(), e.into()))?;
 
-        let parent_tipset = Arc::new(
+        let base_ts = Arc::new(
             cs.tipset_from_keys(header.parents())
                 .map_err(|e| (block_cid.clone(), e.into()))?,
         );
 
-        // TODO should get lookback tipset for round.
+        // Retrieve lookback tipset for validation.
+        let lbts = cs
+            .get_lookback_tipset_for_round(&base_ts, block.header().epoch())
+            .map_err(|e| (block_cid.clone(), e.into()))?
+            .map(Arc::new)
+            .unwrap_or(Arc::clone(&base_ts));
 
-        let (state_root, _) = sm.tipset_state(&parent_tipset).await.map_err(|e| {
+        let (lbst, _) = sm.tipset_state(&lbts).await.map_err(|e| {
             (
                 block_cid.clone(),
                 Error::Validation(format!("Could not update state: {}", e.to_string())),
@@ -461,12 +466,12 @@ where
 
         // time stamp checks
         header
-            .validate_timestamps(&parent_tipset)
+            .validate_timestamps(&base_ts)
             .map_err(|e| (block_cid.clone(), e.into()))?;
 
         // * Check block messages and their signatures as well as message root
         let b = Arc::clone(&block);
-        let parent_clone = Arc::clone(&parent_tipset);
+        let parent_clone = Arc::clone(&base_ts);
         let sm_c = Arc::clone(&sm);
         let x = task::spawn_blocking(move || Self::check_block_msgs(sm_c, &b, &parent_clone));
         validations.push(x);
@@ -475,7 +480,7 @@ where
 
         // * base fee check
         // TODO make async
-        let base_fee = chain::compute_base_fee(cs.db.as_ref(), &parent_tipset)
+        let base_fee = chain::compute_base_fee(cs.db.as_ref(), &base_ts)
             .map_err(|e| {
                 Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
             })
@@ -496,7 +501,7 @@ where
 
         // Work address needed for following checks, so necessary to do sync
         let work_addr = sm
-            .get_miner_work_addr(&state_root, header.miner_address())
+            .get_miner_work_addr(&lbst, header.miner_address())
             .map_err(|e| (block_cid.clone(), e.into()))?;
 
         // * Winner election PoSt validations
@@ -504,7 +509,7 @@ where
 
         // TODO This should exist in the winning async task
         let slash = sm
-            .is_miner_slashed(header.miner_address(), &parent_tipset.parent_state())
+            .is_miner_slashed(header.miner_address(), &base_ts.parent_state())
             .unwrap_or_else(|err| {
                 error_vec.push(err.to_string());
                 false

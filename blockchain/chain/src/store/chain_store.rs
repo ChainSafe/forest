@@ -26,6 +26,7 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
+use types::WINNING_POST_SECTOR_SET_LOOKBACK;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -228,6 +229,27 @@ where
 
         Ok(self.db.write(key, &[])?)
     }
+
+    /// Gets lookback tipset for block validations.
+    /// Returns `None` if the tipset is also the lookback tipset.
+    pub fn get_lookback_tipset_for_round(
+        &self,
+        ts: &Tipset,
+        round: ChainEpoch,
+    ) -> Result<Option<Tipset>, Error> {
+        let lbr = if round > WINNING_POST_SECTOR_SET_LOOKBACK {
+            round - WINNING_POST_SECTOR_SET_LOOKBACK
+        } else {
+            0
+        };
+
+        if lbr > ts.epoch() {
+            return Ok(None);
+        }
+
+        // TODO would be better to get tipset with ChainStore cache.
+        tipset_by_height(self.blockstore(), lbr, ts, true)
+    }
 }
 
 /// Helper to ensure consistent Cid -> db key translation.
@@ -384,7 +406,7 @@ pub fn get_chain_randomness<DB: BlockStore>(
 
     let search_height = if round < 0 { 0 } else { round };
 
-    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+    let rand_ts = tipset_by_height(db, search_height, &ts, true)?.unwrap_or(ts);
 
     draw_randomness(
         rand_ts
@@ -415,7 +437,7 @@ pub fn get_beacon_randomness<DB: BlockStore>(
 
     let search_height = if round < 0 { 0 } else { round };
 
-    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+    let rand_ts = tipset_by_height(db, search_height, &ts, true)?.unwrap_or(ts);
 
     let be = latest_beacon_entry(db, &rand_ts)?;
 
@@ -473,16 +495,18 @@ where
     let ts = Tipset::new(block_headers)?;
     Ok(ts)
 }
-/// Returns the tipset behind `tsk` at a given `height`. If the given height
-/// is a null round:
-/// if `prev` is `true`, the tipset before the null round is returned.
-/// If `prev` is `false`, the tipset following the null round is returned.
+/// Returns the tipset behind `tsk` at a given `height`.
+/// If the given height is a null round:
+/// - If `prev` is `true`, the tipset before the null round is returned.
+/// - If `prev` is `false`, the tipset following the null round is returned.
+///
+/// Returns `None` if the tipset provided was the tipset at the given height.
 pub fn tipset_by_height<DB>(
     db: &DB,
     height: ChainEpoch,
-    ts: Tipset,
+    ts: &Tipset,
     prev: bool,
-) -> Result<Tipset, Error>
+) -> Result<Option<Tipset>, Error>
 where
     DB: BlockStore,
 {
@@ -492,22 +516,26 @@ where
         ));
     }
     if height == ts.epoch() {
-        return Ok(ts);
+        return Ok(None);
     }
     // TODO: If ts.epoch()-h > Fork Length Threshold, it could be expensive to look up
-    let mut ts_temp = ts;
+    let mut ts_temp: Option<Tipset> = None;
     loop {
-        let pts = tipset_from_keys(db, ts_temp.parents())?;
+        let pts = if let Some(temp) = &ts_temp {
+            tipset_from_keys(db, temp.parents())?
+        } else {
+            tipset_from_keys(db, ts.parents())?
+        };
         if height > pts.epoch() {
             if prev {
-                return Ok(pts);
+                return Ok(Some(pts));
             }
             return Ok(ts_temp);
         }
         if height == pts.epoch() {
-            return Ok(pts);
+            return Ok(Some(pts));
         }
-        ts_temp = pts;
+        ts_temp = Some(pts);
     }
 }
 

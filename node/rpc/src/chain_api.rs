@@ -134,7 +134,8 @@ where
 {
     let (height, tsk) = params;
     let ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
-    let tss = chain::tipset_by_height(data.state_manager.get_block_store_ref(), height, ts, true)?;
+    let tss = chain::tipset_by_height(data.state_manager.get_block_store_ref(), height, &ts, true)?
+        .unwrap_or(ts);
     Ok(TipsetJson(tss))
 }
 

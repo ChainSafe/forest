@@ -8,12 +8,17 @@ pub mod sector;
 pub use self::piece::*;
 pub use self::sector::*;
 
+use clock::ChainEpoch;
 use num_bigint::BigInt;
 
 /// Default bit width for the hamt in the filecoin protocol.
 pub const HAMT_BIT_WIDTH: u32 = 5;
 pub const BLOCK_GAS_LIMIT: i64 = 10_000_000_000;
 pub const TOTAL_FILECOIN: i64 = 2_000_000_000;
+
+// Epochs
+pub const TICKET_RANDOMNESS_LOOKBACK: ChainEpoch = 1;
+pub const WINNING_POST_SECTOR_SET_LOOKBACK: ChainEpoch = 10;
 
 /// Config trait which handles different network configurations.
 pub trait NetworkParams {
