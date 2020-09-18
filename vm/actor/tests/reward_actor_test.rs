@@ -8,9 +8,11 @@ mod common;
 
 use actor::{
     miner::Method as MinerMethod,
-    reward::{AwardBlockRewardParams, Method, State, BASELINE_INITIAL_VALUE},
-    BURNT_FUNDS_ACTOR_ADDR, REWARD_ACTOR_ADDR, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
-    SYSTEM_ACTOR_CODE_ID,
+    reward::{
+        AwardBlockRewardParams, Method, State, ThisEpochRewardReturn, BASELINE_INITIAL_VALUE,
+    },
+    BURNT_FUNDS_ACTOR_ADDR, POWER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, REWARD_ACTOR_CODE_ID,
+    STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
 use address::Address;
 use clock::ChainEpoch;
@@ -292,6 +294,42 @@ mod test_award_block_reward {
     }
 }
 
+mod test_this_epoch_reward {
+
+    use super::*;
+
+    #[test]
+    fn successfully_fetch_reward_for_this_epoch() {
+        let mut rt = construct_runtime();
+        construct_and_verify(&mut rt, &StoragePower::from_i128(1 << 50).unwrap() );
+
+        let state: State = rt.get_state().unwrap();
+
+        let resp: ThisEpochRewardReturn = this_epoch_reward(&mut rt);
+
+        assert_eq!(
+            state.this_epoch_baseline_power,
+            resp.this_epoch_baseline_power
+        );
+        assert_eq!(
+            state.this_epoch_reward_smoothed,
+            resp.this_epoch_reward_smoothed
+        );
+    }
+}
+
+#[test]
+fn test_successive_kpi_updates() {
+    let mut rt = construct_runtime();
+    let power = StoragePower::from_i128(1 << 50).unwrap() ;
+    construct_and_verify(&mut rt, &power);
+
+    for i in &[1, 2, 3] {
+        rt.epoch = ChainEpoch::from(*i);
+        update_network_kpi(&mut rt, &power);
+    }
+}
+
 fn construct_runtime() -> MockRuntime {
     MockRuntime {
         receiver: *REWARD_ACTOR_ADDR,
@@ -299,35 +337,6 @@ fn construct_runtime() -> MockRuntime {
         caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
         ..Default::default()
     }
-}
-
-#[test]
-// TODO update reward tests
-#[ignore]
-fn balance_less_than_reward() {
-    let mut rt = construct_runtime();
-    construct_and_verify(&mut rt, &Default::default());
-
-    let miner = Address::new_id(1000);
-    let gas_reward = TokenAmount::from(10u8);
-
-    rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
-
-    let params = AwardBlockRewardParams {
-        miner: miner,
-        penalty: TokenAmount::from(0u8),
-        gas_reward: gas_reward,
-        win_count: 0,
-    };
-
-    // Expect call to fail because actor doesnt have enough tokens to reward
-    let _res = rt.call(
-        &*REWARD_ACTOR_CODE_ID,
-        Method::AwardBlockReward as u64,
-        &Serialized::serialize(&params).unwrap(),
-    );
-
-    rt.verify()
 }
 
 fn construct_and_verify(rt: &mut MockRuntime, curr_power: &StoragePower) {
@@ -389,4 +398,34 @@ fn award_block_reward(
 
     rt.verify();
     result
+}
+
+fn this_epoch_reward(rt: &mut MockRuntime) -> ThisEpochRewardReturn {
+    rt.expect_validate_caller_any();
+    let serialized_result = rt
+        .call(
+            &*REWARD_ACTOR_CODE_ID,
+            Method::ThisEpochReward as u64,
+            &Serialized::default(),
+        )
+        .unwrap();
+    let resp: ThisEpochRewardReturn = Serialized::deserialize(&serialized_result).unwrap();
+    rt.verify();
+    resp
+}
+
+fn update_network_kpi(rt: &mut MockRuntime, curr_raw_power: &StoragePower) {
+    rt.set_caller(POWER_ACTOR_CODE_ID.clone(), *STORAGE_POWER_ACTOR_ADDR);
+    rt.expect_validate_caller_addr(vec![*STORAGE_POWER_ACTOR_ADDR]);
+
+    let params = &Serialized::serialize(BigIntSer(&curr_raw_power)).unwrap();
+    assert!(rt
+        .call(
+            &*REWARD_ACTOR_CODE_ID,
+            Method::UpdateNetworkKPI as u64,
+            params
+        )
+        .is_ok());
+
+    rt.verify();
 }
