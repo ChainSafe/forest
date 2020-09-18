@@ -56,7 +56,7 @@ where
     Ok(UnsignedMessageJson(ret))
 }
 
-pub(crate) async fn chain_notify<DB, KS>(
+pub(crate) async fn chain_notify<'a, DB, KS>(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<usize>,
 ) -> Result<usize, JsonRpcError>
@@ -66,10 +66,11 @@ where
 {
     let heaviest_tipset = data.heaviest_tipset.read().await;
     let index = chain::headchange_json::sub_head_changes(
-        data.publisher.clone(),
         data.subscriber.clone(),
         &heaviest_tipset,
         params,
+        data.events_sender.clone(),
+        data.events_receiver.clone(),
     )
     .await?;
     Ok(index)

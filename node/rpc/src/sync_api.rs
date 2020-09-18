@@ -119,7 +119,7 @@ mod tests {
         let db = Arc::new(MemoryDB::default());
         let state_manager = Arc::new(StateManager::new(db.clone()));
         let cs = ChainStore::new(db.clone());
-        let heaviest_tipset = cs.heaviest_tipset_ref();
+        let heaviest_tipset = cs.heaviest_tipset_arc();
         let subscriber = cs.subscribe().await;
         let state_manager_for_thread = state_manager.clone();
         let pool = task::block_on(async move {

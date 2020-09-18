@@ -5,6 +5,7 @@ use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::RwLock;
+use async_std::sync::{Receiver, Sender};
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
@@ -16,10 +17,10 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
-use futures::StreamExt;
+use futures::{future, StreamExt};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{debug, info, warn};
+use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -53,7 +54,7 @@ pub enum HeadChange {
 /// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
-    publisher: Arc<RwLock<Publisher<HeadChange>>>,
+    publisher: RwLock<Publisher<HeadChange>>,
 
     // key-value datastore
     pub db: Arc<DB>,
@@ -76,7 +77,7 @@ where
             .map(Arc::new);
         Self {
             db,
-            publisher: Arc::new(RwLock::new(Publisher::new(SINK_CAP))),
+            publisher: RwLock::new(Publisher::new(SINK_CAP)),
             tip_index: Arc::new(RwLock::new(TipIndex::new())),
             heaviest: Arc::new(RwLock::new(heaviest)),
         }
@@ -96,7 +97,11 @@ where
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
     pub async fn subscribe(&self) -> Subscriber<HeadChange> {
-        self.publisher.write().await.subscribe()
+        self
+        .publisher
+        .write()
+        .await
+        .subscribe()
     }
 
     /// Sets tip_index tracker
@@ -159,15 +164,11 @@ where
         self.heaviest.read().await.clone()
     }
 
-    pub fn heaviest_tipset_ref(&self) -> Arc<RwLock<Option<Arc<Tipset>>>> {
+    pub fn heaviest_tipset_arc(&self) -> Arc<RwLock<Option<Arc<Tipset>>>> {
         self.heaviest.clone()
     }
 
-    pub fn publisher_ref(&self) -> Arc<RwLock<Publisher<HeadChange>>> {
-        self.publisher.clone()
-    }
-
-    pub fn tip_index_ref(&mut self) -> Arc<RwLock<TipIndex>> {
+    pub fn tip_index_arc(&mut self) -> Arc<RwLock<TipIndex>> {
         self.tip_index.clone()
     }
 
@@ -211,73 +212,6 @@ where
     }
 }
 
-pub async fn put_tipset_lock<DB>(
-    heaviest_lock: Arc<RwLock<Option<Arc<Tipset>>>>,
-    ts: &Tipset,
-    publisher: Arc<RwLock<Publisher<HeadChange>>>,
-    db: Arc<DB>,
-) -> Result<(), Error>
-where
-    DB: BlockStore,
-{
-    persist_objects(&*db, ts.blocks())?;
-    update_heaviest_lock(heaviest_lock, ts, publisher, db).await
-}
-
-pub async fn set_heaviest_tipset_lock<DB>(
-    heaviest: Arc<RwLock<Option<Arc<Tipset>>>>,
-    ts: Arc<Tipset>,
-    publisher: Arc<RwLock<Publisher<HeadChange>>>,
-    db: Arc<DB>,
-) -> Result<(), Error>
-where
-    DB: BlockStore,
-{
-    db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-    let mut heaviest = heaviest.write().await;
-    *heaviest = Some(ts.clone());
-    publisher
-        .write()
-        .await
-        .publish(HeadChange::Current(ts))
-        .await;
-    Ok(())
-}
-
-pub async fn update_heaviest_lock<DB>(
-    heaviest_lock: Arc<RwLock<Option<Arc<Tipset>>>>,
-    ts: &Tipset,
-    publisher: Arc<RwLock<Publisher<HeadChange>>>,
-    db: Arc<DB>,
-) -> Result<(), Error>
-where
-    DB: BlockStore,
-{
-    match &*heaviest_lock.read().await {
-        Some(heaviest) => {
-            let new_weight = weight(&*db, &ts)?;
-            let curr_weight = weight(&*db, &heaviest)?;
-            if new_weight > curr_weight {
-                // TODO potentially need to deal with re-orgs here
-                info!("New heaviest tipset");
-                set_heaviest_tipset_lock(
-                    heaviest_lock.clone(),
-                    Arc::new(ts.clone()),
-                    publisher,
-                    db,
-                )
-                .await?;
-            }
-        }
-        None => {
-            info!("set heaviest tipset");
-            set_heaviest_tipset_lock(heaviest_lock.clone(), Arc::new(ts.clone()), publisher, db)
-                .await?;
-        }
-    }
-    Ok(())
-}
-
 /// Returns messages for a given tipset from db
 pub fn unsigned_messages_for_tipset<DB>(db: &DB, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>
 where
@@ -318,15 +252,6 @@ where
 
     for header in ts.into_blocks() {
         let (bls_messages, secp_messages) = block_messages(db, &header)?;
-        debug!(
-            "Fill Tipsets for header {:?} with bls_messages: {:?}",
-            header.cid(),
-            bls_messages
-                .iter()
-                .map(|b| b.cid().unwrap())
-                .collect::<Vec<_>>()
-        );
-
         blocks.push(Block {
             header,
             bls_messages,
@@ -766,29 +691,65 @@ pub mod headchange_json {
         }
     }
 
+    pub enum EventsPayload {
+        TaskCancel(usize, ()),
+        SubHeadChanges(IndexToHeadChangeJson),
+    }
+
+    impl EventsPayload {
+        pub fn sub_head_changes(&self) -> Option<&IndexToHeadChangeJson> {
+            match self {
+                EventsPayload::SubHeadChanges(s) => Some(s),
+                _ => None,
+            }
+        }
+
+        pub fn task_cancel(&self) -> Option<(usize, ())> {
+            match self {
+                EventsPayload::TaskCancel(val, _) => Some((*val, ())),
+                _ => None,
+            }
+        }
+    }
+
     pub async fn sub_head_changes(
-        publisher: Arc<RwLock<Publisher<IndexToHeadChangeJson>>>,
         mut subscribed_head_change: Subscriber<HeadChange>,
         heaviest_tipset: &Option<Arc<Tipset>>,
         current_index: usize,
+        events_sender: Sender<EventsPayload>,
+        events_receiver: Receiver<EventsPayload>,
     ) -> Result<usize, Error> {
-        info!("sub head changes");
         let head = heaviest_tipset
             .as_ref()
             .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
 
-        publisher
-            .write()
-            .await
-            .publish(IndexToHeadChangeJson(
+        events_sender
+            .send(EventsPayload::SubHeadChanges(IndexToHeadChangeJson(
                 current_index,
                 HeadChange::Current(head.clone()),
-            ))
+            )))
             .await;
-        task::spawn(async move {
+        let handle = task::spawn(async move {
             while let Some(change) = subscribed_head_change.next().await {
                 let index_to_head_change = IndexToHeadChangeJson(current_index, change);
-                publisher.write().await.publish(index_to_head_change).await;
+                events_sender
+                    .send(EventsPayload::SubHeadChanges(index_to_head_change))
+                    .await;
+            }
+        });
+        task::spawn(async move {
+            if let Some(_) = events_receiver
+                .filter(|s| {
+                    future::ready(
+                        s.task_cancel()
+                            .map(|(s, _)| s == current_index)
+                            .unwrap_or_default(),
+                    )
+                })
+                .next()
+                .await
+            {
+                handle.cancel().await;
             }
         });
         Ok(current_index)
