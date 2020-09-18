@@ -276,7 +276,7 @@ pub mod tipset_json {
     pub struct TipsetJson(#[serde(with = "self")] pub Tipset);
 
     /// Wrapper for serializing a SignedMessage reference to JSON.
-    #[derive(Serialize, Clone, Debug)]
+    #[derive(Serialize)]
     #[serde(transparent)]
     pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
 
