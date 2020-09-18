@@ -18,7 +18,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::cmp::Ordering;
 use std::fmt;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use vm::TokenAmount;
 
@@ -383,7 +382,7 @@ impl BlockHeader {
     /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
     pub async fn validate_block_drand<B: Beacon>(
         &self,
-        beacon: Arc<B>,
+        beacon: &B,
         prev_entry: BeaconEntry,
     ) -> Result<(), Error> {
         let max_round = beacon.max_beacon_round_for_epoch(self.epoch);
