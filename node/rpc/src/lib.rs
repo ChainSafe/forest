@@ -276,7 +276,7 @@ async fn handle_connection_and_log(
 ) {
     span!("handle_connection_and_log", {
         if let Ok(ws_stream) = async_tungstenite::accept_async(tcp_stream).await {
-            info!("accepted websocket connection at {:}", addr);
+            debug!("accepted websocket connection at {:}", addr);
             let (ws_sender, mut ws_receiver) = ws_stream.split();
             let ws_sender = Arc::new(RwLock::new(ws_sender));
             let mut chain_notify_count = 0;
