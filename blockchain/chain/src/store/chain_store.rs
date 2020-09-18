@@ -671,7 +671,7 @@ where
 }
 
 /// Returns the weight of provided tipset
-fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
+pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: BlockStore,
 {

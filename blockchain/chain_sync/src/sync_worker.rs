@@ -492,6 +492,8 @@ where
             );
         }
 
+        // Async validations
+
         // * Check block messages and their signatures as well as message root
         let b = Arc::clone(&block);
         let base_ts_clone = Arc::clone(&base_ts);
@@ -519,7 +521,7 @@ where
                 })?;
             if base_fee != parent_base_fee {
                 return Err(Error::Validation(format!(
-                    "base fee doesnt match: {} (header), {} (computed)",
+                    "base fee doesn't match: {} (header), {} (computed)",
                     parent_base_fee, base_fee
                 )));
             }
@@ -528,7 +530,21 @@ where
         validations.push(x);
 
         // * Parent weight calculation check
-        // TODO get and check parent weight
+        let bs_cloned = sm.get_block_store();
+        let base_ts_clone = Arc::clone(&base_ts);
+        let weight = header.weight().clone();
+        let x = task::spawn_blocking(move || {
+            let calc_weight =
+                chain::weight(bs_cloned.as_ref(), &base_ts_clone).map_err(|e| Error::Other(e))?;
+            if weight != calc_weight {
+                return Err(Error::Validation(format!(
+                    "Parent weight doesn't match: {} (header), {} (computed)",
+                    weight, calc_weight
+                )));
+            }
+            Ok(())
+        });
+        validations.push(x);
 
         // * State root check
         // TODO perform state transition and check root async
