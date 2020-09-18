@@ -364,12 +364,7 @@ async fn streaming_payload_and_log(
         .send(Message::text(response_text))
         .await
         .unwrap_or_else(|_| warn!("Could not send to response to socket"));
-    if let ResponseObjects::One(ResponseObject::Result {
-        jsonrpc: _,
-        result: _,
-        id: _,
-        streaming,
-    }) = response_object
+    if let ResponseObjects::One(ResponseObject::Result { streaming, .. }) = response_object {
     {
         if streaming {
             task::spawn(async move {
