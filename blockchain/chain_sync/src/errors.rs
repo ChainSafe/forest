@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use amt::Error as AmtErr;
-use hamt::Error as HamtErr;
 use blocks::Error as BlkErr;
 use chain::Error as StoreErr;
 use cid::Error as CidErr;
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
+use hamt::Error as HamtErr;
 use state_manager::Error as StErr;
 use thiserror::Error;
 

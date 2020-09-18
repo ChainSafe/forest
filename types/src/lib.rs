@@ -54,4 +54,3 @@ pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;
 
 /// Allowable clock drift in validations.
 pub const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
-

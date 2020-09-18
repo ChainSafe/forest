@@ -450,7 +450,7 @@ where
             .get_lookback_tipset_for_round(&base_ts, block.header().epoch())
             .map_err(|e| (block_cid.clone(), e.into()))?
             .map(Arc::new)
-            .unwrap_or(Arc::clone(&base_ts));
+            .unwrap_or_else(|| Arc::clone(&base_ts));
 
         let (lbst, _) = sm.tipset_state(&lbts).await.map_err(|e| {
             (
@@ -534,7 +534,7 @@ where
         let weight = header.weight().clone();
         let weight_validation = move || {
             let calc_weight =
-                chain::weight(bs_cloned.as_ref(), &base_ts_clone).map_err(|e| Error::Other(e))?;
+                chain::weight(bs_cloned.as_ref(), &base_ts_clone).map_err(Error::Other)?;
             if weight != calc_weight {
                 return Err(Error::Validation(format!(
                     "Parent weight doesn't match: {} (header), {} (computed)",
@@ -545,9 +545,31 @@ where
         };
         validations.push(task::spawn_blocking(weight_validation));
 
-        // * State root check
-
-        // TODO perform state transition and check root async
+        // * State root and receipt root validations
+        let sm_cloned = Arc::clone(&sm);
+        let base_ts_clone = Arc::clone(&base_ts);
+        let parent_state = header.state_root().clone();
+        let parent_recp = header.message_receipts().clone();
+        let state_validation = async move {
+            let (state_root, rec_root) = sm_cloned
+                .tipset_state(base_ts_clone.as_ref())
+                .await
+                .map_err(|e| Error::Other(e.to_string()))?;
+            if state_root != parent_state {
+                return Err(Error::Validation(format!(
+                    "Parent state root did not match computed state: {} (header), {} (computed)",
+                    state_root, parent_state
+                )));
+            }
+            if rec_root != parent_recp {
+                return Err(Error::Validation(format!(
+                    "Parent receipt root did not match computed state: {} (header), {} (computed)",
+                    state_root, parent_state
+                )));
+            }
+            Ok(())
+        };
+        validations.push(task::spawn(state_validation));
 
         // Work address needed for following checks, so necessary to do sync
         let work_addr = sm
