@@ -355,6 +355,7 @@ impl BlockHeader {
         beacon: &B,
         prev_entry: BeaconEntry,
     ) -> Result<(), Error> {
+        // TODO validation may need to use the beacon schedule from `ChainSyncer`. Seems outdated
         let max_round = beacon.max_beacon_round_for_epoch(self.epoch);
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {

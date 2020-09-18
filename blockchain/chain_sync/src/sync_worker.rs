@@ -385,7 +385,7 @@ where
             let cs = self.chain_store.clone();
             let sm = self.state_manager.clone();
             let bc = self.beacon.clone();
-            let v = task::spawn(async move { Self::validate(cs, sm, bc, Arc::new(b)).await });
+            let v = task::spawn(async move { Self::validate_block(cs, sm, bc, Arc::new(b)).await });
             validations.push(v);
         }
 
@@ -410,7 +410,7 @@ where
     /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
     /// Returns the validated block if `Ok`.
     /// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
-    async fn validate(
+    async fn validate_block(
         cs: Arc<ChainStore<DB>>,
         sm: Arc<StateManager<DB>>,
         bc: Arc<TBeacon>,
@@ -498,16 +498,17 @@ where
         let b = Arc::clone(&block);
         let base_ts_clone = Arc::clone(&base_ts);
         let sm_c = Arc::clone(&sm);
-        let x = task::spawn_blocking(move || Self::check_block_msgs(sm_c, &b, &base_ts_clone));
-        validations.push(x);
+        validations.push(task::spawn_blocking(move || {
+            Self::check_block_msgs(sm_c, &b, &base_ts_clone)
+        }));
 
         // * Miner validations
         let sm_c = Arc::clone(&sm);
         let parent_state = base_ts.parent_state().clone();
         let miner_addr = *header.miner_address();
-        let miner_validation =
-            move || Self::validate_miner(sm_c.as_ref(), &miner_addr, &parent_state);
-        validations.push(task::spawn_blocking(miner_validation));
+        validations.push(task::spawn_blocking(move || {
+            Self::validate_miner(sm_c.as_ref(), &miner_addr, &parent_state)
+        }));
 
         // * base fee check
         let base_ts_clone = Arc::clone(&base_ts);
@@ -587,29 +588,40 @@ where
                 false
             });
         if slash {
-            error_vec.push("Received block was from slashed or invalid miner".to_owned())
+            return Err((
+                block_cid.clone(),
+                Error::Validation("Received block was from slashed or invalid miner".to_owned()),
+            ));
         }
 
-        let cid_bytes = block
+        // * Block signature check
+        // TODO switch logic to function attached to block header
+        let block_sig_bytes = block
             .header()
             .to_signing_bytes()
             .map_err(|e| (block_cid.clone(), e.into()))?;
-
-        // * Block signature check
         let block_sig = block_sig.clone();
         validations.push(task::spawn_blocking(move || {
             block_sig
-                .verify(&cid_bytes, &work_addr)
+                .verify(&block_sig_bytes, &work_addr)
                 .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
         }));
 
         // * Beacon values check
-        // TODO can be async (and verify validation)
-        if std::env::var(IGNORE_DRAND_VAR) == Ok("1".to_owned()) {
-            header
-                .validate_block_drand(bc.as_ref(), prev_beacon)
-                .await
-                .map_err(|e| (block_cid.clone(), e.into()))?;
+        if std::env::var(IGNORE_DRAND_VAR) != Ok("1".to_owned()) {
+            let block_cloned = Arc::clone(&block);
+            validations.push(task::spawn(async move {
+                block_cloned
+                    .header()
+                    .validate_block_drand(bc.as_ref(), prev_beacon)
+                    .await
+                    .map_err(|e| {
+                        Error::Validation(format!(
+                            "Failed to validate blocks random beacon values: {}",
+                            e
+                        ))
+                    })
+            }));
         }
 
         // * Ticket election proof validations
