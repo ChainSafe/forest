@@ -745,7 +745,7 @@ pub mod headchange_json {
     use blocks::tipset_json::TipsetJsonRef;
     use serde::Serialize;
 
-    #[derive(Debug, Serialize, Clone)]
+    #[derive(Serialize)]
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
     pub enum HeadChangeJson<'a> {
