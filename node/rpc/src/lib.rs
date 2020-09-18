@@ -284,10 +284,6 @@ async fn handle_connection_and_log(
                 match message_result {
                     Ok(message) => {
                         let request_text = message.into_text().unwrap();
-                        info!(
-                            "serde request {:?}",
-                            serde_json::to_string_pretty(&request_text).unwrap()
-                        );
                         match serde_json::from_str(&request_text) as Result<RequestObject, _> {
                             Ok(call) => {
                                 // hacky but due to the limitations of jsonrpc_v2 impl
