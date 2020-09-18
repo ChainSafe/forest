@@ -505,16 +505,15 @@ where
         let sm_c = Arc::clone(&sm);
         let parent_state = base_ts.parent_state().clone();
         let miner_addr = *header.miner_address();
-        let x = task::spawn_blocking(move || {
-            Self::validate_miner(sm_c.as_ref(), &miner_addr, &parent_state)
-        });
-        validations.push(x);
+        let miner_validation =
+            move || Self::validate_miner(sm_c.as_ref(), &miner_addr, &parent_state);
+        validations.push(task::spawn_blocking(miner_validation));
 
         // * base fee check
         let base_ts_clone = Arc::clone(&base_ts);
         let bs_cloned = sm.get_block_store();
         let parent_base_fee = header.parent_base_fee().clone();
-        let x = task::spawn_blocking(move || {
+        let base_fee_validation = move || {
             let base_fee =
                 chain::compute_base_fee(bs_cloned.as_ref(), &base_ts_clone).map_err(|e| {
                     Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
@@ -526,14 +525,14 @@ where
                 )));
             }
             Ok(())
-        });
-        validations.push(x);
+        };
+        validations.push(task::spawn_blocking(base_fee_validation));
 
         // * Parent weight calculation check
         let bs_cloned = sm.get_block_store();
         let base_ts_clone = Arc::clone(&base_ts);
         let weight = header.weight().clone();
-        let x = task::spawn_blocking(move || {
+        let weight_validation = move || {
             let calc_weight =
                 chain::weight(bs_cloned.as_ref(), &base_ts_clone).map_err(|e| Error::Other(e))?;
             if weight != calc_weight {
@@ -543,10 +542,11 @@ where
                 )));
             }
             Ok(())
-        });
-        validations.push(x);
+        };
+        validations.push(task::spawn_blocking(weight_validation));
 
         // * State root check
+
         // TODO perform state transition and check root async
 
         // Work address needed for following checks, so necessary to do sync
