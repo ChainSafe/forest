@@ -233,17 +233,15 @@ pub fn get_miner_info<DB>(
 where
     DB: BlockStore,
 {
-    todo!()
-
-    // let miner_actor_state: miner::State = state_manager
-    //     .load_actor_state(&address, &tipset.parent_state())
-    //     .map_err(|err| {
-    //         Error::State(format!(
-    //             "(get miner info) failed to load miner actor state: {:}",
-    //             err
-    //         ))
-    //     })?;
-    // Ok(miner_actor_state.info)
+    let miner_actor_state: miner::State = state_manager
+        .load_actor_state(&address, &tipset.parent_state())
+        .map_err(|err| {
+            Error::State(format!(
+                "(get miner info) failed to load miner actor state: {:}",
+                err
+            ))
+        })?;
+    Ok(miner_actor_state.get_info(state_manager.get_block_store_ref())?)
 }
 
 pub fn get_miner_deadlines<DB>(
