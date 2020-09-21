@@ -150,7 +150,7 @@ mod tests {
             network_name: TEST_NET_NAME.to_owned(),
             heaviest_tipset,
             publisher: Arc::new(RwLock::new(Publisher::new(1000))),
-            events_pubsub: Arc::new(RwLock::new(Publisher::new(1000)))
+            events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
         });
         (state, network_rx)
     }

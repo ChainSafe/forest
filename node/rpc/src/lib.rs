@@ -32,7 +32,7 @@ use jsonrpc_v2::{
     Data, Error, Id, MapRouter, RequestBuilder, RequestObject, ResponseObject, ResponseObjects,
     Server, V2,
 };
-use log::{error,debug, info, warn};
+use log::{debug, error, info, warn};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::Serialize;
 use state_manager::StateManager;
