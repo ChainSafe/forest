@@ -131,17 +131,17 @@ where
             .map_err(|e| Error::State(e.to_string()))?)
     }
     /// Returns raw work address of a miner
-    pub fn get_miner_work_addr(&self, _state_cid: &Cid, _addr: &Address) -> Result<Address, Error> {
-        todo!()
+    pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
+        let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
-        // let ms: miner::State = self.load_actor_state(addr, state_cid)?;
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
+            .map_err(|e| Error::State(e.to_string()))?;
 
-        // let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
-        //     .map_err(|e| Error::State(e.to_string()))?;
-        // // Note: miner::State info likely to be changed to CID
-        // let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
-        //     .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
-        // Ok(addr)
+        let info = ms.get_info(self.bs.as_ref())?;
+
+        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &info.worker)
+            .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
+        Ok(addr)
     }
     /// Returns specified actor's claimed power and total network power as a tuple
     pub fn get_power(
