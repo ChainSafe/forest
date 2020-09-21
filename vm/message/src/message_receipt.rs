@@ -112,7 +112,6 @@ pub mod json {
     pub mod opt {
         use super::*;
 
-
         pub fn serialize<S>(v: &Option<MessageReceipt>, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
@@ -130,6 +129,4 @@ pub mod json {
             Ok(s)
         }
     }
-
-    
 }

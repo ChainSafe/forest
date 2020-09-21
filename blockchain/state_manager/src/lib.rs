@@ -24,6 +24,7 @@ use interpreter::{
 };
 use ipld_amt::Amt;
 use log::{trace, warn};
+use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
@@ -31,7 +32,6 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use message::{message_receipt,unsigned_message};
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
