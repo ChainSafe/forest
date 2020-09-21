@@ -496,6 +496,11 @@ where
             );
         }
 
+        // Work address needed for async validations, so necessary to do sync to avoid duplication.
+        let work_addr = sm
+            .get_miner_work_addr(&lbst, header.miner_address())
+            .map_err(|e| (block_cid.clone(), e.into()))?;
+
         // Async validations
 
         // * Check block messages and their signatures as well as message root
@@ -518,7 +523,7 @@ where
         let base_ts_clone = Arc::clone(&base_ts);
         let bs_cloned = sm.blockstore_cloned();
         let b_cloned = Arc::clone(&block);
-        let base_fee_validation = move || {
+        validations.push(task::spawn_blocking(move || {
             let base_fee =
                 chain::compute_base_fee(bs_cloned.as_ref(), &base_ts_clone).map_err(|e| {
                     Error::Validation(format!("Could not compute base fee: {}", e.to_string()))
@@ -532,14 +537,13 @@ where
                 )));
             }
             Ok(())
-        };
-        validations.push(task::spawn_blocking(base_fee_validation));
+        }));
 
         // * Parent weight calculation check
         let bs_cloned = sm.blockstore_cloned();
         let base_ts_clone = Arc::clone(&base_ts);
         let weight = header.weight().clone();
-        let weight_validation = move || {
+        validations.push(task::spawn_blocking(move || {
             let calc_weight =
                 chain::weight(bs_cloned.as_ref(), &base_ts_clone).map_err(Error::Other)?;
             if weight != calc_weight {
@@ -549,14 +553,13 @@ where
                 )));
             }
             Ok(())
-        };
-        validations.push(task::spawn_blocking(weight_validation));
+        }));
 
         // * State root and receipt root validations
         let sm_cloned = Arc::clone(&sm);
         let base_ts_clone = Arc::clone(&base_ts);
         let b_cloned = Arc::clone(&block);
-        let state_validation = async move {
+        validations.push(task::spawn(async move {
             let h = b_cloned.header();
             let (state_root, rec_root) = sm_cloned
                 .tipset_state(base_ts_clone.as_ref())
@@ -577,20 +580,13 @@ where
                 )));
             }
             Ok(())
-        };
-        validations.push(task::spawn(state_validation));
-
-        // Work address needed for following checks, so necessary to do sync
-        let work_addr = sm
-            .get_miner_work_addr(&lbst, header.miner_address())
-            .map_err(|e| (block_cid.clone(), e.into()))?;
+        }));
 
         // * Winner election PoSt validations
-        let winner_validation = async move {
+        validations.push(task::spawn(async move {
             // TODO
             Ok(())
-        };
-        validations.push(task::spawn(winner_validation));
+        }));
 
         // TODO This should exist in the winning async task
         let slash = sm
@@ -640,7 +636,7 @@ where
         // * Ticket election proof validations
         let b_cloned = Arc::clone(&block);
         let base_ts_clone = Arc::clone(&base_ts);
-        let ticket_validation = async move {
+        validations.push(task::spawn_blocking(move || {
             let h = b_cloned.header();
             let mut buf = h.marshal_cbor()?;
 
@@ -672,8 +668,7 @@ where
             )?;
 
             Ok(())
-        };
-        validations.push(task::spawn(ticket_validation));
+        }));
 
         // * Winning PoSt proof validation
         // TODO
