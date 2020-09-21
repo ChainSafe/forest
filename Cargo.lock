@@ -2506,6 +2506,7 @@ dependencies = [
  "forest_message",
  "forest_vm",
  "hex",
+ "lazy_static",
  "serde",
  "serde_json",
  "sha2 0.9.1",

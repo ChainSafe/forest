@@ -10,11 +10,11 @@ use amt::Amt;
 use async_std::sync::{Receiver, RwLock};
 use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
+use blocks::{Block, BlockHeader, ElectionProof, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
 use chain::{persist_objects, ChainStore};
 use cid::{multihash::Blake2b256, Cid};
 use commcid::cid_to_replica_commitment_v1;
-use crypto::{election_proof::ElectionProof, verify_bls_aggregate, DomainSeparationTag, Signature};
+use crypto::{verify_bls_aggregate, DomainSeparationTag, Signature};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
     SectorInfo, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, TICKET_RANDOMNESS_LOOKBACK,
@@ -632,8 +632,15 @@ where
 
             let (mpow, tpow) = sm_c.get_power(&lbst_clone, h.miner_address())?;
 
-            let j = election_proof;
-            // TODO
+            let j =
+                election_proof.compute_win_count(&mpow.quality_adj_power, &tpow.quality_adj_power);
+            if election_proof.win_count != j {
+                return Err(Error::Validation(format!(
+                    "miner claims wrong number of wins: miner: {}, computed {}",
+                    election_proof.win_count, j
+                )));
+            }
+
             Ok(())
         }));
 

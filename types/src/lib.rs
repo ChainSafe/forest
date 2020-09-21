@@ -20,6 +20,9 @@ pub const TOTAL_FILECOIN: i64 = 2_000_000_000;
 pub const TICKET_RANDOMNESS_LOOKBACK: ChainEpoch = 1;
 pub const WINNING_POST_SECTOR_SET_LOOKBACK: ChainEpoch = 10;
 
+/// The expected number of block producers in each epoch.
+pub const BLOCKS_PER_EPOCH: u64 = 5;
+
 /// Ratio of integer values to token value.
 pub const FILECOIN_PRECISION: i64 = 1_000_000_000_000_000_000;
 

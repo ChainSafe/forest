@@ -1,12 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, Ticket, TipsetKeys};
+use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use address::Address;
 use beacon::{self, Beacon, BeaconEntry};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::{election_proof::ElectionProof, Signature};
+use crypto::Signature;
 use derive_builder::Builder;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;

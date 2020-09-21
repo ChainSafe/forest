@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::{ticket, tipset::tipset_keys_json};
+use crate::{election_proof, ticket, tipset::tipset_keys_json};
 use beacon::beacon_entries;
-use crypto::{election_proof, signature};
+use crypto::signature;
 use fil_types::sector::post;
 use serde::{de, Deserialize, Serialize};
 
