@@ -692,6 +692,7 @@ where
                 block.miner_address()
             )));
         };
+        // TODO this util function is currently unimplemented
         let sectors = utils::get_sectors_for_winning_post(
             &self.state_manager,
             &lbst,

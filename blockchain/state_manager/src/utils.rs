@@ -33,7 +33,6 @@ where
     DB: BlockStore,
 {
     todo!()
-
     // let miner_actor_state: miner::State =
     //     state_manager
     //         .load_actor_state(&address, &st)
@@ -109,7 +108,6 @@ where
     DB: BlockStore,
 {
     todo!()
-
     // let not_proving = &actor_state.faults | &actor_state.recoveries;
 
     // actor_state
