@@ -3,13 +3,13 @@
 
 use super::cli::{block_until_sigint, initialize_genesis, Config};
 use actor::EPOCH_DURATION_SECONDS;
-use async_std::sync::channel;
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
+use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
@@ -69,7 +69,8 @@ pub(super) async fn start(config: Config) {
     let state_manager = Arc::new(StateManager::new(Arc::clone(&db)));
 
     // Initialize mpool
-    let subscriber = chain_store.subscribe().await;
+    let publisher = chain_store.publisher_arc();
+    let subscriber = (*publisher.write().await).subscribe();
     let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
     let mpool = Arc::new(
         MessagePool::new(provider, network_name.clone())
@@ -88,8 +89,6 @@ pub(super) async fn start(config: Config) {
     )
     .await
     .unwrap();
-
-    let subscriber = chain_store.subscribe().await;
 
     // Initialize ChainSyncer
     let heaviest_tipset = chain_store.heaviest_tipset_arc();
@@ -112,7 +111,6 @@ pub(super) async fn start(config: Config) {
     let p2p_task = task::spawn(async {
         p2p_service.run().await;
     });
-    let (events_sender, events_receiver) = channel(1000);
     let rpc_task = if config.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
@@ -128,9 +126,8 @@ pub(super) async fn start(config: Config) {
                     network_send,
                     network_name,
                     heaviest_tipset,
-                    events_receiver,
-                    events_sender,
-                    subscriber
+                    publisher,
+                    events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
                 },
                 &rpc_listen,
             )
