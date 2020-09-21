@@ -32,7 +32,7 @@ use jsonrpc_v2::{
     Data, Error, Id, MapRouter, RequestBuilder, RequestObject, ResponseObject, ResponseObjects,
     Server, V2,
 };
-use log::{error, info, warn};
+use log::{error,debug, info, warn};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::Serialize;
 use state_manager::StateManager;
@@ -283,7 +283,7 @@ async fn handle_connection_and_log(
 ) {
     span!("handle_connection_and_log", {
         if let Ok(ws_stream) = async_tungstenite::accept_async(tcp_stream).await {
-            info!("accepted websocket connection at {:}", addr);
+            debug!("accepted websocket connection at {:}", addr);
             let (ws_sender, mut ws_receiver) = ws_stream.split();
             let ws_sender = Arc::new(RwLock::new(ws_sender));
             let mut chain_notify_count: usize = 0;
@@ -291,10 +291,6 @@ async fn handle_connection_and_log(
                 match message_result {
                     Ok(message) => {
                         let request_text = message.into_text().unwrap();
-                        info!(
-                            "serde request {:?}",
-                            serde_json::to_string_pretty(&request_text).unwrap()
-                        );
                         match serde_json::from_str(&request_text)
                             as Result<RequestObject, serde_json::Error>
                         {

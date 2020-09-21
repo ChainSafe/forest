@@ -271,12 +271,12 @@ pub mod tipset_json {
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-    #[derive(Deserialize, Serialize, Debug, Clone)]
+    #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct TipsetJson(#[serde(with = "self")] pub Tipset);
 
     /// Wrapper for serializing a SignedMessage reference to JSON.
-    #[derive(Serialize, Clone, Debug)]
+    #[derive(Serialize)]
     #[serde(transparent)]
     pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
 
