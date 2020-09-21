@@ -1154,7 +1154,7 @@ impl Actor {
                     expiration: pre_commit.info.expiration,
                     deal_weight: pre_commit.deal_weight,
                     verified_deal_weight: pre_commit.verified_deal_weight,
-                    initial_pledge: initial_pledge,
+                    initial_pledge,
                     expected_day_reward: day_reward,
                     expected_storage_pledge: storage_pledge,
                 };
