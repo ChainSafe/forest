@@ -338,13 +338,13 @@ pub fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<Token
     let reward_actor = state_tree
         .get_actor(&*REWARD_ACTOR_ADDR)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| Error::Other(format!("State Unreachable")))?;
+        .ok_or_else(|| Error::Other("Failed to get Reward Actor".to_string()))?;
 
     let reward_state: reward::State = state_tree
         .store()
         .get(&reward_actor.code)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| Error::Other(format!("Failed to get state")))?;
+        .ok_or_else(|| Error::Other("Failed to get Rewrad Actor State".to_string()))?;
 
     Ok(reward_state.total_mined)
 }
@@ -352,17 +352,16 @@ pub fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<Token
 pub fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Error> {
-
     let market_actor = state_tree
         .get_actor(&*STORAGE_MARKET_ACTOR_ADDR)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| Error::Other(format!("State Unreachable")))?;
+        .ok_or_else(|| Error::Other("Failed to get Market Actor".to_string()))?;
 
     let market_state: market::State = state_tree
         .store()
         .get(&market_actor.state)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| Error::Other(format!("Failed to get state")))?;
+        .ok_or_else(|| Error::Other("Failed to get Market Actor State".to_string()))?;
 
     Ok(market_state.total_client_locked_colateral
         + market_state.total_provider_locked_colateral
@@ -375,22 +374,22 @@ pub fn get_fil_power_locked<DB: BlockStore>(
     let power_actor = state_tree
         .get_actor(&*STORAGE_POWER_ACTOR_ADDR)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| Error::Other(format!("State Unreachable")))?;
+        .ok_or_else(|| Error::Other("Failed to get Power Actor".to_string()))?;
 
     let power_state: power::State = state_tree
         .store()
         .get(&power_actor.state)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| Error::Other(format!("Failed to get state")))?;
+        .ok_or_else(|| Error::Other("Failed to get Power Actor State".to_string()))?;
 
-        Ok(power_state.total_pledge_collateral)
+    Ok(power_state.total_pledge_collateral)
 }
 
 pub fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, Error> {
     let burnt_actor = state_tree
         .get_actor(&*BURNT_FUNDS_ACTOR_ADDR)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| Error::Other(format!("State Unreachable")))?;
+        .ok_or_else(|| Error::Other("Failed to get Burnt Actor State".to_string()))?;
 
     Ok(burnt_actor.balance)
 }

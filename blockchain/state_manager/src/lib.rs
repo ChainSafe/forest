@@ -77,10 +77,15 @@ struct GenesisActor {
 }
 
 pub struct CirculatingSupply {
+    #[allow(dead_code)]
     fil_vested: TokenAmount,
+    #[allow(dead_code)]
     fil_mined: TokenAmount,
+    #[allow(dead_code)]
     fil_burnt: TokenAmount,
+    #[allow(dead_code)]
     fil_locked: TokenAmount,
+    #[allow(dead_code)]
     fil_circulating: TokenAmount,
 }
 
@@ -869,7 +874,7 @@ where
         let gi: &GenesisInfo = self
             .genesis_info
             .as_ref()
-            .ok_or_else(|| Error::Other(format!("Genesis Info not given")))?;
+            .ok_or_else(|| Error::Other("Genesis Info not given".to_string()))?;
         for actor in &gi.genesis_msigs {
             return_value += &actor.initial_balance - actor.amount_locked(height);
         }
@@ -877,7 +882,7 @@ where
             let state = state_tree
                 .get_actor(&actor.addr)
                 .map_err(|e| e.to_string())?
-                .ok_or_else(|| Error::Other(format!("Couldnt retreieve state")))?;
+                .ok_or_else(|| Error::Other("Failed to retreive ActorState".to_string()))?;
             let diff = &actor.init_bal - state.balance;
             if diff > TokenAmount::default() {
                 return_value += diff
@@ -889,100 +894,71 @@ where
         Ok(return_value)
     }
 
-    async fn setup_genesis_actors_testnet(&self) -> Result<(), Error> {
+    async fn setup_genesis_actors_testnet(&mut self) -> Result<(), Error> {
         let mut gi = GenesisInfo::default();
 
         let genesis_block = self
             .cs
             .genesis()
-            .map_err(|_| Error::Other(format!("Failed to get genesis")))?
-            .ok_or(Error::Other(format!("genesis is null")))?;
+            .map_err(|_| Error::Other("Failed to get Genesis Block".to_string()))?
+            .ok_or_else(|| Error::Other("Genesis Block doesnt exist".to_string()))?;
+
         let gts = Tipset::new(vec![genesis_block])
-            .map_err(|_| Error::Other(format!("Unable to get block")))?;
+            .map_err(|_| Error::Other("Failed to get Genesis Tipset".to_string()))?;
+
         let (st, _) = self
             .tipset_state(&gts)
             .await
-            .map_err(|_| Error::Other(format!("Error")))?;
-        let state_tree = StateTree::new(self.cs.db.as_ref());
+            .map_err(|_| Error::Other("Failed to get Tipset State".to_string()))?;
 
-        //.genesis().map_err(|_|Error::Other(format!("Chainstore is weird")));
+        let state_tree = StateTree::new_from_root(self.cs.db.as_ref(), &st)
+            .map_err(|_| Error::Other("Failed to load state tree".to_string()))?;
 
-        // if err != nil {
-        //     return xerrors.Errorf("getting genesis block: %w", err)
-        // }
+        gi.genesis_market_funds = utils::get_fil_market_locked(&state_tree)?;
+        gi.genesis_pledge = utils::get_fil_market_locked(&state_tree)?;
 
-        // gts, err := types.NewTipSet([]*types.BlockHeader{gb})
-        // if err != nil {
-        //     return xerrors.Errorf("getting genesis tipset: %w", err)
-        // }
+        let mut totals_by_epoch: HashMap<ChainEpoch, TokenAmount> = HashMap::new();
 
-        // st, _, err := sm.TipSetState(ctx, gts)
-        // if err != nil {
-        //     return xerrors.Errorf("getting genesis tipset state: %w", err)
-        // }
+        let six_months = 183 * network::EPOCHS_IN_DAY;
+        totals_by_epoch.insert(six_months, TokenAmount::from(82_717_041));
 
-        // cst := cbor.NewCborStore(sm.cs.Blockstore())
-        // sTree, err := state.LoadStateTree(cst, st)
-        // if err != nil {
-        //     return xerrors.Errorf("loading state tree: %w", err)
-        // }
+        let one_year = 365 * network::EPOCHS_IN_DAY;
+        totals_by_epoch.insert(one_year, TokenAmount::from(22_421_712));
 
-        // gi.genesisMarketFunds, err = getFilMarketLocked(ctx, sTree)
-        // if err != nil {
-        //     return xerrors.Errorf("setting up genesis market funds: %w", err)
-        // }
+        let two_years = 2 * 365 * network::EPOCHS_IN_DAY;
+        totals_by_epoch.insert(two_years, TokenAmount::from(7_223_364));
 
-        // gi.genesisPledge, err = getFilPowerLocked(ctx, sTree)
-        // if err != nil {
-        //     return xerrors.Errorf("setting up genesis pledge: %w", err)
-        // }
+        let three_years = 3 * 365 * network::EPOCHS_IN_DAY;
+        totals_by_epoch.insert(three_years, TokenAmount::from(87_637_883));
 
-        // totalsByEpoch := make(map[abi.ChainEpoch]abi.TokenAmount)
+        let six_years = 6 * 365 * network::EPOCHS_IN_DAY;
+        totals_by_epoch.insert(six_years, TokenAmount::from(400_000_000));
 
-        // // 6 months
-        // sixMonths := abi.ChainEpoch(183 * builtin.EpochsInDay)
-        // totalsByEpoch[sixMonths] = big.NewInt(49_929_341)
-        // totalsByEpoch[sixMonths] = big.Add(totalsByEpoch[sixMonths], big.NewInt(32_787_700))
+        for (unlock_duration, initial_balance) in totals_by_epoch {
+            let ms = multisig::State {
+                signers: vec![],
+                num_approvals_threshold: 0,
+                next_tx_id: multisig::TxnID(0),
+                initial_balance,
+                start_epoch: ChainEpoch::default(),
+                unlock_duration,
+                pending_txs: Cid::default(),
+            };
+            gi.genesis_msigs.push(ms);
+        }
 
-        // // 1 year
-        // oneYear := abi.ChainEpoch(365 * builtin.EpochsInDay)
-        // totalsByEpoch[oneYear] = big.NewInt(22_421_712)
-
-        // // 2 years
-        // twoYears := abi.ChainEpoch(2 * 365 * builtin.EpochsInDay)
-        // totalsByEpoch[twoYears] = big.NewInt(7_223_364)
-
-        // // 3 years
-        // threeYears := abi.ChainEpoch(3 * 365 * builtin.EpochsInDay)
-        // totalsByEpoch[threeYears] = big.NewInt(87_637_883)
-
-        // // 6 years
-        // sixYears := abi.ChainEpoch(6 * 365 * builtin.EpochsInDay)
-        // totalsByEpoch[sixYears] = big.NewInt(100_000_000)
-        // totalsByEpoch[sixYears] = big.Add(totalsByEpoch[sixYears], big.NewInt(300_000_000))
-
-        // gi.genesisMsigs = make([]multisig.State, 0, len(totalsByEpoch))
-        // for k, v := range totalsByEpoch {
-        //     ns := multisig.State{
-        //         InitialBalance: v,
-        //         UnlockDuration: k,
-        //         PendingTxns:    cid.Undef,
-        //     }
-        //     gi.genesisMsigs = append(gi.genesisMsigs, ns)
-        // }
-
-        // sm.genInfo = &gi
-
-        // return nil
+        self.genesis_info = Some(gi);
         Ok(())
     }
 
-    pub fn get_circulating_supply(
-        &self,
+    pub async fn get_circulating_supply<'a>(
+        &'a mut self,
         height: ChainEpoch,
-        state_tree: StateTree<DB>,
+        state_tree: StateTree<'a, DB>,
     ) -> Result<TokenAmount, Error> {
-        let supply = self.get_circulating_supply_detailed(height, state_tree)?;
+        let supply = self
+            .get_circulating_supply_detailed(height, state_tree)
+            .await?;
         Ok(supply.fil_circulating)
     }
 
@@ -992,11 +968,15 @@ where
         Ok(power_locked + market_locked)
     }
 
-    pub fn get_circulating_supply_detailed(
-        &self,
+    pub async fn get_circulating_supply_detailed<'a>(
+        &'a mut self,
         height: ChainEpoch,
-        state_tree: StateTree<DB>,
+        state_tree: StateTree<'a, DB>,
     ) -> Result<CirculatingSupply, Error> {
+        if self.genesis_info.is_none() {
+            self.setup_genesis_actors_testnet().await?;
+        }
+
         let fil_vested = self.get_fil_vested(height, &state_tree)?;
         let fil_mined = utils::get_fil_mined(&state_tree)?;
         let fil_burnt = utils::get_fil_burnt(&state_tree)?;
