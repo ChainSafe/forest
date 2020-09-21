@@ -79,7 +79,7 @@ struct GenesisActor {
 pub struct CirculatingSupply {
     fil_vested: TokenAmount,
     fil_mined: TokenAmount,
-    fil_burned: TokenAmount,
+    fil_burnt: TokenAmount,
     fil_locked: TokenAmount,
     fil_circulating: TokenAmount,
 }
@@ -862,32 +862,30 @@ where
     pub fn get_fil_vested(
         &self,
         height: ChainEpoch,
-        state_tree: StateTree<DB>,
+        state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, Error> {
         let mut return_value = TokenAmount::default();
 
-        if let Some(ref gi) = self.genesis_info {
-            for actor in &gi.genesis_msigs {
-                return_value += &actor.initial_balance - actor.amount_locked(height);
-            }
-
-            for actor in &gi.genesis_actors {
-                let result = state_tree
-                    .get_actor(&actor.addr)
-                    .map_err(|e| e.to_string())?;
-                if let Some(state) = result {
-                    let diff = &actor.init_bal - state.balance;
-                    if diff > TokenAmount::default() {
-                        return_value += diff
-                    }
-                } else {
-                    return Ok(TokenAmount::default());
-                }
-            }
-
-            return_value += &gi.genesis_pledge + &gi.genesis_market_funds;
+        let gi: &GenesisInfo = self
+            .genesis_info
+            .as_ref()
+            .ok_or_else(|| Error::Other(format!("Genesis Info not given")))?;
+        for actor in &gi.genesis_msigs {
+            return_value += &actor.initial_balance - actor.amount_locked(height);
         }
-
+        for actor in &gi.genesis_actors {
+            let state = state_tree
+                .get_actor(&actor.addr)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| Error::Other(format!("Couldnt retreieve state")))?;
+            let diff = &actor.init_bal - state.balance;
+            if diff > TokenAmount::default() {
+                return_value += diff
+            } else {
+                return Ok(TokenAmount::default());
+            }
+        }
+        return_value += &gi.genesis_pledge + &gi.genesis_market_funds;
         Ok(return_value)
     }
 
@@ -988,9 +986,9 @@ where
         Ok(supply.fil_circulating)
     }
 
-    pub fn get_fil_locked(&self, state_tree: StateTree<DB>) -> Result<TokenAmount, Error> {
-        let market_locked = utils::get_fil_market_locked(state_tree)?;
-        let power_locked = utils::get_fil_power_locked(state_tree)?;
+    pub fn get_fil_locked(&self, state_tree: &StateTree<DB>) -> Result<TokenAmount, Error> {
+        let market_locked = utils::get_fil_market_locked(&state_tree)?;
+        let power_locked = utils::get_fil_power_locked(&state_tree)?;
         Ok(power_locked + market_locked)
     }
 
@@ -998,20 +996,20 @@ where
         &self,
         height: ChainEpoch,
         state_tree: StateTree<DB>,
-    ) -> Result<CirculatingSupply, ()> {
-        let fil_vested = self.get_fil_vested(height, state_tree)?;
-        let fil_mined = utils::get_fil_mined(state_tree)?;
-        let fil_burned = utils::get_fil_burned(state_tree)?;
-        let fil_locked = self.get_fil_locked(state_tree)?;
+    ) -> Result<CirculatingSupply, Error> {
+        let fil_vested = self.get_fil_vested(height, &state_tree)?;
+        let fil_mined = utils::get_fil_mined(&state_tree)?;
+        let fil_burnt = utils::get_fil_burnt(&state_tree)?;
+        let fil_locked = self.get_fil_locked(&state_tree)?;
         let fil_circulating = BigInt::max(
-            fil_vested + fil_mined - fil_burned - fil_locked,
+            &fil_vested + &fil_mined - &fil_burnt - &fil_locked,
             TokenAmount::default(),
         );
 
         Ok(CirculatingSupply {
             fil_vested,
             fil_mined,
-            fil_burned,
+            fil_burnt,
             fil_locked,
             fil_circulating,
         })
