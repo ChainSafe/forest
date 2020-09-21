@@ -635,13 +635,13 @@ where
 
         // * Ticket election proof validations
         let b_cloned = Arc::clone(&block);
-        let base_ts_clone = Arc::clone(&base_ts);
+        let p_beacon = Arc::clone(&prev_beacon);
         validations.push(task::spawn_blocking(move || {
             let h = b_cloned.header();
             let mut buf = h.marshal_cbor()?;
 
             if h.epoch() > UPGRADE_SMOKE_HEIGHT {
-                let vrf_proof = base_ts_clone
+                let vrf_proof = base_ts
                     .min_ticket()
                     .as_ref()
                     .ok_or("Base tipset did not have ticket to verify")?
@@ -650,7 +650,7 @@ where
                 buf.extend_from_slice(vrf_proof);
             }
 
-            let beacon_base = h.beacon_entries().last().unwrap_or(&prev_beacon);
+            let beacon_base = h.beacon_entries().last().unwrap_or(&p_beacon);
 
             let vrf_base = chain::draw_randomness(
                 beacon_base.data(),
@@ -671,7 +671,17 @@ where
         }));
 
         // * Winning PoSt proof validation
-        // TODO
+        let b_clone = block.clone();
+        validations.push(task::spawn_blocking(move || {
+            Self::verify_winning_post_proof(
+                sm.as_ref(),
+                b_clone.header(),
+                prev_beacon.as_ref(),
+                &lbst,
+            )?;
+
+            Ok(())
+        }));
 
         // collect the errors from the async validations
         while let Some(result) = validations.next().await {
@@ -819,20 +829,21 @@ where
         Ok(())
     }
 
-    // TODO PoSt verifications are unused currently
-    async fn _verify_winning_post_proof(
-        &self,
-        block: BlockHeader,
-        prev_entry: BeaconEntry,
-        lbst: Cid,
+    // TODO logic of this function seems outdated
+    fn verify_winning_post_proof(
+        sm: &StateManager<DB>,
+        block: &BlockHeader,
+        prev_entry: &BeaconEntry,
+        lbst: &Cid,
     ) -> Result<(), Error> {
-        let marshal_miner_work_addr = block.miner_address().marshal_cbor()?;
-        let rbase = block.beacon_entries().iter().last().unwrap_or(&prev_entry);
+        // TODO allow for insecure validation to skip these checks
+        let buf = block.miner_address().marshal_cbor()?;
+        let rbase = block.beacon_entries().iter().last().unwrap_or(prev_entry);
         let rand = chain::draw_randomness(
             rbase.data(),
             DomainSeparationTag::WinningPoStChallengeSeed,
             block.epoch(),
-            &marshal_miner_work_addr,
+            &buf,
         )
         .map_err(|err| {
             Error::Validation(format!(
@@ -840,18 +851,15 @@ where
                 err
             ))
         })?;
+
         if block.miner_address().protocol() != Protocol::ID {
             return Err(Error::Validation(format!(
                 "failed to get ID from miner address {:}",
                 block.miner_address()
             )));
         };
-        let sectors = utils::get_sectors_for_winning_post(
-            &self.state_manager,
-            &lbst,
-            &block.miner_address(),
-            &rand,
-        )?;
+        let sectors =
+            utils::get_sectors_for_winning_post(sm, &lbst, &block.miner_address(), &rand)?;
 
         let proofs = block
             .win_post_proof()
@@ -884,7 +892,7 @@ where
             .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
 
         let mut prover_id = ProverId::default();
-        let prover_bytes = block.miner_address().to_bytes();
+        let prover_bytes = block.miner_address().payload().to_bytes();
         prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
         if !verify_winning_post(&rand, &proofs, &replicas, prover_id)
             .map_err(|err| Error::Validation(format!("failed to verify election post: {:}", err)))?
