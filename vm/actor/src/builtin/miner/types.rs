@@ -266,7 +266,7 @@ pub struct SectorOnChainInfo {
 
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainSectorInfo {
-    pub info: SectorPreCommitInfo,
+    pub info: SectorOnChainInfo,
     pub id: SectorNumber,
 }
 

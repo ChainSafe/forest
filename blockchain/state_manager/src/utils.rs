@@ -151,30 +151,28 @@ fn load_sectors_from_set<DB>(
 where
     DB: BlockStore,
 {
-    todo!()
+    let amt = Amt::load(ssc, block_store).map_err(|err| Error::Other(err.to_string()))?;
 
-    // let amt = Amt::load(ssc, block_store).map_err(|err| Error::Other(err.to_string()))?;
+    let mut sset: Vec<ChainSectorInfo> = Vec::new();
+    let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| {
+        if let Some(ref mut s) = filter {
+            let i = i
+                .try_into()
+                .map_err(|_| "Could not convert from index to usize")?;
+            if s.get(i) {
+                return Ok(());
+            }
+        }
+        sset.push(ChainSectorInfo {
+            info: sector_chain.clone(),
+            id: i,
+        });
+        Ok(())
+    };
+    amt.for_each(for_each)
+        .map_err(|err| Error::Other(format!("Error Processing ForEach {:}", err)))?;
 
-    // let mut sset: Vec<ChainSectorInfo> = Vec::new();
-    // let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| {
-    //     if let Some(ref mut s) = filter {
-    //         let i = i
-    //             .try_into()
-    //             .map_err(|_| "Could not convert from index to usize")?;
-    //         if s.get(i) {
-    //             return Ok(());
-    //         }
-    //     }
-    //     sset.push(ChainSectorInfo {
-    //         info: sector_chain.info.to_owned(),
-    //         id: i,
-    //     });
-    //     Ok(())
-    // };
-    // amt.for_each(for_each)
-    //     .map_err(|err| Error::Other(format!("Error Processing ForEach {:}", err)))?;
-
-    // Ok(sset)
+    Ok(sset)
 }
 
 pub fn miner_sector_info<DB>(
