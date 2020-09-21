@@ -19,7 +19,7 @@ use message::{
     message_receipt::json::MessageReceiptJson,
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
 use wallet::KeyStore;
@@ -29,24 +29,6 @@ use wallet::KeyStore;
 pub struct MessageLookup {
     pub receipt: MessageReceiptJson,
     pub tipset: TipsetJson,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResultJson {
-    pub msg: UnsignedMessageJson,
-    pub msg_rct: Option<MessageReceiptJson>,
-    pub error: Option<String>,
-}
-
-impl From<InvocResult> for InvocResultJson {
-    fn from(invoc: InvocResult) -> Self {
-        InvocResultJson {
-            msg: invoc.msg.into(),
-            msg_rct: invoc.msg_rct.map(|s| s.into()),
-            error: invoc.error,
-        }
-    }
 }
 
 /// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
@@ -81,14 +63,13 @@ pub(crate) async fn state_call<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(UnsignedMessageJson, TipsetKeys)>,
-) -> Result<InvocResultJson, JsonRpcError> {
+) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (unsigned_msg_json, key) = params;
     let mut message: UnsignedMessage = unsigned_msg_json.into();
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     state_manager
         .call(&mut message, Some(tipset))
-        .map(|s| s.into())
         .map_err(|e| e.into())
 }
 
@@ -260,16 +241,16 @@ pub(crate) async fn state_replay<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson, TipsetKeys)>,
-) -> Result<InvocResultJson, JsonRpcError> {
+) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (cidjson, key) = params;
     let cid = cidjson.into();
     let tipset = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &key)?;
     let (msg, ret) = state_manager.replay(&tipset, &cid)?;
 
-    Ok(InvocResultJson {
-        msg: msg.into(),
-        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone().into()),
+    Ok(InvocResult {
+        msg,
+        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone()),
         error: ret
             .map(|act| act.act_error.map(|e| e.to_string()))
             .unwrap_or_default(),
