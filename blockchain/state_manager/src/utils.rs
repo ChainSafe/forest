@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(unused)]
+
 use crate::errors::*;
 use crate::StateManager;
 use actor::miner;

@@ -131,7 +131,7 @@ where
             .map_err(|e| Error::State(e.to_string()))?)
     }
     /// Returns raw work address of a miner
-    pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
+    pub fn get_miner_work_addr(&self, _state_cid: &Cid, _addr: &Address) -> Result<Address, Error> {
         todo!()
 
         // let ms: miner::State = self.load_actor_state(addr, state_cid)?;
