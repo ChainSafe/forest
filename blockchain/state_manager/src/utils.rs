@@ -5,7 +5,7 @@
 
 use crate::errors::*;
 use crate::StateManager;
-use actor::miner;
+use actor::miner::{self, Partition};
 use actor::{
     miner::{ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
@@ -21,6 +21,7 @@ use forest_blocks::Tipset;
 use ipld_amt::Amt;
 use ipld_hamt::Hamt;
 use std::convert::TryInto;
+use std::error::Error as StdError;
 
 pub fn get_sectors_for_winning_post<DB>(
     state_manager: &StateManager<DB>,
@@ -270,16 +271,17 @@ where
         })
 }
 
-pub fn get_miner_faults<DB>(
+fn for_each_deadline_partition<DB, F>(
     state_manager: &StateManager<DB>,
     tipset: &Tipset,
     address: &Address,
-) -> Result<BitField, Box<dyn std::error::Error>>
+    mut cb: F,
+) -> Result<(), Box<dyn StdError>>
 where
+    F: FnMut(&Partition) -> Result<(), Box<dyn StdError>>,
     DB: BlockStore,
 {
     let store = state_manager.get_block_store_ref();
-    let mut out = BitField::new();
 
     // TODO clean this logic up
     let miner_actor_state: miner::State =
@@ -289,12 +291,30 @@ where
         let partitions = deadline.partitions_amt(store).map_err(|e| e.to_string())?;
         partitions
             .for_each(|i, part| {
-                out |= &part.faults;
+                cb(part);
                 Ok(())
             })
             .map_err(|e| e.to_string())?;
         Ok(())
     });
+
+    Ok(())
+}
+
+pub fn get_miner_faults<DB>(
+    state_manager: &StateManager<DB>,
+    tipset: &Tipset,
+    address: &Address,
+) -> Result<BitField, Box<dyn StdError>>
+where
+    DB: BlockStore,
+{
+    let mut out = BitField::new();
+
+    for_each_deadline_partition(state_manager, tipset, address, |part| {
+        out |= &part.faults;
+        Ok(())
+    })?;
 
     Ok(out)
 }
@@ -303,21 +323,18 @@ pub fn get_miner_recoveries<DB>(
     state_manager: &StateManager<DB>,
     tipset: &Tipset,
     address: &Address,
-) -> Result<BitField, Error>
+) -> Result<BitField, Box<dyn StdError>>
 where
     DB: BlockStore,
 {
-    todo!()
+    let mut out = BitField::new();
 
-    // let miner_actor_state: miner::State = state_manager
-    //     .load_actor_state(&address, &tipset.parent_state())
-    //     .map_err(|err| {
-    //         Error::State(format!(
-    //             "(get miner recoveries) failed to load miner actor state: {:}",
-    //             err
-    //         ))
-    //     })?;
-    // Ok(miner_actor_state.recoveries)
+    for_each_deadline_partition(state_manager, tipset, address, |part| {
+        out |= &part.recoveries;
+        Ok(())
+    })?;
+
+    Ok(out)
 }
 
 pub fn list_miner_actors<'a, DB>(
