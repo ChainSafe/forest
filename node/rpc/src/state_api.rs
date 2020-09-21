@@ -302,8 +302,7 @@ pub(crate) async fn state_account_key<
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
-    let address =
-        interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
+    let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(address.into())
 }
 /// retrieves the ID address of the given address

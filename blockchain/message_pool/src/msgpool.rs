@@ -226,8 +226,7 @@ where
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        chain::unsigned_messages_for_tipset(self.sm.blockstore(), h)
-            .map_err(|err| err.into())
+        chain::unsigned_messages_for_tipset(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {

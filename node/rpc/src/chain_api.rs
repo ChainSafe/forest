@@ -134,8 +134,8 @@ where
 {
     let (height, tsk) = params;
     let ts = chain::tipset_from_keys(data.state_manager.blockstore(), &tsk)?;
-    let tss = chain::tipset_by_height(data.state_manager.blockstore(), height, &ts, true)?
-        .unwrap_or(ts);
+    let tss =
+        chain::tipset_by_height(data.state_manager.blockstore(), height, &ts, true)?.unwrap_or(ts);
     Ok(TipsetJson(tss))
 }
 
@@ -146,8 +146,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let genesis = chain::genesis(data.state_manager.blockstore())?
-        .ok_or("can't find genesis tipset")?;
+    let genesis =
+        chain::genesis(data.state_manager.blockstore())?.ok_or("can't find genesis tipset")?;
     let gen_ts = Tipset::new(vec![genesis])?;
     Ok(Some(TipsetJson(gen_ts)))
 }
