@@ -274,21 +274,29 @@ pub fn get_miner_faults<DB>(
     state_manager: &StateManager<DB>,
     tipset: &Tipset,
     address: &Address,
-) -> Result<BitField, Error>
+) -> Result<BitField, Box<dyn std::error::Error>>
 where
     DB: BlockStore,
 {
-    todo!()
+    let store = state_manager.get_block_store_ref();
+    let mut out = BitField::new();
 
-    // let miner_actor_state: miner::State = state_manager
-    //     .load_actor_state(&address, &tipset.parent_state())
-    //     .map_err(|err| {
-    //         Error::State(format!(
-    //             "(get miner faults) failed to load miner actor state: {:}",
-    //             err
-    //         ))
-    //     })?;
-    // Ok(miner_actor_state.faults)
+    // TODO clean this logic up
+    let miner_actor_state: miner::State =
+        state_manager.load_actor_state(&address, tipset.parent_state())?;
+    let deadlines = miner_actor_state.load_deadlines(store)?;
+    let pa = deadlines.for_each(store, |i, deadline| {
+        let partitions = deadline.partitions_amt(store).map_err(|e| e.to_string())?;
+        partitions
+            .for_each(|i, part| {
+                out |= &part.faults;
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    });
+
+    Ok(out)
 }
 
 pub fn get_miner_recoveries<DB>(
