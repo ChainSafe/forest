@@ -20,6 +20,15 @@ pub const TOTAL_FILECOIN: i64 = 2_000_000_000;
 pub const TICKET_RANDOMNESS_LOOKBACK: ChainEpoch = 1;
 pub const WINNING_POST_SECTOR_SET_LOOKBACK: ChainEpoch = 10;
 
+/// Ratio of integer values to token value.
+pub const FILECOIN_PRECISION: i64 = 1_000_000_000_000_000_000;
+
+/// Block delay, or epoch duration, to be used in blockchain system.
+pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;
+
+/// Allowable clock drift in validations.
+pub const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
+
 /// Config trait which handles different network configurations.
 pub trait NetworkParams {
     /// Total filecoin available to network.
@@ -39,18 +48,12 @@ pub trait NetworkParams {
     }
 }
 
-// Not yet finalized
+// Devnet Parameters, not yet finalized
 pub struct DevnetParams;
 impl NetworkParams for DevnetParams {
     const TOTAL_FILECOIN: i64 = TOTAL_FILECOIN;
     const MINING_REWARD_TOTAL: i64 = 1_400_000_000;
 }
 
-/// Ratio of integer values to token value.
-pub const FILECOIN_PRECISION: i64 = 1_000_000_000_000_000_000;
-
-/// Block delay, or epoch duration, to be used in blockchain system.
-pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;
-
-/// Allowable clock drift in validations.
-pub const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
+/// Space-race specific fork
+pub const UPGRADE_SMOKE_HEIGHT: i64 = 51000;

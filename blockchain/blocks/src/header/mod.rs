@@ -353,7 +353,7 @@ impl BlockHeader {
     pub async fn validate_block_drand<B: Beacon>(
         &self,
         beacon: &B,
-        prev_entry: BeaconEntry,
+        prev_entry: &BeaconEntry,
     ) -> Result<(), Error> {
         // TODO validation may need to use the beacon schedule from `ChainSyncer`. Seems outdated
         let max_round = beacon.max_beacon_round_for_epoch(self.epoch);
@@ -376,7 +376,7 @@ impl BlockHeader {
             )));
         }
 
-        let mut prev = &prev_entry;
+        let mut prev = prev_entry;
         for curr in &self.beacon_entries {
             if !beacon
                 .verify_entry(&curr, &prev)
