@@ -656,7 +656,7 @@ where
 
             let beacon_base = h.beacon_entries().last().unwrap_or(&prev_beacon);
 
-            let _vrf_base = chain::draw_randomness(
+            let vrf_base = chain::draw_randomness(
                 beacon_base.data(),
                 DomainSeparationTag::TicketProduction,
                 h.epoch() - TICKET_RANDOMNESS_LOOKBACK,
@@ -664,7 +664,12 @@ where
             )
             .map_err(|e| Error::Other(format!("failed to draw randomness: {}", e)))?;
 
-            // TODO
+            verify_election_post_vrf(
+                &work_addr,
+                &vrf_base,
+                // Safe to unwrap here because of block sanity checks
+                h.ticket().as_ref().unwrap().vrfproof.as_bytes(),
+            )?;
 
             Ok(())
         };
@@ -909,6 +914,12 @@ where
             ))
         }
     }
+}
+
+/// Helper function to verify VRF proofs.
+fn verify_election_post_vrf(worker: &Address, rand: &[u8], evrf: &[u8]) -> Result<(), String> {
+    // TODO allow for insecure post validation to skip checks
+    crypto::verify_vrf(worker, rand, evrf)
 }
 
 /// Checks optional values in header and returns reference to the values.
