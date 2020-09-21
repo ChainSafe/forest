@@ -461,6 +461,7 @@ where
                 Error::Validation(format!("Could not update state: {}", e.to_string())),
             )
         })?;
+        let lbst = Arc::new(lbst);
 
         let prev_beacon = chain::latest_beacon_entry(cs.blockstore(), base_ts.as_ref())
             .map_err(|e| (block_cid.clone(), e.into()))?;
@@ -583,24 +584,58 @@ where
         }));
 
         // * Winner election PoSt validations
+        let b_clone = Arc::clone(&block);
+        let p_beacon = Arc::clone(&prev_beacon);
+        let base_ts_clone = Arc::clone(&base_ts);
+        let sm_c = Arc::clone(&sm);
+        let lbst_clone = Arc::clone(&lbst);
         validations.push(task::spawn(async move {
+            let h = b_clone.header();
+            // Safe to unwrap because checked to be `Some` in sanity check.
+            let election_proof = h.election_proof().as_ref().unwrap();
+
+            if election_proof.win_count < 1 {
+                return Err(Error::Validation(
+                    "Block is not claiming to be a winner".to_string(),
+                ));
+            }
+
+            // TODO miner has min power
+            let hp = false;
+            if !hp {
+                return Err(Error::Validation(
+                    "Block's miner does not meet minimum power threshold".to_string(),
+                ));
+            }
+
+            let r_beacon = h.beacon_entries().last().unwrap_or(&p_beacon);
+
+            let buf = h.miner_address().marshal_cbor()?;
+
+            let vrf_base = chain::draw_randomness(
+                r_beacon.data(),
+                DomainSeparationTag::ElectionProofProduction,
+                h.epoch(),
+                &buf,
+            )
+            .map_err(|e| Error::Other(format!("failed to draw randomness: {}", e)))?;
+
+            verify_election_post_vrf(&work_addr, &vrf_base, election_proof.vrfproof.as_bytes())?;
+
+            let slashed =
+                sm_c.is_miner_slashed(h.miner_address(), &base_ts_clone.parent_state())?;
+            if slashed {
+                return Err(Error::Validation(
+                    "Received block was from slashed or invalid miner".to_owned(),
+                ));
+            }
+
+            let (mpow, tpow) = sm_c.get_power(&lbst_clone, h.miner_address())?;
+
+            let j = election_proof;
             // TODO
             Ok(())
         }));
-
-        // TODO This should exist in the winning async task
-        let slash = sm
-            .is_miner_slashed(header.miner_address(), &base_ts.parent_state())
-            .unwrap_or_else(|err| {
-                error_vec.push(err.to_string());
-                false
-            });
-        if slash {
-            return Err((
-                block_cid.clone(),
-                Error::Validation("Received block was from slashed or invalid miner".to_owned()),
-            ));
-        }
 
         // * Block signature check
         let b_cloned = Arc::clone(&block);
