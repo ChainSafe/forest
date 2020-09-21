@@ -197,7 +197,7 @@ where
                         }
                         ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
                             debug!("Received blocksync response (id: {:?})", request_id);
-                            let tx = self.bs_request_table.remove(&request_id);
+                            let tx = self.db_request_table.remove(&request_id);
 
                             if let Some(tx) = tx {
                                 if let Err(e) = tx.send(response) {
@@ -254,7 +254,7 @@ where
                         NetworkMessage::BlockSyncRequest { peer_id, request, response_channel } => {
                             let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request));
                             debug!("Sent BS Request with id: {:?}", id);
-                            self.bs_request_table.insert(id, response_channel);
+                            self.db_request_table.insert(id, response_channel);
                         }
                     }
                     None => { break; }

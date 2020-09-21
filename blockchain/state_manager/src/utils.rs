@@ -11,6 +11,7 @@ use actor::{
 use address::{Address, Protocol};
 use bitfield::BitField;
 use blockstore::BlockStore;
+use chain::ChainStore;
 use cid::Cid;
 use encoding::serde_bytes::ByteBuf;
 use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize, HAMT_BIT_WIDTH};
@@ -18,7 +19,10 @@ use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId
 use forest_blocks::Tipset;
 use ipld_amt::Amt;
 use ipld_hamt::Hamt;
+use state_tree::StateTree;
 use std::convert::TryInto;
+
+use actor::*;
 
 pub fn get_sectors_for_winning_post<DB>(
     state_manager: &StateManager<DB>,
@@ -329,4 +333,73 @@ where
     })
     .map_err(|e| Error::Other(e.to_string()))?;
     Ok(miners)
+}
+
+pub fn get_fil_mined<DB: BlockStore>(state_tree: StateTree<DB>) -> Result<TokenAmount, Error> {
+    let mut return_amount = TokenAmount::default();
+    let result = state_tree
+        .get_actor(&*REWARD_ACTOR_ADDR)
+        .map_err(|e| e.to_string())?;
+
+    if let Some(reward_actor) = result {
+        let state_result: Option<reward::State> = state_tree
+            .store()
+            .get(&reward_actor.code)
+            .map_err(|e| e.to_string())?;
+        if let Some(reward_state) = state_result {
+            return_amount = reward_state.total_mined;
+        }
+    }
+
+    return Ok(return_amount);
+}
+
+pub fn get_fil_market_locked<DB: BlockStore>(
+    state_tree: StateTree<DB>,
+) -> Result<TokenAmount, Error> {
+    let mut return_amount = TokenAmount::default();
+
+    let result = state_tree
+        .get_actor(&*STORAGE_MARKET_ACTOR_ADDR)
+        .map_err(|e| e.to_string())?;
+
+    if let Some(market_actor) = result {
+        let state_result: Option<market::State> = state_tree
+            .store()
+            .get(&market_actor.state)
+            .map_err(|e| e.to_string())?;
+        if let Some(market_state) = state_result {
+            return_amount += market_state.total_client_locked_colateral;
+            return_amount += market_state.total_provider_locked_colateral;
+            return_amount += market_state.total_client_storage_fee;
+        }
+    }
+
+    return Ok(return_amount);
+}
+
+pub fn get_fil_power_locked<DB: BlockStore>(
+    state_tree: StateTree<DB>,
+) -> Result<TokenAmount, Error> {
+    let mut return_amount = TokenAmount::default();
+    let actor_result = state_tree
+        .get_actor(&*STORAGE_POWER_ACTOR_ADDR)
+        .map_err(|e| e.to_string())?;
+
+    if let Some(power_actor) = actor_result {
+        let state_result: Option<power::State> = state_tree
+            .store()
+            .get(&power_actor.state)
+            .map_err(|e| e.to_string())?;
+        if let Some(power_state) = state_result {
+            return_amount = power_state.total_pledge_collateral;
+        }
+    }
+
+    return Ok(return_amount);
+}
+
+pub fn get_fil_burned<DB: BlockStore>(state_tree: StateTree<DB>) -> Result<TokenAmount, Error> {
+    let mut return_amount = TokenAmount::default();
+    Ok(return_amount)
 }

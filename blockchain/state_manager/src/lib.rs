@@ -10,7 +10,7 @@ use async_log::span;
 use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, get_heaviest_tipset, HeadChange};
+use chain::{block_messages, get_heaviest_tipset, ChainStore, HeadChange};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
@@ -57,9 +57,31 @@ pub struct MarketBalance {
 }
 
 pub struct StateManager<DB> {
-    bs: Arc<DB>,
+    cs: ChainStore<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
     subscriber: Option<Subscriber<HeadChange>>,
+    genesis_info: Option<GenesisInfo>,
+}
+#[derive(Default)]
+struct GenesisInfo {
+    genesis_msigs: Vec<multisig::State>,
+    // info about the Accounts in the genesis state
+    genesis_actors: Vec<GenesisActor>,
+    genesis_pledge: TokenAmount,
+    genesis_market_funds: TokenAmount,
+}
+
+struct GenesisActor {
+    addr: Address,
+    init_bal: TokenAmount,
+}
+
+pub struct CirculatingSupply {
+    fil_vested: TokenAmount,
+    fil_mined: TokenAmount,
+    fil_burned: TokenAmount,
+    fil_locked: TokenAmount,
+    fil_circulating: TokenAmount,
 }
 
 impl<DB> StateManager<DB>
@@ -69,18 +91,20 @@ where
     /// constructor
     pub fn new(bs: Arc<DB>) -> Self {
         Self {
-            bs,
+            cs: ChainStore::new(bs),
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
+            genesis_info: None,
         }
     }
 
     // Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
     pub fn new_with_subscribers(bs: Arc<DB>, chain_subs: Subscriber<HeadChange>) -> Self {
         Self {
-            bs,
+            cs: ChainStore::new(bs),
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
+            genesis_info: None,
         }
     }
     /// Loads actor state from IPLD Store
@@ -92,14 +116,15 @@ where
             .get_actor(addr, state_cid)?
             .ok_or_else(|| Error::ActorNotFound(addr.to_string()))?;
         let act: D = self
-            .bs
+            .cs
+            .db
             .get(&actor.state)
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }
     pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
+        let state = StateTree::new_from_root(self.cs.db.as_ref(), state_cid)
             .map_err(|e| Error::State(e.to_string()))?;
         state
             .get_actor(addr)
@@ -107,11 +132,11 @@ where
     }
 
     pub fn get_block_store(&self) -> Arc<DB> {
-        self.bs.clone()
+        self.cs.db.clone()
     }
 
     pub fn get_block_store_ref(&self) -> &DB {
-        &self.bs
+        &self.cs.db
     }
 
     /// Returns the network name from the init actor state
@@ -123,7 +148,7 @@ where
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
         let spas: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        let claims = make_map_with_root::<_, power::Claim>(&spas.claims, self.bs.as_ref())
+        let claims = make_map_with_root::<_, power::Claim>(&spas.claims, self.cs.db.as_ref())
             .map_err(|e| Error::State(e.to_string()))?;
 
         Ok(!claims
@@ -134,10 +159,10 @@ where
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
-        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
+        let state = StateTree::new_from_root(self.cs.db.as_ref(), state_cid)
             .map_err(|e| Error::State(e.to_string()))?;
         // Note: miner::State info likely to be changed to CID
-        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
+        let addr = resolve_to_key_addr(&state, self.cs.db.as_ref(), &ms.info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
         Ok(addr)
     }
@@ -149,7 +174,7 @@ where
     ) -> Result<(power::Claim, power::Claim), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        let cm = make_map_with_root(&ps.claims, self.bs.as_ref())
+        let cm = make_map_with_root(&ps.claims, self.cs.db.as_ref())
             .map_err(|e| Error::State(e.to_string()))?;
         let claim: power::Claim = cm
             .get(&addr.to_bytes())
@@ -186,7 +211,7 @@ where
     where
         R: Rand,
     {
-        let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
+        let mut buf_store = BufferedBlockStore::new(self.cs.db.as_ref());
         // TODO change from statically using devnet params when needed
         let mut vm = VM::<_, _, _>::new(
             p_state,
@@ -201,7 +226,7 @@ where
         let receipts = vm.apply_block_messages(messages, parent_epoch, epoch, callback)?;
 
         // Construct receipt root from receipts
-        let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
+        let rect_root = Amt::new_from_slice(self.cs.db.as_ref(), &receipts)?;
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
@@ -341,9 +366,9 @@ where
 
         let mut vm = VM::<_, _, _>::new(
             &st,
-            self.bs.as_ref(),
+            self.cs.db.as_ref(),
             ts.epoch() + 1,
-            DefaultSyscalls::new(self.bs.as_ref()),
+            DefaultSyscalls::new(self.cs.db.as_ref()),
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
         )?;
@@ -434,7 +459,7 @@ where
                     .cids()
                     .get(0)
                     .ok_or("block must have parents")?;
-                let parent: BlockHeader = self.bs.get(parent_cid)?.ok_or_else(|| {
+                let parent: BlockHeader = self.cs.db.get(parent_cid)?.ok_or_else(|| {
                     format!("Could not find parent block with cid {}", parent_cid)
                 })?;
                 parent.epoch()
@@ -450,7 +475,7 @@ where
             let blocks = block_headers
                 .iter()
                 .map(|s: &BlockHeader| {
-                    let (bls_messages, secpk_messages) = block_messages(self.bs.as_ref(), &s)?;
+                    let (bls_messages, secpk_messages) = block_messages(self.cs.db.as_ref(), &s)?;
                     Ok(BlockMessages {
                         miner: *s.miner_address(),
                         bls_messages,
@@ -761,7 +786,7 @@ where
 
     /// Return the heaviest tipset's balance from self.db for a given address
     pub fn get_heaviest_balance(&self, addr: &Address) -> Result<BigInt, Error> {
-        let ts = get_heaviest_tipset(self.bs.as_ref())
+        let ts = get_heaviest_tipset(self.cs.db.as_ref())
             .map_err(|err| Error::Other(err.to_string()))?
             .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
         let cid = ts.parent_state();
@@ -776,7 +801,7 @@ where
     }
 
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())
+        let state_tree = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
             .map_err(|e| e.to_string())?;
         state_tree
             .lookup_id(addr)
@@ -793,12 +818,12 @@ where
 
         let out = MarketBalance {
             escrow: {
-                let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
+                let et = BalanceTable::from_root(self.cs.db.as_ref(), &market_state.escrow_table)
                     .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
                 et.get(&new_addr).unwrap_or_default()
             },
             locked: {
-                let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
+                let lt = BalanceTable::from_root(self.cs.db.as_ref(), &market_state.locked_table)
                     .map_err(|_x| Error::State("Failed to build Locked Table".to_string()))?;
                 lt.get(&new_addr).unwrap_or_default()
             },
@@ -824,13 +849,171 @@ where
             _ => {}
         };
         let (st, _) = self.tipset_state(&ts).await?;
-        let state = StateTree::new_from_root(self.bs.as_ref(), &st)
+        let state = StateTree::new_from_root(self.cs.db.as_ref(), &st)
             .map_err(|e| Error::State(e.to_string()))?;
 
         Ok(interpreter::resolve_to_key_addr(
             &state,
-            self.bs.as_ref(),
+            self.cs.db.as_ref(),
             &addr,
         )?)
+    }
+
+    pub fn get_fil_vested(
+        &self,
+        height: ChainEpoch,
+        state_tree: StateTree<DB>,
+    ) -> Result<TokenAmount, Error> {
+        let mut return_value = TokenAmount::default();
+
+        if let Some(ref gi) = self.genesis_info {
+            for actor in &gi.genesis_msigs {
+                return_value += &actor.initial_balance - actor.amount_locked(height);
+            }
+
+            for actor in &gi.genesis_actors {
+                let result = state_tree
+                    .get_actor(&actor.addr)
+                    .map_err(|e| e.to_string())?;
+                if let Some(state) = result {
+                    let diff = &actor.init_bal - state.balance;
+                    if diff > TokenAmount::default() {
+                        return_value += diff
+                    }
+                } else {
+                    return Ok(TokenAmount::default());
+                }
+            }
+
+            return_value += &gi.genesis_pledge + &gi.genesis_market_funds;
+        }
+
+        Ok(return_value)
+    }
+
+    async fn setup_genesis_actors_testnet(&self) -> Result<(), Error> {
+        let mut gi = GenesisInfo::default();
+
+        let genesis_block = self
+            .cs
+            .genesis()
+            .map_err(|_| Error::Other(format!("Failed to get genesis")))?
+            .ok_or(Error::Other(format!("genesis is null")))?;
+        let gts = Tipset::new(vec![genesis_block])
+            .map_err(|_| Error::Other(format!("Unable to get block")))?;
+        let (st, _) = self
+            .tipset_state(&gts)
+            .await
+            .map_err(|_| Error::Other(format!("Error")))?;
+        let state_tree = StateTree::new(self.cs.db.as_ref());
+
+        //.genesis().map_err(|_|Error::Other(format!("Chainstore is weird")));
+
+        // if err != nil {
+        //     return xerrors.Errorf("getting genesis block: %w", err)
+        // }
+
+        // gts, err := types.NewTipSet([]*types.BlockHeader{gb})
+        // if err != nil {
+        //     return xerrors.Errorf("getting genesis tipset: %w", err)
+        // }
+
+        // st, _, err := sm.TipSetState(ctx, gts)
+        // if err != nil {
+        //     return xerrors.Errorf("getting genesis tipset state: %w", err)
+        // }
+
+        // cst := cbor.NewCborStore(sm.cs.Blockstore())
+        // sTree, err := state.LoadStateTree(cst, st)
+        // if err != nil {
+        //     return xerrors.Errorf("loading state tree: %w", err)
+        // }
+
+        // gi.genesisMarketFunds, err = getFilMarketLocked(ctx, sTree)
+        // if err != nil {
+        //     return xerrors.Errorf("setting up genesis market funds: %w", err)
+        // }
+
+        // gi.genesisPledge, err = getFilPowerLocked(ctx, sTree)
+        // if err != nil {
+        //     return xerrors.Errorf("setting up genesis pledge: %w", err)
+        // }
+
+        // totalsByEpoch := make(map[abi.ChainEpoch]abi.TokenAmount)
+
+        // // 6 months
+        // sixMonths := abi.ChainEpoch(183 * builtin.EpochsInDay)
+        // totalsByEpoch[sixMonths] = big.NewInt(49_929_341)
+        // totalsByEpoch[sixMonths] = big.Add(totalsByEpoch[sixMonths], big.NewInt(32_787_700))
+
+        // // 1 year
+        // oneYear := abi.ChainEpoch(365 * builtin.EpochsInDay)
+        // totalsByEpoch[oneYear] = big.NewInt(22_421_712)
+
+        // // 2 years
+        // twoYears := abi.ChainEpoch(2 * 365 * builtin.EpochsInDay)
+        // totalsByEpoch[twoYears] = big.NewInt(7_223_364)
+
+        // // 3 years
+        // threeYears := abi.ChainEpoch(3 * 365 * builtin.EpochsInDay)
+        // totalsByEpoch[threeYears] = big.NewInt(87_637_883)
+
+        // // 6 years
+        // sixYears := abi.ChainEpoch(6 * 365 * builtin.EpochsInDay)
+        // totalsByEpoch[sixYears] = big.NewInt(100_000_000)
+        // totalsByEpoch[sixYears] = big.Add(totalsByEpoch[sixYears], big.NewInt(300_000_000))
+
+        // gi.genesisMsigs = make([]multisig.State, 0, len(totalsByEpoch))
+        // for k, v := range totalsByEpoch {
+        //     ns := multisig.State{
+        //         InitialBalance: v,
+        //         UnlockDuration: k,
+        //         PendingTxns:    cid.Undef,
+        //     }
+        //     gi.genesisMsigs = append(gi.genesisMsigs, ns)
+        // }
+
+        // sm.genInfo = &gi
+
+        // return nil
+        Ok(())
+    }
+
+    pub fn get_circulating_supply(
+        &self,
+        height: ChainEpoch,
+        state_tree: StateTree<DB>,
+    ) -> Result<TokenAmount, Error> {
+        let supply = self.get_circulating_supply_detailed(height, state_tree)?;
+        Ok(supply.fil_circulating)
+    }
+
+    pub fn get_fil_locked(&self, state_tree: StateTree<DB>) -> Result<TokenAmount, Error> {
+        let market_locked = utils::get_fil_market_locked(state_tree)?;
+        let power_locked = utils::get_fil_power_locked(state_tree)?;
+        Ok(power_locked + market_locked)
+    }
+
+    pub fn get_circulating_supply_detailed(
+        &self,
+        height: ChainEpoch,
+        state_tree: StateTree<DB>,
+    ) -> Result<CirculatingSupply, ()> {
+        let fil_vested = self.get_fil_vested(height, state_tree)?;
+        let fil_mined = utils::get_fil_mined(state_tree)?;
+        let fil_burned = utils::get_fil_burned(state_tree)?;
+        let fil_locked = self.get_fil_locked(state_tree)?;
+        let fil_circulating = BigInt::max(
+            fil_vested + fil_mined - fil_burned - fil_locked,
+            TokenAmount::default(),
+        );
+
+        Ok(CirculatingSupply {
+            fil_vested,
+            fil_mined,
+            fil_burned,
+            fil_locked,
+            fil_circulating,
+        })
     }
 }
