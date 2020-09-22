@@ -600,8 +600,7 @@ where
                 ));
             }
 
-            // TODO miner has min power
-            let hp = false;
+            let hp = sm_c.miner_has_min_power(h.miner_address(), &lbts)?;
             if !hp {
                 return Err(Error::Validation(
                     "Block's miner does not meet minimum power threshold".to_string(),

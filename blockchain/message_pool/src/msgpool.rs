@@ -870,9 +870,9 @@ pub mod tests {
     use crate::MessagePool;
     use address::Address;
     use async_std::task;
-    use blocks::{BlockHeader, Ticket, Tipset};
+    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use cid::Cid;
-    use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
+    use crypto::{SignatureType, VRFProof};
     use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigInt;
