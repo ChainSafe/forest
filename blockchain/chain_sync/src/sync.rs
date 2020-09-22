@@ -6,7 +6,6 @@ mod peer_test;
 
 use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
-use super::peer_manager::PeerManager;
 use super::sync_state::SyncState;
 use super::sync_worker::SyncWorker;
 use super::{Error, SyncNetworkContext};
@@ -82,9 +81,6 @@ pub struct ChainSyncer<DB, TBeacon> {
 
     ///  incoming network events to be handled by syncer
     net_handler: Receiver<NetworkEvent>,
-
-    /// Peer manager to handle full peers to send ChainSync requests to
-    peer_manager: Arc<PeerManager>,
 }
 
 impl<DB, TBeacon> ChainSyncer<DB, TBeacon>
@@ -100,9 +96,7 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
     ) -> Result<Self, Error> {
-        let network = SyncNetworkContext::new(network_send);
-
-        let peer_manager = Arc::new(PeerManager::default());
+        let network = SyncNetworkContext::new(network_send, Default::default());
 
         Ok(Self {
             state: ChainSyncState::Bootstrap,
@@ -114,7 +108,6 @@ where
             genesis,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
-            peer_manager,
             sync_queue: SyncBucketSet::default(),
             active_sync_tipsets: SyncBucketSet::default(),
             next_sync_target: None,
@@ -158,6 +151,7 @@ where
                 network_event = fused_handler.next() => match network_event {
                     Some(NetworkEvent::HelloRequest { request, channel }) => {
                         let source = channel.peer.clone();
+                        self.network.peer_manager().update_peer_head(source.clone(), None).await;
                         debug!(
                             "Message inbound, heaviest tipset cid: {:?}",
                             request.heaviest_tip_set
@@ -241,7 +235,6 @@ where
             network: self.network.clone(),
             genesis: self.genesis.clone(),
             bad_blocks: self.bad_blocks.clone(),
-            peer_manager: self.peer_manager.clone(),
         }
         .spawn(channel)
         .await
@@ -269,7 +262,9 @@ where
             .chain_store
             .heaviest_tipset()
             .await
-            .map(|heaviest| ts.weight() >= heaviest.weight())
+            // TODO we should be able to queue a tipset with the same weight on a different chain.
+            // Currently needed to go GT because equal tipsets are attempted to be synced.
+            .map(|heaviest| ts.weight() > heaviest.weight())
             .unwrap_or(true);
         if candidate_ts {
             // Check message meta after all other checks (expensive)
@@ -283,8 +278,9 @@ where
     }
 
     async fn set_peer_head(&mut self, peer: PeerId, ts: Arc<Tipset>) {
-        self.peer_manager
-            .add_peer(peer, Some(Arc::clone(&ts)))
+        self.network
+            .peer_manager()
+            .update_peer_head(peer, Some(Arc::clone(&ts)))
             .await;
 
         // Only update target on initial sync
@@ -301,7 +297,7 @@ where
     /// Selects max sync target from current peer set
     async fn select_sync_target(&self) -> Option<Arc<Tipset>> {
         // Retrieve all peer heads from peer manager
-        let heads = self.peer_manager.get_peer_heads().await;
+        let heads = self.network.peer_manager().get_peer_heads().await;
         heads.iter().max_by_key(|h| h.epoch()).cloned()
     }
 
@@ -376,7 +372,7 @@ where
     ) -> Result<FullTipset, String> {
         let fts = match Self::load_fts(cs, tsk) {
             Ok(fts) => fts,
-            Err(_) => network.blocksync_fts(peer_id, tsk).await?,
+            Err(_) => network.blocksync_fts(Some(peer_id), tsk).await?,
         };
 
         Ok(fts)
