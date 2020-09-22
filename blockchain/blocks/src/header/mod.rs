@@ -335,9 +335,8 @@ impl BlockHeader {
         h(vrfout) * totalPower < e * myPower * 2^256
         */
 
-        // TODO switch ticket for election_proof
         let h = sha2::Sha256::digest(ticket.vrfproof.as_bytes());
-        let mut lhs = BigInt::from_signed_bytes_le(&h);
+        let mut lhs = BigInt::from_signed_bytes_be(&h);
         lhs *= net_pow;
 
         // rhs = sectorSize * 2^256

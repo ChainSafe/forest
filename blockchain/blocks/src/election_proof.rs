@@ -133,6 +133,9 @@ pub struct ElectionProof {
 }
 
 impl ElectionProof {
+    /// Uses VRFProof to compute number of wins.
+    /// The algorithm is based on Algorand's Sortition with Binomial distribution
+    /// replaced by Poisson distribution.
     pub fn compute_win_count(&self, power: &BigInt, total_power: &BigInt) -> i64 {
         let h = blake2b_256(self.vrfproof.as_bytes());
         let lhs = BigInt::from_bytes_be(Sign::Plus, &h);
