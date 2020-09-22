@@ -833,4 +833,6 @@ where
             &addr,
         )?)
     }
+
+    pub async fn account_key(&self, _act: Address, _key: TipsetKeys) {}
 }

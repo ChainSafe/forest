@@ -5,7 +5,6 @@ use super::Error;
 use cid::Cid;
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 
-// convert this to a trait to allow for different implementations
 pub struct MsgListeners {
     ps: Publisher<MsgCompleteEvt>,
     num_pubs: u64,

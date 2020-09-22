@@ -4,7 +4,7 @@
 use super::errors::Error;
 use actor::paych::SignedVoucher;
 use address::Address;
-use async_std::sync::{Arc, RwLock};
+// use async_std::sync::{Arc, RwLock};
 use cid::Cid;
 use derive_builder::Builder;
 use encoding::Cbor;
@@ -23,6 +23,7 @@ pub(crate) const DIR_OUTBOUND: u8 = 2;
 const DS_KEY_CHANNEL_INFO: &str = "ChannelInfo";
 const DS_KEY_MSG_CID: &str = "MsgCid";
 
+/// VoucherInfo contains information about Voucher and its submission
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VoucherInfo {
     pub voucher: SignedVoucher,
@@ -155,7 +156,7 @@ impl ChannelInfo {
         self.control
     }
 
-    /// infoForVoucher gets the VoucherInfo for the given voucher.
+    /// Retrieves the VoucherInfo for the given voucher.
     /// returns nil if the channel doesn't have the voucher.
     pub fn info_for_voucher(&self, sv: &SignedVoucher) -> Result<Option<VoucherInfo>, Error> {
         // return voucher info
@@ -178,7 +179,7 @@ impl ChannelInfo {
     fn _has_voucher(&self, sv: &SignedVoucher) -> Result<bool, Error> {
         Ok(self.info_for_voucher(sv)?.is_some())
     }
-    /// mark_voucher_submitted marks the voucher, and any vouchers of lower nonce
+    /// Marks the voucher, and any vouchers of lower nonce
     /// in the same lane, as being submitted.
     /// Note: This method doesn't write anything to the store.
     pub fn mark_voucher_submitted(&mut self, sv: SignedVoucher) -> Result<(), Error> {
@@ -213,7 +214,7 @@ impl ChannelInfo {
 // TODO remove arc and do not need to wrap PaychStore with Rwlock
 #[derive(Clone)]
 pub struct PaychStore {
-    ds: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+    pub ds: HashMap<String, Vec<u8>>,
 }
 
 impl Cbor for ChannelInfo {}
@@ -221,13 +222,11 @@ impl Cbor for ChannelInfo {}
 impl PaychStore {
     /// Create new Pay Channel Store
     pub fn new(ds: HashMap<String, Vec<u8>>) -> Self {
-        PaychStore {
-            ds: Arc::new(RwLock::new(ds)),
-        }
+        PaychStore { ds }
     }
 
     /// Add ChannelInfo to PaychStore
-    pub async fn put_channel_info(&self, mut ci: ChannelInfo) -> Result<(), Error> {
+    pub async fn put_channel_info(&mut self, mut ci: ChannelInfo) -> Result<(), Error> {
         if ci.id.is_empty() {
             ci.id = Uuid::new_v4().to_string();
         }
@@ -236,18 +235,13 @@ impl PaychStore {
             .marshal_cbor()
             .map_err(|err| Error::Other(err.to_string()))?;
 
-        self.ds.write().await.insert(key, value);
+        self.ds.insert(key, value);
         Ok(())
     }
 
-    /// Get ChannelInfo for a given Channel Address
+    /// Retrieves ChannelInfo for a given Channel Address
     pub async fn get_channel_info(&self, addr: &Address) -> Result<ChannelInfo, Error> {
-        if let Some(k) = self
-            .ds
-            .read()
-            .await
-            .get(&format!("ChannelInfo/{}", addr.to_string()))
-        {
+        if let Some(k) = self.ds.get(&format!("ChannelInfo/{}", addr.to_string())) {
             let ci = ChannelInfo::unmarshal_cbor(&k)?;
             Ok(ci)
         } else {
@@ -257,7 +251,7 @@ impl PaychStore {
 
     /// Stores a channel, returning an error if the channel was already
     /// being tracked
-    pub async fn track_channel(&self, ch: ChannelInfo) -> Result<ChannelInfo, Error> {
+    pub async fn track_channel(&mut self, ch: ChannelInfo) -> Result<ChannelInfo, Error> {
         let addr = ch.channel.ok_or_else(|| Error::NoAddress)?;
         match self.by_address(addr).await {
             Err(Error::ChannelNotTracked) => {
@@ -271,8 +265,8 @@ impl PaychStore {
 
     /// Return a Vec of all ChannelInfo Addresses in paych_store
     pub async fn list_channels(&self) -> Result<Vec<Address>, Error> {
-        let ds = self.ds.read().await;
-        let res = ds.keys();
+        //let ds = self.ds.read().await;
+        let res = self.ds.keys();
         let mut out = Vec::new();
         for addr_str in res {
             if addr_str.starts_with("ChannelInfo/") {
@@ -309,10 +303,10 @@ impl PaychStore {
         filter: Box<dyn Fn(&ChannelInfo) -> bool>,
         max: usize,
     ) -> Result<Vec<ChannelInfo>, Error> {
-        let ds = self.ds.read().await;
+        //let ds = self.ds.read().await;
         let mut matches = Vec::new();
 
-        for val in ds.values() {
+        for val in self.ds.values() {
             let ci = ChannelInfo::unmarshal_cbor(val)?;
             if filter(&ci) {
                 matches.push(ci);
@@ -339,10 +333,10 @@ impl PaychStore {
         Ok(ci.vouchers)
     }
 
-    /// get the ChannelInfo that matches given Address
+    /// Retrieves the ChannelInfo that matches given Address
     pub async fn by_address(&self, addr: Address) -> Result<ChannelInfo, Error> {
-        let ds = self.ds.read().await;
-        for val in ds.values() {
+        //let ds = self.ds.read().await;
+        for val in self.ds.values() {
             let ci = ChannelInfo::unmarshal_cbor(val)?;
             if ci.channel.ok_or_else(|| Error::NoAddress)? == addr {
                 return Ok(ci);
@@ -353,18 +347,18 @@ impl PaychStore {
 
     /// Get the message info for a given message CID
     pub async fn get_message(&self, mcid: Cid) -> Result<MsgInfo, Error> {
-        let ds = self.ds.read().await;
+        // let ds = self.ds.read().await;
         let k = key_for_msg(&mcid);
-        let val = ds.get(&k).ok_or_else(|| Error::NoVal)?;
+        let val = self.ds.get(&k).ok_or_else(|| Error::NoVal)?;
         let minfo = MsgInfo::unmarshal_cbor(val.as_slice())?;
         Ok(minfo)
     }
 
-    /// get the vannel associated with a message
+    /// Retrieves the channel info associated with a message
     pub async fn by_message_cid(&self, mcid: Cid) -> Result<ChannelInfo, Error> {
-        let ds = self.ds.read().await;
+        //let ds = self.ds.read().await;
         let minfo = self.get_message(mcid).await?;
-        for val in ds.values() {
+        for val in self.ds.values() {
             let ci = ChannelInfo::unmarshal_cbor(val)?;
             if ci.id == minfo.channel_id {
                 return Ok(ci);
@@ -373,9 +367,9 @@ impl PaychStore {
         Err(Error::ChannelNotTracked)
     }
 
-    /// this method is called when a new message is sent
+    /// Stores message when a new message is sent
     pub async fn save_new_message(&mut self, channel_id: String, mcid: Cid) -> Result<(), Error> {
-        let mut ds = self.ds.write().await;
+        //let mut ds = self.ds.write().await;
         let k = key_for_msg(&mcid);
         let mi: MsgInfo = MsgInfo {
             channel_id,
@@ -386,18 +380,18 @@ impl PaychStore {
         let bytes = mi
             .marshal_cbor()
             .map_err(|err| Error::Other(err.to_string()))?;
-        ds.insert(k, bytes);
+        self.ds.insert(k, bytes);
         Ok(())
     }
 
-    /// this method is called when teh result of a message is received
     /// TODO need to see if the message is already in the data store and if it is then do we replace kv pair with updated one
+    /// Stores the result of a message when the result is received
     pub async fn save_msg_result(
         &mut self,
         mcid: Cid,
         msg_err: Option<Error>,
     ) -> Result<(), Error> {
-        let mut ds = self.ds.write().await;
+        //let mut ds = self.ds.write().await;
         let k = key_for_msg(&mcid);
         let mut minfo = self.get_message(mcid).await?;
         if msg_err.is_some() {
@@ -406,7 +400,7 @@ impl PaychStore {
         let b = minfo
             .marshal_cbor()
             .map_err(|err| Error::Other(err.to_string()))?;
-        ds.insert(k, b);
+        self.ds.insert(k, b);
         Ok(())
     }
 
@@ -416,9 +410,9 @@ impl PaychStore {
         from: Address,
         to: Address,
     ) -> Result<ChannelInfo, Error> {
-        let ds = self.ds.read().await;
+        // let ds = self.ds.read().await;
 
-        for val in ds.values() {
+        for val in self.ds.values() {
             let ci = ChannelInfo::unmarshal_cbor(val)?;
             if ci.direction == DIR_OUTBOUND {
                 continue;
@@ -455,8 +449,11 @@ impl PaychStore {
 
     /// Get channel info given channel ID
     pub async fn by_channel_id(&self, channel_id: &str) -> Result<ChannelInfo, Error> {
-        let ds = self.ds.read().await;
-        let res = ds.get(channel_id).ok_or_else(|| Error::ChannelNotTracked)?;
+        // let ds = self.ds.read().await;
+        let res = self
+            .ds
+            .get(channel_id)
+            .ok_or_else(|| Error::ChannelNotTracked)?;
         let ci = ChannelInfo::unmarshal_cbor(res)?;
         Ok(ci)
     }
@@ -490,8 +487,9 @@ impl PaychStore {
 
     /// Remove a channel with given channel ID
     pub async fn remove_channel(&mut self, channel_id: String) -> Result<(), Error> {
-        let mut ds = self.ds.write().await;
-        ds.remove(&format!("{}/{}", DS_KEY_CHANNEL_INFO, channel_id))
+        // let mut ds = self.ds.write().await;
+        self.ds
+            .remove(&format!("{}/{}", DS_KEY_CHANNEL_INFO, channel_id))
             .ok_or_else(|| Error::ChannelNotTracked)?;
         Ok(())
     }
@@ -554,7 +552,7 @@ mod tests {
                         signature: None,
                     },
                     proof: Vec::new(),
-                    submitted: false
+                    submitted: false,
                 }],
                 direction: DIR_OUTBOUND,
                 next_lane: 0,
@@ -585,7 +583,7 @@ mod tests {
                         signature: None,
                     },
                     proof: Vec::new(),
-                    submitted: false
+                    submitted: false,
                 }],
                 direction: DIR_OUTBOUND,
                 next_lane: 0,
@@ -657,7 +655,7 @@ mod tests {
                     signature: None,
                 },
                 proof: Vec::new(),
-                submitted: false
+                submitted: false,
             }],
             direction: DIR_OUTBOUND,
             next_lane: 0,
@@ -691,7 +689,7 @@ mod tests {
                     signature: None,
                 },
                 proof: Vec::new(),
-                submitted: false
+                submitted: false,
             }],
             direction: DIR_OUTBOUND,
             next_lane: 0,

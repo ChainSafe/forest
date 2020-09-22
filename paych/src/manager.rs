@@ -13,18 +13,18 @@ use num_bigint::BigInt;
 use std::collections::HashMap;
 use wallet::KeyStore;
 
+/// Thread safe payment channel management
 pub struct Manager<DB, KS>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
     pub store: Arc<RwLock<PaychStore>>,
-    pub sa: Arc<StateAccessor<DB>>,
     #[allow(clippy::type_complexity)]
     pub channels: Arc<RwLock<HashMap<String, Arc<ChannelAccessor<DB, KS>>>>>,
-    pub api: Arc<ResourceAccessor<DB, KS>>,
+    pub state: Arc<ResourceAccessor<DB, KS>>,
 }
-
+/// Thread safe access to message pool and keystore for pay channel use
 pub struct ResourceAccessor<DB, KS>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -32,6 +32,7 @@ where
 {
     pub keystore: Arc<RwLock<KS>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
+    pub sa: Arc<StateAccessor<DB>>,
 }
 
 impl<DB, KS> Manager<DB, KS>
@@ -39,17 +40,16 @@ where
     DB: BlockStore + Send + Sync,
     KS: KeyStore + Send + Sync + 'static,
 {
-    pub fn new(sa: StateAccessor<DB>, store: PaychStore, state: ResourceAccessor<DB, KS>) -> Self {
+    pub fn new(store: PaychStore, state: ResourceAccessor<DB, KS>) -> Self {
         Manager {
             store: Arc::new(RwLock::new(store)),
-            sa: Arc::new(sa),
+            state: Arc::new(state),
             channels: Arc::new(RwLock::new(HashMap::new())),
-            api: Arc::new(state),
         }
     }
-
-    pub async fn track_inbound_channel(&mut self, ch: Address) -> Result<ChannelInfo, Error> {
-        let store = self.store.write().await;
+    // TODO !!!
+    async fn track_inbound_channel(&mut self, ch: Address) -> Result<ChannelInfo, Error> {
+        let mut store = self.store.write().await;
 
         // Check if channel is in store
         let ci = store.by_address(ch).await;
@@ -61,13 +61,18 @@ where
                 }
             }
         }
-        let state_ci = self.sa.load_state_channel_info(ch, DIR_INBOUND).await?;
+        let state_ci = self
+            .state
+            .sa
+            .load_state_channel_info(ch, DIR_INBOUND)
+            .await?;
+
         // TODO add ability to get channel from state
         // TODO need to check if channel to address is in wallet
         store.track_channel(state_ci).await
     }
 
-    pub async fn accessor_by_from_to(
+    async fn accessor_by_from_to(
         &self,
         from: Address,
         to: Address,
@@ -96,11 +101,11 @@ where
         Err(Error::Other("could not find channel accessor".to_owned()))
     }
 
-    // Add a channel accessor to the cache. Note that the
-    // channel may not have been created yet, but we still want to reference
-    // the same channel accessor for a given from/to, so that all attempts to
-    // access a channel use the same lock (the lock on the accessor)
-    pub async fn add_accessor_to_cache(
+    /// Add a channel accessor to the cache. Note that the
+    /// channel may not have been created yet, but we still want to reference
+    /// the same channel accessor for a given from/to, so that all attempts to
+    /// access a channel use the same lock (the lock on the accessor)
+    async fn _add_accessor_to_cache(
         &self,
         from: Address,
         to: Address,
@@ -113,7 +118,7 @@ where
             .ok_or_else(|| Error::Other("inserting new channel accessor".to_string()))
     }
 
-    pub async fn accessor_by_address(
+    async fn accessor_by_address(
         &self,
         ch: Address,
     ) -> Result<Arc<ChannelAccessor<DB, KS>>, Error> {
@@ -121,7 +126,8 @@ where
         let ci = store.by_address(ch).await?;
         self.accessor_by_from_to(ci.control, ci.target).await
     }
-
+    /// Ensures that a channel exists between the from and to addresses,
+    /// and adds the given amount of funds.
     pub async fn get_paych(
         &self,
         from: Address,
@@ -132,7 +138,7 @@ where
         Ok(chan_accesor.get_paych(from, to, amt).await?)
     }
 
-    // GetPaychWaitReady waits until the create channel / add funds message with the
+    // Waits until the create channel / add funds message with the
     // given message CID arrives.
     // The returned channel address can safely be used against the Manager methods.
     pub async fn get_paych_wait_ready(&self, _mcid: Cid) -> Result<Address, Error> {
@@ -149,9 +155,9 @@ where
         ca.get_channel_info(&addr).await
     }
 
-    // Check if the given voucher is valid (is or could become spendable at some point).
-    // If the channel is not in the store, fetches the channel from state (and checks that
-    // the channel To address is owned by the wallet).
+    /// Check if the given voucher is valid (is or could become spendable at some point).
+    /// If the channel is not in the store, fetches the channel from state (and checks that
+    /// the channel To address is owned by the wallet).
     pub async fn check_voucher_valid(
         &mut self,
         ch: Address,
@@ -162,9 +168,9 @@ where
         Ok(())
     }
 
-    // Get an accessor for the given channel. The channel
-    // must either exist in the store, or be an inbound channel that can be created
-    // from state.
+    /// Get an accessor for the given channel. The channel
+    /// must either exist in the store, or be an inbound channel that can be created
+    /// from state.
     pub async fn inbound_channel_accessor(
         &mut self,
         ch: Address,
@@ -178,7 +184,8 @@ where
 
         self.accessor_by_from_to(from, to).await
     }
-
+    // Adds a voucher for an outbound channel.
+    // Returns an error if the channel is not already in the store.
     pub async fn add_voucher_outbound(
         &self,
         ch: Address,
@@ -189,7 +196,9 @@ where
         let ca = self.accessor_by_address(ch).await?;
         ca.add_voucher(ch, sv, proof, min_delta).await
     }
-
+    // Adds a voucher for an inbound channel.
+    // If the channel is not in the store, fetches the channel from state (and checks that
+    // the channel To address is owned by the wallet).
     pub async fn add_voucher_inbound(
         &mut self,
         ch: Address,

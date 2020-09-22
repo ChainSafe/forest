@@ -13,6 +13,7 @@ use cid::Cid;
 use ipld_amt::Amt;
 use state_manager::StateManager;
 
+/// Thread safe access to state manager
 pub struct StateAccessor<DB> {
     pub sm: Arc<RwLock<StateManager<DB>>>,
 }
@@ -21,6 +22,7 @@ impl<DB> StateAccessor<DB>
 where
     DB: BlockStore,
 {
+    /// Returns ActorState of provided address
     pub async fn load_paych_state(&self, ch: &Address) -> Result<(ActorState, PaychState), Error> {
         let sm = self.sm.read().await;
         let state: PaychState = sm
@@ -34,7 +36,7 @@ where
         Ok((actor, state))
     }
 
-    pub async fn next_lane_from_state(&self, st: PaychState) -> Result<u64, Error> {
+    async fn next_lane_from_state(&self, st: PaychState) -> Result<u64, Error> {
         let sm = self.sm.read().await;
         let store = sm.get_block_store_ref();
         let lane_states: Amt<u64, _> = Amt::load(&st.lane_states, store).unwrap(); // TODO handle err properly
@@ -47,11 +49,11 @@ where
                 }
                 Ok(())
             })
-            .unwrap(); // handle err properly
+            .map_err(|e| Error::Encoding(format!("failed to iterate over values in AMT: {}", e)))?;
 
         Ok(max_id + 1)
     }
-
+    /// Returns channel info of provided address
     pub async fn load_state_channel_info(
         &self,
         ch: Address,
