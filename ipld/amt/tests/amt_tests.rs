@@ -149,11 +149,13 @@ fn delete() {
     a.set(24, "dog".to_owned()).unwrap();
     a.delete(23).unwrap();
     assert_eq!(a.count(), 1);
+    assert_get(&mut a, 24, &"dog".to_owned());
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
     let regen_amt: Amt<String, _> = Amt::load(&c, &db).unwrap();
     assert_eq!(regen_amt.count(), 1);
+    assert_get(&mut a, 24, &"dog".to_owned());
 
     // Test that a new amt inserting just at index 24 is the same
     let mut new_amt = Amt::new(&db);
@@ -169,6 +171,24 @@ fn delete() {
 }
 
 #[test]
+fn delete_fail_check() {
+    let db = db::MemoryDB::default();
+    let mut a = Amt::new(&db);
+
+    a.set(1, "one".to_owned()).unwrap();
+    a.set(9, "nine".to_owned()).unwrap();
+    assert_eq!(a.height(), 1);
+    assert_eq!(a.count(), 2);
+    assert_eq!(a.get(1).unwrap(), Some("one".to_string()));
+    assert_eq!(a.get(9).unwrap(), Some("nine".to_string()));
+    assert_eq!(a.delete(10), Ok(false));
+    assert_eq!(a.delete(0), Ok(false));
+    assert_eq!(a.count(), 2);
+    assert_eq!(a.get(1).unwrap(), Some("one".to_string()));
+    assert_eq!(a.get(9).unwrap(), Some("nine".to_string()));
+}
+
+#[test]
 fn delete_first_entry() {
     let db = db::MemoryDB::default();
     let mut a = Amt::new(&db);
@@ -177,6 +197,7 @@ fn delete_first_entry() {
     a.set(27, "cat".to_owned()).unwrap();
 
     assert_eq!(a.count(), 2);
+    assert_eq!(a.height(), 1);
     a.delete(27).unwrap();
     assert_eq!(a.count(), 1);
     assert_get(&mut a, 0, &"cat".to_owned());

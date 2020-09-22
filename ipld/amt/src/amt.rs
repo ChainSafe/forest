@@ -117,7 +117,7 @@ where
 
                 // Set links node with first index as cid
                 let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
-                new_links[0] = Some(Link::Cid(cid));
+                new_links[0] = Some(Link::from(cid));
 
                 self.root.node = Node::Link {
                     bmap: BitMap::new(0x01),
@@ -177,8 +177,8 @@ where
         while *self.root.node.bitmap() == 0x01 && self.height() > 0 {
             let sub_node: Node<V> = match &self.root.node {
                 Node::Link { links, .. } => match &links[0] {
-                    Some(Link::Cached(node)) => *node.clone(),
-                    Some(Link::Cid(cid)) => self
+                    Some(Link::Dirty(node)) => *node.clone(),
+                    Some(Link::Cid { cid, .. }) => self
                         .block_store
                         .get(cid)?
                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))?,
