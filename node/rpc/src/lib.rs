@@ -259,7 +259,7 @@ where
 
     info!("waiting for web socket connections");
     while let Ok((stream, addr)) = listener.accept().await {
-        let subscriber = (*events_pubsub.write().await).subscribe();
+        let subscriber = events_pubsub.write().await.subscribe();
         task::spawn(handle_connection_and_log(
             rpc_state.clone(),
             stream,
