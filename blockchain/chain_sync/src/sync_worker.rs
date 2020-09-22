@@ -589,7 +589,7 @@ where
         let base_ts_clone = Arc::clone(&base_ts);
         let sm_c = Arc::clone(&sm);
         let lbst_clone = Arc::clone(&lbst);
-        validations.push(task::spawn(async move {
+        validations.push(task::spawn_blocking(move || {
             let h = b_clone.header();
             // Safe to unwrap because checked to be `Some` in sanity check.
             let election_proof = h.election_proof().as_ref().unwrap();
