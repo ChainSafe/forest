@@ -337,6 +337,7 @@ impl MockRuntime {
         self.expect_validate_caller_addr = None;
         self.expect_validate_caller_type = None;
         self.expect_create_actor = None;
+        self.expect_sends.clear();
         self.expect_verify_sigs.borrow_mut().clear();
         *self.expect_verify_seal.borrow_mut() = None;
         *self.expect_verify_post.borrow_mut() = None;
