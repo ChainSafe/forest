@@ -664,13 +664,6 @@ impl Actor {
             ));
         }
 
-        if params.sealed_cid == Cid::default() {
-            return Err(ActorError::new(
-                ExitCode::ErrIllegalArgument,
-                "sealed CID undefined".to_string(),
-            ));
-        }
-
         if params.sealed_cid.prefix() != sealed_cid_prefix() {
             return Err(ActorError::new(
                 ExitCode::ErrIllegalArgument,
