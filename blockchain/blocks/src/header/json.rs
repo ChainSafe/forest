@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::{ticket, tipset::tipset_keys_json};
+use crate::{election_proof, ticket, tipset::tipset_keys_json};
 use beacon::beacon_entries;
-use crypto::{election_proof, signature};
+use crypto::signature;
 use fil_types::sector::post;
 use serde::{de, Deserialize, Serialize};
 
@@ -32,8 +32,8 @@ where
     #[serde(rename_all = "PascalCase")]
     struct BlockHeaderSer<'a> {
         miner: String,
-        #[serde(with = "ticket::json")]
-        ticket: &'a Ticket,
+        #[serde(with = "ticket::json::opt")]
+        ticket: &'a Option<Ticket>,
         #[serde(with = "election_proof::json::opt")]
         election_proof: &'a Option<ElectionProof>,
         #[serde(with = "beacon_entries::json::vec")]
@@ -90,8 +90,8 @@ where
     #[serde(rename_all = "PascalCase")]
     struct BlockHeaderDe {
         miner: String,
-        #[serde(with = "ticket::json")]
-        ticket: Ticket,
+        #[serde(with = "ticket::json::opt")]
+        ticket: Option<Ticket>,
         #[serde(default, with = "election_proof::json::opt")]
         election_proof: Option<ElectionProof>,
         #[serde(default, with = "beacon_entries::json::vec")]

@@ -50,6 +50,10 @@ pub mod json {
     #[serde(transparent)]
     pub struct TicketJson(#[serde(with = "self")] pub Ticket);
 
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct TicketJsonRef<'a>(#[serde(with = "self")] pub &'a Ticket);
+
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "VRFProof")]
@@ -74,5 +78,25 @@ pub mod json {
         Ok(Ticket {
             vrfproof: VRFProof::new(base64::decode(m.vrfproof).map_err(de::Error::custom)?),
         })
+    }
+
+    pub mod opt {
+        use super::*;
+        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        pub fn serialize<S>(v: &Option<Ticket>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            v.as_ref().map(|s| TicketJsonRef(s)).serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Ticket>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s: Option<TicketJson> = Deserialize::deserialize(deserializer)?;
+            Ok(s.map(|v| v.0))
+        }
     }
 }
