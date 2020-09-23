@@ -14,10 +14,12 @@ use std::error::Error as StdError;
 /// This represents a link to another Node
 #[derive(Clone, Debug)]
 pub(super) enum Link<V> {
+    /// Unchanged link to data with an atomic cache.
     Cid {
         cid: Cid,
         cache: AtomicLazyCell<Box<Node<V>>>,
     },
+    /// Modifications have been made to the link, requires flush to clear
     Dirty(Box<Node<V>>),
 }
 
@@ -49,10 +51,12 @@ impl<V> From<Cid> for Link<V> {
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Node<V> {
+    /// Node is a link node, contains array of Cid or cached sub nodes.
     Link {
         bmap: BitMap,
         links: [Option<Link<V>>; WIDTH],
     },
+    /// Leaf node, this array contains only values.
     Leaf {
         bmap: BitMap,
         vals: [Option<V>; WIDTH],
@@ -163,20 +167,23 @@ where
 {
     /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
-        if let Node::Link { links, .. } = self {
-            for link in links.iter_mut() {
+        if let Node::Link { links, bmap } = self {
+            for (i, link) in (0..).zip(links.iter_mut()) {
                 if let Some(Link::Dirty(n)) = link {
-                    // flush sub node to clear caches
-                    n.flush(bs)?;
+                    // links should only be flushed if the bitmap is set.
+                    if bmap.get_bit(i) {
+                        // flush sub node to clear caches
+                        n.flush(bs)?;
 
-                    // Puts node in blockstore and and retrieves it's CID
-                    let cid = bs.put(n, Blake2b256)?;
+                        // Puts node in blockstore and and retrieves it's CID
+                        let cid = bs.put(n, Blake2b256)?;
 
-                    // Turn cached node into a Cid link
-                    *link = Some(Link::Cid {
-                        cid,
-                        cache: Default::default(),
-                    });
+                        // Turn dity node into a Cid link
+                        *link = Some(Link::Cid {
+                            cid,
+                            cache: Default::default(),
+                        });
+                    }
                 }
             }
         }
@@ -349,7 +356,8 @@ where
                             };
                             if !sub_node.delete(bs, height - 1, i % nodes_for_height(height))? {
                                 // Replace cache, no node deleted.
-                                // Ignoring error because it is guaranteed to be empty.
+                                // If the cache has already been filled in another thread since the
+                                // `mem::take`, error can be ignored because value is equal.
                                 let _ = cache.fill(sub_node);
 
                                 // Index to be deleted was not found
