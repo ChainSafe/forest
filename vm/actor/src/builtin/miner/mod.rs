@@ -1288,7 +1288,7 @@ impl Actor {
                 ExitCode::ErrNotFound,
                 format!("sector {} not proven", params.sector_number),
             )),
-            Ok(_sector) => Ok(()),
+            Ok(Some(_sector)) => Ok(()),
         }
     }
 
