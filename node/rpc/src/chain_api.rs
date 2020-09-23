@@ -67,7 +67,7 @@ where
     let data_subscribe = data.chain_store.subscribe().await;
     let index = chain::headchange_json::sub_head_changes(
         data_subscribe,
-        &*data.chain_store.heaviest_tipset_rwlock().read().await,
+        &data.chain_store.heaviest_tipset().await,
         params,
         data.events_pubsub.clone(),
     )

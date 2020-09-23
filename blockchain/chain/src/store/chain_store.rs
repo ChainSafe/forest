@@ -159,22 +159,13 @@ where
         self.heaviest.read().await.clone()
     }
 
-    pub fn heaviest_tipset_rwlock(&self) -> &RwLock<Option<Arc<Tipset>>> {
-        &self.heaviest
-    }
-
-    pub fn tip_index_rwlock(&self) -> &RwLock<TipIndex> {
+    pub fn tip_index(&self) -> &RwLock<TipIndex> {
         &self.tip_index
     }
 
-    pub fn publisher_rwlock(&self) -> &RwLock<Publisher<HeadChange>> {
+    pub fn publisher(&self) -> &RwLock<Publisher<HeadChange>> {
         &self.publisher
     }
-
-    pub fn blockstore_arc(&self) -> Arc<DB> {
-        self.db.clone()
-    }
-
     /// Returns key-value store instance
     pub fn blockstore(&self) -> &DB {
         &self.db
