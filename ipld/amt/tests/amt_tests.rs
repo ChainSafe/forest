@@ -351,15 +351,22 @@ fn delete_bug_test() {
     new_amt.set(9, "foo".to_owned()).unwrap();
     assert_eq!(new_amt.get(9).unwrap(), Some(&"foo".to_string()));
     assert_eq!(new_amt.height(), 5);
-    new_amt.set(400, "bar".to_owned()).unwrap();
-    assert_eq!(new_amt.get(400).unwrap(), Some(&"bar".to_string()));
+    new_amt.set(66, "bar".to_owned()).unwrap();
+    assert_eq!(new_amt.get(66).unwrap(), Some(&"bar".to_string()));
+    new_amt.set(515, "baz".to_owned()).unwrap();
+    assert_eq!(new_amt.get(515).unwrap(), Some(&"baz".to_string()));
     assert_eq!(new_amt.height(), 5);
-    let c = new_amt.flush().unwrap();
 
+    assert_eq!(new_amt.delete(9).unwrap(), true);
+    assert_eq!(new_amt.height(), 3);
+    assert_eq!(new_amt.delete(515).unwrap(), true);
+    assert_eq!(new_amt.height(), 2);
+
+    let c = new_amt.flush().unwrap();
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzaceakfpvbxzuyfgcwpqhu6evurdzcch7rsoiiwjpks3au7mkkf6ju6u"
+        "bafy2bzaceblz37c42237c42h3y7vwzcqdjolm6fmmturwcifbd7zx2afvazke"
     );
     #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 1, w: 10, br: 8, bw: 368});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 1, w: 5, br: 8, bw: 124});
 }
