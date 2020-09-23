@@ -70,7 +70,7 @@ pub(super) async fn start(config: Config) {
 
     // Initialize mpool
     let publisher = chain_store.publisher_rwlock();
-    let subscriber = (*publisher.write().await).subscribe();
+    let subscriber = publisher.write().await.subscribe();
     let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
     let mpool = Arc::new(
         MessagePool::new(provider, network_name.clone())

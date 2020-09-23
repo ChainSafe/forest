@@ -11,10 +11,8 @@ mod wallet_api;
 use crate::state_api::*;
 use async_log::span;
 use async_std::net::{TcpListener, TcpStream};
-use async_std::sync::Arc;
-use async_std::sync::{RwLock, Sender};
-use async_std::task;
-use async_std::task::JoinHandle;
+use async_std::sync::{RwLock, Sender, Arc};
+use async_std::task::{self,JoinHandle};
 use async_tungstenite::{tungstenite::Message, WebSocketStream};
 use blockstore::BlockStore;
 use chain::{
@@ -22,8 +20,7 @@ use chain::{
     ChainStore,
 };
 use chain_sync::{BadBlockCache, SyncState};
-use flo_stream::MessagePublisher;
-use flo_stream::{Publisher, Subscriber};
+use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use forest_libp2p::NetworkMessage;
 use futures::future;
 use futures::sink::SinkExt;
@@ -261,7 +258,7 @@ where
 
     info!("waiting for web socket connections");
     while let Ok((stream, addr)) = listener.accept().await {
-        let subscriber = (*events_pubsub.write().await).subscribe();
+        let subscriber = events_pubsub.write().await.subscribe();
         task::spawn(handle_connection_and_log(
             rpc_state.clone(),
             stream,
