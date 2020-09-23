@@ -159,15 +159,15 @@ where
         self.heaviest.read().await.clone()
     }
 
-    pub fn heaviest_tipset_arc(&self) -> &RwLock<Option<Arc<Tipset>>> {
+    pub fn heaviest_tipset_rwlock(&self) -> &RwLock<Option<Arc<Tipset>>> {
         &self.heaviest
     }
 
-    pub fn tip_index_arc(&self) -> &RwLock<TipIndex> {
+    pub fn tip_index_rwlock(&self) -> &RwLock<TipIndex> {
         &self.tip_index
     }
 
-    pub fn publisher_arc(&self) -> &RwLock<Publisher<HeadChange>> {
+    pub fn publisher_rwlock(&self) -> &RwLock<Publisher<HeadChange>> {
         &self.publisher
     }
 

@@ -346,7 +346,7 @@ async fn handle_connection_and_log(
                                     if let Some(handle) = join_handle {
                                         handle
                                             .map_err(|e| async move {
-                                                &send_error(
+                                                send_error(
                                                     3,
                                                     &error_join_send,
                                                     format!(
