@@ -321,7 +321,7 @@ async fn handle_connection_and_log(
                                 .map_err(|e| async move {
                                     send_error(
                                         3,
-                                        error_send,
+                                        &error_send,
                                         format!(
                                             "channel id {:}, error {:?}",
                                             chain_notify_count,
@@ -346,9 +346,9 @@ async fn handle_connection_and_log(
                                     if let Some(handle) = join_handle {
                                         handle
                                             .map_err(|e| async move {
-                                                send_error(
+                                                &send_error(
                                                     3,
-                                                    error_join_send,
+                                                    &error_join_send,
                                                     format!(
                                                         "channel id {:}, error {:?}",
                                                         chain_notify_count,
@@ -389,14 +389,14 @@ async fn handle_connection_and_log(
                                     }
                                 });
                             }
-                            Err(e) => send_error(1, ws_sender.clone(), e.to_string())
+                            Err(e) => send_error(1, &ws_sender, e.to_string())
                                 .await
                                 .unwrap_or_else(|e| {
                                     error!("error {:?} on socket {:?}", e.message(), addr)
                                 }),
                         }
                     }
-                    Err(e) => send_error(2, ws_sender.clone(), e.to_string())
+                    Err(e) => send_error(2, &ws_sender, e.to_string())
                         .await
                         .unwrap_or_else(|e| error!("error {:?} on socket {:?}", e.message(), addr)),
                 };
@@ -409,7 +409,7 @@ async fn handle_connection_and_log(
 
 async fn send_error(
     code: i64,
-    ws_sender: Arc<RwLock<WsSink>>,
+    ws_sender: &RwLock<WsSink>,
     message: String,
 ) -> Result<(), Error> {
     let response = ResponseObjects::One(ResponseObject::Error {
@@ -451,7 +451,6 @@ async fn streaming_payload(
     {
         if streaming {
             let handle = task::spawn(async move {
-                let sender = ws_sender.clone();
                 let mut filter_on_channel_id = events_in.filter(|s| {
                     future::ready(
                         s.sub_head_changes()
@@ -469,7 +468,7 @@ async fn streaming_payload(
                                 params: (streaming_count, vec![head_change]),
                             };
                             let response_text = serde_json::to_string(&data)?;
-                            sender
+                            ws_sender
                                 .write()
                                 .await
                                 .send(Message::text(response_text))

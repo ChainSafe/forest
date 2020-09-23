@@ -269,7 +269,7 @@ where
         if candidate_ts {
             // Check message meta after all other checks (expensive)
             for block in ts.blocks() {
-                self.validate_msg_meta(block).await?;
+                self.validate_msg_meta(block)?;
             }
             self.set_peer_head(peer, Arc::new(ts.to_tipset())).await;
         }
@@ -346,7 +346,7 @@ where
     }
     /// Validates message root from header matches message root generated from the
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
-    async fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
+    fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
         let sm_root = compute_msg_meta(
             self.state_manager.get_block_store_ref(),
             block.bls_msgs(),
