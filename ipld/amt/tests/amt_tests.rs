@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de::DeserializeOwned, ser::Serialize};
-use ipld_amt::{Amt, Error, MAX_HEIGHT, MAX_INDEX};
+use ipld_amt::{Amt, Error, MAX_INDEX};
 use ipld_blockstore::{BSStats, BlockStore, TrackingBlockStore};
 use std::fmt::Debug;
 
@@ -58,7 +58,8 @@ fn out_of_range() {
 
     let res = a.set(MAX_INDEX, "what is up".to_owned());
     assert_eq!(res.err(), None);
-    assert_eq!(a.height(), MAX_HEIGHT);
+    // 20 is the max height, custom value to avoid exporting
+    assert_eq!(a.height(), 20);
 
     let c = a.flush().unwrap();
     assert_eq!(
@@ -316,4 +317,32 @@ fn for_each() {
     // TODO go implementation has a lot more writes, need to flush on expand to match if not changed
     #[rustfmt::skip]
     assert_eq!(*db.stats.borrow(), BSStats {r: 2016, w: 2016, br: 124875, bw: 124875});
+}
+
+#[test]
+fn delete_bug_test() {
+    let mem = db::MemoryDB::default();
+    let db = TrackingBlockStore::new(&mem);
+    let mut a = Amt::new(&db);
+    let empty_cid = a.flush().unwrap();
+
+    let k = 100_000;
+
+    a.set(k, "foo".to_owned()).unwrap();
+    a.delete(k).unwrap();
+
+    let c = a.flush().unwrap();
+
+    // ! This is a bug, functionality needed to be locked in because this is what is expected
+    // ! for the go implementation and could not be changed.
+    assert_eq!(
+        empty_cid.to_string().as_str(),
+        "bafy2bzacedswlcz5ddgqnyo3sak3jmhmkxashisnlpq6ujgyhe4mlobzpnhs6"
+    );
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzacec3ltjhtro3i4usbev24phgv6hb4fbfdaa2lxid4uod3zw4v3uce6"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 0, w: 2, br: 0, bw: 16});
 }
