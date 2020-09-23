@@ -21,7 +21,7 @@ pub(crate) use self::root::Root;
 const MAX_INDEX_BITS: u64 = 63;
 const WIDTH_BITS: u64 = 3;
 const WIDTH: usize = 1 << WIDTH_BITS; // 8
-const MAX_HEIGHT: u64 = MAX_INDEX_BITS / WIDTH_BITS - 1;
+pub const MAX_HEIGHT: u64 = MAX_INDEX_BITS / WIDTH_BITS - 1;
 
 // Maximum index for elements in the AMT. This is currently 1^63
 // (max int) because the width is 8. That means every "level" consumes 3 bits

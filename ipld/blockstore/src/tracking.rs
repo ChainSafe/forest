@@ -12,10 +12,14 @@ use std::error::Error as StdError;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct BSStats {
-    num_reads: usize,
-    num_writes: usize,
-    bytes_read: usize,
-    bytes_written: usize,
+    /// Number of reads
+    pub r: usize,
+    /// Number of writes
+    pub w: usize,
+    /// Bytes Read
+    pub br: usize,
+    /// Bytes Written
+    pub bw: usize,
 }
 
 /// Wrapper around `BlockStore` to tracking reads and writes for verification.
@@ -43,10 +47,10 @@ where
     BS: BlockStore,
 {
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        self.stats.borrow_mut().num_reads += 1;
+        self.stats.borrow_mut().r += 1;
         let bytes = self.base.get_bytes(cid)?;
         if let Some(bytes) = &bytes {
-            self.stats.borrow_mut().bytes_read += bytes.len();
+            self.stats.borrow_mut().br += bytes.len();
         }
         Ok(bytes)
     }
@@ -57,8 +61,8 @@ where
         T: MultihashDigest,
     {
         let bytes = to_vec(obj)?;
-        self.stats.borrow_mut().num_writes += 1;
-        self.stats.borrow_mut().bytes_written += bytes.len();
+        self.stats.borrow_mut().w += 1;
+        self.stats.borrow_mut().bw += bytes.len();
         let cid = Cid::new_from_cbor(&bytes, hash);
         self.write(cid.to_bytes(), bytes)?;
         Ok(cid)
@@ -136,7 +140,7 @@ mod tests {
         assert_eq!(
             *tr_store.stats.borrow(),
             BSStats {
-                num_reads: 1,
+                r: 1,
                 ..Default::default()
             }
         );
@@ -146,10 +150,10 @@ mod tests {
         assert_eq!(
             *tr_store.stats.borrow(),
             BSStats {
-                num_reads: 2,
-                bytes_read: obj_bytes_len,
-                num_writes: 1,
-                bytes_written: obj_bytes_len,
+                r: 2,
+                br: obj_bytes_len,
+                w: 1,
+                bw: obj_bytes_len,
             }
         );
     }
