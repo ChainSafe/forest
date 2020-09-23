@@ -918,6 +918,9 @@ pub struct MinerInfo {
     /// other day to day miner activities
     pub worker: Address,
 
+    /// Additional addresses that are permitted to submit messages controlling this actor (optional).
+    pub control_addresses: Vec<Address>, // Must all be ID addresses.
+
     /// Optional worker key to update at an epoch
     pub pending_worker_key: Option<WorkerKeyChange>,
 
@@ -943,6 +946,7 @@ impl MinerInfo {
     pub fn new(
         owner: Address,
         worker: Address,
+        control_addresses: Vec<Address>,
         peer_id: Vec<u8>,
         multi_address: Vec<u8>,
         seal_proof_type: RegisteredSealProof,
@@ -953,6 +957,7 @@ impl MinerInfo {
         Ok(Self {
             owner,
             worker,
+            control_addresses,
             pending_worker_key: None,
             peer_id,
             multi_address,
@@ -974,6 +979,7 @@ mod tests {
         let info = MinerInfo {
             owner: Address::new_id(2),
             worker: Address::new_id(3),
+            control_addresses: vec![Address::new_id(4), Address::new_id(5)],
             pending_worker_key: None,
             peer_id: PeerId::random().into_bytes(),
             multi_address: PeerId::random().into_bytes(),

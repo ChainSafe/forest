@@ -22,6 +22,7 @@ pub const CRON_EVENT_PROCESS_EARLY_TERMINATIONS: CronEvent = 3;
 pub struct MinerConstructorParams {
     pub owner: Address,
     pub worker: Address,
+    pub control_addresses: Vec<Address>,
     pub seal_proof_type: RegisteredSealProof,
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
@@ -44,11 +45,13 @@ pub struct PartitionKey {
 pub struct GetControlAddressesReturn {
     pub owner: Address,
     pub worker: Address,
+    pub control_addresses: Vec<Address>,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ChangeWorkerAddressParams {
     pub new_worker: Address,
+    pub new_control_addresses: Vec<Address>,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]

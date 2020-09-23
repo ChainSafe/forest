@@ -25,11 +25,20 @@ pub const PRE_COMMIT_DEPOSIT_PROJECTION_PERIOD: i64 =
     (PRE_COMMIT_DEPOSIT_FACTOR as ChainEpoch) * EPOCHS_IN_DAY;
 pub const INITIAL_PLEDGE_PROJECTION_PERIOD: i64 =
     (INITIAL_PLEDGE_FACTOR as ChainEpoch) * EPOCHS_IN_DAY;
-pub fn lock_target_factor_num() -> BigInt {
+
+fn lock_target_factor_num() -> BigInt {
     BigInt::from(3)
 }
-pub fn lock_target_factor_denom() -> BigInt {
+
+fn lock_target_factor_denom() -> BigInt {
     BigInt::from(10)
+}
+
+/// Cap on initial pledge requirement for sectors during the Space Race network.
+/// The target is 1 FIL (10**18 attoFIL) per 32GiB.
+/// This does not divide evenly, so the result is fractionally smaller.
+fn space_race_initial_pledge_max_per_byte() -> BigInt {
+    BigInt::from(10_u64.pow(18) / (32 << 30))
 }
 
 // FF = BR(t, DeclaredFaultProjectionPeriod)
@@ -172,5 +181,8 @@ pub fn initial_pledge_for_power(
     let additional_ip_denom = lock_target_denom * pledge_share_denom;
     let additional_ip = additional_ip_num / additional_ip_denom;
 
-    ip_base + additional_ip
+    let nominal_pledge = ip_base + additional_ip;
+    let space_race_pledge_cap = space_race_initial_pledge_max_per_byte() * qa_power;
+
+    cmp::min(nominal_pledge, space_race_pledge_cap)
 }

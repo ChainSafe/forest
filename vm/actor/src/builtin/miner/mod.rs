@@ -81,7 +81,7 @@ use vm::{
     METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: b8a3a6ff7b15ac01f0534c47059e1c81652a61f0
+// * Updated to specs-actors v0.9.3 (f4024efad09a66e32bfeef10a2845b2b35325297)
 
 /// Storage Miner actor methods available
 #[derive(FromPrimitive)]
@@ -121,7 +121,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_is(iter::once(&*INIT_ACTOR_ADDR))?;
+        rt.validate_immediate_caller_is(&[*INIT_ACTOR_ADDR])?;
 
         if !check_supported_proof_types(params.seal_proof_type) {
             return Err(ActorError::new(
@@ -133,8 +133,13 @@ impl Actor {
             ));
         }
 
-        let owner = resolve_owner_address(rt, params.owner)?;
+        let owner = resolve_control_address(rt, params.owner)?;
         let worker = resolve_worker_address(rt, params.worker)?;
+        let control_addresses: Vec<_> = params
+            .control_addresses
+            .into_iter()
+            .map(|address| resolve_worker_address(rt, address))
+            .collect::<Result<_, _>>()?;
 
         let empty_map = make_map::<_, ()>(rt.store()).flush().map_err(|e| {
             ActorError::new(
@@ -180,6 +185,7 @@ impl Actor {
         let info = MinerInfo::new(
             owner,
             worker,
+            control_addresses,
             params.peer_id,
             params.multi_address,
             params.seal_proof_type,
@@ -239,9 +245,13 @@ impl Actor {
         Ok(GetControlAddressesReturn {
             owner: info.owner,
             worker: info.worker,
+            control_addresses: info.control_addresses,
         })
     }
 
+    /// Will ALWAYS overwrite the existing control addresses with the control addresses passed in the params.
+    /// If an empty addresses vector is passed, the control addresses will be cleared.
+    /// A worker change will be scheduled if the worker passed in the params is different from the existing worker.
     fn change_worker_address<BS, RT>(
         rt: &mut RT,
         params: ChangeWorkerAddressParams,
@@ -250,24 +260,37 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let mut effective_epoch = ChainEpoch::default();
-        let worker = resolve_worker_address(rt, params.new_worker)?;
+        let new_worker = resolve_worker_address(rt, params.new_worker)?;
+        let control_addresses: Vec<Address> = params
+            .new_control_addresses
+            .into_iter()
+            .map(|address| resolve_control_address(rt, address))
+            .collect::<Result<_, _>>()?;
 
-        rt.transaction(|state: &mut State, rt| {
+        let effective_epoch = rt.transaction(|state: &mut State, rt| {
             let mut info = Self::get_miner_info(rt, state)?;
 
-            // Only the Owner is allowed to change the worker address.
-            // Allowing the worker to do this does not make sense because the owner would usually do it
-            // only if the worker keys are lost.
-            rt.validate_immediate_caller_is(iter::once(&info.owner))?;
+            // Only the Owner is allowed to change the new_worker and control addresses.
+            rt.validate_immediate_caller_is(&[info.owner])?;
 
-            effective_epoch = rt.curr_epoch() + WORKER_KEY_CHANGE_DELAY;
+            // save the new control addresses
+            info.control_addresses = control_addresses;
 
-            // This may replace another pending key change.
-            info.pending_worker_key = Some(WorkerKeyChange {
-                new_worker: worker,
-                effective_at: effective_epoch,
-            });
+            let effective_epoch = if new_worker == info.worker {
+                None
+            } else {
+                // save new_worker addr key change request
+                // This may replace another pending key change.
+
+                let effective_epoch = rt.curr_epoch() + WORKER_KEY_CHANGE_DELAY;
+
+                info.pending_worker_key = Some(WorkerKeyChange {
+                    new_worker,
+                    effective_at: effective_epoch,
+                });
+
+                Some(effective_epoch)
+            };
 
             state.save_info(rt.store(), info).map_err(|e| {
                 ActorError::new(
@@ -276,13 +299,16 @@ impl Actor {
                 )
             })?;
 
-            Ok(())
+            Ok(effective_epoch)
         })?;
 
-        let cron_payload = CronEventPayload {
-            event_type: CRON_EVENT_WORKER_KEY_CHANGE,
-        };
-        enroll_cron_event(rt, effective_epoch, cron_payload)?;
+        if let Some(effective_epoch) = effective_epoch {
+            let cron_payload = CronEventPayload {
+                event_type: CRON_EVENT_WORKER_KEY_CHANGE,
+            };
+            enroll_cron_event(rt, effective_epoch, cron_payload)?;
+        }
+
         Ok(())
     }
 
@@ -295,7 +321,9 @@ impl Actor {
             let mut info = Self::get_miner_info(rt, state)?;
 
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             info.peer_id = params.new_id;
@@ -323,7 +351,9 @@ impl Actor {
             let mut info = Self::get_miner_info(rt, state)?;
 
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             info.multi_address = params.new_multi_addrs;
@@ -403,8 +433,11 @@ impl Actor {
 
         let post_result = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, state)?;
+
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             // Validate that the miner didn't try to prove too many partitions at once.
@@ -712,8 +745,11 @@ impl Actor {
 
         let newly_vested = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, state)?;
+
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             let store = rt.store();
@@ -1126,6 +1162,9 @@ impl Actor {
                     crate::EPOCHS_IN_DAY,
                 );
 
+                // The storage pledge is recorded for use in computing the penalty if this sector is terminated
+                // before its declared expiration.
+                // It's not capped to 1 FIL for Space Race, so likely exceeds the actual initial pledge requirement.
                 let storage_pledge = expected_reward_for_power(
                     &reward_stats.this_epoch_reward_smoothed,
                     &power_total.quality_adj_power_smoothed,
@@ -1320,8 +1359,11 @@ impl Actor {
 
         let (power_delta, pledge_delta) = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, state)?;
+
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             let store = rt.store();
@@ -1546,8 +1588,11 @@ impl Actor {
             let had_early_terminations = have_pending_early_terminations(rt, state);
 
             let info = get_miner_info(rt, state)?;
+
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             let store = rt.store();
@@ -1667,8 +1712,11 @@ impl Actor {
 
         let new_fault_power_total = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, &state)?;
+
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             let store = rt.store();
@@ -1808,8 +1856,11 @@ impl Actor {
 
         rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, &state)?;
+
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             let store = rt.store();
@@ -1916,8 +1967,11 @@ impl Actor {
 
         rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, state)?;
+
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
 
             let store = rt.store();
@@ -2052,9 +2106,13 @@ impl Actor {
 
         rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, state)?;
+
             rt.validate_immediate_caller_is(
-                iter::once(&info.worker).chain(iter::once(&info.owner)),
+                info.control_addresses
+                    .iter()
+                    .chain(&[info.worker, info.owner]),
             )?;
+
             state.mask_sector_number(rt.store(), &params.mask_sector_numbers)
         })?;
 
@@ -2076,7 +2134,11 @@ impl Actor {
 
         let newly_vested = rt.transaction(|st: &mut State, rt| {
             let info = get_miner_info(rt, st)?;
-            rt.validate_immediate_caller_is(&[info.worker, info.owner, *REWARD_ACTOR_ADDR])?;
+            rt.validate_immediate_caller_is(info.control_addresses.iter().chain(&[
+                info.worker,
+                info.owner,
+                *REWARD_ACTOR_ADDR,
+            ]))?;
 
             // This may lock up unlocked balance that was covering InitialPledgeRequirements
             // This ensures that the amountToLock is always locked up if the miner account
@@ -2194,7 +2256,7 @@ impl Actor {
 
             // Only the owner is allowed to withdraw the balance as it belongs to/is controlled by the owner
             // and not the worker.
-            rt.validate_immediate_caller_is(iter::once(&info.owner))?;
+            rt.validate_immediate_caller_is(&[info.owner])?;
 
             // Ensure we don't have any pending terminations.
             if !state.early_terminations.is_empty() {
@@ -3187,7 +3249,7 @@ where
 }
 
 /// Resolves an address to an ID address and verifies that it is address of an account or multisig actor.
-fn resolve_owner_address<BS, RT>(rt: &RT, raw: Address) -> Result<Address, ActorError>
+fn resolve_control_address<BS, RT>(rt: &RT, raw: Address) -> Result<Address, ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
