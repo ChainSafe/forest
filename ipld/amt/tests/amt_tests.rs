@@ -272,7 +272,7 @@ fn for_each() {
 
     let mut indexes = Vec::new();
     for i in 0..10000 {
-        if (i * 7 + 1) % 3 == 0 {
+        if (i + 1) % 3 == 0 {
             indexes.push(i);
         }
     }
