@@ -218,13 +218,20 @@ where
         match self {
             Node::Leaf { vals, .. } => Ok(vals[i as usize].clone()),
             Node::Link { links, .. } => match &links[sub_i as usize] {
-                Some(Link::Cid { cid, .. }) => {
-                    let node: Node<V> = bs
-                        .get::<Node<V>>(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
+                Some(Link::Cid { cid, cache }) => {
+                    if let Some(cached_node) = cache.borrow() {
+                        cached_node.get(bs, height - 1, i % nodes_for_height(height))
+                    } else {
+                        let node: Box<Node<V>> = bs
+                            .get(cid)?
+                            .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
-                    // Get from node pulled into memory from Cid
-                    node.get(bs, height - 1, i % nodes_for_height(height))
+                        let val = node.get(bs, height - 1, i % nodes_for_height(height));
+
+                        // Ignore error intentionally, the cache value will always be the same
+                        let _ = cache.fill(node);
+                        val
+                    }
                 }
                 Some(Link::Dirty(n)) => n.get(bs, height - 1, i % nodes_for_height(height)),
                 None => Ok(None),
@@ -252,10 +259,16 @@ where
 
         if let Node::Link { links, bmap } = self {
             links[idx] = match &mut links[idx] {
-                Some(Link::Cid { cid, .. }) => {
-                    let node = bs.get::<Node<V>>(cid)?.ok_or_else(|| Error::RootNotFound)?;
+                Some(Link::Cid { cid, cache }) => {
+                    let cache_node = std::mem::take(cache);
+                    let sub_node = if let Some(sn) = cache_node.into_inner() {
+                        sn
+                    } else {
+                        // Only retrieve sub node if not found in cache
+                        bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                    };
 
-                    Some(Link::Dirty(Box::new(node)))
+                    Some(Link::Dirty(sub_node))
                 }
                 None => {
                     let node = match height {
