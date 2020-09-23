@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_INDEX, WIDTH};
+use crate::{
+    node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_HEIGHT, MAX_INDEX, WIDTH,
+};
 use cid::{multihash::Blake2b256, Cid};
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
@@ -58,11 +60,16 @@ where
             .get(cid)?
             .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
+        // Sanity check, this should never be possible.
+        if root.height > MAX_HEIGHT {
+            return Err(Error::MaxHeight(root.height, MAX_HEIGHT));
+        }
+
         Ok(Self { root, block_store })
     }
 
     // Getter for height
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> u64 {
         self.root.height
     }
 
@@ -82,7 +89,7 @@ where
 
     /// Get value at index of AMT
     pub fn get(&self, i: u64) -> Result<Option<V>, Error> {
-        if i >= MAX_INDEX {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
@@ -95,11 +102,11 @@ where
 
     /// Set value at index
     pub fn set(&mut self, i: u64, val: V) -> Result<(), Error> {
-        if i >= MAX_INDEX {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
-        while i >= nodes_for_height(self.height() + 1 as u32) {
+        while i >= nodes_for_height(self.height() + 1) {
             // node at index exists
             if !self.root.node.empty() {
                 // Save and get cid to be able to link from higher level node
@@ -150,7 +157,7 @@ where
 
     /// Delete item from AMT at index
     pub fn delete(&mut self, i: u64) -> Result<bool, Error> {
-        if i >= MAX_INDEX {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
