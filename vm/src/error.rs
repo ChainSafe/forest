@@ -129,6 +129,14 @@ macro_rules! actor_error {
     ( $code:ident; $msg:literal $(, $ex:expr)+ ) => {
         ActorError::new(ExitCode::$code, format!($msg, $($ex,)*))
     };
+
+    // Error with only one stringable expression, with comma separator
+    ( $code:ident, $msg:expr ) => { actor_error!($code; $msg) };
+
+    // String with positional arguments, with comma separator
+    ( $code:ident, $msg:literal $(, $ex:expr)+ ) => {
+        actor_error!($code; $msg $(, $ex)*)
+    };
 }
 
 #[cfg(test)]
