@@ -533,14 +533,13 @@ impl Actor {
                     continue;
                 }
 
-                let mut state: DealState = msm
+                let mut state: DealState = *msm
                     .deal_states
                     .as_ref()
                     .unwrap()
                     .get(id)
                     .map_err(|e| actor_error!(ErrIllegalState; "failed to get deal state {}", e))?
-                    .ok_or_else(|| actor_error!(ErrIllegalArgument; "no state for deal {}", id))?
-                    .clone();
+                    .ok_or_else(|| actor_error!(ErrIllegalArgument; "no state for deal {}", id))?;
 
                 // If a deal is already slashed, don't need to do anything
                 if state.slash_epoch != EPOCH_UNDEFINED {
@@ -785,7 +784,7 @@ impl Actor {
                         msm.deal_states
                             .as_mut()
                             .unwrap()
-                            .set(deal_id, state.clone())
+                            .set(deal_id, state)
                             .map_err(|e| {
                                 actor_error!(ErrIllegalState;
                                     "failed to set deal state: {}", e)
