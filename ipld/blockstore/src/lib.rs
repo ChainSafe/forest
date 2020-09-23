@@ -2,9 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod buffered;
+mod tracking;
 
 #[cfg(feature = "buffered")]
 pub use self::buffered::BufferedBlockStore;
+
+#[cfg(feature = "tracking")]
+pub use self::tracking::TrackingBlockStore;
 
 use cid::{multihash::MultihashDigest, Cid};
 use db::{MemoryDB, Store};
