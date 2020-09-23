@@ -288,7 +288,13 @@ where
                 unreachable!("Value is set as cached")
             }
         } else {
-            unreachable!("Non zero height in Amt is always Links type")
+            // ! This should not be handled, but there is a bug in the go implementation
+            // ! and this needs to be matched
+            *self = Node::Link {
+                links: Default::default(),
+                bmap: Default::default(),
+            };
+            self.set(bs, height, i, val)
         }
     }
 

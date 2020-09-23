@@ -345,4 +345,21 @@ fn delete_bug_test() {
     );
     #[rustfmt::skip]
     assert_eq!(*db.stats.borrow(), BSStats {r: 0, w: 2, br: 0, bw: 16});
+
+    // * Testing bug functionality
+    let mut new_amt = Amt::load(&c, &db).unwrap();
+    new_amt.set(9, "foo".to_owned()).unwrap();
+    assert_eq!(new_amt.get(9).unwrap(), Some(&"foo".to_string()));
+    assert_eq!(new_amt.height(), 5);
+    new_amt.set(400, "bar".to_owned()).unwrap();
+    assert_eq!(new_amt.get(400).unwrap(), Some(&"bar".to_string()));
+    assert_eq!(new_amt.height(), 5);
+    let c = new_amt.flush().unwrap();
+
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaceakfpvbxzuyfgcwpqhu6evurdzcch7rsoiiwjpks3au7mkkf6ju6u"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 1, w: 10, br: 8, bw: 368});
 }
