@@ -372,7 +372,7 @@ where
     pub(super) fn for_each_while_mut<S, F>(
         &mut self,
         store: &S,
-        height: u32,
+        height: u64,
         offset: u64,
         f: &mut F,
     ) -> Result<bool, Box<dyn StdError>>
