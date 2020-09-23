@@ -8,15 +8,15 @@ use std::fmt::Debug;
 
 fn assert_get<V, BS>(a: &mut Amt<V, BS>, i: u64, v: &V)
 where
-    V: Clone + Serialize + DeserializeOwned + PartialEq + Debug,
+    V: Serialize + DeserializeOwned + PartialEq + Debug,
     BS: BlockStore,
 {
-    assert_eq!(&a.get(i).unwrap().unwrap(), v);
+    assert_eq!(a.get(i).unwrap().unwrap(), v);
 }
 
 fn assert_count<V, BS>(a: &mut Amt<V, BS>, c: u64)
 where
-    V: Clone + Serialize + DeserializeOwned + PartialEq,
+    V: Serialize + DeserializeOwned + PartialEq,
     BS: BlockStore,
 {
     assert_eq!(a.count(), c);
@@ -179,13 +179,13 @@ fn delete_fail_check() {
     a.set(9, "nine".to_owned()).unwrap();
     assert_eq!(a.height(), 1);
     assert_eq!(a.count(), 2);
-    assert_eq!(a.get(1).unwrap(), Some("one".to_string()));
-    assert_eq!(a.get(9).unwrap(), Some("nine".to_string()));
+    assert_eq!(a.get(1).unwrap(), Some(&"one".to_string()));
+    assert_eq!(a.get(9).unwrap(), Some(&"nine".to_string()));
     assert_eq!(a.delete(10), Ok(false));
     assert_eq!(a.delete(0), Ok(false));
     assert_eq!(a.count(), 2);
-    assert_eq!(a.get(1).unwrap(), Some("one".to_string()));
-    assert_eq!(a.get(9).unwrap(), Some("nine".to_string()));
+    assert_eq!(a.get(1).unwrap(), Some(&"one".to_string()));
+    assert_eq!(a.get(9).unwrap(), Some(&"nine".to_string()));
 }
 
 #[test]

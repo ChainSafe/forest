@@ -53,9 +53,9 @@ fn construct_lane_state_amt(rt: &MockRuntime, lss: Vec<LaneState>) -> Cid {
 }
 
 fn get_lane_state(rt: &MockRuntime, cid: &Cid, lane: u64) -> LaneState {
-    let arr = Amt::load(cid, &rt.store).unwrap();
+    let arr: Amt<LaneState, _> = Amt::load(cid, &rt.store).unwrap();
 
-    arr.get(lane).unwrap().unwrap()
+    arr.get(lane).unwrap().unwrap().clone()
 }
 
 mod paych_constructor {

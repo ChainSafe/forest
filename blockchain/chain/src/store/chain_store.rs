@@ -485,12 +485,12 @@ fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
     DB: BlockStore,
 {
-    let amt = Amt::load(root, db)?;
+    let amt = Amt::<Cid, _>::load(root, db)?;
 
     let mut cids = Vec::new();
     for i in 0..amt.count() {
         if let Some(c) = amt.get(i)? {
-            cids.push(c);
+            cids.push(c.clone());
         }
     }
 
@@ -608,7 +608,7 @@ where
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
     let receipts = amt.get(i)?;
-    Ok(receipts)
+    Ok(receipts.cloned())
 }
 
 /// Returns the weight of provided tipset

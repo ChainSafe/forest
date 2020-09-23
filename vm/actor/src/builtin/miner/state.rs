@@ -224,7 +224,7 @@ impl State {
         sector_num: SectorNumber,
     ) -> Result<Option<SectorOnChainInfo>, AmtError> {
         let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
-        sectors.get(sector_num)
+        Ok(sectors.get(sector_num)?.cloned())
     }
     pub fn delete_sector<BS: BlockStore>(
         &mut self,
@@ -282,7 +282,10 @@ impl State {
         expiry: ChainEpoch,
     ) -> Result<BitField, String> {
         let sectors = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        Ok(sectors.get(expiry as u64)?.ok_or("unable to find sector")?)
+        Ok(sectors
+            .get(expiry as u64)?
+            .ok_or("unable to find sector")?
+            .clone())
     }
     /// Iterates sector expiration groups in order.
     /// Note that the sectors bitfield provided to the callback is not safe to store.
@@ -308,7 +311,8 @@ impl State {
         let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
         let mut bf: BitField = sector_arr
             .get(expiry as u64)?
-            .ok_or("unable to find sector")?;
+            .ok_or("unable to find sector")?
+            .clone();
         for &sector in sectors {
             bf.set(sector as usize);
         }
@@ -336,7 +340,8 @@ impl State {
 
         let mut bf = sector_arr
             .get(expiry as u64)?
-            .ok_or("unable to find sector")?;
+            .ok_or("unable to find sector")?
+            .clone();
         for &sector in sectors {
             bf.unset(sector as usize);
         }
@@ -384,7 +389,8 @@ impl State {
         let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
         let mut bf: BitField = epoch_fault_arr
             .get(fault_epoch as u64)?
-            .ok_or("unable to find sector")?;
+            .ok_or("unable to find sector")?
+            .clone();
 
         bf |= sector_nos;
 
@@ -635,7 +641,7 @@ impl State {
 
             // Load existing entry, else set a new one
             if let Some(locked_fund_entry) = vesting_funds.get(vest_epoch as u64)? {
-                let mut locked_funds = BigInt::from(locked_fund_entry);
+                let mut locked_funds = BigInt::from(*locked_fund_entry);
                 locked_funds += vest_this_time;
 
                 let num = ToPrimitive::to_u64(&locked_funds)

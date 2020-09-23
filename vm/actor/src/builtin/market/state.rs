@@ -300,8 +300,8 @@ where
     #[allow(clippy::too_many_arguments)]
     pub(super) fn update_pending_deal_state(
         &mut self,
-        state: DealState,
-        deal: DealProposal,
+        state: &DealState,
+        deal: &DealProposal,
         epoch: ChainEpoch,
     ) -> Result<(TokenAmount, ChainEpoch, bool), ActorError> {
         let ever_updated = state.last_updated_epoch != EPOCH_UNDEFINED;
@@ -435,7 +435,7 @@ where
     fn process_deal_expired(
         &mut self,
         deal: &DealProposal,
-        state: DealState,
+        state: &DealState,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,

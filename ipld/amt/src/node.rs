@@ -8,16 +8,16 @@ use encoding::{
     ser::{self, Serialize},
 };
 use ipld_blockstore::BlockStore;
-use lazycell::AtomicLazyCell;
+use lazycell::LazyCell;
 use std::error::Error as StdError;
 
 /// This represents a link to another Node
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(super) enum Link<V> {
     /// Unchanged link to data with an atomic cache.
     Cid {
         cid: Cid,
-        cache: AtomicLazyCell<Box<Node<V>>>,
+        cache: LazyCell<Box<Node<V>>>,
     },
     /// Modifications have been made to the link, requires flush to clear
     Dirty(Box<Node<V>>),
@@ -48,7 +48,7 @@ impl<V> From<Cid> for Link<V> {
 }
 
 /// Node represents either a shard of values in the form of bytes or links to other nodes
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Node<V> {
     /// Node is a link node, contains array of Cid or cached sub nodes.
@@ -73,10 +73,7 @@ impl<V> Default for Node<V> {
 }
 
 /// Turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<&T>
-where
-    T: Clone,
-{
+fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<&T> {
     let mut v: Vec<&T> = Vec::new();
     for (i, _) in values.iter().enumerate().take(WIDTH) {
         if bmap.get_bit(i as u64) {
@@ -89,7 +86,6 @@ where
 /// Puts values from vector into shard array
 fn vec_to_values<V, T>(bmap: BitMap, values: Vec<V>) -> Result<[Option<T>; WIDTH], Error>
 where
-    V: Clone,
     T: From<V>,
 {
     let mut r_arr: [Option<T>; WIDTH] = Default::default();
@@ -120,7 +116,7 @@ fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<&Cid>, Err
 
 impl<V> Serialize for Node<V>
 where
-    V: Clone + Serialize,
+    V: Serialize,
 {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -138,7 +134,7 @@ where
 
 impl<'de, V> Deserialize<'de> for Node<V>
 where
-    V: Deserialize<'de> + Clone,
+    V: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -163,7 +159,7 @@ where
 
 impl<V> Node<V>
 where
-    V: Clone + DeserializeOwned + Serialize,
+    V: DeserializeOwned + Serialize,
 {
     /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
@@ -209,14 +205,14 @@ where
         bs: &DB,
         height: u64,
         i: u64,
-    ) -> Result<Option<V>, Error> {
+    ) -> Result<Option<&V>, Error> {
         let sub_i = i / nodes_for_height(height);
         if !self.bitmap().get_bit(sub_i) {
             return Ok(None);
         }
 
         match self {
-            Node::Leaf { vals, .. } => Ok(vals[i as usize].clone()),
+            Node::Leaf { vals, .. } => Ok(vals[i as usize].as_ref()),
             Node::Link { links, .. } => match &links[sub_i as usize] {
                 Some(Link::Cid { cid, cache }) => {
                     if let Some(cached_node) = cache.borrow() {
@@ -226,11 +222,10 @@ where
                             .get(cid)?
                             .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
-                        let val = node.get(bs, height - 1, i % nodes_for_height(height));
-
                         // Ignore error intentionally, the cache value will always be the same
                         let _ = cache.fill(node);
-                        val
+                        let cache_node = cache.borrow().expect("cache filled on line above");
+                        cache_node.get(bs, height - 1, i % nodes_for_height(height))
                     }
                 }
                 Some(Link::Dirty(n)) => n.get(bs, height - 1, i % nodes_for_height(height)),
