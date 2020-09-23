@@ -6,7 +6,7 @@ use actor::miner::{
     compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault, MinerInfo,
     SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
 };
-use address::{json::AddressJson,Address};
+use address::{json::AddressJson, Address};
 use async_std::task;
 use bitfield::json::BitFieldJson;
 use blocks::{tipset_json::TipsetJson, Tipset, TipsetKeys};

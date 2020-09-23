@@ -53,16 +53,16 @@ pub enum HeadChange {
 /// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
-    publisher: Arc<RwLock<Publisher<HeadChange>>>,
+    publisher: RwLock<Publisher<HeadChange>>,
 
     // key-value datastore
     pub db: Arc<DB>,
 
     // Tipset at the head of the best-known chain.
-    heaviest: Arc<RwLock<Option<Arc<Tipset>>>>,
+    heaviest: RwLock<Option<Arc<Tipset>>>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
-    tip_index: Arc<RwLock<TipIndex>>,
+    tip_index: RwLock<TipIndex>,
 }
 
 impl<DB> ChainStore<DB>
@@ -76,9 +76,9 @@ where
             .map(Arc::new);
         Self {
             db,
-            publisher: Arc::new(RwLock::new(Publisher::new(SINK_CAP))),
-            tip_index: Arc::new(RwLock::new(TipIndex::new())),
-            heaviest: Arc::new(RwLock::new(heaviest)),
+            publisher: RwLock::new(Publisher::new(SINK_CAP)),
+            tip_index: RwLock::new(TipIndex::new()),
+            heaviest: RwLock::new(heaviest),
         }
     }
 
@@ -159,16 +159,16 @@ where
         self.heaviest.read().await.clone()
     }
 
-    pub fn heaviest_tipset_arc(&self) -> Arc<RwLock<Option<Arc<Tipset>>>> {
-        self.heaviest.clone()
+    pub fn heaviest_tipset_arc(&self) -> &RwLock<Option<Arc<Tipset>>> {
+        &self.heaviest
     }
 
-    pub fn tip_index_arc(&self) -> Arc<RwLock<TipIndex>> {
-        self.tip_index.clone()
+    pub fn tip_index_arc(&self) -> &RwLock<TipIndex> {
+        &self.tip_index
     }
 
-    pub fn publisher_arc(&self) -> Arc<RwLock<Publisher<HeadChange>>> {
-        self.publisher.clone()
+    pub fn publisher_arc(&self) -> &RwLock<Publisher<HeadChange>> {
+        &self.publisher
     }
 
     pub fn blockstore_arc(&self) -> Arc<DB> {

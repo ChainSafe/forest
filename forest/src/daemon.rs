@@ -91,9 +91,9 @@ pub(super) async fn start(config: Config) {
     .unwrap();
 
     // Initialize ChainSyncer
-    let heaviest_tipset = chain_store.heaviest_tipset_arc();
+    let chain_store_arc = Arc::new(chain_store);
     let chain_syncer = ChainSyncer::new(
-        Arc::new(chain_store),
+        chain_store_arc.clone(),
         Arc::clone(&state_manager),
         Arc::new(beacon),
         network_send.clone(),
@@ -125,8 +125,7 @@ pub(super) async fn start(config: Config) {
                     sync_state,
                     network_send,
                     network_name,
-                    heaviest_tipset,
-                    publisher,
+                    chain_store: chain_store_arc,
                     events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
                 },
                 &rpc_listen,

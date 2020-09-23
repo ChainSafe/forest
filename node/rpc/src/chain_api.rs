@@ -10,7 +10,6 @@ use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 
-use flo_stream::MessagePublisher;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     signed_message,
@@ -65,10 +64,10 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let data_subscribe = data.publisher.write().await.subscribe();
+    let data_subscribe = data.chain_store.subscribe().await;
     let index = chain::headchange_json::sub_head_changes(
         data_subscribe,
-        &*data.heaviest_tipset.read().await,
+        &*data.chain_store.heaviest_tipset_arc().read().await,
         params,
         data.events_pubsub.clone(),
     )

@@ -16,10 +16,11 @@ use async_std::sync::{RwLock, Sender};
 use async_std::task;
 use async_std::task::JoinHandle;
 use async_tungstenite::{tungstenite::Message, WebSocketStream};
-use blocks::Tipset;
 use blockstore::BlockStore;
-use chain::headchange_json::{EventsPayload, HeadChangeJson};
-use chain::HeadChange;
+use chain::{
+    headchange_json::{EventsPayload, HeadChangeJson},
+    ChainStore,
+};
 use chain_sync::{BadBlockCache, SyncState};
 use flo_stream::MessagePublisher;
 use flo_stream::{Publisher, Subscriber};
@@ -56,14 +57,13 @@ where
 {
     pub state_manager: Arc<StateManager<DB>>,
     pub keystore: Arc<RwLock<KS>>,
-    pub heaviest_tipset: Arc<RwLock<Option<Arc<Tipset>>>>,
-    pub publisher: Arc<RwLock<Publisher<HeadChange>>>,
     pub events_pubsub: Arc<RwLock<Publisher<EventsPayload>>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
     pub network_send: Sender<NetworkMessage>,
     pub network_name: String,
+    pub chain_store: Arc<ChainStore<DB>>,
 }
 
 pub async fn start_rpc<DB, KS>(state: RpcState<DB, KS>, rpc_endpoint: &str)
@@ -407,11 +407,7 @@ async fn handle_connection_and_log(
     })
 }
 
-async fn send_error(
-    code: i64,
-    ws_sender: &RwLock<WsSink>,
-    message: String,
-) -> Result<(), Error> {
+async fn send_error(code: i64, ws_sender: &RwLock<WsSink>, message: String) -> Result<(), Error> {
     let response = ResponseObjects::One(ResponseObject::Error {
         jsonrpc: V2,
         error: Error::Full {
