@@ -1,11 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused)]
-
 use crate::errors::*;
 use crate::StateManager;
-use actor::miner::{self, Partition};
+use actor::miner;
 use actor::{
     miner::{ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
@@ -21,7 +19,6 @@ use forest_blocks::Tipset;
 use ipld_amt::Amt;
 use ipld_hamt::Hamt;
 use std::convert::TryInto;
-use std::error::Error as StdError;
 
 pub fn get_sectors_for_winning_post<DB>(
     state_manager: &StateManager<DB>,
@@ -32,72 +29,71 @@ pub fn get_sectors_for_winning_post<DB>(
 where
     DB: BlockStore,
 {
-    todo!()
-    // let miner_actor_state: miner::State =
-    //     state_manager
-    //         .load_actor_state(&address, &st)
-    //         .map_err(|err| {
-    //             Error::State(format!(
-    //                 "(get sectors) failed to load miner actor state: %{:}",
-    //                 err
-    //             ))
-    //         })?;
-    // let sector_set = get_proving_set_raw(state_manager, &miner_actor_state)?;
-    // if sector_set.is_empty() {
-    //     return Ok(Vec::new());
-    // }
-    // let seal_proof_type = match miner_actor_state.info.sector_size {
-    //     SectorSize::_2KiB => RegisteredSealProof::StackedDRG2KiBV1,
-    //     SectorSize::_8MiB => RegisteredSealProof::StackedDRG8MiBV1,
-    //     SectorSize::_512MiB => RegisteredSealProof::StackedDRG512MiBV1,
-    //     SectorSize::_32GiB => RegisteredSealProof::StackedDRG32GiBV1,
-    //     SectorSize::_64GiB => RegisteredSealProof::StackedDRG64GiBV1,
-    // };
-    // let wpt = seal_proof_type.registered_winning_post_proof()?;
+    let miner_actor_state: miner::State =
+        state_manager
+            .load_actor_state(&address, &st)
+            .map_err(|err| {
+                Error::State(format!(
+                    "(get sectors) failed to load miner actor state: %{:}",
+                    err
+                ))
+            })?;
+    let sector_set = get_proving_set_raw(state_manager, &miner_actor_state)?;
+    if sector_set.is_empty() {
+        return Ok(Vec::new());
+    }
+    let seal_proof_type = match miner_actor_state.info.sector_size {
+        SectorSize::_2KiB => RegisteredSealProof::StackedDRG2KiBV1,
+        SectorSize::_8MiB => RegisteredSealProof::StackedDRG8MiBV1,
+        SectorSize::_512MiB => RegisteredSealProof::StackedDRG512MiBV1,
+        SectorSize::_32GiB => RegisteredSealProof::StackedDRG32GiBV1,
+        SectorSize::_64GiB => RegisteredSealProof::StackedDRG64GiBV1,
+    };
+    let wpt = seal_proof_type.registered_winning_post_proof()?;
 
-    // if address.protocol() != Protocol::ID {
-    //     return Err(Error::Other(format!(
-    //         "failed to get ID from miner address {:}",
-    //         address
-    //     )));
-    // };
-    // let mut prover_id = ProverId::default();
-    // let prover_bytes = address.to_bytes();
-    // prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
-    // let ids = generate_winning_post_sector_challenge(
-    //     wpt.try_into()?,
-    //     &rand,
-    //     sector_set.len() as u64,
-    //     prover_id,
-    // )
-    // .map_err(|err| Error::State(format!("generate winning posts challenge {:}", err)))?;
+    if address.protocol() != Protocol::ID {
+        return Err(Error::Other(format!(
+            "failed to get ID from miner address {:}",
+            address
+        )));
+    };
+    let mut prover_id = ProverId::default();
+    let prover_bytes = address.to_bytes();
+    prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
+    let ids = generate_winning_post_sector_challenge(
+        wpt.try_into()?,
+        &rand,
+        sector_set.len() as u64,
+        prover_id,
+    )
+    .map_err(|err| Error::State(format!("generate winning posts challenge {:}", err)))?;
 
-    // Ok(ids
-    //     .iter()
-    //     .map::<Result<SectorInfo, Error>, _>(|i: &u64| {
-    //         let index = *i as usize;
-    //         let sector_number = sector_set
-    //             .get(index)
-    //             .ok_or_else(|| {
-    //                 Error::Other(format!("Could not get sector_number at index {:}", index))
-    //             })?
-    //             .info
-    //             .sector_number;
-    //         let sealed_cid = sector_set
-    //             .get(index)
-    //             .ok_or_else(|| {
-    //                 Error::Other(format!("Could not get sealed cid at index {:}", index))
-    //             })?
-    //             .info
-    //             .sealed_cid
-    //             .clone();
-    //         Ok(SectorInfo {
-    //             proof: seal_proof_type,
-    //             sector_number,
-    //             sealed_cid,
-    //         })
-    //     })
-    //     .collect::<Result<Vec<SectorInfo>, _>>()?)
+    Ok(ids
+        .iter()
+        .map::<Result<SectorInfo, Error>, _>(|i: &u64| {
+            let index = *i as usize;
+            let sector_number = sector_set
+                .get(index)
+                .ok_or_else(|| {
+                    Error::Other(format!("Could not get sector_number at index {:}", index))
+                })?
+                .info
+                .sector_number;
+            let sealed_cid = sector_set
+                .get(index)
+                .ok_or_else(|| {
+                    Error::Other(format!("Could not get sealed cid at index {:}", index))
+                })?
+                .info
+                .sealed_cid
+                .clone();
+            Ok(SectorInfo {
+                proof: seal_proof_type,
+                sector_number,
+                sealed_cid,
+            })
+        })
+        .collect::<Result<Vec<SectorInfo>, _>>()?)
 }
 
 pub fn get_proving_set_raw<DB>(
@@ -107,12 +103,11 @@ pub fn get_proving_set_raw<DB>(
 where
     DB: BlockStore,
 {
-    todo!()
-    // let not_proving = &actor_state.faults | &actor_state.recoveries;
+    let not_proving = &actor_state.faults | &actor_state.recoveries;
 
-    // actor_state
-    //     .load_sector_infos(&*state_manager.get_block_store(), &not_proving)
-    //     .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
+    actor_state
+        .load_sector_infos(&*state_manager.blockstore_cloned(), &not_proving)
+        .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
 }
 
 pub fn get_miner_sector_set<DB>(
@@ -134,7 +129,7 @@ where
             ))
         })?;
     load_sectors_from_set(
-        state_manager.get_block_store_ref(),
+        state_manager.blockstore(),
         &miner_actor_state.sectors,
         filter,
         filter_out,
@@ -163,7 +158,7 @@ where
             }
         }
         sset.push(ChainSectorInfo {
-            info: sector_chain.clone(),
+            info: sector_chain.info.to_owned(),
             id: i,
         });
         Ok(())
@@ -192,7 +187,7 @@ where
             ))
         })?;
     miner_actor_state
-        .get_sector(state_manager.get_block_store_ref(), *sector_number)
+        .get_sector(state_manager.blockstore(), *sector_number)
         .map_err(|err| Error::State(format!("(get sset) failed to get actor state: {:}", err)))
 }
 
@@ -214,7 +209,7 @@ where
             ))
         })?;
     let precommit_info = miner_actor_state
-        .get_precommitted_sector(state_manager.get_block_store_ref(), *sector_number)
+        .get_precommitted_sector(state_manager.blockstore(), *sector_number)
         .map_err(|err| {
             Error::Other(format!(
                 "(precommit info) failed to load miner actor state: %{:}",
@@ -240,7 +235,7 @@ where
                 err
             ))
         })?;
-    Ok(miner_actor_state.get_info(state_manager.get_block_store_ref())?)
+    Ok(miner_actor_state.info)
 }
 
 pub fn get_miner_deadlines<DB>(
@@ -260,7 +255,7 @@ where
             ))
         })?;
     miner_actor_state
-        .load_deadlines(&*state_manager.get_block_store())
+        .load_deadlines(&*state_manager.blockstore_cloned())
         .map_err(|err| {
             Error::State(format!(
                 "(get_miner_deadlines) could not load deadlines: {:}",
@@ -269,70 +264,42 @@ where
         })
 }
 
-fn for_each_deadline_partition<DB, F>(
-    state_manager: &StateManager<DB>,
-    tipset: &Tipset,
-    address: &Address,
-    mut cb: F,
-) -> Result<(), Box<dyn StdError>>
-where
-    F: FnMut(&Partition) -> Result<(), Box<dyn StdError>>,
-    DB: BlockStore,
-{
-    let store = state_manager.get_block_store_ref();
-
-    // TODO clean this logic up
-    let miner_actor_state: miner::State =
-        state_manager.load_actor_state(&address, tipset.parent_state())?;
-    let deadlines = miner_actor_state.load_deadlines(store)?;
-    let pa = deadlines.for_each(store, |i, deadline| {
-        let partitions = deadline.partitions_amt(store).map_err(|e| e.to_string())?;
-        partitions
-            .for_each(|i, part| {
-                cb(part);
-                Ok(())
-            })
-            .map_err(|e| e.to_string())?;
-        Ok(())
-    });
-
-    Ok(())
-}
-
 pub fn get_miner_faults<DB>(
     state_manager: &StateManager<DB>,
     tipset: &Tipset,
     address: &Address,
-) -> Result<BitField, Box<dyn StdError>>
+) -> Result<BitField, Error>
 where
     DB: BlockStore,
 {
-    let mut out = BitField::new();
-
-    for_each_deadline_partition(state_manager, tipset, address, |part| {
-        out |= &part.faults;
-        Ok(())
-    })?;
-
-    Ok(out)
+    let miner_actor_state: miner::State = state_manager
+        .load_actor_state(&address, &tipset.parent_state())
+        .map_err(|err| {
+            Error::State(format!(
+                "(get miner faults) failed to load miner actor state: {:}",
+                err
+            ))
+        })?;
+    Ok(miner_actor_state.faults)
 }
 
 pub fn get_miner_recoveries<DB>(
     state_manager: &StateManager<DB>,
     tipset: &Tipset,
     address: &Address,
-) -> Result<BitField, Box<dyn StdError>>
+) -> Result<BitField, Error>
 where
     DB: BlockStore,
 {
-    let mut out = BitField::new();
-
-    for_each_deadline_partition(state_manager, tipset, address, |part| {
-        out |= &part.recoveries;
-        Ok(())
-    })?;
-
-    Ok(out)
+    let miner_actor_state: miner::State = state_manager
+        .load_actor_state(&address, &tipset.parent_state())
+        .map_err(|err| {
+            Error::State(format!(
+                "(get miner recoveries) failed to load miner actor state: {:}",
+                err
+            ))
+        })?;
+    Ok(miner_actor_state.recoveries)
 }
 
 pub fn list_miner_actors<'a, DB>(
@@ -351,7 +318,7 @@ where
             ))
         })?;
     let mut miners: Vec<Address> = Vec::new();
-    let block_store = &*state_manager.get_block_store();
+    let block_store = &*state_manager.blockstore_cloned();
     let map =
         Hamt::<_, _>::load_with_bit_width(&power_actor_state.claims, block_store, HAMT_BIT_WIDTH)
             .map_err(|err| Error::Other(err.to_string()))?;
