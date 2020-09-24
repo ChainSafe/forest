@@ -24,7 +24,7 @@ actor = { path = "../../vm/actor/" }
 blake2b_simd = "0.5.9"
 byteorder = "1.3.4"
 beacon = { path = "../beacon" }
-flo_stream = "0.4.0"
+bus = "2.2.3"
 address = { package = "forest_address", path = "../../vm/address" }
 lazy_static = "1.4"
 async-std = "1.6.3"

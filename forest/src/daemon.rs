@@ -66,10 +66,10 @@ pub(super) async fn start(config: Config) {
 
     // Initialize StateManager
     let state_manager = Arc::new(StateManager::new(Arc::clone(&db)));
+    let chain_store = Arc::new(ChainStore::new(db));
 
     // Initialize mpool
-    let subscriber = chain_store.subscribe().await;
-    let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
+    let provider = MpoolRpcProvider::new(chain_store.clone());
     let mpool = Arc::new(
         MessagePool::new(provider, network_name.clone())
             .await
@@ -90,7 +90,7 @@ pub(super) async fn start(config: Config) {
 
     // Initialize ChainSyncer
     let chain_syncer = ChainSyncer::new(
-        Arc::new(chain_store),
+        chain_store,
         Arc::clone(&state_manager),
         Arc::new(beacon),
         network_send.clone(),

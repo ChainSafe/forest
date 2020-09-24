@@ -20,7 +20,7 @@ chain = { path = "../chain" }
 state_tree = { path = "../../vm/state_tree/" }
 serde = { version = "1.0", features = ["derive"] }
 db = { path = "../../node/db" }
-flo_stream = "0.4.0"
+bus = "2.2.3"
 futures = "0.3.5"
 libsecp256k1 = "0.3.4"
 blake2b_simd = "0.5.10"

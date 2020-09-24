@@ -13,13 +13,11 @@ use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
 use encoding::Cbor;
-use flo_stream::Subscriber;
-use futures::StreamExt;
+use bus::BusReader;
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
-use state_manager::StateManager;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
@@ -77,7 +75,7 @@ impl MsgSet {
 #[async_trait]
 pub trait Provider {
     /// Update Mpool's cur_tipset whenever there is a chnge to the provider
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
+    async fn subscribe_head_changes(&mut self) -> BusReader<HeadChange>;
     /// Get the heaviest Tipset in the provider
     async fn get_heaviest_tipset(&mut self) -> Option<Tipset>;
     /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
@@ -121,7 +119,7 @@ impl<DB> Provider for MpoolProvider<DB>
 where
     DB: BlockStore + Send + Sync,
 {
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+    async fn subscribe_head_changes(&mut self) -> BusReader<HeadChange> {
         self.cs.subscribe().await
     }
 
@@ -169,19 +167,18 @@ where
 
 /// This is the Provider implementation that will be used for the mpool RPC
 pub struct MpoolRpcProvider<DB> {
-    subscriber: Subscriber<HeadChange>,
-    sm: Arc<StateManager<DB>>,
+    chain_store: Arc<ChainStore<DB>>,
 }
 
 impl<DB> MpoolRpcProvider<DB>
 where
     DB: BlockStore,
 {
-    pub fn new(subscriber: Subscriber<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
+    pub fn new(chain_store: Arc<ChainStore<DB>>) -> Self
     where
         DB: BlockStore,
     {
-        MpoolRpcProvider { subscriber, sm }
+        MpoolRpcProvider { chain_store }
     }
 }
 
@@ -190,27 +187,27 @@ impl<DB> Provider for MpoolRpcProvider<DB>
 where
     DB: BlockStore + Send + Sync,
 {
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-        self.subscriber.clone()
+    async fn subscribe_head_changes(&mut self) -> BusReader<HeadChange> {
+        self.chain_store.subscribe().await
     }
 
     async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        chain::get_heaviest_tipset(self.sm.get_block_store_ref())
+        chain::get_heaviest_tipset(&*self.chain_store.blockstore())
             .ok()
             .unwrap_or(None)
     }
 
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
         let cid = self
-            .sm
-            .get_block_store_ref()
+            .chain_store
+            .blockstore()
             .put(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }
 
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
-        let state = StateTree::new_from_root(self.sm.get_block_store_ref(), ts.parent_state())
+        let state = StateTree::new_from_root(self.chain_store.blockstore(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
         let actor = state
             .get_actor(addr)
@@ -222,20 +219,20 @@ where
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        chain::block_messages(self.sm.get_block_store_ref(), h).map_err(|err| err.into())
+        chain::block_messages(self.chain_store.blockstore(), h).map_err(|err| err.into())
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        chain::unsigned_messages_for_tipset(self.sm.get_block_store_ref(), h)
+        chain::unsigned_messages_for_tipset(self.chain_store.blockstore(), h)
             .map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        let ts = chain::tipset_from_keys(self.sm.get_block_store_ref(), tsk)?;
+        let ts = chain::tipset_from_keys(self.chain_store.blockstore(), tsk)?;
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
-        chain::compute_base_fee(self.sm.get_block_store_ref(), ts).map_err(|err| err.into())
+        chain::compute_base_fee(self.chain_store.blockstore(), ts).map_err(|err| err.into())
     }
 }
 
@@ -298,7 +295,7 @@ where
 
         task::spawn(async move {
             loop {
-                if let Some(ts) = subscriber.next().await {
+                if let Ok(ts) = subscriber.recv() {
                     let ts = match ts {
                         HeadChange::Current(tipset)
                         | HeadChange::Revert(tipset)
@@ -740,7 +737,7 @@ pub mod test_provider {
     use address::Address;
     use blocks::{BlockHeader, Tipset};
     use cid::Cid;
-    use flo_stream::{MessagePublisher, Publisher, Subscriber};
+    use bus::{BusReader,Bus};
     use message::{SignedMessage, UnsignedMessage};
 
     /// Struct used for creating a provider when writing tests involving message pool
@@ -748,7 +745,7 @@ pub mod test_provider {
         bmsgs: HashMap<Cid, Vec<SignedMessage>>,
         state_sequence: HashMap<Address, u64>,
         tipsets: Vec<Tipset>,
-        publisher: Publisher<HeadChange>,
+        publisher: Bus<HeadChange>,
     }
 
     impl Default for TestApi {
@@ -758,7 +755,7 @@ pub mod test_provider {
                 bmsgs: HashMap::new(),
                 state_sequence: HashMap::new(),
                 tipsets: Vec::new(),
-                publisher: Publisher::new(1),
+                publisher: Bus::new(1),
             }
         }
     }
@@ -777,14 +774,14 @@ pub mod test_provider {
 
         /// Set the heaviest tipset for TestApi
         pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
-            self.publisher.publish(HeadChange::Current(ts)).await
+            self.publisher.broadcast(HeadChange::Current(ts))
         }
     }
 
     #[async_trait]
     impl Provider for TestApi {
-        async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-            self.publisher.subscribe()
+        async fn subscribe_head_changes(&mut self) -> BusReader<HeadChange> {
+            self.publisher.add_rx()
         }
 
         async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {

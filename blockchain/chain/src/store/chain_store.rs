@@ -14,7 +14,6 @@ use cid::Cid;
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
-use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
@@ -26,6 +25,7 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
+use bus::{Bus,BusReader};
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -51,7 +51,7 @@ pub enum HeadChange {
 /// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
-    publisher: RwLock<Publisher<HeadChange>>,
+    publisher: RwLock<Bus<HeadChange>>,
 
     // key-value datastore
     pub db: Arc<DB>,
@@ -74,7 +74,7 @@ where
             .map(Arc::new);
         Self {
             db,
-            publisher: Publisher::new(SINK_CAP).into(),
+            publisher: Bus::new(SINK_CAP).into(),
             tip_index: TipIndex::new(),
             heaviest: heaviest.into(),
         }
@@ -87,14 +87,13 @@ where
         self.publisher
             .write()
             .await
-            .publish(HeadChange::Current(ts))
-            .await;
+            .broadcast(HeadChange::Current(ts));
         Ok(())
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub async fn subscribe(&self) -> Subscriber<HeadChange> {
-        self.publisher.write().await.subscribe()
+    pub async fn subscribe(&self) -> BusReader<HeadChange> {
+        self.publisher.write().await.add_rx()
     }
 
     /// Sets tip_index tracker
@@ -142,8 +141,7 @@ where
         self.publisher
             .write()
             .await
-            .publish(HeadChange::Current(heaviest_ts))
-            .await;
+            .broadcast(HeadChange::Current(heaviest_ts));
         Ok(())
     }
 
