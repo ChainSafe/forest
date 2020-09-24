@@ -1262,6 +1262,7 @@ dependencies = [
 name = "chain_sync"
 version = "0.1.0"
 dependencies = [
+ "actor",
  "async-std",
  "base64 0.12.3",
  "beacon",
@@ -1285,6 +1286,7 @@ dependencies = [
  "futures-util",
  "ipld_amt",
  "ipld_blockstore",
+ "ipld_hamt",
  "libp2p",
  "log",
  "lru",
@@ -2480,6 +2482,7 @@ dependencies = [
  "forest_message",
  "forest_vm",
  "hex",
+ "lazy_static",
  "serde",
  "serde_json",
  "sha2 0.9.1",

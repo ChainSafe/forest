@@ -348,7 +348,7 @@ where
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
         let sm_root = compute_msg_meta(
-            self.state_manager.get_block_store_ref(),
+            self.chain_store.blockstore(),
             block.bls_msgs(),
             block.secp_msgs(),
         )?;
@@ -356,8 +356,8 @@ where
             return Err(Error::InvalidRoots);
         }
 
-        chain::persist_objects(self.state_manager.get_block_store_ref(), block.bls_msgs())?;
-        chain::persist_objects(self.state_manager.get_block_store_ref(), block.secp_msgs())?;
+        chain::persist_objects(self.chain_store.blockstore(), block.bls_msgs())?;
+        chain::persist_objects(self.state_manager.blockstore(), block.secp_msgs())?;
 
         Ok(())
     }
