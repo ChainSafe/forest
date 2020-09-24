@@ -130,6 +130,7 @@ pub struct TerminationDeclaration {
     pub sectors: BitField,
 }
 
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TerminateSectorsReturn {
     // Set to true if all early termination work has been completed. When
     // false, the miner may choose to repeatedly invoke TerminateSectors

@@ -3428,8 +3428,8 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::TerminateSectors) => {
-                Self::terminate_sectors(rt, params.deserialize()?)?;
-                Ok(Serialized::default())
+                let ret = Self::terminate_sectors(rt, params.deserialize()?)?;
+                Ok(Serialized::serialize(ret)?)
             }
             Some(Method::DeclareFaults) => {
                 Self::declare_faults(rt, params.deserialize()?)?;
