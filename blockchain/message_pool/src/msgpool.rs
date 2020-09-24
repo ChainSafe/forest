@@ -288,18 +288,23 @@ where
         task::spawn(async move {
             loop {
                 if let Some(ts) = subscriber.next().await {
-                    let ts = match ts {
-                        HeadChange::Current(tipset)
-                        | HeadChange::Revert(tipset)
-                        | HeadChange::Apply(tipset) => tipset,
+                    let (cur, rev, app) = match ts {
+                        HeadChange::Current(tipset) => (
+                            Arc::new(RwLock::new(tipset.as_ref().clone())),
+                            Vec::new(),
+                            Vec::new(),
+                        ),
+                        HeadChange::Revert(tipset) => (cur_tipset.clone(), vec![tipset.as_ref().clone()], Vec::new()),
+                        HeadChange::Apply(tipset) => (cur_tipset.clone(), Vec::new(), vec![tipset.as_ref().clone()]),
                     };
+
                     head_change(
                         api.as_ref(),
                         bls_sig_cache.as_ref(),
                         pending.as_ref(),
-                        cur_tipset.as_ref(),
-                        Vec::new(),
-                        vec![ts.as_ref().clone()],
+                        &cur.as_ref(),
+                        rev,
+                        app,
                     )
                     .await
                     .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
