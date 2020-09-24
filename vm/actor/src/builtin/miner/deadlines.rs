@@ -8,6 +8,7 @@ use fil_types::SectorNumber;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use serde::{Deserialize, Serialize};
+use std::error::Error as StdError;
 
 /// Deadline calculations with respect to a current epoch.
 /// "Deadline" refers to the window during which proofs may be submitted.
@@ -131,7 +132,7 @@ impl Deadlines {
         &self,
         store: &BS,
         sector_number: SectorNumber,
-    ) -> Result<(u64, u64), String> {
+    ) -> Result<(u64, u64), Box<dyn StdError>> {
         for i in 0..self.due.len() {
             let deadline_idx = i as u64;
             let deadline = self.load_deadline(store, deadline_idx)?;
@@ -139,23 +140,21 @@ impl Deadlines {
 
             let mut partition_idx = None;
 
-            partitions
-                .for_each_while(|i, partition| {
-                    if partition.sectors.get(sector_number as usize) {
-                        partition_idx = Some(i);
-                        Ok(false)
-                    } else {
-                        Ok(true)
-                    }
-                })
-                .map_err(|e| e.to_string())?;
+            partitions.for_each_while(|i, partition| {
+                if partition.sectors.get(sector_number as usize) {
+                    partition_idx = Some(i);
+                    Ok(false)
+                } else {
+                    Ok(true)
+                }
+            })?;
 
             if let Some(partition_idx) = partition_idx {
                 return Ok((deadline_idx, partition_idx));
             }
         }
 
-        Err(format!("sector {} not due at any deadline", sector_number))
+        Err(format!("sector {} not due at any deadline", sector_number).into())
     }
 }
 

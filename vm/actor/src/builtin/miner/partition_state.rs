@@ -562,15 +562,15 @@ impl Partition {
             .map_err(|e| ActorError::downcast_wrap(e, "failed to walk early terminations queue"))?;
 
         // Update early terminations
-        // TODO: batch delete
-        for i in processed {
-            early_terminated_queue.amt.delete(i).map_err(|e| {
+        early_terminated_queue
+            .amt
+            .batch_delete(processed)
+            .map_err(|e| {
                 format!(
                     "failed to remove entries from early terminations queue: {:?}",
                     e
                 )
             })?;
-        }
 
         if let Some((remaining_sectors, remaining_epoch)) = remaining.take() {
             early_terminated_queue

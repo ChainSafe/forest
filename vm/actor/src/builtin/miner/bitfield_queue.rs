@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{actor_error, ActorError, ExitCode};
-
 use super::QuantSpec;
 use bitfield::BitField;
 use cid::Cid;
@@ -44,7 +42,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             .amt
             .get(epoch as u64)
             .map_err(|e| format!("failed to lookup queue epoch {}: {:?}", epoch, e))?
-            .ok_or_else(|| actor_error!(ErrNotFound; ""))?;
+            .unwrap_or_default();
 
         self.amt
             .set(epoch as u64, &bitfield | values)
@@ -58,7 +56,11 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
         epoch: ChainEpoch,
         values: &[u64],
     ) -> Result<(), Box<dyn StdError>> {
-        self.add_to_queue(epoch, &values.iter().map(|&i| i as usize).collect())
+        if values.is_empty() {
+            Ok(())
+        } else {
+            self.add_to_queue(epoch, &values.iter().map(|&i| i as usize).collect())
+        }
     }
 
     /// Cut cuts the elements from the bits in the given bitfield out of the queue,
@@ -80,12 +82,9 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             })
             .map_err(|e| format!("failed to cut from bitfield queue: {:?}", e))?;
 
-        // TODO: batch delete
-        for epoch in epochs_to_remove {
-            self.amt.delete(epoch).map_err(|e| {
-                format!("failed to remove empty epochs from bitfield queue: {:?}", e)
-            })?;
-        }
+        self.amt
+            .batch_delete(epochs_to_remove)
+            .map_err(|e| format!("failed to remove empty epochs from bitfield queue: {:?}", e))?;
 
         Ok(())
     }
@@ -97,8 +96,8 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
         // Update each epoch in-order to be deterministic.
         // Pre-quantize to reduce the number of updates.
 
-        let mut quantized_values = HashMap::<ChainEpoch, Vec<u64>>::new();
-        let mut updated_epochs = Vec::<ChainEpoch>::new();
+        let mut quantized_values = HashMap::<ChainEpoch, Vec<u64>>::with_capacity(values.len());
+        let mut updated_epochs = Vec::<ChainEpoch>::with_capacity(values.len());
 
         for (&raw_epoch, entries) in values {
             let epoch = self.quant.quantize_up(raw_epoch);
@@ -137,11 +136,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             return Ok((BitField::new(), false));
         }
 
-        // TODO: batch delete
-        for key in popped_keys {
-            self.amt.delete(key)?;
-        }
-
+        self.amt.batch_delete(popped_keys)?;
         Ok((BitField::union(popped_values.iter()), true))
     }
 }

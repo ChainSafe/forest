@@ -6,7 +6,7 @@ use address::Address;
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
-use encoding::{serde_bytes, tuple::*};
+use encoding::{serde_bytes, tuple::*, BytesDe};
 use fil_types::{PoStProof, RegisteredSealProof, SectorNumber};
 use num_bigint::bigint_ser;
 use vm::{DealID, Randomness, TokenAmount};
@@ -26,8 +26,7 @@ pub struct MinerConstructorParams {
     pub seal_proof_type: RegisteredSealProof,
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub multi_address: Vec<u8>,
+    pub multi_address: Vec<BytesDe>,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -62,8 +61,7 @@ pub struct ChangePeerIDParams {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ChangeMultiaddrsParams {
-    #[serde(with = "serde_bytes")]
-    pub new_multi_addrs: Vec<u8>,
+    pub new_multi_addrs: Vec<BytesDe>,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]

@@ -10,23 +10,23 @@ use ahash::AHashSet;
 use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use encoding::{serde_bytes, tuple::*, Cbor};
+use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER};
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
-use num_bigint::bigint_ser::{self};
+use num_bigint::bigint_ser;
 use num_traits::Zero;
 use std::{cmp, error::Error as StdError};
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
-// Balance of Miner Actor should be greater than or equal to
-// the sum of PreCommitDeposits and LockedFunds.
-// It is possible for balance to fall below the sum of PCD, LF and
-// InitialPledgeRequirements, and this is a bad state (IP Debt)
-// that limits a miner actor's behavior (i.e. no balance withdrawals)
-// Excess balance as computed by st.GetAvailableBalance will be
-// withdrawable or usable for pre-commit deposit or pledge lock-up.
+/// Balance of Miner Actor should be greater than or equal to
+/// the sum of PreCommitDeposits and LockedFunds.
+/// It is possible for balance to fall below the sum of PCD, LF and
+/// InitialPledgeRequirements, and this is a bad state (IP Debt)
+/// that limits a miner actor's behavior (i.e. no balance withdrawals)
+/// Excess balance as computed by st.GetAvailableBalance will be
+/// withdrawable or usable for pre-commit deposit or pledge lock-up.
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// Contains static info about this miner
@@ -927,9 +927,9 @@ pub struct MinerInfo {
     /// Libp2p identity that should be used when connecting to this miner
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
-    /// Slice of byte arrays representing Libp2p multi-addresses used for establishing a connection with this miner.
-    #[serde(with = "serde_bytes")]
-    pub multi_address: Vec<u8>,
+
+    /// Vector of byte arrays representing Libp2p multi-addresses used for establishing a connection with this miner.
+    pub multi_address: Vec<BytesDe>,
 
     /// The proof type used by this miner for sealing sectors.
     pub seal_proof_type: RegisteredSealProof,
@@ -948,7 +948,7 @@ impl MinerInfo {
         worker: Address,
         control_addresses: Vec<Address>,
         peer_id: Vec<u8>,
-        multi_address: Vec<u8>,
+        multi_address: Vec<BytesDe>,
         seal_proof_type: RegisteredSealProof,
     ) -> Result<Self, String> {
         let sector_size = seal_proof_type.sector_size()?;
@@ -982,7 +982,7 @@ mod tests {
             control_addresses: vec![Address::new_id(4), Address::new_id(5)],
             pending_worker_key: None,
             peer_id: PeerId::random().into_bytes(),
-            multi_address: PeerId::random().into_bytes(),
+            multi_address: vec![BytesDe(PeerId::random().into_bytes())],
             sector_size: SectorSize::_2KiB,
             seal_proof_type: RegisteredSealProof::from(1),
             window_post_partition_sectors: 0,

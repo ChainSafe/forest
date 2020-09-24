@@ -23,6 +23,7 @@ pub struct Deadlines {
     // Note: we could inline part of the deadline struct (e.g., active/assigned sectors)
     // to make new sector assignment cheaper. At the moment, assigning a sector requires
     // loading all deadlines to figure out where best to assign new sectors.
+    // TODO: change this to an array once the `LengthAtMost32` trait is no more
     pub due: Vec<Cid>, // []Deadline
 }
 
@@ -71,7 +72,7 @@ impl Deadlines {
         if deadline_idx >= WPOST_PERIOD_DEADLINES as u64 {
             return Err(format!("invalid deadline {}", deadline_idx));
         }
-        store
+        self.due[deadline_idx as usize] = store
             .put(deadline, Blake2b256)
             .map_err(|e| format!("error: {:?}", e))?;
         Ok(())
@@ -81,33 +82,33 @@ impl Deadlines {
 /// Deadline holds the state for all sectors due at a specific deadline.
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct Deadline {
-    // Partitions in this deadline, in order.
-    // The keys of this AMT are always sequential integers beginning with zero.
+    /// Partitions in this deadline, in order.
+    /// The keys of this AMT are always sequential integers beginning with zero.
     pub partitions: Cid, // AMT[PartitionNumber]Partition
 
-    // Maps epochs to partitions that _may_ have sectors that expire in or
-    // before that epoch, either on-time or early as faults.
-    // Keys are quantized to final epochs in each proving deadline.
-    //
-    // NOTE: Partitions MUST NOT be removed from this queue (until the
-    // associated epoch has passed) even if they no longer have sectors
-    // expiring at that epoch. Sectors expiring at this epoch may later be
-    // recovered, and this queue will not be updated at that time.
+    /// Maps epochs to partitions that _may_ have sectors that expire in or
+    /// before that epoch, either on-time or early as faults.
+    /// Keys are quantized to final epochs in each proving deadline.
+    ///
+    /// NOTE: Partitions MUST NOT be removed from this queue (until the
+    /// associated epoch has passed) even if they no longer have sectors
+    /// expiring at that epoch. Sectors expiring at this epoch may later be
+    /// recovered, and this queue will not be updated at that time.
     pub expirations_epochs: Cid, // AMT[ChainEpoch]BitField
 
-    // Partitions numbers with PoSt submissions since the proving period started.
+    /// Partitions numbers with PoSt submissions since the proving period started.
     pub post_submissions: BitField,
 
-    // Partitions with sectors that terminated early.
+    /// Partitions with sectors that terminated early.
     pub early_terminations: BitField,
 
-    // The number of non-terminated sectors in this deadline (incl faulty).
+    /// The number of non-terminated sectors in this deadline (incl faulty).
     pub live_sectors: u64,
 
-    // The total number of sectors in this deadline (incl dead).
+    /// The total number of sectors in this deadline (incl dead).
     pub total_sectors: u64,
 
-    // Memoized sum of faulty power in partitions.
+    /// Memoized sum of faulty power in partitions.
     pub faulty_power: PowerPair,
 }
 
@@ -276,7 +277,7 @@ impl Deadline {
         let mut partition_deadline_updates = HashMap::<ChainEpoch, Vec<u64>>::new();
         let mut new_power = PowerPair::zero();
         self.live_sectors += sectors.len() as u64;
-        self.total_sectors = sectors.len() as u64;
+        self.total_sectors += sectors.len() as u64;
 
         let mut partitions = self.partitions_amt(store)?;
 
@@ -388,7 +389,7 @@ impl Deadline {
                 .set(partition_idx, partition)
                 .map_err(|e| format!("failed to store partition {}: {:?}", partition_idx, e))?;
 
-            if !result.below_limit(max_partitions, max_sectors) {
+            if result.below_limit(max_partitions, max_sectors) {
                 break;
             }
         }

@@ -194,6 +194,15 @@ where
         Ok(true)
     }
 
+    /// Deletes multiple items from AMT
+    pub fn batch_delete(&mut self, iter: impl IntoIterator<Item = u64>) -> Result<(), Error> {
+        // TODO: optimize this
+        for i in iter {
+            self.delete(i)?;
+        }
+        Ok(())
+    }
+
     /// flush root and return Cid used as key in block store
     pub fn flush(&mut self) -> Result<Cid, Error> {
         self.root.node.flush(self.block_store)?;

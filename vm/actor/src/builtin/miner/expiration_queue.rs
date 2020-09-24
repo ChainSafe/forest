@@ -303,9 +303,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         )?;
 
         // Trim the rescheduled epochs from the queue.
-        for epoch in rescheduled_epochs {
-            self.amt.delete(epoch)?;
-        }
+        self.amt.batch_delete(rescheduled_epochs)?;
 
         Ok(())
     }
@@ -555,10 +553,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
             Ok(true)
         })?;
 
-        // TODO: batch delete
-        for key in popped_keys {
-            self.amt.delete(key)?;
-        }
+        self.amt.batch_delete(popped_keys)?;
 
         Ok(ExpirationSet {
             on_time_sectors,
@@ -678,10 +673,8 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
             Ok(keep_going)
         })?;
 
-        // TODO: batch delete
-        for epoch in epochs_emptied {
-            self.amt.delete(epoch as u64)?;
-        }
+        self.amt
+            .batch_delete(epochs_emptied.iter().map(|&i| i as u64))?;
 
         Ok(())
     }

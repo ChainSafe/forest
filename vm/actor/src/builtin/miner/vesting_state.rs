@@ -49,7 +49,7 @@ impl VestingFunds {
         spec: VestSpec,
     ) {
         // maps the epochs in VestingFunds to their indices in the vec
-        let mut epoch_to_index = HashMap::<ChainEpoch, usize>::new();
+        let mut epoch_to_index = HashMap::<ChainEpoch, usize>::with_capacity(self.funds.len());
 
         for (i, fund) in self.funds.iter().enumerate() {
             epoch_to_index.insert(fund.epoch, i);
