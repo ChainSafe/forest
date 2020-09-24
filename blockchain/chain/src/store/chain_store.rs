@@ -8,6 +8,7 @@ use async_std::sync::RwLock;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use bus::{Bus, BusReader};
 use byteorder::{BigEndian, WriteBytesExt};
 use cid::multihash::Blake2b256;
 use cid::Cid;
@@ -25,7 +26,6 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
-use bus::{Bus,BusReader};
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";

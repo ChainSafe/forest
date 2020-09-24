@@ -8,12 +8,12 @@ use async_std::task;
 use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
+use bus::BusReader;
 use chain::{ChainStore, HeadChange};
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
 use encoding::Cbor;
-use bus::BusReader;
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -736,8 +736,8 @@ pub mod test_provider {
     use super::*;
     use address::Address;
     use blocks::{BlockHeader, Tipset};
+    use bus::{Bus, BusReader};
     use cid::Cid;
-    use bus::{BusReader,Bus};
     use message::{SignedMessage, UnsignedMessage};
 
     /// Struct used for creating a provider when writing tests involving message pool
