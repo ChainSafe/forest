@@ -159,7 +159,7 @@ mod test_award_block_reward {
 
     #[test]
     fn pays_out_current_balance_when_reward_exceeds_total_balance() {
-        let mut rt = construct_and_verify(&StoragePower::default());
+        let mut rt = construct_and_verify(&StoragePower::from(1));
         let small_reward = TokenAmount::from(300);
         rt.set_balance(small_reward.clone());
         rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
@@ -208,7 +208,7 @@ mod test_award_block_reward {
         assert_eq!(TokenAmount::from(0), state.total_mined);
         state.this_epoch_reward = TokenAmount::from(5000);
 
-        rt.replace_state(&state).unwrap();
+        rt.replace_state(&state);
 
         let total_payout = TokenAmount::from(3500);
         rt.set_balance(total_payout.clone());
@@ -236,7 +236,7 @@ mod test_award_block_reward {
 
         assert_eq!(TokenAmount::from(0), state.total_mined);
         state.this_epoch_reward = TokenAmount::from(5000);
-        rt.replace_state(&state).unwrap();
+        rt.replace_state(&state);
         rt.set_balance(TokenAmount::from(3500));
 
         rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);

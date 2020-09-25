@@ -396,9 +396,8 @@ impl MockRuntime {
     }
 
     #[allow(dead_code)]
-    pub fn replace_state<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
+    pub fn replace_state<C: Cbor>(&mut self, obj: &C)  {
         self.state = Some(self.store.put(obj, Blake2b256).unwrap());
-        Ok(())
     }
 }
 
