@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use address::Address;
 use db::Store;
 use encoding::{from_slice, to_vec};
