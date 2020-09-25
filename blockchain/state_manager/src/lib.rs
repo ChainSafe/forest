@@ -137,7 +137,7 @@ where
         let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
             .map_err(|e| Error::State(e.to_string()))?;
 
-        let info = ms.get_info(self.bs.as_ref())?;
+        let info = ms.get_info(self.bs.as_ref()).map_err(|e| e.to_string())?;
 
         let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;

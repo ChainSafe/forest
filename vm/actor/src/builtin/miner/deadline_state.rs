@@ -63,8 +63,8 @@ impl Deadlines {
     pub fn for_each<BS: BlockStore>(
         &self,
         store: &BS,
-        mut f: impl FnMut(u64, Deadline) -> Result<(), ActorError>,
-    ) -> Result<(), ActorError> {
+        mut f: impl FnMut(u64, Deadline) -> Result<(), Box<dyn StdError>>,
+    ) -> Result<(), Box<dyn StdError>> {
         for i in 0..self.due.len() {
             let index = i as u64;
             let deadline = self.load_deadline(store, index)?;
