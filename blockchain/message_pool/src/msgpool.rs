@@ -290,8 +290,16 @@ where
                 if let Some(ts) = subscriber.next().await {
                     let (cur, rev, app) = match ts {
                         HeadChange::Current(_tipset) => continue,
-                        HeadChange::Revert(tipset) => (cur_tipset.clone(), vec![tipset.as_ref().clone()], Vec::new()),
-                        HeadChange::Apply(tipset) => (cur_tipset.clone(), Vec::new(), vec![tipset.as_ref().clone()]),
+                        HeadChange::Revert(tipset) => (
+                            cur_tipset.clone(),
+                            vec![tipset.as_ref().clone()],
+                            Vec::new(),
+                        ),
+                        HeadChange::Apply(tipset) => (
+                            cur_tipset.clone(),
+                            Vec::new(),
+                            vec![tipset.as_ref().clone()],
+                        ),
                     };
                     head_change(
                         api.as_ref(),
