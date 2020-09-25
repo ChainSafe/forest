@@ -102,7 +102,7 @@ impl Actor {
         let total_reward = rt.transaction(|st: &mut State, rt| {
             let mut block_reward =
                 (&st.this_epoch_reward * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
-            let mut total_reward = params.gas_reward.clone() + &block_reward;
+            let mut total_reward = &params.gas_reward + &block_reward;
             let curr_balance = rt.current_balance()?;
             if total_reward > curr_balance {
                 log::warn!(
@@ -112,7 +112,7 @@ impl Actor {
                     total_reward
                 );
                 total_reward = curr_balance;
-                block_reward -= &params.gas_reward;
+                block_reward = &total_reward - &params.gas_reward;
                 assert_ne!(
                     block_reward.sign(),
                     Sign::Minus,
