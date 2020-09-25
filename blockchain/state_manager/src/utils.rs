@@ -109,7 +109,7 @@ where
     let not_proving = &actor_state.faults | &actor_state.recoveries;
 
     actor_state
-        .load_sector_infos(&*state_manager.get_block_store(), &not_proving)
+        .load_sector_infos(&*state_manager.blockstore_cloned(), &not_proving)
         .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
 }
 
@@ -132,7 +132,7 @@ where
             ))
         })?;
     load_sectors_from_set(
-        state_manager.get_block_store_ref(),
+        state_manager.blockstore(),
         &miner_actor_state.sectors,
         filter,
         filter_out,
@@ -190,7 +190,7 @@ where
             ))
         })?;
     miner_actor_state
-        .get_sector(state_manager.get_block_store_ref(), *sector_number)
+        .get_sector(state_manager.blockstore(), *sector_number)
         .map_err(|err| Error::State(format!("(get sset) failed to get actor state: {:}", err)))
 }
 
@@ -212,7 +212,7 @@ where
             ))
         })?;
     let precommit_info = miner_actor_state
-        .get_precommitted_sector(state_manager.get_block_store_ref(), *sector_number)
+        .get_precommitted_sector(state_manager.blockstore(), *sector_number)
         .map_err(|err| {
             Error::Other(format!(
                 "(precommit info) failed to load miner actor state: %{:}",
@@ -258,7 +258,7 @@ where
             ))
         })?;
     miner_actor_state
-        .load_deadlines(&*state_manager.get_block_store())
+        .load_deadlines(&*state_manager.blockstore_cloned())
         .map_err(|err| {
             Error::State(format!(
                 "(get_miner_deadlines) could not load deadlines: {:}",
@@ -321,7 +321,7 @@ where
             ))
         })?;
     let mut miners: Vec<Address> = Vec::new();
-    let block_store = &*state_manager.get_block_store();
+    let block_store = &*state_manager.blockstore_cloned();
     let map =
         Hamt::<_, _>::load_with_bit_width(&power_actor_state.claims, block_store, HAMT_BIT_WIDTH)
             .map_err(|err| Error::Other(err.to_string()))?;

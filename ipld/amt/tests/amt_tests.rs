@@ -49,15 +49,15 @@ fn out_of_range() {
     let db = db::MemoryDB::default();
     let mut a = Amt::new(&db);
 
-    let res = a.set(1 << 50, "test".to_owned());
-    assert_eq!(res.err(), Some(Error::OutOfRange(1 << 50)));
+    let res = a.set((1 << 63) + 4, "test".to_owned());
+    assert!(matches!(res, Err(Error::OutOfRange(_))));
+
+    let res = a.set(MAX_INDEX + 1, "test".to_owned());
+    assert!(matches!(res, Err(Error::OutOfRange(_))));
 
     let res = a.set(MAX_INDEX, "test".to_owned());
-    assert_eq!(res.err(), Some(Error::OutOfRange(MAX_INDEX)));
-
-    let res = a.set(MAX_INDEX - 1, "test".to_owned());
     assert_eq!(res.err(), None);
-    assert_get(&mut a, MAX_INDEX - 1, &"test".to_owned());
+    assert_get(&mut a, MAX_INDEX, &"test".to_owned());
 }
 
 #[test]
