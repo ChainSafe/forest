@@ -76,7 +76,7 @@ impl MsgSet {
         Ok(())
     }
     pub fn rm(&mut self, sequence: u64, applied: bool) {
-        let m = if let Some(m) = self.msgs.get(&sequence) {
+        let m = if let Some(m) = self.msgs.remove(&sequence) {
             m
         } else {
             if applied && sequence >= self.next_sequence {
@@ -88,8 +88,6 @@ impl MsgSet {
             return;
         };
         self.required_funds -= m.required_funds();
-        // guaranteed to not panic
-        self.msgs.remove(&sequence).unwrap();
 
         // adjust next sequence
         if applied {
@@ -291,11 +289,7 @@ where
             loop {
                 if let Some(ts) = subscriber.next().await {
                     let (cur, rev, app) = match ts {
-                        HeadChange::Current(tipset) => (
-                            Arc::new(RwLock::new(tipset.as_ref().clone())),
-                            Vec::new(),
-                            Vec::new(),
-                        ),
+                        HeadChange::Current(_tipset) => continue,
                         HeadChange::Revert(tipset) => (cur_tipset.clone(), vec![tipset.as_ref().clone()], Vec::new()),
                         HeadChange::Apply(tipset) => (cur_tipset.clone(), Vec::new(), vec![tipset.as_ref().clone()]),
                     };
@@ -625,8 +619,6 @@ where
                 }
             }
             self.pending.write().await.clear();
-
-        // self.republished = nil;
         } else {
             let mut pending = self.pending.write().await;
             let local_addrs = self.local_addrs.read().await;
@@ -891,7 +883,7 @@ pub mod test_provider {
 
         /// Set the heaviest tipset for TestApi
         pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
-            self.publisher.publish(HeadChange::Current(ts)).await
+            self.publisher.publish(HeadChange::Apply(ts)).await
         }
     }
 
