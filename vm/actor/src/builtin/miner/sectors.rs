@@ -28,7 +28,15 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
         for sector_number in sector_numbers.iter() {
             let sector_on_chain = self
                 .amt
-                .get(sector_number as SectorNumber).map_err(|e| actor_error!(ErrIllegalState; "failed to load sector {}: {:?}", sector_number, e))?
+                .get(sector_number as SectorNumber)
+                .map_err(|e| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to load sector {}: {:?}",
+                        sector_number,
+                        e
+                    )
+                })?
                 .ok_or_else(|| actor_error!(ErrNotFound; "sector not found: {}", sector_number))?;
             sector_infos.push(sector_on_chain);
         }

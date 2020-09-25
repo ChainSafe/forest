@@ -83,12 +83,12 @@ impl DeadlineSectorMap {
         &mut self,
         deadline_idx: u64,
         partition_idx: u64,
-        sector_numbers: Vec<u64>,
+        sector_numbers: &[u64],
     ) -> Result<(), String> {
         self.add(
             deadline_idx,
             partition_idx,
-            sector_numbers.into_iter().map(|i| i as usize).collect(),
+            sector_numbers.iter().map(|&i| i as usize).collect(),
         )
     }
 

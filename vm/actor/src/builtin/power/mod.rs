@@ -99,7 +99,7 @@ impl Actor {
                     control_addresses: Default::default(),
                     seal_proof_type: params.seal_proof_type,
                     peer_id: params.peer.0,
-                    multi_address: params.multiaddrs,
+                    multi_addresses: params.multiaddrs,
                 })?,
                 value,
             )?

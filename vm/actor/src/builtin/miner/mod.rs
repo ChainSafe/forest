@@ -179,7 +179,7 @@ impl Actor {
             worker,
             control_addresses,
             params.peer_id,
-            params.multi_address,
+            params.multi_addresses,
             params.seal_proof_type,
         )
         .map_err(|e| {
@@ -1033,7 +1033,7 @@ impl Actor {
                     .add_values(
                         pre_commit.info.replace_sector_deadline,
                         pre_commit.info.replace_sector_partition,
-                        vec![pre_commit.info.replace_sector_number],
+                        &[pre_commit.info.replace_sector_number],
                     )
                     .map_err(|e| {
                         actor_error!(

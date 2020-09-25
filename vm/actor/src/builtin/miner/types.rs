@@ -26,7 +26,7 @@ pub struct MinerConstructorParams {
     pub seal_proof_type: RegisteredSealProof,
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
-    pub multi_address: Vec<BytesDe>,
+    pub multi_addresses: Vec<BytesDe>,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
