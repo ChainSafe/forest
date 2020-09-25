@@ -625,7 +625,7 @@ impl Actor {
             ));
         }
 
-        if params.sealed_cid.prefix() != sealed_cid_prefix() {
+        if params.sealed_cid.prefix() != SEALED_CID_PREFIX {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "sealed CID had wrong prefix"

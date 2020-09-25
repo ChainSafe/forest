@@ -48,14 +48,12 @@ pub const NEW_SECTORS_PER_PERIOD_MAX: usize = 128 << 10;
 /// Epochs after which chain state is final.
 pub const CHAIN_FINALITY: ChainEpoch = 900;
 
-pub fn sealed_cid_prefix() -> cid::Prefix {
-    cid::Prefix {
-        version: cid::Version::V1,
-        codec: cid::Codec::FilCommitmentSealed,
-        mh_type: commcid::POSEIDON_BLS12_381_A1_FC1,
-        mh_len: 32,
-    }
-}
+pub const SEALED_CID_PREFIX: cid::Prefix = cid::Prefix {
+    version: cid::Version::V1,
+    codec: cid::Codec::FilCommitmentSealed,
+    mh_type: commcid::POSEIDON_BLS12_381_A1_FC1,
+    mh_len: 32,
+};
 
 /// List of proof types which can be used when creating new miner actors
 pub fn check_supported_proof_types(proof: RegisteredSealProof) -> bool {
@@ -149,8 +147,6 @@ pub fn qa_power_for_weight(
 ) -> StoragePower {
     let quality = quality_for_weight(size, duration, deal_weight, verified_weight);
     (BigInt::from(size as u64) * quality) >> SECTOR_QUALITY_PRECISION
-    // quality := QualityForWeight(size, duration, dealWeight, verifiedWeight)
-    // return big.Rsh(big.Mul(big.NewIntUnsigned(uint64(size)), quality), builtin.SectorQualityPrecision)
 }
 
 /// Returns the quality-adjusted power for a sector.

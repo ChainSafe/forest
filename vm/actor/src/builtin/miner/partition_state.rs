@@ -722,9 +722,6 @@ impl ops::Neg for &PowerPair {
     type Output = PowerPair;
 
     fn neg(self) -> Self::Output {
-        PowerPair {
-            raw: -&self.raw,
-            qa: -&self.qa,
-        }
+        -self.clone()
     }
 }
