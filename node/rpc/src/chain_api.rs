@@ -65,7 +65,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let data_subscribe = data.chain_store.subscribe().await;
-    let index = chain::headchange_json::sub_head_changes(
+    let index = chain::sub_head_changes(
         data_subscribe,
         &data.chain_store.heaviest_tipset().await,
         params,

@@ -15,10 +15,7 @@ use async_std::sync::{Arc, RwLock, Sender};
 use async_std::task::{self, JoinHandle};
 use async_tungstenite::{tungstenite::Message, WebSocketStream};
 use blockstore::BlockStore;
-use chain::{
-    headchange_json::{EventsPayload, HeadChangeJson},
-    ChainStore,
-};
+use chain::{headchange_json::HeadChangeJson, ChainStore, EventsPayload};
 use chain_sync::{BadBlockCache, SyncState};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use forest_libp2p::NetworkMessage;
