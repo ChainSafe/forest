@@ -293,7 +293,7 @@ impl State {
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<bool, String> {
-        let sectors = Sectors::new(store, &self.sectors).map_err(|e| e.to_string())?;
+        let sectors = Sectors::load(store, &self.sectors).map_err(|e| e.to_string())?;
         Ok(sectors.get(sector_num)?.is_some())
     }
 
@@ -302,7 +302,7 @@ impl State {
         store: &BS,
         new_sectors: Vec<SectorOnChainInfo>,
     ) -> Result<(), String> {
-        let mut sectors = Sectors::new(store, &self.sectors)
+        let mut sectors = Sectors::load(store, &self.sectors)
             .map_err(|e| format!("failed to load sectors: {:?}", e))?;
 
         sectors.store(new_sectors)?;
@@ -320,7 +320,7 @@ impl State {
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<Option<SectorOnChainInfo>, String> {
-        let sectors = Sectors::new(store, &self.sectors).map_err(|e| e.to_string())?;
+        let sectors = Sectors::load(store, &self.sectors).map_err(|e| e.to_string())?;
         sectors.get(sector_num)
     }
 
@@ -329,7 +329,7 @@ impl State {
         store: &BS,
         sector_nos: &BitField,
     ) -> Result<(), AmtError> {
-        let mut sectors = Sectors::new(store, &self.sectors)?;
+        let mut sectors = Sectors::load(store, &self.sectors)?;
 
         for sector_num in sector_nos.iter() {
             sectors
@@ -350,7 +350,7 @@ impl State {
     where
         F: FnMut(&SectorOnChainInfo) -> Result<(), Box<dyn StdError>>,
     {
-        let sectors = Sectors::new(store, &self.sectors)?;
+        let sectors = Sectors::load(store, &self.sectors)?;
         sectors.amt.for_each(|_, v| f(&v))
     }
 
@@ -381,7 +381,7 @@ impl State {
         deadline_sectors: DeadlineSectorMap,
     ) -> Result<(), Box<dyn StdError>> {
         let mut deadlines = self.load_deadlines(store)?;
-        let sectors = Sectors::new(store, &self.sectors)?;
+        let sectors = Sectors::load(store, &self.sectors)?;
 
         for (deadline_idx, partition_sectors) in deadline_sectors.iter() {
             let deadline_info =
@@ -580,7 +580,7 @@ impl State {
         store: &BS,
         sectors: &BitField,
     ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
-        Ok(Sectors::new(store, &self.sectors)?.load(sectors)?)
+        Ok(Sectors::load(store, &self.sectors)?.load_sector(sectors)?)
     }
 
     /// Loads info for a set of sectors to be proven.
@@ -622,7 +622,7 @@ impl State {
         faults: &BitField,
         fault_stand_in: SectorNumber,
     ) -> Result<Vec<SectorOnChainInfo>, String> {
-        let sectors = Sectors::new(store, &self.sectors)
+        let sectors = Sectors::load(store, &self.sectors)
             .map_err(|e| format!("failed to load sectors array: {:?}", e))?;
 
         let stand_in_info = sectors

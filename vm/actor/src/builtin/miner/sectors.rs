@@ -14,13 +14,16 @@ pub struct Sectors<'db, BS> {
 }
 
 impl<'db, BS: BlockStore> Sectors<'db, BS> {
-    pub fn new(store: &'db BS, root: &Cid) -> Result<Self, AmtError> {
+    pub fn load(store: &'db BS, root: &Cid) -> Result<Self, AmtError> {
         Ok(Self {
             amt: Amt::load(root, store)?,
         })
     }
 
-    pub fn load(&self, sector_numbers: &BitField) -> Result<Vec<SectorOnChainInfo>, ActorError> {
+    pub fn load_sector(
+        &self,
+        sector_numbers: &BitField,
+    ) -> Result<Vec<SectorOnChainInfo>, ActorError> {
         let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
         for sector_number in sector_numbers.iter() {
             let sector_on_chain = self

@@ -457,7 +457,7 @@ impl Actor {
                 ));
             }
 
-            let sectors = Sectors::new(rt.store(), &state.sectors)
+            let sectors = Sectors::load(rt.store(), &state.sectors)
                 .map_err(|e| actor_error!(ErrIllegalState, "failed to load sectors: {:?}", e))?;
 
             let mut deadline = deadlines
@@ -1325,7 +1325,7 @@ impl Actor {
                     .push(decl);
             }
 
-            let mut sectors = Sectors::new(rt.store(), &state.sectors).map_err(|e| {
+            let mut sectors = Sectors::load(rt.store(), &state.sectors).map_err(|e| {
                 actor_error!(ErrIllegalState, "failed to load sectors array: {:?}", e)
             })?;
 
@@ -1365,7 +1365,7 @@ impl Actor {
                         .ok_or_else(|| actor_error!(ErrNotFound, "no such partition {:?}", key))?;
 
                     let old_sectors = sectors
-                        .load(&decl.sectors)
+                        .load_sector(&decl.sectors)
                         .map_err(|e| e.wrap("failed to load sectors"))?;
 
                     let new_sectors: Vec<SectorOnChainInfo> = old_sectors
@@ -1538,7 +1538,7 @@ impl Actor {
 
             // We're only reading the sectors, so there's no need to save this back.
             // However, we still want to avoid re-loading this array per-partition.
-            let sectors = Sectors::new(store, &state.sectors)
+            let sectors = Sectors::load(store, &state.sectors)
                 .map_err(|e| actor_error!(ErrIllegalState, "failed to load sectors: {:?}", e))?;
 
             for (deadline_idx, partition_sectors) in to_process.iter() {
@@ -1582,7 +1582,7 @@ impl Actor {
                 ActorError::downcast(
                     e,
                     ExitCode::ErrIllegalState,
-                    format!("failed to save deadlines: {}", e),
+                    format!("failed to save deadlines"),
                 )
             })?;
 
@@ -1654,7 +1654,7 @@ impl Actor {
                 .load_deadlines(store)
                 .map_err(|e| e.wrap("failed to load deadlines"))?;
 
-            let sectors = Sectors::new(store, &state.sectors).map_err(|e| {
+            let sectors = Sectors::load(store, &state.sectors).map_err(|e| {
                 actor_error!(ErrIllegalState, "failed to load sectors array: {:?}", e)
             })?;
 
@@ -1789,7 +1789,7 @@ impl Actor {
                 .load_deadlines(store)
                 .map_err(|e| e.wrap("failed to load deadlines"))?;
 
-            let sectors = Sectors::new(store, &state.sectors).map_err(|e| {
+            let sectors = Sectors::load(store, &state.sectors).map_err(|e| {
                 actor_error!(ErrIllegalState, "failed to load sectors array: {:?}", e)
             })?;
 
@@ -2249,7 +2249,7 @@ where
             }
 
             let info = get_miner_info(rt, state)?;
-            let sectors = Sectors::new(store, &state.sectors).map_err(|e| {
+            let sectors = Sectors::load(store, &state.sectors).map_err(|e| {
                 actor_error!(ErrIllegalState, "failed to load sectors array: {:?}", e)
             })?;
 
@@ -2260,7 +2260,7 @@ where
 
             for (epoch, sector_numbers) in result.iter() {
                 let sectors = sectors
-                    .load(sector_numbers)
+                    .load_sector(sector_numbers)
                     .map_err(|e| e.wrap("failed to load sector infos"))?;
 
                 penalty += termination_penalty(

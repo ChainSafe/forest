@@ -177,7 +177,7 @@ impl Partition {
         // Add new faults to state.
         let mut new_faulty_power = PowerPair::zero();
         let new_fault_sectors = sectors
-            .load(&new_faults)
+            .load_sector(&new_faults)
             .map_err(|e| e.wrap("failed to load fault sectors"))?;
 
         if !new_fault_sectors.is_empty() {
@@ -210,7 +210,7 @@ impl Partition {
         // Process recoveries, assuming the proof will be successful.
         // This similarly updates state.
         let recovered_sectors = sectors
-            .load(&self.recoveries)
+            .load_sector(&self.recoveries)
             .map_err(|e| e.wrap("failed to load recovered sectors"))?;
 
         // Load expiration queue
@@ -255,7 +255,7 @@ impl Partition {
 
         // Record the new recoveries for processing at Window PoSt or deadline cron.
         let recovery_sectors = sectors
-            .load(&recoveries)
+            .load_sector(&recoveries)
             .map_err(|e| e.wrap("failed to load recovery sectors"))?;
 
         self.recoveries |= &recoveries;
@@ -308,7 +308,7 @@ impl Partition {
         // Filter out faulty sectors.
         let active = &live - &self.faults;
 
-        let sector_infos = sectors.load(&active)?;
+        let sector_infos = sectors.load_sector(&active)?;
         let mut expirations = ExpirationQueue::new(store, &self.expirations_epochs, quant)
             .map_err(|e| format!("failed to load sector expirations: {:?}", e))?;
         expirations.reschedule_expirations(new_expiration, &sector_infos, sector_size)?;
@@ -405,7 +405,7 @@ impl Partition {
             return Err(actor_error!(ErrIllegalArgument; "can only terminate live sectors").into());
         }
 
-        let sector_infos = sectors.load(sector_numbers)?;
+        let sector_infos = sectors.load_sector(sector_numbers)?;
         let mut expirations = ExpirationQueue::new(store, &self.expirations_epochs, quant)
             .map_err(|e| format!("failed to load sector expirations: {:?}", e))?;
         let (removed, removed_recovering) = expirations
@@ -623,14 +623,14 @@ impl Partition {
         // Find all skipped faults that have been labeled recovered
         let retracted_recoveries = &self.recoveries & skipped;
         let retracted_recovery_sectors = sectors
-            .load(&retracted_recoveries)
+            .load_sector(&retracted_recoveries)
             .map_err(|e| actor_error!(ErrIllegalState; "failed to load sectors: {:?}", e))?;
         let retracted_recovery_power = power_for_sectors(sector_size, &retracted_recovery_sectors);
 
         // Ignore skipped faults that are already faults or terminated.
         let new_faults = &(skipped - &self.terminated) - &self.faults;
         let new_fault_sectors = sectors
-            .load(&new_faults)
+            .load_sector(&new_faults)
             .map_err(|e| actor_error!(ErrIllegalState; "failed to load sectors: {:?}", e))?;
 
         // Record new faults
