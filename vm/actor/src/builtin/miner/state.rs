@@ -4,7 +4,7 @@
 use super::{assign_deadlines, deadline_is_mutable, policy::*, Deadline};
 use super::{deadlines::DeadlineInfo, DeadlineSectorMap};
 use super::{types::*, Deadlines, PowerPair, QuantSpec, Sectors, TerminationResult, VestingFunds};
-use crate::{u64_key, HAMT_BIT_WIDTH};
+use crate::{make_map_with_root, u64_key};
 use address::Address;
 use ahash::AHashSet;
 use bitfield::BitField;
@@ -120,12 +120,12 @@ impl State {
         }
     }
 
-    pub fn get_info<BS: BlockStore>(&self, store: &BS) -> Result<MinerInfo, String> {
-        store
-            .get(&self.info)
-            .ok()
-            .flatten()
-            .ok_or("failed to get miner info")?
+    pub fn get_info<BS: BlockStore>(&self, store: &BS) -> Result<MinerInfo, Box<dyn StdError>> {
+        match store.get(&self.info) {
+            Ok(Some(info)) => Ok(info),
+            Ok(None) => Err(actor_error!(ErrNotFound, "failed to get miner info").into()),
+            Err(e) => Err(ActorError::downcast_wrap(e, "failed to get miner info")),
+        }
     }
 
     pub fn save_info<BS: BlockStore>(
@@ -166,12 +166,14 @@ impl State {
             );
         }
 
-        let mut allocated_sectors: BitField = store
-            .get(&self.allocated_sectors)
-            .map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load allocated sectors bitfield: {:?}", e),
-            )?
-            .ok_or_else(|| actor_error!(ErrNotFound; ""))?;
+        let mut allocated_sectors: BitField = match store.get(&self.allocated_sectors) {
+            Ok(Some(bf)) => Ok(bf),
+            Ok(None) => Err(None),
+            Err(e) => Err(Some(e)),
+        }
+        .map_err(
+            |e| actor_error!(ErrIllegalState; "failed to load allocated sectors bitfield: {:?}", e),
+        )?;
 
         if allocated_sectors.get(sector_number as usize) {
             return Err(
@@ -204,17 +206,19 @@ impl State {
             );
         }
 
-        let mut allocated_sectors: BitField = store
-            .get(&self.allocated_sectors)
-            .map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load allocated sectors bitfield {:?}", e),
-            )?
-            .ok_or_else(|| actor_error!(ErrNotFound; ""))?;
+        let mut allocated_sectors: BitField = match store.get(&self.allocated_sectors) {
+            Ok(Some(bf)) => Ok(bf),
+            Ok(None) => Err(None),
+            Err(e) => Err(Some(e)),
+        }
+        .map_err(
+            |e| actor_error!(ErrIllegalState; "failed to load allocated sectors bitfield {:?}", e),
+        )?;
 
         allocated_sectors |= sector_numbers;
 
         self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(
-            |e| actor_error!(ErrIllegalState; "failed to mask allocated sectors bitfield: {:?}", e),
+            |e| actor_error!(ErrIllegalArgument; "failed to mask allocated sectors bitfield: {:?}", e),
         )?;
 
         Ok(())
@@ -225,8 +229,7 @@ impl State {
         store: &BS,
         info: SectorPreCommitOnChainInfo,
     ) -> Result<(), HamtError> {
-        let mut precommitted =
-            Hamt::<_, _>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        let mut precommitted = make_map_with_root(&self.pre_committed_sectors, store)?;
         precommitted.set(u64_key(info.info.sector_number), info)?;
 
         self.pre_committed_sectors = precommitted.flush()?;
@@ -238,8 +241,7 @@ impl State {
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<Option<SectorPreCommitOnChainInfo>, HamtError> {
-        let precommitted =
-            Hamt::<_, _>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        let precommitted = make_map_with_root(&self.pre_committed_sectors, store)?;
         precommitted.get(&u64_key(sector_num))
     }
 
@@ -250,8 +252,7 @@ impl State {
         sector_numbers: &[SectorNumber],
     ) -> Result<Vec<SectorPreCommitOnChainInfo>, String> {
         let precommitted =
-            Hamt::<_, SectorPreCommitOnChainInfo>::load(&self.pre_committed_sectors, store)
-                .map_err(|e| e.to_string())?;
+            make_map_with_root(&self.pre_committed_sectors, store).map_err(|e| e.to_string())?;
         let mut result = Vec::with_capacity(sector_numbers.len());
 
         for &sector_number in sector_numbers {
@@ -271,7 +272,7 @@ impl State {
         Ok(result)
     }
 
-    pub fn delete_precommitted_sector<BS: BlockStore>(
+    pub fn delete_precommitted_sectors<BS: BlockStore>(
         &mut self,
         store: &BS,
         sector_nums: &[SectorNumber],
@@ -894,7 +895,7 @@ impl State {
 
         // Actually delete it.
         if !precommits_to_delete.is_empty() {
-            self.delete_precommitted_sector(store, &precommits_to_delete)?;
+            self.delete_precommitted_sectors(store, &precommits_to_delete)?;
         }
 
         self.pre_commit_deposits -= &deposit_to_burn;

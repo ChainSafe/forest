@@ -266,6 +266,7 @@ pub struct SectorOnChainInfo {
     pub expected_storage_pledge: TokenAmount,
 }
 
+// TODO: figure out if we need this type
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainSectorInfo {
     pub info: SectorOnChainInfo,

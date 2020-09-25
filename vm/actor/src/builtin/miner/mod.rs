@@ -30,7 +30,6 @@ pub use sector_map::*;
 pub use sectors::*;
 pub use state::*;
 pub use termination::*;
-pub use types::SectorOnChainInfo;
 pub use types::*;
 pub use vesting_state::*;
 
@@ -136,7 +135,7 @@ impl Actor {
         let control_addresses: Vec<_> = params
             .control_addresses
             .into_iter()
-            .map(|address| resolve_worker_address(rt, address))
+            .map(|address| resolve_control_address(rt, address))
             .collect::<Result<_, _>>()?;
 
         let empty_map = make_map::<_, ()>(rt.store()).flush().map_err(|e| {
@@ -215,14 +214,13 @@ impl Actor {
         Ok(())
     }
 
-    fn get_miner_info<BS, RT>(rt: &mut RT, state: &State) -> Result<MinerInfo, ActorError>
+    fn get_miner_info<BS>(store: &BS, state: &State) -> Result<MinerInfo, ActorError>
     where
         BS: BlockStore,
-        RT: Runtime<BS>,
     {
-        state
-            .get_info(rt.store())
-            .map_err(|e| actor_error!(ErrIllegalState, "could not read miner info: {}", e))
+        state.get_info(store).map_err(|e| {
+            ActorError::downcast(e, ExitCode::ErrIllegalState, "could not read miner info")
+        })
     }
 
     fn control_addresses<BS, RT>(rt: &mut RT) -> Result<GetControlAddressesReturn, ActorError>
@@ -232,7 +230,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_accept_any()?;
         let state: State = rt.state()?;
-        let info = Self::get_miner_info(rt, &state)?;
+        let info = Self::get_miner_info(rt.store(), &state)?;
         Ok(GetControlAddressesReturn {
             owner: info.owner,
             worker: info.worker,
@@ -259,7 +257,7 @@ impl Actor {
             .collect::<Result<_, _>>()?;
 
         let effective_epoch = rt.transaction(|state: &mut State, rt| {
-            let mut info = Self::get_miner_info(rt, state)?;
+            let mut info = Self::get_miner_info(rt.store(), state)?;
 
             // Only the Owner is allowed to change the new_worker and control addresses.
             rt.validate_immediate_caller_is(&[info.owner])?;
@@ -283,9 +281,9 @@ impl Actor {
                 Some(effective_epoch)
             };
 
-            state
-                .save_info(rt.store(), info)
-                .map_err(|e| actor_error!(ErrIllegalState, "could not save miner info: {:?}", e))?;
+            state.save_info(rt.store(), info).map_err(|e| {
+                ActorError::downcast(e, ExitCode::ErrIllegalState, "could not save miner info")
+            })?;
 
             Ok(effective_epoch)
         })?;
@@ -306,7 +304,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.transaction(|state: &mut State, rt| {
-            let mut info = Self::get_miner_info(rt, state)?;
+            let mut info = Self::get_miner_info(rt.store(), state)?;
 
             rt.validate_immediate_caller_is(
                 info.control_addresses
@@ -315,9 +313,9 @@ impl Actor {
             )?;
 
             info.peer_id = params.new_id;
-            state
-                .save_info(rt.store(), info)
-                .map_err(|e| actor_error!(ErrIllegalState, "could not save miner info: {:?}", e))?;
+            state.save_info(rt.store(), info).map_err(|e| {
+                ActorError::downcast(e, ExitCode::ErrIllegalState, "could not save miner info")
+            })?;
 
             Ok(())
         })?;
@@ -333,7 +331,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.transaction(|state: &mut State, rt| {
-            let mut info = Self::get_miner_info(rt, state)?;
+            let mut info = Self::get_miner_info(rt.store(), state)?;
 
             rt.validate_immediate_caller_is(
                 info.control_addresses
@@ -342,9 +340,9 @@ impl Actor {
             )?;
 
             info.multi_address = params.new_multi_addrs;
-            state
-                .save_info(rt.store(), info)
-                .map_err(|e| actor_error!(ErrIllegalState, "could not save miner info: {:?}", e))?;
+            state.save_info(rt.store(), info).map_err(|e| {
+                ActorError::downcast(e, ExitCode::ErrIllegalState, "could not save miner info")
+            })?;
 
             Ok(())
         })?;
@@ -1163,7 +1161,7 @@ impl Actor {
                 .map_err(|e| actor_error!(ErrIllegalState, "failed to put new sectors: {}", e))?;
 
             state
-                .delete_precommitted_sector(store, &new_sector_numbers)
+                .delete_precommitted_sectors(store, &new_sector_numbers)
                 .map_err(|e| {
                     actor_error!(
                         ErrIllegalState,

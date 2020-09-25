@@ -389,7 +389,7 @@ impl Deadline {
                 .set(partition_idx, partition)
                 .map_err(|e| format!("failed to store partition {}: {:?}", partition_idx, e))?;
 
-            if result.below_limit(max_partitions, max_sectors) {
+            if !result.below_limit(max_partitions, max_sectors) {
                 break;
             }
         }
