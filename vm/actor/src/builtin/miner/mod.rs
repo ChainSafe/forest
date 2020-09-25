@@ -736,7 +736,7 @@ impl Actor {
             // The following two checks shouldn't be necessary, but it can't
             // hurt to double-check (unless it's really just too
             // expensive?).
-            if state
+            let sector = state
                 .get_precommitted_sector(store, params.sector_number)
                 .map_err(|e| {
                     actor_error!(
@@ -745,9 +745,9 @@ impl Actor {
                         params.sector_number,
                         e
                     )
-                })?
-                .is_some()
-            {
+                })?;
+
+            if sector.is_some() {
                 return Err(actor_error!(
                     ErrIllegalState,
                     "sector {} already pre-committed",
@@ -1579,11 +1579,7 @@ impl Actor {
             }
 
             state.save_deadlines(store, deadlines).map_err(|e| {
-                ActorError::downcast(
-                    e,
-                    ExitCode::ErrIllegalState,
-                    format!("failed to save deadlines"),
-                )
+                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
             })?;
 
             Ok((had_early_terminations, power_delta))
