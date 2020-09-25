@@ -462,14 +462,7 @@ impl Actor {
 
             let mut deadline = deadlines
                 .load_deadline(rt.store(), params.deadline)
-                .map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to load deadline {}: {:?}",
-                        params.deadline,
-                        e
-                    )
-                })?;
+                .map_err(|e| e.wrap(format!("failed to load deadline {}", params.deadline)))?;
 
             // Record proven sectors/partitions, returning updates to power and the final set of sectors
             // proven/skipped.
@@ -581,17 +574,16 @@ impl Actor {
             deadlines
                 .update_deadline(rt.store(), params.deadline, &deadline)
                 .map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to update deadline {}: {}",
-                        deadline_idx,
-                        e
+                    ActorError::downcast(
+                        e,
+                        ExitCode::ErrIllegalState,
+                        format!("failed to update deadline {}", deadline_idx),
                     )
                 })?;
 
-            state
-                .save_deadlines(rt.store(), deadlines)
-                .map_err(|e| actor_error!(ErrIllegalState, "failed to save deadlines: {}", e))?;
+            state.save_deadlines(rt.store(), deadlines).map_err(|e| {
+                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
+            })?;
 
             Ok(post_result)
         })?;
@@ -1341,14 +1333,9 @@ impl Actor {
             let mut pledge_delta = TokenAmount::zero();
 
             for deadline_idx in deadlines_to_load {
-                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to load deadline {}: {}",
-                        deadline_idx,
-                        e
-                    )
-                })?;
+                let mut deadline = deadlines
+                    .load_deadline(store, deadline_idx)
+                    .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
 
                 let mut partitions = deadline.partitions_amt(store).map_err(|e| {
                     e.wrap(format!(
@@ -1453,11 +1440,10 @@ impl Actor {
                 deadlines
                     .update_deadline(store, deadline_idx, &deadline)
                     .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to save deadline {}: {}",
-                            deadline_idx,
-                            e
+                        ActorError::downcast(
+                            e,
+                            ExitCode::ErrIllegalState,
+                            format!("failed to save deadline {}", deadline_idx),
                         )
                     })?;
             }
@@ -1557,14 +1543,9 @@ impl Actor {
 
             for (deadline_idx, partition_sectors) in to_process.iter() {
                 let quant = state.quant_spec_for_deadline(deadline_idx);
-                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to load deadline {}: {}",
-                        deadline_idx,
-                        e
-                    )
-                })?;
+                let mut deadline = deadlines
+                    .load_deadline(store, deadline_idx)
+                    .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
 
                 let removed_power = deadline
                     .terminate_sectors(
@@ -1589,18 +1570,21 @@ impl Actor {
                 deadlines
                     .update_deadline(store, deadline_idx, &deadline)
                     .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to update deadline {}: {}",
-                            deadline_idx,
-                            e
+                        ActorError::downcast(
+                            e,
+                            ExitCode::ErrIllegalState,
+                            format!("failed to update deadline {}", deadline_idx),
                         )
                     })?;
             }
 
-            state
-                .save_deadlines(store, deadlines)
-                .map_err(|e| actor_error!(ErrIllegalState, "failed to save deadlines: {}", e))?;
+            state.save_deadlines(store, deadlines).map_err(|e| {
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    format!("failed to save deadlines: {}", e),
+                )
+            })?;
 
             Ok((had_early_terminations, power_delta))
         })?;
@@ -1700,14 +1684,9 @@ impl Actor {
                     )
                 })?;
 
-                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to load deadline {}: {}",
-                        deadline_idx,
-                        e
-                    )
-                })?;
+                let mut deadline = deadlines
+                    .load_deadline(store, deadline_idx)
+                    .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
 
                 let fault_expiration_epoch = target_deadline.last() + FAULT_MAX_AGE;
 
@@ -1731,20 +1710,19 @@ impl Actor {
                 deadlines
                     .update_deadline(store, deadline_idx, &deadline)
                     .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to store deadline {} partitions: {}",
-                            deadline_idx,
-                            e
+                        ActorError::downcast(
+                            e,
+                            ExitCode::ErrIllegalState,
+                            format!("failed to store deadline {} partitions", deadline_idx),
                         )
                     })?;
 
                 new_fault_power_total += &new_faulty_power;
             }
 
-            state
-                .save_deadlines(store, deadlines)
-                .map_err(|e| actor_error!(ErrIllegalState, "failed to save deadlines: {}", e))?;
+            state.save_deadlines(store, deadlines).map_err(|e| {
+                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
+            })?;
 
             Ok(new_fault_power_total)
         })?;
@@ -1839,14 +1817,9 @@ impl Actor {
                     )
                 })?;
 
-                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to load deadline {}: {}",
-                        deadline_idx,
-                        e
-                    )
-                })?;
+                let mut deadline = deadlines
+                    .load_deadline(store, deadline_idx)
+                    .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
 
                 deadline
                     .declare_faults_recovered(store, &sectors, info.sector_size, partition_map)
@@ -1860,18 +1833,17 @@ impl Actor {
                 deadlines
                     .update_deadline(store, deadline_idx, &deadline)
                     .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to store deadline {}: {}",
-                            deadline_idx,
-                            e
+                        ActorError::downcast(
+                            e,
+                            ExitCode::ErrIllegalState,
+                            format!("failed to store deadline {}", deadline_idx),
                         )
                     })?;
             }
 
-            state
-                .save_deadlines(store, deadlines)
-                .map_err(|e| actor_error!(ErrIllegalState, "failed to save deadlines: {}", e))?;
+            state.save_deadlines(store, deadlines).map_err(|e| {
+                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
+            })?;
 
             Ok(())
         })?;
@@ -1942,12 +1914,8 @@ impl Actor {
             let mut deadline = deadlines
                 .load_deadline(store, params.deadline)
                 .map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to load deadline {}: {}",
-                        params.deadline,
-                        e
-                    )
+                    e.wrap(format!("failed to load deadline {}",
+                    params.deadline))
                 })?;
 
             let (live, dead, removed_power) = deadline
@@ -2444,14 +2412,7 @@ where
 
         let mut deadline = deadlines
             .load_deadline(rt.store(), deadline_info.index)
-            .map_err(|e| {
-                actor_error!(
-                    ErrIllegalState,
-                    "failed to load deadline {}: {}",
-                    deadline_info.index,
-                    e
-                )
-            })?;
+            .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_info.index)))?;
 
         let quant = deadline_info.quant_spec();
         let mut unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?);
@@ -2566,11 +2527,10 @@ where
         deadlines
             .update_deadline(rt.store(), deadline_info.index, &deadline)
             .map_err(|e| {
-                actor_error!(
-                    ErrIllegalState,
-                    "failed to update deadline {}: {:?}",
-                    deadline_info.index,
-                    e
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    format!("failed to update deadline {}", deadline_info.index),
                 )
             })?;
 

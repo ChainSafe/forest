@@ -665,11 +665,8 @@ impl State {
         &mut self,
         store: &BS,
         deadlines: Deadlines,
-    ) -> Result<(), String> {
-        self.deadlines = store
-            .put(&deadlines, Blake2b256)
-            .map_err(|e| e.to_string())?;
-
+    ) -> Result<(), Box<dyn StdError>> {
+        self.deadlines = store.put(&deadlines, Blake2b256)?;
         Ok(())
     }
 

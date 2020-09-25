@@ -38,23 +38,33 @@ impl Deadlines {
         &self,
         store: &BS,
         deadline_idx: u64,
-    ) -> Result<Deadline, String> {
+    ) -> Result<Deadline, ActorError> {
         if deadline_idx >= WPOST_PERIOD_DEADLINES as u64 {
-            return Err(format!("invalid deadline {}", deadline_idx));
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "invalid deadline {}",
+                deadline_idx
+            ));
         }
 
         store
             .get(&self.due[deadline_idx as usize])
             .ok()
             .flatten()
-            .ok_or(format!("failed to lookup deadline {}", deadline_idx))
+            .ok_or_else(|| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to lookup deadline {}",
+                    deadline_idx
+                )
+            })
     }
 
     pub fn for_each<BS: BlockStore>(
         &self,
         store: &BS,
-        mut f: impl FnMut(u64, Deadline) -> Result<(), String>,
-    ) -> Result<(), String> {
+        mut f: impl FnMut(u64, Deadline) -> Result<(), ActorError>,
+    ) -> Result<(), ActorError> {
         for i in 0..self.due.len() {
             let index = i as u64;
             let deadline = self.load_deadline(store, index)?;
@@ -68,13 +78,11 @@ impl Deadlines {
         store: &BS,
         deadline_idx: u64,
         deadline: &Deadline,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         if deadline_idx >= WPOST_PERIOD_DEADLINES as u64 {
-            return Err(format!("invalid deadline {}", deadline_idx));
+            return Err(format!("invalid deadline {}", deadline_idx).into());
         }
-        self.due[deadline_idx as usize] = store
-            .put(deadline, Blake2b256)
-            .map_err(|e| format!("error: {:?}", e))?;
+        self.due[deadline_idx as usize] = store.put(deadline, Blake2b256)?;
         Ok(())
     }
 }
