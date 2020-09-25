@@ -271,7 +271,7 @@ pub mod tipset_json {
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-    #[derive(Deserialize, Serialize, Debug)]
+    #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct TipsetJson(#[serde(with = "self")] pub Tipset);
 
@@ -292,6 +292,12 @@ pub mod tipset_json {
         }
     }
 
+    impl<'a> From<&'a Tipset> for TipsetJsonRef<'a> {
+        fn from(wrapper: &'a Tipset) -> Self {
+            TipsetJsonRef(wrapper)
+        }
+    }
+
     pub fn serialize<S>(m: &Tipset, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -299,10 +305,10 @@ pub mod tipset_json {
         #[derive(Serialize)]
         #[serde(rename_all = "PascalCase")]
         struct TipsetSer<'a> {
-            #[serde(with = "super::super::header::json::vec")]
-            blocks: &'a [BlockHeader],
             #[serde(with = "super::tipset_keys_json")]
             cids: &'a TipsetKeys,
+            #[serde(with = "super::super::header::json::vec")]
+            blocks: &'a [BlockHeader],
             height: ChainEpoch,
         }
         TipsetSer {
@@ -320,10 +326,10 @@ pub mod tipset_json {
         #[derive(Serialize, Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct TipsetDe {
-            #[serde(with = "super::super::header::json::vec")]
-            blocks: Vec<BlockHeader>,
             #[serde(with = "super::tipset_keys_json")]
             cids: TipsetKeys,
+            #[serde(with = "super::super::header::json::vec")]
+            blocks: Vec<BlockHeader>,
             height: ChainEpoch,
         }
         let TipsetDe { blocks, .. } = Deserialize::deserialize(deserializer)?;

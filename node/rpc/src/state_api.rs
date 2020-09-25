@@ -6,7 +6,7 @@ use actor::miner::{
     compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault, MinerInfo,
     SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
 };
-use address::Address;
+use address::{json::AddressJson, Address};
 use async_std::task;
 use bitfield::json::BitFieldJson;
 use blocks::{tipset_json::TipsetJson, Tipset, TipsetKeys};
@@ -19,7 +19,7 @@ use message::{
     message_receipt::json::MessageReceiptJson,
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
 use wallet::KeyStore;
@@ -29,24 +29,6 @@ use wallet::KeyStore;
 pub struct MessageLookup {
     pub receipt: MessageReceiptJson,
     pub tipset: TipsetJson,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResultJson {
-    pub msg: UnsignedMessageJson,
-    pub msg_rct: Option<MessageReceiptJson>,
-    pub error: Option<String>,
-}
-
-impl From<InvocResult> for InvocResultJson {
-    fn from(invoc: InvocResult) -> Self {
-        InvocResultJson {
-            msg: invoc.msg.into(),
-            msg_rct: invoc.msg_rct.map(|s| s.into()),
-            error: invoc.error,
-        }
-    }
 }
 
 /// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
@@ -259,16 +241,16 @@ pub(crate) async fn state_replay<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson, TipsetKeys)>,
-) -> Result<InvocResultJson, JsonRpcError> {
+) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (cidjson, key) = params;
     let cid = cidjson.into();
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
     let (msg, ret) = state_manager.replay(&tipset, &cid)?;
 
-    Ok(InvocResultJson {
-        msg: msg.into(),
-        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone().into()),
+    Ok(InvocResult {
+        msg,
+        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone()),
         error: ret
             .map(|act| act.act_error.map(|e| e.to_string()))
             .unwrap_or_default(),
@@ -297,13 +279,13 @@ pub(crate) async fn state_account_key<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(Address, TipsetKeys)>,
-) -> Result<Option<Address>, JsonRpcError> {
+) -> Result<Option<AddressJson>, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
     let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
-    Ok(address.into())
+    Ok(Some(address.into()))
 }
 /// retrieves the ID address of the given address
 pub(crate) async fn state_lookup_id<

@@ -5,6 +5,7 @@ use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::RwLock;
+use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -15,9 +16,10 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
+use futures::{future, StreamExt};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{debug, info, warn};
+use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -50,6 +52,31 @@ pub enum HeadChange {
     Revert(Arc<Tipset>),
 }
 
+#[derive(Debug, Clone)]
+pub struct IndexToHeadChange(pub usize, pub HeadChange);
+
+#[derive(Clone)]
+pub enum EventsPayload {
+    TaskCancel(usize, ()),
+    SubHeadChanges(IndexToHeadChange),
+}
+
+impl EventsPayload {
+    pub fn sub_head_changes(&self) -> Option<&IndexToHeadChange> {
+        match self {
+            EventsPayload::SubHeadChanges(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn task_cancel(&self) -> Option<(usize, ())> {
+        match self {
+            EventsPayload::TaskCancel(val, _) => Some((*val, ())),
+            _ => None,
+        }
+    }
+}
+
 /// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
 /// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
@@ -63,7 +90,7 @@ pub struct ChainStore<DB> {
     heaviest: RwLock<Option<Arc<Tipset>>>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
-    tip_index: TipIndex,
+    tip_index: RwLock<TipIndex>,
 }
 
 impl<DB> ChainStore<DB>
@@ -77,9 +104,9 @@ where
             .map(Arc::new);
         Self {
             db,
-            publisher: Publisher::new(SINK_CAP).into(),
-            tip_index: TipIndex::new(),
-            heaviest: heaviest.into(),
+            publisher: RwLock::new(Publisher::new(SINK_CAP)),
+            tip_index: RwLock::new(TipIndex::new()),
+            heaviest: RwLock::new(heaviest),
         }
     }
 
@@ -110,7 +137,7 @@ where
             tipset_receipts_root: header.message_receipts().clone(),
             tipset: ts,
         };
-        self.tip_index.put(&meta).await;
+        self.tip_index.write().await.put(&meta).await;
         Ok(())
     }
 
@@ -160,6 +187,13 @@ where
         self.heaviest.read().await.clone()
     }
 
+    pub fn tip_index(&self) -> &RwLock<TipIndex> {
+        &self.tip_index
+    }
+
+    pub fn publisher(&self) -> &RwLock<Publisher<HeadChange>> {
+        &self.publisher
+    }
     /// Returns key-value store instance
     pub fn blockstore(&self) -> &DB {
         &self.db
@@ -172,28 +206,7 @@ where
 
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
-        let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
-
-        for header in ts.into_blocks() {
-            let (bls_messages, secp_messages) = block_messages(self.blockstore(), &header)?;
-            debug!(
-                "Fill Tipsets for header {:?} with bls_messages: {:?}",
-                header.cid(),
-                bls_messages
-                    .iter()
-                    .map(|b| b.cid().unwrap())
-                    .collect::<Vec<_>>()
-            );
-
-            blocks.push(Block {
-                header,
-                bls_messages,
-                secp_messages,
-            });
-        }
-
-        // the given tipset has already been verified, so this cannot fail
-        Ok(FullTipset::new(blocks).unwrap())
+        fill_tipsets(self.blockstore(), ts)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
@@ -289,6 +302,26 @@ where
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
 
     Ok((bls_msgs, secp_msgs))
+}
+
+/// Constructs and returns a full tipset if messages from storage exists - non self version
+pub fn fill_tipsets<DB>(db: &DB, ts: Tipset) -> Result<FullTipset, Error>
+where
+    DB: BlockStore,
+{
+    let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
+
+    for header in ts.into_blocks() {
+        let (bls_messages, secp_messages) = block_messages(db, &header)?;
+        blocks.push(Block {
+            header,
+            bls_messages,
+            secp_messages,
+        });
+    }
+
+    // the given tipset has already been verified, so this cannot fail
+    Ok(FullTipset::new(blocks).unwrap())
 }
 
 /// Returns a tuple of UnsignedMessage and SignedMessages from their Cid
@@ -705,6 +738,77 @@ where
     Ok(out)
 }
 
+pub async fn sub_head_changes(
+    mut subscribed_head_change: Subscriber<HeadChange>,
+    heaviest_tipset: &Option<Arc<Tipset>>,
+    current_index: usize,
+    events_pubsub: Arc<RwLock<Publisher<EventsPayload>>>,
+) -> Result<usize, Error> {
+    let head = heaviest_tipset
+        .as_ref()
+        .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
+
+    (*events_pubsub.write().await)
+        .publish(EventsPayload::SubHeadChanges(IndexToHeadChange(
+            current_index,
+            HeadChange::Current(head.clone()),
+        )))
+        .await;
+    let subhead_sender = events_pubsub.clone();
+    let handle = task::spawn(async move {
+        while let Some(change) = subscribed_head_change.next().await {
+            let index_to_head_change = IndexToHeadChange(current_index, change);
+            subhead_sender
+                .write()
+                .await
+                .publish(EventsPayload::SubHeadChanges(index_to_head_change))
+                .await;
+        }
+    });
+    let cancel_sender = events_pubsub.write().await.subscribe();
+    task::spawn(async move {
+        if let Some(EventsPayload::TaskCancel(_, ())) = cancel_sender
+            .filter(|s| {
+                future::ready(
+                    s.task_cancel()
+                        .map(|s| s.0 == current_index)
+                        .unwrap_or_default(),
+                )
+            })
+            .next()
+            .await
+        {
+            handle.cancel().await;
+        }
+    });
+    Ok(current_index)
+}
+
+#[cfg(feature = "json")]
+pub mod headchange_json {
+    use super::*;
+    use blocks::tipset_json::TipsetJsonRef;
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "lowercase")]
+    #[serde(tag = "type", content = "val")]
+    pub enum HeadChangeJson<'a> {
+        Current(TipsetJsonRef<'a>),
+        Apply(TipsetJsonRef<'a>),
+        Revert(TipsetJsonRef<'a>),
+    }
+
+    impl<'a> From<&'a HeadChange> for HeadChangeJson<'a> {
+        fn from(wrapper: &'a HeadChange) -> Self {
+            match wrapper {
+                HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJsonRef(&tipset)),
+                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJsonRef(&tipset)),
+                HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJsonRef(&tipset)),
+            }
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

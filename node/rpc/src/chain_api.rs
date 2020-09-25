@@ -56,6 +56,25 @@ where
     Ok(UnsignedMessageJson(ret))
 }
 
+pub(crate) async fn chain_notify<'a, DB, KS>(
+    data: Data<RpcState<DB, KS>>,
+    Params(params): Params<usize>,
+) -> Result<usize, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let data_subscribe = data.chain_store.subscribe().await;
+    let index = chain::sub_head_changes(
+        data_subscribe,
+        &data.chain_store.heaviest_tipset().await,
+        params,
+        data.events_pubsub.clone(),
+    )
+    .await?;
+    Ok(index)
+}
+
 pub(crate) async fn chain_read_obj<DB, KS>(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson,)>,
