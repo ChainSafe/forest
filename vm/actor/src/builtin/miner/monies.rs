@@ -156,7 +156,6 @@ pub fn pre_commit_deposit_for_power(
 pub fn initial_pledge_for_power(
     qa_power: &StoragePower,
     baseline_power: &StoragePower,
-    _network_total_pledge: &TokenAmount,
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
     network_circulating_supply_smoothed: &TokenAmount,

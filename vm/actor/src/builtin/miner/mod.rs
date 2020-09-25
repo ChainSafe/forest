@@ -780,7 +780,7 @@ impl Actor {
             validate_expiration(rt, max_activation, params.expiration, params.seal_proof)?;
 
             let deposit_minimum = if params.replace_capacity {
-                let replace_sector = validate_replace_sector(rt, state, store, &params)?;
+                let replace_sector = validate_replace_sector(state, store, &params)?;
 
                 // Note the replaced sector's initial pledge as a lower bound for the new sector's deposit
                 replace_sector.initial_pledge
@@ -1122,7 +1122,6 @@ impl Actor {
                 let initial_pledge = initial_pledge_for_power(
                     &power,
                     &reward_stats.this_epoch_baseline_power,
-                    &power_total.pledge_collateral,
                     &reward_stats.this_epoch_reward_smoothed,
                     &power_total.quality_adj_power_smoothed,
                     &circulating_supply,
@@ -1519,7 +1518,7 @@ impl Actor {
             })?;
 
         let (had_early_terminations, power_delta) = rt.transaction(|state: &mut State, rt| {
-            let had_early_terminations = have_pending_early_terminations(rt, state);
+            let had_early_terminations = have_pending_early_terminations(state);
 
             let info = get_miner_info(rt, state)?;
 
@@ -2107,7 +2106,7 @@ impl Actor {
 
         // Reward reporter with a share of the miner's current balance.
         let slasher_reward = reward_for_consensus_slash_report(fault_age, rt.current_balance()?);
-        let _ = rt.send(reporter, METHOD_SEND, Default::default(), slasher_reward)?;
+        rt.send(reporter, METHOD_SEND, Default::default(), slasher_reward)?;
 
         let st: State = rt.state()?;
 
@@ -2394,7 +2393,7 @@ where
 
         // Record whether or not we _had_ early terminations in the queue before this method.
         // That way, don't re-schedule a cron callback if one is already scheduled.
-        had_early_terminations = have_pending_early_terminations(rt, state);
+        had_early_terminations = have_pending_early_terminations(state);
 
         // Note: because the cron actor is not invoked on epochs with empty tipsets, the current epoch is not necessarily
         // exactly the final epoch of the deadline; it may be slightly later (i.e. in the subsequent deadline/period).
@@ -2569,7 +2568,7 @@ where
     )?;
 
     // Record whether or not we _have_ early terminations now.
-    let has_early_terminations = have_pending_early_terminations(rt, &state);
+    let has_early_terminations = have_pending_early_terminations(&state);
 
     // If we didn't have pending early terminations before, but we do now,
     // handle them at the next epoch.
@@ -2637,15 +2636,13 @@ where
     Ok(())
 }
 
-fn validate_replace_sector<BS, RT>(
-    _rt: &RT,
+fn validate_replace_sector<BS>(
     state: &State,
     store: &BS,
     params: &SectorPreCommitInfo,
 ) -> Result<SectorOnChainInfo, ActorError>
 where
     BS: BlockStore,
-    RT: Runtime<BS>,
 {
     let replace_sector = state
         .get_sector(store, params.replace_sector_number)
@@ -2825,11 +2822,7 @@ where
     )
 }
 
-fn have_pending_early_terminations<BS, RT>(_rt: &mut RT, state: &State) -> bool
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
+fn have_pending_early_terminations(state: &State) -> bool {
     let no_early_terminations = state.early_terminations.is_empty();
     !no_early_terminations
 }
@@ -2993,7 +2986,7 @@ where
         TokenAmount::zero(),
     )?;
 
-    Ok(serialized.deserialize().unwrap())
+    Ok(serialized.deserialize()?)
 }
 
 fn commit_worker_key_change<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
