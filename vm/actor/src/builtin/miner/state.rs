@@ -16,7 +16,7 @@ use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
 use num_bigint::bigint_ser;
-use num_traits::Zero;
+use num_traits::{Signed, Zero};
 use std::{cmp, error::Error as StdError};
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
@@ -686,7 +686,7 @@ impl State {
                     format!("failed to load vesting funds {:?}", self.vesting_funds),
                 )
             })?
-            .ok_or_else(|| actor_error!(ErrNotFound; ""))?)
+            .ok_or_else(|| actor_error!(ErrNotFound; "failed to load vesting funds {:?}", self.vesting_funds))?)
     }
 
     /// Saves the vesting table to the store.
@@ -704,19 +704,27 @@ impl State {
     //
 
     pub fn add_pre_commit_deposit(&mut self, amount: &TokenAmount) {
-        self.pre_commit_deposits += amount
-    }
-
-    pub fn subtract_pre_commit_deposit(&mut self, amount: &TokenAmount) {
-        self.pre_commit_deposits -= amount
+        let new_total = &self.pre_commit_deposits + amount;
+        assert!(
+            !new_total.is_negative(),
+            "negative pre-commit deposit {} after adding {} to prior {}",
+            new_total,
+            amount,
+            self.pre_commit_deposits
+        );
+        self.pre_commit_deposits = new_total;
     }
 
     pub fn add_initial_pledge_requirement(&mut self, amount: &TokenAmount) {
-        self.initial_pledge_requirement += amount
-    }
-
-    pub fn subtract_initial_pledge_requirement(&mut self, amount: &TokenAmount) {
-        self.initial_pledge_requirement -= amount
+        let new_total = &self.initial_pledge_requirement + amount;
+        assert!(
+            !new_total.is_negative(),
+            "negative initial pledge requirement {} after adding {} to prior {}",
+            new_total,
+            amount,
+            self.initial_pledge_requirement
+        );
+        self.initial_pledge_requirement = new_total;
     }
 
     /// First vests and unlocks the vested funds AND then locks the given funds in the vesting table.
@@ -727,6 +735,12 @@ impl State {
         vesting_sum: &TokenAmount,
         spec: VestSpec,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
+        assert!(
+            !vesting_sum.is_negative(),
+            "negative vesting sum {}",
+            vesting_sum
+        );
+
         let mut vesting_funds = self.load_vesting_funds(store)?;
 
         // unlock vested funds first
@@ -736,6 +750,7 @@ impl State {
         // add locked funds now
         vesting_funds.add_locked_funds(current_epoch, vesting_sum, self.proving_period_start, spec);
         self.locked_funds += vesting_sum;
+        assert!(!self.locked_funds.is_negative());
 
         // save the updated vesting table state
         self.save_vesting_funds(store, &vesting_funds)?;
