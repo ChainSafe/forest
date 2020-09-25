@@ -13,6 +13,9 @@ pub enum Error {
     /// Index referenced it above arbitrary max set
     #[error("index {0} out of range for the amt")]
     OutOfRange(u64),
+    /// Height of root node is greater than max.
+    #[error("failed to load AMT: height out of bounds: {0} > {1}")]
+    MaxHeight(u64, u64),
     /// Cbor encoding error
     #[error(transparent)]
     Encoding(#[from] EncodingError),

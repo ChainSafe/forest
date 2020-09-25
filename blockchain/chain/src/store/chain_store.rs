@@ -26,9 +26,12 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
+use types::WINNING_POST_SECTOR_SET_LOOKBACK;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
+const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
+
 // constants for Weight calculation
 /// The ratio of weight contributed by short-term vs long-term factors in a given round
 const W_RATIO_NUM: u64 = 1;
@@ -212,6 +215,49 @@ where
         }
         Ok(())
     }
+
+    /// Checks store if block has already been validated. Key based on the block validation prefix.
+    pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
+        let key = block_validation_key(cid);
+
+        Ok(self.db.exists(key)?)
+    }
+
+    /// Marks block as validated in the store. This is retrieved using the block validation prefix.
+    pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
+        let key = block_validation_key(cid);
+
+        Ok(self.db.write(key, &[])?)
+    }
+
+    /// Gets lookback tipset for block validations.
+    /// Returns `None` if the tipset is also the lookback tipset.
+    pub fn get_lookback_tipset_for_round(
+        &self,
+        ts: &Tipset,
+        round: ChainEpoch,
+    ) -> Result<Option<Tipset>, Error> {
+        let lbr = if round > WINNING_POST_SECTOR_SET_LOOKBACK {
+            round - WINNING_POST_SECTOR_SET_LOOKBACK
+        } else {
+            0
+        };
+
+        if lbr > ts.epoch() {
+            return Ok(None);
+        }
+
+        // TODO would be better to get tipset with ChainStore cache.
+        tipset_by_height(self.blockstore(), lbr, ts, true)
+    }
+}
+
+/// Helper to ensure consistent Cid -> db key translation.
+fn block_validation_key(cid: &Cid) -> Vec<u8> {
+    let mut key = Vec::new();
+    key.extend_from_slice(BLOCK_VAL_PREFIX);
+    key.extend(cid.to_bytes());
+    key
 }
 
 /// Returns messages for a given tipset from db
@@ -360,11 +406,18 @@ pub fn get_chain_randomness<DB: BlockStore>(
 
     let search_height = if round < 0 { 0 } else { round };
 
-    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+    let rand_ts = tipset_by_height(db, search_height, &ts, true)?.unwrap_or(ts);
 
-    let mtb = rand_ts.min_ticket_block();
-
-    draw_randomness(mtb.ticket().vrfproof.as_bytes(), pers, round, entropy)
+    draw_randomness(
+        rand_ts
+            .min_ticket()
+            .ok_or("No ticket exists for block")?
+            .vrfproof
+            .as_bytes(),
+        pers,
+        round,
+        entropy,
+    )
 }
 
 /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
@@ -384,7 +437,7 @@ pub fn get_beacon_randomness<DB: BlockStore>(
 
     let search_height = if round < 0 { 0 } else { round };
 
-    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+    let rand_ts = tipset_by_height(db, search_height, &ts, true)?.unwrap_or(ts);
 
     let be = latest_beacon_entry(db, &rand_ts)?;
 
@@ -442,16 +495,18 @@ where
     let ts = Tipset::new(block_headers)?;
     Ok(ts)
 }
-/// Returns the tipset behind `tsk` at a given `height`. If the given height
-/// is a null round:
-/// if `prev` is `true`, the tipset before the null round is returned.
-/// If `prev` is `false`, the tipset following the null round is returned.
+/// Returns the tipset behind `tsk` at a given `height`.
+/// If the given height is a null round:
+/// - If `prev` is `true`, the tipset before the null round is returned.
+/// - If `prev` is `false`, the tipset following the null round is returned.
+///
+/// Returns `None` if the tipset provided was the tipset at the given height.
 pub fn tipset_by_height<DB>(
     db: &DB,
     height: ChainEpoch,
-    ts: Tipset,
+    ts: &Tipset,
     prev: bool,
-) -> Result<Tipset, Error>
+) -> Result<Option<Tipset>, Error>
 where
     DB: BlockStore,
 {
@@ -461,22 +516,26 @@ where
         ));
     }
     if height == ts.epoch() {
-        return Ok(ts);
+        return Ok(None);
     }
     // TODO: If ts.epoch()-h > Fork Length Threshold, it could be expensive to look up
-    let mut ts_temp = ts;
+    let mut ts_temp: Option<Tipset> = None;
     loop {
-        let pts = tipset_from_keys(db, ts_temp.parents())?;
+        let pts = if let Some(temp) = &ts_temp {
+            tipset_from_keys(db, temp.parents())?
+        } else {
+            tipset_from_keys(db, ts.parents())?
+        };
         if height > pts.epoch() {
             if prev {
-                return Ok(pts);
+                return Ok(Some(pts));
             }
             return Ok(ts_temp);
         }
         if height == pts.epoch() {
-            return Ok(pts);
+            return Ok(Some(pts));
         }
-        ts_temp = pts;
+        ts_temp = Some(pts);
     }
 }
 
@@ -612,7 +671,7 @@ where
 }
 
 /// Returns the weight of provided tipset
-fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
+pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: BlockStore,
 {
@@ -650,7 +709,7 @@ where
 mod tests {
     use super::*;
     use address::Address;
-    use cid::multihash::Identity;
+    use cid::multihash::{Identity, Sha2_256};
 
     #[test]
     fn genesis_test() {
@@ -670,5 +729,18 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), None);
         cs.set_genesis(&gen_block).unwrap();
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
+    }
+
+    #[test]
+    fn block_validation_cache_basic() {
+        let db = db::MemoryDB::default();
+
+        let cs = ChainStore::new(Arc::new(db));
+
+        let cid = Cid::new_from_cbor(&[1, 2, 3], Sha2_256);
+        assert_eq!(cs.is_block_validated(&cid).unwrap(), false);
+
+        cs.mark_block_as_validated(&cid).unwrap();
+        assert_eq!(cs.is_block_validated(&cid).unwrap(), true);
     }
 }
