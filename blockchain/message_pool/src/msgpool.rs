@@ -36,17 +36,17 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 /// which corresponds to that address
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
-    pub msgs: HashMap<u64, SignedMessage>,
+    msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
     required_funds: BigInt,
 }
 
 impl MsgSet {
     /// Generate a new MsgSet with an empty hashmap and a default next_sequence of 0
-    pub fn new(nonce: u64) -> Self {
+    pub fn new(sequence: u64) -> Self {
         MsgSet {
             msgs: HashMap::new(),
-            next_sequence: nonce,
+            next_sequence: sequence,
             required_funds: Default::default(),
         }
     }
@@ -75,12 +75,12 @@ impl MsgSet {
         self.msgs.insert(m.sequence(), m);
         Ok(())
     }
-    pub fn rm(&mut self, nonce: u64, applied: bool) {
-        let m = if let Some(m) = self.msgs.get(&nonce) {
+    pub fn rm(&mut self, sequence: u64, applied: bool) {
+        let m = if let Some(m) = self.msgs.get(&sequence) {
             m
         } else {
-            if applied && nonce >= self.next_sequence {
-                self.next_sequence = nonce + 1;
+            if applied && sequence >= self.next_sequence {
+                self.next_sequence = sequence + 1;
                 while self.msgs.get(&self.next_sequence).is_some() {
                     self.next_sequence += 1;
                 }
@@ -89,27 +89,27 @@ impl MsgSet {
         };
         self.required_funds -= m.required_funds();
         // guaranteed to not panic
-        self.msgs.remove(&nonce).unwrap();
+        self.msgs.remove(&sequence).unwrap();
 
-        // adjust next nonce
+        // adjust next sequence
         if applied {
             // we removed a (known) message because it was applied in a tipset
             // we can't possibly have filled a gap in this case
-            if nonce >= self.next_sequence {
-                self.next_sequence = nonce + 1;
+            if sequence >= self.next_sequence {
+                self.next_sequence = sequence + 1;
             }
             return;
         }
         // we removed a message because it was pruned
-        // we have to adjust the nonce if it creates a gap or rewinds state
-        if nonce < self.next_sequence {
-            self.next_sequence = nonce;
+        // we have to adjust the sequence if it creates a gap or rewinds state
+        if sequence < self.next_sequence {
+            self.next_sequence = sequence;
         }
     }
 
-    fn get_required_funds(&self, nonce: u64) -> BigInt {
+    fn get_required_funds(&self, sequence: u64) -> BigInt {
         let required_funds = self.required_funds.clone();
-        match self.msgs.get(&nonce) {
+        match self.msgs.get(&sequence) {
             Some(m) => required_funds - m.required_funds(),
             None => required_funds,
         }
@@ -283,6 +283,8 @@ where
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();
         let pending = mp.pending.clone();
+
+        // TODO: Check this
         let cur_tipset = mp.cur_tipset.clone();
 
         task::spawn(async move {
@@ -297,7 +299,6 @@ where
                         HeadChange::Revert(tipset) => (cur_tipset.clone(), vec![tipset.as_ref().clone()], Vec::new()),
                         HeadChange::Apply(tipset) => (cur_tipset.clone(), Vec::new(), vec![tipset.as_ref().clone()]),
                     };
-
                     head_change(
                         api.as_ref(),
                         bls_sig_cache.as_ref(),
@@ -383,7 +384,7 @@ where
     /// Verify the state_sequence and balance for the sender of the message given then call add_locked
     /// to finish adding the signed_message to pending
     async fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
-        let sequence = self.get_state_nonce(msg.from(), cur_ts).await?;
+        let sequence = self.get_state_sequence(msg.from(), cur_ts).await?;
 
         if sequence > msg.message().sequence() {
             return Err(Error::SequenceTooLow);
@@ -400,7 +401,7 @@ where
 
     /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
     /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
-    /// and push it to the pending phashmap
+    /// and push it to the pending hashmap
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
         add_helper(
@@ -408,17 +409,17 @@ where
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
             msg,
-            self.get_state_nonce(&from, &self.cur_tipset.read().await.clone())
+            self.get_state_sequence(&from, &self.cur_tipset.read().await.clone())
                 .await?,
         )
         .await
     }
 
-    /// Get the nonce for a given address, return Error if there is a failure to retrieve sequence
-    pub async fn get_nonce(&self, addr: &Address) -> Result<u64, Error> {
+    /// Get the sequence for a given address, return Error if there is a failure to retrieve sequence
+    pub async fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
 
-        let sequence = self.get_state_nonce(addr, &cur_ts).await?;
+        let sequence = self.get_state_sequence(addr, &cur_ts).await?;
 
         let pending = self.pending.read().await;
 
@@ -435,7 +436,7 @@ where
     }
 
     /// Get the state of the sequence for a given address in cur_ts
-    async fn get_state_nonce(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
+    async fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         let actor = self.api.read().await.get_actor_after(&addr, cur_ts)?;
         Ok(actor.sequence)
     }
@@ -447,7 +448,7 @@ where
         Ok(actor.balance)
     }
 
-    pub async fn push_with_nonce(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
+    pub async fn push_with_sequence(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
     where
         T: Fn(Address, u64) -> Result<SignedMessage, Error>,
     {
@@ -462,14 +463,14 @@ where
             _ => *addr,
         };
 
-        let nonce = self.get_nonce(&addr).await?;
-        let msg = cb(from_key, nonce)?;
+        let sequence = self.get_sequence(&addr).await?;
+        let msg = cb(from_key, sequence)?;
         self.check_message(&msg).await?;
         if *self.cur_tipset.read().await != cur_ts {
             return Err(Error::TryAgain);
         }
 
-        if self.get_nonce(&addr).await? != nonce {
+        if self.get_sequence(&addr).await? != sequence {
             return Err(Error::TryAgain);
         }
 
@@ -572,6 +573,7 @@ where
 
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
     /// most likely need to be implemented
+    /// TODO: UPDATE
     pub fn estimate_gas_premium(
         &self,
         nblocksincl: u64,
@@ -589,7 +591,7 @@ where
         }
     }
 
-    /// local_message field, possibly implement this in the future?
+    /// local_message field
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write().await;
         let mut rm_vec = Vec::new();
@@ -706,7 +708,7 @@ async fn add_helper<T>(
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
-    nonce: u64,
+    sequence: u64,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -731,7 +733,7 @@ where
     match msett {
         Some(mset) => mset.add(msg)?,
         None => {
-            let mut mset = MsgSet::new(nonce);
+            let mut mset = MsgSet::new(sequence);
             let from = *msg.message().from();
             mset.add(msg)?;
             pending.insert(from, mset);
@@ -777,6 +779,7 @@ where
         for block in ts.blocks() {
             let (umsg, mut smsgs) = api.read().await.messages_for_block(&block)?;
             msgs.append(smsgs.as_mut());
+            // TODO: Unsigned messages
             for msg in umsg {
                 let mut bls_sig_cache = bls_sig_cache.write().await;
                 let smsg = recover_sig(&mut bls_sig_cache, msg).await?;
@@ -804,9 +807,9 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let nonce =
+            let sequence =
                 get_state_sequence(api, &msg.from(), &cur_tipset.read().await.clone()).await?;
-            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, nonce).await {
+            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence).await {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
         }
@@ -815,7 +818,7 @@ where
 }
 
 /// This is a helper method for head_change. This method will remove a sequence for a from address
-/// from the rmsgs hashmap. Also remove the from address and sequence from the mmessagepool.
+/// from the rmsgs hashmap. Also remove the from address and sequence from the messagepool.
 async fn rm(
     from: &Address,
     pending: &RwLock<HashMap<Address, MsgSet>>,
@@ -1105,11 +1108,11 @@ pub mod tests {
             }
 
             mpool.api.write().await.set_state_sequence(&sender, 0);
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 0);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
             mpool.add(&smsg_vec[0].clone()).await.unwrap();
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 1);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
             mpool.add(&smsg_vec[1].clone()).await.unwrap();
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 2);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
 
             let a = mock_block(1, 1);
 
@@ -1130,7 +1133,7 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 2);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
         })
     }
 
@@ -1187,7 +1190,7 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
             mpool.api.write().await.set_state_sequence(&sender, 1);
 
@@ -1207,7 +1210,7 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
             mpool.api.write().await.set_state_sequence(&sender, 0);
 
@@ -1222,7 +1225,7 @@ pub mod tests {
             .await
             .unwrap();
 
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 4);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
             let (p, _) = mpool.pending().await.unwrap();
             assert_eq!(p.len(), 3);
@@ -1250,13 +1253,13 @@ pub mod tests {
                 smsg_vec.push(msg);
             }
 
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 0);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
             mpool.push(smsg_vec[0].clone()).await.unwrap();
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 1);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
             mpool.push(smsg_vec[1].clone()).await.unwrap();
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 2);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
             mpool.push(smsg_vec[2].clone()).await.unwrap();
-            assert_eq!(mpool.get_nonce(&sender).await.unwrap(), 3);
+            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 3);
 
             let header = mock_block(1, 1);
             let tipset = Tipset::new(vec![header.clone()]).unwrap();
