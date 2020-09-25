@@ -195,7 +195,7 @@ where
     }
 
     async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        chain::get_heaviest_tipset(self.sm.get_block_store_ref())
+        chain::get_heaviest_tipset(self.sm.blockstore())
             .ok()
             .unwrap_or(None)
     }
@@ -203,14 +203,14 @@ where
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
         let cid = self
             .sm
-            .get_block_store_ref()
+            .blockstore()
             .put(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }
 
     fn state_get_actor(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
-        let state = StateTree::new_from_root(self.sm.get_block_store_ref(), ts.parent_state())
+        let state = StateTree::new_from_root(self.sm.blockstore(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
         let actor = state
             .get_actor(addr)
@@ -222,20 +222,19 @@ where
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        chain::block_messages(self.sm.get_block_store_ref(), h).map_err(|err| err.into())
+        chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        chain::unsigned_messages_for_tipset(self.sm.get_block_store_ref(), h)
-            .map_err(|err| err.into())
+        chain::unsigned_messages_for_tipset(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        let ts = chain::tipset_from_keys(self.sm.get_block_store_ref(), tsk)?;
+        let ts = chain::tipset_from_keys(self.sm.blockstore(), tsk)?;
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
-        chain::compute_base_fee(self.sm.get_block_store_ref(), ts).map_err(|err| err.into())
+        chain::compute_base_fee(self.sm.blockstore(), ts).map_err(|err| err.into())
     }
 }
 
@@ -871,9 +870,9 @@ pub mod tests {
     use crate::MessagePool;
     use address::Address;
     use async_std::task;
-    use blocks::{BlockHeader, Ticket, Tipset};
+    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use cid::Cid;
-    use crypto::{election_proof::ElectionProof, SignatureType, VRFProof};
+    use crypto::{SignatureType, VRFProof};
     use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigInt;
@@ -914,7 +913,7 @@ pub mod tests {
         BlockHeader::builder()
             .miner_address(addr)
             .election_proof(Some(election_proof))
-            .ticket(ticket)
+            .ticket(Some(ticket))
             .message_receipts(c.clone())
             .messages(c.clone())
             .state_root(c)
@@ -941,7 +940,7 @@ pub mod tests {
         BlockHeader::builder()
             .miner_address(addr)
             .election_proof(Some(election_proof))
-            .ticket(ticket)
+            .ticket(Some(ticket))
             .parents(parents.key().clone())
             .message_receipts(c.clone())
             .messages(c.clone())

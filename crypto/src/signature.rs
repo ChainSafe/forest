@@ -109,52 +109,52 @@ impl Signature {
     /// Checks if a signature is valid given data and address
     pub fn verify(&self, data: &[u8], addr: &Address) -> Result<(), String> {
         match addr.protocol() {
-            Protocol::BLS => self.verify_bls_sig(data, addr),
-            Protocol::Secp256k1 => self.verify_secp256k1_sig(data, addr),
+            Protocol::BLS => verify_bls_sig(self.bytes(), data, addr),
+            Protocol::Secp256k1 => verify_secp256k1_sig(self.bytes(), data, addr),
             _ => Err("Address must be resolved to verify a signature".to_owned()),
         }
     }
+}
 
-    /// Returns `String` error if a bls signature is invalid
-    pub(crate) fn verify_bls_sig(&self, data: &[u8], addr: &Address) -> Result<(), String> {
-        let pub_k = addr.payload_bytes();
+/// Returns `String` error if a bls signature is invalid
+pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
+    let pub_k = addr.payload_bytes();
 
-        // hash data to be verified
-        let hashed = bls_hash(data);
+    // hash data to be verified
+    let hashed = bls_hash(data);
 
-        // generate public key object from bytes
-        let pk = BlsPubKey::from_bytes(&pub_k).map_err(|e| e.to_string())?;
+    // generate public key object from bytes
+    let pk = BlsPubKey::from_bytes(&pub_k).map_err(|e| e.to_string())?;
 
-        // generate signature struct from bytes
-        let sig = BlsSignature::from_bytes(self.bytes()).map_err(|e| e.to_string())?;
+    // generate signature struct from bytes
+    let sig = BlsSignature::from_bytes(signature).map_err(|e| e.to_string())?;
 
-        // BLS verify hash against key
-        if verify(&sig, &[hashed], &[pk]) {
-            Ok(())
-        } else {
-            Err(format!(
-                "bls signature verification failed for addr: {}",
-                addr
-            ))
-        }
+    // BLS verify hash against key
+    if verify(&sig, &[hashed], &[pk]) {
+        Ok(())
+    } else {
+        Err(format!(
+            "bls signature verification failed for addr: {}",
+            addr
+        ))
     }
+}
 
-    /// Returns `String` error if a secp256k1 signature is invalid
-    fn verify_secp256k1_sig(&self, data: &[u8], addr: &Address) -> Result<(), String> {
-        // blake2b 256 hash
-        let hash = blake2b_256(data);
+/// Returns `String` error if a secp256k1 signature is invalid
+fn verify_secp256k1_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
+    // blake2b 256 hash
+    let hash = blake2b_256(data);
 
-        // Ecrecover with hash and signature
-        let mut signature = [0u8; 65];
-        signature[..].clone_from_slice(self.bytes());
-        let rec_addr = ecrecover(&hash, &signature).map_err(|e| e.to_string())?;
+    // Ecrecover with hash and signature
+    let mut sig = [0u8; 65];
+    sig[..].clone_from_slice(signature);
+    let rec_addr = ecrecover(&hash, &sig).map_err(|e| e.to_string())?;
 
-        // check address against recovered address
-        if &rec_addr == addr {
-            Ok(())
-        } else {
-            Err("Secp signature verification failed".to_owned())
-        }
+    // check address against recovered address
+    if &rec_addr == addr {
+        Ok(())
+    } else {
+        Err("Secp signature verification failed".to_owned())
     }
 }
 /// Aggregates and verifies bls signatures collectively

@@ -175,7 +175,7 @@ where
     pub(super) fn get<DB: BlockStore>(
         &self,
         bs: &DB,
-        height: u32,
+        height: u64,
         i: u64,
     ) -> Result<Option<V>, Error> {
         let sub_i = i / nodes_for_height(height);
@@ -204,7 +204,7 @@ where
     pub(super) fn set<DB: BlockStore>(
         &mut self,
         bs: &DB,
-        height: u32,
+        height: u64,
         i: u64,
         val: V,
     ) -> Result<bool, Error> {
@@ -269,7 +269,7 @@ where
     pub(super) fn delete<DB: BlockStore>(
         &mut self,
         bs: &DB,
-        height: u32,
+        height: u64,
         i: u64,
     ) -> Result<bool, Error> {
         let sub_i = i / nodes_for_height(height);
@@ -319,7 +319,7 @@ where
     pub(super) fn for_each<S, F>(
         &self,
         store: &S,
-        height: u32,
+        height: u64,
         offset: u64,
         f: &mut F,
     ) -> Result<(), Box<dyn StdError>>

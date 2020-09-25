@@ -3,6 +3,7 @@
 
 use super::{CONSENSUS_MINER_MIN_MINERS, CONSENSUS_MINER_MIN_POWER};
 use crate::{
+    make_map_with_root,
     smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA},
     BytesKey, Map, Multimap,
 };
@@ -80,7 +81,30 @@ impl State {
         }
     }
 
-    // TODO minerNominalPowerMeetsConsensusMinimum
+    /// Checks power actor state for if miner meets minimum consensus power.
+    pub fn miner_nominal_power_meets_consensus_minimum<BS: BlockStore>(
+        &self,
+        s: &BS,
+        miner: &Address,
+    ) -> Result<bool, String> {
+        let claims = make_map_with_root(&self.claims, s)?;
+
+        let claim =
+            get_claim(&claims, miner)?.ok_or_else(|| format!("no claim for actor: {}", miner))?;
+
+        let miner_nominal_power = &claim.quality_adj_power;
+
+        if miner_nominal_power >= &CONSENSUS_MINER_MIN_POWER {
+            // If miner is larger than min power requirement, valid
+            Ok(true)
+        } else if self.miner_above_min_power_count >= CONSENSUS_MINER_MIN_MINERS {
+            // if min consensus miners requirement met, return false
+            Ok(false)
+        } else {
+            // if fewer miners than consensus minimum, return true if non-zero power
+            Ok(miner_nominal_power.sign() == Sign::Plus)
+        }
+    }
 
     pub(super) fn add_to_claim<BS: BlockStore>(
         &mut self,
