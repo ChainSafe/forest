@@ -102,10 +102,10 @@ where
             state: ChainSyncState::Bootstrap,
             worker_state: Default::default(),
             beacon,
-            state_manager,
-            chain_store,
             network,
             genesis,
+            state_manager,
+            chain_store,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
             sync_queue: SyncBucketSet::default(),
@@ -356,8 +356,8 @@ where
             return Err(Error::InvalidRoots);
         }
 
-        self.chain_store.put_messages(block.bls_msgs())?;
-        self.chain_store.put_messages(block.secp_msgs())?;
+        chain::persist_objects(self.chain_store.blockstore(), block.bls_msgs())?;
+        chain::persist_objects(self.state_manager.blockstore(), block.secp_msgs())?;
 
         Ok(())
     }
