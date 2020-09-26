@@ -36,23 +36,42 @@ impl ActorError {
     }
 
     /// Downcast a dynamic std Error into an ActorError
-    pub fn downcast(error: Box<dyn StdError>, default_exit_code: ExitCode, msg: &str) -> Self {
+    pub fn downcast(
+        error: Box<dyn StdError>,
+        default_exit_code: ExitCode,
+        msg: impl AsRef<str>,
+    ) -> Self {
         match error.downcast::<ActorError>() {
-            Ok(actor_err) => actor_err.wrap(msg),
+            Ok(actor_err) => actor_err.wrap(msg.as_ref()),
             Err(other) => match other.downcast::<EncodingError>() {
                 Ok(enc_error) => ActorError::new(ExitCode::ErrSerialization, enc_error.to_string()),
-                Err(other) => ActorError::new(default_exit_code, format!("{}: {}", msg, other)),
+                Err(other) => {
+                    ActorError::new(default_exit_code, format!("{}: {}", msg.as_ref(), other))
+                }
             },
         }
     }
 
     /// Downcast a dynamic std Error into a fatal ActorError
-    pub fn downcast_fatal(error: Box<dyn StdError>, msg: &str) -> Self {
+    pub fn downcast_fatal(error: Box<dyn StdError>, msg: impl AsRef<str>) -> Self {
         match error.downcast::<ActorError>() {
-            Ok(actor_err) => actor_err.wrap(msg),
+            Ok(actor_err) => actor_err.wrap(msg.as_ref()),
             Err(other) => match other.downcast::<EncodingError>() {
                 Ok(enc_error) => ActorError::new(ExitCode::ErrSerialization, enc_error.to_string()),
-                Err(other) => ActorError::new_fatal(format!("{}: {}", msg, other)),
+                Err(other) => ActorError::new_fatal(format!("{}: {}", msg.as_ref(), other)),
+            },
+        }
+    }
+
+    /// Prefix a dynamic std Error with an error message.
+    pub fn downcast_wrap(error: Box<dyn StdError>, msg: impl AsRef<str>) -> Box<dyn StdError> {
+        match error.downcast::<ActorError>() {
+            Ok(actor_err) => actor_err.wrap(msg.as_ref()).into(),
+            Err(other) => match other.downcast::<EncodingError>() {
+                Ok(enc_error) => {
+                    ActorError::new(ExitCode::ErrSerialization, enc_error.to_string()).into()
+                }
+                Err(other) => format!("{}: {}", msg.as_ref(), other).into(),
             },
         }
     }
@@ -78,8 +97,8 @@ impl ActorError {
     }
 
     /// Prefix error message with a string message.
-    pub fn wrap(mut self, msg: &str) -> Self {
-        self.msg = format!("{}: {}", msg, self.msg);
+    pub fn wrap(mut self, msg: impl AsRef<str>) -> Self {
+        self.msg = format!("{}: {}", msg.as_ref(), self.msg);
         self
     }
 }
@@ -109,6 +128,14 @@ macro_rules! actor_error {
     // String with positional arguments
     ( $code:ident; $msg:literal $(, $ex:expr)+ ) => {
         ActorError::new(ExitCode::$code, format!($msg, $($ex,)*))
+    };
+
+    // Error with only one stringable expression, with comma separator
+    ( $code:ident, $msg:expr ) => { actor_error!($code; $msg) };
+
+    // String with positional arguments, with comma separator
+    ( $code:ident, $msg:literal $(, $ex:expr)+ ) => {
+        actor_error!($code; $msg $(, $ex)*)
     };
 }
 

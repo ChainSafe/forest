@@ -2253,6 +2253,7 @@ dependencies = [
  "forest_encoding",
  "forest_json_utils",
  "forest_vm",
+ "ipld_amt",
  "num-derive",
  "num-traits 0.2.12",
  "serde",

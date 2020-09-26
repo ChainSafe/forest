@@ -1,101 +1,89 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::deadlines::{compute_proving_period_deadline, DeadlineInfo};
-use super::policy::*;
-use super::types::*;
-use crate::{power, u64_key, DealWeight, HAMT_BIT_WIDTH};
+use super::{assign_deadlines, deadline_is_mutable, policy::*, Deadline};
+use super::{deadlines::DeadlineInfo, DeadlineSectorMap};
+use super::{types::*, Deadlines, PowerPair, QuantSpec, Sectors, TerminationResult, VestingFunds};
+use crate::{make_map_with_root, u64_key};
 use address::Address;
 use ahash::AHashSet;
 use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use encoding::{serde_bytes, tuple::*, Cbor};
-use fil_types::{RegisteredSealProof, SectorInfo, SectorNumber, SectorSize};
-use ipld_amt::{Amt, Error as AmtError};
+use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
+use fil_types::{RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER};
+use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
-use num_bigint::bigint_ser::{self, BigIntDe};
-use num_bigint::BigInt;
-use num_traits::ToPrimitive;
-use num_traits::Zero;
-use std::error::Error as StdError;
-use vm::TokenAmount;
+use num_bigint::bigint_ser;
+use num_traits::{Signed, Zero};
+use std::{cmp, error::Error as StdError};
+use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
-// Balance of Miner Actor should be greater than or equal to
-// the sum of PreCommitDeposits and LockedFunds.
-// Excess balance as computed by st.GetAvailableBalance will be
-// withdrawable or usable for pre-commit deposit or pledge lock-up.
+/// Balance of Miner Actor should be greater than or equal to
+/// the sum of PreCommitDeposits and LockedFunds.
+/// It is possible for balance to fall below the sum of PCD, LF and
+/// InitialPledgeRequirements, and this is a bad state (IP Debt)
+/// that limits a miner actor's behavior (i.e. no balance withdrawals)
+/// Excess balance as computed by st.GetAvailableBalance will be
+/// withdrawable or usable for pre-commit deposit or pledge lock-up.
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// Contains static info about this miner
-    // TODO revisit as will likely change to Cid in future
-    pub info: MinerInfo,
+    pub info: Cid,
 
     /// Total funds locked as pre_commit_deposit
     #[serde(with = "bigint_ser")]
-    pub pre_commit_deposit: TokenAmount,
-    /// Total unvested funds locked as pledge collateral
+    pub pre_commit_deposits: TokenAmount,
+
+    /// Total rewards and added funds locked in vesting table
     #[serde(with = "bigint_ser")]
     pub locked_funds: TokenAmount,
-    /// Array, AMT[ChainEpoch]TokenAmount
-    vesting_funds: Cid,
+
+    /// VestingFunds (Vesting Funds schedule for the miner).
+    pub vesting_funds: Cid,
+
+    /// Sum of initial pledge requirements of all active sectors
+    #[serde(with = "bigint_ser")]
+    pub initial_pledge_requirement: TokenAmount,
 
     /// Sectors that have been pre-committed but not yet proven.
     /// Map, HAMT<SectorNumber, SectorPreCommitOnChainInfo>
     pub pre_committed_sectors: Cid,
 
-    /// Sectors this miner has committed
-    /// Array, AMT<SectorOnChainInfo>
-    pub sectors: Cid,
+    /// PreCommittedSectorsExpiry maintains the state required to expire PreCommittedSectors.
+    pub pre_committed_sectors_expiry: Cid, // BitFieldQueue (AMT[Epoch]*BitField)
+
+    /// Allocated sector IDs. Sector IDs can never be reused once allocated.
+    pub allocated_sectors: Cid, // BitField
+
+    /// Information for all proven and not-yet-garbage-collected sectors.
+    ///
+    /// Sectors are removed from this AMT when the partition to which the
+    /// sector belongs is compacted.
+    pub sectors: Cid, // Array, AMT[SectorNumber]SectorOnChainInfo (sparse)
 
     /// The first epoch in this miner's current proving period. This is the first epoch in which a PoSt for a
     /// partition at the miner's first deadline may arrive. Alternatively, it is after the last epoch at which
     /// a PoSt for the previous window is valid.
-    /// Always greater than zero, his may be greater than the current epoch for genesis miners in the first
+    /// Always greater than zero, this may be greater than the current epoch for genesis miners in the first
     /// WPoStProvingPeriod epochs of the chain; the epochs before the first proving period starts are exempt from Window
     /// PoSt requirements.
-    /// Updated at the end of every period by a power actor cron event.
+    /// Updated at the end of every period by a cron callback.
     pub proving_period_start: ChainEpoch,
 
-    /// Sector numbers prove-committed since period start, to be added to Deadlines at next proving period boundary.
-    pub new_sectors: BitField,
-
-    /// Sector numbers indexed by expiry epoch (which are on proving period boundaries).
-    /// Invariant: Keys(Sectors) == union(SectorExpirations.Values())
-    /// Array, AMT[ChainEpoch]Bitfield
-    pub sector_expirations: Cid,
+    /// Index of the deadline within the proving period beginning at ProvingPeriodStart that has not yet been
+    /// finalized.
+    /// Updated at the end of each deadline window by a cron callback.
+    pub current_deadline: u64,
 
     /// The sector numbers due for PoSt at each deadline in the current proving period, frozen at period start.
     /// New sectors are added and expired ones removed at proving period boundary.
     /// Faults are not subtracted from this in state, but on the fly.
     pub deadlines: Cid,
 
-    /// All currently known faulty sectors, mutated eagerly.
-    /// These sectors are exempt from inclusion in PoSt.
-    pub faults: BitField,
-
-    /// Faulty sector numbers indexed by the start epoch of the proving period in which detected.
-    /// Used to track fault durations for eventual sector termination.
-    /// At most 14 entries, b/c sectors faulty longer expire.
-    /// Invariant: Faults == union(FaultEpochs.Values())
-    /// AMT[ChainEpoch]Bitfield
-    pub fault_epochs: Cid,
-
-    /// Faulty sectors that will recover when next included in a valid PoSt.
-    /// Invariant: Recoveries ⊆ Faults.
-    pub recoveries: BitField,
-
-    /// Records successful PoSt submission in the current proving period by partition number.
-    /// The presence of a partition number indicates on-time PoSt received.
-    pub post_submissions: BitField,
-
-    /// The index of the next deadline for which faults should been detected and processed (after it's closed).
-    /// The proving period cron handler will always reset this to 0, for the subsequent period.
-    /// Eager fault detection processing on fault/recovery declarations or PoSt may set a smaller number,
-    /// indicating partial progress, from which subsequent processing should continue.
-    /// In the range [0, WPoStProvingPeriodDeadlines).
-    pub next_deadline_to_process_faults: usize,
+    /// Deadlines with outstanding fees for early sector termination.
+    pub early_terminations: BitField,
 }
 
 impl Cbor for State {}
@@ -103,145 +91,257 @@ impl Cbor for State {}
 impl State {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        empty_arr: Cid,
-        empty_map: Cid,
-        empty_deadlines: Cid,
-        owner: Address,
-        worker: Address,
-        peer_id: Vec<u8>,
-        multi_address: Vec<u8>,
-        seal_proof_type: RegisteredSealProof,
+        info_cid: Cid,
         period_start: ChainEpoch,
-    ) -> Result<Self, String> {
-        let sector_size = seal_proof_type.sector_size()?;
-        let window_post_partition_sectors = seal_proof_type.window_post_partitions_sector()?;
-        Ok(Self {
-            info: MinerInfo {
-                owner,
-                worker,
-                pending_worker_key: None,
-                peer_id,
-                multi_address,
-                seal_proof_type,
-                sector_size,
-                window_post_partition_sectors,
-            },
-            pre_commit_deposit: TokenAmount::default(),
-            locked_funds: TokenAmount::default(),
-            vesting_funds: empty_arr.clone(),
-            pre_committed_sectors: empty_map,
-            sectors: empty_arr.clone(),
-            proving_period_start: period_start,
-            new_sectors: BitField::default(),
-            sector_expirations: empty_arr.clone(),
-            deadlines: empty_deadlines,
-            faults: BitField::default(),
-            fault_epochs: empty_arr,
-            recoveries: BitField::default(),
-            post_submissions: BitField::default(),
-            next_deadline_to_process_faults: 0,
-        })
-    }
-    /// Returns worker address
-    pub fn get_worker(&self) -> &Address {
-        &self.info.worker
-    }
-    /// Returns sector size
-    pub fn get_sector_size(&self) -> &SectorSize {
-        &self.info.sector_size
-    }
-    /// Returns deadline calculations for the current proving period.
-    pub fn deadline_info(&self, current_epoch: ChainEpoch) -> DeadlineInfo {
-        compute_proving_period_deadline(self.proving_period_start, current_epoch)
-    }
-    pub fn sector_count<BS: BlockStore>(&self, store: &BS) -> Result<u64, AmtError> {
-        let arr = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+        empty_bitfield_cid: Cid,
+        empty_array_cid: Cid,
+        empty_map_cid: Cid,
+        empty_deadlines_cid: Cid,
+        empty_vesting_funds_cid: Cid,
+    ) -> Self {
+        Self {
+            info: info_cid,
 
-        Ok(arr.count())
+            pre_commit_deposits: TokenAmount::default(),
+            locked_funds: TokenAmount::default(),
+
+            vesting_funds: empty_vesting_funds_cid,
+
+            initial_pledge_requirement: TokenAmount::default(),
+
+            pre_committed_sectors: empty_map_cid,
+            pre_committed_sectors_expiry: empty_array_cid.clone(),
+            allocated_sectors: empty_bitfield_cid,
+            sectors: empty_array_cid,
+            proving_period_start: period_start,
+            current_deadline: 0,
+            deadlines: empty_deadlines_cid,
+            early_terminations: BitField::new(),
+        }
     }
-    pub fn get_max_allowed_faults<BS: BlockStore>(&self, store: &BS) -> Result<u64, AmtError> {
-        let sector_count = self.sector_count(store)?;
-        Ok(2 * sector_count)
+
+    pub fn get_info<BS: BlockStore>(&self, store: &BS) -> Result<MinerInfo, Box<dyn StdError>> {
+        match store.get(&self.info) {
+            Ok(Some(info)) => Ok(info),
+            Ok(None) => Err(actor_error!(ErrNotFound, "failed to get miner info").into()),
+            Err(e) => Err(ActorError::downcast_wrap(e, "failed to get miner info")),
+        }
     }
+
+    pub fn save_info<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        info: MinerInfo,
+    ) -> Result<(), Box<dyn StdError>> {
+        let cid = store.put(&info, Blake2b256)?;
+        self.info = cid;
+        Ok(())
+    }
+
+    /// Returns deadline calculations for the current (according to state) proving period.
+    pub fn deadline_info(&self, current_epoch: ChainEpoch) -> DeadlineInfo {
+        DeadlineInfo::new(
+            self.proving_period_start,
+            self.current_deadline,
+            current_epoch,
+        )
+    }
+
+    /// Returns deadline calculations for the current (according to state) proving period.
+    pub fn quant_spec_for_deadline(&self, deadline_idx: u64) -> QuantSpec {
+        DeadlineInfo::new(self.proving_period_start, deadline_idx, 0).quant_spec()
+    }
+
+    pub fn allocate_sector_number<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        sector_number: SectorNumber,
+    ) -> Result<(), ActorError> {
+        // This will likely already have been checked, but this is a good place
+        // to catch any mistakes.
+        #[allow(clippy::absurd_extreme_comparisons)]
+        if sector_number > MAX_SECTOR_NUMBER {
+            return Err(
+                actor_error!(ErrIllegalArgument; "sector number out of range: {}", sector_number),
+            );
+        }
+
+        let mut allocated_sectors: BitField = match store.get(&self.allocated_sectors) {
+            Ok(Some(bf)) => Ok(bf),
+            Ok(None) => Err(None),
+            Err(e) => Err(Some(e)),
+        }
+        .map_err(
+            |e| actor_error!(ErrIllegalState; "failed to load allocated sectors bitfield: {:?}", e),
+        )?;
+
+        if allocated_sectors.get(sector_number as usize) {
+            return Err(
+                actor_error!(ErrIllegalArgument; "sector number {} has already been allocated", sector_number),
+            );
+        }
+
+        allocated_sectors.set(sector_number as usize);
+        self.allocated_sectors = store
+            .put(&allocated_sectors, Blake2b256)
+            .map_err(|e| actor_error!(ErrIllegalArgument; "failed to store allocated sectors bitfield after adding sector {}: {:?}", sector_number, e))?;
+
+        Ok(())
+    }
+
+    pub fn mask_sector_number<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        sector_numbers: &BitField,
+    ) -> Result<(), ActorError> {
+        let last_sector_number = match sector_numbers.iter().last() {
+            Some(sector_number) => sector_number as SectorNumber,
+            None => return Err(actor_error!(ErrIllegalArgument; "invalid mask bitfield")),
+        };
+
+        #[allow(clippy::absurd_extreme_comparisons)]
+        if last_sector_number > MAX_SECTOR_NUMBER {
+            return Err(
+                actor_error!(ErrIllegalArgument; "masked sector number %d exceeded max sector number"),
+            );
+        }
+
+        let mut allocated_sectors: BitField = match store.get(&self.allocated_sectors) {
+            Ok(Some(bf)) => Ok(bf),
+            Ok(None) => Err(None),
+            Err(e) => Err(Some(e)),
+        }
+        .map_err(
+            |e| actor_error!(ErrIllegalState; "failed to load allocated sectors bitfield {:?}", e),
+        )?;
+
+        allocated_sectors |= sector_numbers;
+
+        self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(
+            |e| actor_error!(ErrIllegalArgument; "failed to mask allocated sectors bitfield: {:?}", e),
+        )?;
+
+        Ok(())
+    }
+
     pub fn put_precommitted_sector<BS: BlockStore>(
         &mut self,
         store: &BS,
         info: SectorPreCommitOnChainInfo,
     ) -> Result<(), HamtError> {
-        let mut precommitted =
-            Hamt::<_, _>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        let mut precommitted = make_map_with_root(&self.pre_committed_sectors, store)?;
         precommitted.set(u64_key(info.info.sector_number), info)?;
 
         self.pre_committed_sectors = precommitted.flush()?;
         Ok(())
     }
+
     pub fn get_precommitted_sector<BS: BlockStore>(
         &self,
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<Option<SectorPreCommitOnChainInfo>, HamtError> {
-        let precommitted =
-            Hamt::<_, _>::load_with_bit_width(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        let precommitted = make_map_with_root(&self.pre_committed_sectors, store)?;
         precommitted.get(&u64_key(sector_num))
     }
-    pub fn delete_precommitted_sector<BS: BlockStore>(
+
+    /// Gets and returns the requested pre-committed sectors, skipping missing sectors.
+    pub fn find_precommitted_sectors<BS: BlockStore>(
+        &self,
+        store: &BS,
+        sector_numbers: &[SectorNumber],
+    ) -> Result<Vec<SectorPreCommitOnChainInfo>, String> {
+        let precommitted =
+            make_map_with_root(&self.pre_committed_sectors, store).map_err(|e| e.to_string())?;
+        let mut result = Vec::with_capacity(sector_numbers.len());
+
+        for &sector_number in sector_numbers {
+            let info = match precommitted.get(&u64_key(sector_number)).map_err(|e| {
+                format!(
+                    "failed to load precommitment for {}: {:?}",
+                    sector_number, e
+                )
+            })? {
+                Some(info) => info,
+                None => continue,
+            };
+
+            result.push(info);
+        }
+
+        Ok(result)
+    }
+
+    pub fn delete_precommitted_sectors<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sector_num: SectorNumber,
+        sector_nums: &[SectorNumber],
     ) -> Result<(), HamtError> {
-        let mut precommitted = Hamt::<_, SectorPreCommitOnChainInfo>::load_with_bit_width(
-            &self.pre_committed_sectors,
-            store,
-            HAMT_BIT_WIDTH,
-        )?;
-        precommitted.delete(&u64_key(sector_num))?;
+        let mut precommitted =
+            Hamt::<_, SectorPreCommitOnChainInfo>::load(&self.pre_committed_sectors, store)?;
+
+        for &sector_num in sector_nums {
+            precommitted.delete(&u64_key(sector_num))?;
+        }
 
         self.pre_committed_sectors = precommitted.flush()?;
         Ok(())
     }
+
     pub fn has_sector_number<BS: BlockStore>(
         &self,
         store: &BS,
         sector_num: SectorNumber,
-    ) -> Result<bool, AmtError> {
-        let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+    ) -> Result<bool, String> {
+        let sectors = Sectors::load(store, &self.sectors).map_err(|e| e.to_string())?;
         Ok(sectors.get(sector_num)?.is_some())
     }
-    pub fn put_sector<BS: BlockStore>(
+
+    pub fn put_sectors<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sector: SectorOnChainInfo,
-    ) -> Result<(), AmtError> {
-        let mut sectors = Amt::load(&self.sectors, store)?;
-        sectors.set(sector.info.sector_number, sector)?;
+        new_sectors: Vec<SectorOnChainInfo>,
+    ) -> Result<(), String> {
+        let mut sectors = Sectors::load(store, &self.sectors)
+            .map_err(|e| format!("failed to load sectors: {:?}", e))?;
 
-        self.sectors = sectors.flush()?;
+        sectors.store(new_sectors)?;
+
+        self.sectors = sectors
+            .amt
+            .flush()
+            .map_err(|e| format!("failed to persist sectors: {:?}", e))?;
+
         Ok(())
     }
+
     pub fn get_sector<BS: BlockStore>(
         &self,
         store: &BS,
         sector_num: SectorNumber,
-    ) -> Result<Option<SectorOnChainInfo>, AmtError> {
-        let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+    ) -> Result<Option<SectorOnChainInfo>, String> {
+        let sectors = Sectors::load(store, &self.sectors).map_err(|e| e.to_string())?;
         sectors.get(sector_num)
     }
-    pub fn delete_sector<BS: BlockStore>(
+
+    pub fn delete_sectors<BS: BlockStore>(
         &mut self,
         store: &BS,
         sector_nos: &BitField,
     ) -> Result<(), AmtError> {
-        let mut sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
+        let mut sectors = Sectors::load(store, &self.sectors)?;
 
         for sector_num in sector_nos.iter() {
             sectors
+                .amt
                 .delete(sector_num as u64)
                 .map_err(|e| AmtError::Other(format!("could not delete sector number: {}", e)))?;
         }
 
-        self.sectors = sectors.flush()?;
+        self.sectors = sectors.amt.flush()?;
         Ok(())
     }
+
     pub fn for_each_sector<BS: BlockStore, F>(
         &self,
         store: &BS,
@@ -250,252 +350,237 @@ impl State {
     where
         F: FnMut(&SectorOnChainInfo) -> Result<(), Box<dyn StdError>>,
     {
-        let sectors = Amt::<SectorOnChainInfo, _>::load(&self.sectors, store)?;
-        sectors.for_each(|_, v| f(&v))
+        let sectors = Sectors::load(store, &self.sectors)?;
+        sectors.amt.for_each(|_, v| f(&v))
     }
-    /// Adds some sector numbers to the new sectors bitfield.
-    pub fn add_new_sectors(&mut self, sector_nos: &[SectorNumber]) -> Result<(), String> {
-        let mut ns = BitField::new();
-        for &sector in sector_nos {
-            ns.set(sector as usize)
-        }
-        self.new_sectors |= &ns;
 
-        let len = self.new_sectors.len();
-        if len > NEW_SECTORS_PER_PERIOD_MAX {
-            return Err(format!(
-                "too many new sectors {}, max {}",
-                len, NEW_SECTORS_PER_PERIOD_MAX
-            ));
-        }
-
-        Ok(())
-    }
-    /// Removes some sector numbers from the new sectors bitfield, if present.
-    pub fn remove_new_sectors(&mut self, sector_nos: &BitField) {
-        self.new_sectors -= &sector_nos;
-    }
-    /// Gets the sector numbers expiring at some epoch.
-    pub fn get_sector_expirations<BS: BlockStore>(
+    /// Returns the deadline and partition index for a sector number.
+    pub fn find_sector<BS: BlockStore>(
         &self,
         store: &BS,
-        expiry: ChainEpoch,
-    ) -> Result<BitField, String> {
-        let sectors = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        Ok(sectors.get(expiry as u64)?.ok_or("unable to find sector")?)
+        sector_number: SectorNumber,
+    ) -> Result<(u64, u64), Box<dyn StdError>> {
+        let deadlines = self.load_deadlines(store)?;
+        Ok(deadlines.find_sector(store, sector_number)?)
     }
-    /// Iterates sector expiration groups in order.
-    /// Note that the sectors bitfield provided to the callback is not safe to store.
-    pub fn for_each_sector_expiration<BS: BlockStore, F>(
-        &self,
-        store: &BS,
-        mut f: F,
-    ) -> Result<(), Box<dyn StdError>>
-    where
-        F: FnMut(ChainEpoch, &BitField) -> Result<(), Box<dyn StdError>>,
-    {
-        let sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        sector_arr.for_each(|i, v| f(i as i64, v))
-    }
-    /// Adds some sector numbers to the set expiring at an epoch.
-    /// The sector numbers are given as uint64s to avoid pointless conversions.
-    pub fn add_sector_expirations<BS: BlockStore>(
+
+    /// Schedules each sector to expire at its next deadline end. If it can't find
+    /// any given sector, it skips it.
+    ///
+    /// This method assumes that each sector's power has not changed, despite the rescheduling.
+    ///
+    /// Note: this method is used to "upgrade" sectors, rescheduling the now-replaced
+    /// sectors to expire at the end of the next deadline. Given the expense of
+    /// sealing a sector, this function skips missing/faulty/terminated "upgraded"
+    /// sectors instead of failing. That way, the new sectors can still be proved.
+    pub fn reschedule_sector_expirations<BS: BlockStore>(
         &mut self,
         store: &BS,
-        expiry: ChainEpoch,
-        sectors: &[u64],
-    ) -> Result<(), String> {
-        let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-        let mut bf: BitField = sector_arr
-            .get(expiry as u64)?
-            .ok_or("unable to find sector")?;
-        for &sector in sectors {
-            bf.set(sector as usize);
-        }
-        let len = bf.len();
-        if len > SECTORS_MAX {
-            return Err(format!(
-                "too many sectors at expiration {}, {}, max {}",
-                expiry, len, SECTORS_MAX
-            ));
-        }
-
-        sector_arr.set(expiry as u64, bf)?;
-
-        self.sector_expirations = sector_arr.flush()?;
-        Ok(())
-    }
-    /// Removes some sector numbers from the set expiring at an epoch.
-    pub fn remove_sector_expirations<BS: BlockStore>(
-        &mut self,
-        store: &BS,
-        expiry: ChainEpoch,
-        sectors: &[u64],
-    ) -> Result<(), String> {
-        let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-
-        let mut bf = sector_arr
-            .get(expiry as u64)?
-            .ok_or("unable to find sector")?;
-        for &sector in sectors {
-            bf.unset(sector as usize);
-        }
-
-        sector_arr.set(expiry as u64, bf)?;
-
-        self.sector_expirations = sector_arr.flush()?;
-
-        Ok(())
-    }
-    /// Removes all sector numbers from the set expiring some epochs.
-    pub fn clear_sector_expirations<BS: BlockStore>(
-        &mut self,
-        store: &BS,
-        expirations: &[ChainEpoch],
-    ) -> Result<(), String> {
-        let mut sector_arr = Amt::<BitField, _>::load(&self.sector_expirations, store)?;
-
-        for &exp in expirations {
-            sector_arr.delete(exp as u64)?;
-        }
-
-        self.sector_expirations = sector_arr.flush()?;
-
-        Ok(())
-    }
-    /// Adds sectors numbers to faults and fault epochs.
-    pub fn add_faults<BS: BlockStore>(
-        &mut self,
-        store: &BS,
-        sector_nos: &BitField,
-        fault_epoch: ChainEpoch,
-    ) -> Result<(), String> {
-        if sector_nos.is_empty() {
-            return Err(format!("sectors are empty: {:?}", sector_nos));
-        }
-
-        self.faults |= sector_nos;
-
-        let len = self.faults.len();
-        if len > SECTORS_MAX {
-            return Err(format!("too many faults {}, max {}", len, SECTORS_MAX));
-        }
-
-        let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
-        let mut bf: BitField = epoch_fault_arr
-            .get(fault_epoch as u64)?
-            .ok_or("unable to find sector")?;
-
-        bf |= sector_nos;
-
-        epoch_fault_arr.set(fault_epoch as u64, bf)?;
-
-        self.fault_epochs = epoch_fault_arr.flush()?;
-
-        Ok(())
-    }
-    /// Removes sector numbers from faults and fault epochs, if present.
-    pub fn remove_faults<BS: BlockStore>(
-        &mut self,
-        store: &BS,
-        sector_nos: &BitField,
+        current_epoch: ChainEpoch,
+        sector_size: SectorSize,
+        deadline_sectors: DeadlineSectorMap,
     ) -> Result<(), Box<dyn StdError>> {
-        if sector_nos.is_empty() {
-            return Err(format!("sectors are empty: {:?}", sector_nos).into());
+        let mut deadlines = self.load_deadlines(store)?;
+        let sectors = Sectors::load(store, &self.sectors)?;
+
+        for (deadline_idx, partition_sectors) in deadline_sectors.iter() {
+            let deadline_info =
+                DeadlineInfo::new(self.proving_period_start, deadline_idx, current_epoch);
+            let new_expiration = deadline_info.last();
+            let mut deadline = deadlines.load_deadline(store, deadline_idx)?;
+
+            deadline.reschedule_sector_expirations(
+                store,
+                &sectors,
+                new_expiration,
+                partition_sectors,
+                sector_size,
+                deadline_info.quant_spec(),
+            )?;
+
+            deadlines.update_deadline(store, deadline_idx, &deadline)?;
         }
 
-        self.faults -= sector_nos;
+        self.save_deadlines(store, deadlines)?;
 
-        let mut sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
+        Ok(())
+    }
 
-        let mut changed: Vec<(u64, BitField)> = Vec::new();
+    /// Assign new sectors to deadlines.
+    pub fn assign_sectors_to_deadlines<BS: BlockStore>(
+        &self,
+        store: &BS,
+        current_epoch: ChainEpoch,
+        mut sectors: Vec<SectorOnChainInfo>,
+        partition_size: u64,
+        sector_size: SectorSize,
+    ) -> Result<PowerPair, Box<dyn StdError>> {
+        let mut deadlines = self.load_deadlines(store)?;
 
-        sector_arr.for_each(|i, bf1: &BitField| {
-            let c1 = bf1.clone().len();
-            let bf2 = bf1 - sector_nos;
-            let c2 = bf2.len();
+        // Sort sectors by number to get better runs in partition bitfields.
+        sectors.sort_by_key(|info| info.sector_number);
 
-            if c1 != c2 {
-                changed.push((i, bf2));
+        let mut deadline_vec: Vec<Option<Deadline>> =
+            (0..WPOST_PERIOD_DEADLINES).map(|_| None).collect();
+
+        deadlines.for_each(store, |deadline_idx, deadline| {
+            // Skip deadlines that aren't currently mutable.
+            if deadline_is_mutable(self.proving_period_start, deadline_idx, current_epoch) {
+                deadline_vec[deadline_idx as usize] = Some(deadline);
             }
 
             Ok(())
         })?;
 
-        for (k, v) in changed.into_iter() {
-            sector_arr.set(k, v)?;
+        let mut new_power = PowerPair::zero();
+
+        for (deadline_idx, deadline_sectors) in
+            assign_deadlines(partition_size, &deadline_vec, sectors)
+                .into_iter()
+                .enumerate()
+        {
+            if deadline_sectors.is_empty() {
+                continue;
+            }
+
+            let quant = self.quant_spec_for_deadline(deadline_idx as u64);
+            let deadline = deadline_vec[deadline_idx].as_mut().unwrap();
+
+            let deadline_new_power = deadline.add_sectors(
+                store,
+                partition_size,
+                &deadline_sectors,
+                sector_size,
+                quant,
+            )?;
+
+            new_power += &deadline_new_power;
+
+            deadlines.update_deadline(store, deadline_idx as u64, deadline)?;
         }
 
-        self.fault_epochs = sector_arr.flush()?;
+        Ok(new_power)
+    }
 
-        Ok(())
-    }
-    /// Iterates faults by declaration epoch, in order.
-    pub fn for_each_fault_epoch<BS: BlockStore, F>(
-        &self,
-        store: &BS,
-        mut f: F,
-    ) -> Result<(), Box<dyn StdError>>
-    where
-        F: FnMut(ChainEpoch, &BitField) -> Result<(), Box<dyn StdError>>,
-    {
-        let sector_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
-        sector_arr.for_each(|i, v| f(i as i64, v))
-    }
-    pub fn clear_fault_epochs<BS: BlockStore>(
+    /// Pops up to `max_sectors` early terminated sectors from all deadlines.
+    ///
+    /// Returns `true` if we still have more early terminations to process.
+    pub fn pop_early_terminations<BS: BlockStore>(
         &mut self,
         store: &BS,
-        epochs: &[ChainEpoch],
-    ) -> Result<(), String> {
-        let mut epoch_fault_arr = Amt::<BitField, _>::load(&self.fault_epochs, store)?;
-
-        for &exp in epochs {
-            epoch_fault_arr.delete(exp as u64)?;
+        max_partitions: u64,
+        max_sectors: u64,
+    ) -> Result<(TerminationResult, /* has more */ bool), Box<dyn StdError>> {
+        // Anything to do? This lets us avoid loading the deadlines if there's nothing to do.
+        if self.early_terminations.is_empty() {
+            return Ok((Default::default(), false));
         }
 
-        self.fault_epochs = epoch_fault_arr.flush()?;
+        // Load deadlines
+        let mut deadlines = self.load_deadlines(store)?;
+
+        let mut result = TerminationResult::new();
+        let mut to_unset = Vec::new();
+
+        // Process early terminations.
+        for i in self.early_terminations.iter() {
+            let deadline_idx = i as u64;
+
+            // Load deadline + partitions.
+            let mut deadline = deadlines.load_deadline(store, deadline_idx)?;
+
+            let (deadline_result, more) = deadline
+                .pop_early_terminations(
+                    store,
+                    max_partitions - result.partitions_processed,
+                    max_sectors - result.sectors_processed,
+                )
+                .map_err(|e| {
+                    ActorError::downcast_wrap(
+                        e,
+                        format!(
+                            "failed to pop early terminations for deadline {}",
+                            deadline_idx
+                        ),
+                    )
+                })?;
+
+            result += deadline_result;
+
+            if !more {
+                to_unset.push(i);
+            }
+
+            // Save the deadline
+            deadlines.update_deadline(store, deadline_idx, &deadline)?;
+
+            if !result.below_limit(max_partitions, max_sectors) {
+                break;
+            }
+        }
+
+        for deadline_idx in to_unset {
+            self.early_terminations.unset(deadline_idx);
+        }
+
+        // Save back the deadlines.
+        self.save_deadlines(store, deadlines)?;
+
+        // Ok, check to see if we've handled all early terminations.
+        let no_early_terminations = self.early_terminations.is_empty();
+
+        Ok((result, !no_early_terminations))
+    }
+
+    // /Returns an error if the target sector cannot be found and/or is faulty/terminated.
+    pub fn check_sector_health<BS: BlockStore>(
+        &self,
+        store: &BS,
+        deadline_idx: u64,
+        partition_idx: u64,
+        sector_number: SectorNumber,
+    ) -> Result<(), Box<dyn StdError>> {
+        let deadlines = self.load_deadlines(store)?;
+        let deadline = deadlines.load_deadline(store, deadline_idx)?;
+        let partition = deadline.load_partition(store, partition_idx)?;
+
+        if !partition.sectors.get(sector_number as usize) {
+            return Err(actor_error!(
+                ErrNotFound;
+                "sector {} not a member of partition {}, deadline {}",
+                sector_number, partition_idx, deadline_idx
+            )
+            .into());
+        }
+
+        if partition.faults.get(sector_number as usize) {
+            return Err(actor_error!(
+                ErrForbidden;
+                "sector {} not a member of partition {}, deadline {}",
+                sector_number, partition_idx, deadline_idx
+            )
+            .into());
+        }
+
+        if partition.terminated.get(sector_number as usize) {
+            return Err(actor_error!(
+                ErrNotFound;
+                "sector {} not of partition {}, deadline {} is terminated",
+                sector_number, partition_idx, deadline_idx
+            )
+            .into());
+        }
 
         Ok(())
     }
-    /// Adds sectors to recoveries.
-    pub fn add_recoveries(&mut self, sector_nos: &BitField) -> Result<(), String> {
-        if sector_nos.is_empty() {
-            return Err(format!("sectors are empty: {:?}", sector_nos));
-        }
 
-        self.recoveries |= sector_nos;
-
-        let len = self.recoveries.len();
-        if len > SECTORS_MAX {
-            return Err(format!("too many recoveries {}, max {}", len, SECTORS_MAX));
-        }
-
-        Ok(())
-    }
-    /// Removes sectors from recoveries, if present.
-    pub fn remove_recoveries(&mut self, sector_nos: &BitField) -> Result<(), String> {
-        if sector_nos.is_empty() {
-            return Err(format!("sectors are empty: {:?}", sector_nos));
-        }
-        self.recoveries -= sector_nos;
-
-        Ok(())
-    }
     /// Loads sector info for a sequence of sectors.
     pub fn load_sector_infos<BS: BlockStore>(
         &self,
         store: &BS,
         sectors: &BitField,
-    ) -> Result<Vec<SectorOnChainInfo>, String> {
-        let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
-        for i in sectors.iter() {
-            let key = i as u64;
-            let sector_on_chain = self
-                .get_sector(store, key)?
-                .ok_or(format!("sector not found: {}", i))?;
-            sector_infos.push(sector_on_chain);
-        }
-        Ok(sector_infos)
+    ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
+        Ok(Sectors::load(store, &self.sectors)?.load_sector(sectors)?)
     }
 
     /// Loads info for a set of sectors to be proven.
@@ -504,13 +589,14 @@ impl State {
     pub fn load_sector_infos_for_proof<BS: BlockStore>(
         &mut self,
         store: &BS,
-        proven_sectors: BitField,
-    ) -> Result<(Vec<SectorOnChainInfo>, BitField), String> {
-        // Extract a fault set relevant to the sectors being submitted, for expansion into a map.
-        let declared_faults = &self.faults & &proven_sectors;
-        let recoveries = &self.recoveries & &declared_faults;
-        let expected_faults = &declared_faults - &recoveries;
-        let non_faults = &expected_faults - &proven_sectors;
+        proven_sectors: &BitField,
+        expected_faults: &BitField,
+    ) -> Result<Vec<SectorOnChainInfo>, String> {
+        let non_faults = expected_faults - proven_sectors;
+
+        if non_faults.is_empty() {
+            return Ok(Vec::new());
+        }
 
         // Select a non-faulty sector as a substitute for faulty ones.
         let good_sector_no = non_faults
@@ -525,70 +611,88 @@ impl State {
             good_sector_no as u64,
         )?;
 
-        Ok((sector_infos, recoveries))
+        Ok(sector_infos)
     }
+
     /// Loads sector info for a sequence of sectors, substituting info for a stand-in sector for any that are faulty.
     fn load_sector_infos_with_fault_mask<BS: BlockStore>(
         &self,
         store: &BS,
-        sectors: &BitField,
+        sectors_bf: &BitField,
         faults: &BitField,
         fault_stand_in: SectorNumber,
     ) -> Result<Vec<SectorOnChainInfo>, String> {
-        let sector_on_chain = self
-            .get_sector(store, fault_stand_in)?
-            .ok_or(format!("can't find stand-in sector {}", fault_stand_in))?;
+        let sectors = Sectors::load(store, &self.sectors)
+            .map_err(|e| format!("failed to load sectors array: {:?}", e))?;
+
+        let stand_in_info = sectors
+            .must_get(fault_stand_in)
+            .map_err(|e| format!("failed to load stand-in sector {}: {:?}", fault_stand_in, e))?;
 
         // Expand faults into a map for quick lookups.
         // The faults bitfield should already be a subset of the sectors bitfield.
-        let fault_max = sectors.len();
-        let fault_set: AHashSet<_> = faults.bounded_iter(fault_max)?.collect();
+        let fault_max = sectors.amt.count();
+        let fault_set: AHashSet<_> = faults.bounded_iter(fault_max as usize)?.collect();
 
         // Load the sector infos, masking out fault sectors with a good one.
         let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
-        for i in sectors.iter() {
+        for i in sectors_bf.iter() {
             let sector = if fault_set.contains(&i) {
-                sector_on_chain.clone()
+                stand_in_info.clone()
             } else {
-                self.get_sector(store, fault_stand_in)
-                    .unwrap()
-                    .ok_or(format!("unable to find sector: {}", i))
-                    .unwrap()
+                sectors
+                    .must_get(i as u64)
+                    .map_err(|e| format!("failed to load sector {}: {:?}", i, e))?
             };
 
             sector_infos.push(sector);
         }
+
         Ok(sector_infos)
     }
-    /// Adds partition numbers to the set of PoSt submissions
-    pub fn add_post_submissions(&mut self, partition_nos: BitField) -> Result<(), String> {
-        self.post_submissions |= &partition_nos;
-        Ok(())
-    }
-    /// Removes all PoSt submissions
-    pub fn clear_post_submissions(&mut self) -> Result<(), String> {
-        self.post_submissions = BitField::new();
-        Ok(())
-    }
-    pub fn load_deadlines<BS: BlockStore>(&self, store: &BS) -> Result<Deadlines, String> {
-        if let Some(deadlines) = store
+
+    pub fn load_deadlines<BS: BlockStore>(&self, store: &BS) -> Result<Deadlines, ActorError> {
+        store
             .get::<Deadlines>(&self.deadlines)
-            .map_err(|e| e.to_string())?
-        {
-            Ok(deadlines)
-        } else {
-            Err(format!("failed to load deadlines: {}", self.deadlines))
-        }
+            .ok()
+            .flatten()
+            .ok_or_else(
+                || actor_error!(ErrIllegalState; "failed to load deadlines {}", self.deadlines),
+            )
     }
+
     pub fn save_deadlines<BS: BlockStore>(
         &mut self,
         store: &BS,
         deadlines: Deadlines,
-    ) -> Result<(), String> {
-        let c = store
-            .put(&deadlines, Blake2b256)
-            .map_err(|e| e.to_string())?;
-        self.deadlines = c;
+    ) -> Result<(), Box<dyn StdError>> {
+        self.deadlines = store.put(&deadlines, Blake2b256)?;
+        Ok(())
+    }
+
+    /// Loads the vesting funds table from the store.
+    pub fn load_vesting_funds<BS: BlockStore>(
+        &self,
+        store: &BS,
+    ) -> Result<VestingFunds, Box<dyn StdError>> {
+        Ok(store
+            .get(&self.vesting_funds)
+            .map_err(|e| {
+                ActorError::downcast_wrap(
+                    e,
+                    format!("failed to load vesting funds {:?}", self.vesting_funds),
+                )
+            })?
+            .ok_or_else(|| actor_error!(ErrNotFound; "failed to load vesting funds {:?}", self.vesting_funds))?)
+    }
+
+    /// Saves the vesting table to the store.
+    pub fn save_vesting_funds<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        funds: &VestingFunds,
+    ) -> Result<(), Box<dyn StdError>> {
+        self.vesting_funds = store.put(funds, Blake2b256)?;
         Ok(())
     }
 
@@ -597,58 +701,90 @@ impl State {
     //
 
     pub fn add_pre_commit_deposit(&mut self, amount: &TokenAmount) {
-        self.pre_commit_deposit += amount
+        let new_total = &self.pre_commit_deposits + amount;
+        assert!(
+            !new_total.is_negative(),
+            "negative pre-commit deposit {} after adding {} to prior {}",
+            new_total,
+            amount,
+            self.pre_commit_deposits
+        );
+        self.pre_commit_deposits = new_total;
     }
 
-    pub fn subtract_pre_commit_deposit(&mut self, amount: &TokenAmount) {
-        self.pre_commit_deposit -= amount
+    pub fn add_initial_pledge_requirement(&mut self, amount: &TokenAmount) {
+        let new_total = &self.initial_pledge_requirement + amount;
+        assert!(
+            !new_total.is_negative(),
+            "negative initial pledge requirement {} after adding {} to prior {}",
+            new_total,
+            amount,
+            self.initial_pledge_requirement
+        );
+        self.initial_pledge_requirement = new_total;
     }
 
+    /// First vests and unlocks the vested funds AND then locks the given funds in the vesting table.
     pub fn add_locked_funds<BS: BlockStore>(
         &mut self,
         store: &BS,
         current_epoch: ChainEpoch,
         vesting_sum: &TokenAmount,
         spec: VestSpec,
-    ) -> Result<(), AmtError> {
-        let mut vesting_funds: Amt<u64, _> = Amt::load(&self.vesting_funds, store)?;
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        assert!(
+            !vesting_sum.is_negative(),
+            "negative vesting sum {}",
+            vesting_sum
+        );
 
-        // Nothing unlocks here, this is just the start of the clock
-        let vest_begin = current_epoch + spec.initial_delay;
-        let vest_period = BigInt::from(spec.vest_period as u64);
-        let mut e = vest_begin + spec.step_duration;
-        let mut vested_so_far = BigInt::zero();
+        let mut vesting_funds = self.load_vesting_funds(store)?;
 
-        while &vested_so_far < vesting_sum {
-            let vest_epoch = quantize_up(e, spec.quantization);
-            let elapsed = vest_epoch - vest_begin;
+        // unlock vested funds first
+        let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
+        self.locked_funds -= &amount_unlocked;
 
-            let target_vest = if elapsed < spec.vest_period {
-                // Linear vesting, PARAM_FINISH
-                (vesting_sum * elapsed as u64) / &vest_period
-            } else {
-                vesting_sum.clone()
-            };
-
-            let vest_this_time = &target_vest - vested_so_far;
-            vested_so_far = target_vest;
-
-            // Load existing entry, else set a new one
-            if let Some(locked_fund_entry) = vesting_funds.get(vest_epoch as u64)? {
-                let mut locked_funds = BigInt::from(locked_fund_entry);
-                locked_funds += vest_this_time;
-
-                let num = ToPrimitive::to_u64(&locked_funds)
-                    .ok_or("unable to convert to u64")
-                    .unwrap();
-                vesting_funds.set(vest_epoch as u64, num)?;
-            }
-            e += spec.step_duration;
-        }
-        self.vesting_funds = vesting_funds.flush()?;
+        // add locked funds now
+        vesting_funds.add_locked_funds(current_epoch, vesting_sum, self.proving_period_start, spec);
         self.locked_funds += vesting_sum;
+        assert!(!self.locked_funds.is_negative());
 
-        Ok(())
+        // save the updated vesting table state
+        self.save_vesting_funds(store, &vesting_funds)?;
+
+        Ok(amount_unlocked)
+    }
+
+    /// First unlocks unvested funds from the vesting table. If the target is not yet hit it deducts
+    /// funds from the (new) available balance. Returns the amount unlocked from the vesting table
+    /// and the amount taken from current balance. If the penalty exceeds the total amount available
+    /// in the vesting table and unlocked funds the penalty is reduced to match. This must be fixed
+    /// when handling bankrupcy:
+    /// https://github.com/filecoin-project/specs-actors/issues/627
+    pub fn penalize_funds_in_priority_order<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        current_epoch: ChainEpoch,
+        target: &TokenAmount,
+        unlocked_balance: &TokenAmount,
+    ) -> Result<
+        (
+            TokenAmount, // from vesting
+            TokenAmount, // from balance
+        ),
+        Box<dyn StdError>,
+    > {
+        let from_vesting = self.unlock_unvested_funds(store, current_epoch, &target)?;
+
+        if from_vesting == *target {
+            return Ok((from_vesting, TokenAmount::zero()));
+        }
+
+        // unlocked funds were just deducted from available, so track that
+        let remaining = target - &from_vesting;
+
+        let from_balance = cmp::min(unlocked_balance, &remaining).clone();
+        Ok((from_vesting, from_balance))
     }
 
     /// Unlocks an amount of funds that have *not yet vested*, if possible.
@@ -658,45 +794,12 @@ impl State {
         &mut self,
         store: &BS,
         current_epoch: ChainEpoch,
-        target: TokenAmount,
+        target: &TokenAmount,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
-        let mut vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
-
-        let mut amount_unlocked = TokenAmount::default();
-        let mut to_del: Vec<u64> = Vec::new();
-
-        let mut set: Vec<(u64, BigIntDe)> = Vec::new();
-        vesting_funds.for_each(|k, v| {
-            if amount_unlocked > target {
-                if k >= current_epoch as u64 {
-                    let BigIntDe(mut locked_entry) = v.clone();
-                    let unlock_amount =
-                        std::cmp::min(target.clone() - &amount_unlocked, locked_entry.clone());
-                    amount_unlocked += &unlock_amount;
-                    locked_entry -= &unlock_amount;
-
-                    if locked_entry.is_zero() {
-                        to_del.push(k);
-                    } else {
-                        set.push((k, BigIntDe(locked_entry)));
-                    }
-                }
-            } else {
-                // stop iterating
-                return Err("finished".into());
-            }
-            Ok(())
-        })?;
-
-        for (k, v) in set {
-            vesting_funds.set(k, v)?;
-        }
-
-        delete_many(&mut vesting_funds, &to_del)?;
-
+        let mut vesting_funds = self.load_vesting_funds(store)?;
+        let amount_unlocked = vesting_funds.unlock_unvested_funds(current_epoch, target);
         self.locked_funds -= &amount_unlocked;
-        self.vesting_funds = vesting_funds.flush()?;
-
+        self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
     }
 
@@ -707,28 +810,10 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
-        let mut vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
-
-        let mut amount_unlocked = TokenAmount::default();
-        let mut to_del: Vec<u64> = Vec::new();
-
-        vesting_funds.for_each(|k, v| {
-            if k < current_epoch as u64 {
-                let BigIntDe(locked_entry) = v;
-                amount_unlocked += locked_entry;
-                to_del.push(k);
-            } else {
-                // stop iterating
-                return Err("finished".into());
-            }
-            Ok(())
-        })?;
-
-        delete_many(&mut vesting_funds, &to_del)?;
-
+        let mut vesting_funds = self.load_vesting_funds(store)?;
+        let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
         self.locked_funds -= &amount_unlocked;
-        self.vesting_funds = vesting_funds.flush()?;
-
+        self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
     }
 
@@ -738,29 +823,97 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
-        let vesting_funds: Amt<BigIntDe, _> = Amt::load(&self.vesting_funds, store)?;
-
-        let mut amount_unlocked = TokenAmount::default();
-        vesting_funds.for_each(|k, v| {
-            if k < current_epoch as u64 {
-                let BigIntDe(locked_entry) = v.clone();
-                amount_unlocked += locked_entry;
-            } else {
-                // stop iterating
-                return Err("finished".into());
-            }
-            Ok(())
-        })?;
-
-        Ok(amount_unlocked)
+        let vesting_funds = self.load_vesting_funds(store)?;
+        Ok(vesting_funds
+            .funds
+            .iter()
+            .take_while(|fund| fund.epoch < current_epoch)
+            .fold(TokenAmount::zero(), |acc, fund| acc + &fund.amount))
     }
 
+    /// Unclaimed funds that are not locked -- includes funds used to cover initial pledge requirement.
+    pub fn get_unlocked_balance(&self, actor_balance: &TokenAmount) -> TokenAmount {
+        let unlocked_balance = actor_balance - &self.locked_funds - &self.pre_commit_deposits;
+        assert!(unlocked_balance >= TokenAmount::zero());
+        unlocked_balance
+    }
+
+    /// Unclaimed funds. Actor balance - (locked funds, precommit deposit, ip requirement)
+    /// Can go negative if the miner is in IP debt.
     pub fn get_available_balance(&self, actor_balance: &TokenAmount) -> TokenAmount {
-        (actor_balance - &self.locked_funds) - &self.pre_commit_deposit
+        // (actor_balance - &self.locked_funds) - &self.pre_commit_deposit
+        self.get_unlocked_balance(actor_balance) - &self.initial_pledge_requirement
     }
 
     pub fn assert_balance_invariants(&self, balance: &TokenAmount) {
-        assert!(balance > &(&self.pre_commit_deposit + &self.locked_funds));
+        assert!(self.pre_commit_deposits >= TokenAmount::zero());
+        assert!(self.locked_funds >= TokenAmount::zero());
+        assert!(*balance >= &self.pre_commit_deposits + &self.locked_funds);
+    }
+
+    pub fn meets_initial_pledge_condition(&self, balance: &TokenAmount) -> bool {
+        self.get_unlocked_balance(balance) >= self.initial_pledge_requirement
+    }
+
+    /// pre-commit expiry
+    pub fn quant_spec_every_deadline(&self) -> QuantSpec {
+        QuantSpec {
+            unit: WPOST_CHALLENGE_WINDOW,
+            offset: self.proving_period_start,
+        }
+    }
+
+    pub fn add_pre_commit_expiry<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        expire_epoch: ChainEpoch,
+        sector_number: SectorNumber,
+    ) -> Result<(), Box<dyn StdError>> {
+        // Load BitField Queue for sector expiry
+        let quant = self.quant_spec_every_deadline();
+        let mut queue = super::BitFieldQueue::new(store, &self.pre_committed_sectors_expiry, quant)
+            .map_err(|e| format!("failed to load pre-commit sector queue: {:?}", e))?;
+
+        // add entry for this sector to the queue
+        queue.add_to_queue_values(expire_epoch, &[sector_number])?;
+        self.pre_committed_sectors_expiry = queue.amt.flush()?;
+
+        Ok(())
+    }
+
+    pub fn check_precommit_expiry<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        sectors: &BitField,
+    ) -> Result<TokenAmount, HamtError> {
+        let mut deposit_to_burn = TokenAmount::zero();
+        let mut precommits_to_delete = Vec::new();
+
+        for i in sectors.iter() {
+            let sector_number = i as SectorNumber;
+
+            let sector = match self.get_precommitted_sector(store, sector_number)? {
+                Some(sector) => sector,
+                // already committed/deleted
+                None => continue,
+            };
+
+            // mark it for deletion
+            precommits_to_delete.push(sector_number);
+
+            // increment deposit to burn
+            deposit_to_burn += sector.pre_commit_deposit;
+        }
+
+        // Actually delete it.
+        if !precommits_to_delete.is_empty() {
+            self.delete_precommitted_sectors(store, &precommits_to_delete)?;
+        }
+
+        self.pre_commit_deposits -= &deposit_to_burn;
+        assert!(self.pre_commit_deposits >= TokenAmount::zero());
+
+        Ok(deposit_to_burn)
     }
 }
 
@@ -778,15 +931,18 @@ pub struct MinerInfo {
     /// other day to day miner activities
     pub worker: Address,
 
+    /// Additional addresses that are permitted to submit messages controlling this actor (optional).
+    pub control_addresses: Vec<Address>, // Must all be ID addresses.
+
     /// Optional worker key to update at an epoch
     pub pending_worker_key: Option<WorkerKeyChange>,
 
     /// Libp2p identity that should be used when connecting to this miner
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
-    /// Slice of byte arrays representing Libp2p multi-addresses used for establishing a connection with this miner.
-    #[serde(with = "serde_bytes")]
-    pub multi_address: Vec<u8>,
+
+    /// Vector of byte arrays representing Libp2p multi-addresses used for establishing a connection with this miner.
+    pub multi_address: Vec<BytesDe>,
 
     /// The proof type used by this miner for sealing sectors.
     pub seal_proof_type: RegisteredSealProof,
@@ -799,107 +955,30 @@ pub struct MinerInfo {
     pub window_post_partition_sectors: u64,
 }
 
-impl SectorOnChainInfo {
+impl MinerInfo {
     pub fn new(
-        info: SectorPreCommitInfo,
-        activation_epoch: ChainEpoch,
-        deal_weight: DealWeight,
-        verified_deal_weight: DealWeight,
-    ) -> Self {
-        Self {
-            info,
-            activation_epoch,
-            deal_weight,
-            verified_deal_weight,
-        }
-    }
-    pub fn to_sector_info(&self) -> SectorInfo {
-        SectorInfo {
-            proof: self.info.registered_proof,
-            sector_number: self.info.sector_number,
-            sealed_cid: self.info.sealed_cid.clone(),
-        }
-    }
-}
+        owner: Address,
+        worker: Address,
+        control_addresses: Vec<Address>,
+        peer_id: Vec<u8>,
+        multi_address: Vec<BytesDe>,
+        seal_proof_type: RegisteredSealProof,
+    ) -> Result<Self, String> {
+        let sector_size = seal_proof_type.sector_size()?;
+        let window_post_partition_sectors = seal_proof_type.window_post_partitions_sector()?;
 
-pub fn to_storage_weight_desc(
-    sector_size: SectorSize,
-    sector_info: &SectorOnChainInfo,
-) -> power::SectorStorageWeightDesc {
-    power::SectorStorageWeightDesc {
-        sector_size,
-        deal_weight: sector_info.deal_weight.clone(),
-        verified_deal_weight: sector_info.verified_deal_weight.clone(),
-        duration: sector_info.info.expiration - sector_info.activation_epoch,
+        Ok(Self {
+            owner,
+            worker,
+            control_addresses,
+            pending_worker_key: None,
+            peer_id,
+            multi_address,
+            seal_proof_type,
+            sector_size,
+            window_post_partition_sectors,
+        })
     }
-}
-
-//
-// PoSt Deadlines and partitions
-//
-#[derive(Debug, Clone, Serialize_tuple, Deserialize_tuple)]
-pub struct Deadlines {
-    /// A bitfield of sector numbers due at each deadline.
-    /// The sectors for each deadline are logically grouped into sequential partitions for proving.
-    pub due: Vec<BitField>,
-}
-
-impl Default for Deadlines {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Deadlines {
-    pub fn new() -> Self {
-        Self {
-            due: vec![BitField::new(); WPOST_PERIOD_DEADLINES],
-        }
-    }
-
-    /// Adds sector numbers to a deadline.
-    pub fn add_to_deadline(
-        &mut self,
-        deadline: usize,
-        new_sectors: &[usize],
-    ) -> Result<(), String> {
-        let ns: BitField = new_sectors.iter().copied().collect();
-        let sec = self
-            .due
-            .get_mut(deadline)
-            .ok_or(format!("unable to find deadline: {}", deadline))?;
-        *sec |= &ns;
-
-        Ok(())
-    }
-    /// Removes sector numbers from all deadlines.
-    pub fn remove_from_all_deadlines(&mut self, sector_nos: &BitField) -> Result<(), String> {
-        for d in self.due.iter_mut() {
-            *d -= sector_nos;
-        }
-        Ok(())
-    }
-}
-
-//
-// Misc helpers
-//
-
-fn delete_many<BS: BlockStore>(amt: &mut Amt<BigIntDe, BS>, keys: &[u64]) -> Result<(), AmtError> {
-    for &i in keys {
-        amt.delete(i)?;
-    }
-    Ok(())
-}
-
-/// Rounds e to the nearest exact multiple of the quantization unit, rounding up.
-/// Precondition: unit >= 0 else behaviour is undefined
-fn quantize_up(e: ChainEpoch, unit: ChainEpoch) -> ChainEpoch {
-    let rem = e % unit;
-    if rem == 0 {
-        return e;
-    }
-    e - rem + unit
 }
 
 #[cfg(test)]
@@ -913,9 +992,10 @@ mod tests {
         let info = MinerInfo {
             owner: Address::new_id(2),
             worker: Address::new_id(3),
+            control_addresses: vec![Address::new_id(4), Address::new_id(5)],
             pending_worker_key: None,
             peer_id: PeerId::random().into_bytes(),
-            multi_address: PeerId::random().into_bytes(),
+            multi_address: vec![BytesDe(PeerId::random().into_bytes())],
             sector_size: SectorSize::_2KiB,
             seal_proof_type: RegisteredSealProof::from(1),
             window_post_partition_sectors: 0,

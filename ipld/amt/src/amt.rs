@@ -194,6 +194,15 @@ where
         Ok(true)
     }
 
+    /// Deletes multiple items from AMT
+    pub fn batch_delete(&mut self, iter: impl IntoIterator<Item = u64>) -> Result<(), Error> {
+        // TODO: optimize this
+        for i in iter {
+            self.delete(i)?;
+        }
+        Ok(())
+    }
+
     /// flush root and return Cid used as key in block store
     pub fn flush(&mut self) -> Result<Cid, Error> {
         self.root.node.flush(self.block_store)?;
@@ -229,8 +238,48 @@ where
         V: DeserializeOwned,
         F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
+        self.for_each_while(|i, x| {
+            f(i, x)?;
+            Ok(true)
+        })
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values, for as long as that
+    /// function keeps returning `true`.
+    pub fn for_each_while<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &V) -> Result<bool, Box<dyn StdError>>,
+    {
         self.root
             .node
-            .for_each(self.block_store, self.height(), 0, &mut f)
+            .for_each_while(self.block_store, self.height(), 0, &mut f)
+            .map(|_| ())
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
+    /// each value.
+    pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &mut V) -> Result<(), Box<dyn StdError>>,
+    {
+        self.for_each_while_mut(|i, x| {
+            f(i, x)?;
+            Ok(true)
+        })
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
+    /// each value, for as long as that function keeps returning `true`.
+    pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &mut V) -> Result<bool, Box<dyn StdError>>,
+    {
+        self.root
+            .node
+            .for_each_while_mut(self.block_store, self.height(), 0, &mut f)
+            .map(|_| ())
     }
 }
