@@ -146,19 +146,46 @@ impl Actor {
             actor_error!(ErrIllegalState, "failed to construct initial state: {}", e)
         })?;
 
-        let empty_bitfield_cid = rt.store().put(&BitField::new(), Blake2b256).unwrap();
+        let empty_bitfield_cid = rt.store().put(&BitField::new(), Blake2b256).map_err(|e| {
+            ActorError::downcast(
+                e,
+                ExitCode::ErrIllegalState,
+                "failed to construct illegal state",
+            )
+        })?;
 
         let empty_deadline_cid = rt
             .store()
             .put(&Deadline::new(empty_array.clone()), Blake2b256)
-            .unwrap();
+            .map_err(|e| {
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to construct illegal state",
+                )
+            })?;
 
         let empty_deadlines_cid = rt
             .store()
             .put(&Deadlines::new(empty_deadline_cid), Blake2b256)
-            .unwrap();
+            .map_err(|e| {
+                ActorError::downcast(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to construct illegal state",
+                )
+            })?;
 
-        let empty_vesting_funds_cid = rt.store().put(&VestingFunds::new(), Blake2b256).unwrap();
+        let empty_vesting_funds_cid =
+            rt.store()
+                .put(&VestingFunds::new(), Blake2b256)
+                .map_err(|e| {
+                    ActorError::downcast(
+                        e,
+                        ExitCode::ErrIllegalState,
+                        "failed to construct illegal state",
+                    )
+                })?;
 
         let current_epoch = rt.curr_epoch();
         let blake2b = |b: &[u8]| rt.syscalls().hash_blake2b(b);
@@ -189,7 +216,13 @@ impl Actor {
                 e
             )
         })?;
-        let info_cid = rt.store().put(&info, Blake2b256).unwrap();
+        let info_cid = rt.store().put(&info, Blake2b256).map_err(|e| {
+            ActorError::downcast(
+                e,
+                ExitCode::ErrIllegalState,
+                "failed to construct illegal state",
+            )
+        })?;
 
         let st = State::new(
             info_cid,
