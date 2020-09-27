@@ -7,7 +7,7 @@ use blocks::Tipset;
 use chain::*;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::{UPGRADE_IGNITION_HEIGHT, UPGRADE_LIFTOFF_HEIGHT};
+use fil_types::{FILECOIN_PRECISION, UPGRADE_IGNITION_HEIGHT, UPGRADE_LIFTOFF_HEIGHT};
 use ipld_blockstore::BlockStore;
 use num_bigint::BigInt;
 use state_tree::StateTree;
@@ -221,7 +221,7 @@ pub fn setup_postignition_genesis_actors_testnet<DB: BlockStore>(
             signers: vec![],
             num_approvals_threshold: 0,
             next_tx_id: multisig::TxnID(0),
-            initial_balance,
+            initial_balance: initial_balance * FILECOIN_PRECISION,
             start_epoch: UPGRADE_LIFTOFF_HEIGHT,
             unlock_duration,
             pending_txs: Cid::default(),
