@@ -10,7 +10,7 @@ use async_log::span;
 use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, get_heaviest_tipset, ChainStore, HeadChange};
+use chain::{block_messages, get_heaviest_tipset, HeadChange};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
@@ -57,23 +57,9 @@ pub struct MarketBalance {
 }
 
 pub struct StateManager<DB> {
-    cs: ChainStore<DB>,
+    bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
     subscriber: Option<Subscriber<HeadChange>>,
-    genesis_info: Option<GenesisInfo>,
-}
-#[derive(Default)]
-struct GenesisInfo {
-    genesis_msigs: Vec<multisig::State>,
-    // info about the Accounts in the genesis state
-    genesis_actors: Vec<GenesisActor>,
-    genesis_pledge: TokenAmount,
-    genesis_market_funds: TokenAmount,
-}
-
-struct GenesisActor {
-    addr: Address,
-    init_bal: TokenAmount,
 }
 
 pub struct CirculatingSupply {
@@ -96,20 +82,18 @@ where
     /// constructor
     pub fn new(bs: Arc<DB>) -> Self {
         Self {
-            cs: ChainStore::new(bs),
+            bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
-            genesis_info: None,
         }
     }
 
     // Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
     pub fn new_with_subscribers(bs: Arc<DB>, chain_subs: Subscriber<HeadChange>) -> Self {
         Self {
-            cs: ChainStore::new(bs),
+            bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
-            genesis_info: None,
         }
     }
     /// Loads actor state from IPLD Store
@@ -121,27 +105,20 @@ where
             .get_actor(addr, state_cid)?
             .ok_or_else(|| Error::ActorNotFound(addr.to_string()))?;
         let act: D = self
-            .cs
-            .db
+            .bs
             .get(&actor.state)
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
         Ok(act)
     }
     pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.cs.db.as_ref(), state_cid)
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
             .map_err(|e| Error::State(e.to_string()))?;
         state
             .get_actor(addr)
             .map_err(|e| Error::State(e.to_string()))
     }
 
-    pub fn get_block_store(&self) -> Arc<DB> {
-        self.cs.db.clone()
-    }
-
-    pub fn get_block_store_ref(&self) -> &DB {
-        &self.cs.db
     pub fn blockstore_cloned(&self) -> Arc<DB> {
         self.bs.clone()
     }
@@ -159,7 +136,7 @@ where
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
         let spas: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        let claims = make_map_with_root::<_, power::Claim>(&spas.claims, self.cs.db.as_ref())
+        let claims = make_map_with_root::<_, power::Claim>(&spas.claims, self.bs.as_ref())
             .map_err(|e| Error::State(e.to_string()))?;
 
         Ok(!claims
@@ -170,10 +147,10 @@ where
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let ms: miner::State = self.load_actor_state(addr, state_cid)?;
 
-        let state = StateTree::new_from_root(self.cs.db.as_ref(), state_cid)
+        let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
             .map_err(|e| Error::State(e.to_string()))?;
         // Note: miner::State info likely to be changed to CID
-        let addr = resolve_to_key_addr(&state, self.cs.db.as_ref(), &ms.info.worker)
+        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
         Ok(addr)
     }
@@ -185,7 +162,7 @@ where
     ) -> Result<(power::Claim, power::Claim), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        let cm = make_map_with_root(&ps.claims, self.cs.db.as_ref())
+        let cm = make_map_with_root(&ps.claims, self.bs.as_ref())
             .map_err(|e| Error::State(e.to_string()))?;
         let claim: power::Claim = cm
             .get(&addr.to_bytes())
@@ -222,7 +199,7 @@ where
     where
         R: Rand,
     {
-        let mut buf_store = BufferedBlockStore::new(self.cs.db.as_ref());
+        let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
         let mut vm = VM::<_, _, _>::new(
             p_state,
@@ -237,7 +214,7 @@ where
         let receipts = vm.apply_block_messages(messages, parent_epoch, epoch, callback)?;
 
         // Construct receipt root from receipts
-        let rect_root = Amt::new_from_slice(self.cs.db.as_ref(), &receipts)?;
+        let rect_root = Amt::new_from_slice(self.bs.as_ref(), &receipts)?;
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
@@ -377,9 +354,9 @@ where
 
         let mut vm = VM::<_, _, _>::new(
             &st,
-            self.cs.db.as_ref(),
+            self.bs.as_ref(),
             ts.epoch() + 1,
-            DefaultSyscalls::new(self.cs.db.as_ref()),
+            DefaultSyscalls::new(self.bs.as_ref()),
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
         )?;
@@ -470,7 +447,7 @@ where
                     .cids()
                     .get(0)
                     .ok_or("block must have parents")?;
-                let parent: BlockHeader = self.cs.db.get(parent_cid)?.ok_or_else(|| {
+                let parent: BlockHeader = self.bs.get(parent_cid)?.ok_or_else(|| {
                     format!("Could not find parent block with cid {}", parent_cid)
                 })?;
                 parent.epoch()
@@ -486,7 +463,7 @@ where
             let blocks = block_headers
                 .iter()
                 .map(|s: &BlockHeader| {
-                    let (bls_messages, secpk_messages) = block_messages(self.cs.db.as_ref(), &s)?;
+                    let (bls_messages, secpk_messages) = block_messages(self.bs.as_ref(), &s)?;
                     Ok(BlockMessages {
                         miner: *s.miner_address(),
                         bls_messages,
@@ -797,7 +774,7 @@ where
 
     /// Return the heaviest tipset's balance from self.db for a given address
     pub fn get_heaviest_balance(&self, addr: &Address) -> Result<BigInt, Error> {
-        let ts = get_heaviest_tipset(self.cs.db.as_ref())
+        let ts = get_heaviest_tipset(self.bs.as_ref())
             .map_err(|err| Error::Other(err.to_string()))?
             .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
         let cid = ts.parent_state();
@@ -812,7 +789,7 @@ where
     }
 
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = StateTree::new_from_root(self.cs.db.as_ref(), ts.parent_state())
+        let state_tree = StateTree::new_from_root(self.bs.as_ref(), ts.parent_state())
             .map_err(|e| e.to_string())?;
         state_tree
             .lookup_id(addr)
@@ -829,12 +806,12 @@ where
 
         let out = MarketBalance {
             escrow: {
-                let et = BalanceTable::from_root(self.cs.db.as_ref(), &market_state.escrow_table)
+                let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
                     .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
                 et.get(&new_addr).unwrap_or_default()
             },
             locked: {
-                let lt = BalanceTable::from_root(self.cs.db.as_ref(), &market_state.locked_table)
+                let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
                     .map_err(|_x| Error::State("Failed to build Locked Table".to_string()))?;
                 lt.get(&new_addr).unwrap_or_default()
             },
@@ -860,145 +837,16 @@ where
             _ => {}
         };
         let (st, _) = self.tipset_state(&ts).await?;
-        let state = StateTree::new_from_root(self.cs.db.as_ref(), &st)
+        let state = StateTree::new_from_root(self.bs.as_ref(), &st)
             .map_err(|e| Error::State(e.to_string()))?;
 
         Ok(interpreter::resolve_to_key_addr(
             &state,
-            self.cs.db.as_ref(),
+            self.bs.as_ref(),
             &addr,
         )?)
     }
 
-    pub fn get_fil_vested(
-        &self,
-        height: ChainEpoch,
-        state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, Error> {
-        let mut return_value = TokenAmount::default();
-
-        let gi: &GenesisInfo = self
-            .genesis_info
-            .as_ref()
-            .ok_or_else(|| Error::Other("Genesis Info not given".to_string()))?;
-        for actor in &gi.genesis_msigs {
-            return_value += &actor.initial_balance - actor.amount_locked(height);
-        }
-        for actor in &gi.genesis_actors {
-            let state = state_tree
-                .get_actor(&actor.addr)
-                .map_err(|e| e.to_string())?
-                .ok_or_else(|| Error::Other("Failed to retreive ActorState".to_string()))?;
-            let diff = &actor.init_bal - state.balance;
-            if diff > TokenAmount::default() {
-                return_value += diff
-            } else {
-                return Ok(TokenAmount::default());
-            }
-        }
-        return_value += &gi.genesis_pledge + &gi.genesis_market_funds;
-        Ok(return_value)
-    }
-
-    async fn setup_genesis_actors_testnet(&mut self) -> Result<(), Error> {
-        let mut gi = GenesisInfo::default();
-
-        let genesis_block = self
-            .cs
-            .genesis()
-            .map_err(|_| Error::Other("Failed to get Genesis Block".to_string()))?
-            .ok_or_else(|| Error::Other("Genesis Block doesnt exist".to_string()))?;
-
-        let gts = Tipset::new(vec![genesis_block])
-            .map_err(|_| Error::Other("Failed to get Genesis Tipset".to_string()))?;
-
-        let (st, _) = self
-            .tipset_state(&gts)
-            .await
-            .map_err(|_| Error::Other("Failed to get Tipset State".to_string()))?;
-
-        let state_tree = StateTree::new_from_root(self.cs.db.as_ref(), &st)
-            .map_err(|_| Error::Other("Failed to load state tree".to_string()))?;
-
-        gi.genesis_market_funds = utils::get_fil_market_locked(&state_tree)?;
-        gi.genesis_pledge = utils::get_fil_market_locked(&state_tree)?;
-
-        let mut totals_by_epoch: HashMap<ChainEpoch, TokenAmount> = HashMap::new();
-
-        let six_months = 183 * network::EPOCHS_IN_DAY;
-        totals_by_epoch.insert(six_months, TokenAmount::from(82_717_041));
-
-        let one_year = 365 * network::EPOCHS_IN_DAY;
-        totals_by_epoch.insert(one_year, TokenAmount::from(22_421_712));
-
-        let two_years = 2 * 365 * network::EPOCHS_IN_DAY;
-        totals_by_epoch.insert(two_years, TokenAmount::from(7_223_364));
-
-        let three_years = 3 * 365 * network::EPOCHS_IN_DAY;
-        totals_by_epoch.insert(three_years, TokenAmount::from(87_637_883));
-
-        let six_years = 6 * 365 * network::EPOCHS_IN_DAY;
-        totals_by_epoch.insert(six_years, TokenAmount::from(400_000_000));
-
-        for (unlock_duration, initial_balance) in totals_by_epoch {
-            let ms = multisig::State {
-                signers: vec![],
-                num_approvals_threshold: 0,
-                next_tx_id: multisig::TxnID(0),
-                initial_balance,
-                start_epoch: ChainEpoch::default(),
-                unlock_duration,
-                pending_txs: Cid::default(),
-            };
-            gi.genesis_msigs.push(ms);
-        }
-
-        self.genesis_info = Some(gi);
-        Ok(())
-    }
-
-    pub async fn get_circulating_supply<'a>(
-        &'a mut self,
-        height: ChainEpoch,
-        state_tree: StateTree<'a, DB>,
-    ) -> Result<TokenAmount, Error> {
-        let supply = self
-            .get_circulating_supply_detailed(height, state_tree)
-            .await?;
-        Ok(supply.fil_circulating)
-    }
-
-    pub fn get_fil_locked(&self, state_tree: &StateTree<DB>) -> Result<TokenAmount, Error> {
-        let market_locked = utils::get_fil_market_locked(&state_tree)?;
-        let power_locked = utils::get_fil_power_locked(&state_tree)?;
-        Ok(power_locked + market_locked)
-    }
-
-    pub async fn get_circulating_supply_detailed<'a>(
-        &'a mut self,
-        height: ChainEpoch,
-        state_tree: StateTree<'a, DB>,
-    ) -> Result<CirculatingSupply, Error> {
-        if self.genesis_info.is_none() {
-            self.setup_genesis_actors_testnet().await?;
-        }
-
-        let fil_vested = self.get_fil_vested(height, &state_tree)?;
-        let fil_mined = utils::get_fil_mined(&state_tree)?;
-        let fil_burnt = utils::get_fil_burnt(&state_tree)?;
-        let fil_locked = self.get_fil_locked(&state_tree)?;
-        let fil_circulating = BigInt::max(
-            &fil_vested + &fil_mined - &fil_burnt - &fil_locked,
-            TokenAmount::default(),
-        );
-
-        Ok(CirculatingSupply {
-            fil_vested,
-            fil_mined,
-            fil_burnt,
-            fil_locked,
-            fil_circulating,
-        })
     /// Checks power actor state for if miner meets consensus minimum requirements.
     pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> Result<bool, String> {
         let ps: power::State = self

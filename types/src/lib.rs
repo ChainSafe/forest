@@ -60,3 +60,5 @@ impl NetworkParams for DevnetParams {
 
 /// Space-race specific fork
 pub const UPGRADE_SMOKE_HEIGHT: i64 = 51000;
+pub const UPGRADE_IGNITION_HEIGHT: i64 = -2;
+pub const UPGRADE_LIFTOFF_HEIGHT: i64 = -3;

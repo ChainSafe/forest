@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::circ_supply::*;
 use super::gas_block_store::GasBlockStore;
 use super::gas_syscalls::GasSyscalls;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
@@ -25,6 +26,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::rc::Rc;
+
 use vm::{
     actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
     EMPTY_ARR_CID, METHOD_SEND,
@@ -73,6 +75,8 @@ pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams
     allow_internal: bool,
     registered_actors: &'act HashSet<Cid>,
     params: PhantomData<P>,
+    pre_ignition: GenesisInfo,
+    post_ignition: GenesisInfo,
 }
 
 impl<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
@@ -124,6 +128,11 @@ where
             value_received: message.value().clone(),
         };
 
+        let pre_ignition = setup_preignition_genesis_actors_testnet(&gas_block_store)
+            .map_err(|_| actor_error!(fatal("Unable to setup preignition")))?;
+        let post_ignition = setup_postignition_genesis_actors_testnet(&gas_block_store)
+            .map_err(|_| actor_error!(fatal("Unable to setup postignition")))?;
+
         Ok(DefaultRuntime {
             state,
             store: gas_block_store,
@@ -140,6 +149,8 @@ where
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
+            pre_ignition,
+            post_ignition,
         })
     }
 
@@ -585,38 +596,14 @@ where
         &self.syscalls
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
-        let get_actor_state = |addr: &Address| -> Result<ActorState, ActorError> {
-            self.state
-                .get_actor(&addr)
-                .map_err(|e| {
-                    actor_error!(ErrIllegalState;
-                        "failed to get reward actor for cumputing total supply: {}", e)
-                })?
-                .ok_or_else(
-                    || actor_error!(ErrIllegalState; "Actor address ({}) does not exist", addr),
-                )
-        };
-
-        let rew = get_actor_state(&REWARD_ACTOR_ADDR)?;
-        let burnt = get_actor_state(&BURNT_FUNDS_ACTOR_ADDR)?;
-        let market = get_actor_state(&STORAGE_MARKET_ACTOR_ADDR)?;
-        let power = get_actor_state(&STORAGE_POWER_ACTOR_ADDR)?;
-
-        let st: power::State = self
-            .store
-            .get(&power.state)
-            .map_err(|e| {
-                actor_error!(ErrIllegalState;
-                    "failed to get storage power state: {}", e.to_string())
-            })?
-            .ok_or_else(|| actor_error!(ErrIllegalState; "Failed to retrieve power state"))?;
-
-        let total = P::from_fil(P::TOTAL_FILECOIN)
-            - rew.balance
-            - market.balance
-            - burnt.balance
-            - st.total_pledge_collateral;
-        Ok(total)
+        let total_circ = get_circulating_supply(
+            &self.pre_ignition,
+            &self.post_ignition,
+            self.epoch,
+            self.state,
+        )
+        .map_err(|e| actor_error!(fatal(e)))?;
+        Ok(total_circ)
     }
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
         self.charge_gas(GasCharge::new(name, compute, 0))

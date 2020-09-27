@@ -4,6 +4,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+mod circ_supply;
 mod default_runtime;
 mod default_syscalls;
 mod gas_block_store;
