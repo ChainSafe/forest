@@ -3,8 +3,12 @@
 
 use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
-use blocks::TipsetKeys;
-use cid::multihash::{Blake2b256, Identity};
+use blocks::{BlockHeader, TipsetKeys};
+use chain::set_genesis;
+use cid::{
+    multihash::{Blake2b256, Identity},
+    Cid,
+};
 use db::MemoryDB;
 use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
@@ -17,6 +21,17 @@ use vm::{ActorState, Serialized};
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
+
+    let gen_block = BlockHeader::builder()
+        .epoch(1)
+        .weight((2 as u32).into())
+        .messages(Cid::new_from_cbor(&[], Identity))
+        .message_receipts(Cid::new_from_cbor(&[], Identity))
+        .state_root(Cid::new_from_cbor(&[], Identity))
+        .miner_address(Address::new_id(0))
+        .build_and_validate()
+        .unwrap();
+    set_genesis(&store, &gen_block).unwrap();
     let mut state = StateTree::new(&store);
 
     let e_cid = Hamt::<_, String>::new_with_bit_width(&store, 5)

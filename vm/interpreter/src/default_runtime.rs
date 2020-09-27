@@ -26,7 +26,6 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::rc::Rc;
-
 use vm::{
     actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
     EMPTY_ARR_CID, METHOD_SEND,
@@ -128,10 +127,10 @@ where
             value_received: message.value().clone(),
         };
 
-        let pre_ignition = setup_preignition_genesis_actors_testnet(&gas_block_store)
-            .map_err(|_| actor_error!(fatal("Unable to setup preignition")))?;
-        let post_ignition = setup_postignition_genesis_actors_testnet(&gas_block_store)
-            .map_err(|_| actor_error!(fatal("Unable to setup postignition")))?;
+        let pre_ignition = setup_preignition_genesis_actors_testnet(gas_block_store.store)
+            .map_err(|e| actor_error!(fatal(e)))?;
+        let post_ignition = setup_postignition_genesis_actors_testnet(gas_block_store.store)
+            .map_err(|e| actor_error!(fatal(e)))?;
 
         Ok(DefaultRuntime {
             state,

@@ -27,6 +27,16 @@ pub struct GenesisActor {
     init_bal: TokenAmount,
 }
 
+fn get_actor_state<DB: BlockStore>(
+    state_tree: &StateTree<DB>,
+    addr: &Address,
+) -> Result<ActorState, String> {
+    state_tree
+        .get_actor(&addr)
+        .map_err(|_| "failed to get actor".to_string())?
+        .ok_or_else(|| "Actor address does not exist".to_string())
+}
+
 pub fn get_fil_vested<DB: BlockStore>(
     pre_ignition: &GenesisInfo,
     post_ignition: &GenesisInfo,
@@ -47,10 +57,7 @@ pub fn get_fil_vested<DB: BlockStore>(
     }
 
     for actor in &pre_ignition.genesis_actors {
-        let state = state_tree
-            .get_actor(&actor.addr)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Failed to retreive ActorState".to_string())?;
+        let state = get_actor_state(state_tree, &actor.addr)?;
         let diff = &actor.init_bal - state.balance;
         if diff > TokenAmount::default() {
             return_value += diff
@@ -62,11 +69,7 @@ pub fn get_fil_vested<DB: BlockStore>(
 }
 
 pub fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, String> {
-    let reward_actor = state_tree
-        .get_actor(&*REWARD_ACTOR_ADDR)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Failed to get Reward Actor".to_string())?;
-
+    let reward_actor = get_actor_state(state_tree, &*REWARD_ACTOR_ADDR)?;
     let reward_state: reward::State = state_tree
         .store()
         .get(&reward_actor.code)
@@ -79,10 +82,7 @@ pub fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<Token
 pub fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, String> {
-    let market_actor = state_tree
-        .get_actor(&*STORAGE_MARKET_ACTOR_ADDR)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Failed to get Market Actor".to_string())?;
+    let market_actor = get_actor_state(state_tree, &*STORAGE_MARKET_ACTOR_ADDR)?;
 
     let market_state: market::State = state_tree
         .store()
@@ -96,10 +96,7 @@ pub fn get_fil_market_locked<DB: BlockStore>(
 pub fn get_fil_power_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, String> {
-    let power_actor = state_tree
-        .get_actor(&*STORAGE_POWER_ACTOR_ADDR)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Failed to get Power Actor".to_string())?;
+    let power_actor = get_actor_state(state_tree, &*STORAGE_POWER_ACTOR_ADDR)?;
 
     let power_state: power::State = state_tree
         .store()
@@ -117,10 +114,7 @@ pub fn get_fil_locked<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<Toke
 }
 
 pub fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, String> {
-    let burnt_actor = state_tree
-        .get_actor(&*BURNT_FUNDS_ACTOR_ADDR)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Failed to get Burnt Actor State".to_string())?;
+    let burnt_actor = get_actor_state(state_tree, &*BURNT_FUNDS_ACTOR_ADDR)?;
 
     Ok(burnt_actor.balance)
 }

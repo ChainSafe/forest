@@ -323,7 +323,7 @@ where
     }
 }
 
-fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
+pub fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
     DB: BlockStore,
 {
