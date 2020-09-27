@@ -62,19 +62,6 @@ pub struct StateManager<DB> {
     subscriber: Option<Subscriber<HeadChange>>,
 }
 
-pub struct CirculatingSupply {
-    #[allow(dead_code)]
-    fil_vested: TokenAmount,
-    #[allow(dead_code)]
-    fil_mined: TokenAmount,
-    #[allow(dead_code)]
-    fil_burnt: TokenAmount,
-    #[allow(dead_code)]
-    fil_locked: TokenAmount,
-    #[allow(dead_code)]
-    fil_circulating: TokenAmount,
-}
-
 impl<DB> StateManager<DB>
 where
     DB: BlockStore,
