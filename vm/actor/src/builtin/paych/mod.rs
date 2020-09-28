@@ -6,7 +6,7 @@ mod types;
 
 pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
-use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
+use crate::{check_empty_params, ActorDowncast, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -117,7 +117,11 @@ impl Actor {
         rt.syscalls()
             .verify_signature(&sig, &signer, &sv_bz)
             .map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalArgument, "voucher signature invalid")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalArgument,
+                    "voucher signature invalid",
+                )
             })?;
 
         let pch_addr = rt.message().receiver();

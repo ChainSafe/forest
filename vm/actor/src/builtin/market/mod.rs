@@ -13,9 +13,9 @@ pub use self::types::*;
 use crate::{
     check_empty_params, make_map, power, request_miner_control_addrs, reward,
     verifreg::{Method as VerifregMethod, RestoreBytesParams, UseBytesParams},
-    DealID, SetMultimap, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR,
-    MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
-    VERIFIED_REGISTRY_ACTOR_ADDR,
+    ActorDowncast, DealID, SetMultimap, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE,
+    CRON_ACTOR_ADDR, MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
+    SYSTEM_ACTOR_ADDR, VERIFIED_REGISTRY_ACTOR_ADDR,
 };
 use address::Address;
 use ahash::AHashMap;
@@ -291,7 +291,7 @@ impl Actor {
                 // schedule too many deals for the same tick.
                 let process_epoch = gen_rand_next_epoch(rt, rt.curr_epoch(), &deal.proposal)
                     .map_err(|e| {
-                        ActorError::downcast(
+                        ActorDowncast::downcast_default(
                             e,
                             ExitCode::ErrIllegalState,
                             "failed to generate random process epoch",
@@ -369,7 +369,7 @@ impl Actor {
             params.sector_start,
         )
         .map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 "failed to validate deal proposals for activation",
@@ -404,7 +404,7 @@ impl Actor {
                 curr_epoch,
             )
             .map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     "failed to validate deal proposals for activation",

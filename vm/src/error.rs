@@ -3,7 +3,6 @@
 
 use crate::ExitCode;
 use encoding::Error as EncodingError;
-use std::error::Error as StdError;
 use thiserror::Error;
 
 /// The error type that gets returned by actor method calls.
@@ -32,47 +31,6 @@ impl ActorError {
             fatal: true,
             exit_code: ExitCode::ErrPlaceholder,
             msg,
-        }
-    }
-
-    /// Downcast a dynamic std Error into an ActorError
-    pub fn downcast(
-        error: Box<dyn StdError>,
-        default_exit_code: ExitCode,
-        msg: impl AsRef<str>,
-    ) -> Self {
-        match error.downcast::<ActorError>() {
-            Ok(actor_err) => actor_err.wrap(msg.as_ref()),
-            Err(other) => match other.downcast::<EncodingError>() {
-                Ok(enc_error) => ActorError::new(ExitCode::ErrSerialization, enc_error.to_string()),
-                Err(other) => {
-                    ActorError::new(default_exit_code, format!("{}: {}", msg.as_ref(), other))
-                }
-            },
-        }
-    }
-
-    /// Downcast a dynamic std Error into a fatal ActorError
-    pub fn downcast_fatal(error: Box<dyn StdError>, msg: impl AsRef<str>) -> Self {
-        match error.downcast::<ActorError>() {
-            Ok(actor_err) => actor_err.wrap(msg.as_ref()),
-            Err(other) => match other.downcast::<EncodingError>() {
-                Ok(enc_error) => ActorError::new(ExitCode::ErrSerialization, enc_error.to_string()),
-                Err(other) => ActorError::new_fatal(format!("{}: {}", msg.as_ref(), other)),
-            },
-        }
-    }
-
-    /// Prefix a dynamic std Error with an error message.
-    pub fn downcast_wrap(error: Box<dyn StdError>, msg: impl AsRef<str>) -> Box<dyn StdError> {
-        match error.downcast::<ActorError>() {
-            Ok(actor_err) => actor_err.wrap(msg.as_ref()).into(),
-            Err(other) => match other.downcast::<EncodingError>() {
-                Ok(enc_error) => {
-                    ActorError::new(ExitCode::ErrSerialization, enc_error.to_string()).into()
-                }
-                Err(other) => format!("{}: {}", msg.as_ref(), other).into(),
-            },
         }
     }
 

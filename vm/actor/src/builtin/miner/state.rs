@@ -4,7 +4,7 @@
 use super::{assign_deadlines, deadline_is_mutable, policy::*, Deadline};
 use super::{deadlines::DeadlineInfo, DeadlineSectorMap};
 use super::{types::*, Deadlines, PowerPair, QuantSpec, Sectors, TerminationResult, VestingFunds};
-use crate::{make_map_with_root, u64_key};
+use crate::{make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
 use bitfield::BitField;
@@ -124,7 +124,7 @@ impl State {
         match store.get(&self.info) {
             Ok(Some(info)) => Ok(info),
             Ok(None) => Err(actor_error!(ErrNotFound, "failed to get miner info").into()),
-            Err(e) => Err(ActorError::downcast_wrap(e, "failed to get miner info")),
+            Err(e) => Err(ActorDowncast::downcast_wrap(e, "failed to get miner info")),
         }
     }
 
@@ -496,7 +496,7 @@ impl State {
                     max_sectors - result.sectors_processed,
                 )
                 .map_err(|e| {
-                    ActorError::downcast_wrap(
+                    ActorDowncast::downcast_wrap(
                         e,
                         format!(
                             "failed to pop early terminations for deadline {}",
@@ -678,7 +678,7 @@ impl State {
         Ok(store
             .get(&self.vesting_funds)
             .map_err(|e| {
-                ActorError::downcast_wrap(
+                ActorDowncast::downcast_wrap(
                     e,
                     format!("failed to load vesting funds {:?}", self.vesting_funds),
                 )

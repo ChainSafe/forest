@@ -5,7 +5,7 @@ use super::{
     power_for_sectors, validate_partition_contains_sectors, BitFieldQueue, ExpirationQueue,
     ExpirationSet, QuantSpec, SectorOnChainInfo, Sectors, TerminationResult, NO_QUANTIZATION,
 };
-use crate::actor_error;
+use crate::{actor_error, ActorDowncast};
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -190,7 +190,7 @@ impl Partition {
                     sector_size,
                     quant,
                 )
-                .map_err(|e| ActorError::downcast_wrap(e, "failed to add faults"))?;
+                .map_err(|e| ActorDowncast::downcast_wrap(e, "failed to add faults"))?;
         }
 
         Ok((new_faults, new_faulty_power))
@@ -221,7 +221,7 @@ impl Partition {
         let power = queue
             .reschedule_recovered(recovered_sectors, sector_size)
             .map_err(|e| {
-                ActorError::downcast_wrap(e, "failed to reschedule faults in partition queue")
+                ActorDowncast::downcast_wrap(e, "failed to reschedule faults in partition queue")
             })?;
 
         // Save expiration queue
@@ -377,7 +377,7 @@ impl Partition {
         early_termination_queue
             .add_to_queue(epoch, sectors)
             .map_err(|e| {
-                ActorError::downcast_wrap(e, "failed to add to early termination queue")
+                ActorDowncast::downcast_wrap(e, "failed to add to early termination queue")
             })?;
 
         self.early_terminated = early_termination_queue
@@ -410,7 +410,7 @@ impl Partition {
             .map_err(|e| format!("failed to load sector expirations: {:?}", e))?;
         let (removed, removed_recovering) = expirations
             .remove_sectors(&sector_infos, &self.faults, &self.recoveries, sector_size)
-            .map_err(|e| ActorError::downcast_wrap(e, "failed to remove sector expirations"))?;
+            .map_err(|e| ActorDowncast::downcast_wrap(e, "failed to remove sector expirations"))?;
 
         self.expirations_epochs = expirations
             .amt
@@ -422,7 +422,7 @@ impl Partition {
         // Record early termination.
         self.record_early_termination(store, epoch, &removed_sectors)
             .map_err(|e| {
-                ActorError::downcast_wrap(e, "failed to record early sector termination")
+                ActorDowncast::downcast_wrap(e, "failed to record early sector termination")
             })?;
 
         // Update partition metadata.
@@ -449,7 +449,10 @@ impl Partition {
         let mut expirations = ExpirationQueue::new(store, &self.expirations_epochs, quant)
             .map_err(|e| format!("failed to load expiration queue: {:?}", e))?;
         let popped = expirations.pop_until(until).map_err(|e| {
-            ActorError::downcast_wrap(e, format!("failed to pop expiration queue until {}", until))
+            ActorDowncast::downcast_wrap(
+                e,
+                format!("failed to pop expiration queue until {}", until),
+            )
         })?;
         self.expirations_epochs = expirations.amt.flush()?;
 
@@ -479,7 +482,7 @@ impl Partition {
 
         // Record the epoch of any sectors expiring early, for termination fee calculation later.
         self.record_early_termination(store, until, &popped.early_sectors)
-            .map_err(|e| ActorError::downcast_wrap(e, "failed to record early terminations"))?;
+            .map_err(|e| ActorDowncast::downcast_wrap(e, "failed to record early terminations"))?;
 
         Ok(popped)
     }
@@ -500,7 +503,7 @@ impl Partition {
 
         queue
             .reschedule_all_as_faults(fault_expiration)
-            .map_err(|e| ActorError::downcast_wrap(e, "failed to reschedule all as faults"))?;
+            .map_err(|e| ActorDowncast::downcast_wrap(e, "failed to reschedule all as faults"))?;
 
         // Save expiration queue
         self.expirations_epochs = queue.amt.flush()?;
@@ -559,7 +562,9 @@ impl Partition {
                 let keep_going = result.sectors_processed < max_sectors;
                 Ok(keep_going)
             })
-            .map_err(|e| ActorError::downcast_wrap(e, "failed to walk early terminations queue"))?;
+            .map_err(|e| {
+                ActorDowncast::downcast_wrap(e, "failed to walk early terminations queue")
+            })?;
 
         // Update early terminations
         early_terminated_queue
@@ -644,7 +649,11 @@ impl Partition {
                 quant,
             )
             .map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to add skipped faults")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to add skipped faults",
+                )
             })?;
 
         // Remove faulty recoveries

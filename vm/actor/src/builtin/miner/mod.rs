@@ -50,6 +50,7 @@ use crate::{
 use crate::{
     power::{EnrollCronEventParams, Method as PowerMethod},
     reward::ThisEpochRewardReturn,
+    ActorDowncast,
 };
 use address::{Address, Payload, Protocol};
 use bitfield::BitField;
@@ -147,7 +148,7 @@ impl Actor {
         })?;
 
         let empty_bitfield_cid = rt.store().put(&BitField::new(), Blake2b256).map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 "failed to construct illegal state",
@@ -158,7 +159,7 @@ impl Actor {
             .store()
             .put(&Deadline::new(empty_array.clone()), Blake2b256)
             .map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     "failed to construct illegal state",
@@ -169,7 +170,7 @@ impl Actor {
             .store()
             .put(&Deadlines::new(empty_deadline_cid), Blake2b256)
             .map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     "failed to construct illegal state",
@@ -180,7 +181,7 @@ impl Actor {
             rt.store()
                 .put(&VestingFunds::new(), Blake2b256)
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         "failed to construct illegal state",
@@ -217,7 +218,7 @@ impl Actor {
             )
         })?;
         let info_cid = rt.store().put(&info, Blake2b256).map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 "failed to construct illegal state",
@@ -252,7 +253,11 @@ impl Actor {
         BS: BlockStore,
     {
         state.get_info(store).map_err(|e| {
-            ActorError::downcast(e, ExitCode::ErrIllegalState, "could not read miner info")
+            ActorDowncast::downcast_default(
+                e,
+                ExitCode::ErrIllegalState,
+                "could not read miner info",
+            )
         })
     }
 
@@ -315,7 +320,11 @@ impl Actor {
             };
 
             state.save_info(rt.store(), info).map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "could not save miner info")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "could not save miner info",
+                )
             })?;
 
             Ok(effective_epoch)
@@ -347,7 +356,11 @@ impl Actor {
 
             info.peer_id = params.new_id;
             state.save_info(rt.store(), info).map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "could not save miner info")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "could not save miner info",
+                )
             })?;
 
             Ok(())
@@ -374,7 +387,11 @@ impl Actor {
 
             info.multi_address = params.new_multi_addrs;
             state.save_info(rt.store(), info).map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "could not save miner info")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "could not save miner info",
+                )
             })?;
 
             Ok(())
@@ -516,7 +533,7 @@ impl Actor {
                     &params.partitions,
                 )
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         format!(
@@ -591,7 +608,7 @@ impl Actor {
                     &unlocked_balance,
                 )
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         format!(
@@ -607,7 +624,7 @@ impl Actor {
             deadlines
                 .update_deadline(rt.store(), params.deadline, &deadline)
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         format!("failed to update deadline {}", deadline_idx),
@@ -615,7 +632,11 @@ impl Actor {
                 })?;
 
             state.save_deadlines(rt.store(), deadlines).map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to save deadlines",
+                )
             })?;
 
             Ok(post_result)
@@ -824,7 +845,11 @@ impl Actor {
             let newly_vested = state
                 .unlock_vested_funds(store, rt.curr_epoch())
                 .map_err(|e| {
-                    ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to vest funds")
+                    ActorDowncast::downcast_default(
+                        e,
+                        ExitCode::ErrIllegalState,
+                        "failed to vest funds",
+                    )
                 })?;
 
             let available_balance = state.get_available_balance(&rt.current_balance()?);
@@ -897,7 +922,7 @@ impl Actor {
             state
                 .add_pre_commit_expiry(store, expiry_bound, sector_number)
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         "failed to add pre-commit expiry to queue",
@@ -1101,7 +1126,7 @@ impl Actor {
                     replace_sectors,
                 )
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         "failed to replace sector expirations",
@@ -1204,7 +1229,7 @@ impl Actor {
                     info.sector_size,
                 )
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         "failed to assign new sectors to deadlines",
@@ -1473,7 +1498,7 @@ impl Actor {
                 deadlines
                     .update_deadline(store, deadline_idx, &deadline)
                     .map_err(|e| {
-                        ActorError::downcast(
+                        ActorDowncast::downcast_default(
                             e,
                             ExitCode::ErrIllegalState,
                             format!("failed to save deadline {}", deadline_idx),
@@ -1590,7 +1615,7 @@ impl Actor {
                         quant,
                     )
                     .map_err(|e| {
-                        ActorError::downcast(
+                        ActorDowncast::downcast_default(
                             e,
                             ExitCode::ErrIllegalState,
                             format!("failed to terminate sectors in deadline {}", deadline_idx),
@@ -1603,7 +1628,7 @@ impl Actor {
                 deadlines
                     .update_deadline(store, deadline_idx, &deadline)
                     .map_err(|e| {
-                        ActorError::downcast(
+                        ActorDowncast::downcast_default(
                             e,
                             ExitCode::ErrIllegalState,
                             format!("failed to update deadline {}", deadline_idx),
@@ -1612,7 +1637,11 @@ impl Actor {
             }
 
             state.save_deadlines(store, deadlines).map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to save deadlines",
+                )
             })?;
 
             Ok((had_early_terminations, power_delta))
@@ -1729,7 +1758,7 @@ impl Actor {
                         partition_map,
                     )
                     .map_err(|e| {
-                        ActorError::downcast(
+                        ActorDowncast::downcast_default(
                             e,
                             ExitCode::ErrIllegalState,
                             format!("failed to declare faults for deadline {}", deadline_idx),
@@ -1739,7 +1768,7 @@ impl Actor {
                 deadlines
                     .update_deadline(store, deadline_idx, &deadline)
                     .map_err(|e| {
-                        ActorError::downcast(
+                        ActorDowncast::downcast_default(
                             e,
                             ExitCode::ErrIllegalState,
                             format!("failed to store deadline {} partitions", deadline_idx),
@@ -1750,7 +1779,11 @@ impl Actor {
             }
 
             state.save_deadlines(store, deadlines).map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to save deadlines",
+                )
             })?;
 
             Ok(new_fault_power_total)
@@ -1862,7 +1895,7 @@ impl Actor {
                 deadlines
                     .update_deadline(store, deadline_idx, &deadline)
                     .map_err(|e| {
-                        ActorError::downcast(
+                        ActorDowncast::downcast_default(
                             e,
                             ExitCode::ErrIllegalState,
                             format!("failed to store deadline {}", deadline_idx),
@@ -1871,7 +1904,11 @@ impl Actor {
             }
 
             state.save_deadlines(store, deadlines).map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to save deadlines",
+                )
             })?;
 
             Ok(())
@@ -1950,7 +1987,7 @@ impl Actor {
             let (live, dead, removed_power) = deadline
                 .remove_partitions(store, &params.partitions, quant)
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         format!(
@@ -1965,7 +2002,7 @@ impl Actor {
             })?;
 
             let sectors = state.load_sector_infos(store, &live).map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to load moved sectors")
+                ActorDowncast::downcast_default(e, ExitCode::ErrIllegalState, "failed to load moved sectors")
             })?;
 
             let new_power = deadline
@@ -1977,7 +2014,7 @@ impl Actor {
                     quant,
                 )
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         "failed to add back moved sectors",
@@ -2257,7 +2294,7 @@ where
             let (result, more) = state
                 .pop_early_terminations(store, ADDRESSED_PARTITIONS_MAX, ADDRESSED_SECTORS_MAX)
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         "failed to pop early terminations",
@@ -2322,7 +2359,7 @@ where
                     &unlocked_balance,
                 )
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         "failed to unlock unvested funds",
@@ -2381,7 +2418,11 @@ where
         let newly_vested = state
             .unlock_vested_funds(rt.store(), rt.curr_epoch())
             .map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to vest funds")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to vest funds",
+                )
             })?;
 
         pledge_delta += -newly_vested;
@@ -2401,7 +2442,7 @@ where
         })?;
 
         let (bitfield, modified) = expiry_queue.pop_until(curr_epoch).map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 "failed to pop expired sectors",
@@ -2485,7 +2526,11 @@ where
                 &unlocked_balance,
             )
             .map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to unlock penalty")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to unlock penalty",
+                )
             })?;
 
         unlocked_balance -= &penalty_from_balance;
@@ -2509,7 +2554,11 @@ where
                 &unlocked_balance,
             )
             .map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to unlock penalty")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to unlock penalty",
+                )
             })?;
 
         unlocked_balance -= &penalty_from_balance;
@@ -2521,7 +2570,7 @@ where
         let expired = deadline
             .pop_expired_sectors(rt.store(), deadline_info.last(), quant)
             .map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     "failed to load expired sectors",
@@ -2556,7 +2605,7 @@ where
         deadlines
             .update_deadline(rt.store(), deadline_info.index, &deadline)
             .map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     format!("failed to update deadline {}", deadline_info.index),
@@ -2564,7 +2613,11 @@ where
             })?;
 
         state.save_deadlines(rt.store(), deadlines).map_err(|e| {
-            ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to save deadlines")
+            ActorDowncast::downcast_default(
+                e,
+                ExitCode::ErrIllegalState,
+                "failed to save deadlines",
+            )
         })?;
 
         // Increment current deadline, and proving period if necessary.
@@ -2727,7 +2780,7 @@ where
             params.replace_sector_number,
         )
         .map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 format!("failed to replace sector {}", params.replace_sector_number),
@@ -3036,7 +3089,11 @@ where
         info.worker = key.new_worker;
         info.pending_worker_key = None;
         state.save_info(rt.store(), info).map_err(|e| {
-            ActorError::downcast(e, ExitCode::ErrSerialization, "failed to save miner info")
+            ActorDowncast::downcast_default(
+                e,
+                ExitCode::ErrSerialization,
+                "failed to save miner info",
+            )
         })?;
 
         Ok(())

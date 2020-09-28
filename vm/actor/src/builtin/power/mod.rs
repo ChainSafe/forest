@@ -11,8 +11,9 @@ pub use self::types::*;
 use crate::miner::MinerConstructorParams;
 use crate::reward::Method as RewardMethod;
 use crate::{
-    check_empty_params, init, make_map, make_map_with_root, miner, Multimap, CALLER_TYPES_SIGNABLE,
-    CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    check_empty_params, init, make_map, make_map_with_root, miner, ActorDowncast, Multimap,
+    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
+    REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use ahash::AHashSet;
@@ -149,7 +150,7 @@ impl Actor {
                 &params.quality_adjusted_delta,
             )
             .map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     &format!(
@@ -280,7 +281,7 @@ impl Actor {
                 &claim.quality_adj_power.neg(),
             )
             .map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     &format!("could not add to claim for {}", miner_addr),
@@ -409,7 +410,7 @@ impl Actor {
                     Ok(())
                 })
                 .map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         &format!(
@@ -423,7 +424,7 @@ impl Actor {
                 Ok(())
             })
             .map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     "failed to iterate proof batch",
@@ -441,7 +442,11 @@ impl Actor {
             .syscalls()
             .batch_verify_seals(verif_arr.as_slice())
             .map_err(|e| {
-                ActorError::downcast(e, ExitCode::ErrIllegalState, "failed to batch verify")
+                ActorDowncast::downcast_default(
+                    e,
+                    ExitCode::ErrIllegalState,
+                    "failed to batch verify",
+                )
             })?;
 
         for (m, verifs) in verifies.iter() {
@@ -487,7 +492,7 @@ impl Actor {
 
             for epoch in st.first_cron_epoch..rt_epoch {
                 let mut epoch_events = load_cron_events(&events, epoch).map_err(|e| {
-                    ActorError::downcast(
+                    ActorDowncast::downcast_default(
                         e,
                         ExitCode::ErrIllegalState,
                         &format!("failed to load cron events at {}", epoch),

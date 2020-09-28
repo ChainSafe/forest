@@ -213,7 +213,7 @@ where
     {
         self.store
             .put(obj, Blake2b256)
-            .map_err(|e| ActorError::downcast_fatal(e, "failed to put cbor object"))
+            .map_err(|e| ActorDowncast::downcast_fatal(e, "failed to put cbor object"))
     }
 
     /// Helper function for getting deserializable objects from blockstore.
@@ -223,7 +223,7 @@ where
     {
         self.store
             .get(cid)
-            .map_err(|e| ActorError::downcast_fatal(e, "failed to get cbor object"))
+            .map_err(|e| ActorDowncast::downcast_fatal(e, "failed to get cbor object"))
     }
 
     fn internal_send(

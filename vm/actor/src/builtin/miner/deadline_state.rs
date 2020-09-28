@@ -5,7 +5,7 @@ use super::{
     BitFieldQueue, ExpirationSet, Partition, PartitionSectorMap, PoStPartition, PowerPair,
     QuantSpec, SectorOnChainInfo, Sectors, TerminationResult, WPOST_PERIOD_DEADLINES,
 };
-use crate::{actor_error, ActorError, ExitCode, TokenAmount};
+use crate::{actor_error, ActorDowncast, ActorError, ExitCode, TokenAmount};
 use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
@@ -217,7 +217,7 @@ impl Deadline {
                 partition
                     .pop_expired_sectors(store, until, quant)
                     .map_err(|e| {
-                        ActorError::downcast_wrap(
+                        ActorDowncast::downcast_wrap(
                             e,
                             format!(
                                 "failed to pop expired sectors from partition {}",
@@ -346,7 +346,7 @@ impl Deadline {
         deadline_expirations
             .add_many_to_queue_values(&partition_deadline_updates)
             .map_err(|e| {
-                ActorError::downcast_wrap(e, "failed to add expirations for new deadlines")
+                ActorDowncast::downcast_wrap(e, "failed to add expirations for new deadlines")
             })?;
         self.expirations_epochs = deadline_expirations.amt.flush()?;
 
@@ -382,7 +382,7 @@ impl Deadline {
             let (partition_result, more) = partition
                 .pop_early_terminations(store, max_sectors - result.sectors_processed)
                 .map_err(|e| {
-                    ActorError::downcast_wrap(e, "failed to pop terminations from partition")
+                    ActorDowncast::downcast_wrap(e, "failed to pop terminations from partition")
                 })?;
 
             result += partition_result;
@@ -426,7 +426,7 @@ impl Deadline {
         let mut expirations = BitFieldQueue::new(store, &self.expirations_epochs, quant)?;
         let (popped, modified) = expirations
             .pop_until(until)
-            .map_err(|e| ActorError::downcast_wrap(e, "failed to pop expiring partitions"))?;
+            .map_err(|e| ActorDowncast::downcast_wrap(e, "failed to pop expiring partitions"))?;
 
         if modified {
             self.expirations_epochs = expirations.amt.flush()?;
@@ -458,7 +458,7 @@ impl Deadline {
             let removed = partition
                 .terminate_sectors(store, sectors, epoch, sector_numbers, sector_size, quant)
                 .map_err(|e| {
-                    ActorError::downcast_wrap(
+                    ActorDowncast::downcast_wrap(
                         e,
                         format!("failed to terminate sectors in partition {}", partition_idx),
                     )
@@ -570,7 +570,7 @@ impl Deadline {
 
                 Ok(())
             })
-            .map_err(|e| ActorError::downcast_wrap(e, "while removing partitions"))?;
+            .map_err(|e| ActorDowncast::downcast_wrap(e, "while removing partitions"))?;
 
         self.partitions = new_partitions
             .flush()
@@ -637,7 +637,7 @@ impl Deadline {
                     quant,
                 )
                 .map_err(|e| {
-                    ActorError::downcast_wrap(
+                    ActorDowncast::downcast_wrap(
                         e,
                         format!("failed to declare faults in partition {}", partition_idx),
                     )
@@ -874,7 +874,7 @@ impl Deadline {
             let recovered_power = partition
                 .recover_faults(store, sectors, sector_size, quant)
                 .map_err(|e| {
-                    ActorError::downcast_wrap(
+                    ActorDowncast::downcast_wrap(
                         e,
                         format!(
                             "failed to recover faulty sectors for partition {}",
@@ -973,7 +973,7 @@ impl Deadline {
                     quant,
                 )
                 .map_err(|e| {
-                    ActorError::downcast_wrap(
+                    ActorDowncast::downcast_wrap(
                         e,
                         format!(
                             "failed to reschedule expirations in partition {}",

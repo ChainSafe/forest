@@ -7,7 +7,7 @@ mod types;
 pub use self::state::*;
 pub use self::types::*;
 use crate::{
-    make_map, make_map_with_root, resolve_to_id_addr, Map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR,
+    make_map, make_map_with_root, resolve_to_id_addr, Map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR, ActorDowncast
 };
 use address::{Address, Protocol};
 use encoding::to_vec;
@@ -58,7 +58,7 @@ impl Actor {
         let mut dedup_signers = HashSet::with_capacity(params.signers.len());
         for signer in &params.signers {
             let resolved = resolve_to_id_addr(rt, signer).map_err(|e| {
-                ActorError::downcast(
+                ActorDowncast::downcast_default(
                     e,
                     ExitCode::ErrIllegalState,
                     &format!("failed to resolve addr {} to ID addr", signer),
@@ -268,7 +268,7 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
         let resolved_new_signer = resolve_to_id_addr(rt, &params.signer).map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 &format!("failed to resolve address {}", params.signer),
@@ -301,7 +301,7 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
         let resolved_old_signer = resolve_to_id_addr(rt, &params.signer).map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 &format!("failed to resolve address {}", params.signer),
@@ -344,14 +344,14 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
         let from_resolved = resolve_to_id_addr(rt, &params.from).map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 &format!("failed to resolve address {}", params.from),
             )
         })?;
         let to_resolved = resolve_to_id_addr(rt, &params.to).map_err(|e| {
-            ActorError::downcast(
+            ActorDowncast::downcast_default(
                 e,
                 ExitCode::ErrIllegalState,
                 &format!("failed to resolve address {}", params.to),
