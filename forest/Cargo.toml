@@ -13,7 +13,7 @@ libp2p = "0.24"
 futures = "0.3.5"
 log = "0.4.8"
 async-log = "2.0.0"
-async-std = { version = "1.6.0", features = ["attributes"] }
+async-std = { version = "1.6.3", features = ["attributes"] }
 serde = { version = "1.0", features = ["derive"] }
 pretty_env_logger = "0.4.0"
 ctrlc = "3.1.4"
@@ -21,6 +21,7 @@ chain_sync = { path = "../blockchain/chain_sync" }
 state_manager = { path = "../blockchain/state_manager" }
 cid = { package = "forest_cid", path = "../ipld/cid", features = ["json"] }
 forest_car = { path = "../ipld/car" }
+flo_stream = "0.4.0"
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = { path = "../ipld/blockstore", features = ["rocksdb"] }

@@ -24,6 +24,12 @@ pub struct OnMinerSectorsTerminateParams {
     pub deal_ids: Vec<DealID>,
 }
 
+#[derive(Serialize_tuple)]
+pub struct OnMinerSectorsTerminateParamsRef<'a> {
+    pub epoch: ChainEpoch,
+    pub deal_ids: &'a [DealID],
+}
+
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PublishStorageDealsParams {
     pub deals: Vec<ClientDealProposal>,
@@ -37,6 +43,13 @@ pub struct PublishStorageDealsReturn {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct VerifyDealsForActivationParams {
     pub deal_ids: Vec<DealID>,
+    pub sector_expiry: ChainEpoch,
+    pub sector_start: ChainEpoch,
+}
+
+#[derive(Serialize_tuple)]
+pub struct VerifyDealsForActivationParamsRef<'a> {
+    pub deal_ids: &'a [DealID],
     pub sector_expiry: ChainEpoch,
     pub sector_start: ChainEpoch,
 }
@@ -58,6 +71,12 @@ pub struct ActivateDealsParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ComputeDataCommitmentParams {
     pub deal_ids: Vec<DealID>,
+    pub sector_type: RegisteredSealProof,
+}
+
+#[derive(Serialize_tuple)]
+pub struct ComputeDataCommitmentParamsRef<'a> {
+    pub deal_ids: &'a [DealID],
     pub sector_type: RegisteredSealProof,
 }
 

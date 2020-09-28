@@ -316,25 +316,29 @@ where
         }
     }
 
-    pub(super) fn for_each<S, F>(
+    pub(super) fn for_each_while<S, F>(
         &self,
         store: &S,
         height: u64,
         offset: u64,
         f: &mut F,
-    ) -> Result<(), Box<dyn StdError>>
+    ) -> Result<bool, Box<dyn StdError>>
     where
-        F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(u64, &V) -> Result<bool, Box<dyn StdError>>,
         S: BlockStore,
     {
         match self {
             Node::Leaf { bmap, vals } => {
                 for (i, v) in (0..).zip(vals.iter()) {
                     if bmap.get_bit(i) {
-                        f(
+                        let keep_going = f(
                             offset + i,
                             v.as_ref().expect("set bit should contain value"),
                         )?;
+
+                        if !keep_going {
+                            return Ok(false);
+                        }
                     }
                 }
             }
@@ -342,22 +346,89 @@ where
                 for (i, l) in (0..).zip(links.iter()) {
                     if bmap.get_bit(i) {
                         let offs = offset + (i * nodes_for_height(height));
-                        match l.as_ref().expect("bit set at index") {
-                            Link::Cached(sub) => sub.for_each(store, height - 1, offs, f)?,
+                        let keep_going = match l.as_ref().expect("bit set at index") {
+                            Link::Cached(sub) => sub.for_each_while(store, height - 1, offs, f)?,
                             Link::Cid(cid) => {
                                 let node = store
                                     .get::<Node<V>>(cid)
                                     .map_err(|e| e.to_string())?
                                     .ok_or_else(|| Error::RootNotFound)?;
 
-                                node.for_each(store, height - 1, offs, f)?;
+                                node.for_each_while(store, height - 1, offs, f)?
                             }
+                        };
+
+                        if !keep_going {
+                            return Ok(false);
                         }
                     }
                 }
             }
         }
-        Ok(())
+
+        Ok(true)
+    }
+
+    pub(super) fn for_each_while_mut<S, F>(
+        &mut self,
+        store: &S,
+        height: u64,
+        offset: u64,
+        f: &mut F,
+    ) -> Result<bool, Box<dyn StdError>>
+    where
+        F: FnMut(u64, &mut V) -> Result<bool, Box<dyn StdError>>,
+        S: BlockStore,
+    {
+        match self {
+            Node::Leaf { bmap, vals } => {
+                for (i, v) in (0..).zip(vals.iter_mut()) {
+                    if bmap.get_bit(i) {
+                        let keep_going = f(
+                            offset + i,
+                            v.as_mut().expect("set bit should contain value"),
+                        )?;
+
+                        if !keep_going {
+                            return Ok(false);
+                        }
+                    }
+                }
+            }
+            Node::Link { bmap, links } => {
+                for (i, l) in (0..).zip(links.iter_mut()) {
+                    if bmap.get_bit(i) {
+                        let offs = offset + (i * nodes_for_height(height));
+                        let link = l.as_mut().expect("bit set at index");
+                        let keep_going = match link {
+                            Link::Cached(sub) => {
+                                sub.for_each_while_mut(store, height - 1, offs, f)?
+                            }
+                            Link::Cid(cid) => {
+                                let mut node = store
+                                    .get::<Node<V>>(cid)
+                                    .map_err(|e| e.to_string())?
+                                    .ok_or_else(|| Error::RootNotFound)?;
+
+                                let keep_going =
+                                    node.for_each_while_mut(store, height - 1, offs, f)?;
+
+                                // TODO: only cache the node if one of the values was mutated
+                                *link = Link::Cached(Box::new(node));
+
+                                keep_going
+                            }
+                        };
+
+                        if !keep_going {
+                            return Ok(false);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(true)
     }
 }
 

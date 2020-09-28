@@ -108,4 +108,25 @@ pub mod json {
             deserializer.deserialize_any(GoVecVisitor::<MessageReceipt, MessageReceiptJson>::new())
         }
     }
+
+    pub mod opt {
+        use super::*;
+
+        pub fn serialize<S>(v: &Option<MessageReceipt>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            v.as_ref()
+                .map(|s| MessageReceiptJsonRef(s))
+                .serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<MessageReceipt>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s: Option<MessageReceipt> = Deserialize::deserialize(deserializer)?;
+            Ok(s)
+        }
+    }
 }

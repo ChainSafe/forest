@@ -8,6 +8,7 @@ mod types;
 pub use self::policy::*;
 pub use self::state::*;
 pub use self::types::*;
+use crate::miner::MinerConstructorParams;
 use crate::reward::Method as RewardMethod;
 use crate::{
     check_empty_params, init, make_map, make_map_with_root, miner, Multimap, CALLER_TYPES_SIGNABLE,
@@ -95,10 +96,10 @@ impl Actor {
                 Serialized::serialize(MinerConstructorParams {
                     owner: params.owner,
                     worker: params.worker,
+                    control_addresses: Default::default(),
                     seal_proof_type: params.seal_proof_type,
-                    peer: params.peer,
-                    multiaddrs: params.multiaddrs,
-                    control_addrs: Default::default(),
+                    peer_id: params.peer.0,
+                    multi_addresses: params.multiaddrs,
                 })?,
                 value,
             )?
