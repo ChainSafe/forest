@@ -2412,6 +2412,7 @@ dependencies = [
  "ctrlc",
  "db",
  "fil_types",
+ "flo_stream",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -2421,7 +2422,7 @@ dependencies = [
  "futures 0.3.5",
  "hex",
  "ipld_blockstore",
- "jsonrpc-v2",
+ "jsonrpc-v2 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "key_management",
  "libp2p",
  "log",
@@ -3482,6 +3483,23 @@ dependencies = [
 [[package]]
 name = "jsonrpc-v2"
 version = "0.5.2"
+source = "git+https://github.com/ChainSafe/jsonrpc-v2#d1d060576ede0bd76eee173545edbd8bfd698016"
+dependencies = [
+ "actix-service",
+ "actix-web",
+ "async-trait",
+ "bytes 0.5.6",
+ "erased-serde",
+ "extensions",
+ "futures 0.3.5",
+ "jsonrpc-v2-macros 0.1.0 (git+https://github.com/ChainSafe/jsonrpc-v2)",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jsonrpc-v2"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a88dfa47312f1fa91762334c057ce3a2c6fcafcacb5d816ad47338190e0e606"
 dependencies = [
@@ -3492,9 +3510,19 @@ dependencies = [
  "erased-serde",
  "extensions",
  "futures 0.3.5",
- "jsonrpc-v2-macros",
+ "jsonrpc-v2-macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "jsonrpc-v2-macros"
+version = "0.1.0"
+source = "git+https://github.com/ChainSafe/jsonrpc-v2#d1d060576ede0bd76eee173545edbd8bfd698016"
+dependencies = [
+ "proc-macro2 1.0.19",
+ "quote 1.0.7",
+ "syn 1.0.38",
 ]
 
 [[package]]
@@ -4300,6 +4328,7 @@ dependencies = [
  "blake2b_simd",
  "chain",
  "db",
+ "fil_types",
  "flo_stream",
  "forest_address",
  "forest_bigint",
@@ -5620,7 +5649,7 @@ dependencies = [
  "hex",
  "interpreter",
  "ipld_blockstore",
- "jsonrpc-v2",
+ "jsonrpc-v2 0.5.2 (git+https://github.com/ChainSafe/jsonrpc-v2)",
  "key_management",
  "log",
  "message_pool",
@@ -5643,7 +5672,7 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_message",
- "jsonrpc-v2",
+ "jsonrpc-v2 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpsee",
  "log",
  "serde_json",
