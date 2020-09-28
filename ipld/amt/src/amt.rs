@@ -186,10 +186,17 @@ where
             let sub_node: Node<V> = match &mut self.root.node {
                 Node::Link { links, .. } => match &mut links[0] {
                     Some(Link::Dirty(node)) => *std::mem::take(node),
-                    Some(Link::Cid { cid, .. }) => self
-                        .block_store
-                        .get(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?,
+                    Some(Link::Cid { cid, cache }) => {
+                        let cache_node = std::mem::take(cache);
+                        if let Some(sn) = cache_node.into_inner() {
+                            *sn
+                        } else {
+                            // Only retrieve sub node if not found in cache
+                            self.block_store
+                                .get(&cid)?
+                                .ok_or_else(|| Error::RootNotFound)?
+                        }
+                    }
                     _ => unreachable!("Link index should match bitmap"),
                 },
                 Node::Leaf { .. } => unreachable!("Non zero height cannot be a leaf node"),

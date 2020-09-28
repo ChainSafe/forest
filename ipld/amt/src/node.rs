@@ -370,8 +370,8 @@ where
                             };
                             if !sub_node.delete(bs, height - 1, i % nodes_for_height(height))? {
                                 // Replace cache, no node deleted.
-                                // If the cache has already been filled in another thread since the
-                                // `mem::take`, error can be ignored because value is equal.
+                                // Error can be ignored because value will always be the same
+                                // even if possible to hit race condition.
                                 let _ = cache.fill(sub_node);
 
                                 // Index to be deleted was not found
@@ -430,13 +430,20 @@ where
                         let offs = offset + (i * nodes_for_height(height));
                         let keep_going = match l.as_ref().expect("bit set at index") {
                             Link::Dirty(sub) => sub.for_each_while(store, height - 1, offs, f)?,
-                            Link::Cid { cid, .. } => {
-                                let node = store
-                                    .get::<Node<V>>(cid)
-                                    .map_err(|e| e.to_string())?
-                                    .ok_or_else(|| Error::RootNotFound)?;
+                            Link::Cid { cid, cache } => {
+                                if let Some(cached_node) = cache.borrow() {
+                                    cached_node.for_each_while(store, height - 1, offs, f)?
+                                } else {
+                                    let node: Box<Node<V>> = store
+                                        .get(cid)?
+                                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
-                                node.for_each_while(store, height - 1, offs, f)?
+                                    // Ignore error intentionally, the cache value will always be the same
+                                    let _ = cache.fill(node);
+                                    let cache_node =
+                                        cache.borrow().expect("cache filled on line above");
+                                    cache_node.for_each_while(store, height - 1, offs, f)?
+                                }
                             }
                         };
 
@@ -486,17 +493,20 @@ where
                             Link::Dirty(sub) => {
                                 sub.for_each_while_mut(store, height - 1, offs, f)?
                             }
-                            Link::Cid { cid, .. } => {
-                                let mut node = store
-                                    .get::<Node<V>>(cid)
-                                    .map_err(|e| e.to_string())?
-                                    .ok_or_else(|| Error::RootNotFound)?;
+                            Link::Cid { cid, cache } => {
+                                let cache_node = std::mem::take(cache);
+                                let mut node = if let Some(sn) = cache_node.into_inner() {
+                                    sn
+                                } else {
+                                    // Only retrieve sub node if not found in cache
+                                    store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                                };
 
                                 let keep_going =
                                     node.for_each_while_mut(store, height - 1, offs, f)?;
 
                                 // TODO: only cache the node if one of the values was mutated
-                                *link = Link::Dirty(Box::new(node));
+                                *link = Link::Dirty(node);
 
                                 keep_going
                             }
