@@ -9,7 +9,7 @@ address = { package = "forest_address", path = "../vm/address" }
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
 db = { path = "../node/db", features = ["rocksdb"] }
-libp2p = "0.24"
+libp2p = { version = "0.24", default-features = false, features = ["identify"] }
 futures = "0.3.5"
 log = "0.4.8"
 async-log = "2.0.0"
