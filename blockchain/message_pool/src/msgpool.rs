@@ -9,7 +9,7 @@ use async_std::task;
 use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
-use chain::HeadChange;
+use chain::{HeadChange, MINIMUM_BASE_FEE};
 use cid::multihash::Blake2b256;
 use cid::Cid;
 use crypto::{Signature, SignatureType};
@@ -30,7 +30,7 @@ use vm::ActorState;
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
 const RBF_DENOM: u64 = 256;
-const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
+const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
@@ -343,7 +343,7 @@ where
         if msg.value() > &BigInt::from(types::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
-        if msg.gas_fee_cap() < &chain::MINIMUM_BASE_FEE {
+        if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {
             return Err(Error::GasFeeCapTooLow);
         }
         self.verify_msg_sig(msg).await
@@ -655,7 +655,8 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
         .map_err(Error::Other)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
-        let base_fee_lower_bound = base_fee / BASE_FEE_LOWER_BOUND_FACTOR;
+        let base_fee_lower_bound =
+            get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
         if m.gas_fee_cap() < &base_fee_lower_bound {
             if local {
                 warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
@@ -667,6 +668,14 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
         }
     }
     Ok(local)
+}
+
+fn get_base_fee_lower_bound(base_fee: &BigInt, factor: i64) -> BigInt {
+    let base_fee_lower_bound = base_fee / factor;
+    if base_fee_lower_bound < *MINIMUM_BASE_FEE {
+        return MINIMUM_BASE_FEE.clone();
+    }
+    base_fee_lower_bound
 }
 
 /// Remove a message from pending given the from address and sequence
