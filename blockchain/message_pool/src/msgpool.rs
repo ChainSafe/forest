@@ -1031,6 +1031,7 @@ pub mod tests {
             .to(to.clone())
             .from(from.clone())
             .sequence(sequence)
+            .gas_fee_cap(100.into())
             .build()
             .unwrap();
         let message_cbor = Cbor::marshal_cbor(&umsg).unwrap();
