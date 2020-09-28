@@ -13,6 +13,8 @@ pub enum Error {
     MessageTooBig,
     #[error("gas price is lower than min gas price")]
     GasPriceTooLow,
+    #[error("gas fee cap is too low")]
+    GasFeeCapTooLow,
     #[error("Cannot send more Filecoin than will ever exist")]
     MessageValueTooHigh,
     #[error("Message sequence too low")]

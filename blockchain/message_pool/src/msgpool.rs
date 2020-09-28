@@ -343,7 +343,9 @@ where
         if msg.value() > &BigInt::from(types::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
-        // TODO: Check Minimum base fee
+        if msg.gas_fee_cap() < &chain::MINIMUM_BASE_FEE {
+            return Err(Error::GasFeeCapTooLow);
+        }
         self.verify_msg_sig(msg).await
     }
 
@@ -449,6 +451,7 @@ where
         Ok(actor.balance)
     }
 
+    /// Adds a local message returned from the call back function with the current nonce
     pub async fn push_with_sequence(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
     where
         T: Fn(Address, u64) -> Result<SignedMessage, Error>,
@@ -574,7 +577,7 @@ where
 
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
     /// most likely need to be implemented
-    /// TODO: UPDATE
+    // TODO: UPDATE
     pub fn estimate_gas_premium(
         &self,
         nblocksincl: u64,
@@ -613,6 +616,8 @@ where
 
         Ok(())
     }
+    /// If `local = true`, the local messages will be removed as well as pending messages.
+    /// If `local = false`, pending messages will be removed while retaining local messages.
     pub async fn clear(&mut self, local: bool) {
         if local {
             let local_addrs = self.local_addrs.read().await;
