@@ -36,4 +36,4 @@ indexmap = { version = "1.3.2", features = ["serde-1"] }
 derive_builder = "0.9"
 db = { path = "../../node/db" }
 hex = "0.4.2"
-libp2p = "0.24"
+libp2p = { version = "0.24", default-features = false }
