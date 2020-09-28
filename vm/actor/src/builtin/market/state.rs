@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{policy::*, types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
-use crate::{make_map_with_root, BalanceTable, DealID, Map, SetMultimap};
+use crate::{make_map_with_root, ActorDowncast, BalanceTable, DealID, Map, SetMultimap};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
@@ -11,6 +11,7 @@ use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use num_bigint::{bigint_ser, Sign};
 use num_traits::Zero;
+use std::error::Error as StdError;
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
 /// Market actor state
@@ -163,7 +164,7 @@ where
         }
     }
 
-    pub(super) fn build(&mut self) -> Result<&mut Self, String> {
+    pub(super) fn build(&mut self) -> Result<&mut Self, Box<dyn StdError>> {
         if self.proposal_permit != Permission::Invalid {
             self.deal_proposals = Some(DealArray::load(&self.st.proposals, self.store)?);
         }
@@ -231,12 +232,12 @@ where
         self
     }
 
-    pub(super) fn commit_state(&mut self) -> Result<(), String> {
+    pub(super) fn commit_state(&mut self) -> Result<(), Box<dyn StdError>> {
         if self.proposal_permit == Permission::Write {
             if let Some(s) = &mut self.deal_proposals {
                 self.st.proposals = s
                     .flush()
-                    .map_err(|e| format!("failed to flush deal proposals: {}", e))?;
+                    .map_err(|e| e.downcast_wrap("failed to flush deal proposals"))?;
             }
         }
 
@@ -244,7 +245,7 @@ where
             if let Some(s) = &mut self.deal_states {
                 self.st.states = s
                     .flush()
-                    .map_err(|e| format!("failed to flush deal states: {}", e))?;
+                    .map_err(|e| e.downcast_wrap("failed to flush deal states"))?;
             }
         }
 
@@ -252,7 +253,7 @@ where
             if let Some(s) = &mut self.locked_table {
                 self.st.locked_table = s
                     .root()
-                    .map_err(|e| format!("failed to flush locked table: {}", e))?;
+                    .map_err(|e| e.downcast_wrap("failed to flush locked table"))?;
             }
             if let Some(s) = &mut self.total_client_locked_colateral {
                 self.st.total_client_locked_colateral = s.clone();
@@ -269,7 +270,7 @@ where
             if let Some(s) = &mut self.escrow_table {
                 self.st.escrow_table = s
                     .root()
-                    .map_err(|e| format!("failed to flush escrow table: {}", e))?;
+                    .map_err(|e| e.downcast_wrap("failed to flush escrow table"))?;
             }
         }
 
@@ -277,7 +278,7 @@ where
             if let Some(s) = &mut self.pending_deals {
                 self.st.pending_proposals = s
                     .flush()
-                    .map_err(|e| format!("failed to flush escrow table: {}", e))?;
+                    .map_err(|e| e.downcast_wrap("failed to flush escrow table"))?;
             }
         }
 
@@ -285,7 +286,7 @@ where
             if let Some(s) = &mut self.deals_by_epoch {
                 self.st.deal_ops_by_epoch = s
                     .root()
-                    .map_err(|e| format!("failed to flush escrow table: {}", e))?;
+                    .map_err(|e| e.downcast_wrap("failed to flush escrow table"))?;
             }
         }
 
@@ -531,7 +532,7 @@ where
         addr: &Address,
         amount: &TokenAmount,
         lock_reason: Reason,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         assert_ne!(amount.sign(), Sign::Minus);
         self.locked_table
             .as_mut()
@@ -587,7 +588,7 @@ where
         addr: &Address,
         amount: &TokenAmount,
         lock_reason: Reason,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         assert!(amount >= &TokenAmount::from(0));
 
         // Subtract from locked and escrow tables
