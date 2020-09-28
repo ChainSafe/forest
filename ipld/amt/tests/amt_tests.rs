@@ -56,7 +56,7 @@ fn out_of_range() {
     assert!(matches!(res, Err(Error::OutOfRange(_))));
 
     let res = a.set(MAX_INDEX, "test".to_owned());
-    assert_eq!(res.err(), None);
+    assert!(res.err().is_none());
     assert_get(&mut a, MAX_INDEX, &"test".to_owned());
 }
 
