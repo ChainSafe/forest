@@ -3,10 +3,10 @@
 
 use crate::RpcState;
 use actor::miner::{
-    compute_proving_period_deadline, ChainSectorInfo, DeadlineInfo, Deadlines, Fault, MinerInfo,
-    SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
+    ChainSectorInfo, DeadlineInfo, Deadlines, Fault, MinerInfo, SectorOnChainInfo,
+    SectorPreCommitOnChainInfo, State,
 };
-use address::Address;
+use address::{json::AddressJson, Address};
 use async_std::task;
 use bitfield::json::BitFieldJson;
 use blocks::{tipset_json::TipsetJson, Tipset, TipsetKeys};
@@ -19,7 +19,7 @@ use message::{
     message_receipt::json::MessageReceiptJson,
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
 use wallet::KeyStore;
@@ -29,24 +29,6 @@ use wallet::KeyStore;
 pub struct MessageLookup {
     pub receipt: MessageReceiptJson,
     pub tipset: TipsetJson,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResultJson {
-    pub msg: UnsignedMessageJson,
-    pub msg_rct: Option<MessageReceiptJson>,
-    pub error: Option<String>,
-}
-
-impl From<InvocResult> for InvocResultJson {
-    fn from(invoc: InvocResult) -> Self {
-        InvocResultJson {
-            msg: invoc.msg.into(),
-            msg_rct: invoc.msg_rct.map(|s| s.into()),
-            error: invoc.error,
-        }
-    }
 }
 
 /// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
@@ -180,10 +162,10 @@ pub(crate) async fn state_miner_proving_deadline<
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
     let miner_actor_state: State =
         state_manager.load_actor_state(&actor, &tipset.parent_state())?;
-    Ok(compute_proving_period_deadline(
-        miner_actor_state.proving_period_start,
-        tipset.epoch(),
-    ))
+
+    Ok(miner_actor_state
+        .deadline_info(tipset.epoch())
+        .next_not_elapsed())
 }
 
 /// returns a single non-expired Faults that occur within lookback epochs of the given tipset
@@ -207,34 +189,35 @@ pub(crate) async fn state_all_miner_faults<
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(ChainEpoch, TipsetKeys)>,
+    _data: Data<RpcState<DB, KS>>,
+    Params(_params): Params<(ChainEpoch, TipsetKeys)>,
 ) -> Result<Vec<Fault>, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (look_back, end_tsk) = params;
-    let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &end_tsk)?;
-    let cut_off = tipset.epoch() - look_back;
-    let miners = state_manager::utils::list_miner_actors(&state_manager, &tipset)?;
-    let mut all_faults = Vec::new();
-    miners
-        .iter()
-        .map(|m| {
-            let miner_actor_state: State = state_manager
-                .load_actor_state(&m, &tipset.parent_state())
-                .map_err(|e| e.to_string())?;
-            let block_store = state_manager.blockstore();
-            miner_actor_state.for_each_fault_epoch(block_store, |fault_start: i64, _| {
-                if fault_start >= cut_off {
-                    all_faults.push(Fault {
-                        miner: *m,
-                        fault: fault_start,
-                    })
-                }
-                Ok(())
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(all_faults)
+    // FIXME
+    Err(JsonRpcError::internal("fixme"))
+
+    // let state_manager = &data.state_manager;
+    // let (look_back, end_tsk) = params;
+    // let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &end_tsk)?;
+    // let cut_off = tipset.epoch() - look_back;
+    // let miners = state_manager::utils::list_miner_actors(&state_manager, &tipset)?;
+    // let mut all_faults = Vec::new();
+    // for m in miners {
+    //     let miner_actor_state: State = state_manager
+    //         .load_actor_state(&m, &tipset.parent_state())
+    //         .map_err(|e| e.to_string())?;
+    //     let block_store = state_manager.blockstore();
+
+    //     miner_actor_state.for_each_fault_epoch(block_store, |fault_start: i64, _| {
+    //         if fault_start >= cut_off {
+    //             all_faults.push(Fault {
+    //                 miner: *m,
+    //                 fault: fault_start,
+    //             })
+    //         }
+    //         Ok(())
+    //     })?;
+    // }
+    // Ok(all_faults)
 }
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
@@ -259,16 +242,16 @@ pub(crate) async fn state_replay<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(CidJson, TipsetKeys)>,
-) -> Result<InvocResultJson, JsonRpcError> {
+) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (cidjson, key) = params;
     let cid = cidjson.into();
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
     let (msg, ret) = state_manager.replay(&tipset, &cid)?;
 
-    Ok(InvocResultJson {
-        msg: msg.into(),
-        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone().into()),
+    Ok(InvocResult {
+        msg,
+        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone()),
         error: ret
             .map(|act| act.act_error.map(|e| e.to_string()))
             .unwrap_or_default(),
@@ -297,13 +280,13 @@ pub(crate) async fn state_account_key<
 >(
     data: Data<RpcState<DB, KS>>,
     Params(params): Params<(Address, TipsetKeys)>,
-) -> Result<Option<Address>, JsonRpcError> {
+) -> Result<Option<AddressJson>, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
     let state = state_for_ts(&state_manager, Some(tipset))?;
     let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
-    Ok(address.into())
+    Ok(Some(address.into()))
 }
 /// retrieves the ID address of the given address
 pub(crate) async fn state_lookup_id<

@@ -24,6 +24,7 @@ use interpreter::{
 };
 use ipld_amt::Amt;
 use log::{trace, warn};
+use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
@@ -39,7 +40,9 @@ pub type CidPair = (Cid, Cid);
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
+    #[serde(with = "unsigned_message::json")]
     pub msg: UnsignedMessage,
+    #[serde(with = "message_receipt::json::opt")]
     pub msg_rct: Option<MessageReceipt>,
     pub error: Option<String>,
 }
@@ -136,8 +139,10 @@ where
 
         let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
             .map_err(|e| Error::State(e.to_string()))?;
-        // Note: miner::State info likely to be changed to CID
-        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
+
+        let info = ms.get_info(self.bs.as_ref()).map_err(|e| e.to_string())?;
+
+        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
         Ok(addr)
     }

@@ -23,7 +23,7 @@ state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 log = "0.4.8"
-async-std = { version = "1.6.0", features = ["unstable"] }
+async-std = { version = "1.6.3", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 futures = "0.3.5"
 futures-util = "0.3.5"

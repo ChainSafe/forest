@@ -19,7 +19,7 @@ interpreter = { path = "../../vm/interpreter/" }
 ipld_amt = { path = "../../ipld/amt/" }
 clock = { path = "../../node/clock" }
 chain = { path = "../chain" }
-async-std = "1.5.0"
+async-std = "1.6.3"
 async-log = "2.0.0"
 log = "0.4.8"
 fil_types = { path = "../../types" }
