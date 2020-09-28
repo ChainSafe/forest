@@ -8,7 +8,7 @@ use std::error::Error as StdError;
 use thiserror::Error;
 
 /// HAMT Error
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, Error)]
 pub enum Error {
     /// Maximum depth error
     #[error("Maximum depth reached")]
@@ -28,6 +28,9 @@ pub enum Error {
     /// Cid not found in store error
     #[error("Cid ({0}) did not match any in database")]
     CidNotFound(String),
+    /// Dynamic error for when the error needs to be forwarded as is.
+    #[error("{0}")]
+    Dynamic(Box<dyn StdError>),
     /// Custom HAMT error
     #[error("{0}")]
     Other(String),
@@ -53,6 +56,6 @@ impl From<IpldError> for Error {
 
 impl From<Box<dyn StdError>> for Error {
     fn from(e: Box<dyn StdError>) -> Self {
-        Self::Other(e.to_string())
+        Self::Dynamic(e)
     }
 }

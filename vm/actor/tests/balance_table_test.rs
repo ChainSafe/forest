@@ -12,7 +12,7 @@ fn add_create() {
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
-    assert_eq!(bt.has(&addr), Ok(false));
+    assert_eq!(bt.has(&addr).unwrap(), false);
 
     bt.add_create(&addr, TokenAmount::from(10u8)).unwrap();
     assert_eq!(bt.get(&addr), Ok(TokenAmount::from(10u8)));
