@@ -322,6 +322,22 @@ pub mod json {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::borrow::Cow;
 
+    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct AddressJson(#[serde(with = "self")] pub Address);
+
+    /// Wrapper for serializing a SignedMessage reference to JSON.
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct AddressJsonRef<'a>(#[serde(with = "self")] pub &'a Address);
+
+    impl From<Address> for AddressJson {
+        fn from(address: Address) -> Self {
+            Self(address)
+        }
+    }
+
     pub fn serialize<S>(m: &Address, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

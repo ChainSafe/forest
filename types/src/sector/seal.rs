@@ -31,7 +31,7 @@ pub struct SealVerifyInfo {
 pub struct SealVerifyParams {
     pub sealed_cid: Cid,
     pub interactive_epoch: ChainEpoch,
-    pub registered_proof: RegisteredSealProof,
+    pub registered_seal_proof: RegisteredSealProof,
     #[serde(with = "serde_bytes")]
     pub proof: Vec<u8>,
     pub deal_ids: Vec<DealID>,

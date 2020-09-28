@@ -50,10 +50,29 @@ where
     let (CidJson(msg_cid),) = params;
     let ret: UnsignedMessage = data
         .state_manager
-        .get_block_store_ref()
+        .blockstore()
         .get(&msg_cid)?
         .ok_or("can't find message with that cid")?;
     Ok(UnsignedMessageJson(ret))
+}
+
+pub(crate) async fn chain_notify<'a, DB, KS>(
+    data: Data<RpcState<DB, KS>>,
+    Params(params): Params<usize>,
+) -> Result<usize, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+{
+    let data_subscribe = data.chain_store.subscribe().await;
+    let index = chain::sub_head_changes(
+        data_subscribe,
+        &data.chain_store.heaviest_tipset().await,
+        params,
+        data.events_pubsub.clone(),
+    )
+    .await?;
+    Ok(index)
 }
 
 pub(crate) async fn chain_read_obj<DB, KS>(
@@ -67,7 +86,7 @@ where
     let (CidJson(obj_cid),) = params;
     let ret = data
         .state_manager
-        .get_block_store_ref()
+        .blockstore()
         .get_bytes(&obj_cid)?
         .ok_or("can't find object with that cid")?;
     Ok(ret)
@@ -84,7 +103,7 @@ where
     let (CidJson(obj_cid),) = params;
     Ok(data
         .state_manager
-        .get_block_store_ref()
+        .blockstore()
         .get_bytes(&obj_cid)?
         .is_some())
 }
@@ -100,14 +119,14 @@ where
     let (CidJson(blk_cid),) = params;
     let blk: BlockHeader = data
         .state_manager
-        .get_block_store_ref()
+        .blockstore()
         .get(&blk_cid)?
         .ok_or("can't find block with that cid")?;
     let blk_msgs = blk.messages();
     let (unsigned_cids, signed_cids) =
-        chain::read_msg_cids(data.state_manager.get_block_store_ref(), &blk_msgs)?;
+        chain::read_msg_cids(data.state_manager.blockstore(), &blk_msgs)?;
     let (bls_msg, secp_msg) = chain::block_messages_from_cids(
-        data.state_manager.get_block_store_ref(),
+        data.state_manager.blockstore(),
         &unsigned_cids,
         &signed_cids,
     )?;
@@ -133,8 +152,9 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (height, tsk) = params;
-    let ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
-    let tss = chain::tipset_by_height(data.state_manager.get_block_store_ref(), height, ts, true)?;
+    let ts = chain::tipset_from_keys(data.state_manager.blockstore(), &tsk)?;
+    let tss =
+        chain::tipset_by_height(data.state_manager.blockstore(), height, &ts, true)?.unwrap_or(ts);
     Ok(TipsetJson(tss))
 }
 
@@ -145,8 +165,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let genesis = chain::genesis(data.state_manager.get_block_store_ref())?
-        .ok_or("can't find genesis tipset")?;
+    let genesis =
+        chain::genesis(data.state_manager.blockstore())?.ok_or("can't find genesis tipset")?;
     let gen_ts = Tipset::new(vec![genesis])?;
     Ok(Some(TipsetJson(gen_ts)))
 }
@@ -158,7 +178,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
-    let heaviest = chain::get_heaviest_tipset(data.state_manager.get_block_store_ref())?
+    let heaviest = chain::get_heaviest_tipset(data.state_manager.blockstore())?
         .ok_or("can't find heaviest tipset")?;
     Ok(TipsetJson(heaviest))
 }
@@ -172,7 +192,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (tsk,) = params;
-    let ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
+    let ts = chain::tipset_from_keys(data.state_manager.blockstore(), &tsk)?;
     Ok(ts.weight().to_str_radix(10))
 }
 
@@ -187,7 +207,7 @@ where
     let (CidJson(blk_cid),) = params;
     let blk: BlockHeader = data
         .state_manager
-        .get_block_store_ref()
+        .blockstore()
         .get(&blk_cid)?
         .ok_or("can't find BlockHeader with that cid")?;
     Ok(BlockHeaderJson(blk))
@@ -202,7 +222,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (tsk,) = params;
-    let ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
+    let ts = chain::tipset_from_keys(data.state_manager.blockstore(), &tsk)?;
     Ok(TipsetJson(ts))
 }
 
@@ -216,7 +236,7 @@ where
 {
     let (tsk, pers, epoch, entropy) = params;
     Ok(chain::get_chain_randomness(
-        data.state_manager.get_block_store_ref(),
+        data.state_manager.blockstore(),
         &tsk,
         DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
         epoch,

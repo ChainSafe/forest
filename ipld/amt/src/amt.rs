@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_INDEX, WIDTH};
+use crate::{
+    node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_HEIGHT, MAX_INDEX, WIDTH,
+};
 use cid::{multihash::Blake2b256, Cid};
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
@@ -58,11 +60,16 @@ where
             .get(cid)?
             .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
+        // Sanity check, this should never be possible.
+        if root.height > MAX_HEIGHT {
+            return Err(Error::MaxHeight(root.height, MAX_HEIGHT));
+        }
+
         Ok(Self { root, block_store })
     }
 
     // Getter for height
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> u64 {
         self.root.height
     }
 
@@ -82,7 +89,7 @@ where
 
     /// Get value at index of AMT
     pub fn get(&self, i: u64) -> Result<Option<V>, Error> {
-        if i >= MAX_INDEX {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
@@ -95,11 +102,11 @@ where
 
     /// Set value at index
     pub fn set(&mut self, i: u64, val: V) -> Result<(), Error> {
-        if i >= MAX_INDEX {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
-        while i >= nodes_for_height(self.height() + 1 as u32) {
+        while i >= nodes_for_height(self.height() + 1) {
             // node at index exists
             if !self.root.node.empty() {
                 // Save and get cid to be able to link from higher level node
@@ -150,7 +157,7 @@ where
 
     /// Delete item from AMT at index
     pub fn delete(&mut self, i: u64) -> Result<bool, Error> {
-        if i >= MAX_INDEX {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
@@ -185,6 +192,15 @@ where
         }
 
         Ok(true)
+    }
+
+    /// Deletes multiple items from AMT
+    pub fn batch_delete(&mut self, iter: impl IntoIterator<Item = u64>) -> Result<(), Error> {
+        // TODO: optimize this
+        for i in iter {
+            self.delete(i)?;
+        }
+        Ok(())
     }
 
     /// flush root and return Cid used as key in block store
@@ -222,8 +238,48 @@ where
         V: DeserializeOwned,
         F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
+        self.for_each_while(|i, x| {
+            f(i, x)?;
+            Ok(true)
+        })
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values, for as long as that
+    /// function keeps returning `true`.
+    pub fn for_each_while<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &V) -> Result<bool, Box<dyn StdError>>,
+    {
         self.root
             .node
-            .for_each(self.block_store, self.height(), 0, &mut f)
+            .for_each_while(self.block_store, self.height(), 0, &mut f)
+            .map(|_| ())
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
+    /// each value.
+    pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &mut V) -> Result<(), Box<dyn StdError>>,
+    {
+        self.for_each_while_mut(|i, x| {
+            f(i, x)?;
+            Ok(true)
+        })
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
+    /// each value, for as long as that function keeps returning `true`.
+    pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &mut V) -> Result<bool, Box<dyn StdError>>,
+    {
+        self.root
+            .node
+            .for_each_while_mut(self.block_store, self.height(), 0, &mut f)
+            .map(|_| ())
     }
 }
