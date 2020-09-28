@@ -13,7 +13,7 @@ use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
-use message_pool::{MessagePool, MpoolRpcProvider};
+use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::sync::Arc;
@@ -73,9 +73,13 @@ pub(super) async fn start(config: Config) {
     let subscriber = publisher.write().await.subscribe();
     let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
     let mpool = Arc::new(
-        MessagePool::new(provider, network_name.clone())
-            .await
-            .unwrap(),
+        MessagePool::new(
+            provider,
+            network_name.clone(),
+            MpoolConfig::load_config(db.as_ref()).unwrap(),
+        )
+        .await
+        .unwrap(),
     );
 
     // Get Drand Coefficients
