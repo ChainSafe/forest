@@ -684,6 +684,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
             .amt
             .get(key as u64)
             .map_err(|e| format!("failed to lookup queue epoch {}: {:?}", key, e))?
+            .cloned()
             .unwrap_or_default())
     }
 
@@ -691,6 +692,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         self.amt
             .get(key as u64)
             .map_err(|e| format!("failed to lookup queue epoch {}: {:?}", key, e))?
+            .cloned()
             .ok_or_else(|| format!("missing expected expiration set at epoch {}", key))
     }
 

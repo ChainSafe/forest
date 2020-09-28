@@ -153,7 +153,9 @@ impl Deadline {
             .get(partition_idx)
             .map_err(|e| format!("failed to lookup partition {}: {:?}", partition_idx, e))?;
 
-        partition.ok_or_else(|| format!("no partition {}", partition_idx))
+        partition
+            .cloned()
+            .ok_or_else(|| format!("no partition {}", partition_idx))
     }
 
     /// Adds some partition numbers to the set expiring at an epoch.
@@ -211,6 +213,7 @@ impl Deadline {
             let partition_idx = i as u64;
             let mut partition = partitions
                 .get(partition_idx)?
+                .cloned()
                 .ok_or_else(|| format!("missing expected partition {}", partition_idx))?;
 
             let partition_expiration =
@@ -297,7 +300,7 @@ impl Deadline {
 
             // Get/create partition to update.
             let mut partition = match partitions.get(partition_idx)? {
-                Some(partition) => partition,
+                Some(partition) => partition.clone(),
                 None => {
                     // This case will usually happen zero times.
                     // It would require adding more than a full partition in one go
@@ -371,7 +374,7 @@ impl Deadline {
                 .get(partition_idx)
                 .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
             {
-                Some(partition) => partition,
+                Some(partition) => partition.clone(),
                 None => {
                     partitions_finished.push(partition_idx);
                     continue;
@@ -453,7 +456,8 @@ impl Deadline {
                 .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
                 .ok_or_else(
                     || actor_error!(ErrNotFound; "failed to find partition {}", partition_idx),
-                )?;
+                )?
+                .clone();
 
             let removed = partition
                 .terminate_sectors(store, sectors, epoch, sector_numbers, sector_size, quant)
@@ -625,7 +629,8 @@ impl Deadline {
             let mut partition = partitions
                 .get(partition_idx)
                 .map_err(|e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e))?
-                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?;
+                .ok_or_else(|| actor_error!(ErrNotFound,
+                    "no such partition {}", partition_idx))?.clone();
 
             let (new_faults, new_partition_faulty_power) = partition
                 .declare_faults(
@@ -679,7 +684,7 @@ impl Deadline {
                 .map_err(
                     |e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e),
                 )?
-                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?;
+                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?.clone();
 
             partition
                 .declare_faults_recovered(sectors, sector_size, sector_numbers)
@@ -724,9 +729,18 @@ impl Deadline {
                 continue;
             }
 
-            let mut partition = partitions.get(partition_idx).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e),
-            )?.ok_or_else(|| actor_error!(ErrIllegalState; "no partition {}", partition_idx))?;
+            let mut partition = partitions
+                .get(partition_idx)
+                .map_err(|e| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to load partition {}: {:?}",
+                        partition_idx,
+                        e
+                    )
+                })?
+                .ok_or_else(|| actor_error!(ErrIllegalState; "no partition {}", partition_idx))?
+                .clone();
 
             // If we have no recovering power/sectors, and all power is faulty, skip
             // this. This lets us skip some work if a miner repeatedly fails to PoSt.
@@ -845,7 +859,8 @@ impl Deadline {
             let mut partition = partitions
                 .get(post.index)
                 .map_err(|e| format!("failed to load partition {}: {}", post.index, e))?
-                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", post.index))?;
+                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", post.index))?
+                .clone();
 
             // Process new faults and accumulate new faulty power.
             // This updates the faults in partition state ahead of calculating the sectors to include for proof.
@@ -954,7 +969,7 @@ impl Deadline {
                 .get(partition_idx)
                 .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
             {
-                Some(partition) => partition,
+                Some(partition) => partition.clone(),
                 None => {
                     // We failed to find the partition, it could have moved
                     // due to compaction. This function is only reschedules
