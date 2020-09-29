@@ -18,7 +18,7 @@ use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use encoding::Cbor;
 use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
-use forest_message::{ChainMessage, MessageReceipt, UnsignedMessage};
+use forest_message::{ChainMessage, MessageReceipt};
 use interpreter::{ApplyRet, BlockMessages, Rand, VM};
 use num_bigint::BigInt;
 use runtime::{ConsensusFault, Syscalls};

@@ -6,10 +6,12 @@
 #[macro_use]
 extern crate lazy_static;
 
+use address::Protocol;
 use conformance_tests::*;
+use crypto::Signature;
 use encoding::Cbor;
 use flate2::read::GzDecoder;
-use forest_message::{MessageReceipt, UnsignedMessage};
+use forest_message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use regex::Regex;
 use std::error::Error as StdError;
 use std::fmt;
@@ -19,7 +21,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 14] = [
+    static ref SKIP_TESTS: [Regex; 5] = [
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -30,23 +32,23 @@ lazy_static! {
         // TODO This fails but is blocked on miner actor refactor, remove skip after that comes in
         Regex::new(r"test-vectors/corpus/reward/reward--ok-miners-awarded-no-premiums.json").unwrap(),
 
-        // These tests are initially failing becuase of gas used in msg 0 did not match
-        Regex::new(r"test-vectors/corpus/msg_application/gas_cost*").unwrap(),
-        Regex::new(r"test-vectors/corpus/paych/*").unwrap(),
-        Regex::new(r"test-vectors/corpus/transfer/*").unwrap(),
+        // // These tests are initially failing becuase of gas used in msg 0 did not match
+        // Regex::new(r"test-vectors/corpus/msg_application/gas_cost*").unwrap(),
+        // Regex::new(r"test-vectors/corpus/paych/*").unwrap(),
+        // Regex::new(r"test-vectors/corpus/transfer/*").unwrap(),
 
-        // This test case fails becuase of this issue https://github.com/filecoin-project/lotus/issues/3491
-        Regex::new(r"test-vectors/corpus/reward/penalties--*").unwrap(),
+        // // This test case fails becuase of this issue https://github.com/filecoin-project/lotus/issues/3491
+        // Regex::new(r"test-vectors/corpus/reward/penalties--*").unwrap(),
 
-        // These tests are initially failing becuase of gas used in msg 0 did not match
-        Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/msg_application/actor_exec--msg-apply-fail-actor-execution-illegal-arg.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/actor_creation/addresses--sequential-10.json").unwrap(),
+        // // These tests are initially failing becuase of gas used in msg 0 did not match
+        // Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
+        // Regex::new(r"test-vectors/corpus/msg_application/actor_exec--msg-apply-fail-actor-execution-illegal-arg.json").unwrap(),
+        // Regex::new(r"test-vectors/corpus/actor_creation/addresses--sequential-10.json").unwrap(),
 
-        // These 2 tests ignore test cases for Chaos actor that are checked at compile time
-        // Link to discussion https://github.com/ChainSafe/forest/pull/696/files
-        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
+        // // These 2 tests ignore test cases for Chaos actor that are checked at compile time
+        // // Link to discussion https://github.com/ChainSafe/forest/pull/696/files
+        // Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
+        // Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
     ];
 }
 
@@ -128,7 +130,7 @@ fn execute_message_vector(
             epoch = ep;
         }
 
-        let (ret, post_root) = execute_message(&bs, &msg, &root, epoch, &selector)?;
+        let (ret, post_root) = execute_message(&bs, &to_chain_msg(msg), &root, epoch, &selector)?;
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
@@ -144,6 +146,18 @@ fn execute_message_vector(
     }
 
     Ok(())
+}
+
+// This might be changed to be encoded into vector, matching go runner for now
+fn to_chain_msg(msg: UnsignedMessage) -> ChainMessage {
+    if msg.from().protocol() == Protocol::Secp256k1 {
+        ChainMessage::Signed(SignedMessage {
+            message: msg,
+            signature: Signature::new_secp256k1(vec![0; 65]),
+        })
+    } else {
+        ChainMessage::Unsigned(msg)
+    }
 }
 
 fn execute_tipset_vector(

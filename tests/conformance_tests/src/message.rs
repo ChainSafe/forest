@@ -14,7 +14,7 @@ pub struct MessageVector {
 
 pub fn execute_message(
     bs: &db::MemoryDB,
-    msg: &UnsignedMessage,
+    msg: &ChainMessage,
     pre_root: &Cid,
     epoch: ChainEpoch,
     selector: &Option<Selector>,

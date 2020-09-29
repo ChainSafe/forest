@@ -172,7 +172,7 @@ where
     let res = data
         .state_manager
         .call_with_gas(
-            &mut msg,
+            &mut ChainMessage::Unsigned(msg),
             &prior_messages,
             Some(data.mpool.cur_tipset.as_ref().read().await.clone()),
         )

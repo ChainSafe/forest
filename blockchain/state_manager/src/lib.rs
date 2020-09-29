@@ -10,7 +10,7 @@ use async_log::span;
 use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{block_messages, get_heaviest_tipset, HeadChange};
+use chain::{chain_messages, get_heaviest_tipset, HeadChange};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
@@ -186,7 +186,7 @@ where
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
-        callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>>
     where
         R: Rand,
@@ -246,7 +246,7 @@ where
 
             let block_headers = tipset.blocks();
             // generic constants are not implemented yet this is a lowcost method for now
-            let no_func = None::<fn(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>;
+            let no_func = None::<fn(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>;
             let cid_pair = self.compute_tipset_state(&block_headers, no_func)?;
             self.cache
                 .write()
@@ -324,7 +324,7 @@ where
 
     pub async fn call_with_gas(
         &self,
-        message: &mut UnsignedMessage,
+        message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
     ) -> StateCallResult
@@ -354,7 +354,7 @@ where
         )?;
 
         for msg in prior_messages {
-            vm.apply_message(&msg.message())?;
+            vm.apply_message(&msg)?;
         }
         let from_actor = vm
             .state()
@@ -366,7 +366,7 @@ where
         let ret = vm.apply_message(&message)?;
 
         Ok(InvocResult {
-            msg: message.clone(),
+            msg: message.message().clone(),
             msg_rct: Some(ret.msg_receipt.clone()),
             error: ret.act_error.map(|e| e.to_string()),
         })
@@ -383,9 +383,9 @@ where
     {
         let mut outm: Option<UnsignedMessage> = None;
         let mut outr: Option<ApplyRet> = None;
-        let callback = |cid: Cid, unsigned: UnsignedMessage, apply_ret: ApplyRet| {
+        let callback = |cid: Cid, unsigned: &ChainMessage, apply_ret: ApplyRet| {
             if cid == mcid.clone() {
-                outm = Some(unsigned);
+                outm = Some(unsigned.message().clone());
                 outr = Some(apply_ret);
                 return Err("halt".to_string());
             }
@@ -411,7 +411,7 @@ where
     pub fn compute_tipset_state(
         &self,
         block_headers: &[BlockHeader],
-        callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>> {
         span!("compute_tipset_state", {
             let first_block = block_headers
@@ -455,11 +455,10 @@ where
             let blocks = block_headers
                 .iter()
                 .map(|s: &BlockHeader| {
-                    let (bls_messages, secpk_messages) = block_messages(self.bs.as_ref(), &s)?;
+                    let messages = chain_messages(self.bs.as_ref(), &s)?;
                     Ok(BlockMessages {
                         miner: *s.miner_address(),
-                        bls_messages,
-                        secpk_messages,
+                        messages,
                         win_count: s
                             .election_proof()
                             .as_ref()
