@@ -81,11 +81,11 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
 
                 Ok(())
             })
-            .map_err(|e| e.downcast_wrap(format!("failed to cut from bitfield queue")))?;
+            .map_err(|e| e.downcast_wrap("failed to cut from bitfield queue"))?;
 
-        self.amt.batch_delete(epochs_to_remove).map_err(|e| {
-            e.downcast_wrap(format!("failed to remove empty epochs from bitfield queue"))
-        })?;
+        self.amt
+            .batch_delete(epochs_to_remove)
+            .map_err(|e| e.downcast_wrap("failed to remove empty epochs from bitfield queue"))?;
 
         Ok(())
     }

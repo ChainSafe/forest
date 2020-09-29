@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use encoding::{error::Error as CborError, Error as EncodingError};
 use ipld_amt::Error as AmtError;
 use ipld_hamt::Error as HamtError;

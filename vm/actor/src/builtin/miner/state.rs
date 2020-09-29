@@ -159,21 +159,21 @@ impl State {
     ) -> Result<(), ActorError> {
         // This will likely already have been checked, but this is a good place
         // to catch any mistakes.
-        #[allow(clippy::absurd_extreme_comparisons)]
         if sector_number > MAX_SECTOR_NUMBER {
             return Err(
                 actor_error!(ErrIllegalArgument; "sector number out of range: {}", sector_number),
             );
         }
 
-        let mut allocated_sectors: BitField = match store.get(&self.allocated_sectors) {
-            Ok(Some(bf)) => Ok(bf),
-            Ok(None) => Err(None),
-            Err(e) => Err(Some(e)),
-        }
-        .map_err(
-            |e| actor_error!(ErrIllegalState; "failed to load allocated sectors bitfield: {:?}", e),
-        )?;
+        let mut allocated_sectors: BitField = store
+            .get(&self.allocated_sectors)
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to load allocated sectors bitfield",
+                )
+            })?
+            .ok_or_else(|| actor_error!(ErrIllegalState, "allocated sectors bitfield not found"))?;
 
         if allocated_sectors.get(sector_number as usize) {
             return Err(
@@ -182,9 +182,15 @@ impl State {
         }
 
         allocated_sectors.set(sector_number as usize);
-        self.allocated_sectors = store
-            .put(&allocated_sectors, Blake2b256)
-            .map_err(|e| actor_error!(ErrIllegalArgument; "failed to store allocated sectors bitfield after adding sector {}: {:?}", sector_number, e))?;
+        self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(|e| {
+            e.downcast_default(
+                ExitCode::ErrIllegalArgument,
+                format!(
+                    "failed to store allocated sectors bitfield after adding sector {}",
+                    sector_number
+                ),
+            )
+        })?;
 
         Ok(())
     }
@@ -250,7 +256,7 @@ impl State {
         &self,
         store: &BS,
         sector_numbers: &[SectorNumber],
-    ) -> Result<Vec<SectorPreCommitOnChainInfo>, String> {
+    ) -> Result<Vec<SectorPreCommitOnChainInfo>, Box<dyn StdError>> {
         let precommitted =
             make_map_with_root(&self.pre_committed_sectors, store).map_err(|e| e.to_string())?;
         let mut result = Vec::with_capacity(sector_numbers.len());
@@ -292,8 +298,8 @@ impl State {
         &self,
         store: &BS,
         sector_num: SectorNumber,
-    ) -> Result<bool, String> {
-        let sectors = Sectors::load(store, &self.sectors).map_err(|e| e.to_string())?;
+    ) -> Result<bool, Box<dyn StdError>> {
+        let sectors = Sectors::load(store, &self.sectors)?;
         Ok(sectors.get(sector_num)?.is_some())
     }
 
@@ -301,7 +307,7 @@ impl State {
         &mut self,
         store: &BS,
         new_sectors: Vec<SectorOnChainInfo>,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         let mut sectors = Sectors::load(store, &self.sectors)
             .map_err(|e| format!("failed to load sectors: {:?}", e))?;
 
@@ -319,7 +325,7 @@ impl State {
         &self,
         store: &BS,
         sector_num: SectorNumber,
-    ) -> Result<Option<SectorOnChainInfo>, String> {
+    ) -> Result<Option<SectorOnChainInfo>, Box<dyn StdError>> {
         let sectors = Sectors::load(store, &self.sectors).map_err(|e| e.to_string())?;
         sectors.get(sector_num)
     }
@@ -591,7 +597,7 @@ impl State {
         store: &BS,
         proven_sectors: &BitField,
         expected_faults: &BitField,
-    ) -> Result<Vec<SectorOnChainInfo>, String> {
+    ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
         let non_faults = expected_faults - proven_sectors;
 
         if non_faults.is_empty() {
@@ -621,7 +627,7 @@ impl State {
         sectors_bf: &BitField,
         faults: &BitField,
         fault_stand_in: SectorNumber,
-    ) -> Result<Vec<SectorOnChainInfo>, String> {
+    ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
         let sectors = Sectors::load(store, &self.sectors)
             .map_err(|e| format!("failed to load sectors array: {:?}", e))?;
 

@@ -7,7 +7,8 @@ mod types;
 pub use self::state::*;
 pub use self::types::*;
 use crate::{
-    make_map, make_map_with_root, resolve_to_id_addr, Map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR, ActorDowncast
+    make_map, make_map_with_root, resolve_to_id_addr, ActorDowncast, Map, CALLER_TYPES_SIGNABLE,
+    INIT_ACTOR_ADDR,
 };
 use address::{Address, Protocol};
 use encoding::to_vec;
