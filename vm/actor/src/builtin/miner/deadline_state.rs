@@ -138,22 +138,27 @@ impl Deadline {
         store: &'db BS,
     ) -> Result<Amt<'db, Partition, BS>, ActorError> {
         Amt::load(&self.partitions, store)
-            .map_err(|e| actor_error!(ErrIllegalState; "failed to load partitions: {:?}", e))
+            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load partitions"))
     }
 
     pub fn load_partition<BS: BlockStore>(
         &self,
         store: &BS,
         partition_idx: u64,
-    ) -> Result<Partition, String> {
-        let partitions = Amt::<Partition, _>::load(&self.partitions, store)
-            .map_err(|e| format!("failed to load partitions: {:?}", e))?;
+    ) -> Result<Partition, Box<dyn StdError>> {
+        let partitions = Amt::<Partition, _>::load(&self.partitions, store)?;
 
         let partition = partitions
             .get(partition_idx)
-            .map_err(|e| format!("failed to lookup partition {}: {:?}", partition_idx, e))?;
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to lookup partition {}", partition_idx),
+                )
+            })?
+            .ok_or_else(|| actor_error!(ErrNotFound, "no partition {}", partition_idx))?;
 
-        partition.ok_or_else(|| format!("no partition {}", partition_idx))
+        Ok(partition)
     }
 
     /// Adds some partition numbers to the set expiring at an epoch.
@@ -163,21 +168,21 @@ impl Deadline {
         expiration_epoch: ChainEpoch,
         partitions: &[u64],
         quant: QuantSpec,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         // Avoid doing any work if there's nothing to reschedule.
         if partitions.is_empty() {
             return Ok(());
         }
 
         let mut queue = BitFieldQueue::new(store, &self.expirations_epochs, quant)
-            .map_err(|e| format!("failed to load expiration queue: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to load expiration queue"))?;
         queue
             .add_to_queue_values(expiration_epoch, partitions)
-            .map_err(|e| format!("failed to mutate expiration queue: {}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to mutate expiration queue"))?;
         self.expirations_epochs = queue
             .amt
             .flush()
-            .map_err(|e| format!("failed to save expiration queue: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to save expiration queue"))?;
 
         Ok(())
     }
@@ -217,13 +222,10 @@ impl Deadline {
                 partition
                     .pop_expired_sectors(store, until, quant)
                     .map_err(|e| {
-                        ActorDowncast::downcast_wrap(
-                            e,
-                            format!(
-                                "failed to pop expired sectors from partition {}",
-                                partition_idx
-                            ),
-                        )
+                        e.downcast_wrap(format!(
+                            "failed to pop expired sectors from partition {}",
+                            partition_idx
+                        ))
                     })?;
 
             if !partition_expiration.early_sectors.is_empty() {
@@ -342,12 +344,10 @@ impl Deadline {
         // Next, update the expiration queue.
         let mut deadline_expirations =
             BitFieldQueue::new(store, &self.expirations_epochs, quant)
-                .map_err(|e| format!("failed to load expiration epochs: {:?}", e))?;
+                .map_err(|e| e.downcast_wrap("failed to load expiration epochs"))?;
         deadline_expirations
             .add_many_to_queue_values(&partition_deadline_updates)
-            .map_err(|e| {
-                ActorDowncast::downcast_wrap(e, "failed to add expirations for new deadlines")
-            })?;
+            .map_err(|e| e.downcast_wrap("failed to add expirations for new deadlines"))?;
         self.expirations_epochs = deadline_expirations.amt.flush()?;
 
         Ok(new_power)
@@ -367,10 +367,9 @@ impl Deadline {
         for i in self.early_terminations.iter() {
             let partition_idx = i as u64;
 
-            let mut partition = match partitions
-                .get(partition_idx)
-                .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
-            {
+            let mut partition = match partitions.get(partition_idx).map_err(|e| {
+                e.downcast_wrap(format!("failed to load partition {}", partition_idx))
+            })? {
                 Some(partition) => partition,
                 None => {
                     partitions_finished.push(partition_idx);
@@ -381,9 +380,7 @@ impl Deadline {
             // Pop early terminations.
             let (partition_result, more) = partition
                 .pop_early_terminations(store, max_sectors - result.sectors_processed)
-                .map_err(|e| {
-                    ActorDowncast::downcast_wrap(e, "failed to pop terminations from partition")
-                })?;
+                .map_err(|e| e.downcast_wrap("failed to pop terminations from partition"))?;
 
             result += partition_result;
 
@@ -393,9 +390,9 @@ impl Deadline {
             }
 
             // Save partition
-            partitions
-                .set(partition_idx, partition)
-                .map_err(|e| format!("failed to store partition {}: {:?}", partition_idx, e))?;
+            partitions.set(partition_idx, partition).map_err(|e| {
+                e.downcast_wrap(format!("failed to store partition {}", partition_idx))
+            })?;
 
             if !result.below_limit(max_partitions, max_sectors) {
                 break;
@@ -410,7 +407,7 @@ impl Deadline {
         // Save deadline's partitions
         self.partitions = partitions
             .flush()
-            .map_err(|e| format!("failed to update partitions: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to update partitions"))?;
 
         // Update global early terminations bitfield.
         let no_early_terminations = self.early_terminations.is_empty();
@@ -426,7 +423,7 @@ impl Deadline {
         let mut expirations = BitFieldQueue::new(store, &self.expirations_epochs, quant)?;
         let (popped, modified) = expirations
             .pop_until(until)
-            .map_err(|e| ActorDowncast::downcast_wrap(e, "failed to pop expiring partitions"))?;
+            .map_err(|e| e.downcast_wrap("failed to pop expiring partitions"))?;
 
         if modified {
             self.expirations_epochs = expirations.amt.flush()?;
@@ -450,7 +447,9 @@ impl Deadline {
         for (partition_idx, sector_numbers) in partition_sectors.iter() {
             let mut partition = partitions
                 .get(partition_idx)
-                .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
+                .map_err(|e| {
+                    e.downcast_wrap(format!("failed to load partition {}", partition_idx))
+                })?
                 .ok_or_else(
                     || actor_error!(ErrNotFound; "failed to find partition {}", partition_idx),
                 )?;
@@ -458,17 +457,17 @@ impl Deadline {
             let removed = partition
                 .terminate_sectors(store, sectors, epoch, sector_numbers, sector_size, quant)
                 .map_err(|e| {
-                    ActorDowncast::downcast_wrap(
-                        e,
-                        format!("failed to terminate sectors in partition {}", partition_idx),
-                    )
+                    e.downcast_wrap(format!(
+                        "failed to terminate sectors in partition {}",
+                        partition_idx
+                    ))
                 })?;
 
             partitions.set(partition_idx, partition).map_err(|e| {
-                format!(
-                    "failed to store updated partition {}: {:?}",
-                    partition_idx, e
-                )
+                e.downcast_wrap(format!(
+                    "failed to store updated partition {}",
+                    partition_idx
+                ))
             })?;
 
             if !removed.is_empty() {
@@ -488,7 +487,7 @@ impl Deadline {
         // save partitions back
         self.partitions = partitions
             .flush()
-            .map_err(|e| format!("failed to persist partitions: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to persist partitions"))?;
 
         Ok(power_lost)
     }
@@ -570,11 +569,11 @@ impl Deadline {
 
                 Ok(())
             })
-            .map_err(|e| ActorDowncast::downcast_wrap(e, "while removing partitions"))?;
+            .map_err(|e| e.downcast_wrap("while removing partitions"))?;
 
         self.partitions = new_partitions
             .flush()
-            .map_err(|e| format!("failed to persist new partition table: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to persist new partition table"))?;
 
         let dead = BitField::union(&all_dead_sectors);
         let live = BitField::union(&all_live_sectors);
@@ -588,19 +587,16 @@ impl Deadline {
 
         // Update expiration bitfields.
         let mut expiration_epochs = BitFieldQueue::new(store, &self.expirations_epochs, quant)
-            .map_err(|e| format!("failed to load expiration queue: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to load expiration queue"))?;
 
         expiration_epochs.cut(to_remove).map_err(|e| {
-            format!(
-                "failed cut removed partitions from deadline expiration queue: {}",
-                e
-            )
+            e.downcast_wrap("failed cut removed partitions from deadline expiration queue")
         })?;
 
         self.expirations_epochs = expiration_epochs
             .amt
             .flush()
-            .map_err(|e| format!("failed persist deadline expiration queue: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed persist deadline expiration queue"))?;
 
         Ok((live, dead, removed_power))
     }
@@ -624,7 +620,12 @@ impl Deadline {
         for (partition_idx, sector_numbers) in partition_sectors.iter() {
             let mut partition = partitions
                 .get(partition_idx)
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e))?
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load partition {}", partition_idx),
+                    )
+                })?
                 .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?;
 
             let (new_faults, new_partition_faulty_power) = partition
@@ -637,10 +638,10 @@ impl Deadline {
                     quant,
                 )
                 .map_err(|e| {
-                    ActorDowncast::downcast_wrap(
-                        e,
-                        format!("failed to declare faults in partition {}", partition_idx),
-                    )
+                    e.downcast_wrap(format!(
+                        "failed to declare faults in partition {}",
+                        partition_idx
+                    ))
                 })?;
 
             new_faulty_power += &new_partition_faulty_power;
@@ -648,17 +649,30 @@ impl Deadline {
                 partitions_with_fault.push(partition_idx);
             }
 
-            partitions
-                .set(partition_idx, partition)
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to store partition {}: {:?}", partition_idx, e))?;
+            partitions.set(partition_idx, partition).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to store partition {}", partition_idx),
+                )
+            })?;
         }
 
-        self.partitions = partitions.flush().map_err(
-            |e| actor_error!(ErrIllegalState; "failed to store partitions root: {:?}", e),
-        )?;
+        self.partitions = partitions.flush().map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to store partitions root")
+        })?;
 
-        self.add_expiration_partitions(store, fault_expiration_epoch, &partitions_with_fault, quant)
-            .map_err(|e| actor_error!(ErrIllegalState; "failed to update expirations for partitions with faults: {:?}", e))?;
+        self.add_expiration_partitions(
+            store,
+            fault_expiration_epoch,
+            &partitions_with_fault,
+            quant,
+        )
+        .map_err(|e| {
+            e.downcast_default(
+                ExitCode::ErrIllegalState,
+                "failed to update expirations for partitions with faults",
+            )
+        })?;
 
         self.faulty_power += &new_faulty_power;
         Ok(new_faulty_power)
@@ -676,25 +690,31 @@ impl Deadline {
         for (partition_idx, sector_numbers) in partition_sectors.iter() {
             let mut partition = partitions
                 .get(partition_idx)
-                .map_err(
-                    |e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e),
-                )?
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load partition {}", partition_idx),
+                    )
+                })?
                 .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?;
 
             partition
                 .declare_faults_recovered(sectors, sector_size, sector_numbers)
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to add recoveries: {:?}", e))?;
+                .map_err(|e| e.wrap("failed to add recoveries"))?;
 
-            partitions
-                .set(partition_idx, partition)
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to update partition {}: {:?}", partition_idx, e))?;
+            partitions.set(partition_idx, partition).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to update partition {}", partition_idx),
+                )
+            })?;
         }
 
         // Power is not regained until the deadline end, when the recovery is confirmed.
 
-        self.partitions = partitions.flush().map_err(
-            |e| actor_error!(ErrIllegalState; "failed to store partitions root: {:?}", e),
-        )?;
+        self.partitions = partitions.flush().map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to store partitions root")
+        })?;
 
         Ok(())
     }
@@ -712,7 +732,7 @@ impl Deadline {
 
         let mut partitions = self
             .partitions_amt(store)
-            .map_err(|e| actor_error!(ErrIllegalState; "failed to load partitions: {:?}", e))?;
+            .map_err(|e| e.wrap("failed to load partitions"))?;
 
         let mut detected_any = false;
         let mut rescheduled_partitions = Vec::<u64>::new();
@@ -724,9 +744,15 @@ impl Deadline {
                 continue;
             }
 
-            let mut partition = partitions.get(partition_idx).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load partition {}: {:?}", partition_idx, e),
-            )?.ok_or_else(|| actor_error!(ErrIllegalState; "no partition {}", partition_idx))?;
+            let mut partition = partitions
+                .get(partition_idx)
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load partition {}", partition_idx),
+                    )
+                })?
+                .ok_or_else(|| actor_error!(ErrIllegalState; "no partition {}", partition_idx))?;
 
             // If we have no recovering power/sectors, and all power is faulty, skip
             // this. This lets us skip some work if a miner repeatedly fails to PoSt.
@@ -741,7 +767,15 @@ impl Deadline {
 
             let (part_faulty_power, part_failed_recovery_power) = partition
                 .record_missed_post(store, fault_expiration_epoch, quant)
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to record missed PoSt for partition {}: {:?}", partition_idx, e))?;
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!(
+                            "failed to record missed PoSt for partition {}",
+                            partition_idx
+                        ),
+                    )
+                })?;
 
             // We marked some sectors faulty, we need to record the new
             // expiration. We don't want to do this if we're just penalizing
@@ -751,9 +785,12 @@ impl Deadline {
             }
 
             // Save new partition state.
-            partitions
-                .set(partition_idx, partition)
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to update partition {}: {:?}", partition_idx, e))?;
+            partitions.set(partition_idx, partition).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to update partition {}", partition_idx),
+                )
+            })?;
 
             new_faulty_power += &part_faulty_power;
             failed_recovery_power += &part_failed_recovery_power;
@@ -761,9 +798,9 @@ impl Deadline {
 
         // Save modified deadline state.
         if detected_any {
-            self.partitions = partitions.flush().map_err(
-                |e| actor_error!(ErrIllegalState; "failed to store partitions: {:?}", e),
-            )?;
+            self.partitions = partitions.flush().map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to store partitions")
+            })?;
         }
 
         self.add_expiration_partitions(
@@ -772,7 +809,12 @@ impl Deadline {
             &rescheduled_partitions,
             quant,
         )
-        .map_err(|e| actor_error!(ErrIllegalState; "failed to update deadline expiration queue: {:?}", e))?;
+        .map_err(|e| {
+            e.downcast_default(
+                ExitCode::ErrIllegalState,
+                "failed to update deadline expiration queue",
+            )
+        })?;
 
         self.faulty_power += &new_faulty_power;
 
@@ -844,7 +886,7 @@ impl Deadline {
 
             let mut partition = partitions
                 .get(post.index)
-                .map_err(|e| format!("failed to load partition {}: {}", post.index, e))?
+                .map_err(|e| e.downcast_wrap(format!("failed to load partition {}", post.index)))?
                 .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", post.index))?;
 
             // Process new faults and accumulate new faulty power.
@@ -874,13 +916,10 @@ impl Deadline {
             let recovered_power = partition
                 .recover_faults(store, sectors, sector_size, quant)
                 .map_err(|e| {
-                    ActorDowncast::downcast_wrap(
-                        e,
-                        format!(
-                            "failed to recover faulty sectors for partition {}",
-                            post.index
-                        ),
-                    )
+                    e.downcast_wrap(format!(
+                        "failed to recover faulty sectors for partition {}",
+                        post.index
+                    ))
                 })?;
 
             // note: we do this first because `partition` is moved in the upcoming `partitions.set` call
@@ -891,9 +930,12 @@ impl Deadline {
             all_ignored.push(partition.terminated.clone());
 
             // This will be rolled back if the method aborts with a failed proof.
-            partitions
-                .set(post.index, partition)
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to update partition {}: {:?}", post.index, e))?;
+            partitions.set(post.index, partition).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to update partition {}", post.index),
+                )
+            })?;
 
             new_faulty_power_total += &new_fault_power;
             retracted_recovery_power_total += &retracted_recovery_power;
@@ -904,15 +946,20 @@ impl Deadline {
         }
 
         self.add_expiration_partitions(store, fault_expiration, &rescheduled_partitions, quant)
-            .map_err(|e| actor_error!(ErrIllegalState; "failed to update expirations for partitions with faults: {:?}", e))?;
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to update expirations for partitions with faults",
+                )
+            })?;
 
         // Save everything back.
         self.faulty_power -= &recovered_power_total;
         self.faulty_power += &new_faulty_power_total;
 
-        self.partitions = partitions
-            .flush()
-            .map_err(|e| actor_error!(ErrIllegalState; "failed to persist partitions: {:?}", e))?;
+        self.partitions = partitions.flush().map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to persist partitions")
+        })?;
 
         // Collect all sectors, faults, and recoveries for proof verification.
         let all_sector_numbers = BitField::union(&all_sectors);
@@ -950,10 +997,9 @@ impl Deadline {
         let mut rescheduled_partitions = Vec::<u64>::new();
 
         for (partition_idx, sector_numbers) in partition_sectors.iter() {
-            let mut partition = match partitions
-                .get(partition_idx)
-                .map_err(|e| format!("failed to load partition {}: {:?}", partition_idx, e))?
-            {
+            let mut partition = match partitions.get(partition_idx).map_err(|e| {
+                e.downcast_wrap(format!("failed to load partition {}", partition_idx))
+            })? {
                 Some(partition) => partition,
                 None => {
                     // We failed to find the partition, it could have moved
@@ -973,13 +1019,10 @@ impl Deadline {
                     quant,
                 )
                 .map_err(|e| {
-                    ActorDowncast::downcast_wrap(
-                        e,
-                        format!(
-                            "failed to reschedule expirations in partition {}",
-                            partition_idx
-                        ),
-                    )
+                    e.downcast_wrap(format!(
+                        "failed to reschedule expirations in partition {}",
+                        partition_idx
+                    ))
                 })?;
 
             if moved.is_empty() {
@@ -988,18 +1031,18 @@ impl Deadline {
             }
 
             rescheduled_partitions.push(partition_idx);
-            partitions
-                .set(partition_idx, partition)
-                .map_err(|e| format!("failed to store partition {}: {:?}", partition_idx, e))?;
+            partitions.set(partition_idx, partition).map_err(|e| {
+                e.downcast_wrap(format!("failed to store partition {}", partition_idx))
+            })?;
         }
 
         if !rescheduled_partitions.is_empty() {
             self.partitions = partitions
                 .flush()
-                .map_err(|e| format!("failed to save partitions: {:?}", e))?;
+                .map_err(|e| e.downcast_wrap("failed to save partitions"))?;
 
             self.add_expiration_partitions(store, expiration, &rescheduled_partitions, quant)
-                .map_err(|e| format!("failed to reschedule partition expirations: {}", e))?;
+                .map_err(|e| e.downcast_wrap("failed to reschedule partition expirations"))?;
         }
 
         Ok(())
