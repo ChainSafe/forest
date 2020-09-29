@@ -28,13 +28,6 @@ pub enum Error {
     Other(String),
 }
 
-// TODO remove this IMPL, will cause issues with Actors error handling
-impl From<Error> for String {
-    fn from(e: Error) -> Self {
-        e.to_string()
-    }
-}
-
 impl From<EncodingError> for Error {
     fn from(e: EncodingError) -> Self {
         Self::Dynamic(Box::new(e))

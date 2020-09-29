@@ -8,6 +8,7 @@ use encoding::tuple::*;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error as HamtError;
+use std::error::Error as StdError;
 use vm::ActorID;
 
 /// State is reponsible for creating
@@ -58,7 +59,7 @@ impl State {
         &self,
         store: &BS,
         addr: &Address,
-    ) -> Result<Option<Address>, String> {
+    ) -> Result<Option<Address>, Box<dyn StdError>> {
         if addr.protocol() == Protocol::ID {
             return Ok(Some(*addr));
         }
