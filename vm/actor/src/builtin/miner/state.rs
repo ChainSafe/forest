@@ -212,14 +212,20 @@ impl State {
             );
         }
 
-        let mut allocated_sectors: BitField = match store.get(&self.allocated_sectors) {
-            Ok(Some(bf)) => Ok(bf),
-            Ok(None) => Err(None),
-            Err(e) => Err(Some(e)),
-        }
-        .map_err(
-            |e| actor_error!(ErrIllegalState; "failed to load allocated sectors bitfield {:?}", e),
-        )?;
+        let mut allocated_sectors: BitField = store
+            .get(&self.allocated_sectors)
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to load allocated sectors bitfield",
+                )
+            })?
+            .ok_or_else(|| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to load allocated sectors bitfield: does not exist"
+                )
+            })?;
 
         allocated_sectors |= sector_numbers;
 
@@ -257,16 +263,15 @@ impl State {
         store: &BS,
         sector_numbers: &[SectorNumber],
     ) -> Result<Vec<SectorPreCommitOnChainInfo>, Box<dyn StdError>> {
-        let precommitted =
-            make_map_with_root(&self.pre_committed_sectors, store).map_err(|e| e.to_string())?;
+        let precommitted = make_map_with_root(&self.pre_committed_sectors, store)?;
         let mut result = Vec::with_capacity(sector_numbers.len());
 
         for &sector_number in sector_numbers {
             let info = match precommitted.get(&u64_key(sector_number)).map_err(|e| {
-                format!(
-                    "failed to load precommitment for {}: {:?}",
-                    sector_number, e
-                )
+                e.downcast_wrap(format!(
+                    "failed to load precommitment for {}",
+                    sector_number
+                ))
             })? {
                 Some(info) => info,
                 None => continue,
@@ -309,14 +314,14 @@ impl State {
         new_sectors: Vec<SectorOnChainInfo>,
     ) -> Result<(), Box<dyn StdError>> {
         let mut sectors = Sectors::load(store, &self.sectors)
-            .map_err(|e| format!("failed to load sectors: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to load sectors"))?;
 
         sectors.store(new_sectors)?;
 
         self.sectors = sectors
             .amt
             .flush()
-            .map_err(|e| format!("failed to persist sectors: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to persist sectors"))?;
 
         Ok(())
     }
@@ -326,7 +331,7 @@ impl State {
         store: &BS,
         sector_num: SectorNumber,
     ) -> Result<Option<SectorOnChainInfo>, Box<dyn StdError>> {
-        let sectors = Sectors::load(store, &self.sectors).map_err(|e| e.to_string())?;
+        let sectors = Sectors::load(store, &self.sectors)?;
         sectors.get(sector_num)
     }
 
@@ -341,7 +346,7 @@ impl State {
             sectors
                 .amt
                 .delete(sector_num as u64)
-                .map_err(|e| AmtError::Other(format!("could not delete sector number: {}", e)))?;
+                .map_err(|e| e.downcast_wrap("could not delete sector number"))?;
         }
 
         self.sectors = sectors.amt.flush()?;
@@ -502,13 +507,10 @@ impl State {
                     max_sectors - result.sectors_processed,
                 )
                 .map_err(|e| {
-                    ActorDowncast::downcast_wrap(
-                        e,
-                        format!(
-                            "failed to pop early terminations for deadline {}",
-                            deadline_idx
-                        ),
-                    )
+                    e.downcast_wrap(format!(
+                        "failed to pop early terminations for deadline {}",
+                        deadline_idx
+                    ))
                 })?;
 
             result += deadline_result;
@@ -629,11 +631,11 @@ impl State {
         fault_stand_in: SectorNumber,
     ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
         let sectors = Sectors::load(store, &self.sectors)
-            .map_err(|e| format!("failed to load sectors array: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to load sectors array"))?;
 
-        let stand_in_info = sectors
-            .must_get(fault_stand_in)
-            .map_err(|e| format!("failed to load stand-in sector {}: {:?}", fault_stand_in, e))?;
+        let stand_in_info = sectors.must_get(fault_stand_in).map_err(|e| {
+            e.downcast_wrap(format!("failed to load stand-in sector {}", fault_stand_in))
+        })?;
 
         // Expand faults into a map for quick lookups.
         // The faults bitfield should already be a subset of the sectors bitfield.
@@ -648,7 +650,7 @@ impl State {
             } else {
                 sectors
                     .must_get(i as u64)
-                    .map_err(|e| format!("failed to load sector {}: {:?}", i, e))?
+                    .map_err(|e| e.downcast_wrap(format!("failed to load sector {}", i)))?
             };
 
             sector_infos.push(sector);
@@ -684,9 +686,8 @@ impl State {
         Ok(store
             .get(&self.vesting_funds)
             .map_err(|e| {
-                ActorDowncast::downcast_wrap(
-                    e,
-                    format!("failed to load vesting funds {:?}", self.vesting_funds),
+                e.downcast_wrap(
+                    format!("failed to load vesting funds {}", self.vesting_funds),
                 )
             })?
             .ok_or_else(|| actor_error!(ErrNotFound; "failed to load vesting funds {:?}", self.vesting_funds))?)
@@ -878,7 +879,7 @@ impl State {
         // Load BitField Queue for sector expiry
         let quant = self.quant_spec_every_deadline();
         let mut queue = super::BitFieldQueue::new(store, &self.pre_committed_sectors_expiry, quant)
-            .map_err(|e| format!("failed to load pre-commit sector queue: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to load pre-commit sector queue"))?;
 
         // add entry for this sector to the queue
         queue.add_to_queue_values(expire_epoch, &[sector_number])?;

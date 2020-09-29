@@ -31,11 +31,9 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
                 .amt
                 .get(sector_number as SectorNumber)
                 .map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to load sector {}: {:?}",
-                        sector_number,
-                        e
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load sector {}", sector_number),
                     )
                 })?
                 .ok_or_else(|| actor_error!(ErrNotFound; "sector not found: {}", sector_number))?;

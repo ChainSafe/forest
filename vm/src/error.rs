@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ExitCode;
+use encoding::error::Error as CborError;
 use encoding::Error as EncodingError;
 use thiserror::Error;
 
@@ -63,6 +64,16 @@ impl ActorError {
 
 impl From<EncodingError> for ActorError {
     fn from(e: EncodingError) -> Self {
+        Self {
+            fatal: false,
+            exit_code: ExitCode::ErrSerialization,
+            msg: e.to_string(),
+        }
+    }
+}
+
+impl From<CborError> for ActorError {
+    fn from(e: CborError) -> Self {
         Self {
             fatal: false,
             exit_code: ExitCode::ErrSerialization,
