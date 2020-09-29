@@ -2174,6 +2174,7 @@ dependencies = [
  "futures-util",
  "futures_codec",
  "ipld_blockstore",
+ "lazy_static",
  "libp2p",
  "libp2p-bitswap",
  "libp2p-request-response",

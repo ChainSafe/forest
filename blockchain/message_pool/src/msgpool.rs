@@ -16,7 +16,7 @@ use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
 use flo_stream::Subscriber;
-use forest_libp2p::{NetworkMessage};
+use forest_libp2p::{NetworkMessage, PUBSUB_MSG_TOPIC};
 use futures::StreamExt;
 use log::{error, warn};
 use lru::LruCache;
@@ -331,10 +331,16 @@ where
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
-        self.add_tipset(msg.clone(), &self.cur_tipset.read().await.clone())
+        let publish = self.add_tipset(msg.clone(), &self.cur_tipset.read().await.clone(), true)
             .await?;
+        let msg_ser  = msg.marshal_cbor()?;
         self.add_local(msg).await?;
-        // TODO: Publish over Gossip
+        if publish {
+            self.network_sender.send(NetworkMessage::PubsubMessage {
+                topic: PUBSUB_MSG_TOPIC.clone(),
+                message: msg_ser,
+            }).await;
+        }
         Ok(cid)
     }
 
@@ -361,7 +367,8 @@ where
 
         let tip = self.cur_tipset.read().await.clone();
 
-        self.add_tipset(tmp, &tip).await
+        self.add_tipset(tmp, &tip, false).await?;
+        Ok(())
     }
 
     /// Add a SignedMessage without doing any of the checks
@@ -390,12 +397,14 @@ where
 
     /// Verify the state_sequence and balance for the sender of the message given then call add_locked
     /// to finish adding the signed_message to pending
-    async fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
+    async fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(msg.from(), cur_ts).await?;
 
         if sequence > msg.message().sequence() {
             return Err(Error::SequenceTooLow);
         }
+
+        let publish = verify_msg_before_add(&msg, &cur_ts, local)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
@@ -403,7 +412,8 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_helper(msg).await
+        self.add_helper(msg).await?;
+        Ok(publish)
     }
 
     /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
@@ -488,7 +498,10 @@ where
         self.add_local(msg.clone()).await?;
 
         if publish {
-            // TODO: Implement this, Publish message through gossipsub
+            self.network_sender.send(NetworkMessage::PubsubMessage {
+                topic: PUBSUB_MSG_TOPIC.clone(),
+                message: msg.marshal_cbor()?
+            }).await;
         }
 
         Ok(msg)
