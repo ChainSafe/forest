@@ -124,7 +124,7 @@ impl State {
         match store.get(&self.info) {
             Ok(Some(info)) => Ok(info),
             Ok(None) => Err(actor_error!(ErrNotFound, "failed to get miner info").into()),
-            Err(e) => Err(ActorDowncast::downcast_wrap(e, "failed to get miner info")),
+            Err(e) => Err(e.downcast_wrap("failed to get miner info")),
         }
     }
 

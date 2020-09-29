@@ -56,7 +56,6 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
         for info in infos {
             let sector_number = info.sector_number;
 
-            // #[allow(clippy::absurd_extreme_comparisons)]
             if sector_number > MAX_SECTOR_NUMBER {
                 return Err(format!("sector number {} out of range", info.sector_number).into());
             }
