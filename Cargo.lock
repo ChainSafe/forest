@@ -3682,6 +3682,7 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
+ "forest_libp2p",
  "forest_message",
  "forest_vm",
  "futures 0.3.5",

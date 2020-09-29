@@ -76,6 +76,7 @@ pub(super) async fn start(config: Config) {
         MessagePool::new(
             provider,
             network_name.clone(),
+            network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
         )
         .await

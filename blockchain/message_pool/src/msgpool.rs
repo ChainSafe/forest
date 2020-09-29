@@ -4,7 +4,7 @@
 use super::config::MpoolConfig;
 use super::errors::Error;
 use address::{Address, Protocol};
-use async_std::sync::{Arc, RwLock};
+use async_std::sync::{Arc, RwLock, Sender};
 use async_std::task;
 use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -16,6 +16,7 @@ use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
 use flo_stream::Subscriber;
+use forest_libp2p::{NetworkMessage};
 use futures::StreamExt;
 use log::{error, warn};
 use lru::LruCache;
@@ -228,6 +229,7 @@ pub struct MessagePool<T: 'static> {
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
     pub network_name: String,
+    network_sender:Sender<NetworkMessage>,
     bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     sig_val_cache: Arc<RwLock<LruCache<Cid, ()>>>,
     // TODO look into adding a cap to local_msgs
@@ -243,6 +245,7 @@ where
     pub async fn new(
         mut api: T,
         network_name: String,
+        network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
     ) -> Result<MessagePool<T>, Error>
     where
@@ -271,6 +274,7 @@ where
             sig_val_cache,
             local_msgs,
             config,
+            network_sender,
         };
 
         mp.load_local().await?;
