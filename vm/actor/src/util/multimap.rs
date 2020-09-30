@@ -35,7 +35,7 @@ where
     /// Adds a value for a key.
     pub fn add<V>(&mut self, key: BytesKey, value: V) -> Result<(), String>
     where
-        V: Serialize + DeserializeOwned + Clone,
+        V: Serialize + DeserializeOwned,
     {
         // Get construct amt from retrieved cid or create new
         let mut arr = self
