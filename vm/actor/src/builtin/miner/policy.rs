@@ -5,8 +5,8 @@ use super::types::SectorOnChainInfo;
 use crate::{network::*, DealWeight};
 use clock::ChainEpoch;
 use fil_types::{RegisteredSealProof, SectorQuality, SectorSize, StoragePower};
-use num_bigint::BigInt;
 use num_bigint::BigUint;
+use num_bigint::{BigInt, Integer};
 use num_traits::Pow;
 use std::cmp;
 use vm::TokenAmount;
@@ -128,14 +128,17 @@ fn quality_for_weight(
     assert!(sector_space_time >= total_deal_space_time);
 
     let weighted_base_space_time =
-        (&sector_space_time - total_deal_space_time) * QUALITY_BASE_MULTIPLIER;
-    let weighted_deal_space_time = deal_weight * DEAL_WEIGHT_MULTIPLIER;
-    let weighted_verified_space_time = verified_weight * VERIFIED_DEAL_WEIGHT_MULTIPLIER;
+        (&sector_space_time - total_deal_space_time) * &*QUALITY_BASE_MULTIPLIER;
+    let weighted_deal_space_time = deal_weight * &*DEAL_WEIGHT_MULTIPLIER;
+    let weighted_verified_space_time = verified_weight * &*VERIFIED_DEAL_WEIGHT_MULTIPLIER;
     let weighted_sum_space_time =
         weighted_base_space_time + weighted_deal_space_time + weighted_verified_space_time;
-    let scaled_up_weighted_sum_space_time = weighted_sum_space_time << SECTOR_QUALITY_PRECISION;
+    let scaled_up_weighted_sum_space_time: SectorQuality =
+        weighted_sum_space_time << SECTOR_QUALITY_PRECISION;
 
-    scaled_up_weighted_sum_space_time / sector_space_time / QUALITY_BASE_MULTIPLIER
+    scaled_up_weighted_sum_space_time
+        .div_floor(&sector_space_time)
+        .div_floor(&QUALITY_BASE_MULTIPLIER)
 }
 
 /// Returns the power for a sector size and weight.
@@ -224,12 +227,12 @@ pub fn reward_for_consensus_slash_report(
     let slasher_share_denominator = consensus_fault_reporter_share_growth_rate
         .denominator
         .pow(&elapsed);
-    let num =
+    let num: BigInt =
         (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator) * &collateral;
     let denom = slasher_share_denominator * consensus_fault_reporter_initial_share.denominator;
 
     cmp::min(
-        num / denom,
-        (collateral * max_reporter_share_num) / max_reporter_share_den,
+        num.div_floor(&denom),
+        (collateral * max_reporter_share_num).div_floor(&max_reporter_share_den),
     )
 }

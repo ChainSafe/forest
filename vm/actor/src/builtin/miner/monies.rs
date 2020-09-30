@@ -9,7 +9,7 @@ use crate::{
 };
 use clock::ChainEpoch;
 use fil_types::StoragePower;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use std::cmp;
 
@@ -172,9 +172,9 @@ pub fn initial_pledge_for_power(
     let lock_target_denom = &*LOCK_TARGET_FACTOR_DENOM;
     let pledge_share_num = qa_power;
     let pledge_share_denom = cmp::max(cmp::max(&network_qa_power, baseline_power), qa_power); // use qaPower in case others are 0
-    let additional_ip_num = &lock_target_num * pledge_share_num;
+    let additional_ip_num: TokenAmount = &lock_target_num * pledge_share_num;
     let additional_ip_denom = lock_target_denom * pledge_share_denom;
-    let additional_ip = additional_ip_num / additional_ip_denom;
+    let additional_ip = additional_ip_num.div_floor(&additional_ip_denom);
 
     let nominal_pledge = ip_base + additional_ip;
     let space_race_pledge_cap = &*SPACE_RACE_INITIAL_PLEDGE_MAX_PER_BYTE * qa_power;

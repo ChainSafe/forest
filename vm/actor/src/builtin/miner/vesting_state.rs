@@ -4,7 +4,7 @@
 use super::{QuantSpec, VestSpec};
 use clock::ChainEpoch;
 use encoding::tuple::*;
-use num_bigint::bigint_ser;
+use num_bigint::{bigint_ser, Integer};
 use num_traits::Zero;
 use std::{cmp::Ordering, collections::HashMap};
 use vm::TokenAmount;
@@ -74,7 +74,7 @@ impl VestingFunds {
             let elapsed = vest_epoch - vest_begin;
             let target_vest = if elapsed < spec.vest_period {
                 // Linear vesting, PARAM_FINISH
-                (vesting_sum * elapsed) / vest_period
+                (vesting_sum * elapsed).div_floor(&TokenAmount::from(vest_period))
             } else {
                 vesting_sum.clone()
             };

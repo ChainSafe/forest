@@ -78,16 +78,16 @@ mod tests {
 
     #[test]
     fn rounding() {
-        let dd: BigInt =
-            "-251289069730820470307884994218072823111562842879766927769600000000000000000000000000"
-                .parse()
-                .unwrap();
-        let dv: BigInt = "1020847100762815390390123822295304634368".parse().unwrap();
-        assert_eq!(
-            (dd / dv).to_string(),
-            "-246157401576639455533333333333333333333333333"
-        );
+        // Calculations in this mod are under the assumption division is euclidean and not truncated
+        let dd: BigInt = BigInt::from(-100);
+        let dv: BigInt = BigInt::from(3);
+        assert_eq!(dd.div_floor(&dv), BigInt::from(-34));
+
+        let dd: BigInt = BigInt::from(200);
+        let dv: BigInt = BigInt::from(3);
+        assert_eq!(dd.div_floor(&dv), BigInt::from(66));
     }
+
     #[test]
     fn rounding_issue() {
         let fe = FilterEstimate {
