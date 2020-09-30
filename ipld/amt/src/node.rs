@@ -174,7 +174,7 @@ where
                         // Puts node in blockstore and and retrieves it's CID
                         let cid = bs.put(n, Blake2b256)?;
 
-                        // Turn dity node into a Cid link
+                        // Turn dirty node into a Cid link
                         *link = Some(Link::Cid {
                             cid,
                             cache: Default::default(),
