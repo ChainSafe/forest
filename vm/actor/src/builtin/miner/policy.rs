@@ -185,14 +185,14 @@ pub const PLEDGE_VESTING_SPEC: VestSpec = VestSpec {
     initial_delay: 180 * EPOCHS_IN_DAY, // PARAM_FINISH
     vest_period: 180 * EPOCHS_IN_DAY,   // PARAM_FINISH
     step_duration: EPOCHS_IN_DAY,       // PARAM_FINISH
-    quantization: 12 * SECONDS_IN_HOUR, // PARAM_FINISH
+    quantization: 12 * EPOCHS_IN_HOUR,  // PARAM_FINISH
 };
 
 pub const REWARD_VESTING_SPEC: VestSpec = VestSpec {
-    initial_delay: 20 * EPOCHS_IN_DAY,  // PARAM_FINISH
-    vest_period: 180 * EPOCHS_IN_DAY,   // PARAM_FINISH
-    step_duration: EPOCHS_IN_DAY,       // PARAM_FINISH
-    quantization: 12 * SECONDS_IN_HOUR, // PARAM_FINISH
+    initial_delay: 20 * EPOCHS_IN_DAY, // PARAM_FINISH
+    vest_period: 180 * EPOCHS_IN_DAY,  // PARAM_FINISH
+    step_duration: EPOCHS_IN_DAY,      // PARAM_FINISH
+    quantization: 12 * EPOCHS_IN_HOUR, // PARAM_FINISH
 };
 
 pub fn reward_for_consensus_slash_report(
