@@ -5,7 +5,7 @@ use crate::util::math::PRECISION;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use encoding::Cbor;
-use num_bigint::{bigint_ser, BigInt};
+use num_bigint::{bigint_ser, BigInt, Integer};
 
 #[derive(Default, Serialize_tuple, Deserialize_tuple, Clone, Debug, PartialEq)]
 pub struct FilterEstimate {
@@ -64,8 +64,49 @@ impl<'a, 'b, 'f> AlphaBetaFilter<'a, 'b, 'f> {
         let revision_x = (self.alpha * &residual) >> PRECISION;
         position += &revision_x;
 
-        let revision_v = (residual * self.beta) / delta_t;
+        let revision_v = residual * self.beta;
+        let revision_v = revision_v.div_floor(&delta_t);
         let velocity = revision_v + &self.prev_est.velocity;
         FilterEstimate { position, velocity }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{DEFAULT_ALPHA, DEFAULT_BETA};
+    use super::*;
+
+    #[test]
+    fn rounding() {
+        let dd: BigInt =
+            "-251289069730820470307884994218072823111562842879766927769600000000000000000000000000"
+                .parse()
+                .unwrap();
+        let dv: BigInt = "1020847100762815390390123822295304634368".parse().unwrap();
+        assert_eq!(
+            (dd / dv).to_string(),
+            "-246157401576639455533333333333333333333333333"
+        );
+    }
+    #[test]
+    fn rounding_issue() {
+        let fe = FilterEstimate {
+            position: "12340768897043811082913117521041414330876498465539749838848"
+                .parse()
+                .unwrap(),
+            velocity: "-37396269384748225153347462373739139597454335279104"
+                .parse()
+                .unwrap(),
+        };
+        let filter_reward = AlphaBetaFilter::load(&fe, &DEFAULT_ALPHA, &DEFAULT_BETA);
+        let next = filter_reward.next_estimate(&36266252337034982540u128.into(), 3);
+        assert_eq!(
+            next.position.to_string(),
+            "12340768782449774548722755900999027209659079673176744001536"
+        );
+        assert_eq!(
+            next.velocity.to_string(),
+            "-37396515542149801792802995707072472930787668612438"
+        );
     }
 }
