@@ -5,32 +5,31 @@ use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
 use actor::{make_map_with_root, power, STORAGE_POWER_ACTOR_ADDR};
-use address::{Address, Protocol};
+use address::Address;
 use amt::Amt;
 use async_std::sync::{Receiver, RwLock};
 use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, ElectionProof, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::{persist_objects, ChainStore};
 use cid::{multihash::Blake2b256, Cid};
-use commcid::cid_to_replica_commitment_v1;
-use crypto::{verify_bls_aggregate, DomainSeparationTag, Signature};
+use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
-    SectorInfo, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, TICKET_RANDOMNESS_LOOKBACK,
+    verifier::ProofVerifier, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, TICKET_RANDOMNESS_LOOKBACK,
     UPGRADE_SMOKE_HEIGHT,
 };
-use filecoin_proofs_api::{post::verify_winning_post, ProverId, PublicReplicaInfo, SectorId};
 use forest_libp2p::blocksync::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
 use ipld_blockstore::BlockStore;
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
 use state_manager::{utils, StateManager};
 use state_tree::StateTree;
 use std::cmp::min;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use vm::TokenAmount;
@@ -42,7 +41,7 @@ struct MsgMetaData {
 }
 
 /// Worker to handle syncing chain with the blocksync protocol.
-pub(crate) struct SyncWorker<DB, TBeacon> {
+pub(crate) struct SyncWorker<DB, TBeacon, V> {
     /// State of the sync worker.
     pub state: Arc<RwLock<SyncState>>,
 
@@ -64,12 +63,16 @@ pub(crate) struct SyncWorker<DB, TBeacon> {
     /// Bad blocks cache, updates based on invalid state transitions.
     /// Will mark any invalid blocks and all childen as bad in this bounded cache.
     pub bad_blocks: Arc<BadBlockCache>,
+
+    /// Proof verification implementation.
+    pub verifier: PhantomData<V>,
 }
 
-impl<DB, TBeacon> SyncWorker<DB, TBeacon>
+impl<DB, TBeacon, V> SyncWorker<DB, TBeacon, V>
 where
     TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
+    V: ProofVerifier + Sync + Send + 'static,
 {
     pub async fn spawn(self, mut inbound_channel: Receiver<Arc<Tipset>>) -> JoinHandle<()> {
         task::spawn(async move {
@@ -440,8 +443,7 @@ where
         let header = block.header();
 
         // Check to ensure all optional values exist
-        let (_election_proof, _block_sig, _ticket) =
-            block_sanity_checks(header).map_err(|e| (block_cid.clone(), e.into()))?;
+        block_sanity_checks(header).map_err(|e| (block_cid.clone(), e.into()))?;
 
         let base_ts = Arc::new(
             cs.tipset_from_keys(header.parents())
@@ -719,7 +721,6 @@ where
                 b_clone.header(),
                 prev_beacon.as_ref(),
                 &lbst,
-                &work_addr,
             )?;
 
             Ok(())
@@ -871,14 +872,15 @@ where
         Ok(())
     }
 
-    // TODO logic of this function seems outdated
     fn verify_winning_post_proof(
         sm: &StateManager<DB>,
         header: &BlockHeader,
         prev_entry: &BeaconEntry,
         lbst: &Cid,
-        _waddr: &Address,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error>
+    where
+        V: ProofVerifier,
+    {
         // TODO allow for insecure validation to skip these checks
 
         let buf = header.miner_address().marshal_cbor()?;
@@ -898,57 +900,20 @@ where
             ))
         })?;
 
-        if header.miner_address().protocol() != Protocol::ID {
-            return Err(Error::Validation(format!(
-                "failed to get ID from miner address {:}",
-                header.miner_address()
-            )));
-        };
+        let id = header.miner_address().id().map_err(|e| {
+            Error::Validation(format!(
+                "failed to get ID from miner address {}: {}",
+                header.miner_address(),
+                e
+            ))
+        })?;
 
         let sectors =
             utils::get_sectors_for_winning_post(sm, &lbst, &header.miner_address(), &rand)?;
 
-        let proofs = header
-            .win_post_proof()
-            .iter()
-            .fold(Vec::new(), |mut proof, p| {
-                proof.extend_from_slice(&p.proof_bytes);
-                proof
-            });
-
-        let replicas = sectors
-            .iter()
-            .map::<Result<(SectorId, PublicReplicaInfo), Error>, _>(|sector_info: &SectorInfo| {
-                let commr =
-                    cid_to_replica_commitment_v1(&sector_info.sealed_cid).map_err(|err| {
-                        Error::Validation(format!("failed to get replica commitment: {:}", err))
-                    })?;
-                let replica = PublicReplicaInfo::new(
-                    sector_info
-                        .proof
-                        .registered_winning_post_proof()
-                        .map_err(|err| Error::Validation(format!("Invalid proof code: {:}", err)))?
-                        .try_into()
-                        .map_err(|err| {
-                            Error::Validation(format!("failed to get registered proof: {:}", err))
-                        })?,
-                    commr,
-                );
-                Ok((SectorId::from(sector_info.sector_number), replica))
-            })
-            .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
-
-        let mut prover_id = ProverId::default();
-        let prover_bytes = header.miner_address().payload().to_bytes();
-        prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
-        if !verify_winning_post(&rand, &proofs, &replicas, prover_id)
-            .map_err(|err| Error::Validation(format!("failed to verify election post: {:}", err)))?
-        {
-            error!("invalid winning post ({:?}; {:?})", rand, sectors);
-            Err(Error::Validation("Winning post was invalid".to_string()))
-        } else {
-            Ok(())
-        }
+        V::verify_winning_post(rand, header.win_post_proof(), &sectors, id).map_err(|e| {
+            Error::Validation(format!("Failed to verify winning PoSt: {}", e.to_string()))
+        })
     }
 
     fn validate_miner(sm: &StateManager<DB>, maddr: &Address, ts_state: &Cid) -> Result<(), Error> {
@@ -973,26 +938,20 @@ fn verify_election_post_vrf(worker: &Address, rand: &[u8], evrf: &[u8]) -> Resul
 }
 
 /// Checks optional values in header and returns reference to the values.
-fn block_sanity_checks(
-    header: &BlockHeader,
-) -> Result<(&ElectionProof, &Signature, &Ticket), &'static str> {
-    let ep = header
-        .election_proof()
-        .as_ref()
-        .ok_or("Block cannot have no election proof")?;
-    let bs = header
-        .signature()
-        .as_ref()
-        .ok_or("Block had no signature")?;
-    header
-        .bls_aggregate()
-        .as_ref()
-        .ok_or("Block had no bls aggregate signature")?;
-    let ticket = header
-        .ticket()
-        .as_ref()
-        .ok_or("Block had no bls aggregate signature")?;
-    Ok((ep, bs, ticket))
+fn block_sanity_checks(header: &BlockHeader) -> Result<(), &'static str> {
+    if header.election_proof().is_none() {
+        return Err("Block cannot have no election proof");
+    }
+    if header.signature().is_none() {
+        return Err("Block had no signature");
+    }
+    if header.bls_aggregate().is_none() {
+        return Err("Block had no bls aggregate signature");
+    }
+    if header.ticket().is_none() {
+        return Err("Block had no ticket");
+    }
+    Ok(())
 }
 
 /// Returns message root CID from bls and secp message contained in the param Block
@@ -1032,6 +991,7 @@ mod tests {
     use async_std::sync::channel;
     use beacon::MockBeacon;
     use db::MemoryDB;
+    use fil_types::verifier::MockVerifier;
     use forest_libp2p::NetworkMessage;
     use libp2p::PeerId;
     use std::sync::Arc;
@@ -1040,7 +1000,10 @@ mod tests {
 
     fn sync_worker_setup(
         db: Arc<MemoryDB>,
-    ) -> (SyncWorker<MemoryDB, MockBeacon>, Receiver<NetworkMessage>) {
+    ) -> (
+        SyncWorker<MemoryDB, MockBeacon, MockVerifier>,
+        Receiver<NetworkMessage>,
+    ) {
         let chain_store = Arc::new(ChainStore::new(db.clone()));
 
         let (local_sender, test_receiver) = channel(20);
@@ -1060,6 +1023,7 @@ mod tests {
                 network: SyncNetworkContext::new(local_sender, Default::default()),
                 genesis: genesis_ts,
                 bad_blocks: Default::default(),
+                verifier: Default::default(),
             },
             test_receiver,
         )
