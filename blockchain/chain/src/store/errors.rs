@@ -33,8 +33,8 @@ pub enum Error {
     #[error(transparent)]
     Cid(#[from] CidErr),
     /// Amt error
-    #[error(transparent)]
-    Amt(#[from] AmtErr),
+    #[error("State error: {0}")]
+    State(String),
     /// Other chain error
     #[error("{0}")]
     Other(String),
@@ -49,6 +49,12 @@ impl From<EncErr> for Error {
 impl From<SerdeErr> for Error {
     fn from(e: SerdeErr) -> Error {
         Error::Encoding(e.to_string())
+    }
+}
+
+impl From<AmtErr> for Error {
+    fn from(e: AmtErr) -> Error {
+        Error::State(e.to_string())
     }
 }
 

@@ -351,7 +351,7 @@ where
             })
             .map_err(|e| e.to_string())?;
 
-        self.state.snapshot().map_err(|e| e.to_string())?;
+        self.state.snapshot()?;
 
         let (mut ret_data, rt, mut act_err) = self.send(msg, Some(msg_gas_cost));
         if let Some(err) = &act_err {
@@ -403,7 +403,7 @@ where
         let err_code = if let Some(err) = &act_err {
             if !err.is_ok() {
                 // Revert all state changes on error.
-                self.state.revert_to_snapshot().map_err(|e| e.to_string())?;
+                self.state.revert_to_snapshot()?;
             }
             err.exit_code()
         } else {
@@ -450,7 +450,7 @@ where
         if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
             return Err("Gas handling math is wrong".to_owned());
         }
-        self.state.clear_snapshot().map_err(|e| e.to_string())?;
+        self.state.clear_snapshot()?;
 
         Ok(ApplyRet {
             msg_receipt: MessageReceipt {

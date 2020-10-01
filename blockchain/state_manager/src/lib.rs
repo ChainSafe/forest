@@ -845,5 +845,6 @@ where
             .load_actor_state(&*INIT_ACTOR_ADDR, ts.parent_state())
             .map_err(|e| format!("loading power actor state: {}", e))?;
         ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
+            .map_err(|e| e.to_string())
     }
 }

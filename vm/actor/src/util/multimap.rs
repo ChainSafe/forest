@@ -33,7 +33,7 @@ where
     }
 
     /// Adds a value for a key.
-    pub fn add<V>(&mut self, key: BytesKey, value: V) -> Result<(), String>
+    pub fn add<V>(&mut self, key: BytesKey, value: V) -> Result<(), Box<dyn StdError>>
     where
         V: Serialize + DeserializeOwned,
     {
@@ -54,7 +54,7 @@ where
 
     /// Gets the Array of value type `V` using the multimap store.
     #[inline]
-    pub fn get<V>(&self, key: &[u8]) -> Result<Option<Amt<'a, V, BS>>, String>
+    pub fn get<V>(&self, key: &[u8]) -> Result<Option<Amt<'a, V, BS>>, Box<dyn StdError>>
     where
         V: DeserializeOwned + Serialize,
     {
@@ -66,7 +66,7 @@ where
 
     /// Removes all values for a key.
     #[inline]
-    pub fn remove_all(&mut self, key: &[u8]) -> Result<(), String> {
+    pub fn remove_all(&mut self, key: &[u8]) -> Result<(), Box<dyn StdError>> {
         // Remove entry from table
         self.0.delete(key)?;
 

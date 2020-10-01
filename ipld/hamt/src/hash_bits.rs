@@ -93,11 +93,11 @@ mod tests {
         assert_eq!(hb.next(5).unwrap(), 0b01010);
         assert_eq!(hb.next(6).unwrap(), 0b111111);
         assert_eq!(hb.next(8).unwrap(), 0b11111111);
-        assert_eq!(hb.next(9), Err(Error::InvalidHashBitLen));
+        assert!(matches!(hb.next(9), Err(Error::InvalidHashBitLen)));
         for _ in 0..28 {
             // Iterate through rest of key to test depth
             hb.next(8).unwrap();
         }
-        assert_eq!(hb.next(1), Err(Error::MaxDepth));
+        assert!(matches!(hb.next(1), Err(Error::MaxDepth)));
     }
 }

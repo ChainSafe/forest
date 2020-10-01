@@ -57,7 +57,7 @@ fn out_of_range() {
     assert!(matches!(res, Err(Error::OutOfRange(_))));
 
     let res = a.set(MAX_INDEX, "what is up".to_owned());
-    assert_eq!(res.err(), None);
+    assert!(res.err().is_none());
     // 20 is the max height, custom value to avoid exporting
     assert_eq!(a.height(), 20);
 
@@ -199,8 +199,8 @@ fn delete_fail_check() {
     assert_eq!(a.count(), 2);
     assert_eq!(a.get(1).unwrap(), Some(&"one".to_string()));
     assert_eq!(a.get(9).unwrap(), Some(&"nine".to_string()));
-    assert_eq!(a.delete(10), Ok(false));
-    assert_eq!(a.delete(0), Ok(false));
+    assert_eq!(a.delete(10).unwrap(), false);
+    assert_eq!(a.delete(0).unwrap(), false);
     assert_eq!(a.count(), 2);
     assert_eq!(a.get(1).unwrap(), Some(&"one".to_string()));
     assert_eq!(a.get(9).unwrap(), Some(&"nine".to_string()));
