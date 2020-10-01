@@ -7,9 +7,9 @@ use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe};
-use fil_types::{PoStProof, RegisteredSealProof, SectorNumber};
+use fil_types::{PoStProof, Randomness, RegisteredSealProof, SectorNumber};
 use num_bigint::bigint_ser;
-use vm::{DealID, Randomness, TokenAmount};
+use vm::{DealID, TokenAmount};
 
 pub type CronEvent = i64;
 pub const CRON_EVENT_WORKER_KEY_CHANGE: CronEvent = 1;

@@ -16,7 +16,7 @@ use blockstore::BlockStore;
 use cid::Cid;
 use encoding::serde_bytes::ByteBuf;
 use fil_types::{
-    verifier::ProofVerifier, RegisteredSealProof, SectorInfo, SectorNumber, SectorSize,
+    verifier::ProofVerifier, Randomness, RegisteredSealProof, SectorInfo, SectorNumber, SectorSize,
     HAMT_BIT_WIDTH,
 };
 use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
@@ -30,97 +30,75 @@ impl<DB> StateManager<DB>
 where
     DB: BlockStore,
 {
-    // TODO
+    /// Retrieves and generates a vector of sector info for the winning PoSt verification.
     pub fn get_sectors_for_winning_post<V>(
         &self,
         st: &Cid,
-        address: &Address,
-        rand: &[u8; 32],
-    ) -> Result<Vec<SectorInfo>, Error>
+        miner_address: &Address,
+        rand: Randomness,
+    ) -> Result<Vec<SectorInfo>, Box<dyn StdError>>
     where
         V: ProofVerifier,
     {
-        todo!()
-        // let miner_actor_state: miner::State =
-        //     self
-        //         .load_actor_state(&address, &st)
-        //         .map_err(|err| {
-        //             Error::State(format!(
-        //                 "(get sectors) failed to load miner actor state: %{:}",
-        //                 err
-        //             ))
-        //         })?;
-        // let sector_set = get_proving_set_raw(self, &miner_actor_state)?;
-        // if sector_set.is_empty() {
-        //     return Ok(Vec::new());
-        // }
-        // let seal_proof_type = match miner_actor_state.info.sector_size {
-        //     SectorSize::_2KiB => RegisteredSealProof::StackedDRG2KiBV1,
-        //     SectorSize::_8MiB => RegisteredSealProof::StackedDRG8MiBV1,
-        //     SectorSize::_512MiB => RegisteredSealProof::StackedDRG512MiBV1,
-        //     SectorSize::_32GiB => RegisteredSealProof::StackedDRG32GiBV1,
-        //     SectorSize::_64GiB => RegisteredSealProof::StackedDRG64GiBV1,
-        // };
-        // let wpt = seal_proof_type.registered_winning_post_proof()?;
+        let store = self.blockstore();
 
-        // if address.protocol() != Protocol::ID {
-        //     return Err(Error::Other(format!(
-        //         "failed to get ID from miner address {:}",
-        //         address
-        //     )));
-        // };
-        // let mut prover_id = ProverId::default();
-        // let prover_bytes = address.to_bytes();
-        // prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
-        // let ids = generate_winning_post_sector_challenge(
-        //     wpt.try_into()?,
-        //     &rand,
-        //     sector_set.len() as u64,
-        //     prover_id,
-        // )
-        // .map_err(|err| Error::State(format!("generate winning posts challenge {:}", err)))?;
+        let mas: miner::State = self.load_actor_state(&miner_address, &st).map_err(|err| {
+            Error::State(format!(
+                "(get sectors) failed to load miner actor state: %{:}",
+                err
+            ))
+        })?;
 
-        // Ok(ids
-        //     .iter()
-        //     .map::<Result<SectorInfo, Error>, _>(|i: &u64| {
-        //         let index = *i as usize;
-        //         let sector_number = sector_set
-        //             .get(index)
-        //             .ok_or_else(|| {
-        //                 Error::Other(format!("Could not get sector_number at index {:}", index))
-        //             })?
-        //             .info
-        //             .sector_number;
-        //         let sealed_cid = sector_set
-        //             .get(index)
-        //             .ok_or_else(|| {
-        //                 Error::Other(format!("Could not get sealed cid at index {:}", index))
-        //             })?
-        //             .info
-        //             .sealed_cid
-        //             .clone();
-        //         Ok(SectorInfo {
-        //             proof: seal_proof_type,
-        //             sector_number,
-        //             sealed_cid,
-        //         })
-        //     })
-        //     .collect::<Result<Vec<SectorInfo>, _>>()?)
-    }
+        let info = mas.get_info(store)?;
 
-    pub fn get_proving_set_raw<V>(
-        &self,
-        actor_state: &miner::State,
-    ) -> Result<Vec<miner::SectorOnChainInfo>, Error>
-    where
-        V: ProofVerifier,
-    {
-        todo!()
-        // let not_proving = &actor_state.faults | &actor_state.recoveries;
+        let deadlines = mas.load_deadlines(store)?;
 
-        // actor_state
-        //     .load_sector_infos(&*self.blockstore_cloned(), &not_proving)
-        //     .map_err(|err| Error::Other(format!("failed to get proving set :{:}", err)))
+        let mut proving_sectors = BitField::new();
+
+        deadlines.for_each(store, |dl_idx, deadline| {
+            let partitions = deadline.partitions_amt(store)?;
+
+            partitions.for_each(|part_idx, partition: &miner::Partition| {
+                let p = &partition.sectors - &partition.faults;
+                proving_sectors |= &p;
+                Ok(())
+            })
+        })?;
+
+        let num_prov_sect = proving_sectors.len() as u64;
+
+        if num_prov_sect == 0 {
+            return Ok(Vec::new());
+        }
+
+        let spt = RegisteredSealProof::from(info.sector_size);
+
+        let wpt = spt.registered_winning_post_proof()?;
+
+        let m_id = miner_address.id()?;
+
+        let ids = V::generate_winning_post_sector_challenge(wpt, m_id, rand, num_prov_sect)?;
+
+        let sectors: Vec<u64> = proving_sectors.iter().map(|i| i as u64).collect();
+        let sectors_amt = Amt::<SectorOnChainInfo, _>::load(&mas.sectors, store)?;
+
+        Ok(ids
+            .iter()
+            .map(|n| {
+                let sid = sectors
+                    .get(*n as usize)
+                    .ok_or_else(|| "id from challenge does not exist in sectors")?;
+                let s_info = sectors_amt
+                    .get(*sid)
+                    .map_err(|e| format!("failed to get sector {}: {}", sid, e))?
+                    .ok_or_else(|| format!("failed to find sector {}", sid))?;
+                Ok(SectorInfo {
+                    sealed_cid: s_info.sealed_cid.clone(),
+                    sector_number: s_info.sector_number,
+                    proof: spt,
+                })
+            })
+            .collect::<Result<_, String>>()?)
     }
 
     pub fn get_miner_sector_set<V>(

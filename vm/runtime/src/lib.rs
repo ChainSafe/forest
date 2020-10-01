@@ -11,8 +11,8 @@ use clock::ChainEpoch;
 use commcid::data_commitment_v1_to_cid;
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
-    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredSealProof, SealVerifyInfo,
-    WindowPoStVerifyInfo,
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, Randomness, RegisteredSealProof,
+    SealVerifyInfo, WindowPoStVerifyInfo,
 };
 use filecoin_proofs_api::seal::compute_comm_d;
 use filecoin_proofs_api::{self as proofs};
@@ -21,7 +21,7 @@ use ipld_blockstore::BlockStore;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error as StdError;
-use vm::{ActorError, MethodNum, Randomness, Serialized, TokenAmount};
+use vm::{ActorError, MethodNum, Serialized, TokenAmount};
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.

@@ -102,24 +102,6 @@ pub(crate) async fn state_sector_precommit_info<
         .map_err(|e| e.into())
 }
 
-/// returns info about those sectors that a given miner is actively proving.
-pub(crate) async fn state_miner_proving_set<
-    DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
->(
-    data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(Address, TipsetKeys)>,
-) -> Result<Vec<SectorOnChainInfo>, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (address, key) = params;
-    let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    let miner_actor_state: State =
-        state_manager.load_actor_state(&address, &tipset.parent_state())?;
-    state_manager
-        .get_proving_set_raw::<FullVerifier>(&miner_actor_state)
-        .map_err(|e| e.into())
-}
-
 /// StateMinerInfo returns info about the indicated miner
 pub async fn state_miner_info<
     DB: BlockStore + Send + Sync + 'static,

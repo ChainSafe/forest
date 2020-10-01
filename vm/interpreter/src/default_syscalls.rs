@@ -144,7 +144,7 @@ where
             prover,
         }: &WindowPoStVerifyInfo,
     ) -> Result<(), Box<dyn StdError>> {
-        V::verify_window_post(randomness.0, &proofs, challenged_sectors, *prover)
+        V::verify_window_post(*randomness, &proofs, challenged_sectors, *prover)
     }
 
     fn batch_verify_seals(

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::ProofVerifier;
-use crate::{PoStProof, SealVerifyInfo, SectorInfo};
+use crate::{PoStProof, Randomness, RegisteredPoStProof, SealVerifyInfo, SectorInfo};
 use std::error::Error as StdError;
 
 /// Verifier implementation
@@ -13,7 +13,7 @@ impl ProofVerifier for MockVerifier {
         Ok(())
     }
     fn verify_winning_post(
-        _: [u8; 32],
+        _: Randomness,
         _: &[PoStProof],
         _: &[SectorInfo],
         _: u64,
@@ -21,11 +21,19 @@ impl ProofVerifier for MockVerifier {
         Ok(())
     }
     fn verify_window_post(
-        _: [u8; 32],
+        _: Randomness,
         _: &[PoStProof],
         _: &[SectorInfo],
         _: u64,
     ) -> Result<(), Box<dyn StdError>> {
         Ok(())
+    }
+    fn generate_winning_post_sector_challenge(
+        _: RegisteredPoStProof,
+        _: u64,
+        _: Randomness,
+        _: u64,
+    ) -> Result<Vec<u64>, Box<dyn StdError>> {
+        Ok(vec![0])
     }
 }

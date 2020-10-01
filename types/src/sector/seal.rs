@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{RegisteredSealProof, SectorID, SectorNumber};
+use crate::{Randomness, RegisteredSealProof, SectorID, SectorNumber};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*};
-use vm::{DealID, Randomness};
+use vm::DealID;
 
 pub type SealRandomness = Randomness;
 pub type InteractiveSealRandomness = Randomness;

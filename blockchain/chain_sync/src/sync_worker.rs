@@ -16,8 +16,8 @@ use cid::{multihash::Blake2b256, Cid};
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
-    verifier::ProofVerifier, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, TICKET_RANDOMNESS_LOOKBACK,
-    UPGRADE_SMOKE_HEIGHT,
+    verifier::ProofVerifier, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS,
+    TICKET_RANDOMNESS_LOOKBACK, UPGRADE_SMOKE_HEIGHT,
 };
 use forest_libp2p::blocksync::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -908,12 +908,15 @@ where
             ))
         })?;
 
-        let sectors =
-            sm.get_sectors_for_winning_post::<V>(&lbst, &header.miner_address(), &rand)?;
+        let sectors = sm
+            .get_sectors_for_winning_post::<V>(&lbst, &header.miner_address(), Randomness(rand))
+            .map_err(|e| {
+                Error::Validation(format!("Failed to get sectors for post: {}", e.to_string()))
+            })?;
 
-        V::verify_winning_post(rand, header.win_post_proof(), &sectors, id).map_err(|e| {
-            Error::Validation(format!("Failed to verify winning PoSt: {}", e.to_string()))
-        })
+        V::verify_winning_post(Randomness(rand), header.win_post_proof(), &sectors, id).map_err(
+            |e| Error::Validation(format!("Failed to verify winning PoSt: {}", e.to_string())),
+        )
     }
 
     fn validate_miner(sm: &StateManager<DB>, maddr: &Address, ts_state: &Cid) -> Result<(), Error> {
