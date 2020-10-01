@@ -4,7 +4,9 @@
 use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::blocksync::{BlockSyncResponse, CompactedMessages, TipsetBundle};
+use forest_libp2p::blocksync::{
+    BlockSyncResponse, BlockSyncResponseStatus, CompactedMessages, TipsetBundle,
+};
 use forest_message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use std::convert::TryFrom;
@@ -42,7 +44,7 @@ fn convert_single_tipset_bundle() {
 
     let res = BlockSyncResponse {
         chain: vec![bundle],
-        status: 0,
+        status: BlockSyncResponseStatus::Success,
         message: "".into(),
     }
     .into_result::<FullTipset>()

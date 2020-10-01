@@ -21,22 +21,13 @@ pub struct CompactedMessages {
 }
 
 /// Contains the blocks and messages in a particular tipset
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple, Default)]
 pub struct TipsetBundle {
     /// The blocks in the tipset
     pub blocks: Vec<BlockHeader>,
 
     /// Compressed messages format
     pub messages: Option<CompactedMessages>,
-}
-
-impl TipsetBundle {
-    pub fn new() -> TipsetBundle {
-        TipsetBundle {
-            blocks: vec![],
-            messages: None,
-        }
-    }
 }
 
 impl TryFrom<TipsetBundle> for Tipset {

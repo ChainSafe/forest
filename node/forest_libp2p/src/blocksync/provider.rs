@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use chain::Error as ChainError;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_cid::Cid;
@@ -29,11 +32,11 @@ pub struct BlockSyncRequest {
 
 impl BlockSyncRequest {
     pub fn include_blocks(&self) -> bool {
-        return self.options == BLOCKS || self.options == BLOCKS_MESSAGES;
+        self.options == BLOCKS || self.options == BLOCKS_MESSAGES
     }
 
     pub fn include_messages(&self) -> bool {
-        return self.options == MESSAGES || self.options == BLOCKS_MESSAGES;
+        self.options == MESSAGES || self.options == BLOCKS_MESSAGES
     }
 }
 
@@ -102,7 +105,7 @@ where
         let mut curr_tipset_cids = request.start.clone();
 
         loop {
-            let mut tipset_bundle: TipsetBundle = TipsetBundle::new();
+            let mut tipset_bundle: TipsetBundle = Default::default();
             let tipset =
                 match chain::tipset_from_keys(self.db.as_ref(), &TipsetKeys::new(curr_tipset_cids))
                 {
@@ -148,7 +151,7 @@ where
 
         let result_chain_length = response_chain.len() as u64;
 
-        return BlockSyncResponse {
+        BlockSyncResponse {
             chain: response_chain,
             status: if result_chain_length < request.request_len {
                 BlockSyncResponseStatus::PartialResponse
@@ -156,7 +159,7 @@ where
                 BlockSyncResponseStatus::Success
             },
             message: "Success".to_owned(),
-        };
+        }
     }
 
     // Builds CompactedMessages for given Tipset.
@@ -213,12 +216,12 @@ where
             &secp_cids_combined,
         )?;
 
-        return Ok(CompactedMessages {
+        Ok(CompactedMessages {
             bls_msgs,
             bls_msg_includes,
             secp_msgs,
             secp_msg_includes,
-        });
+        })
     }
 }
 
