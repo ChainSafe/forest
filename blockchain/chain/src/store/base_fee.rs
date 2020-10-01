@@ -5,7 +5,7 @@ use blocks::Tipset;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 use std::collections::HashSet;
 use types::BLOCK_GAS_LIMIT;
 
@@ -14,25 +14,32 @@ pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8; // 12.5%;
 pub const INITIAL_BASE_FEE: i64 = 100000000; // Genesis base fee
 pub const PACKING_EFFICIENCY_DENOM: i64 = 5;
 pub const PACKING_EFFICIENCY_NUM: i64 = 4;
+
 lazy_static! {
     /// Cbor bytes of an empty array serialized.
     pub static ref MINIMUM_BASE_FEE: BigInt = 100.into();
 
+    /// These statics are just to avoid allocations for division.
+    static ref BLOCK_GAS_TARGET_BIG: BigInt = BigInt::from(BLOCK_GAS_TARGET);
+    static ref BASE_FEE_MAX_CHANGE_DENOM_BIG: BigInt = BigInt::from(BASE_FEE_MAX_CHANGE_DENOM);
 }
 
 fn compute_next_base_fee(base_fee: &BigInt, gas_limit_used: i64, no_of_blocks: usize) -> BigInt {
-    let mut delta = (PACKING_EFFICIENCY_DENOM * gas_limit_used
+    let mut delta: i64 = (PACKING_EFFICIENCY_DENOM * gas_limit_used
         / (no_of_blocks as i64 * PACKING_EFFICIENCY_NUM))
         - BLOCK_GAS_TARGET;
     // cap change at 12.5% (BaseFeeMaxChangeDenom) by capping delta
-    if delta > BLOCK_GAS_TARGET {
-        delta = BLOCK_GAS_TARGET
-    }
-    if delta < -BLOCK_GAS_TARGET {
-        delta = -BLOCK_GAS_TARGET
+    if delta.abs() > BLOCK_GAS_TARGET {
+        delta = if delta.is_positive() {
+            BLOCK_GAS_TARGET
+        } else {
+            -BLOCK_GAS_TARGET
+        };
     }
 
-    let change: BigInt = ((base_fee * delta) / BLOCK_GAS_TARGET) / BASE_FEE_MAX_CHANGE_DENOM;
+    let change: BigInt = (base_fee * delta)
+        .div_floor(&BLOCK_GAS_TARGET_BIG)
+        .div_floor(&BASE_FEE_MAX_CHANGE_DENOM_BIG);
     let mut next_base_fee = base_fee + change;
     if next_base_fee < *MINIMUM_BASE_FEE {
         next_base_fee = MINIMUM_BASE_FEE.clone();

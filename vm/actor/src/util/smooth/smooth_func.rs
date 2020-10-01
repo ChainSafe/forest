@@ -4,7 +4,7 @@
 use super::alpha_beta_filter::*;
 use crate::math::{poly_parse, poly_val, PRECISION};
 use clock::ChainEpoch;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 
 lazy_static! {
     pub static ref NUM: Vec<BigInt> = poly_parse(&[
@@ -64,16 +64,16 @@ pub fn extrapolated_cum_sum_of_ratio(
 
         let m2_l = (&x2a - &x2b) * pos_2;
         let m2_r = velo_2 * &delta_t;
-        let m2 = ((m2_l + m2_r) * velo_1) >> PRECISION;
+        let m2: BigInt = ((m2_l + m2_r) * velo_1) >> PRECISION;
 
-        return (m2 + m1) / squared_velo_2;
+        return (m2 + m1).div_floor(&squared_velo_2);
     }
 
     let half_delta = &delta_t >> 1;
-    let mut x1m = velo_1 * (t0 + half_delta);
+    let mut x1m: BigInt = velo_1 * (t0 + half_delta);
     x1m = (x1m >> PRECISION) + pos_1;
 
-    (x1m * delta_t) / pos_2
+    (x1m * delta_t).div_floor(&pos_2)
 }
 
 /// The natural log of Q.128 x.
@@ -91,5 +91,5 @@ pub fn ln(z: &BigInt) -> BigInt {
 fn ln_between_one_and_two(x: BigInt) -> BigInt {
     let num = poly_val(&NUM, &x) << PRECISION;
     let denom = poly_val(&DENOM, &x);
-    num / denom
+    num.div_floor(&denom)
 }
