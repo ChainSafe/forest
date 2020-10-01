@@ -7,7 +7,7 @@ use actor::smooth::*;
 use actor::EPOCHS_IN_DAY;
 use clock::ChainEpoch;
 use fil_types::StoragePower;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 use num_traits::sign::Signed;
 
 const ERR_BOUND: u64 = 350;
@@ -18,7 +18,7 @@ const ERR_BOUND: u64 = 350;
 fn per_million_error(val_1: &BigInt, val_2: &BigInt) -> BigInt {
     let diff = (val_1 - val_2) << PRECISION;
 
-    let ratio = diff / val_1;
+    let ratio = diff.div_floor(&val_1);
     let million = BigInt::from(1_000_000) << PRECISION;
 
     let diff_per_million = (ratio * million).abs();
@@ -37,7 +37,7 @@ fn iterative_cum_sum_of_ratio(
     for i in 0..delta {
         let num_epsilon = num.extrapolate(t0 + i); // Q.256
         let denom_epsilon = denom.extrapolate(t0 + i) >> PRECISION; // Q.256
-        let mut epsilon = num_epsilon / denom_epsilon; // Q.256 / Q.128 => Q.128
+        let mut epsilon = num_epsilon.div_floor(&denom_epsilon); // Q.256 / Q.128 => Q.128
 
         if i != 0 && i != delta - 1 {
             epsilon *= 2; // Q.128 * Q.0 => Q.128
@@ -45,7 +45,7 @@ fn iterative_cum_sum_of_ratio(
         ratio += epsilon;
     }
 
-    ratio / 2
+    ratio.div_floor(&BigInt::from(2))
 }
 
 fn assert_err_bound(

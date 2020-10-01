@@ -9,6 +9,7 @@ use crate::network::{
 use crate::{DealWeight, TOTAL_FILECOIN};
 use clock::ChainEpoch;
 use fil_types::{PaddedPieceSize, StoragePower};
+use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use std::cmp::max;
 use vm::TokenAmount;
@@ -56,9 +57,9 @@ pub(super) fn deal_provider_collateral_bounds(
     let power_share_num = qa_power;
     let power_share_denom = max(max(network_qa_power, baseline_power), &power_share_num);
 
-    let num = lock_target_num * &power_share_num;
-    let denom = lock_target_denom * power_share_denom;
-    ((num / denom), TOTAL_FILECOIN.clone())
+    let num: BigInt = lock_target_num * &power_share_num;
+    let denom: BigInt = lock_target_denom * power_share_denom;
+    ((num.div_floor(&denom)), TOTAL_FILECOIN.clone())
 }
 
 pub(super) fn deal_client_collateral_bounds(
@@ -83,11 +84,11 @@ pub(super) fn deal_weight(proposal: &DealProposal) -> DealWeight {
 
 pub(super) fn deal_qa_power(deal_size: PaddedPieceSize, verified: bool) -> DealWeight {
     let scaled_up_quality = if verified {
-        (StoragePower::from(VERIFIED_DEAL_WEIGHT_MULTIPLIER) << SECTOR_QUALITY_PRECISION)
-            / QUALITY_BASE_MULTIPLIER
+        (VERIFIED_DEAL_WEIGHT_MULTIPLIER.clone() << SECTOR_QUALITY_PRECISION)
+            .div_floor(&QUALITY_BASE_MULTIPLIER)
     } else {
-        (StoragePower::from(DEAL_WEIGHT_MULTIPLIER) << SECTOR_QUALITY_PRECISION)
-            / QUALITY_BASE_MULTIPLIER
+        (DEAL_WEIGHT_MULTIPLIER.clone() << SECTOR_QUALITY_PRECISION)
+            .div_floor(&QUALITY_BASE_MULTIPLIER)
     };
     let scaled_up_qa_power = scaled_up_quality * deal_size.0;
     scaled_up_qa_power >> SECTOR_QUALITY_PRECISION

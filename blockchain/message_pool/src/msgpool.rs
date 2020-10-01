@@ -20,7 +20,7 @@ use futures::StreamExt;
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
@@ -60,9 +60,8 @@ impl MsgSet {
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
                 let premium = exms.message().gas_premium();
-                let rbf_num = BigInt::from(RBF_NUM);
                 let rbf_denom = BigInt::from(RBF_DENOM);
-                let min_price = premium + ((premium * &rbf_num) / rbf_denom) + 1u8;
+                let min_price = premium + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
                 if m.message().gas_premium() <= &min_price {
                     warn!("message gas price is below min gas price");
                     return Err(Error::GasPriceTooLow);
@@ -671,7 +670,7 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
 }
 
 fn get_base_fee_lower_bound(base_fee: &BigInt, factor: i64) -> BigInt {
-    let base_fee_lower_bound = base_fee / factor;
+    let base_fee_lower_bound = base_fee.div_floor(&BigInt::from(factor));
     if base_fee_lower_bound < *MINIMUM_BASE_FEE {
         return MINIMUM_BASE_FEE.clone();
     }

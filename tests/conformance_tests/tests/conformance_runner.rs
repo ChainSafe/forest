@@ -19,7 +19,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 5] = [
+    static ref SKIP_TESTS: [Regex; 4] = [
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -27,8 +27,6 @@ lazy_static! {
         Regex::new(r"nested/nested_sends--fail-mismatch-params.json").unwrap(),
         // Lotus client does not fail in inner transaction for insufficient funds
         Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
-        // TODO This fails but is blocked on miner actor refactor, remove skip after that comes in
-        Regex::new(r"test-vectors/corpus/reward/reward--ok-miners-awarded-no-premiums.json").unwrap(),
     ];
 }
 
