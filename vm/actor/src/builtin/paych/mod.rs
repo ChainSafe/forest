@@ -177,7 +177,7 @@ impl Actor {
                         "voucher has an outdated nonce, existing: {}, voucher: {}, cannot redeem",
                         state.nonce, sv.nonce));
                 }
-                state
+                state.clone()
             } else {
                 LaneState::default()
             };
@@ -191,10 +191,12 @@ impl Actor {
                     return Err(actor_error!(ErrIllegalArgument;
                         "voucher cannot merge lanes into it's own lane"));
                 }
-                let mut other_ls = find_lane(&l_states, merge.lane)?.ok_or_else(|| {
-                    actor_error!(ErrIllegalArgument;
+                let mut other_ls = find_lane(&l_states, merge.lane)?
+                    .ok_or_else(|| {
+                        actor_error!(ErrIllegalArgument;
                         "voucher specifies invalid merge lane {}", merge.lane)
-                })?;
+                    })?
+                    .clone();
 
                 if other_ls.nonce >= merge.nonce {
                     return Err(actor_error!(ErrIllegalArgument;
@@ -298,7 +300,10 @@ impl Actor {
 }
 
 #[inline]
-fn find_lane<BS>(ls: &Amt<LaneState, BS>, id: u64) -> Result<Option<LaneState>, ActorError>
+fn find_lane<'a, BS>(
+    ls: &'a Amt<LaneState, BS>,
+    id: u64,
+) -> Result<Option<&'a LaneState>, ActorError>
 where
     BS: BlockStore,
 {

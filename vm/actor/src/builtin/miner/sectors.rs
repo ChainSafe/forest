@@ -37,13 +37,14 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
                         e
                     )
                 })?
+                .cloned()
                 .ok_or_else(|| actor_error!(ErrNotFound; "sector not found: {}", sector_number))?;
             sector_infos.push(sector_on_chain);
         }
         Ok(sector_infos)
     }
 
-    pub fn get(&self, sector_number: SectorNumber) -> Result<Option<SectorOnChainInfo>, String> {
+    pub fn get(&self, sector_number: SectorNumber) -> Result<Option<&SectorOnChainInfo>, String> {
         self.amt
             .get(sector_number)
             .map_err(|e| format!("failed to get sector {}: {:?}", sector_number, e))
@@ -70,7 +71,7 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
         Ok(())
     }
 
-    pub fn must_get(&self, sector_number: SectorNumber) -> Result<SectorOnChainInfo, String> {
+    pub fn must_get(&self, sector_number: SectorNumber) -> Result<&SectorOnChainInfo, String> {
         self.get(sector_number)?
             .ok_or_else(|| format!("sector {} not found", sector_number))
     }

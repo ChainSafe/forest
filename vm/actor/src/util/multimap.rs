@@ -35,7 +35,7 @@ where
     /// Adds a value for a key.
     pub fn add<V>(&mut self, key: BytesKey, value: V) -> Result<(), String>
     where
-        V: Serialize + DeserializeOwned + Clone,
+        V: Serialize + DeserializeOwned,
     {
         // Get construct amt from retrieved cid or create new
         let mut arr = self
@@ -56,7 +56,7 @@ where
     #[inline]
     pub fn get<V>(&self, key: &[u8]) -> Result<Option<Amt<'a, V, BS>>, String>
     where
-        V: DeserializeOwned + Serialize + Clone,
+        V: DeserializeOwned + Serialize,
     {
         match self.0.get(key)? {
             Some(cid) => Ok(Some(Amt::load(&cid, self.0.store())?)),
@@ -76,7 +76,7 @@ where
     /// Iterates through all values in the array at a given key.
     pub fn for_each<F, V>(&self, key: &[u8], f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: Serialize + DeserializeOwned + Clone,
+        V: Serialize + DeserializeOwned,
         F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
         if let Some(amt) = self.get::<V>(key)? {
@@ -89,7 +89,7 @@ where
     /// Iterates through all arrays in the multimap
     pub fn for_all<F, V>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: Serialize + DeserializeOwned + Clone,
+        V: Serialize + DeserializeOwned,
         F: FnMut(&BytesKey, &Amt<V, BS>) -> Result<(), Box<dyn StdError>>,
     {
         self.0.for_each::<_>(|key, arr_root| {

@@ -9,7 +9,7 @@ address = { package = "forest_address", path = "../vm/address" }
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
 db = { path = "../node/db", features = ["rocksdb"] }
-libp2p = "0.24"
+libp2p = { version = "0.24", default-features = false, features = ["identify"] }
 futures = "0.3.5"
 log = "0.4.8"
 async-log = "2.0.0"
@@ -39,6 +39,6 @@ pbr = "1.0.3"
 pin-project-lite = "0.1"
 message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
 wallet = {package = "key_management", path = "../key_management"}
-jsonrpc-v2 = { version = "0.5.2", features = ["easy-errors", "macros"] }
+jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2", features = ["easy-errors", "macros"], default-features = false }
 uuid = { version = "0.8.1", features = ["v4"] }
 actor = { path = "../vm/actor/" }

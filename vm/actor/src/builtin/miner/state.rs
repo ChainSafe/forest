@@ -321,7 +321,7 @@ impl State {
         sector_num: SectorNumber,
     ) -> Result<Option<SectorOnChainInfo>, String> {
         let sectors = Sectors::load(store, &self.sectors).map_err(|e| e.to_string())?;
-        sectors.get(sector_num)
+        sectors.get(sector_num).map(|s| s.cloned())
     }
 
     pub fn delete_sectors<BS: BlockStore>(
@@ -643,6 +643,7 @@ impl State {
                 sectors
                     .must_get(i as u64)
                     .map_err(|e| format!("failed to load sector {}: {:?}", i, e))?
+                    .clone()
             };
 
             sector_infos.push(sector);

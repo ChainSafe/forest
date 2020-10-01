@@ -6,7 +6,7 @@ use crate::smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{repr::*, tuple::*, Cbor};
 use fil_types::{Spacetime, StoragePower};
-use num_bigint::bigint_ser;
+use num_bigint::{bigint_ser, Integer};
 use num_derive::FromPrimitive;
 use vm::TokenAmount;
 
@@ -156,7 +156,8 @@ impl Reward {
                 if elapsed >= vest_duration {
                     self.value.clone()
                 } else {
-                    (self.value.clone() * elapsed as u64) / vest_duration as u64
+                    (self.value.clone() * elapsed as u64)
+                        .div_floor(&TokenAmount::from(vest_duration))
                 }
             }
         }

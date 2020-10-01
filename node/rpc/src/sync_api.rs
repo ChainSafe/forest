@@ -136,7 +136,7 @@ mod tests {
                 db.as_ref().write(i.key(), bz2).unwrap();
             }
             let provider = MpoolRpcProvider::new(subscriber, state_manager_for_thread.clone());
-            MessagePool::new(provider, "test".to_string())
+            MessagePool::new(provider, "test".to_string(), Default::default())
                 .await
                 .unwrap()
         });

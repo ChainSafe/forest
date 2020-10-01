@@ -15,13 +15,17 @@ use crate::{
 };
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::Sign;
+use num_bigint::{
+    bigint_ser::{BigIntDe, BigIntSer},
+    Integer,
+};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{
-    actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
 
 // * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
@@ -100,8 +104,8 @@ impl Actor {
             .ok_or_else(|| actor_error!(ErrNotFound; "failed to resolve given owner address"))?;
 
         let total_reward = rt.transaction(|st: &mut State, rt| {
-            let mut block_reward =
-                (&st.this_epoch_reward * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
+            let mut block_reward: TokenAmount = (&st.this_epoch_reward * params.win_count)
+                .div_floor(&TokenAmount::from(EXPECTED_LEADERS_PER_EPOCH));
             let mut total_reward = &params.gas_reward + &block_reward;
             let curr_balance = rt.current_balance()?;
             if total_reward > curr_balance {
