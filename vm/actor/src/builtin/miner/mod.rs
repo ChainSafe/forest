@@ -1423,7 +1423,7 @@ impl Actor {
                         .map_err(|e| {
                             e.downcast_default(
                                 ExitCode::ErrIllegalState,
-                                format!("failed to replaces sector expirations at {:?}", key),
+                                format!("failed to replace sector expirations at {:?}", key),
                             )
                         })?;
 
