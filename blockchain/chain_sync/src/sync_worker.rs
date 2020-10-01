@@ -719,6 +719,7 @@ where
                 b_clone.header(),
                 prev_beacon.as_ref(),
                 &lbst,
+                &work_addr,
             )?;
 
             Ok(())
@@ -873,17 +874,21 @@ where
     // TODO logic of this function seems outdated
     fn verify_winning_post_proof(
         sm: &StateManager<DB>,
-        block: &BlockHeader,
+        header: &BlockHeader,
         prev_entry: &BeaconEntry,
         lbst: &Cid,
+        _waddr: &Address,
     ) -> Result<(), Error> {
         // TODO allow for insecure validation to skip these checks
-        let buf = block.miner_address().marshal_cbor()?;
-        let rbase = block.beacon_entries().iter().last().unwrap_or(prev_entry);
+
+        let buf = header.miner_address().marshal_cbor()?;
+
+        let rbase = header.beacon_entries().iter().last().unwrap_or(prev_entry);
+
         let rand = chain::draw_randomness(
             rbase.data(),
             DomainSeparationTag::WinningPoStChallengeSeed,
-            block.epoch(),
+            header.epoch(),
             &buf,
         )
         .map_err(|err| {
@@ -893,16 +898,17 @@ where
             ))
         })?;
 
-        if block.miner_address().protocol() != Protocol::ID {
+        if header.miner_address().protocol() != Protocol::ID {
             return Err(Error::Validation(format!(
                 "failed to get ID from miner address {:}",
-                block.miner_address()
+                header.miner_address()
             )));
         };
-        let sectors =
-            utils::get_sectors_for_winning_post(sm, &lbst, &block.miner_address(), &rand)?;
 
-        let proofs = block
+        let sectors =
+            utils::get_sectors_for_winning_post(sm, &lbst, &header.miner_address(), &rand)?;
+
+        let proofs = header
             .win_post_proof()
             .iter()
             .fold(Vec::new(), |mut proof, p| {
@@ -933,7 +939,7 @@ where
             .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
 
         let mut prover_id = ProverId::default();
-        let prover_bytes = block.miner_address().payload().to_bytes();
+        let prover_bytes = header.miner_address().payload().to_bytes();
         prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
         if !verify_winning_post(&rand, &proofs, &replicas, prover_id)
             .map_err(|err| Error::Validation(format!("failed to verify election post: {:}", err)))?

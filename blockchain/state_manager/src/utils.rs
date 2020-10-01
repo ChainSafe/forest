@@ -23,6 +23,7 @@ use ipld_hamt::Hamt;
 use std::convert::TryInto;
 use std::error::Error as StdError;
 
+// TODO
 pub fn get_sectors_for_winning_post<DB>(
     state_manager: &StateManager<DB>,
     st: &Cid,

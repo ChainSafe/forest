@@ -18,6 +18,7 @@ pub struct SealVerifyInfo {
     pub deal_ids: Vec<DealID>,
     pub randomness: SealRandomness,
     pub interactive_randomness: InteractiveSealRandomness,
+    #[serde(with = "serde_bytes")]
     pub proof: Vec<u8>,
     pub sealed_cid: Cid,   // Commr
     pub unsealed_cid: Cid, // Commd
