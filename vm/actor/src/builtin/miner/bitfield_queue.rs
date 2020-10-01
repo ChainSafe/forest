@@ -42,6 +42,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             .amt
             .get(epoch as u64)
             .map_err(|e| format!("failed to lookup queue epoch {}: {:?}", epoch, e))?
+            .cloned()
             .unwrap_or_default();
 
         self.amt

@@ -9,7 +9,9 @@ use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
 use std::error::Error as StdError;
 
-/// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID
+/// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
+///
+/// Amt is not threadsafe and can't be shared between threads.
 ///
 /// Usage:
 /// ```
@@ -23,7 +25,7 @@ use std::error::Error as StdError;
 /// amt.set(1, "bar".to_owned()).unwrap();
 /// amt.delete(2).unwrap();
 /// assert_eq!(amt.count(), 1);
-/// let bar: String = amt.get(1).unwrap().unwrap();
+/// let bar: &String = amt.get(1).unwrap().unwrap();
 ///
 /// // Generate cid by calling flush to remove cache
 /// let cid = amt.flush().unwrap();
@@ -42,7 +44,7 @@ impl<'a, V: PartialEq, BS: BlockStore> PartialEq for Amt<'a, V, BS> {
 
 impl<'db, V, BS> Amt<'db, V, BS>
 where
-    V: Clone + DeserializeOwned + Serialize,
+    V: DeserializeOwned + Serialize,
     BS: BlockStore,
 {
     /// Constructor for Root AMT node
@@ -79,7 +81,10 @@ where
     }
 
     /// Generates an AMT with block store and array of cbor marshallable objects and returns Cid
-    pub fn new_from_slice(block_store: &'db BS, vals: &[V]) -> Result<Cid, Error> {
+    pub fn new_from_slice(block_store: &'db BS, vals: &[V]) -> Result<Cid, Error>
+    where
+        V: Clone,
+    {
         let mut t = Self::new(block_store);
 
         t.batch_set(vals)?;
@@ -88,7 +93,7 @@ where
     }
 
     /// Get value at index of AMT
-    pub fn get(&self, i: u64) -> Result<Option<V>, Error> {
+    pub fn get(&self, i: u64) -> Result<Option<&V>, Error> {
         if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
@@ -117,7 +122,7 @@ where
 
                 // Set links node with first index as cid
                 let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
-                new_links[0] = Some(Link::Cid(cid));
+                new_links[0] = Some(Link::from(cid));
 
                 self.root.node = Node::Link {
                     bmap: BitMap::new(0x01),
@@ -147,7 +152,10 @@ where
 
     /// Batch set (naive for now)
     // TODO Implement more efficient batch set to not have to traverse tree and keep cache for each
-    pub fn batch_set(&mut self, vals: &[V]) -> Result<(), Error> {
+    pub fn batch_set(&mut self, vals: &[V]) -> Result<(), Error>
+    where
+        V: Clone,
+    {
         for (i, val) in vals.iter().enumerate() {
             self.set(i as u64, val.clone())?;
         }
@@ -175,13 +183,20 @@ where
 
         // Handle height changes from delete
         while *self.root.node.bitmap() == 0x01 && self.height() > 0 {
-            let sub_node: Node<V> = match &self.root.node {
-                Node::Link { links, .. } => match &links[0] {
-                    Some(Link::Cached(node)) => *node.clone(),
-                    Some(Link::Cid(cid)) => self
-                        .block_store
-                        .get(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?,
+            let sub_node: Node<V> = match &mut self.root.node {
+                Node::Link { links, .. } => match &mut links[0] {
+                    Some(Link::Dirty(node)) => *std::mem::take(node),
+                    Some(Link::Cid { cid, cache }) => {
+                        let cache_node = std::mem::take(cache);
+                        if let Some(sn) = cache_node.into_inner() {
+                            *sn
+                        } else {
+                            // Only retrieve sub node if not found in cache
+                            self.block_store
+                                .get(&cid)?
+                                .ok_or_else(|| Error::RootNotFound)?
+                        }
+                    }
                     _ => unreachable!("Link index should match bitmap"),
                 },
                 Node::Leaf { .. } => unreachable!("Non zero height cannot be a leaf node"),
