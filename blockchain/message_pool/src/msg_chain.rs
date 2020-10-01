@@ -16,34 +16,34 @@ use message::{Message, SignedMessage};
 use num_bigint::BigInt;
 
 #[derive(Clone, Debug)]
-struct MsgChainNode {
-    msgs: Vec<SignedMessage>,
-    gas_reward: BigInt,
-    gas_limit: i64,
-    gas_perf: f64,
-    eff_perf: f64,
-    bp: f64,
-    parent_offset: f64,
-    valid: bool,
-    merged: bool,
+pub struct MsgChainNode {
+    pub msgs: Vec<SignedMessage>,
+    pub gas_reward: BigInt,
+    pub gas_limit: i64,
+    pub gas_perf: f64,
+    pub eff_perf: f64,
+    pub bp: f64,
+    pub parent_offset: f64,
+    pub valid: bool,
+    pub merged: bool,
 }
 
-struct MsgChain {
+pub struct MsgChain {
     index: usize,
     chain: Vec<MsgChainNode>,
 }
 
 impl MsgChain {
-    fn curr(&self) -> Option<&MsgChainNode> {
+    pub fn curr(&self) -> Option<&MsgChainNode> {
         self.chain.get(self.index)
     }
-    fn prev(&self) -> Option<&MsgChainNode> {
+    pub fn prev(&self) -> Option<&MsgChainNode> {
         if self.index == 0 {
             return None;
         }
         self.chain.get(self.index - 1)
     }
-    fn next(&self) -> Option<&MsgChainNode> {
+    pub fn next(&self) -> Option<&MsgChainNode> {
         if self.index == self.chain.len() - 1 {
             return None;
         }

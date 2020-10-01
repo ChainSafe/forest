@@ -25,13 +25,25 @@ use num_bigint::BigInt;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use vm::ActorState;
+use crate::msg_chain::MsgChain;
+use std::time::Duration;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
 const RBF_DENOM: u64 = 256;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
+const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
+const REPUB_MSG_LIMIT: usize= 30;
+
+// this is *temporary* mutilation until we have implemented uncapped miner penalties -- it will go
+// away in the next fork.
+// TODO: Get rid of this?
+fn allow_negative_chains(epoch: i64) -> bool {
+    epoch < 41280+5
+}
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
@@ -229,9 +241,10 @@ pub struct MessagePool<T: 'static> {
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
     pub network_name: String,
-    network_sender:Sender<NetworkMessage>,
+    network_sender: Sender<NetworkMessage>,
     bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     sig_val_cache: Arc<RwLock<LruCache<Cid, ()>>>,
+    republished: Arc<RwLock<HashSet<Cid>>>,
     // TODO look into adding a cap to local_msgs
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     config: MpoolConfig,
@@ -261,7 +274,7 @@ where
         let sig_val_cache = Arc::new(RwLock::new(LruCache::new(32000)));
         let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
-
+        let republished = Arc::new(RwLock::new(HashSet::new()));
         let mut mp = MessagePool {
             local_addrs,
             pending,
@@ -273,6 +286,7 @@ where
             bls_sig_cache,
             sig_val_cache,
             local_msgs,
+            republished,
             config,
             network_sender,
         };
@@ -288,6 +302,7 @@ where
         // TODO: Check this
         let cur_tipset = mp.cur_tipset.clone();
 
+        // Reacts to new HeadChanges
         task::spawn(async move {
             loop {
                 if let Some(ts) = subscriber.next().await {
@@ -317,6 +332,9 @@ where
                 }
             }
         });
+
+        // Reacts to republishing requests
+
         Ok(mp)
     }
 
@@ -331,15 +349,18 @@ where
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
-        let publish = self.add_tipset(msg.clone(), &self.cur_tipset.read().await.clone(), true)
+        let publish = self
+            .add_tipset(msg.clone(), &self.cur_tipset.read().await.clone(), true)
             .await?;
-        let msg_ser  = msg.marshal_cbor()?;
+        let msg_ser = msg.marshal_cbor()?;
         self.add_local(msg).await?;
         if publish {
-            self.network_sender.send(NetworkMessage::PubsubMessage {
-                topic: PUBSUB_MSG_TOPIC.clone(),
-                message: msg_ser,
-            }).await;
+            self.network_sender
+                .send(NetworkMessage::PubsubMessage {
+                    topic: PUBSUB_MSG_TOPIC.clone(),
+                    message: msg_ser,
+                })
+                .await;
         }
         Ok(cid)
     }
@@ -397,7 +418,12 @@ where
 
     /// Verify the state_sequence and balance for the sender of the message given then call add_locked
     /// to finish adding the signed_message to pending
-    async fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+    async fn add_tipset(
+        &self,
+        msg: SignedMessage,
+        cur_ts: &Tipset,
+        local: bool,
+    ) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(msg.from(), cur_ts).await?;
 
         if sequence > msg.message().sequence() {
@@ -498,10 +524,12 @@ where
         self.add_local(msg.clone()).await?;
 
         if publish {
-            self.network_sender.send(NetworkMessage::PubsubMessage {
-                topic: PUBSUB_MSG_TOPIC.clone(),
-                message: msg.marshal_cbor()?
-            }).await;
+            self.network_sender
+                .send(NetworkMessage::PubsubMessage {
+                    topic: PUBSUB_MSG_TOPIC.clone(),
+                    message: msg.marshal_cbor()?,
+                })
+                .await;
         }
 
         Ok(msg)
@@ -611,6 +639,121 @@ where
             _ => Ok(BigInt::from(min_gas_price)),
         }
     }
+
+    async fn republish_pending_messages(&mut self) -> Result<(), Error> {
+        let ts = self.cur_tipset.read().await;
+        let base_fee = self.api.read().await.chain_compute_base_fee(&ts)?;
+        let base_fee_lower_bound = get_base_fee_lower_bound(&base_fee, BASE_FEE_LOWER_BOUND_FACTOR);
+        let mut pending: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
+
+        self.republished.write().await.clear();
+        let local_addrs = self.local_addrs.read().await;
+        for actor in local_addrs.iter() {
+            if let Some(mset) = self.pending.read().await.get(actor) {
+                if mset.msgs.is_empty() {
+                    continue;
+                }
+                let mut pend: HashMap<u64, SignedMessage> = HashMap::with_capacity(mset.msgs.len());
+                for (nonce, m) in mset.msgs.clone().into_iter() {
+                    pend.insert(nonce, m);
+                }
+                pending.insert(*actor, pend);
+            }
+        }
+        drop(local_addrs);
+
+        if pending.is_empty() {
+            return Ok(());
+        }
+
+        let mut chains = Vec::new();
+        for (actor, mset) in pending.iter() {
+            let next = self.create_message_chains(actor, mset, &base_fee_lower_bound, &ts).await;
+            chains.push(next);
+        }
+
+        if chains.is_empty() {
+            return Ok(());
+        }
+
+        // TODO: Check if the sorting function is correct
+        chains.sort_by(|a,b| match a.before(b) {
+            true => Ordering::Greater,
+            false => Ordering::Less,
+        });
+
+        let mut msgs : Vec<SignedMessage> = vec![];
+        let gas_limit = types::BLOCK_GAS_LIMIT;
+        let mut i = 0;
+        'l : while i < chains.len() {
+            let msg_chain = &mut chains[i];
+            let chain = msg_chain.curr().unwrap().clone();
+            if msgs.len() > REPUB_MSG_LIMIT {
+                break;
+            }
+            // TODO: Check min gas
+
+            // check if chain has been invalidated
+            if !chain.valid {
+                i += 1;
+                continue;
+            }
+
+            // check if fits in block
+            if chain.gas_limit <= gas_limit {
+                // check the baseFee lower bound -- only republish messages that can be included in the chain
+                // within the next 20 blocks.
+                for m in chain.msgs.iter() {
+                    if !allow_negative_chains(ts.epoch()) && m.gas_fee_cap() < &base_fee_lower_bound {
+                        msg_chain.invalidate();
+                        continue 'l;
+                    }
+                }
+                i += 1;
+                continue;
+            }
+            msg_chain.trim(gas_limit, &base_fee, true);
+            let mut j = i;
+            while j < chains.len() -1 {
+                if chains[j].before(&chains[j+1]) {
+                    break;
+                }
+                chains.swap(j, j+1);
+            }
+        }
+
+        let mut count = 0;
+        // log the
+        for m in msgs.iter() {
+            let mb = m.marshal_cbor()?;
+            self.network_sender
+                .send(NetworkMessage::PubsubMessage {
+                    topic: PUBSUB_MSG_TOPIC.clone(),
+                    message: mb,
+                })
+                .await;
+            count += 1;
+            if count < msgs.len() {
+                // this delay is here to encourage the pubsub subsystem to process the messages serially
+                // and avoid creating nonce gaps because of concurrent validation
+                // TODO: I am not sure if we will run into the same issues
+                task::sleep(Duration::from_millis(100)).await;
+            }
+        }
+
+        let mut republished  = HashSet::new();
+        for m in &msgs[0..count] {
+            republished.insert(m.cid()?);
+        }
+        *self.republished.write().await = republished;
+
+        Ok(())
+
+    }
+    async fn create_message_chains(&self, actor: &Address, mset: &HashMap<u64, SignedMessage>, base_fee: &BigInt, ts:&Tipset ) -> MsgChain{
+        todo!()
+    }
+
 
     /// local_message field
     pub async fn load_local(&mut self) -> Result<(), Error> {
