@@ -2920,6 +2920,7 @@ dependencies = [
  "lazy_static",
  "log",
  "num-traits 0.2.12",
+ "rayon",
  "runtime",
  "state_tree",
 ]
@@ -4940,7 +4941,6 @@ dependencies = [
  "interpreter",
  "ipld_blockstore",
  "log",
- "rayon",
 ]
 
 [[package]]

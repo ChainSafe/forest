@@ -6,7 +6,7 @@ use address::Address;
 use blocks::TipsetKeys;
 use blockstore::BlockStore;
 use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use fil_types::BLOCK_GAS_LIMIT;
+use fil_types::{verifier::FullVerifier, BLOCK_GAS_LIMIT};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::unsigned_message::json::UnsignedMessageJson;
 use message::{ChainMessage, Message};
@@ -162,7 +162,7 @@ where
         .ok_or("cant find the current heaviest tipset")?;
     let from_a = data
         .state_manager
-        .resolve_to_key_addr(msg.from(), &curr_ts)
+        .resolve_to_key_addr::<FullVerifier>(msg.from(), &curr_ts)
         .await?;
 
     let pending = data.mpool.pending_for(&from_a).await;
@@ -171,7 +171,7 @@ where
         .unwrap_or_default();
     let res = data
         .state_manager
-        .call_with_gas(
+        .call_with_gas::<FullVerifier>(
             &mut msg,
             &prior_messages,
             Some(data.mpool.cur_tipset.as_ref().read().await.clone()),

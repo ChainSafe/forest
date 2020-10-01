@@ -48,7 +48,6 @@ pub trait ProofVerifier {
     /// elected to mine a new block to verify a sector. A failed winning proof leads to miner's
     /// being slashed.
     fn verify_winning_post(
-        // ? Maybe PoStRandomness if bytes can be != 32 len
         mut randomness: [u8; 32],
         proofs: &[PoStProof],
         challenge_sectors: &[SectorInfo],

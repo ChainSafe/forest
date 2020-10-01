@@ -24,7 +24,7 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
-use state_manager::{utils, StateManager};
+use state_manager::StateManager;
 use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -457,7 +457,7 @@ where
             .map(Arc::new)
             .unwrap_or_else(|| Arc::clone(&base_ts));
 
-        let (lbst, _) = sm.tipset_state(&lbts).await.map_err(|e| {
+        let (lbst, _) = sm.tipset_state::<V>(&lbts).await.map_err(|e| {
             (
                 block_cid.clone(),
                 Error::Validation(format!("Could not update state: {}", e.to_string())),
@@ -565,7 +565,7 @@ where
         validations.push(task::spawn(async move {
             let h = b_cloned.header();
             let (state_root, rec_root) = sm_cloned
-                .tipset_state(base_ts_clone.as_ref())
+                .tipset_state::<V>(base_ts_clone.as_ref())
                 .await
                 .map_err(|e| Error::Other(e.to_string()))?;
             if &state_root != h.state_root() {
@@ -846,7 +846,7 @@ where
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
         let db = state_manager.blockstore_cloned();
-        let (state_root, _) = task::block_on(state_manager.tipset_state(&tip))
+        let (state_root, _) = task::block_on(state_manager.tipset_state::<V>(&tip))
             .map_err(|e| Error::Validation(format!("Could not update state: {}", e)))?;
         let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
             Error::Validation("Could not load from new state root in state manager".to_owned())
@@ -909,7 +909,7 @@ where
         })?;
 
         let sectors =
-            utils::get_sectors_for_winning_post(sm, &lbst, &header.miner_address(), &rand)?;
+            sm.get_sectors_for_winning_post::<V>(&lbst, &header.miner_address(), &rand)?;
 
         V::verify_winning_post(rand, header.win_post_proof(), &sectors, id).map_err(|e| {
             Error::Validation(format!("Failed to verify winning PoSt: {}", e.to_string()))
