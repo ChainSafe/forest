@@ -2942,8 +2942,8 @@ dependencies = [
  "db",
  "forest_cid",
  "forest_encoding",
- "hex",
  "ipld_blockstore",
+ "lazycell",
  "serde",
  "thiserror",
 ]

@@ -11,10 +11,11 @@ encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 ipld_blockstore = { path = "../blockstore" }
 thiserror = "1.0"
+lazycell = "1.2.1"
 
 [dev-dependencies]
-hex = "0.4.2"
 criterion = "0.3.1"
+ipld_blockstore = { path = "../blockstore", features = ["tracking"] }
 
 [[bench]]
 name = "amt_beckmark"
