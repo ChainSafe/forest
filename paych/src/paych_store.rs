@@ -508,8 +508,8 @@ fn key_for_msg(mcid: &Cid) -> String {
 pub struct MsgInfo {
     channel_id: String,
     msg_cid: Cid,
-    received: bool,
-    err: String,
+    pub received: bool,
+    pub err: String,
 }
 
 impl Cbor for MsgInfo {}

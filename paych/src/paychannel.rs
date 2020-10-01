@@ -14,6 +14,7 @@ use actor::paych::{
 use actor::{ExitCode, Serialized};
 use address::Address;
 use async_std::sync::{Arc, RwLock};
+use async_std::task;
 use blockstore::BlockStore;
 use chain::get_heaviest_tipset;
 use cid::Cid;
@@ -38,7 +39,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     store: Arc<RwLock<PaychStore>>,
-    _msg_listeners: MsgListeners,
+    msg_listeners: MsgListeners,
     funds_req_queue: Arc<RwLock<Vec<FundsReq>>>,
     state: Arc<ResourceAccessor<DB, KS>>,
 }
@@ -61,7 +62,7 @@ where
     pub fn new(pm: &Manager<DB, KS>) -> Self {
         ChannelAccessor {
             store: pm.store.clone(),
-            _msg_listeners: MsgListeners::new(),
+            msg_listeners: MsgListeners::new(),
             funds_req_queue: Arc::new(RwLock::new(Vec::new())),
             state: pm.state.clone(),
         }
@@ -87,7 +88,9 @@ where
         voucher.nonce = self.next_sequence_for_lane(ch, voucher.lane).await?;
 
         // sign the voucher
-        let _vb = voucher.signing_bytes().map_err(|e| Error::Other(e.to_string()))?;
+        let _vb = voucher
+            .signing_bytes()
+            .map_err(|e| Error::Other(e.to_string()))?;
 
         // TODO fix
         // let ks = self.state.keystore.read().await;
@@ -499,7 +502,7 @@ where
         let mut funds_req_vec = self.funds_req_queue.write().await;
         funds_req_vec.push(task);
         drop(funds_req_vec);
-        self.process_queue().await
+        task::spawn(async { self.process_queue().await })
     }
 
     /// Run operations in the queue
@@ -649,13 +652,17 @@ where
         let mut store = self.store.write().await;
         let ci = store.create_channel(from, to, mcid.clone(), amt).await?;
 
-        // TODO ask about the use of go routine here
-        self.wait_paych_create_msg(ci.id, mcid.clone()).await?;
+        // TODO determine if this should be blocking
+        task::spawn(async {
+            self.wait_paych_create_msg(ci.id, mcid.clone())
+                .await
+                .unwrap();
+        });
 
         Ok(mcid)
     }
     // TODO fix tuple matching here
-    async fn wait_paych_create_msg(&self, ch_id: String, mcid: Cid) -> Result<(), Error> {
+    pub async fn wait_paych_create_msg(&self, ch_id: String, mcid: Cid) -> Result<(), Error> {
         let sm = self.state.sa.sm.read().await;
 
         let (ts, msg) = StateManager::wait_for_message(
@@ -731,13 +738,15 @@ where
             warn!("saving add funds message cid: {}", res.unwrap_err())
         }
 
-        // TODO ask about go routine usage
-        self.wait_add_funds_msg(ci, mcid.clone()).await?;
+        // TODO ask about if this should be blocking
+        task::spawn(async {
+            self.wait_add_funds_msg(ci, mcid.clone()).await?;
+        });
 
         Ok(mcid)
     }
     // TODO fix tuple matching
-    async fn wait_add_funds_msg(
+    pub async fn wait_add_funds_msg(
         &self,
         channel_info: &mut ChannelInfo,
         mcid: Cid,
@@ -770,28 +779,34 @@ where
         channel_info.add_funds_msg = None;
 
         // TODO refactor to handle error return for msg wait completed
-        // self.msg_wait_completed(mcid, err: Option<Error>)
+        // TODO ask about if this should be blocking
+        task::spawn(async {
+            self.msg_wait_completed(mcid, err: Option<Error>).await?;
+        });
+
         Ok(())
     }
 
-    async fn _msg_wait_completed(&mut self, mcid: Cid, err: Option<Error>) -> Result<(), Error> {
+    async fn msg_wait_completed(&mut self, mcid: Cid, err: Option<Error>) -> Result<(), Error> {
         // save the message result to the store
         let mut st = self.store.write().await;
         st.save_msg_result(mcid.clone(), err.clone()).await?;
 
         // inform listeners that the message has completed
         // TODO handle option err
-        self._msg_listeners
+        self.msg_listeners
             .fire_msg_complete(mcid, err.unwrap())
             .await;
 
         // the queue may have been waiting for msg completion to proceed, process the next queue item
         let req = self.funds_req_queue.read().await;
         if req.len() > 0 {
-            // TODO ask about go routine AND handle err
-            self.process_queue()
-                .await
-                .map_err(|e| Error::Other(e.to_string()))?;
+            // TODO ask if this should be blocking
+            task::spawn(async {
+                self.process_queue()
+                    .await
+                    .map_err(|e| Error::Other(e.to_string()))?;
+            });
         }
 
         Ok(())

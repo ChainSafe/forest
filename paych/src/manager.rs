@@ -6,6 +6,7 @@ use crate::{ChannelAccessor, PaychFundsRes, VoucherInfo, DIR_INBOUND};
 use actor::paych::SignedVoucher;
 use address::Address;
 use async_std::sync::{Arc, RwLock};
+use async_std::task;
 use blockstore::BlockStore;
 use cid::Cid;
 use message_pool::{MessagePool, MpoolRpcProvider};
@@ -46,6 +47,36 @@ where
             state: Arc::new(state),
             channels: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    async fn restart_pending(&mut self) -> Result<(), Error> {
+        let mut st = self.store.write().await;
+        let cis = st.with_pending_add_funds().await?;
+        // TODO ask about the group err usage
+        for ci in cis {
+            if let Some(msg) = ci.create_msg {
+                let ca = self.accessor_by_from_to(ci.control, ci.target).await?;
+                // TODO ask if this should be blocking
+                task::spawn(async {
+                    ca.wait_paych_create_msg(ci.id, ci.create_msg.unwrap()) // TODO
+                        .await
+                        .unwrap();
+                });
+                return Ok(());
+            } else if let Some(msg) = ci.add_funds_msg {
+                let ch = ci
+                    .channel
+                    .ok_or_else(|| Error::Other("error retrieving channel".to_string()))?;
+                let ca = self.accessor_by_address(ch).await?;
+
+                // TODO ask if this should be blocking
+                task::spawn(async {
+                    ca.wait_add_funds_msg(ci.id, ci.create_msg).await.unwrap();
+                });
+                return Ok(());
+            }
+        }
+        Ok(())
     }
     // TODO !!!
     async fn track_inbound_channel(&mut self, ch: Address) -> Result<ChannelInfo, Error> {
@@ -141,7 +172,27 @@ where
     // Waits until the create channel / add funds message with the
     // given message CID arrives.
     // The returned channel address can safely be used against the Manager methods.
-    pub async fn get_paych_wait_ready(&self, _mcid: Cid) -> Result<Address, Error> {
+    pub async fn get_paych_wait_ready(&self, mcid: Cid) -> Result<Address, Error> {
+        // First check if the message has completed
+        let st = self.store.read().await;
+        let msg_info = st.get_message(mcid).await?;
+
+        // if the create channel / add funds message failed, return an Error
+        if msg_info.err.len() > 0 {
+            // do something
+        }
+
+        // if the message has completed successfully
+        if msg_info.received {
+            // get the channel address
+
+            let ci = self.store.by_message_cid(mcid).await?;
+
+            if ci.channel.is_none() {
+                // panic err
+            }
+            Ok(ci.channel.unwrap())
+        }
         unimplemented!()
     }
 
@@ -184,8 +235,8 @@ where
 
         self.accessor_by_from_to(from, to).await
     }
-    // Adds a voucher for an outbound channel.
-    // Returns an error if the channel is not already in the store.
+    /// Adds a voucher for an outbound channel.
+    /// Returns an error if the channel is not already in the store.
     pub async fn add_voucher_outbound(
         &self,
         ch: Address,
@@ -196,9 +247,9 @@ where
         let ca = self.accessor_by_address(ch).await?;
         ca.add_voucher(ch, sv, proof, min_delta).await
     }
-    // Adds a voucher for an inbound channel.
-    // If the channel is not in the store, fetches the channel from state (and checks that
-    // the channel To address is owned by the wallet).
+    /// Adds a voucher for an inbound channel.
+    /// If the channel is not in the store, fetches the channel from state (and checks that
+    /// the channel To address is owned by the wallet).
     pub async fn add_voucher_inbound(
         &mut self,
         ch: Address,
