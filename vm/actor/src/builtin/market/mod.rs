@@ -571,7 +571,7 @@ impl Actor {
                     continue;
                 }
 
-                let mut state: DealState = msm
+                let mut state: DealState = *msm
                     .deal_states
                     .as_ref()
                     .unwrap()
@@ -639,7 +639,7 @@ impl Actor {
                 .ok_or_else(|| actor_error!(ErrNotFound; "proposal doesn't exist ({})", deal_id))?;
 
             pieces.push(PieceInfo {
-                cid: deal.piece_cid,
+                cid: deal.piece_cid.clone(),
                 size: deal.piece_size,
             });
         }
@@ -716,7 +716,8 @@ impl Actor {
                         .ok_or_else(|| {
                             actor_error!(ErrNotFound;
                                     "proposal doesn't exist ({})", deal_id)
-                        })?;
+                        })?
+                        .clone();
 
                     let dcid = deal.cid().map_err(|e| {
                         ActorError::from(e)
@@ -733,7 +734,8 @@ impl Actor {
                                 ExitCode::ErrIllegalState,
                                 "failed to get deal state",
                             )
-                        })?;
+                        })?
+                        .cloned();
 
                     // deal has been published but not activated yet -> terminate it
                     // as it has timed out
@@ -805,7 +807,7 @@ impl Actor {
                     }
 
                     let (slash_amount, next_epoch, remove_deal) =
-                        msm.update_pending_deal_state(state, deal, curr_epoch)?;
+                        msm.update_pending_deal_state(&state, &deal, curr_epoch)?;
                     assert_ne!(
                         slash_amount.sign(),
                         Sign::Minus,

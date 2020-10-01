@@ -1377,6 +1377,7 @@ impl Actor {
                                 format!("failed to load partition {:?}", key),
                             )
                         })?
+                        .cloned()
                         .ok_or_else(|| actor_error!(ErrNotFound, "no such partition {:?}", key))?;
 
                     let old_sectors = sectors

@@ -8,29 +8,55 @@ use encoding::{
     ser::{self, Serialize},
 };
 use ipld_blockstore::BlockStore;
+use lazycell::LazyCell;
 use std::error::Error as StdError;
 
 /// This represents a link to another Node
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(Debug)]
 pub(super) enum Link<V> {
-    Cid(Cid),
-    Cached(Box<Node<V>>),
+    /// Unchanged link to data with an atomic cache.
+    Cid {
+        cid: Cid,
+        cache: LazyCell<Box<Node<V>>>,
+    },
+    /// Modifications have been made to the link, requires flush to clear
+    Dirty(Box<Node<V>>),
 }
 
+impl<V> PartialEq for Link<V>
+where
+    V: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (&Link::Cid { cid: ref a, .. }, &Link::Cid { cid: ref b, .. }) => a == b,
+            (&Link::Dirty(ref a), &Link::Dirty(ref b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl<V> Eq for Link<V> where V: Eq {}
+
 impl<V> From<Cid> for Link<V> {
-    fn from(c: Cid) -> Link<V> {
-        Link::Cid(c)
+    fn from(cid: Cid) -> Link<V> {
+        Link::Cid {
+            cid,
+            cache: Default::default(),
+        }
     }
 }
 
 /// Node represents either a shard of values in the form of bytes or links to other nodes
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Node<V> {
+    /// Node is a link node, contains array of Cid or cached sub nodes.
     Link {
         bmap: BitMap,
         links: [Option<Link<V>>; WIDTH],
     },
+    /// Leaf node, this array contains only values.
     Leaf {
         bmap: BitMap,
         vals: [Option<V>; WIDTH],
@@ -47,10 +73,7 @@ impl<V> Default for Node<V> {
 }
 
 /// Turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<&T>
-where
-    T: Clone,
-{
+fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<&T> {
     let mut v: Vec<&T> = Vec::new();
     for (i, _) in values.iter().enumerate().take(WIDTH) {
         if bmap.get_bit(i as u64) {
@@ -63,7 +86,6 @@ where
 /// Puts values from vector into shard array
 fn vec_to_values<V, T>(bmap: BitMap, values: Vec<V>) -> Result<[Option<T>; WIDTH], Error>
 where
-    V: Clone,
     T: From<V>,
 {
     let mut r_arr: [Option<T>; WIDTH] = Default::default();
@@ -85,8 +107,8 @@ fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<&Cid>, Err
     links
         .iter()
         .filter_map(|c| match c {
-            Some(Link::Cid(cid)) => Some(Ok(cid)),
-            Some(Link::Cached(_)) => Some(Err(Error::Cached)),
+            Some(Link::Cid { cid, .. }) => Some(Ok(cid)),
+            Some(Link::Dirty(_)) => Some(Err(Error::Cached)),
             None => None,
         })
         .collect()
@@ -94,7 +116,7 @@ fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<&Cid>, Err
 
 impl<V> Serialize for Node<V>
 where
-    V: Clone + Serialize,
+    V: Serialize,
 {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -112,7 +134,7 @@ where
 
 impl<'de, V> Deserialize<'de> for Node<V>
 where
-    V: Deserialize<'de> + Clone,
+    V: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -137,21 +159,27 @@ where
 
 impl<V> Node<V>
 where
-    V: Clone + DeserializeOwned + Serialize,
+    V: DeserializeOwned + Serialize,
 {
     /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
-        if let Node::Link { links, .. } = self {
-            for link in &mut links.iter_mut() {
-                if let Some(Link::Cached(n)) = link {
-                    // flush sub node to clear caches
-                    n.flush(bs)?;
+        if let Node::Link { links, bmap } = self {
+            for (i, link) in (0..).zip(links.iter_mut()) {
+                if let Some(Link::Dirty(n)) = link {
+                    // links should only be flushed if the bitmap is set.
+                    if bmap.get_bit(i) {
+                        // flush sub node to clear caches
+                        n.flush(bs)?;
 
-                    // Puts node in blockstore and and retrieves it's CID
-                    let cid = bs.put(n, Blake2b256)?;
+                        // Puts node in blockstore and and retrieves it's CID
+                        let cid = bs.put(n, Blake2b256)?;
 
-                    // Turn cached node into a Cid link
-                    *link = Some(Link::Cid(cid));
+                        // Turn dirty node into a Cid link
+                        *link = Some(Link::Cid {
+                            cid,
+                            cache: Default::default(),
+                        });
+                    }
                 }
             }
         }
@@ -177,24 +205,30 @@ where
         bs: &DB,
         height: u64,
         i: u64,
-    ) -> Result<Option<V>, Error> {
+    ) -> Result<Option<&V>, Error> {
         let sub_i = i / nodes_for_height(height);
         if !self.bitmap().get_bit(sub_i) {
             return Ok(None);
         }
 
         match self {
-            Node::Leaf { vals, .. } => Ok(vals[i as usize].clone()),
+            Node::Leaf { vals, .. } => Ok(vals[i as usize].as_ref()),
             Node::Link { links, .. } => match &links[sub_i as usize] {
-                Some(Link::Cid(cid)) => {
-                    let node: Node<V> = bs
-                        .get::<Node<V>>(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
+                Some(Link::Cid { cid, cache }) => {
+                    if let Some(cached_node) = cache.borrow() {
+                        cached_node.get(bs, height - 1, i % nodes_for_height(height))
+                    } else {
+                        let node: Box<Node<V>> = bs
+                            .get(cid)?
+                            .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
-                    // Get from node pulled into memory from Cid
-                    node.get(bs, height - 1, i % nodes_for_height(height))
+                        // Ignore error intentionally, the cache value will always be the same
+                        let _ = cache.fill(node);
+                        let cache_node = cache.borrow().expect("cache filled on line above");
+                        cache_node.get(bs, height - 1, i % nodes_for_height(height))
+                    }
                 }
-                Some(Link::Cached(n)) => n.get(bs, height - 1, i % nodes_for_height(height)),
+                Some(Link::Dirty(n)) => n.get(bs, height - 1, i % nodes_for_height(height)),
                 None => Ok(None),
             },
         }
@@ -220,10 +254,16 @@ where
 
         if let Node::Link { links, bmap } = self {
             links[idx] = match &mut links[idx] {
-                Some(Link::Cid(cid)) => {
-                    let node = bs.get::<Node<V>>(cid)?.ok_or_else(|| Error::RootNotFound)?;
+                Some(Link::Cid { cid, cache }) => {
+                    let cache_node = std::mem::take(cache);
+                    let sub_node = if let Some(sn) = cache_node.into_inner() {
+                        sn
+                    } else {
+                        // Only retrieve sub node if not found in cache
+                        bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                    };
 
-                    Some(Link::Cached(Box::new(node)))
+                    Some(Link::Dirty(sub_node))
                 }
                 None => {
                     let node = match height {
@@ -237,18 +277,24 @@ where
                         },
                     };
                     bmap.set_bit(idx as u64);
-                    Some(Link::Cached(Box::new(node)))
+                    Some(Link::Dirty(Box::new(node)))
                 }
-                Some(Link::Cached(node)) => return node.set(bs, height - 1, i % nfh, val),
+                Some(Link::Dirty(node)) => return node.set(bs, height - 1, i % nfh, val),
             };
 
-            if let Some(Link::Cached(n)) = &mut links[idx] {
+            if let Some(Link::Dirty(n)) = &mut links[idx] {
                 n.set(bs, height - 1, i % nfh, val)
             } else {
                 unreachable!("Value is set as cached")
             }
         } else {
-            unreachable!("Non zero height in Amt is always Links type")
+            // ! This should not be handled, but there is a bug in the go implementation
+            // ! and this needs to be matched
+            *self = Node::Link {
+                links: Default::default(),
+                bmap: Default::default(),
+            };
+            self.set(bs, height, i, val)
         }
     }
 
@@ -291,24 +337,60 @@ where
                 Ok(true)
             }
             Self::Link { links, bmap } => {
-                let mut sub_node: Box<Node<V>> = match links[sub_i as usize].take() {
-                    Some(Link::Cached(n)) => n,
-                    Some(Link::Cid(cid)) => bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?,
+                match &mut links[sub_i as usize] {
+                    mod_link @ Some(Link::Dirty(_)) => {
+                        let mut remove = false;
+                        if let Some(Link::Dirty(n)) = mod_link {
+                            if !n.delete(bs, height - 1, i % nodes_for_height(height))? {
+                                // Index to be deleted was not found
+                                return Ok(false);
+                            }
+                            if n.bitmap().is_empty() {
+                                bmap.clear_bit(sub_i);
+                                remove = true;
+                            }
+                        } else {
+                            unreachable!("variant matched specifically");
+                        }
+
+                        // Remove needs to be done outside of the `if let` for memory safety.
+                        if remove {
+                            *mod_link = None;
+                        }
+                    }
+                    cid_link @ Some(Link::Cid { .. }) => {
+                        let sub_node = if let Some(Link::Cid { cid, cache }) = cid_link {
+                            // Take cache, will be replaced if no nodes deleted
+                            let cache_node = std::mem::take(cache);
+                            let mut sub_node = if let Some(sn) = cache_node.into_inner() {
+                                sn
+                            } else {
+                                // Only retrieve sub node if not found in cache
+                                bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                            };
+                            if !sub_node.delete(bs, height - 1, i % nodes_for_height(height))? {
+                                // Replace cache, no node deleted.
+                                // Error can be ignored because value will always be the same
+                                // even if possible to hit race condition.
+                                let _ = cache.fill(sub_node);
+
+                                // Index to be deleted was not found
+                                return Ok(false);
+                            }
+                            sub_node
+                        } else {
+                            unreachable!("variant matched specifically");
+                        };
+
+                        if sub_node.bitmap().is_empty() {
+                            // Sub node is empty, clear bit and current link node.
+                            bmap.clear_bit(sub_i);
+                            *cid_link = None;
+                        } else {
+                            *cid_link = Some(Link::Dirty(sub_node));
+                        }
+                    }
                     None => unreachable!("Bitmap value for index is set"),
-                };
-
-                // Follow node to delete from subnode
-                if !sub_node.delete(bs, height - 1, i % nodes_for_height(height))? {
-                    // Index to be deleted was not found
-                    return Ok(false);
-                }
-
-                // Value was deleted, move node to cache or clear bit if removing shard
-                links[sub_i as usize] = if sub_node.bitmap().is_empty() {
-                    bmap.clear_bit(sub_i);
-                    None
-                } else {
-                    Some(Link::Cached(sub_node))
                 };
 
                 Ok(true)
@@ -347,14 +429,21 @@ where
                     if bmap.get_bit(i) {
                         let offs = offset + (i * nodes_for_height(height));
                         let keep_going = match l.as_ref().expect("bit set at index") {
-                            Link::Cached(sub) => sub.for_each_while(store, height - 1, offs, f)?,
-                            Link::Cid(cid) => {
-                                let node = store
-                                    .get::<Node<V>>(cid)
-                                    .map_err(|e| e.to_string())?
-                                    .ok_or_else(|| Error::RootNotFound)?;
+                            Link::Dirty(sub) => sub.for_each_while(store, height - 1, offs, f)?,
+                            Link::Cid { cid, cache } => {
+                                if let Some(cached_node) = cache.borrow() {
+                                    cached_node.for_each_while(store, height - 1, offs, f)?
+                                } else {
+                                    let node: Box<Node<V>> = store
+                                        .get(cid)?
+                                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
-                                node.for_each_while(store, height - 1, offs, f)?
+                                    // Ignore error intentionally, the cache value will always be the same
+                                    let _ = cache.fill(node);
+                                    let cache_node =
+                                        cache.borrow().expect("cache filled on line above");
+                                    cache_node.for_each_while(store, height - 1, offs, f)?
+                                }
                             }
                         };
 
@@ -401,20 +490,23 @@ where
                         let offs = offset + (i * nodes_for_height(height));
                         let link = l.as_mut().expect("bit set at index");
                         let keep_going = match link {
-                            Link::Cached(sub) => {
+                            Link::Dirty(sub) => {
                                 sub.for_each_while_mut(store, height - 1, offs, f)?
                             }
-                            Link::Cid(cid) => {
-                                let mut node = store
-                                    .get::<Node<V>>(cid)
-                                    .map_err(|e| e.to_string())?
-                                    .ok_or_else(|| Error::RootNotFound)?;
+                            Link::Cid { cid, cache } => {
+                                let cache_node = std::mem::take(cache);
+                                let mut node = if let Some(sn) = cache_node.into_inner() {
+                                    sn
+                                } else {
+                                    // Only retrieve sub node if not found in cache
+                                    store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                                };
 
                                 let keep_going =
                                     node.for_each_while_mut(store, height - 1, offs, f)?;
 
                                 // TODO: only cache the node if one of the values was mutated
-                                *link = Link::Cached(Box::new(node));
+                                *link = Link::Dirty(node);
 
                                 keep_going
                             }

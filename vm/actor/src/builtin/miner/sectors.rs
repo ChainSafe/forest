@@ -36,6 +36,7 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
                         format!("failed to load sector {}", sector_number),
                     )
                 })?
+                .cloned()
                 .ok_or_else(|| actor_error!(ErrNotFound; "sector not found: {}", sector_number))?;
             sector_infos.push(sector_on_chain);
         }
@@ -49,7 +50,8 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
         Ok(self
             .amt
             .get(sector_number)
-            .map_err(|e| e.downcast_wrap(format!("failed to get sector {}", sector_number)))?)
+            .map_err(|e| e.downcast_wrap(format!("failed to get sector {}", sector_number)))?
+            .cloned())
     }
 
     pub fn store(&mut self, infos: Vec<SectorOnChainInfo>) -> Result<(), Box<dyn StdError>> {
