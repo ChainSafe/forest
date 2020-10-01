@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod genesis;
-pub mod verifier;
 mod piece;
 pub mod sector;
+pub mod verifier;
 
 pub use self::piece::*;
 pub use self::sector::*;

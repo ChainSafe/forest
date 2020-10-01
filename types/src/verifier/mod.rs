@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 mod mock;
 
 pub use self::mock::*;
@@ -35,7 +38,7 @@ pub trait ProofVerifier {
             vi.interactive_randomness.0,
             &vi.proof,
         )? {
-            return Err(format!("Invalid Seal proof").into());
+            Err("Invalid Seal proof".into())
         } else {
             Ok(())
         }
