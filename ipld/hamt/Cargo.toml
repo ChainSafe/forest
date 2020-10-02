@@ -30,6 +30,7 @@ murmur = ["murmur3"]
 [dev-dependencies]
 hex = "0.4.2"
 criterion = "0.3.3"
+ipld_blockstore = { path = "../blockstore", features = ["tracking"] }
 
 [[bench]]
 name = "hamt_beckmark"

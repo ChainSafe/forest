@@ -3,13 +3,8 @@
 
 use ipld_hamt::{BytesKey, Hamt};
 
-#[cfg(feature = "murmur")]
 use cid::multihash::Blake2b256;
-#[cfg(feature = "murmur")]
-use ipld_blockstore::BlockStore;
-#[cfg(feature = "murmur")]
-use ipld_hamt::Murmur3;
-#[cfg(feature = "murmur")]
+use ipld_blockstore::{BSStats, BlockStore, TrackingBlockStore};
 use serde_bytes::ByteBuf;
 
 #[cfg(feature = "identity")]
@@ -66,12 +61,11 @@ fn test_load() {
 }
 
 #[test]
-#[cfg(feature = "murmur")]
 fn delete() {
-    let store = db::MemoryDB::default();
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
 
-    // ! Note that bytes must be specifically indicated serde_bytes type
-    let mut hamt: Hamt<_, _, BytesKey, Murmur3> = Hamt::new(&store);
+    let mut hamt: Hamt<_, _> = Hamt::new(&store);
     let (v1, v2, v3): (&[u8], &[u8], &[u8]) = (
         b"cat dog bear".as_ref(),
         b"cat dog".as_ref(),
@@ -83,47 +77,49 @@ fn delete() {
 
     let c = hamt.flush().unwrap();
     assert_eq!(
-        hex::encode(c.to_bytes()),
-        "0171a0e402204c4cec750f4e5fc0df61e5a6b6f430d45e6d42108824492658ccd480a4f86aef"
+        c.to_string().as_str(),
+        "bafy2bzacebhjoag2qmyibmvvzq372pg2evlkchovqdksmna4hm7py5itnrlhg"
     );
 
-    let mut h2 = Hamt::<_, ByteBuf, BytesKey, Murmur3>::load(&c, &store).unwrap();
+    let mut h2 = Hamt::<_, ByteBuf>::load(&c, &store).unwrap();
     assert_eq!(h2.delete(&b"foo".to_vec()).unwrap(), true);
     assert_eq!(h2.get(&b"foo".to_vec()).unwrap(), None);
 
-    // Assert previous hamt still has access
-    assert_eq!(hamt.get(&b"foo".to_vec()).unwrap(), Some(ByteBuf::from(v1)));
-
     let c2 = h2.flush().unwrap();
     assert_eq!(
-        hex::encode(c2.to_bytes()),
-        "0171a0e40220f8889d65614928ee8fd0a1fc27fb94357751ce95e99260b16b8789455eb7d212"
+        c2.to_string().as_str(),
+        "bafy2bzaceczehhtzfhg4ijrkv2omajt5ygwbd6srqhhtkxgd2hjttpihxs5ky"
     );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 1, w: 2, br: 88, bw: 154});
 }
 
 #[test]
-#[cfg(feature = "murmur")]
 fn reload_empty() {
-    let store = db::MemoryDB::default();
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
 
-    let hamt: Hamt<_, (), BytesKey, Murmur3> = Hamt::new(&store);
+    let hamt: Hamt<_, ()> = Hamt::new(&store);
     let c = store.put(&hamt, Blake2b256).unwrap();
-    assert_eq!(
-        hex::encode(c.to_bytes()),
-        "0171a0e4022018fe6acc61a3a36b0c373c4a3a8ea64b812bf2ca9b528050909c78d408558a0c"
-    );
-    let h2 = Hamt::<_, (), BytesKey, Murmur3>::load(&c, &store).unwrap();
+
+    let h2 = Hamt::<_, ()>::load(&c, &store).unwrap();
     let c2 = store.put(&h2, Blake2b256).unwrap();
     assert_eq!(c, c2);
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaceamp42wmmgr2g2ymg46euououzfyck7szknvfacqscohrvaikwfay"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 1, w: 2, br: 3, bw: 6});
 }
 
 #[test]
-#[cfg(feature = "murmur")]
 fn set_delete_many() {
-    let store = db::MemoryDB::default();
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
 
     // Test vectors setup specifically for bit width of 5
-    let mut hamt: Hamt<_, _, BytesKey, Murmur3> = Hamt::new_with_bit_width(&store, 5);
+    let mut hamt: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 0..200 {
         hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
@@ -174,7 +170,8 @@ fn add_and_remove_keys(
         .map(|(i, k)| (k.to_vec().into(), i as u8))
         .collect();
 
-    let store = db::MemoryDB::default();
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
 
     let mut hamt: Hamt<_, _, _, Identity> = Hamt::new_with_bit_width(&store, bit_width);
 
