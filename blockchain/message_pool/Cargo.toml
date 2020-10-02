@@ -31,6 +31,7 @@ state_manager = { path = "../state_manager" }
 async-trait = "0.1"
 interpreter = { path = "../../vm/interpreter/" }
 types = { package = "fil_types", path = "../../types" }
+num-traits = "0.2"
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }

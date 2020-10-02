@@ -114,13 +114,6 @@ impl Message for ChainMessage {
             Self::Unsigned(t) => t.set_gas_premium(prem),
         }
     }
-
-    fn valid_for_block_inclusion(&self, min_gas: i64) -> Result<(), String> {
-        match self {
-            Self::Signed(t) => t.valid_for_block_inclusion(min_gas),
-            Self::Unsigned(t) => t.valid_for_block_inclusion(min_gas),
-        }
-    }
 }
 
 impl Cbor for ChainMessage {
