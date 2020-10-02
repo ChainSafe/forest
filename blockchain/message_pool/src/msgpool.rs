@@ -668,7 +668,7 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
 }
 
 /// Validates the message has enough gas and is semantically validated
-// TODO move 
+// TODO move this logic to message crate under a feature or to a common location.
 fn message_valid_for_block_inclusion(msg: &UnsignedMessage, min_gas: i64) -> Result<(), String> {
     if msg.version != 0 {
         return Err(format!("Message version: {} not  supported", msg.version));
