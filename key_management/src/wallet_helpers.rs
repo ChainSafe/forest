@@ -54,8 +54,8 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
         SignatureType::Secp256k1 => {
             let priv_key = SecpPrivate::parse_slice(private_key)
                 .map_err(|err| Error::Other(err.to_string()))?;
-            let msg_complete = blake2b_256(msg);
-            let message = SecpMessage::parse(&msg_complete);
+            let msg_hash = blake2b_256(msg);
+            let message = SecpMessage::parse(&msg_hash);
             let (sig, recovery_id) = secp256k1::sign(&message, &priv_key);
             let mut new_bytes = [0; 65];
             new_bytes[..64].copy_from_slice(&sig.serialize());

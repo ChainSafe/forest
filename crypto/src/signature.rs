@@ -12,12 +12,15 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 
-/// BLS signature length in bytes
+/// BLS signature length in bytes.
 pub const BLS_SIG_LEN: usize = 96;
-/// BLS Public key length in bytes
+/// BLS Public key length in bytes.
 pub const BLS_PUB_LEN: usize = 48;
-/// BLS signature length in bytes
+
+/// Secp256k1 signature length in bytes.
 pub const SECP_SIG_LEN: usize = 65;
+/// Secp256k1 Public key length in bytes.
+pub const SECP_PUB_LEN: usize = 65;
 
 /// Signature variants for Forest signatures
 #[derive(
@@ -33,13 +36,6 @@ pub enum SignatureType {
 impl Default for SignatureType {
     fn default() -> Self {
         SignatureType::BLS
-    }
-}
-
-impl SignatureType {
-    /// Allows referencing back to Protocol from encoded byte
-    fn from_byte(b: u8) -> Option<SignatureType> {
-        FromPrimitive::from_u8(b)
     }
 }
 
@@ -75,7 +71,7 @@ impl<'de> de::Deserialize<'de> for Signature {
         }
 
         // Remove signature type byte
-        let sig_type = SignatureType::from_byte(bytes[0])
+        let sig_type = SignatureType::from_u8(bytes[0])
             .ok_or_else(|| de::Error::custom("Invalid signature type byte (must be 1 or 2)"))?;
 
         Ok(Signature {
@@ -199,7 +195,7 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
     verify(&sig, &hashed_data[..], &pks[..])
 }
 
-/// Return Address for a message given it's signing bytes (`Cid` hash) and signature.
+/// Return Address for a message given it's signing bytes hash and signature.
 pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Address, Error> {
     // generate types to recover key from
     let rec_id = RecoveryId::parse(signature[64])?;
