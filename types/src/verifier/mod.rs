@@ -108,6 +108,7 @@ pub trait ProofVerifier {
         }
     }
 
+    /// Generates sector challenge indexes for use in winning PoSt verification.
     fn generate_winning_post_sector_challenge(
         proof: RegisteredPoStProof,
         prover_id: u64,
