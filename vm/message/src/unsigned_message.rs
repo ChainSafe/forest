@@ -67,6 +67,13 @@ impl UnsignedMessage {
     pub fn builder() -> MessageBuilder {
         MessageBuilder::default()
     }
+
+    /// Helper function to convert the message into signing bytes.
+    /// This function returns the message `Cid` bytes.
+    pub fn to_signing_bytes(&self) -> Vec<u8> {
+        // Safe to unwrap here, unsigned message cannot fail to serialize.
+        self.cid().unwrap().to_bytes()
+    }
 }
 
 impl Serialize for UnsignedMessage {
