@@ -708,7 +708,7 @@ async fn recover_sig(
     let val = bls_sig_cache
         .get(&msg.cid()?)
         .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
-    let smsg = SignedMessage::new_from_parts(msg, val.clone());
+    let smsg = SignedMessage::new_from_parts(msg, val.clone()).map_err(Error::Other)?;
     Ok(smsg)
 }
 

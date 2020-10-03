@@ -259,7 +259,9 @@ where
     /// Applies the state transition for a single message
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
+        println!("Applying message");
         check_message(msg.message())?;
+        println!("Passed message check");
 
         let pl = price_list_by_epoch(self.epoch());
         let ser_msg = forest_encoding::to_vec(msg).map_err(|e| e.to_string())?;

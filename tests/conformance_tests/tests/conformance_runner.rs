@@ -20,9 +20,15 @@ use std::io::BufReader;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
-lazy_static! {
-    static ref SKIP_TESTS: [Regex; 11] = [
+const SKIP_MODE: bool = true;
 
+lazy_static! {
+    static ref SKIP_TESTS: [Regex; 14] = [
+
+
+
+        Regex::new(r"test-vectors/corpus/vm_violations/x--*").unwrap(),
+        Regex::new(r"test-vectors/corpus/nested/x--*").unwrap(),
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -50,6 +56,10 @@ lazy_static! {
         //This 1 test are initially failing becuase of gas used in msg 0 did not match
         Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
     ];
+
+    static ref DO_ONLY: [Regex; 1] = [
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagemarket/PublishStorageDeals/SysErrOutOfGas/extracted-msg-fil_1_storagemarket-PublishStorageDeals-SysErrOutOfGas-1.json").unwrap(),
+    ];
 }
 
 fn is_valid_file(entry: &DirEntry) -> bool {
@@ -57,13 +67,27 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         Some(file) => file,
         None => return false,
     };
-    for rx in SKIP_TESTS.iter() {
-        if rx.is_match(file_name) {
-            println!("SKIPPING: {}", file_name);
-            return false;
+
+    if SKIP_MODE {
+        for rx in SKIP_TESTS.iter() {
+            if rx.is_match(file_name) {
+                println!("SKIPPING: {}", file_name);
+                return false;
+            }
         }
+        return file_name.ends_with(".json");
+    } else {
+        let mut atleast_one = false;
+        for rx in DO_ONLY.iter() {
+            if rx.is_match(file_name) {
+                atleast_one = true;
+            }
+        }
+        if atleast_one == true {
+            return file_name.ends_with(".json");
+        }
+        false
     }
-    file_name.ends_with(".json")
 }
 
 fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
@@ -224,8 +248,10 @@ fn conformance_test_runner() {
     for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
         let file = File::open(entry.path()).unwrap();
         let reader = BufReader::new(file);
-        let vector: TestVector = serde_json::from_reader(reader).unwrap();
         let test_name = entry.path().display();
+        println!("\nLooking at test {:?}", test_name);
+        let vector: TestVector = serde_json::from_reader(reader).unwrap();
+
         match vector {
             TestVector::Message {
                 selector,

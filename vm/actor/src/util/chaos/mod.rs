@@ -176,7 +176,9 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CallerValidation) => {
+                println!("About to serialize");
                 let branch = Serialized::deserialize(&params)?;
+                println!("Failed to serialize");
                 Self::caller_validation(rt, branch)?;
                 Ok(Serialized::default())
             }
