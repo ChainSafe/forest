@@ -127,10 +127,18 @@ where
     {
         for p in &self.pointers {
             match p {
-                Pointer::Link { cid, .. } => {
-                    match store.get::<Node<K, V, H>>(cid).map_err(|e| e.to_string())? {
-                        Some(node) => node.for_each(store, f)?,
-                        None => return Err(format!("Node with cid {} not found", cid).into()),
+                Pointer::Link { cid, cache } => {
+                    if let Some(cached_node) = cache.borrow() {
+                        cached_node.for_each(store, f)?
+                    } else {
+                        let node = store
+                            .get(cid)?
+                            .ok_or_else(|| format!("Node with cid {} not found", cid))?;
+
+                        // Ignore error intentionally, the cache value will always be the same
+                        let _ = cache.fill(node);
+                        let cache_node = cache.borrow().expect("cache filled on line above");
+                        cache_node.for_each(store, f)?
                     }
                 }
                 Pointer::Dirty(n) => n.for_each(store, f)?,
@@ -223,15 +231,20 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link { cid, .. } => match store.get::<Node<K, V, H>>(cid)? {
-                Some(mut node) => {
-                    // Pull value from store and update to cached node
-                    node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
-                    *child = Pointer::Dirty(Box::new(node));
-                    Ok(())
-                }
-                None => Err(Error::CidNotFound(cid.to_string())),
-            },
+            Pointer::Link { cid, cache } => {
+                let cached_node = std::mem::take(cache);
+                let mut child_node = if let Some(sn) = cached_node.into_inner() {
+                    sn
+                } else {
+                    store
+                        .get(cid)?
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                };
+
+                child_node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
+                *child = Pointer::Dirty(child_node);
+                Ok(())
+            }
             Pointer::Dirty(n) => {
                 Ok(n.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?)
             }
@@ -303,18 +316,23 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link { cid, .. } => match store.get::<Node<K, V, H>>(cid)? {
-                Some(mut node) => {
-                    // Pull value from store and update to cached node
-                    let del = node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
-                    *child = Pointer::Dirty(Box::new(node));
+            Pointer::Link { cid, cache } => {
+                let cached_node = std::mem::take(cache);
+                let mut child_node = if let Some(sn) = cached_node.into_inner() {
+                    sn
+                } else {
+                    store
+                        .get(cid)?
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                };
 
-                    // Clean to retrieve canonical form
-                    child.clean()?;
-                    Ok(del)
-                }
-                None => Err(Error::CidNotFound(cid.to_string())),
-            },
+                let deleted = child_node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
+                *child = Pointer::Dirty(child_node);
+
+                // Clean to retrieve canonical form
+                child.clean()?;
+                Ok(deleted)
+            }
             Pointer::Dirty(n) => {
                 // Delete value and return deleted value
                 let deleted = n.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
