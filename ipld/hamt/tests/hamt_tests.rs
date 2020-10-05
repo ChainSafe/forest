@@ -158,7 +158,8 @@ fn set_delete_many() {
         "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
     );
     #[rustfmt::skip]
-    assert_eq!(*store.stats.borrow(), BSStats {r: 87, w: 119, br: 7671, bw: 14042});
+    // TODO https://github.com/ChainSafe/forest/issues/729
+    assert_eq!(*store.stats.borrow(), BSStats { r: 61, w: 93, br: 6478, bw: 12849 });
 }
 
 #[cfg(feature = "identity")]
@@ -229,7 +230,9 @@ fn canonical_structure() {
         &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
         &[b"KAA4"],
         "bafy2bzacedrktzj4o7iumailmdzl5gz3uqr4bw2o72qg4zv5q7qhezy4r32bc",
-        BSStats {r: 7, w: 10, br: 388, bw: 561},
+        // TODO we have a LOT less reads and writes, match go with 
+        // https://github.com/ChainSafe/forest/issues/729
+        BSStats { r: 4, w: 6, br: 228, bw: 346 },
     );
 }
 
@@ -240,30 +243,36 @@ fn canonical_structure_alt_bit_width() {
     let kb_cases = [
         (
             "bafy2bzacecnabvcxw7k5hgfcex5ig4jf3nabuxvl35edgnjk5ven2kg4n3ffm",
-            BSStats {r: 2, w: 5, br: 26, bw: 65},
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 2, w: 4, br: 26, bw: 52 },
         ),
         (
             "bafy2bzacec2f6scvfmnyal5pzn43if6e2kls5jbm2jdab2xzuditctd5i3bbi",
-            BSStats {r: 2, w: 5, br: 28, bw: 70},
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 2, w: 4, br: 28, bw: 56 },
         ),
         (
             "bafy2bzacedckymwjxmg35sllfegwrmnr7rxb3x7dh6muec2li2qhqjk5tf63q",
-            BSStats {r: 2, w: 5, br: 32, bw: 80},
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 2, w: 4, br: 32, bw: 64 },
         ),
     ];
     #[rustfmt::skip]
     let other_cases = [
         (
             "bafy2bzacedc7hh2tyz66m7n7ricyw2m7whsgoplyux3kbxczla7zuf25wi2og",
-            BSStats {r: 9, w: 14, br: 420, bw: 661},
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 4, w: 6, br: 190, bw: 292 },
         ),
         (
             "bafy2bzacedeeqff3p7n3ogqxvqslb2yrbi4ojz44sp6mvjwyp6u6lktxdo2fg",
-            BSStats {r: 8, w: 13, br: 385, bw: 639},
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 4, w: 6, br: 202, bw: 306 },
         ),
         (
             "bafy2bzaceckigpba3kck23qyuyb2i6vbiprtsmlr2rlyn3o4lmmcvzsh3l6wi",
-            BSStats {r: 8, w: 13, br: 419, bw: 687},
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 4, w: 6, br: 214, bw: 322 },
         ),
     ];
     for i in 5..8 {
@@ -322,5 +331,6 @@ fn clean_child_ordering() {
         "bafy2bzacec6ro3q36okye22evifu6h7kwdkjlb4keq6ogpfqivka6myk6wkjo"
     );
     #[rustfmt::skip]
-    assert_eq!(*store.stats.borrow(), BSStats {r: 9, w: 17, br: 2327, bw: 2845});
+    // TODO https://github.com/ChainSafe/forest/issues/729
+    assert_eq!(*store.stats.borrow(), BSStats { r: 3, w: 11, br: 1992, bw: 2510 });
 }
