@@ -207,8 +207,8 @@ impl Actor {
             owner,
             worker,
             control_addresses,
-            params.peer_id,
-            params.multi_addresses,
+            params.peer.0,
+            params.multiaddrs,
             params.seal_proof_type,
         )
         .map_err(|e| {

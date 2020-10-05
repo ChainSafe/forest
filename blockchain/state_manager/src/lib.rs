@@ -15,6 +15,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
+use fil_types::RegisteredSealProof;
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
@@ -167,6 +168,8 @@ where
             power::Claim {
                 raw_byte_power: ps.total_raw_byte_power,
                 quality_adj_power: ps.total_quality_adj_power,
+                // TODO find the seal type
+                seal_proof_type: RegisteredSealProof::StackedDRG2KiBV1,
             },
         ))
     }

@@ -974,7 +974,7 @@ fn require_create_cannel_with_lanes(num_lanes: u64) -> (MockRuntime, SignedVouch
     let payer_addr = Address::new_id(PAYER_ID);
     let payee_addr = Address::new_id(PAYEE_ID);
     let balance = TokenAmount::from(100_000);
-    let received = TokenAmount::from(0);
+    let value_received = TokenAmount::from(0);
     let curr_epoch = 2;
 
     let mut actor_code_cids = HashMap::default();
@@ -986,7 +986,7 @@ fn require_create_cannel_with_lanes(num_lanes: u64) -> (MockRuntime, SignedVouch
         caller: *INIT_ACTOR_ADDR,
         caller_type: INIT_ACTOR_CODE_ID.clone(),
         actor_code_cids,
-        received,
+        value_received,
         balance,
         epoch: curr_epoch,
         ..Default::default()

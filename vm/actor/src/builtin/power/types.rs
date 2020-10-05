@@ -22,6 +22,7 @@ pub const SECTOR_TERMINATION_FAULTY: SectorTermination = 3;
 pub struct CreateMinerParams {
     pub owner: Address,
     pub worker: Address,
+    pub control_addresses: Vec<Address>,
     pub seal_proof_type: RegisteredSealProof,
     pub peer: BytesDe,
     pub multiaddrs: Vec<BytesDe>,

@@ -92,6 +92,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let value = rt.message().value_received().clone();
+        println!("params : {:?}", params.multiaddrs);
 
         let init::ExecReturn {
             id_address,
@@ -100,13 +101,17 @@ impl Actor {
             .send(
                 *INIT_ACTOR_ADDR,
                 init::Method::Exec as u64,
-                Serialized::serialize(MinerConstructorParams {
-                    owner: params.owner,
-                    worker: params.worker,
-                    control_addresses: Default::default(),
-                    seal_proof_type: params.seal_proof_type,
-                    peer_id: params.peer.0,
-                    multi_addresses: params.multiaddrs,
+                Serialized::serialize(init::ExecParams {
+                    code_cid: MINER_ACTOR_CODE_ID.clone(),
+                    constructor_params: Serialized::serialize(MinerConstructorParams {
+                        owner: params.owner,
+                        worker: params.worker,
+                        control_addresses: Default::default(),
+                        seal_proof_type: params.seal_proof_type,
+                        peer: params.peer,
+                        multiaddrs: params.multiaddrs,
+                    })
+                    .unwrap(),
                 })?,
                 value,
             )?

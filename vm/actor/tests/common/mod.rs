@@ -36,7 +36,6 @@ pub struct MockRuntime {
     // Actor State
     pub state: Option<Cid>,
     pub balance: TokenAmount,
-    pub received: TokenAmount,
 
     // VM Impl
     pub in_call: bool,
@@ -72,7 +71,6 @@ impl Default for MockRuntime {
             value_received: Default::default(),
             state: Default::default(),
             balance: Default::default(),
-            received: Default::default(),
             in_call: Default::default(),
             store: Default::default(),
             in_transaction: Default::default(),
@@ -497,7 +495,7 @@ impl Runtime<MemoryDB> for MockRuntime {
         self.expect_validate_caller_type = None;
 
         Err(
-            actor_error!(ErrForbidden; "caller type {:?} forbidden, allowed: {:?}",
+            actor_error!(SysErrForbidden; "caller type {:?} forbidden, allowed: {:?}",
                 self.caller_type, types),
         )
     }
@@ -599,7 +597,7 @@ impl Runtime<MemoryDB> for MockRuntime {
 
         let expected_msg = self.expect_sends.pop_front().unwrap();
 
-        assert!(expected_msg.to == to && expected_msg.method == method && expected_msg.params == params && expected_msg.value == value, "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, self.expect_sends[0]);
+        assert!(expected_msg.to == to && expected_msg.method == method && expected_msg.params == params && expected_msg.value == value, "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, expected_msg);
 
         if value > self.balance {
             return Err(actor_error!(SysErrSenderStateInvalid;
@@ -607,10 +605,12 @@ impl Runtime<MemoryDB> for MockRuntime {
                     value, self.balance
             ));
         }
-        self.balance -= value;
 
         match expected_msg.exit_code {
-            ExitCode::Ok => return Ok(expected_msg.send_return),
+            ExitCode::Ok => {
+                self.balance -= value;
+                return Ok(expected_msg.send_return);
+            }
             x => {
                 return Err(ActorError::new(x, "Expected message Fail".to_string()));
             }

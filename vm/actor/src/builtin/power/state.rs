@@ -11,7 +11,7 @@ use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{tuple::*, Cbor};
-use fil_types::StoragePower;
+use fil_types::{RegisteredSealProof, StoragePower};
 use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
 use num_bigint::{bigint_ser, BigInt, Sign};
@@ -122,19 +122,24 @@ impl State {
         let new_claim = Claim {
             raw_byte_power: old_claim.raw_byte_power.clone() + power,
             quality_adj_power: old_claim.quality_adj_power.clone() + qa_power,
+            seal_proof_type: old_claim.seal_proof_type,
         };
+        println!("CLaium is {:?}", new_claim);
 
-        let min_power_ref: &StoragePower = &*CONSENSUS_MINER_MIN_POWER;
-        let prev_below: bool = &old_claim.quality_adj_power < min_power_ref;
-        let still_below: bool = &new_claim.quality_adj_power < min_power_ref;
+        let min_power_ref: &StoragePower = &old_claim
+            .seal_proof_type
+            .min_miner_consensus_power()
+            .unwrap();
+        let prev_below: bool = &old_claim.raw_byte_power < min_power_ref;
+        let still_below: bool = &new_claim.raw_byte_power < min_power_ref;
 
         if prev_below && !still_below {
-            // Just passed min miner size
+            println!("Just passed min miner size");
             self.miner_above_min_power_count += 1;
             self.total_quality_adj_power += &new_claim.quality_adj_power;
             self.total_raw_byte_power += &new_claim.raw_byte_power;
         } else if !prev_below && still_below {
-            // just went below min miner size
+            println!("just went below min miner size");
             self.miner_above_min_power_count -= 1;
             self.total_quality_adj_power = self
                 .total_quality_adj_power
@@ -145,9 +150,12 @@ impl State {
                 .checked_sub(&old_claim.raw_byte_power)
                 .expect("Negative raw byte power");
         } else if !prev_below && !still_below {
-            // Was above the threshold, still above
+            println!("Was above the threshold, still above");
             self.total_quality_adj_power += qa_power;
             self.total_raw_byte_power += power;
+        }
+        else{
+            println!("was always below");
         }
 
         assert_ne!(
@@ -192,7 +200,7 @@ impl State {
         Ok(())
     }
 
-    pub(super) fn current_total_power(&self) -> (StoragePower, StoragePower) {
+    pub fn current_total_power(&self) -> (StoragePower, StoragePower) {
         if self.miner_above_min_power_count < CONSENSUS_MINER_MIN_MINERS {
             (
                 self.total_bytes_committed.clone(),
@@ -217,7 +225,7 @@ impl State {
     }
 }
 
-pub(super) fn load_cron_events<BS: BlockStore>(
+pub fn load_cron_events<BS: BlockStore>(
     mmap: &Multimap<BS>,
     epoch: ChainEpoch,
 ) -> Result<Vec<CronEvent>, Box<dyn StdError>> {
@@ -261,7 +269,7 @@ pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
 
 impl Cbor for State {}
 
-#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple, Clone)]
+#[derive(Default, Debug, PartialEq, Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct Claim {
     /// Sum of raw byte power for a miner's sectors.
     #[serde(with = "bigint_ser")]
@@ -269,6 +277,8 @@ pub struct Claim {
     /// Sum of quality adjusted power for a miner's sectors.
     #[serde(with = "bigint_ser")]
     pub quality_adj_power: StoragePower,
+
+    pub seal_proof_type: RegisteredSealProof,
 }
 
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]

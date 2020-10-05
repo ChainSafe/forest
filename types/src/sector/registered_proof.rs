@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::SectorSize;
+use super::StoragePower;
 use filecoin_proofs_api as proofs;
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 
@@ -14,6 +16,12 @@ pub enum RegisteredSealProof {
     StackedDRG32GiBV1,
     StackedDRG64GiBV1,
     Invalid(i64),
+}
+
+impl Default for RegisteredSealProof {
+    fn default() -> Self {
+        RegisteredSealProof::StackedDRG2KiBV1
+    }
 }
 
 impl RegisteredSealProof {
@@ -105,6 +113,20 @@ impl RegisteredSealProof {
             StackedDRG8MiBV1 => Ok(2),
             StackedDRG512MiBV1 => Ok(2),
             Invalid(i) => Err(format!("unsupported proof type: {}", i)),
+        }
+    }
+
+    pub fn min_miner_consensus_power(self) -> Result<StoragePower, String> {
+        match self {
+            Self::StackedDRG64GiBV1 => Ok(StoragePower::from(0)),
+            Self::StackedDRG32GiBV1 => Ok(StoragePower::from_i128(16 << 20).unwrap()),
+            Self::StackedDRG2KiBV1 => Ok(StoragePower::from_i128(1 << 30).unwrap()),
+            Self::StackedDRG8MiBV1 => Ok(StoragePower::from_i128(10 << 40).unwrap()),
+            Self::StackedDRG512MiBV1 => Ok(StoragePower::from_i128(20 << 40).unwrap()),
+            _ => Err(format!(
+                "Unsupported mapping from {:?} to Min Miner Consensus POwer",
+                self
+            )),
         }
     }
 

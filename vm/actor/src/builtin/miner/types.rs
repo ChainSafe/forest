@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::power::CreateMinerParams;
 use crate::DealWeight;
 use address::Address;
 use bitfield::BitField;
@@ -18,17 +19,8 @@ pub const CRON_EVENT_PROCESS_EARLY_TERMINATIONS: CronEvent = 3;
 
 /// Storage miner actor constructor params are defined here so the power actor can send them to the init actor
 /// to instantiate miners.
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct MinerConstructorParams {
-    pub owner: Address,
-    pub worker: Address,
-    pub control_addresses: Vec<Address>,
-    pub seal_proof_type: RegisteredSealProof,
-    #[serde(with = "serde_bytes")]
-    pub peer_id: Vec<u8>,
-    pub multi_addresses: Vec<BytesDe>,
-}
 
+pub type MinerConstructorParams = CreateMinerParams;
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CronEventPayload {
     pub event_type: i64,
