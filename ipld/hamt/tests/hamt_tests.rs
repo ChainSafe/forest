@@ -127,8 +127,8 @@ fn set_delete_many() {
 
     let c1 = hamt.flush().unwrap();
     assert_eq!(
-        hex::encode(c1.to_bytes()),
-        "0171a0e402207c660382de99c174ce39517bdbd28f3967801aebbd9795f0591e226d93e2f010"
+        c1.to_string().as_str(),
+        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
     );
 
     for i in 200..400 {
@@ -137,8 +137,8 @@ fn set_delete_many() {
 
     let cid_all = hamt.flush().unwrap();
     assert_eq!(
-        hex::encode(cid_all.to_bytes()),
-        "0171a0e40220dba161623db24093bd90e00c3d185bae8468f8d3e81f01f112b3afe47e603fd1"
+        cid_all.to_string().as_str(),
+        "bafy2bzaceaqmub32nf33s3joo6x2l3schxreuow7jkla7a27l7qcrsb2elzay"
     );
 
     for i in 200..400 {
@@ -151,9 +151,11 @@ fn set_delete_many() {
 
     let cid_d = hamt.flush().unwrap();
     assert_eq!(
-        hex::encode(cid_d.to_bytes()),
-        "0171a0e402207c660382de99c174ce39517bdbd28f3967801aebbd9795f0591e226d93e2f010"
+        cid_d.to_string().as_str(),
+        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
     );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 87, w: 119, br: 7671, bw: 14042});
 }
 
 #[cfg(feature = "identity")]
@@ -162,6 +164,7 @@ fn add_and_remove_keys(
     keys: &[&[u8]],
     extra_keys: &[&[u8]],
     expected: &'static str,
+    stats: BSStats,
 ) {
     let all: Vec<(BytesKey, u8)> = keys
         .iter()
@@ -201,47 +204,81 @@ fn add_and_remove_keys(
     let cid1 = h1.flush().unwrap();
     let cid2 = h2.flush().unwrap();
     assert_eq!(cid1, cid2);
-    assert_eq!(hex::encode(cid1.to_bytes()), expected);
+    assert_eq!(cid1.to_string().as_str(), expected);
+    assert_eq!(*store.stats.borrow(), stats);
 }
 
 #[test]
 #[cfg(feature = "identity")]
 fn canonical_structure() {
     // Champ mutation semantics test
+    #[rustfmt::skip]
     add_and_remove_keys(
         DEFAULT_BIT_WIDTH,
         &[b"K"],
         &[b"B"],
-        "0171a0e402208683c5cd09bc6c1df93d100bee677d7a6bbe8db0b340361866e3fb20fb0a981e",
+        "bafy2bzacecdihronbg6gyhpzhuiax3thpv5gxpunwczuanqym3r7wih3bkmb4",
+        BSStats {r: 2, w: 5, br: 42, bw: 105},
     );
+    #[rustfmt::skip]
     add_and_remove_keys(
         DEFAULT_BIT_WIDTH,
         &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
         &[b"KAA4"],
-        "0171a0e40220e2a9e53c77d146010b60f2be9b3ba423c0db4efea06e66bd87e072671c8ef411",
+        "bafy2bzaceaxfdngr56h3kj5hplwslhyxauizcpwx3agwjqns6gjhroepgnfkm",
+        BSStats {r: 2, w: 5, br: 168, bw: 420},
     );
 }
 
 #[test]
 #[cfg(feature = "identity")]
 fn canonical_structure_alt_bit_width() {
+    #[rustfmt::skip]
     let kb_cases = [
-        "0171a0e402209a00d457b7d5d398a225fa837125db401a5eabdf4833352aed48dd28dc6eca56",
-        "0171a0e40220b45f48552b1b802fafcb79b417c4d2972ea42cd24600eaf9a0d1314c7d46c214",
-        "0171a0e40220c4ac32c9bb0dbec96b290d68b1b1fc6e1ddfe33f99420b4b46a078255d997db8",
+        (
+            "bafy2bzacedckymwjxmg35sllfegwrmnr7rxb3x7dh6muec2li2qhqjk5tf63q",
+            BSStats {r: 2, w: 5, br: 32, bw: 80},
+        ),
+        (
+            "bafy2bzacec2f6scvfmnyal5pzn43if6e2kls5jbm2jdab2xzuditctd5i3bbi",
+            BSStats {r: 2, w: 5, br: 28, bw: 70},
+        ),
+        (
+            "bafy2bzacecnabvcxw7k5hgfcex5ig4jf3nabuxvl35edgnjk5ven2kg4n3ffm",
+            BSStats {r: 2, w: 5, br: 26, bw: 65},
+        ),
     ];
+    #[rustfmt::skip]
     let other_cases = [
-        "0171a0e40220c5f39f53c67de67dbf8a058b699fb1e4673d78a5f6a0dc59583f9a175db234e3",
-        "0171a0e40220c84814bb7fdbb71a17ac24b0eb110a38e4e79c93fccaa6d87fa9e5aa771bb453",
-        "0171a0e4022094833c20da84ad6e18a603a47aa143e3393171d45786eddc5b182ae647dafd64",
+        (
+            "bafy2bzaceckigpba3kck23qyuyb2i6vbiprtsmlr2rlyn3o4lmmcvzsh3l6wi",
+            BSStats {r: 8, w: 13, br: 419, bw: 687},
+        ),
+        (
+            "bafy2bzacedeeqff3p7n3ogqxvqslb2yrbi4ojz44sp6mvjwyp6u6lktxdo2fg",
+            BSStats {r: 8, w: 13, br: 385, bw: 639},
+        ),
+        (
+            "bafy2bzacedc7hh2tyz66m7n7ricyw2m7whsgoplyux3kbxczla7zuf25wi2og",
+            BSStats {r: 9, w: 14, br: 420, bw: 661},
+        ),
     ];
     for i in 5..8 {
-        add_and_remove_keys(i, &[b"K"], &[b"B"], kb_cases[(i - 5) as usize]);
+        #[rustfmt::skip]
+        add_and_remove_keys(
+            i,
+            &[b"K"],
+            &[b"B"],
+            kb_cases[(i - 5) as usize].0,
+            kb_cases[(i - 5) as usize].1,
+        );
+        #[rustfmt::skip]
         add_and_remove_keys(
             i,
             &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
             &[b"KAA4"],
-            other_cases[(i - 5) as usize],
+            other_cases[(i - 5) as usize].0,
+            other_cases[(i - 5) as usize].1,
         );
     }
 }
