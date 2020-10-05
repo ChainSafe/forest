@@ -17,16 +17,9 @@ thiserror = "1.0"
 sha2 = "0.9.1"
 lazycell = "1.2.1"
 
-# TODO remove murmur3 support when finalized in Filecoin
-[dependencies.murmur3]
-git = "https://github.com/dignifiedquire/murmur3"
-branch = "nicer-hashing"
-optional = true
-
 [features]
-default = ["identity", "murmur3"]
+default = ["identity"]
 identity = []
-murmur = ["murmur3"]
 
 [dev-dependencies]
 hex = "0.4.2"
