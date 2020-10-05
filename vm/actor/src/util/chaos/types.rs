@@ -3,9 +3,11 @@
 
 use address::Address;
 use cid::Cid;
+use super::state::State;
 use encoding::tuple::*;
 use num_bigint::bigint_ser;
 use vm::{ExitCode, Serialized, TokenAmount};
+use clock::ChainEpoch;
 
 /// CreateActorArgs are the arguments to CreateActor.
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -42,4 +44,23 @@ pub struct SendReturn {
 pub struct MutateStateArgs {
     pub value: String,
     pub branch: i64,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct AbortWithArgs {
+	pub code : ExitCode,
+	pub message : String,
+	pub uncontrolled :  bool,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct InspectRuntimeReturn {
+	pub caller  : Address,
+    pub receiver : Address,
+    #[serde(with = "bigint_ser")]
+	pub value_received : TokenAmount,
+    pub curr_epoch : ChainEpoch,
+    #[serde(with = "bigint_ser")]
+	pub current_balance : TokenAmount,
+	pub state          : State,
 }

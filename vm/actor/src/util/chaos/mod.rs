@@ -19,8 +19,8 @@ use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTR
 // Caller Validation methods
 const CALLER_VALIDATION_BRANCH_NONE: i64 = 0;
 const CALLER_VALIDATION_BRANCH_TWICE: i64 = 1;
-const CALLER_VALIDATION_BRANCH_ADDR_NIL_SET: i64 = 2;
-const CALLER_VALIDATION_BRANCH_TYPE_NIL_SET: i64 = 3;
+const CALLER_VALIDATION_BRANCH_IS_ADDRESS: i64 = 2;
+const CALLER_VALIDATION_BRANCH_IS_TYPE: i64 = 3;
 
 // Mutate State Branch Methods
 const MUTATE_IN_TRANSACTION: i64 = 0;
@@ -36,25 +36,32 @@ pub enum Method {
     DeleteActor = 5,
     Send = 6,
     MutateState = 7,
+    AbortWith = 8,
+    InspectRuntime = 9,
 }
 
 /// Chaos Actor
 pub struct Actor;
 
 impl Actor {
-    pub fn send<BS, RT>(rt: &mut RT, arg: SendArgs) -> Result<SendReturn, ActorError>
+    pub fn send<BS, RT>(rt: &mut RT, arg: SendArgs) -> SendReturn
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        if Serialized::default() != rt.send(arg.to, arg.method, arg.params, arg.value)? {
-            return Err(actor_error!(ErrIllegalState; "Failed to unmarshal"));
+        let result = rt.send(arg.to, arg.method, arg.params, arg.value);
+        if let Err(e) =  result{
+            return SendReturn{
+                return_value : Serialized::default(),
+                code : e.exit_code() 
+            };
         }
-
-        Ok(SendReturn {
-            return_value: Serialized::default(),
-            code: ExitCode::Ok,
-        })
+        else{
+            return SendReturn{
+                return_value : result.unwrap(),
+                code : ExitCode::Ok
+            }
+        }
     }
 
     /// Constructor for Account actor
@@ -70,9 +77,9 @@ impl Actor {
     ///
     ///  CALLER_VALIDATION_BRANCH_NONE performs no validation.
     ///  CALLER_VALIDATION_BRANCH_TWICE validates twice.
-    ///  CALLER_VALIDATION_BRANCH_ADDR_NIL_SET validates against an empty caller
+    ///  CALLER_VALIDATION_BRANCH_IS_ADDRESS validates against an empty caller
     ///  address set.
-    ///  CALLER_VALIDATION_BRANCH_TYPE_NIL_SET validates against an empty caller type set.
+    ///  CALLER_VALIDATION_BRANCH_IS_TYPE validates against an empty caller type set.
     pub fn caller_validation<BS, RT>(rt: &mut RT, branch: i64) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -84,10 +91,10 @@ impl Actor {
                 rt.validate_immediate_caller_accept_any()?;
                 rt.validate_immediate_caller_accept_any()?;
             }
-            x if x == CALLER_VALIDATION_BRANCH_ADDR_NIL_SET => {
+            x if x == CALLER_VALIDATION_BRANCH_IS_ADDRESS => {
                 rt.validate_immediate_caller_is(&[])?;
             }
-            x if x == CALLER_VALIDATION_BRANCH_TYPE_NIL_SET => {
+            x if x == CALLER_VALIDATION_BRANCH_IS_TYPE => {
                 rt.validate_immediate_caller_type(&[])?;
             }
             _ => panic!("invalid branch passed to CallerValidation"),
@@ -157,6 +164,33 @@ impl Actor {
             _ => Err(actor_error!(ErrIllegalArgument; "Invalid mutate state command given" )),
         }
     }
+
+    pub fn abort_with(arg : AbortWithArgs) -> Result<(),ActorError> {
+
+        if  arg.uncontrolled{
+            panic!("Uncontrolled abort/error");
+            
+        }
+        Err(ActorError::new(arg.code, arg.message))
+    }
+
+    pub fn inspect_runtime<BS, RT>(rt : &mut RT)  -> Result<InspectRuntimeReturn, ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_accept_any()?;
+        Ok(
+            InspectRuntimeReturn{
+                caller : rt.message().caller().clone(),
+                receiver : rt.message().receiver().clone(),
+                value_received : rt.message().value_received().clone(),
+                curr_epoch : rt.curr_epoch(),
+                current_balance : rt.current_balance()?.clone(),
+                state : rt.state()?
+            }
+        )
+    }
 }
 
 impl ActorCode for Actor {
@@ -193,7 +227,7 @@ impl ActorCode for Actor {
             }
 
             Some(Method::Send) => {
-                let res: SendReturn = Self::send(rt, params.deserialize()?)?;
+                let res: SendReturn = Self::send(rt, params.deserialize()?);
                 Ok(Serialized::serialize(res)?)
             }
 
@@ -205,6 +239,16 @@ impl ActorCode for Actor {
             Some(Method::MutateState) => {
                 Self::mutate_state(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
+            }
+
+            Some(Method::AbortWith) => {
+                Self::abort_with(params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+
+            Some(Method::InspectRuntime) => {
+                let inspect = Self::inspect_runtime(rt)?;
+                Ok(Serialized::serialize(inspect)?)
             }
 
             None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
