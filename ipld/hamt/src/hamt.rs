@@ -22,8 +22,8 @@ use std::marker::PhantomData;
 ///
 /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
 /// map.set(1, "a".to_string()).unwrap();
-/// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
-/// assert_eq!(map.delete(&1).unwrap(), true);
+/// assert_eq!(map.get(&1).unwrap(), Some(&"a".to_string()));
+/// assert_eq!(map.delete(&1).unwrap(), Some((1, "a".to_string())));
 /// assert_eq!(map.get::<_>(&1).unwrap(), None);
 /// let cid = map.flush().unwrap();
 /// ```
@@ -152,7 +152,7 @@ where
     ///
     /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
-    /// assert_eq!(map.get(&1).unwrap(), Some("a".to_string()));
+    /// assert_eq!(map.get(&1).unwrap(), Some(&"a".to_string()));
     /// assert_eq!(map.get(&2).unwrap(), None);
     /// ```
     #[inline]
@@ -211,8 +211,8 @@ where
     ///
     /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
     /// map.set(1, "a".to_string()).unwrap();
-    /// assert_eq!(map.delete(&1).unwrap(), true);
-    /// assert_eq!(map.delete(&1).unwrap(), false);
+    /// assert_eq!(map.delete(&1).unwrap(), Some((1, "a".to_string())));
+    /// assert_eq!(map.delete(&1).unwrap(), None);
     /// ```
     pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(K, V)>, Error>
     where
