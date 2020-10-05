@@ -11,11 +11,11 @@ fn basic_add() {
     let mut mm = Multimap::new(&store);
 
     let addr = Address::new_id(100);
-    assert_eq!(mm.get::<u64>(&addr.to_bytes()), Ok(None));
+    assert_eq!(mm.get::<u64>(&addr.to_bytes()).unwrap(), None);
 
     mm.add(addr.to_bytes().into(), 8).unwrap();
     let arr: Amt<u64, _> = mm.get(&addr.to_bytes()).unwrap().unwrap();
-    assert_eq!(arr.get(0), Ok(Some(&8)));
+    assert_eq!(arr.get(0).unwrap(), Some(&8));
 
     mm.add(addr.to_bytes().into(), 2).unwrap();
     mm.add(addr.to_bytes().into(), 78).unwrap();
@@ -27,7 +27,7 @@ fn for_each() {
     let mut mm = Multimap::new(&store);
 
     let addr = Address::new_id(100);
-    assert_eq!(mm.get::<u64>(&addr.to_bytes()), Ok(None));
+    assert_eq!(mm.get::<u64>(&addr.to_bytes()).unwrap(), None);
 
     mm.add(addr.to_bytes().into(), 8).unwrap();
     mm.add(addr.to_bytes().into(), 2).unwrap();
@@ -57,12 +57,12 @@ fn remove_all() {
     mm.add(addr2.to_bytes().into(), 1).unwrap();
 
     let arr: Amt<u64, _> = mm.get(&addr1.to_bytes()).unwrap().unwrap();
-    assert_eq!(arr.get(1), Ok(Some(&88)));
+    assert_eq!(arr.get(1).unwrap(), Some(&88));
 
     mm.remove_all(&addr1.to_bytes()).unwrap();
-    assert_eq!(mm.get::<u64>(&addr1.to_bytes()), Ok(None));
+    assert_eq!(mm.get::<u64>(&addr1.to_bytes()).unwrap(), None);
 
     assert!(mm.get::<u64>(&addr2.to_bytes()).unwrap().is_some());
     mm.remove_all(&addr2.to_bytes()).unwrap();
-    assert_eq!(mm.get::<u64>(&addr2.to_bytes()), Ok(None));
+    assert_eq!(mm.get::<u64>(&addr2.to_bytes()).unwrap(), None);
 }

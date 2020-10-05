@@ -9,10 +9,10 @@ fn put() {
     let mut set = Set::new(&store);
 
     let key = "test".as_bytes();
-    assert_eq!(set.has(&key), Ok(false));
+    assert_eq!(set.has(&key).unwrap(), false);
 
     set.put(key.into()).unwrap();
-    assert_eq!(set.has(&key), Ok(true));
+    assert_eq!(set.has(&key).unwrap(), true);
 }
 
 #[test]
@@ -38,11 +38,11 @@ fn delete() {
 
     let key = "0".as_bytes();
 
-    assert_eq!(set.has(key), Ok(false));
+    assert_eq!(set.has(key).unwrap(), false);
     set.put(key.into()).unwrap();
-    assert_eq!(set.has(key), Ok(true));
+    assert_eq!(set.has(key).unwrap(), true);
     set.delete(key).unwrap();
-    assert_eq!(set.has(key), Ok(false));
+    assert_eq!(set.has(key).unwrap(), false);
 
     // Test delete when doesn't exist doesn't error
     set.delete(key).unwrap();

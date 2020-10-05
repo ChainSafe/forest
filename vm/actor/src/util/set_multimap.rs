@@ -34,7 +34,7 @@ where
     }
 
     /// Puts the DealID in the hash set of the key.
-    pub fn put(&mut self, key: ChainEpoch, value: DealID) -> Result<(), String> {
+    pub fn put(&mut self, key: ChainEpoch, value: DealID) -> Result<(), Box<dyn StdError>> {
         // Get construct amt from retrieved cid or create new
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
@@ -48,7 +48,11 @@ where
     }
 
     /// Puts slice of DealIDs in the hash set of the key.
-    pub fn put_many(&mut self, key: ChainEpoch, values: &[DealID]) -> Result<(), String> {
+    pub fn put_many(
+        &mut self,
+        key: ChainEpoch,
+        values: &[DealID],
+    ) -> Result<(), Box<dyn StdError>> {
         // Get construct amt from retrieved cid or create new
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
@@ -65,7 +69,7 @@ where
 
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
-    pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, String> {
+    pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, Box<dyn StdError>> {
         match self.0.get(&u64_key(key as u64))? {
             Some(cid) => Ok(Some(Set::from_root(self.0.store(), &cid)?)),
             None => Ok(None),
@@ -74,7 +78,7 @@ where
 
     /// Removes a DealID from a key hash set.
     #[inline]
-    pub fn remove(&mut self, key: ChainEpoch, v: DealID) -> Result<(), String> {
+    pub fn remove(&mut self, key: ChainEpoch, v: DealID) -> Result<(), Box<dyn StdError>> {
         // Get construct amt from retrieved cid and return if no set exists
         let mut set = match self.get(key)? {
             Some(s) => s,
@@ -91,7 +95,7 @@ where
 
     /// Removes set at index.
     #[inline]
-    pub fn remove_all(&mut self, key: ChainEpoch) -> Result<(), String> {
+    pub fn remove_all(&mut self, key: ChainEpoch) -> Result<(), Box<dyn StdError>> {
         // Remove entry from table
         self.0.delete(&u64_key(key as u64))?;
 
