@@ -154,14 +154,15 @@ where
     ) -> Result<(power::Claim, power::Claim), Error> {
         let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
 
-        let cm = make_map_with_root(&ps.claims, self.bs.as_ref())
+        let cm = make_map_with_root::<_, power::Claim>(&ps.claims, self.bs.as_ref())
             .map_err(|e| Error::State(e.to_string()))?;
-        let claim: power::Claim = cm
+        let claim = cm
             .get(&addr.to_bytes())
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| {
                 Error::State("Failed to retrieve claimed power from actor state".to_owned())
-            })?;
+            })?
+            .clone();
         Ok((
             claim,
             power::Claim {
@@ -800,12 +801,12 @@ where
             escrow: {
                 let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
                     .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
-                et.get(&new_addr).unwrap_or_default()
+                et.get(&new_addr).map(Clone::clone).unwrap_or_default()
             },
             locked: {
                 let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
                     .map_err(|_x| Error::State("Failed to build Locked Table".to_string()))?;
-                lt.get(&new_addr).unwrap_or_default()
+                lt.get(&new_addr).map(Clone::clone).unwrap_or_default()
             },
         };
 

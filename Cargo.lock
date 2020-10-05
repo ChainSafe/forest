@@ -2971,6 +2971,7 @@ dependencies = [
  "forest_ipld",
  "hex",
  "ipld_blockstore",
+ "lazycell",
  "murmur3",
  "serde",
  "serde_bytes",

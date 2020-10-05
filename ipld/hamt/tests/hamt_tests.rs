@@ -19,9 +19,9 @@ fn test_basics() {
     let mut hamt = Hamt::<_, String, _>::new(&store);
     hamt.set(1, "world".to_string()).unwrap();
 
-    assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some(&"world".to_string()));
     hamt.set(1, "world2".to_string()).unwrap();
-    assert_eq!(hamt.get(&1).unwrap(), Some("world2".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some(&"world2".to_string()));
 }
 
 #[test]
@@ -31,9 +31,9 @@ fn test_load() {
     let mut hamt: Hamt<_, _, usize> = Hamt::new(&store);
     hamt.set(1, "world".to_string()).unwrap();
 
-    assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some(&"world".to_string()));
     hamt.set(1, "world2".to_string()).unwrap();
-    assert_eq!(hamt.get(&1).unwrap(), Some("world2".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some(&"world2".to_string()));
     let c = hamt.flush().unwrap();
 
     let new_hamt = Hamt::load(&c, &store).unwrap();
@@ -82,7 +82,7 @@ fn delete() {
     );
 
     let mut h2 = Hamt::<_, ByteBuf>::load(&c, &store).unwrap();
-    assert_eq!(h2.delete(&b"foo".to_vec()).unwrap(), true);
+    assert!(h2.delete(&b"foo".to_vec()).unwrap().is_some());
     assert_eq!(h2.get(&b"foo".to_vec()).unwrap(), None);
 
     let c2 = h2.flush().unwrap();
@@ -142,11 +142,14 @@ fn set_delete_many() {
     );
 
     for i in 200..400 {
-        assert_eq!(hamt.delete(&format!("{}", i).into_bytes()).unwrap(), true);
+        assert!(hamt
+            .delete(&format!("{}", i).into_bytes())
+            .unwrap()
+            .is_some());
     }
     // Ensure first 200 keys still exist
     for i in 0..200 {
-        assert_eq!(hamt.get(&format!("{}", i).into_bytes()).unwrap(), Some(i));
+        assert_eq!(hamt.get(&format!("{}", i).into_bytes()).unwrap(), Some(&i));
     }
 
     let cid_d = hamt.flush().unwrap();
@@ -187,7 +190,7 @@ fn add_and_remove_keys(
         Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
 
     for (k, v) in all {
-        assert_eq!(Some(v), h1.get(&k).unwrap());
+        assert_eq!(Some(&v), h1.get(&k).unwrap());
     }
 
     // Set and delete extra keys

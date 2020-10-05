@@ -60,8 +60,8 @@ impl<'a, K: PartialEq, V: PartialEq, S: BlockStore, H: HashAlgorithm> PartialEq
 
 impl<'a, BS, V, K, H> Hamt<'a, BS, V, K, H>
 where
-    K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
-    V: Serialize + DeserializeOwned + Clone,
+    K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned,
+    V: Serialize + DeserializeOwned,
     BS: BlockStore,
     H: HashAlgorithm,
 {
@@ -156,7 +156,7 @@ where
     /// assert_eq!(map.get(&2).unwrap(), None);
     /// ```
     #[inline]
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<V>, Error>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
@@ -214,15 +214,12 @@ where
     /// assert_eq!(map.delete(&1).unwrap(), true);
     /// assert_eq!(map.delete(&1).unwrap(), false);
     /// ```
-    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<bool, Error>
+    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(K, V)>, Error>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        match self.root.remove_entry(k, self.store, self.bit_width)? {
-            Some(_) => Ok(true),
-            None => Ok(false),
-        }
+        self.root.remove_entry(k, self.store, self.bit_width)
     }
 
     /// Flush root and return Cid for hamt

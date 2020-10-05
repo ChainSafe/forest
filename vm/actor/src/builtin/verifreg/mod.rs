@@ -130,12 +130,14 @@ impl Actor {
                 .map_err(|e| {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
                 })?;
-            let deleted = verifiers.delete(&verifier_addr.to_bytes()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to remove verifier")
-            })?;
-            if !deleted {
-                return Err(actor_error!(ErrIllegalState; "failed to remove verifier: not found"));
-            }
+            verifiers
+                .delete(&verifier_addr.to_bytes())
+                .map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to remove verifier")
+                })?
+                .ok_or_else(
+                    || actor_error!(ErrIllegalState; "failed to remove verifier: not found"),
+                )?;
 
             st.verifiers = verifiers.flush().map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to flush verifiers")
@@ -206,7 +208,7 @@ impl Actor {
             }
 
             // Compute new verifier cap and update.
-            if verifier_cap < params.allowance {
+            if verifier_cap < &params.allowance {
                 return Err(actor_error!(ErrIllegalArgument;
                         "Add more DataCap {} for VerifiedClient than allocated {}",
                         params.allowance, verifier_cap
@@ -306,7 +308,7 @@ impl Actor {
                 )?;
             assert_ne!(vc_cap.sign(), Sign::Minus);
 
-            if params.deal_size > vc_cap {
+            if &params.deal_size > vc_cap {
                 return Err(actor_error!(ErrIllegalArgument;
                         "Deal size of {} is greater than verifier_cap {} for verified client {}",
                         params.deal_size, vc_cap, params.address
@@ -317,20 +319,20 @@ impl Actor {
             if new_vc_cap < *MINIMUM_VERIFIED_DEAL_SIZE {
                 // Delete entry if remaining DataCap is less than MinVerifiedDealSize.
                 // Will be restored later if the deal did not get activated with a ProvenSector.
-                let deleted = verified_clients
+                verified_clients
                     .delete(&params.address.to_bytes())
                     .map_err(|e| {
                         e.downcast_default(
                             ExitCode::ErrIllegalState,
                             format!("Failed to delete verified client {}", params.address),
                         )
+                    })?
+                    .ok_or_else(|| {
+                        actor_error!(ErrIllegalState;
+                            "Failed to delete verified client {}: not found",
+                            params.address
+                        )
                     })?;
-                if !deleted {
-                    return Err(actor_error!(ErrIllegalState;
-                        "Failed to delete verified client {}: not found",
-                        params.address
-                    ));
-                }
             } else {
                 verified_clients
                     .set(params.address.to_bytes().into(), BigIntDe(new_vc_cap))
@@ -405,6 +407,7 @@ impl Actor {
                         format!("failed to get verified client {}", &params.address),
                     )
                 })?
+                .cloned()
                 .unwrap_or_default();
 
             // Update to new cap

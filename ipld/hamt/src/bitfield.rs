@@ -9,7 +9,7 @@ use forest_encoding::{
 };
 use std::u64;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct Bitfield([u64; 4]);
 
 impl Serialize for Bitfield {
