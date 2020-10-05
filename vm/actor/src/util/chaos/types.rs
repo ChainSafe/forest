@@ -1,13 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::state::State;
 use address::Address;
 use cid::Cid;
-use super::state::State;
+use clock::ChainEpoch;
 use encoding::tuple::*;
 use num_bigint::bigint_ser;
 use vm::{ExitCode, Serialized, TokenAmount};
-use clock::ChainEpoch;
 
 /// CreateActorArgs are the arguments to CreateActor.
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -48,19 +48,19 @@ pub struct MutateStateArgs {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct AbortWithArgs {
-	pub code : ExitCode,
-	pub message : String,
-	pub uncontrolled :  bool,
+    pub code: ExitCode,
+    pub message: String,
+    pub uncontrolled: bool,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct InspectRuntimeReturn {
-	pub caller  : Address,
-    pub receiver : Address,
+    pub caller: Address,
+    pub receiver: Address,
     #[serde(with = "bigint_ser")]
-	pub value_received : TokenAmount,
-    pub curr_epoch : ChainEpoch,
+    pub value_received: TokenAmount,
+    pub curr_epoch: ChainEpoch,
     #[serde(with = "bigint_ser")]
-	pub current_balance : TokenAmount,
-	pub state          : State,
+    pub current_balance: TokenAmount,
+    pub state: State,
 }

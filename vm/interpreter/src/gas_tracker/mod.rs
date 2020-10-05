@@ -23,13 +23,7 @@ impl GasTracker {
 
     /// Safely consumes gas
     pub fn charge_gas(&mut self, charge: GasCharge) -> Result<(), ActorError> {
-        
         let to_use = charge.total();
-        println!("\nCharging Gas");
-        println!("Gas used {:?}", self.gas_used);
-        println!("Gas to use {:?}", to_use);
-        println!("Gas available {:?} \n", self.gas_available );
-        
         if self.gas_used + to_use > self.gas_available {
             self.gas_used = self.gas_available;
             Err(actor_error!(SysErrOutOfGas;

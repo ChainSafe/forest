@@ -50,16 +50,15 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let result = rt.send(arg.to, arg.method, arg.params, arg.value);
-        if let Err(e) =  result{
-            return SendReturn{
-                return_value : Serialized::default(),
-                code : e.exit_code() 
-            };
-        }
-        else{
-            return SendReturn{
-                return_value : result.unwrap(),
-                code : ExitCode::Ok
+        if let Err(e) = result {
+            SendReturn {
+                return_value: Serialized::default(),
+                code: e.exit_code(),
+            }
+        } else {
+            SendReturn {
+                return_value: result.unwrap(),
+                code: ExitCode::Ok,
             }
         }
     }
@@ -165,31 +164,27 @@ impl Actor {
         }
     }
 
-    pub fn abort_with(arg : AbortWithArgs) -> Result<(),ActorError> {
-
-        if  arg.uncontrolled{
+    pub fn abort_with(arg: AbortWithArgs) -> Result<(), ActorError> {
+        if arg.uncontrolled {
             panic!("Uncontrolled abort/error");
-            
         }
         Err(ActorError::new(arg.code, arg.message))
     }
 
-    pub fn inspect_runtime<BS, RT>(rt : &mut RT)  -> Result<InspectRuntimeReturn, ActorError>
+    pub fn inspect_runtime<BS, RT>(rt: &mut RT) -> Result<InspectRuntimeReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any()?;
-        Ok(
-            InspectRuntimeReturn{
-                caller : rt.message().caller().clone(),
-                receiver : rt.message().receiver().clone(),
-                value_received : rt.message().value_received().clone(),
-                curr_epoch : rt.curr_epoch(),
-                current_balance : rt.current_balance()?.clone(),
-                state : rt.state()?
-            }
-        )
+        Ok(InspectRuntimeReturn {
+            caller: *rt.message().caller(),
+            receiver: *rt.message().receiver(),
+            value_received: rt.message().value_received().clone(),
+            curr_epoch: rt.curr_epoch(),
+            current_balance: rt.current_balance()?,
+            state: rt.state()?,
+        })
     }
 }
 
@@ -210,9 +205,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CallerValidation) => {
-                println!("About to serialize");
                 let branch = Serialized::deserialize(&params)?;
-                println!("Failed to serialize");
                 Self::caller_validation(rt, branch)?;
                 Ok(Serialized::default())
             }
