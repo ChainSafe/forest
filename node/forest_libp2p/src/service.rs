@@ -1,12 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::blocksync::{BlockSyncProvider, BlockSyncRequest, BlockSyncResponse};
+use super::blocksync::{make_blocksync_response, BlockSyncRequest, BlockSyncResponse};
 use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
-use async_std::stream;
 use async_std::sync::{channel, Receiver, Sender};
+use async_std::{stream, task};
 use forest_cid::{multihash::Blake2b256, Cid};
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
@@ -98,7 +98,7 @@ pub struct Libp2pService<DB: BlockStore> {
 
 impl<DB> Libp2pService<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Sync + Send + 'static,
 {
     /// Constructs a Libp2pService
     pub fn new(
@@ -189,12 +189,14 @@ where
                         }
                         ForestBehaviourEvent::BlockSyncRequest { channel, peer, request } => {
                             debug!("Received blocksync request (peerId: {:?})", peer);
+                            let db = self.db.clone();
+                            task::spawn_blocking(
+                                async move {
+                                    let response = make_blocksync_response(db, &request.clone());
 
-                            let blocksyncProvider = BlockSyncProvider::new(self.db.clone());
-
-                            let response = blocksyncProvider.make_response(&request);
-
-                            let _ = channel.send(response).await;
+                                    let _ = channel.send(response).await;
+                                }
+                            );
                         }
                         ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
                             debug!("Received blocksync response (id: {:?})", request_id);
