@@ -40,7 +40,7 @@ impl MsgChainNode {
             bp: 0.0,
             parent_offset: 0.0,
             valid: false,
-            merged: false
+            merged: false,
         }
     }
 }
@@ -51,10 +51,10 @@ pub struct MsgChain {
 }
 
 impl MsgChain {
-    pub fn new() -> Self{
-        Self{
+    pub fn new() -> Self {
+        Self {
             index: 0,
-            chain: vec![MsgChainNode::new()]
+            chain: vec![MsgChainNode::new()],
         }
     }
     pub fn curr(&self) -> Option<&MsgChainNode> {
@@ -104,7 +104,6 @@ impl MsgChain {
 }
 
 impl MsgChain {
-
     pub fn before(&self, other: &MsgChain) -> bool {
         let self_curr = self.curr().unwrap();
         let other_curr = other.curr().unwrap();

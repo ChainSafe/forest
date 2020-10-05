@@ -23,6 +23,7 @@ use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
+use num_traits::cast::ToPrimitive;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
@@ -30,7 +31,6 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use vm::ActorState;
-use num_traits::cast::ToPrimitive;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -1017,18 +1017,18 @@ where
             bp: 0.0,
             parent_offset: 0.0,
             valid: true,
-            merged: false
+            merged: false,
         };
         MsgChain {
             index: 0,
-            chain: vec![node]
+            chain: vec![node],
         }
     };
 
     let mut chains = Vec::new();
     let mut cur_chain = MsgChain::new();
 
-    for (i,m) in msgs.into_iter().enumerate() {
+    for (i, m) in msgs.into_iter().enumerate() {
         if i == 0 {
             cur_chain = new_chain(m, i);
             continue;
@@ -1061,9 +1061,12 @@ where
                 head[0].curr_mut().unwrap().msgs.append(&mut chain_a_msgs);
                 head[0].curr_mut().unwrap().gas_reward += &tail[0].curr().unwrap().gas_reward;
                 head[0].curr_mut().unwrap().gas_limit += head[0].curr().unwrap().gas_limit;
-                head[0].curr_mut().unwrap().gas_perf = get_gas_perf(&head[0].curr().unwrap().gas_reward, head[0].curr().unwrap().gas_limit);
+                head[0].curr_mut().unwrap().gas_perf = get_gas_perf(
+                    &head[0].curr().unwrap().gas_reward,
+                    head[0].curr().unwrap().gas_limit,
+                );
                 tail[0].curr_mut().unwrap().valid = false;
-                merged+=1;
+                merged += 1;
             }
         }
         if merged == 0 {
