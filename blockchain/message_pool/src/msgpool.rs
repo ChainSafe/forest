@@ -3,6 +3,7 @@
 
 use super::config::MpoolConfig;
 use super::errors::Error;
+use crate::msg_chain::{MsgChain, MsgChainNode};
 use address::{Address, Protocol};
 use async_std::sync::{Arc, RwLock, Sender};
 use async_std::task;
@@ -27,22 +28,22 @@ use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use vm::ActorState;
-use crate::msg_chain::MsgChain;
 use std::time::Duration;
+use vm::ActorState;
+use num_traits::cast::ToPrimitive;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
 const RBF_DENOM: u64 = 256;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
-const REPUB_MSG_LIMIT: usize= 30;
+const REPUB_MSG_LIMIT: usize = 30;
 
 // this is *temporary* mutilation until we have implemented uncapped miner penalties -- it will go
 // away in the next fork.
 // TODO: Get rid of this?
 fn allow_negative_chains(epoch: i64) -> bool {
-    epoch < 41280+5
+    epoch < 41280 + 5
 }
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
@@ -640,121 +641,6 @@ where
         }
     }
 
-    async fn republish_pending_messages(&mut self) -> Result<(), Error> {
-        let ts = self.cur_tipset.read().await;
-        let base_fee = self.api.read().await.chain_compute_base_fee(&ts)?;
-        let base_fee_lower_bound = get_base_fee_lower_bound(&base_fee, BASE_FEE_LOWER_BOUND_FACTOR);
-        let mut pending: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
-
-        self.republished.write().await.clear();
-        let local_addrs = self.local_addrs.read().await;
-        for actor in local_addrs.iter() {
-            if let Some(mset) = self.pending.read().await.get(actor) {
-                if mset.msgs.is_empty() {
-                    continue;
-                }
-                let mut pend: HashMap<u64, SignedMessage> = HashMap::with_capacity(mset.msgs.len());
-                for (nonce, m) in mset.msgs.clone().into_iter() {
-                    pend.insert(nonce, m);
-                }
-                pending.insert(*actor, pend);
-            }
-        }
-        drop(local_addrs);
-
-        if pending.is_empty() {
-            return Ok(());
-        }
-
-        let mut chains = Vec::new();
-        for (actor, mset) in pending.iter() {
-            let next = self.create_message_chains(actor, mset, &base_fee_lower_bound, &ts).await;
-            chains.push(next);
-        }
-
-        if chains.is_empty() {
-            return Ok(());
-        }
-
-        // TODO: Check if the sorting function is correct
-        chains.sort_by(|a,b| match a.before(b) {
-            true => Ordering::Greater,
-            false => Ordering::Less,
-        });
-
-        let mut msgs : Vec<SignedMessage> = vec![];
-        let gas_limit = types::BLOCK_GAS_LIMIT;
-        let mut i = 0;
-        'l : while i < chains.len() {
-            let msg_chain = &mut chains[i];
-            let chain = msg_chain.curr().unwrap().clone();
-            if msgs.len() > REPUB_MSG_LIMIT {
-                break;
-            }
-            // TODO: Check min gas
-
-            // check if chain has been invalidated
-            if !chain.valid {
-                i += 1;
-                continue;
-            }
-
-            // check if fits in block
-            if chain.gas_limit <= gas_limit {
-                // check the baseFee lower bound -- only republish messages that can be included in the chain
-                // within the next 20 blocks.
-                for m in chain.msgs.iter() {
-                    if !allow_negative_chains(ts.epoch()) && m.gas_fee_cap() < &base_fee_lower_bound {
-                        msg_chain.invalidate();
-                        continue 'l;
-                    }
-                }
-                i += 1;
-                continue;
-            }
-            msg_chain.trim(gas_limit, &base_fee, true);
-            let mut j = i;
-            while j < chains.len() -1 {
-                if chains[j].before(&chains[j+1]) {
-                    break;
-                }
-                chains.swap(j, j+1);
-            }
-        }
-
-        let mut count = 0;
-        // log the
-        for m in msgs.iter() {
-            let mb = m.marshal_cbor()?;
-            self.network_sender
-                .send(NetworkMessage::PubsubMessage {
-                    topic: PUBSUB_MSG_TOPIC.clone(),
-                    message: mb,
-                })
-                .await;
-            count += 1;
-            if count < msgs.len() {
-                // this delay is here to encourage the pubsub subsystem to process the messages serially
-                // and avoid creating nonce gaps because of concurrent validation
-                // TODO: I am not sure if we will run into the same issues
-                task::sleep(Duration::from_millis(100)).await;
-            }
-        }
-
-        let mut republished  = HashSet::new();
-        for m in &msgs[0..count] {
-            republished.insert(m.cid()?);
-        }
-        *self.republished.write().await = republished;
-
-        Ok(())
-
-    }
-    async fn create_message_chains(&self, actor: &Address, mset: &HashMap<u64, SignedMessage>, base_fee: &BigInt, ts:&Tipset ) -> MsgChain{
-        todo!()
-    }
-
-
     /// local_message field
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write().await;
@@ -928,6 +814,276 @@ where
     let base_sequence = actor.sequence;
 
     Ok(base_sequence)
+}
+
+async fn republish_pending_messages<T>(
+    api: &RwLock<T>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
+    cur_tipset: &RwLock<Tipset>,
+    republished: &RwLock<HashSet<Cid>>,
+    local_addrs: Arc<RwLock<Vec<Address>>>,
+) -> Result<(), Error>
+where
+    T: Provider,
+{
+    let ts = cur_tipset.read().await;
+    let base_fee = api.read().await.chain_compute_base_fee(&ts)?;
+    let base_fee_lower_bound = get_base_fee_lower_bound(&base_fee, BASE_FEE_LOWER_BOUND_FACTOR);
+    let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
+
+    republished.write().await.clear();
+    let local_addrs = local_addrs.read().await;
+    for actor in local_addrs.iter() {
+        if let Some(mset) = pending.read().await.get(actor) {
+            if mset.msgs.is_empty() {
+                continue;
+            }
+            let mut pend: HashMap<u64, SignedMessage> = HashMap::with_capacity(mset.msgs.len());
+            for (nonce, m) in mset.msgs.clone().into_iter() {
+                pend.insert(nonce, m);
+            }
+            pending_map.insert(*actor, pend);
+        }
+    }
+    drop(local_addrs);
+
+    if pending_map.is_empty() {
+        return Ok(());
+    }
+
+    let mut chains = Vec::new();
+    for (actor, mset) in pending_map.iter() {
+        let mut next = create_message_chains(&api, actor, mset, &base_fee_lower_bound, &ts).await?;
+        chains.append(&mut next);
+    }
+
+    if chains.is_empty() {
+        return Ok(());
+    }
+
+    // TODO: Check if the sorting function is correct
+    chains.sort_by(|a, b| match a.before(b) {
+        true => Ordering::Greater,
+        false => Ordering::Less,
+    });
+
+    let mut msgs: Vec<SignedMessage> = vec![];
+    let gas_limit = types::BLOCK_GAS_LIMIT;
+    let mut i = 0;
+    'l: while i < chains.len() {
+        let msg_chain = &mut chains[i];
+        let chain = msg_chain.curr().unwrap().clone();
+        if msgs.len() > REPUB_MSG_LIMIT {
+            break;
+        }
+        // TODO: Check min gas
+
+        // check if chain has been invalidated
+        if !chain.valid {
+            i += 1;
+            continue;
+        }
+
+        // check if fits in block
+        if chain.gas_limit <= gas_limit {
+            // check the baseFee lower bound -- only republish messages that can be included in the chain
+            // within the next 20 blocks.
+            for m in chain.msgs.iter() {
+                if !allow_negative_chains(ts.epoch()) && m.gas_fee_cap() < &base_fee_lower_bound {
+                    msg_chain.invalidate();
+                    continue 'l;
+                }
+            }
+            i += 1;
+            continue;
+        }
+        msg_chain.trim(gas_limit, &base_fee, true);
+        let mut j = i;
+        while j < chains.len() - 1 {
+            if chains[j].before(&chains[j + 1]) {
+                break;
+            }
+            chains.swap(j, j + 1);
+        }
+    }
+    drop(ts);
+    let mut count = 0;
+    // log the
+    for m in msgs.iter() {
+        let mb = m.marshal_cbor()?;
+        // self.network_sender
+        //     .send(NetworkMessage::PubsubMessage {
+        //         topic: PUBSUB_MSG_TOPIC.clone(),
+        //         message: mb,
+        //     })
+        //     .await;
+        count += 1;
+        if count < msgs.len() {
+            // this delay is here to encourage the pubsub subsystem to process the messages serially
+            // and avoid creating nonce gaps because of concurrent validation
+            // TODO: I am not sure if we will run into the same issues
+            task::sleep(Duration::from_millis(100)).await;
+        }
+    }
+
+    let mut republished_t = HashSet::new();
+    for m in &msgs[0..count] {
+        republished_t.insert(m.cid()?);
+    }
+    *republished.write().await = republished_t;
+
+    Ok(())
+}
+async fn create_message_chains<T>(
+    api: &RwLock<T>,
+    actor: &Address,
+    mset: &HashMap<u64, SignedMessage>,
+    base_fee: &BigInt,
+    ts: &Tipset,
+) -> Result<Vec<MsgChain>, Error>
+where
+    T: Provider,
+{
+    // collect all messages and sort
+    let mut msgs: Vec<SignedMessage> = mset.values().cloned().collect();
+    msgs.sort_by_key(|v| v.sequence());
+
+    // sanity checks:
+    // - there can be no gaps in nonces, starting from the current actor nonce
+    //   if there is a gap, drop messages after the gap, we can't include them
+    // - all messages must have minimum gas and the total gas for the candidate messages
+    //   cannot exceed the block limit; drop all messages that exceed the limit
+    // - the total gasReward cannot exceed the actor's balance; drop all messages that exceed
+    //   the balance
+    let a = api.read().await.get_actor_after(&actor, &ts)?;
+
+    let mut cur_seq = a.sequence;
+    let mut balance = a.balance;
+    let mut gas_limit = 0;
+
+    let mut skip = 0;
+    let mut i = 0;
+    let mut rewards = Vec::with_capacity(msgs.len());
+    while i < msgs.len() {
+        let m = &msgs[i];
+        if m.sequence() < cur_seq {
+            // log warn
+            skip += 1;
+            continue;
+        }
+        if m.sequence() != cur_seq {
+            break;
+        }
+        cur_seq += 1;
+        let min_gas = interpreter::price_list_by_epoch(ts.epoch())
+            .on_chain_message(m.marshal_cbor()?.len())
+            .total();
+        if m.gas_limit() < min_gas {
+            break;
+        }
+        if gas_limit > types::BLOCK_GAS_LIMIT {
+            break;
+        }
+        gas_limit += m.gas_limit();
+
+        let required = m.required_funds();
+        if balance < required {
+            break;
+        }
+        balance -= required;
+        let value = m.value();
+        if &balance >= value {
+            balance -= value;
+        }
+
+        let gas_reward = get_gas_reward(&m, base_fee);
+        rewards.push(gas_reward);
+    }
+    // check we have a sane set of messages to construct the chains
+    let msgs = if i > skip {
+        msgs[skip..i].to_vec()
+    } else {
+        return Ok(vec![]);
+    };
+
+    let new_chain = |m: SignedMessage, i: usize| -> MsgChain {
+        let gl = m.gas_limit();
+        let node = MsgChainNode {
+            msgs: vec![m],
+            gas_reward: rewards[i].clone(),
+            gas_limit: gl,
+            gas_perf: get_gas_perf(&rewards[i], gl),
+            eff_perf: 0.0,
+            bp: 0.0,
+            parent_offset: 0.0,
+            valid: true,
+            merged: false
+        };
+        MsgChain {
+            index: 0,
+            chain: vec![node]
+        }
+    };
+
+    let mut chains = Vec::new();
+    let mut cur_chain = MsgChain::new();
+
+    for (i,m) in msgs.into_iter().enumerate() {
+        if i == 0 {
+            cur_chain = new_chain(m, i);
+            continue;
+        }
+        let gas_reward = cur_chain.curr().unwrap().gas_reward.clone() + &rewards[i];
+        let gas_limit = cur_chain.curr().unwrap().gas_limit + m.gas_limit();
+        let gas_perf = get_gas_perf(&gas_reward, gas_limit);
+
+        // try to add the message to the current chain -- if it decreases the gasPerf, then make a
+        // new chain
+        if gas_perf < cur_chain.curr().unwrap().gas_perf {
+            chains.push(cur_chain.clone());
+        } else {
+            let mut cur = cur_chain.curr_mut().unwrap();
+            cur.msgs.push(m);
+            cur.gas_reward = gas_reward;
+            cur.gas_limit = gas_limit;
+            cur.gas_perf = gas_perf;
+        }
+    }
+    chains.push(cur_chain);
+
+    // merge chains to maintain the invariant
+    loop {
+        let mut merged = 0;
+        for i in (1..chains.len()).rev() {
+            let (head, tail) = chains.split_at_mut(i);
+            if head[0].curr().unwrap().gas_perf >= tail[0].curr().unwrap().gas_perf {
+                let mut chain_a_msgs = head[0].curr().unwrap().msgs.clone();
+                head[0].curr_mut().unwrap().msgs.append(&mut chain_a_msgs);
+                head[0].curr_mut().unwrap().gas_reward += &tail[0].curr().unwrap().gas_reward;
+                head[0].curr_mut().unwrap().gas_limit += head[0].curr().unwrap().gas_limit;
+                head[0].curr_mut().unwrap().gas_perf = get_gas_perf(&head[0].curr().unwrap().gas_reward, head[0].curr().unwrap().gas_limit);
+                tail[0].curr_mut().unwrap().valid = false;
+                merged+=1;
+            }
+        }
+        if merged == 0 {
+            break;
+        }
+        chains.retain(|c| c.curr().unwrap().valid);
+    }
+    // No need to link the chains because its linked for free
+    Ok(chains)
+}
+pub fn get_gas_reward(msg: &SignedMessage, base_fee: &BigInt) -> BigInt {
+    let mut max_prem = msg.gas_fee_cap() - base_fee;
+    if &max_prem < msg.gas_premium() {
+        max_prem = msg.gas_premium().clone();
+    }
+    max_prem * msg.gas_limit()
+}
+pub fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
+    let a = gas_reward * types::BLOCK_GAS_LIMIT;
+    a.to_f64().unwrap() / gas_limit as f64
 }
 
 /// This function will revert and/or apply tipsets to the message pool. This function should be

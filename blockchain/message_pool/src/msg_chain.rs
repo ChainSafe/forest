@@ -12,6 +12,7 @@
 //     prev         *msgChain
 // }
 
+use crate::{get_gas_perf, get_gas_reward};
 use message::{Message, SignedMessage};
 use num_bigint::BigInt;
 
@@ -28,12 +29,34 @@ pub struct MsgChainNode {
     pub merged: bool,
 }
 
+impl MsgChainNode {
+    pub fn new() -> Self {
+        Self {
+            msgs: vec![],
+            gas_reward: Default::default(),
+            gas_limit: 0,
+            gas_perf: 0.0,
+            eff_perf: 0.0,
+            bp: 0.0,
+            parent_offset: 0.0,
+            valid: false,
+            merged: false
+        }
+    }
+}
+#[derive(Clone, Debug)]
 pub struct MsgChain {
-    index: usize,
-    chain: Vec<MsgChainNode>,
+    pub index: usize,
+    pub chain: Vec<MsgChainNode>,
 }
 
 impl MsgChain {
+    pub fn new() -> Self{
+        Self{
+            index: 0,
+            chain: vec![MsgChainNode::new()]
+        }
+    }
     pub fn curr(&self) -> Option<&MsgChainNode> {
         self.chain.get(self.index)
     }
@@ -49,7 +72,7 @@ impl MsgChain {
         }
         self.chain.get(self.index + 1)
     }
-    fn curr_mut(&mut self) -> Option<&mut MsgChainNode> {
+    pub(crate) fn curr_mut(&mut self) -> Option<&mut MsgChainNode> {
         self.chain.get_mut(self.index)
     }
     fn prev_mut(&mut self) -> Option<&mut MsgChainNode> {
@@ -81,6 +104,7 @@ impl MsgChain {
 }
 
 impl MsgChain {
+
     pub fn before(&self, other: &MsgChain) -> bool {
         let self_curr = self.curr().unwrap();
         let other_curr = other.curr().unwrap();
@@ -121,7 +145,6 @@ impl MsgChain {
             self.move_backward();
             self.chain.remove(self.chain.len() - 1);
         }
-
     }
     pub fn invalidate(&mut self) {
         let mc = self.curr_mut().unwrap();
@@ -173,10 +196,4 @@ impl MsgChain {
                 && mc.gas_perf == other.gas_perf
                 && mc.gas_reward > other.gas_reward)
     }
-}
-fn get_gas_reward(msg: &SignedMessage, base_fee: &BigInt) -> BigInt {
-    unimplemented!()
-}
-fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
-    unimplemented!()
 }
