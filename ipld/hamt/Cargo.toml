@@ -31,6 +31,7 @@ murmur = ["murmur3"]
 hex = "0.4.2"
 criterion = "0.3.3"
 ipld_blockstore = { path = "../blockstore", features = ["tracking"] }
+unsigned-varint = "0.5"
 
 [[bench]]
 name = "hamt_beckmark"

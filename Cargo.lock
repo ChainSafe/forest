@@ -2976,6 +2976,7 @@ dependencies = [
  "serde_bytes",
  "sha2 0.9.1",
  "thiserror",
+ "unsigned-varint 0.5.1",
 ]
 
 [[package]]

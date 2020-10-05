@@ -235,7 +235,7 @@ where
                     let mut sub = Node::default();
                     let consumed = hashed_key.consumed;
                     sub.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
-                    let kvs = std::mem::replace(vals, Vec::new());
+                    let kvs = std::mem::take(vals);
                     for p in kvs.into_iter() {
                         let hash = H::hash(p.key());
                         sub.modify_value(

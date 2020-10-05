@@ -218,15 +218,15 @@ fn canonical_structure() {
         &[b"K"],
         &[b"B"],
         "bafy2bzacecdihronbg6gyhpzhuiax3thpv5gxpunwczuanqym3r7wih3bkmb4",
-        BSStats {r: 2, w: 5, br: 42, bw: 105},
+        BSStats {r: 2, w: 4, br: 42, bw: 84},
     );
     #[rustfmt::skip]
     add_and_remove_keys(
         DEFAULT_BIT_WIDTH,
         &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
         &[b"KAA4"],
-        "bafy2bzaceaxfdngr56h3kj5hplwslhyxauizcpwx3agwjqns6gjhroepgnfkm",
-        BSStats {r: 2, w: 5, br: 168, bw: 420},
+        "bafy2bzacedrktzj4o7iumailmdzl5gz3uqr4bw2o72qg4zv5q7qhezy4r32bc",
+        BSStats {r: 7, w: 10, br: 388, bw: 561},
     );
 }
 
@@ -236,31 +236,31 @@ fn canonical_structure_alt_bit_width() {
     #[rustfmt::skip]
     let kb_cases = [
         (
-            "bafy2bzacedckymwjxmg35sllfegwrmnr7rxb3x7dh6muec2li2qhqjk5tf63q",
-            BSStats {r: 2, w: 5, br: 32, bw: 80},
+            "bafy2bzacecnabvcxw7k5hgfcex5ig4jf3nabuxvl35edgnjk5ven2kg4n3ffm",
+            BSStats {r: 2, w: 5, br: 26, bw: 65},
         ),
         (
             "bafy2bzacec2f6scvfmnyal5pzn43if6e2kls5jbm2jdab2xzuditctd5i3bbi",
             BSStats {r: 2, w: 5, br: 28, bw: 70},
         ),
         (
-            "bafy2bzacecnabvcxw7k5hgfcex5ig4jf3nabuxvl35edgnjk5ven2kg4n3ffm",
-            BSStats {r: 2, w: 5, br: 26, bw: 65},
+            "bafy2bzacedckymwjxmg35sllfegwrmnr7rxb3x7dh6muec2li2qhqjk5tf63q",
+            BSStats {r: 2, w: 5, br: 32, bw: 80},
         ),
     ];
     #[rustfmt::skip]
     let other_cases = [
         (
-            "bafy2bzaceckigpba3kck23qyuyb2i6vbiprtsmlr2rlyn3o4lmmcvzsh3l6wi",
-            BSStats {r: 8, w: 13, br: 419, bw: 687},
+            "bafy2bzacedc7hh2tyz66m7n7ricyw2m7whsgoplyux3kbxczla7zuf25wi2og",
+            BSStats {r: 9, w: 14, br: 420, bw: 661},
         ),
         (
             "bafy2bzacedeeqff3p7n3ogqxvqslb2yrbi4ojz44sp6mvjwyp6u6lktxdo2fg",
             BSStats {r: 8, w: 13, br: 385, bw: 639},
         ),
         (
-            "bafy2bzacedc7hh2tyz66m7n7ricyw2m7whsgoplyux3kbxczla7zuf25wi2og",
-            BSStats {r: 9, w: 14, br: 420, bw: 661},
+            "bafy2bzaceckigpba3kck23qyuyb2i6vbiprtsmlr2rlyn3o4lmmcvzsh3l6wi",
+            BSStats {r: 8, w: 13, br: 419, bw: 687},
         ),
     ];
     for i in 5..8 {
@@ -281,4 +281,43 @@ fn canonical_structure_alt_bit_width() {
             other_cases[(i - 5) as usize].1,
         );
     }
+}
+
+#[test]
+fn clean_child_ordering() {
+    let make_key = |i: u64| -> BytesKey {
+        let mut key = unsigned_varint::encode::u64_buffer();
+        let n = unsigned_varint::encode::u64(i, &mut key);
+        n.to_vec().into()
+    };
+
+    let dummy_value = BytesKey(vec![0xaa, 0xbb, 0xcc, 0xdd]);
+
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut h: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
+
+    for i in 100..195 {
+        h.set(make_key(i), dummy_value.clone()).unwrap();
+    }
+
+    let root = h.flush().unwrap();
+    assert_eq!(
+        root.to_string().as_str(),
+        "bafy2bzaced2mfx4zquihmrbqei2ghtbsf7bvupjzaiwkkgfmvpfrbud25gfli"
+    );
+    let mut h = Hamt::<_, BytesKey>::load_with_bit_width(&root, &store, 5).unwrap();
+
+    h.delete(&make_key(104)).unwrap();
+    h.delete(&make_key(108)).unwrap();
+    let root = h.flush().unwrap();
+    Hamt::<_, BytesKey>::load_with_bit_width(&root, &store, 5).unwrap();
+
+    assert_eq!(
+        root.to_string().as_str(),
+        "bafy2bzacec6ro3q36okye22evifu6h7kwdkjlb4keq6ogpfqivka6myk6wkjo"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 9, w: 17, br: 2327, bw: 2845});
 }

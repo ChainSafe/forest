@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::node::Node;
-use super::{Error, KeyValuePair, MAX_ARRAY_WIDTH};
+use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
 use serde::de::{self, DeserializeOwned};
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::cmp::Ordering;
 
 /// Pointer to index values or a link to another child node.
 #[derive(Debug, Clone)]
@@ -92,8 +93,9 @@ impl<K, V, H> Default for Pointer<K, V, H> {
 
 impl<K, V, H> Pointer<K, V, H>
 where
-    K: Serialize + DeserializeOwned + Clone,
+    K: Serialize + DeserializeOwned + Clone + Hash + PartialOrd,
     V: Serialize + DeserializeOwned + Clone,
+    H: HashAlgorithm,
 {
     pub(crate) fn from_key_value(key: K, value: V) -> Self {
         Pointer::Values(vec![KeyValuePair::new(key, value)])
@@ -107,11 +109,12 @@ where
                 0 => Err(Error::ZeroPointers),
                 1 => {
                     // Node has only one pointer, swap with parent node
-                    if let p @ Pointer::Values(_) = &mut n.pointers[0] {
-                        // Only creating temp value to get around borrowing self mutably twice
-                        let mut move_pointer = Pointer::Values(Default::default());
-                        std::mem::swap(&mut move_pointer, p);
-                        *self = move_pointer
+                    if let Pointer::Values(vals) = &mut n.pointers[0] {
+                        // Take child values and sort, to ensure canonical ordering
+                        let values = std::mem::take(vals);
+
+                        // move parent node up
+                        *self = Pointer::Values(values)
                     }
                     Ok(())
                 }
@@ -127,12 +130,19 @@ where
                                     // Child values cannot be fit into parent node, keep as is
                                     return Ok(());
                                 }
+                                // TODO avoid clone by checking length before removing
                                 child_vals.push(kv.clone());
                             }
                         } else {
                             return Ok(());
                         }
                     }
+                    // Sorting by key, values are inserted based on the ordering of the key itself,
+                    // so when collapsed, it needs to be ensured that this order is equal.
+                    child_vals.sort_unstable_by(|a, b| {
+                        a.key().partial_cmp(b.key()).unwrap_or(Ordering::Equal)
+                    });
+
                     // Replace link node with child values
                     *self = Pointer::Values(child_vals);
                     Ok(())
