@@ -54,7 +54,7 @@ impl StateSnapshots {
         self.layers.push(StateSnapLayer::new())
     }
 
-    fn drop_layer(&mut self) -> Result<(), Box<dyn StdError>> {
+    fn drop_layer(&mut self) -> Result<(), String> {
         self.layers.pop().ok_or_else(|| {
             format!(
                 "drop layer failed to index snapshot layer at index {}",
@@ -65,7 +65,7 @@ impl StateSnapshots {
         Ok(())
     }
 
-    fn merge_last_layer(&mut self) -> Result<(), Box<dyn StdError>> {
+    fn merge_last_layer(&mut self) -> Result<(), String> {
         self.layers
             .get(&self.layers.len() - 2)
             .ok_or_else(|| {
@@ -318,18 +318,18 @@ where
     }
 
     /// Add snapshot layer to stack.
-    pub fn snapshot(&mut self) -> Result<(), Box<dyn StdError>> {
+    pub fn snapshot(&mut self) -> Result<(), String> {
         self.snaps.add_layer();
         Ok(())
     }
 
     /// Merges last two snap shot layers
-    pub fn clear_snapshot(&mut self) -> Result<(), Box<dyn StdError>> {
+    pub fn clear_snapshot(&mut self) -> Result<(), String> {
         Ok(self.snaps.merge_last_layer()?)
     }
 
     /// Revert state cache by removing last snapshot
-    pub fn revert_to_snapshot(&mut self) -> Result<(), Box<dyn StdError>> {
+    pub fn revert_to_snapshot(&mut self) -> Result<(), String> {
         self.snaps.drop_layer()?;
         self.snaps.add_layer();
         Ok(())

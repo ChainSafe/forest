@@ -5,7 +5,7 @@ use super::expneg::expneg;
 use crate::math::PRECISION;
 use clock::ChainEpoch;
 use fil_types::{StoragePower, FILECOIN_PRECISION};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 use std::str::FromStr;
 use vm::TokenAmount;
 
@@ -54,7 +54,7 @@ pub(crate) fn compute_r_theta(
     if effective_network_time != 0 {
         let reward_theta = BigInt::from(effective_network_time) << PRECISION;
         let diff = ((cumsum_baseline - cumsum_realized) << PRECISION)
-            / baseline_power_at_effective_network_time;
+            .div_floor(&baseline_power_at_effective_network_time);
 
         reward_theta - diff
     } else {

@@ -7,7 +7,8 @@ mod types;
 pub use self::state::*;
 pub use self::types::*;
 use crate::{
-    make_map, make_map_with_root, resolve_to_id_addr, Map, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR,
+    make_map, make_map_with_root, resolve_to_id_addr, ActorDowncast, Map, CALLER_TYPES_SIGNABLE,
+    INIT_ACTOR_ADDR,
 };
 use address::{Address, Protocol};
 use encoding::to_vec;
@@ -58,10 +59,9 @@ impl Actor {
         let mut dedup_signers = HashSet::with_capacity(params.signers.len());
         for signer in &params.signers {
             let resolved = resolve_to_id_addr(rt, signer).map_err(|e| {
-                ActorError::downcast(
-                    e,
+                e.downcast_default(
                     ExitCode::ErrIllegalState,
-                    &format!("failed to resolve addr {} to ID addr", signer),
+                    format!("failed to resolve addr {} to ID addr", signer),
                 )
             })?;
             if dedup_signers.contains(&resolved) {
@@ -87,9 +87,9 @@ impl Actor {
             return Err(actor_error!(ErrIllegalArgument; "negative unlock duration disallowed"));
         }
 
-        let empty_root = make_map::<_, ()>(rt.store())
-            .flush()
-            .map_err(|err| actor_error!(ErrIllegalState; "Failed to create empty map: {}", err))?;
+        let empty_root = make_map::<_, ()>(rt.store()).flush().map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "Failed to create empty map")
+        })?;
 
         let mut st: State = State {
             signers: resolved_signers,
@@ -131,9 +131,12 @@ impl Actor {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", proposer));
             }
 
-            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
-            )?;
+            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to load pending transactions",
+                )
+            })?;
 
             let t_id = st.next_tx_id;
             st.next_tx_id.0 += 1;
@@ -146,13 +149,19 @@ impl Actor {
                 approved: Vec::new(),
             };
 
-            ptx.set(t_id.key(), txn.clone()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to put transaction for propose: {}", e),
-            )?;
+            ptx.set(t_id.key(), txn.clone()).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to put transaction for propose",
+                )
+            })?;
 
-            st.pending_txs = ptx.flush().map_err(
-                |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
-            )?;
+            st.pending_txs = ptx.flush().map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to flush pending transactions",
+                )
+            })?;
 
             Ok((t_id, txn))
         })?;
@@ -182,9 +191,12 @@ impl Actor {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
             }
 
-            let ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
-            )?;
+            let ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to load pending transactions",
+                )
+            })?;
 
             let txn = get_transaction(rt, &ptx, params.id, params.proposal_hash, true)?;
 
@@ -218,14 +230,20 @@ impl Actor {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
             }
 
-            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
-            )?;
+            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to load pending transactions",
+                )
+            })?;
 
             // Get transaction to cancel
-            let tx = get_pending_transaction(&ptx, params.id).map_err(
-                |err| actor_error!(ErrNotFound; "Failed to get transaction for cancel: {}", err),
-            )?;
+            let tx = get_pending_transaction(&ptx, params.id).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrNotFound,
+                    "Failed to get transaction for cancel",
+                )
+            })?;
 
             // Check to make sure transaction proposer is caller address
             if tx.approved.get(0) != Some(&caller_addr) {
@@ -235,25 +253,33 @@ impl Actor {
             }
 
             let calculated_hash = compute_proposal_hash(&tx, rt.syscalls()).map_err(|e| {
-                actor_error!(ErrIllegalState;
-                    "failed to compute proposal hash for (tx: {:?}): {}", params.id, e)
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to compute proposal hash for (tx: {:?})", params.id),
+                )
             })?;
 
             if params.proposal_hash != calculated_hash {
                 return Err(actor_error!(ErrIllegalState; "hash does not match proposal params"));
             }
 
-            let deleted = ptx.delete(&params.id.key()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to delete pending transaction: {}", e),
-            )?;
+            let deleted = ptx.delete(&params.id.key()).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to delete pending transaction",
+                )
+            })?;
             if !deleted {
                 return Err(actor_error!(ErrIllegalState;
                     "failed to delete pending transaction: does not exist"));
             }
 
-            st.pending_txs = ptx.flush().map_err(
-                |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
-            )?;
+            st.pending_txs = ptx.flush().map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to flush pending transactions",
+                )
+            })?;
 
             Ok(())
         })
@@ -268,10 +294,9 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
         let resolved_new_signer = resolve_to_id_addr(rt, &params.signer).map_err(|e| {
-            ActorError::downcast(
-                e,
+            e.downcast_default(
                 ExitCode::ErrIllegalState,
-                &format!("failed to resolve address {}", params.signer),
+                format!("failed to resolve address {}", params.signer),
             )
         })?;
 
@@ -301,10 +326,9 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
         let resolved_old_signer = resolve_to_id_addr(rt, &params.signer).map_err(|e| {
-            ActorError::downcast(
-                e,
+            e.downcast_default(
                 ExitCode::ErrIllegalState,
-                &format!("failed to resolve address {}", params.signer),
+                format!("failed to resolve address {}", params.signer),
             )
         })?;
 
@@ -344,17 +368,15 @@ impl Actor {
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
         let from_resolved = resolve_to_id_addr(rt, &params.from).map_err(|e| {
-            ActorError::downcast(
-                e,
+            e.downcast_default(
                 ExitCode::ErrIllegalState,
-                &format!("failed to resolve address {}", params.from),
+                format!("failed to resolve address {}", params.from),
             )
         })?;
         let to_resolved = resolve_to_id_addr(rt, &params.to).map_err(|e| {
-            ActorError::downcast(
-                e,
+            e.downcast_default(
                 ExitCode::ErrIllegalState,
-                &format!("failed to resolve address {}", params.to),
+                format!("failed to resolve address {}", params.to),
             )
         })?;
 
@@ -424,21 +446,29 @@ impl Actor {
         }
 
         let st = rt.transaction(|st: &mut State, rt| {
-            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
-            )?;
+            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to load pending transactions",
+                )
+            })?;
 
             // update approved on the transaction
             txn.approved.push(*rt.message().caller());
 
             ptx.set(tx_id.key(), txn.clone()).map_err(|e| {
-                actor_error!(ErrIllegalState;
-                    "failed to put transaction {} for approval: {}", tx_id.0, e)
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to put transaction {} for approval", tx_id.0),
+                )
             })?;
 
-            st.pending_txs = ptx.flush().map_err(
-                |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
-            )?;
+            st.pending_txs = ptx.flush().map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to flush pending transactions",
+                )
+            })?;
 
             // Go implementation holds reference to state after transaction so this must be cloned
             // to match to handle possible exit code inconsistency
@@ -481,21 +511,30 @@ where
 
         rt.transaction(|st: &mut State, rt| {
             let mut ptx = make_map_with_root::<_, Transaction>(&st.pending_txs, rt.store())
-                .map_err(
-                    |e| actor_error!(ErrIllegalState; "failed to load pending transactions: {}", e),
-                )?;
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to load pending transactions",
+                    )
+                })?;
 
             let deleted = ptx.delete(&txn_id.key()).map_err(|e| {
-                actor_error!(ErrIllegalState; "failed to delete transaction for cleanup: {}", e)
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to delete transaction for cleanup",
+                )
             })?;
             if !deleted {
                 return Err(actor_error!(ErrIllegalState;
                     "failed to delete transaction for cleanup: does not exist"));
             }
 
-            st.pending_txs = ptx.flush().map_err(
-                |e| actor_error!(ErrIllegalState; "failed to flush pending transactions: {}", e),
-            )?;
+            st.pending_txs = ptx.flush().map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to flush pending transactions",
+                )
+            })?;
             Ok(())
         })?;
     }
@@ -506,12 +545,11 @@ where
 fn get_pending_transaction<'bs, BS: BlockStore>(
     ptx: &Map<'bs, BS, Transaction>,
     txn_id: TxnID,
-) -> Result<Transaction, String> {
-    match ptx.get(&txn_id.key()) {
-        Ok(Some(tx)) => Ok(tx),
-        Ok(None) => Err(format!("failed to find transaction: {}", txn_id.0,)),
-        Err(e) => Err(format!("failed to read transaction: {}", e)),
-    }
+) -> Result<Transaction, Box<dyn StdError>> {
+    Ok(ptx
+        .get(&txn_id.key())
+        .map_err(|e| e.downcast_wrap("failed to read transaction"))?
+        .ok_or_else(|| actor_error!(ErrNotFound, "failed to find transaction: {}", txn_id.0))?)
 }
 
 fn get_transaction<'bs, BS, RT>(
@@ -525,13 +563,19 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let txn = get_pending_transaction(ptx, txn_id)
-        .map_err(|e| actor_error!(ErrNotFound; "failed to get transaction for approval: {}", e))?;
+    let txn = get_pending_transaction(ptx, txn_id).map_err(|e| {
+        e.downcast_default(
+            ExitCode::ErrNotFound,
+            "failed to get transaction for approval",
+        )
+    })?;
 
     if check_hash {
         let calculated_hash = compute_proposal_hash(&txn, rt.syscalls()).map_err(|e| {
-            actor_error!(ErrIllegalState;
-                "failed to compute proposal hash for (tx: {:?}): {}", txn_id, e)
+            e.downcast_default(
+                ExitCode::ErrIllegalState,
+                format!("failed to compute proposal hash for (tx: {:?})", txn_id),
+            )
         })?;
 
         if proposal_hash != calculated_hash {
@@ -575,7 +619,7 @@ fn compute_proposal_hash(
         params: &txn.params,
     };
     let data = to_vec(&proposal_hash)
-        .map_err(|e| format!("failed to construct multisig approval hash: {}", e))?;
+        .map_err(|e| ActorError::from(e).wrap("failed to construct multisig approval hash"))?;
 
     sys.hash_blake2b(&data)
 }

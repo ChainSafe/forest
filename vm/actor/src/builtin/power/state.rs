@@ -5,7 +5,7 @@ use super::{CONSENSUS_MINER_MIN_MINERS, CONSENSUS_MINER_MIN_POWER};
 use crate::{
     make_map_with_root,
     smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA},
-    BytesKey, Map, Multimap,
+    ActorDowncast, BytesKey, Map, Multimap,
 };
 use address::Address;
 use cid::Cid;
@@ -86,7 +86,7 @@ impl State {
         &self,
         s: &BS,
         miner: &Address,
-    ) -> Result<bool, String> {
+    ) -> Result<bool, Box<dyn StdError>> {
         let claims = make_map_with_root(&self.claims, s)?;
 
         let claim =
@@ -181,14 +181,14 @@ impl State {
         events: &mut Multimap<BS>,
         epoch: ChainEpoch,
         event: CronEvent,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         if epoch < self.first_cron_epoch {
             self.first_cron_epoch = epoch;
         }
 
-        events
-            .add(epoch_key(epoch), event)
-            .map_err(|e| format!("failed to store cron event at epoch {}: {}", epoch, e))?;
+        events.add(epoch_key(epoch), event).map_err(|e| {
+            e.downcast_wrap(format!("failed to store cron event at epoch {}", epoch))
+        })?;
         Ok(())
     }
 
@@ -235,23 +235,23 @@ pub(super) fn load_cron_events<BS: BlockStore>(
 pub fn get_claim<BS: BlockStore>(
     claims: &Map<BS, Claim>,
     a: &Address,
-) -> Result<Option<Claim>, String> {
+) -> Result<Option<Claim>, Box<dyn StdError>> {
     Ok(claims
         .get(&a.to_bytes())
-        .map_err(|e| format!("failed to get claim for address {}: {}", a, e))?)
+        .map_err(|e| e.downcast_wrap(format!("failed to get claim for address {}", a)))?)
 }
 
 pub fn set_claim<BS: BlockStore>(
     claims: &mut Map<BS, Claim>,
     a: &Address,
     claim: Claim,
-) -> Result<(), String> {
+) -> Result<(), Box<dyn StdError>> {
     assert_ne!(claim.raw_byte_power.sign(), Sign::Minus);
     assert_ne!(claim.quality_adj_power.sign(), Sign::Minus);
 
     Ok(claims
         .set(a.to_bytes().into(), claim)
-        .map_err(|e| format!("failed to set claim for address {}: {}", a, e))?)
+        .map_err(|e| e.downcast_wrap(format!("failed to set claim for address {}", a)))?)
 }
 
 pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
