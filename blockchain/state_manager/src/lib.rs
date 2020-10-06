@@ -187,12 +187,12 @@ where
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
-        callback: Option<impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<CB>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>>
     where
         R: Rand,
         V: ProofVerifier,
-        CB: FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>,
+        CB: FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>,
     {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
@@ -253,7 +253,7 @@ where
             let block_headers = tipset.blocks();
             // generic constants are not implemented yet this is a lowcost method for now
             let no_func = None::<fn(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>;
-            let cid_pair = self.compute_tipset_state::<V,_>(&block_headers, no_func)?;
+            let cid_pair = self.compute_tipset_state::<V, _>(&block_headers, no_func)?;
             self.cache
                 .write()
                 .await
@@ -398,7 +398,8 @@ where
 
             Ok(())
         };
-        let result :  Result<(Cid, Cid), Box<dyn StdError>>  = self.compute_tipset_state::<V,_>(ts.blocks(), Some(callback));
+        let result: Result<(Cid, Cid), Box<dyn StdError>> =
+            self.compute_tipset_state::<V, _>(ts.blocks(), Some(callback));
 
         if let Err(error_message) = result {
             if error_message.to_string() != "halt" {
