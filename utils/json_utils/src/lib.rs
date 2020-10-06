@@ -68,7 +68,6 @@ mod tests {
 
     #[test]
     fn test_json_basic() {
-        // #[derive(Debug, PartialEq)]
         struct BasicJson(Vec<u8>);
         impl<'de> Deserialize<'de> for BasicJson {
             fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

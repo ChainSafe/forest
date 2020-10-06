@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Error as CidError;
-use db::Error as DBError;
-use encoding::error::Error as EncodingError;
+use encoding::Error as EncodingError;
 use std::error::Error as StdError;
 use thiserror::Error;
 
@@ -16,15 +15,9 @@ pub enum Error {
     /// Height of root node is greater than max.
     #[error("failed to load AMT: height out of bounds: {0} > {1}")]
     MaxHeight(u64, u64),
-    /// Cbor encoding error
-    #[error(transparent)]
-    Encoding(#[from] EncodingError),
     /// Error generating a Cid for data
     #[error(transparent)]
     Cid(#[from] CidError),
-    /// Error interacting with underlying database
-    #[error(transparent)]
-    DB(#[from] DBError),
     /// Error when trying to serialize an AMT without a flushed cache
     #[error("Tried to serialize without saving cache, run flush() on Amt before serializing")]
     Cached,
@@ -37,35 +30,22 @@ pub enum Error {
     /// Cid not found in store error
     #[error("Cid ({0}) did not match any in database")]
     CidNotFound(String),
+    /// Dynamic error for when the error needs to be forwarded as is.
+    #[error("{0}")]
+    Dynamic(Box<dyn StdError>),
     /// Custom AMT error
     #[error("{0}")]
     Other(String),
 }
 
-impl PartialEq for Error {
-    fn eq(&self, other: &Self) -> bool {
-        use Error::*;
-
-        match (self, other) {
-            (&OutOfRange(a), &OutOfRange(b)) => a == b,
-            (&Encoding(_), &Encoding(_)) => true,
-            (&Cid(ref a), &Cid(ref b)) => a == b,
-            (&DB(ref a), &DB(ref b)) => a == b,
-            (&Cached, &Cached) => true,
-            (&Other(ref a), &Other(ref b)) => a == b,
-            _ => false,
-        }
-    }
-}
-
-impl From<Error> for String {
-    fn from(e: Error) -> Self {
-        e.to_string()
+impl From<EncodingError> for Error {
+    fn from(e: EncodingError) -> Self {
+        Self::Dynamic(Box::new(e))
     }
 }
 
 impl From<Box<dyn StdError>> for Error {
     fn from(e: Box<dyn StdError>) -> Self {
-        Self::Other(e.to_string())
+        Self::Dynamic(e)
     }
 }

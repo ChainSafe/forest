@@ -39,20 +39,20 @@ where
 
     /// Adds key to the set.
     #[inline]
-    pub fn put(&mut self, key: BytesKey) -> Result<(), String> {
+    pub fn put(&mut self, key: BytesKey) -> Result<(), Error> {
         // Set hamt node to array root
         Ok(self.0.set(key, ())?)
     }
 
     /// Checks if key exists in the set.
     #[inline]
-    pub fn has(&self, key: &[u8]) -> Result<bool, String> {
+    pub fn has(&self, key: &[u8]) -> Result<bool, Error> {
         Ok(self.0.get(key)?.is_some())
     }
 
     /// Deletes key from set.
     #[inline]
-    pub fn delete(&mut self, key: &[u8]) -> Result<(), String> {
+    pub fn delete(&mut self, key: &[u8]) -> Result<(), Error> {
         self.0.delete(key)?;
 
         Ok(())
@@ -68,7 +68,7 @@ where
     }
 
     /// Collects all keys from the set into a vector.
-    pub fn collect_keys(&self) -> Result<Vec<BytesKey>, Box<dyn StdError>> {
+    pub fn collect_keys(&self) -> Result<Vec<BytesKey>, Error> {
         let mut ret_keys = Vec::new();
 
         self.for_each(|k| {

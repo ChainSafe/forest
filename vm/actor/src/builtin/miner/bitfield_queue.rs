@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::QuantSpec;
+use crate::ActorDowncast;
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -41,13 +42,13 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
         let bitfield = self
             .amt
             .get(epoch as u64)
-            .map_err(|e| format!("failed to lookup queue epoch {}: {:?}", epoch, e))?
+            .map_err(|e| e.downcast_wrap(format!("failed to lookup queue epoch {}", epoch)))?
             .cloned()
             .unwrap_or_default();
 
         self.amt
             .set(epoch as u64, &bitfield | values)
-            .map_err(|e| format!("failed to set queue epoch {}: {:?}", epoch, e))?;
+            .map_err(|e| e.downcast_wrap(format!("failed to set queue epoch {}", epoch)))?;
 
         Ok(())
     }
@@ -68,7 +69,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
     /// shifting other bits down and removing any newly empty entries.
     ///
     /// See the docs on `BitField::cut` to better understand what it does.
-    pub fn cut(&mut self, to_cut: &BitField) -> Result<(), String> {
+    pub fn cut(&mut self, to_cut: &BitField) -> Result<(), Box<dyn StdError>> {
         let mut epochs_to_remove = Vec::<u64>::new();
 
         self.amt
@@ -81,11 +82,11 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
 
                 Ok(())
             })
-            .map_err(|e| format!("failed to cut from bitfield queue: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to cut from bitfield queue"))?;
 
         self.amt
             .batch_delete(epochs_to_remove)
-            .map_err(|e| format!("failed to remove empty epochs from bitfield queue: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to remove empty epochs from bitfield queue"))?;
 
         Ok(())
     }
