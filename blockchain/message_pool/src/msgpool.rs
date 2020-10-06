@@ -5,7 +5,8 @@ use super::config::MpoolConfig;
 use super::errors::Error;
 use crate::msg_chain::{MsgChain, MsgChainNode};
 use address::{Address, Protocol};
-use async_std::sync::{Arc, RwLock, Sender};
+use async_std::stream::interval;
+use async_std::sync::{channel, Arc, RwLock, Sender};
 use async_std::task;
 use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -18,7 +19,10 @@ use db::Store;
 use encoding::Cbor;
 use flo_stream::Subscriber;
 use forest_libp2p::{NetworkMessage, PUBSUB_MSG_TOPIC};
-use futures::StreamExt;
+use futures::{
+    future::{select, Either},
+    StreamExt,
+};
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -38,6 +42,8 @@ const RBF_DENOM: u64 = 256;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
+const PROPAGATION_DELAY_SECS: u64 = 6;
+const REPUBLISH_INTERVAL: u64 = 10 * types::BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
 
 // this is *temporary* mutilation until we have implemented uncapped miner penalties -- it will go
 // away in the next fork.
@@ -275,6 +281,8 @@ where
         let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
+
+        let (repub_trigger, mut repub_trigger_rx) = channel::<()>(4);
         let mut mp = MessagePool {
             local_addrs,
             pending,
@@ -298,12 +306,14 @@ where
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();
         let pending = mp.pending.clone();
+        let republished = mp.republished.clone();
 
         // TODO: Check this
         let cur_tipset = mp.cur_tipset.clone();
 
         // Reacts to new HeadChanges
         task::spawn(async move {
+            let repub_trigger = Arc::new(repub_trigger);
             loop {
                 if let Some(ts) = subscriber.next().await {
                     let (cur, rev, app) = match ts {
@@ -322,6 +332,8 @@ where
                     head_change(
                         api.as_ref(),
                         bls_sig_cache.as_ref(),
+                        repub_trigger.clone(),
+                        republished.as_ref(),
                         pending.as_ref(),
                         &cur.as_ref(),
                         rev,
@@ -333,8 +345,48 @@ where
             }
         });
 
+        let api = mp.api.clone();
+        let pending = mp.pending.clone();
+        let cur_tipset = mp.cur_tipset.clone();
+        let republished = mp.republished.clone();
+        let local_addrs = mp.local_addrs.clone();
+        let network_sender = Arc::new(mp.network_sender.clone());
         // Reacts to republishing requests
-
+        task::spawn(async move {
+            let mut interval = interval(Duration::from_millis(REPUBLISH_INTERVAL));
+            loop {
+                match select(interval.next(), repub_trigger_rx.next()).await {
+                    Either::Left(_) => {
+                        if let Err(e) = republish_pending_messages(
+                            api.as_ref(),
+                            network_sender.as_ref(),
+                            pending.as_ref(),
+                            cur_tipset.as_ref(),
+                            republished.as_ref(),
+                            local_addrs.as_ref(),
+                        )
+                        .await
+                        {
+                            warn!("Failed to republish pending messages: {}", e.to_string());
+                        }
+                    }
+                    Either::Right(_) => {
+                        if let Err(e) = republish_pending_messages(
+                            api.as_ref(),
+                            network_sender.as_ref(),
+                            pending.as_ref(),
+                            cur_tipset.as_ref(),
+                            republished.as_ref(),
+                            local_addrs.as_ref(),
+                        )
+                        .await
+                        {
+                            warn!("Failed to republish pending messages: {}", e.to_string());
+                        }
+                    }
+                }
+            }
+        });
         Ok(mp)
     }
 
@@ -676,6 +728,7 @@ where
                 }
             }
             self.pending.write().await.clear();
+            self.republished.write().await.clear();
         } else {
             let mut pending = self.pending.write().await;
             let local_addrs = self.local_addrs.read().await;
@@ -817,10 +870,11 @@ where
 
 async fn republish_pending_messages<T>(
     api: &RwLock<T>,
+    network_sender: &Sender<NetworkMessage>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &RwLock<Tipset>,
     republished: &RwLock<HashSet<Cid>>,
-    local_addrs: Arc<RwLock<Vec<Address>>>,
+    local_addrs: &RwLock<Vec<Address>>,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -866,7 +920,7 @@ where
     });
 
     let mut msgs: Vec<SignedMessage> = vec![];
-    let gas_limit = types::BLOCK_GAS_LIMIT;
+    let mut gas_limit = types::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let msg_chain = &mut chains[i];
@@ -891,6 +945,8 @@ where
                     msg_chain.invalidate();
                     continue 'l;
                 }
+                gas_limit -= m.gas_limit();
+                msgs.push(m.clone());
             }
             i += 1;
             continue;
@@ -902,19 +958,19 @@ where
                 break;
             }
             chains.swap(j, j + 1);
+            j += 1;
         }
     }
     drop(ts);
     let mut count = 0;
-    // log the
     for m in msgs.iter() {
         let mb = m.marshal_cbor()?;
-        // self.network_sender
-        //     .send(NetworkMessage::PubsubMessage {
-        //         topic: PUBSUB_MSG_TOPIC.clone(),
-        //         message: mb,
-        //     })
-        //     .await;
+        network_sender
+            .send(NetworkMessage::PubsubMessage {
+                topic: PUBSUB_MSG_TOPIC.clone(),
+                message: mb,
+            })
+            .await;
         count += 1;
         if count < msgs.len() {
             // this delay is here to encourage the pubsub subsystem to process the messages serially
@@ -965,7 +1021,12 @@ where
     while i < msgs.len() {
         let m = &msgs[i];
         if m.sequence() < cur_seq {
-            // log warn
+            warn!(
+                "encountered message from actor {} with nonce {} less than the current nonce {}",
+                actor,
+                m.sequence(),
+                cur_seq
+            );
             skip += 1;
             i += 1;
             continue;
@@ -1102,6 +1163,8 @@ pub fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
 pub async fn head_change<T>(
     api: &RwLock<T>,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
+    repub_trigger: Arc<Sender<()>>,
+    republished: &RwLock<HashSet<Cid>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &RwLock<Tipset>,
     revert: Vec<Tipset>,
@@ -1110,6 +1173,7 @@ pub async fn head_change<T>(
 where
     T: Provider + 'static,
 {
+    let mut repub = false;
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
         let pts = api.write().await.load_tipset(ts.parents())?;
@@ -1138,12 +1202,25 @@ where
 
             for msg in smsgs {
                 rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+                if !repub {
+                    if republished.write().await.insert(msg.cid()?) {
+                        repub = true;
+                    }
+                }
             }
             for msg in msgs {
                 rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+                if !repub {
+                    if republished.write().await.insert(msg.cid()?) {
+                        repub = true;
+                    }
+                }
             }
         }
         *cur_tipset.write().await = ts;
+    }
+    if repub {
+        repub_trigger.send(()).await;
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
