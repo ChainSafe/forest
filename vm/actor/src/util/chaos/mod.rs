@@ -79,22 +79,22 @@ impl Actor {
     ///  CALLER_VALIDATION_BRANCH_IS_ADDRESS validates against an empty caller
     ///  address set.
     ///  CALLER_VALIDATION_BRANCH_IS_TYPE validates against an empty caller type set.
-    pub fn caller_validation<BS, RT>(rt: &mut RT, branch: i64) -> Result<(), ActorError>
+    pub fn caller_validation<BS, RT>(rt: &mut RT, args: CallerValidationArgs ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        match branch {
+        match args.branch {
             x if x == CALLER_VALIDATION_BRANCH_NONE => {}
             x if x == CALLER_VALIDATION_BRANCH_TWICE => {
                 rt.validate_immediate_caller_accept_any()?;
                 rt.validate_immediate_caller_accept_any()?;
             }
             x if x == CALLER_VALIDATION_BRANCH_IS_ADDRESS => {
-                rt.validate_immediate_caller_is(&[])?;
+                rt.validate_immediate_caller_is(&args.addrs)?;
             }
             x if x == CALLER_VALIDATION_BRANCH_IS_TYPE => {
-                rt.validate_immediate_caller_type(&[])?;
+                rt.validate_immediate_caller_type(&args.types)?;
             }
             _ => panic!("invalid branch passed to CallerValidation"),
         }
@@ -205,8 +205,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CallerValidation) => {
-                let branch = Serialized::deserialize(&params)?;
-                Self::caller_validation(rt, branch)?;
+                Self::caller_validation(rt, Serialized::deserialize(&params)?)?;
                 Ok(Serialized::default())
             }
 

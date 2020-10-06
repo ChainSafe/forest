@@ -23,7 +23,7 @@ use walkdir::{DirEntry, WalkDir};
 const SKIP_MODE: bool = true;
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 79] = [
+    static ref SKIP_TESTS: [Regex; 78] = [
 
         Regex::new(r"test-vectors/corpus/vm_violations/x--*").unwrap(),
         Regex::new(r"test-vectors/corpus/nested/x--*").unwrap(),
@@ -108,7 +108,6 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_account/Send/Ok/ext-0001-fil_1_account-Send-Ok-3").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/Send/SysErrOutOfGas/extracted-msg-fil_1_storageminer-Send-SysErrOutOfGas-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/DeclareFaults/Ok/extracted-msg-fil_1_storageminer-DeclareFaults-Ok-*").unwrap(),
-        Regex::new(r"test-vectors/corpus/vm_violations/caller_validation*").unwrap(),
         Regex::new(r"test-vectors/corpus/msg_application/gas_cost--msg-ok-secp-bls-gas-costs.json").unwrap(),
         Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
         Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-gas-for-return.json").unwrap(),

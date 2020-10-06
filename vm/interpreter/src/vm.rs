@@ -262,7 +262,7 @@ where
         check_message(msg.message())?;
 
         let pl = price_list_by_epoch(self.epoch());
-        let ser_msg = forest_encoding::to_vec(msg).map_err(|e| e.to_string())?;
+        let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
         let msg_gas_cost = pl.on_chain_message(ser_msg.len());
         let cost_total = msg_gas_cost.total();
 
