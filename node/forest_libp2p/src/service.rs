@@ -190,7 +190,7 @@ where
                         ForestBehaviourEvent::BlockSyncRequest { channel, peer, request } => {
                             debug!("Received blocksync request (peerId: {:?})", peer);
                             let db = self.db.clone();
-                            async move {
+                            async {
                                 let response = task::spawn_blocking(move || -> BlockSyncResponse {
                                     make_blocksync_response(db, &request.clone())
                                 }).await;

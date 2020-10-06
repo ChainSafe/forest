@@ -142,6 +142,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::super::BLOCKS_MESSAGES;
     use super::*;
     use db::MemoryDB;
     use forest_car::load_car;
