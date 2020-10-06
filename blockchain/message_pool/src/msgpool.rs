@@ -860,7 +860,6 @@ where
         return Ok(());
     }
 
-    // TODO: Check if the sorting function is correct
     chains.sort_by(|a, b| match a.before(b) {
         true => Ordering::Greater,
         false => Ordering::Less,
@@ -1270,9 +1269,7 @@ pub mod test_provider {
             }
             let balance = match self.balances.get(addr) {
                 Some(b) => b.clone(),
-                None => {
-                    (10_000_000_000 as u64).into()
-                }
+                None => (10_000_000_000 as u64).into(),
             };
 
             msgs.sort_by_key(|m| m.sequence());
@@ -1283,12 +1280,7 @@ pub mod test_provider {
                 }
                 sequence += 1;
             }
-            let actor = ActorState::new(
-                Cid::default(),
-                Cid::default(),
-               balance,
-                sequence,
-            );
+            let actor = ActorState::new(Cid::default(), Cid::default(), balance, sequence);
             Ok(actor)
         }
 
@@ -1755,7 +1747,14 @@ pub mod tests {
             let mut smsg_vec = Vec::new();
             for i in 0..10 {
                 let bias = (12 - i) / 3;
-                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i % 3 + bias);
+                let msg = create_smsg(
+                    &a2,
+                    &a1,
+                    wallet.borrow_mut(),
+                    i,
+                    gas_limit,
+                    1 + i % 3 + bias,
+                );
                 smsg_vec.push(msg.clone());
                 mset.insert(i, msg);
             }
@@ -1793,7 +1792,7 @@ pub mod tests {
             let mut mset = HashMap::new();
             let mut smsg_vec = Vec::new();
             for i in 0..10 {
-                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i*2, gas_limit, 1 + i);
+                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i * 2, gas_limit, 1 + i);
                 smsg_vec.push(msg.clone());
                 mset.insert(i, msg);
             }
@@ -1801,19 +1800,27 @@ pub mod tests {
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
-            for (i,m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
-                assert_eq!(m.sequence(), i as u64, "expected nonce {} but got {}", i, m.sequence());
+            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+                assert_eq!(
+                    m.sequence(),
+                    i as u64,
+                    "expected nonce {} but got {}",
+                    i,
+                    m.sequence()
+                );
             }
 
             // Test 5: 10 messages with increasing gasLimit, except for the 6th message which has less than
             //         the epoch gasLimit; it should create a single chain with the first 5 messages
             let mut mset = HashMap::new();
             let mut smsg_vec = Vec::new();
-            tma.write().await.set_state_balance_raw(&a1, BigInt::from(1_000_000_000_000_000_000 as u64));
+            tma.write()
+                .await
+                .set_state_balance_raw(&a1, BigInt::from(1_000_000_000_000_000_000 as u64));
             for i in 0..10 {
                 let msg = if i != 5 {
                     create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)
-                }  else {
+                } else {
                     create_smsg(&a2, &a1, wallet.borrow_mut(), i, 1, 1 + i)
                 };
                 smsg_vec.push(msg.clone());
@@ -1824,8 +1831,14 @@ pub mod tests {
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].curr().unwrap().msgs.len(), 5);
-            for (i,m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
-                assert_eq!(m.sequence(), i as u64, "expected nonce {} but got {}", i, m.sequence());
+            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+                assert_eq!(
+                    m.sequence(),
+                    i as u64,
+                    "expected nonce {} but got {}",
+                    i,
+                    m.sequence()
+                );
             }
 
             // Test 6: one more message than what can fit in a block according to gas limit, with increasing
@@ -1835,7 +1848,14 @@ pub mod tests {
             let max_messages = types::BLOCK_GAS_LIMIT / gas_limit;
             let n_messages = max_messages + 1;
             for i in 0..n_messages {
-                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i as u64, gas_limit, (1 + i) as u64);
+                let msg = create_smsg(
+                    &a2,
+                    &a1,
+                    wallet.borrow_mut(),
+                    i as u64,
+                    gas_limit,
+                    (1 + i) as u64,
+                );
                 smsg_vec.push(msg.clone());
                 mset.insert(i as u64, msg);
             }
@@ -1844,12 +1864,20 @@ pub mod tests {
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].curr().unwrap().msgs.len(), max_messages as usize);
-            for (i,m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
-                assert_eq!(m.sequence(), i as u64, "expected nonce {} but got {}", i, m.sequence());
+            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+                assert_eq!(
+                    m.sequence(),
+                    i as u64,
+                    "expected nonce {} but got {}",
+                    i,
+                    m.sequence()
+                );
             }
-            
+
             // Test 7: insufficient balance for all messages
-            tma.write().await.set_state_balance_raw(&a1, (300*gas_limit+1).into());
+            tma.write()
+                .await
+                .set_state_balance_raw(&a1, (300 * gas_limit + 1).into());
             let mut mset = HashMap::new();
             let mut smsg_vec = Vec::new();
             for i in 0..10 {
@@ -1862,8 +1890,14 @@ pub mod tests {
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].curr().unwrap().msgs.len(), 2);
-            for (i,m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
-                assert_eq!(m.sequence(), i as u64, "expected nonce {} but got {}", i, m.sequence());
+            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+                assert_eq!(
+                    m.sequence(),
+                    i as u64,
+                    "expected nonce {} but got {}",
+                    i,
+                    m.sequence()
+                );
             }
         })
     }
