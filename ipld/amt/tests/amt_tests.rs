@@ -28,20 +28,14 @@ fn basic_get_set() {
 
     let new_amt = Amt::load(&c, &db).unwrap();
     assert_get(&new_amt, 2, &"foo".to_owned());
+    let c = a.flush().unwrap();
 
     assert_eq!(
         c.to_string().as_str(),
         "bafy2bzacea4z4wxtdoo6ikgqkoe4gm364xhdtreycvfy5txvprpbtunx5jnwy"
     );
-    assert_eq!(
-        *db.stats.borrow(),
-        BSStats {
-            r: 1,
-            w: 1,
-            br: 12,
-            bw: 12
-        }
-    );
+    #[rustfmt::skip]
+    assert_eq!(*db.stats.borrow(), BSStats { r: 1, w: 2, br: 12, bw: 24 });
 }
 
 #[test]
@@ -98,9 +92,14 @@ fn expand() {
         c.to_string().as_str(),
         "bafy2bzaced25ah2r4gcerysjyrjqpqw72jvdy5ziwxk53ldxibktwmgkfgc22"
     );
-    // TODO go implementation has a lot more writes, need to flush on expand to match if not changed
+
     #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 6, br: 369, bw: 260});
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 6, w: 6, br: 260, bw: 260});
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 9, br: 369, bw: 369});
 }
 
 #[test]
@@ -133,9 +132,14 @@ fn bulk_insert() {
         c.to_string().as_str(),
         "bafy2bzacedjhcq7542wu7ike4i4srgq7hwxxc5pmw5sub4secqk33mugl4zda"
     );
-    // TODO go implementation has a lot more writes, need to flush on expand to match if not changed
+
     #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 1302, w: 717, br: 171567, bw: 94378});
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 717, w: 717, br: 94378, bw: 94378});
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 1302, w: 1302, br: 171567, bw: 171567});
 }
 
 #[test]
@@ -232,6 +236,11 @@ fn delete_first_entry() {
         "bafy2bzacec4rpjwfkzp4n2wj233774cnhk5o2d7pub2gso2g3isdfxnxuhbr2"
     );
     #[rustfmt::skip]
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*db.stats.borrow(), BSStats { r: 1, w: 1, br: 12, bw: 12 });
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
     assert_eq!(*db.stats.borrow(), BSStats {r: 2, w: 2, br: 21, bw: 21});
 }
 
@@ -314,8 +323,13 @@ fn for_each() {
         c.to_string().as_str(),
         "bafy2bzaceccb5cgeysdu6ferucawc6twfedv5gc3iqgh2ko7o7e25r5ucpf4u"
     );
-    // TODO go implementation has a lot more writes, need to flush on expand to match if not changed
+
     #[rustfmt::skip]
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 1431, w: 1431, br: 88648, bw: 88648});
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
     assert_eq!(*db.stats.borrow(), BSStats {r: 2016, w: 2016, br: 124875, bw: 124875});
 }
 
