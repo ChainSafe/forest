@@ -10,7 +10,7 @@ use serde_bytes::ByteBuf;
 pub struct BytesSer<'a>(#[serde(with = "serde_bytes")] pub &'a [u8]);
 
 /// Wrapper for deserializing dynamic sized Bytes.
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
 #[serde(transparent)]
 pub struct BytesDe(#[serde(with = "serde_bytes")] pub Vec<u8>);
 

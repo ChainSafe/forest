@@ -47,7 +47,6 @@ where
         "Genesis not initialized properly, failed to retrieve network name. \
             Requires either a previously initialized genesis or with genesis config option set",
     );
-
     Ok((Tipset::new(vec![genesis])?, network_name))
 }
 

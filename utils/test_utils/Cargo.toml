@@ -16,7 +16,7 @@ chain = { path = "../../blockchain/chain/", optional = true }
 message = { package = "forest_message", path = "../../vm/message", optional = true }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
-async-std = { version = "1.6.0", features = ["unstable"] }
+async-std = { version = "1.6.3", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p/", optional = true }
 encoding = { package = "forest_encoding",  path = "../../encoding/"}
 base64 = "0.12.1"

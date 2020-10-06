@@ -6,7 +6,7 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
-use num_bigint::bigint_ser;
+use num_bigint::{bigint_ser, Integer};
 use vm::TokenAmount;
 
 /// Multisig actor state
@@ -31,7 +31,9 @@ impl State {
         if elapsed_epoch >= self.unlock_duration {
             return TokenAmount::from(0);
         }
-        let unit_locked: TokenAmount = self.initial_balance.clone() / self.unlock_duration;
+        let unit_locked: TokenAmount = self
+            .initial_balance
+            .div_floor(&TokenAmount::from(self.unlock_duration));
         unit_locked * (self.unlock_duration - elapsed_epoch)
     }
 

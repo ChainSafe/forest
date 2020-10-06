@@ -5,6 +5,7 @@ use super::{Error, TipIndex, TipsetMetadata};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::RwLock;
+use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -15,20 +16,24 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
+use futures::{future, StreamExt};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{debug, info, warn};
+use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
+use types::WINNING_POST_SECTOR_SET_LOOKBACK;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
+const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
+
 // constants for Weight calculation
 /// The ratio of weight contributed by short-term vs long-term factors in a given round
 const W_RATIO_NUM: u64 = 1;
@@ -47,6 +52,31 @@ pub enum HeadChange {
     Revert(Arc<Tipset>),
 }
 
+#[derive(Debug, Clone)]
+pub struct IndexToHeadChange(pub usize, pub HeadChange);
+
+#[derive(Clone)]
+pub enum EventsPayload {
+    TaskCancel(usize, ()),
+    SubHeadChanges(IndexToHeadChange),
+}
+
+impl EventsPayload {
+    pub fn sub_head_changes(&self) -> Option<&IndexToHeadChange> {
+        match self {
+            EventsPayload::SubHeadChanges(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn task_cancel(&self) -> Option<(usize, ())> {
+        match self {
+            EventsPayload::TaskCancel(val, _) => Some((*val, ())),
+            _ => None,
+        }
+    }
+}
+
 /// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
 /// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
@@ -60,7 +90,7 @@ pub struct ChainStore<DB> {
     heaviest: RwLock<Option<Arc<Tipset>>>,
 
     // tip_index tracks tipsets by epoch/parentset for use by expected consensus.
-    tip_index: TipIndex,
+    tip_index: RwLock<TipIndex>,
 }
 
 impl<DB> ChainStore<DB>
@@ -74,9 +104,9 @@ where
             .map(Arc::new);
         Self {
             db,
-            publisher: Publisher::new(SINK_CAP).into(),
-            tip_index: TipIndex::new(),
-            heaviest: heaviest.into(),
+            publisher: RwLock::new(Publisher::new(SINK_CAP)),
+            tip_index: RwLock::new(TipIndex::new()),
+            heaviest: RwLock::new(heaviest),
         }
     }
 
@@ -107,7 +137,7 @@ where
             tipset_receipts_root: header.message_receipts().clone(),
             tipset: ts,
         };
-        self.tip_index.put(&meta).await;
+        self.tip_index.write().await.put(&meta).await;
         Ok(())
     }
 
@@ -157,6 +187,13 @@ where
         self.heaviest.read().await.clone()
     }
 
+    pub fn tip_index(&self) -> &RwLock<TipIndex> {
+        &self.tip_index
+    }
+
+    pub fn publisher(&self) -> &RwLock<Publisher<HeadChange>> {
+        &self.publisher
+    }
     /// Returns key-value store instance
     pub fn blockstore(&self) -> &DB {
         &self.db
@@ -169,28 +206,7 @@ where
 
     /// Constructs and returns a full tipset if messages from storage exists
     pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
-        let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
-
-        for header in ts.into_blocks() {
-            let (bls_messages, secp_messages) = block_messages(self.blockstore(), &header)?;
-            debug!(
-                "Fill Tipsets for header {:?} with bls_messages: {:?}",
-                header.cid(),
-                bls_messages
-                    .iter()
-                    .map(|b| b.cid().unwrap())
-                    .collect::<Vec<_>>()
-            );
-
-            blocks.push(Block {
-                header,
-                bls_messages,
-                secp_messages,
-            });
-        }
-
-        // the given tipset has already been verified, so this cannot fail
-        Ok(FullTipset::new(blocks).unwrap())
+        fill_tipsets(self.blockstore(), ts)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
@@ -212,6 +228,49 @@ where
         }
         Ok(())
     }
+
+    /// Checks store if block has already been validated. Key based on the block validation prefix.
+    pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
+        let key = block_validation_key(cid);
+
+        Ok(self.db.exists(key)?)
+    }
+
+    /// Marks block as validated in the store. This is retrieved using the block validation prefix.
+    pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
+        let key = block_validation_key(cid);
+
+        Ok(self.db.write(key, &[])?)
+    }
+
+    /// Gets lookback tipset for block validations.
+    /// Returns `None` if the tipset is also the lookback tipset.
+    pub fn get_lookback_tipset_for_round(
+        &self,
+        ts: &Tipset,
+        round: ChainEpoch,
+    ) -> Result<Option<Tipset>, Error> {
+        let lbr = if round > WINNING_POST_SECTOR_SET_LOOKBACK {
+            round - WINNING_POST_SECTOR_SET_LOOKBACK
+        } else {
+            0
+        };
+
+        if lbr > ts.epoch() {
+            return Ok(None);
+        }
+
+        // TODO would be better to get tipset with ChainStore cache.
+        tipset_by_height(self.blockstore(), lbr, ts, true)
+    }
+}
+
+/// Helper to ensure consistent Cid -> db key translation.
+fn block_validation_key(cid: &Cid) -> Vec<u8> {
+    let mut key = Vec::new();
+    key.extend_from_slice(BLOCK_VAL_PREFIX);
+    key.extend(cid.to_bytes());
+    key
 }
 
 /// Returns messages for a given tipset from db
@@ -243,6 +302,26 @@ where
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
 
     Ok((bls_msgs, secp_msgs))
+}
+
+/// Constructs and returns a full tipset if messages from storage exists - non self version
+pub fn fill_tipsets<DB>(db: &DB, ts: Tipset) -> Result<FullTipset, Error>
+where
+    DB: BlockStore,
+{
+    let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
+
+    for header in ts.into_blocks() {
+        let (bls_messages, secp_messages) = block_messages(db, &header)?;
+        blocks.push(Block {
+            header,
+            bls_messages,
+            secp_messages,
+        });
+    }
+
+    // the given tipset has already been verified, so this cannot fail
+    Ok(FullTipset::new(blocks).unwrap())
 }
 
 /// Returns a tuple of UnsignedMessage and SignedMessages from their Cid
@@ -360,11 +439,18 @@ pub fn get_chain_randomness<DB: BlockStore>(
 
     let search_height = if round < 0 { 0 } else { round };
 
-    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+    let rand_ts = tipset_by_height(db, search_height, &ts, true)?.unwrap_or(ts);
 
-    let mtb = rand_ts.min_ticket_block();
-
-    draw_randomness(mtb.ticket().vrfproof.as_bytes(), pers, round, entropy)
+    draw_randomness(
+        rand_ts
+            .min_ticket()
+            .ok_or("No ticket exists for block")?
+            .vrfproof
+            .as_bytes(),
+        pers,
+        round,
+        entropy,
+    )
 }
 
 /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
@@ -384,7 +470,7 @@ pub fn get_beacon_randomness<DB: BlockStore>(
 
     let search_height = if round < 0 { 0 } else { round };
 
-    let rand_ts = tipset_by_height(db, search_height, ts, true)?;
+    let rand_ts = tipset_by_height(db, search_height, &ts, true)?.unwrap_or(ts);
 
     let be = latest_beacon_entry(db, &rand_ts)?;
 
@@ -442,16 +528,18 @@ where
     let ts = Tipset::new(block_headers)?;
     Ok(ts)
 }
-/// Returns the tipset behind `tsk` at a given `height`. If the given height
-/// is a null round:
-/// if `prev` is `true`, the tipset before the null round is returned.
-/// If `prev` is `false`, the tipset following the null round is returned.
+/// Returns the tipset behind `tsk` at a given `height`.
+/// If the given height is a null round:
+/// - If `prev` is `true`, the tipset before the null round is returned.
+/// - If `prev` is `false`, the tipset following the null round is returned.
+///
+/// Returns `None` if the tipset provided was the tipset at the given height.
 pub fn tipset_by_height<DB>(
     db: &DB,
     height: ChainEpoch,
-    ts: Tipset,
+    ts: &Tipset,
     prev: bool,
-) -> Result<Tipset, Error>
+) -> Result<Option<Tipset>, Error>
 where
     DB: BlockStore,
 {
@@ -461,22 +549,26 @@ where
         ));
     }
     if height == ts.epoch() {
-        return Ok(ts);
+        return Ok(None);
     }
     // TODO: If ts.epoch()-h > Fork Length Threshold, it could be expensive to look up
-    let mut ts_temp = ts;
+    let mut ts_temp: Option<Tipset> = None;
     loop {
-        let pts = tipset_from_keys(db, ts_temp.parents())?;
+        let pts = if let Some(temp) = &ts_temp {
+            tipset_from_keys(db, temp.parents())?
+        } else {
+            tipset_from_keys(db, ts.parents())?
+        };
         if height > pts.epoch() {
             if prev {
-                return Ok(pts);
+                return Ok(Some(pts));
             }
             return Ok(ts_temp);
         }
         if height == pts.epoch() {
-            return Ok(pts);
+            return Ok(Some(pts));
         }
-        ts_temp = pts;
+        ts_temp = Some(pts);
     }
 }
 
@@ -485,12 +577,12 @@ fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
     DB: BlockStore,
 {
-    let amt = Amt::load(root, db)?;
+    let amt = Amt::<Cid, _>::load(root, db)?;
 
     let mut cids = Vec::new();
     for i in 0..amt.count() {
         if let Some(c) = amt.get(i)? {
-            cids.push(c);
+            cids.push(c.clone());
         }
     }
 
@@ -608,11 +700,11 @@ where
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
     let receipts = amt.get(i)?;
-    Ok(receipts)
+    Ok(receipts.cloned())
 }
 
 /// Returns the weight of provided tipset
-fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
+pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: BlockStore,
 {
@@ -640,17 +732,88 @@ where
 
     let out_add: BigInt = &log2_p << 8;
     let mut out = ts.weight().to_owned() + out_add;
-    let e_weight = ((log2_p * BigInt::from(ts.blocks().len())) * BigInt::from(W_RATIO_NUM)) << 8;
-    let value: BigInt = e_weight / (BigInt::from(BLOCKS_PER_EPOCH) * BigInt::from(W_RATIO_DEN));
+    let e_weight: BigInt = ((log2_p * BigInt::from(ts.blocks().len())) * W_RATIO_NUM) << 8;
+    let value: BigInt = e_weight.div_floor(&(BigInt::from(BLOCKS_PER_EPOCH) * W_RATIO_DEN));
     out += &value;
     Ok(out)
 }
 
+pub async fn sub_head_changes(
+    mut subscribed_head_change: Subscriber<HeadChange>,
+    heaviest_tipset: &Option<Arc<Tipset>>,
+    current_index: usize,
+    events_pubsub: Arc<RwLock<Publisher<EventsPayload>>>,
+) -> Result<usize, Error> {
+    let head = heaviest_tipset
+        .as_ref()
+        .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
+
+    (*events_pubsub.write().await)
+        .publish(EventsPayload::SubHeadChanges(IndexToHeadChange(
+            current_index,
+            HeadChange::Current(head.clone()),
+        )))
+        .await;
+    let subhead_sender = events_pubsub.clone();
+    let handle = task::spawn(async move {
+        while let Some(change) = subscribed_head_change.next().await {
+            let index_to_head_change = IndexToHeadChange(current_index, change);
+            subhead_sender
+                .write()
+                .await
+                .publish(EventsPayload::SubHeadChanges(index_to_head_change))
+                .await;
+        }
+    });
+    let cancel_sender = events_pubsub.write().await.subscribe();
+    task::spawn(async move {
+        if let Some(EventsPayload::TaskCancel(_, ())) = cancel_sender
+            .filter(|s| {
+                future::ready(
+                    s.task_cancel()
+                        .map(|s| s.0 == current_index)
+                        .unwrap_or_default(),
+                )
+            })
+            .next()
+            .await
+        {
+            handle.cancel().await;
+        }
+    });
+    Ok(current_index)
+}
+
+#[cfg(feature = "json")]
+pub mod headchange_json {
+    use super::*;
+    use blocks::tipset_json::TipsetJsonRef;
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "lowercase")]
+    #[serde(tag = "type", content = "val")]
+    pub enum HeadChangeJson<'a> {
+        Current(TipsetJsonRef<'a>),
+        Apply(TipsetJsonRef<'a>),
+        Revert(TipsetJsonRef<'a>),
+    }
+
+    impl<'a> From<&'a HeadChange> for HeadChangeJson<'a> {
+        fn from(wrapper: &'a HeadChange) -> Self {
+            match wrapper {
+                HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJsonRef(&tipset)),
+                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJsonRef(&tipset)),
+                HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJsonRef(&tipset)),
+            }
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     use address::Address;
-    use cid::multihash::Identity;
+    use cid::multihash::{Identity, Sha2_256};
 
     #[test]
     fn genesis_test() {
@@ -670,5 +833,18 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), None);
         cs.set_genesis(&gen_block).unwrap();
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
+    }
+
+    #[test]
+    fn block_validation_cache_basic() {
+        let db = db::MemoryDB::default();
+
+        let cs = ChainStore::new(Arc::new(db));
+
+        let cid = Cid::new_from_cbor(&[1, 2, 3], Sha2_256);
+        assert_eq!(cs.is_block_validated(&cid).unwrap(), false);
+
+        cs.mark_block_as_validated(&cid).unwrap();
+        assert_eq!(cs.is_block_validated(&cid).unwrap(), true);
     }
 }

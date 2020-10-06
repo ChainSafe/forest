@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::math::{poly_parse, poly_val, PRECISION};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 
 lazy_static! {
     static ref EXP_NUM_COEF: Vec<BigInt> = poly_parse(&[
@@ -43,5 +43,5 @@ pub(crate) fn expneg(x: &BigInt) -> BigInt {
     let num = poly_val(&EXP_NUM_COEF, x);
     let deno = poly_val(&EXP_DENO_COEF, x);
 
-    (num << PRECISION) / deno
+    (num << PRECISION).div_floor(&deno)
 }

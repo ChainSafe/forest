@@ -9,10 +9,11 @@ use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
+use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
-use message_pool::{MessagePool, MpoolRpcProvider};
+use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::sync::Arc;
@@ -68,12 +69,17 @@ pub(super) async fn start(config: Config) {
     let state_manager = Arc::new(StateManager::new(Arc::clone(&db)));
 
     // Initialize mpool
-    let subscriber = chain_store.subscribe().await;
+    let publisher = chain_store.publisher();
+    let subscriber = publisher.write().await.subscribe();
     let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
     let mpool = Arc::new(
-        MessagePool::new(provider, network_name.clone())
-            .await
-            .unwrap(),
+        MessagePool::new(
+            provider,
+            network_name.clone(),
+            MpoolConfig::load_config(db.as_ref()).unwrap(),
+        )
+        .await
+        .unwrap(),
     );
 
     // Get Drand Coefficients
@@ -89,8 +95,9 @@ pub(super) async fn start(config: Config) {
     .unwrap();
 
     // Initialize ChainSyncer
+    let chain_store_arc = Arc::new(chain_store);
     let chain_syncer = ChainSyncer::new(
-        Arc::new(chain_store),
+        chain_store_arc.clone(),
         Arc::clone(&state_manager),
         Arc::new(beacon),
         network_send.clone(),
@@ -108,7 +115,6 @@ pub(super) async fn start(config: Config) {
     let p2p_task = task::spawn(async {
         p2p_service.run().await;
     });
-
     let rpc_task = if config.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
@@ -123,6 +129,8 @@ pub(super) async fn start(config: Config) {
                     sync_state,
                     network_send,
                     network_name,
+                    chain_store: chain_store_arc,
+                    events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
                 },
                 &rpc_listen,
             )

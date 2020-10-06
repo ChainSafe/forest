@@ -24,6 +24,7 @@ use interpreter::{
 };
 use ipld_amt::Amt;
 use log::{trace, warn};
+use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
@@ -39,7 +40,9 @@ pub type CidPair = (Cid, Cid);
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
+    #[serde(with = "unsigned_message::json")]
     pub msg: UnsignedMessage,
+    #[serde(with = "message_receipt::json::opt")]
     pub msg_rct: Option<MessageReceipt>,
     pub error: Option<String>,
 }
@@ -106,11 +109,11 @@ where
             .map_err(|e| Error::State(e.to_string()))
     }
 
-    pub fn get_block_store(&self) -> Arc<DB> {
+    pub fn blockstore_cloned(&self) -> Arc<DB> {
         self.bs.clone()
     }
 
-    pub fn get_block_store_ref(&self) -> &DB {
+    pub fn blockstore(&self) -> &DB {
         &self.bs
     }
 
@@ -136,8 +139,10 @@ where
 
         let state = StateTree::new_from_root(self.bs.as_ref(), state_cid)
             .map_err(|e| Error::State(e.to_string()))?;
-        // Note: miner::State info likely to be changed to CID
-        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &ms.info.worker)
+
+        let info = ms.get_info(self.bs.as_ref()).map_err(|e| e.to_string())?;
+
+        let addr = resolve_to_key_addr(&state, self.bs.as_ref(), &info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
         Ok(addr)
     }
@@ -262,7 +267,7 @@ where
         DB: BlockStore,
     {
         span!("state_call_raw", {
-            let block_store = self.get_block_store_ref();
+            let block_store = self.blockstore();
             let buf_store = BufferedBlockStore::new(block_store);
             let mut vm = VM::<_, _, _>::new(
                 bstate,
@@ -308,7 +313,7 @@ where
         let ts = if let Some(t_set) = tipset {
             t_set
         } else {
-            chain::get_heaviest_tipset(self.get_block_store_ref())
+            chain::get_heaviest_tipset(self.blockstore())
                 .map_err(|_| Error::Other("Could not get heaviest tipset".to_string()))?
                 .ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?
         };
@@ -329,7 +334,7 @@ where
         let ts = if let Some(t_set) = tipset {
             t_set
         } else {
-            chain::get_heaviest_tipset(self.get_block_store_ref())
+            chain::get_heaviest_tipset(self.blockstore())
                 .map_err(|_| Error::Other("Could not get heaviest tipset".to_string()))?
                 .ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?
         };
@@ -570,11 +575,11 @@ where
     }
     /// returns a message receipt from a given tipset and message cid
     pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
-        let m = chain::get_chain_message(self.get_block_store_ref(), msg)
+        let m = chain::get_chain_message(self.blockstore(), msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_var = (m.from(), &m.sequence());
         let message_receipt =
-            Self::tipset_executed_message(self.get_block_store_ref(), tipset, msg, message_var)?;
+            Self::tipset_executed_message(self.blockstore(), tipset, msg, message_var)?;
 
         if let Some(receipt) = message_receipt {
             return Ok(receipt);
@@ -584,7 +589,7 @@ where
             .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
         let message_var = (m.from(), &cid, &m.sequence());
         let maybe_tuple =
-            Self::search_back_for_message(self.get_block_store(), tipset, message_var)?;
+            Self::search_back_for_message(self.blockstore_cloned(), tipset, message_var)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -834,5 +839,12 @@ where
         )?)
     }
 
-    pub async fn account_key(&self, _act: Address, _key: TipsetKeys) {}
+    /// Checks power actor state for if miner meets consensus minimum requirements.
+    pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> Result<bool, String> {
+        let ps: power::State = self
+            .load_actor_state(&*INIT_ACTOR_ADDR, ts.parent_state())
+            .map_err(|e| format!("loading power actor state: {}", e))?;
+        ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
+            .map_err(|e| e.to_string())
+    }
 }

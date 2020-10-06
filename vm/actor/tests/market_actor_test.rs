@@ -414,6 +414,7 @@ fn expect_provider_control_address(
     let return_value = GetControlAddressesReturn {
         owner: owner.clone(),
         worker: worker.clone(),
+        control_addresses: Vec::new(),
     };
 
     rt.expect_send(

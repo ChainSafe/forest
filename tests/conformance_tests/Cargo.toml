@@ -13,7 +13,6 @@ submodule_tests = [
     "db",
     "address",
     "base64",
-    "regex",
     "runtime",
     "interpreter",
     "num-bigint",
@@ -39,7 +38,6 @@ address = { package = "forest_address", path = "../../vm/address", features = [
     "json"
 ], optional = true }
 base64 = { version = "0.12.1", optional = true }
-regex = { version = "1.0", optional = true }
 runtime = { path = "../../vm/runtime/", optional = true }
 state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true }
@@ -52,6 +50,7 @@ fil_types = { path = "../../types", optional = true }
 forest_message = { path = "../../vm/message", features = ["json"], optional = true }
 
 [dev-dependencies]
+regex = { version = "1.0" }
 walkdir = "2.3"
 serde_json = "1.0"
 forest_car = { path = "../../ipld/car" }

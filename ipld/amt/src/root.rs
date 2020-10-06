@@ -10,7 +10,7 @@ use encoding::{
 /// Root of an AMT vector, can be serialized and keeps track of height and count
 #[derive(PartialEq, Debug)]
 pub(super) struct Root<V> {
-    pub(super) height: u32,
+    pub(super) height: u64,
     pub(super) count: u64,
     pub(super) node: Node<V>,
 }
@@ -27,8 +27,7 @@ impl<V> Default for Root<V> {
 
 impl<V> Serialize for Root<V>
 where
-    V: Clone + Serialize,
-    Node<V>: Clone,
+    V: Serialize,
 {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -40,7 +39,7 @@ where
 
 impl<'de, V> Deserialize<'de> for Root<V>
 where
-    V: Clone + Deserialize<'de>,
+    V: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

@@ -38,9 +38,9 @@ fn template_header(
         })
         .miner_address(Address::new_actor(&ticket_p))
         .timestamp(timestamp)
-        .ticket(Ticket {
+        .ticket(Some(Ticket {
             vrfproof: VRFProof::new(ticket_p),
-        })
+        }))
         .messages(msg_root)
         .signature(Some(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2])))
         .epoch(epoch)

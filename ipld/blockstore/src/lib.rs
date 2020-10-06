@@ -1,10 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(feature = "buffered")]
 mod buffered;
+#[cfg(feature = "tracking")]
+mod tracking;
 
 #[cfg(feature = "buffered")]
 pub use self::buffered::BufferedBlockStore;
+
+#[cfg(feature = "tracking")]
+pub use self::tracking::{BSStats, TrackingBlockStore};
 
 use cid::{multihash::MultihashDigest, Cid};
 use db::{MemoryDB, Store};

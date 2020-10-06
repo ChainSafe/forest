@@ -1,13 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_INDEX, WIDTH};
+use crate::{
+    node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_HEIGHT, MAX_INDEX, WIDTH,
+};
 use cid::{multihash::Blake2b256, Cid};
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
 use std::error::Error as StdError;
 
-/// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID
+/// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
+///
+/// Amt is not threadsafe and can't be shared between threads.
 ///
 /// Usage:
 /// ```
@@ -21,7 +25,7 @@ use std::error::Error as StdError;
 /// amt.set(1, "bar".to_owned()).unwrap();
 /// amt.delete(2).unwrap();
 /// assert_eq!(amt.count(), 1);
-/// let bar: String = amt.get(1).unwrap().unwrap();
+/// let bar: &String = amt.get(1).unwrap().unwrap();
 ///
 /// // Generate cid by calling flush to remove cache
 /// let cid = amt.flush().unwrap();
@@ -40,7 +44,7 @@ impl<'a, V: PartialEq, BS: BlockStore> PartialEq for Amt<'a, V, BS> {
 
 impl<'db, V, BS> Amt<'db, V, BS>
 where
-    V: Clone + DeserializeOwned + Serialize,
+    V: DeserializeOwned + Serialize,
     BS: BlockStore,
 {
     /// Constructor for Root AMT node
@@ -58,11 +62,16 @@ where
             .get(cid)?
             .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
+        // Sanity check, this should never be possible.
+        if root.height > MAX_HEIGHT {
+            return Err(Error::MaxHeight(root.height, MAX_HEIGHT));
+        }
+
         Ok(Self { root, block_store })
     }
 
     // Getter for height
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> u64 {
         self.root.height
     }
 
@@ -72,7 +81,10 @@ where
     }
 
     /// Generates an AMT with block store and array of cbor marshallable objects and returns Cid
-    pub fn new_from_slice(block_store: &'db BS, vals: &[V]) -> Result<Cid, Error> {
+    pub fn new_from_slice(block_store: &'db BS, vals: &[V]) -> Result<Cid, Error>
+    where
+        V: Clone,
+    {
         let mut t = Self::new(block_store);
 
         t.batch_set(vals)?;
@@ -81,8 +93,8 @@ where
     }
 
     /// Get value at index of AMT
-    pub fn get(&self, i: u64) -> Result<Option<V>, Error> {
-        if i >= MAX_INDEX {
+    pub fn get(&self, i: u64) -> Result<Option<&V>, Error> {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
@@ -95,11 +107,11 @@ where
 
     /// Set value at index
     pub fn set(&mut self, i: u64, val: V) -> Result<(), Error> {
-        if i >= MAX_INDEX {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
-        while i >= nodes_for_height(self.height() + 1 as u32) {
+        while i >= nodes_for_height(self.height() + 1) {
             // node at index exists
             if !self.root.node.empty() {
                 // Save and get cid to be able to link from higher level node
@@ -110,7 +122,7 @@ where
 
                 // Set links node with first index as cid
                 let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
-                new_links[0] = Some(Link::Cid(cid));
+                new_links[0] = Some(Link::from(cid));
 
                 self.root.node = Node::Link {
                     bmap: BitMap::new(0x01),
@@ -140,7 +152,10 @@ where
 
     /// Batch set (naive for now)
     // TODO Implement more efficient batch set to not have to traverse tree and keep cache for each
-    pub fn batch_set(&mut self, vals: &[V]) -> Result<(), Error> {
+    pub fn batch_set(&mut self, vals: &[V]) -> Result<(), Error>
+    where
+        V: Clone,
+    {
         for (i, val) in vals.iter().enumerate() {
             self.set(i as u64, val.clone())?;
         }
@@ -150,7 +165,7 @@ where
 
     /// Delete item from AMT at index
     pub fn delete(&mut self, i: u64) -> Result<bool, Error> {
-        if i >= MAX_INDEX {
+        if i > MAX_INDEX {
             return Err(Error::OutOfRange(i));
         }
 
@@ -168,13 +183,20 @@ where
 
         // Handle height changes from delete
         while *self.root.node.bitmap() == 0x01 && self.height() > 0 {
-            let sub_node: Node<V> = match &self.root.node {
-                Node::Link { links, .. } => match &links[0] {
-                    Some(Link::Cached(node)) => *node.clone(),
-                    Some(Link::Cid(cid)) => self
-                        .block_store
-                        .get(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?,
+            let sub_node: Node<V> = match &mut self.root.node {
+                Node::Link { links, .. } => match &mut links[0] {
+                    Some(Link::Dirty(node)) => *std::mem::take(node),
+                    Some(Link::Cid { cid, cache }) => {
+                        let cache_node = std::mem::take(cache);
+                        if let Some(sn) = cache_node.into_inner() {
+                            *sn
+                        } else {
+                            // Only retrieve sub node if not found in cache
+                            self.block_store
+                                .get(&cid)?
+                                .ok_or_else(|| Error::RootNotFound)?
+                        }
+                    }
                     _ => unreachable!("Link index should match bitmap"),
                 },
                 Node::Leaf { .. } => unreachable!("Non zero height cannot be a leaf node"),
@@ -185,6 +207,15 @@ where
         }
 
         Ok(true)
+    }
+
+    /// Deletes multiple items from AMT
+    pub fn batch_delete(&mut self, iter: impl IntoIterator<Item = u64>) -> Result<(), Error> {
+        // TODO: optimize this
+        for i in iter {
+            self.delete(i)?;
+        }
+        Ok(())
     }
 
     /// flush root and return Cid used as key in block store
@@ -222,8 +253,48 @@ where
         V: DeserializeOwned,
         F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
+        self.for_each_while(|i, x| {
+            f(i, x)?;
+            Ok(true)
+        })
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values, for as long as that
+    /// function keeps returning `true`.
+    pub fn for_each_while<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &V) -> Result<bool, Box<dyn StdError>>,
+    {
         self.root
             .node
-            .for_each(self.block_store, self.height(), 0, &mut f)
+            .for_each_while(self.block_store, self.height(), 0, &mut f)
+            .map(|_| ())
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
+    /// each value.
+    pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &mut V) -> Result<(), Box<dyn StdError>>,
+    {
+        self.for_each_while_mut(|i, x| {
+            f(i, x)?;
+            Ok(true)
+        })
+    }
+
+    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
+    /// each value, for as long as that function keeps returning `true`.
+    pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        V: DeserializeOwned,
+        F: FnMut(u64, &mut V) -> Result<bool, Box<dyn StdError>>,
+    {
+        self.root
+            .node
+            .for_each_while_mut(self.block_store, self.height(), 0, &mut f)
+            .map(|_| ())
     }
 }

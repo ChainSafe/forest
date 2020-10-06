@@ -16,6 +16,15 @@ pub enum RegisteredSealProof {
     Invalid(i64),
 }
 
+impl RegisteredSealProof {
+    /// The maximum duration a sector sealed with this proof may exist between activation and expiration.
+    pub fn sector_maximum_lifetime(self) -> clock::ChainEpoch {
+        // For all Stacked DRG sectors, the max is 5 years
+        let epochs_per_year = 1_262_277;
+        5 * epochs_per_year
+    }
+}
+
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
 pub enum RegisteredPoStProof {
     StackedDRGWinning2KiBV1,
