@@ -162,6 +162,69 @@ fn set_delete_many() {
     #[cfg(feature = "go-interop")]
     assert_eq!(*store.stats.borrow(), BSStats {r: 87, w: 119, br: 7671, bw: 14042});
 }
+#[test]
+fn for_each() {
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut hamt: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
+
+    for i in 0..200 {
+        hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
+    }
+
+    // Iterating through hamt with dirty caches.
+    let mut count = 0;
+    hamt.for_each(|k, v| {
+        assert_eq!(k.0, format!("{}", v).into_bytes());
+        count += 1;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(count, 200);
+
+    let c = hamt.flush().unwrap();
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
+    );
+
+    let mut hamt: Hamt<_, i32> = Hamt::load_with_bit_width(&c, &store, 5).unwrap();
+
+    // Iterating through hamt with no cache.
+    let mut count = 0;
+    hamt.for_each(|k, v| {
+        assert_eq!(k.0, format!("{}", v).into_bytes());
+        count += 1;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(count, 200);
+
+    // Iterating through hamt with cached nodes.
+    let mut count = 0;
+    hamt.for_each(|k, v| {
+        assert_eq!(k.0, format!("{}", v).into_bytes());
+        count += 1;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(count, 200);
+
+    let c = hamt.flush().unwrap();
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
+    );
+
+    #[rustfmt::skip]
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*store.stats.borrow(), BSStats { r: 30, w: 31, br: 3510, bw: 4914 });
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 59, w: 89, br: 4841, bw: 8351});
+}
 
 #[cfg(feature = "identity")]
 fn add_and_remove_keys(
