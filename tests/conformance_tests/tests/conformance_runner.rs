@@ -20,8 +20,6 @@ use std::io::BufReader;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
-const SKIP_MODE: bool = true;
-
 lazy_static! {
     static ref SKIP_TESTS: [Regex; 78] = [
 
@@ -115,9 +113,6 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-balance-to-cover-gas-and-transfer.json").unwrap(),
 
     ];
-
-    static ref DO_ONLY: [Regex; 0] = [
-    ];
 }
 
 fn is_valid_file(entry: &DirEntry) -> bool {
@@ -126,22 +121,13 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         None => return false,
     };
 
-    if SKIP_MODE {
-        for rx in SKIP_TESTS.iter() {
-            if rx.is_match(file_name) {
-                println!("SKIPPING: {}", file_name);
-                return false;
-            }
+    for rx in SKIP_TESTS.iter() {
+        if rx.is_match(file_name) {
+            println!("SKIPPING: {}", file_name);
+            return false;
         }
-        return file_name.ends_with(".json");
-    } else {
-        for rx in DO_ONLY.iter() {
-            if rx.is_match(file_name) {
-                return file_name.ends_with(".json");
-            }
-        }
-        false
     }
+    return file_name.ends_with(".json");
 }
 
 fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {

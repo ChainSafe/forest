@@ -79,7 +79,10 @@ impl Actor {
     ///  CALLER_VALIDATION_BRANCH_IS_ADDRESS validates against an empty caller
     ///  address set.
     ///  CALLER_VALIDATION_BRANCH_IS_TYPE validates against an empty caller type set.
-    pub fn caller_validation<BS, RT>(rt: &mut RT, args: CallerValidationArgs ) -> Result<(), ActorError>
+    pub fn caller_validation<BS, RT>(
+        rt: &mut RT,
+        args: CallerValidationArgs,
+    ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,

@@ -32,7 +32,7 @@ pub struct SendArgs {
     pub to: Address,
     #[serde(with = "bigint_ser")]
     pub value: TokenAmount,
-    #[serde(rename="MethodNum")]
+    #[serde(rename = "MethodNum")]
     pub method: u64,
     pub params: Serialized,
 }
@@ -75,8 +75,8 @@ pub struct InspectRuntimeReturn {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 #[serde(rename_all = "PascalCase")]
-pub struct  CallerValidationArgs {
-	pub branch :  i64,
-	pub addrs  : Vec<Address>,
-	pub types : Vec<Cid>,
+pub struct CallerValidationArgs {
+    pub branch: i64,
+    pub addrs: Vec<Address>,
+    pub types: Vec<Cid>,
 }
