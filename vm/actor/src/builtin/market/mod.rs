@@ -770,8 +770,7 @@ impl Actor {
                             return Err(actor_error!(ErrIllegalState;
                                         "failed to delete deal proposal: does not exist"));
                         }
-                        let deleted = msm
-                            .pending_deals
+                        msm.pending_deals
                             .as_mut()
                             .unwrap()
                             .delete(&dcid.to_bytes())
@@ -780,17 +779,18 @@ impl Actor {
                                     ExitCode::ErrIllegalState,
                                     "failed to delete pending proposal",
                                 )
+                            })?
+                            .ok_or_else(|| {
+                                actor_error!(
+                                    ErrIllegalState,
+                                    "failed to delete pending proposal: does not exist"
+                                )
                             })?;
-                        if !deleted {
-                            return Err(actor_error!(ErrIllegalState;
-                                            "failed to delete pending proposal: does not exist"));
-                        }
                     }
                     let mut state = state.unwrap();
 
                     if state.last_updated_epoch == EPOCH_UNDEFINED {
-                        let deleted = msm
-                            .pending_deals
+                        msm.pending_deals
                             .as_mut()
                             .unwrap()
                             .delete(&dcid.to_bytes())
@@ -799,11 +799,13 @@ impl Actor {
                                     ExitCode::ErrIllegalState,
                                     "failed to delete pending proposal",
                                 )
+                            })?
+                            .ok_or_else(|| {
+                                actor_error!(
+                                    ErrIllegalState,
+                                    "failed to delete pending proposal: does not exist"
+                                )
                             })?;
-                        if !deleted {
-                            return Err(actor_error!(ErrIllegalState;
-                                    "failed to delete pending proposal: does not exist"));
-                        }
                     }
 
                     let (slash_amount, next_epoch, remove_deal) =
