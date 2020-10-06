@@ -15,10 +15,10 @@ fn add_create() {
     assert_eq!(bt.has(&addr).unwrap(), false);
 
     bt.add_create(&addr, TokenAmount::from(10u8)).unwrap();
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(10u8));
+    assert_eq!(bt.get(&addr).unwrap(), &TokenAmount::from(10u8));
 
     bt.add_create(&addr, TokenAmount::from(20u8)).unwrap();
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(30u8));
+    assert_eq!(bt.get(&addr).unwrap(), &TokenAmount::from(30u8));
 }
 
 // Ported test from specs-actors
@@ -73,14 +73,14 @@ fn balance_subtracts() {
     let mut bt = BalanceTable::new(&store);
 
     bt.set(&addr, TokenAmount::from(80u8)).unwrap();
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(80u8));
+    assert_eq!(bt.get(&addr).unwrap(), &TokenAmount::from(80u8));
     // Test subtracting past minimum only subtracts correct amount
     assert_eq!(
         bt.subtract_with_minimum(&addr, &TokenAmount::from(20u8), &TokenAmount::from(70u8))
             .unwrap(),
         TokenAmount::from(10u8)
     );
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(70u8));
+    assert_eq!(bt.get(&addr).unwrap(), &TokenAmount::from(70u8));
 
     // Test subtracting to limit
     assert_eq!(
@@ -88,24 +88,12 @@ fn balance_subtracts() {
             .unwrap(),
         TokenAmount::from(10u8)
     );
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(60u8));
+    assert_eq!(bt.get(&addr).unwrap(), &TokenAmount::from(60u8));
 
     // Test must subtract success
     bt.must_subtract(&addr, &TokenAmount::from(10u8)).unwrap();
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(50u8));
+    assert_eq!(bt.get(&addr).unwrap(), &TokenAmount::from(50u8));
 
     // Test subtracting more than available
     assert!(bt.must_subtract(&addr, &TokenAmount::from(100u8)).is_err());
-}
-
-#[test]
-fn remove() {
-    let addr = Address::new_id(100);
-    let store = db::MemoryDB::default();
-    let mut bt = BalanceTable::new(&store);
-
-    bt.set(&addr, TokenAmount::from(1u8)).unwrap();
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(1u8));
-    bt.remove(&addr).unwrap();
-    assert!(bt.get(&addr).is_err());
 }

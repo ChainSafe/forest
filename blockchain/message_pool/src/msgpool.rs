@@ -34,6 +34,7 @@ use std::borrow::BorrowMut;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
+use types::verifier::ProofVerifier;
 use vm::ActorState;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
@@ -152,7 +153,9 @@ pub trait Provider {
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
     /// Resolves to the key address
-    async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>;
+    async fn state_account_key<V>(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>
+    where
+        V: ProofVerifier;
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>;
     /// Return a tipset given the tipset keys from the ChainStore
@@ -230,9 +233,12 @@ where
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
         chain::compute_base_fee(self.sm.blockstore(), ts).map_err(|err| err.into())
     }
-    async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+    async fn state_account_key<V>(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>
+    where
+        V: ProofVerifier,
+    {
         self.sm
-            .resolve_to_key_addr(addr, ts)
+            .resolve_to_key_addr::<V>(addr, ts)
             .await
             .map_err(|e| Error::Other(e.to_string()))
     }
@@ -544,16 +550,17 @@ where
     }
 
     /// Adds a local message returned from the call back function with the current nonce
-    pub async fn push_with_sequence(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
+    pub async fn push_with_sequence<V>(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
     where
         T: Fn(Address, u64) -> Result<SignedMessage, Error>,
+        V: ProofVerifier,
     {
         let cur_ts = self.cur_tipset.read().await.clone();
         let from_key = match addr.protocol() {
             Protocol::ID => {
                 let api = self.api.read().await;
 
-                api.state_account_key(&addr, &self.cur_tipset.read().await.clone())
+                api.state_account_key::<V>(&addr, &self.cur_tipset.read().await.clone())
                     .await?
             }
             _ => *addr,
@@ -1377,7 +1384,11 @@ pub mod test_provider {
             }
         }
 
-        async fn state_account_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
+        async fn state_account_key<V>(
+            &self,
+            addr: &Address,
+            _ts: &Tipset,
+        ) -> Result<Address, Error> {
             match addr.protocol() {
                 Protocol::BLS | Protocol::Secp256k1 => Ok(*addr),
                 _ => Err(Error::Other("given address was not a key addr".to_string())),

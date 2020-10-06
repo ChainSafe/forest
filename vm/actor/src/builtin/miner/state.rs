@@ -254,7 +254,7 @@ impl State {
         sector_num: SectorNumber,
     ) -> Result<Option<SectorPreCommitOnChainInfo>, HamtError> {
         let precommitted = make_map_with_root(&self.pre_committed_sectors, store)?;
-        precommitted.get(&u64_key(sector_num))
+        Ok(precommitted.get(&u64_key(sector_num))?.cloned())
     }
 
     /// Gets and returns the requested pre-committed sectors, skipping missing sectors.
@@ -263,7 +263,10 @@ impl State {
         store: &BS,
         sector_numbers: &[SectorNumber],
     ) -> Result<Vec<SectorPreCommitOnChainInfo>, Box<dyn StdError>> {
-        let precommitted = make_map_with_root(&self.pre_committed_sectors, store)?;
+        let precommitted = make_map_with_root::<_, SectorPreCommitOnChainInfo>(
+            &self.pre_committed_sectors,
+            store,
+        )?;
         let mut result = Vec::with_capacity(sector_numbers.len());
 
         for &sector_number in sector_numbers {
@@ -273,7 +276,7 @@ impl State {
                     sector_number
                 ))
             })? {
-                Some(info) => info,
+                Some(info) => info.clone(),
                 None => continue,
             };
 

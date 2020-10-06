@@ -12,13 +12,13 @@ use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use db::MemoryDB;
 use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
-use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{PieceInfo, Randomness, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use runtime::{ActorCode, ConsensusFault, MessageInfo, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error as StdError;
-use vm::{actor_error, ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount};
 
 pub struct MockRuntime {
     pub epoch: ChainEpoch,
