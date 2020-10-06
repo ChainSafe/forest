@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::{block_until_sigint, initialize_genesis, Config};
+use super::cli::{block_until_sigint, Config};
 use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::RwLock;
 use async_std::task;
@@ -12,6 +12,7 @@ use db::RocksDb;
 use fil_types::verifier::FullVerifier;
 use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
+use genesis::initialize_genesis;
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
@@ -56,18 +57,22 @@ pub(super) async fn start(config: Config) {
     let db = Arc::new(db);
     let mut chain_store = ChainStore::new(Arc::clone(&db));
 
+    // Initialize StateManager
+    let state_manager = Arc::new(StateManager::new(Arc::clone(&db)));
+
     // Read Genesis file
-    let (genesis, network_name) =
-        initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
+    let (genesis, network_name) = initialize_genesis(
+        config.genesis_file.as_ref(),
+        &mut chain_store,
+        &state_manager,
+    )
+    .unwrap();
 
     // Libp2p service setup
     let p2p_service =
         Libp2pService::new(config.network, Arc::clone(&db), net_keypair, &network_name);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
-
-    // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(Arc::clone(&db)));
 
     // Initialize mpool
     let publisher = chain_store.publisher();

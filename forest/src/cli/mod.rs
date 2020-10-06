@@ -4,13 +4,11 @@
 mod chain_cmd;
 mod config;
 mod fetch_params_cmd;
-mod genesis;
 mod genesis_cmd;
 
 pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
-pub(super) use self::genesis::initialize_genesis;
 pub(super) use self::genesis_cmd::GenesisCommands;
 
 use jsonrpc_v2::Error as JsonRpcError;

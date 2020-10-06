@@ -1,6 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
+mod full_sync_test;
+
 use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
