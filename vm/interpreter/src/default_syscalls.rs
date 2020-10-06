@@ -3,39 +3,38 @@
 
 use crate::resolve_to_key_addr;
 use actor::miner;
+use address::Address;
 use blocks::BlockHeader;
+use fil_types::{verifier::ProofVerifier, SealVerifyInfo, WindowPoStVerifyInfo};
 use forest_encoding::from_slice;
 use ipld_blockstore::BlockStore;
+use log::warn;
+use rayon::prelude::*;
 use runtime::{ConsensusFault, ConsensusFaultType, Syscalls};
 use state_tree::StateTree;
-use std::error::Error as StdError;
+use std::marker::PhantomData;
+use std::{collections::HashMap, error::Error as StdError};
 
 /// Default syscalls information
-pub struct DefaultSyscalls<'bs, BS> {
+pub struct DefaultSyscalls<'bs, BS, V> {
     store: &'bs BS,
+    verifier: PhantomData<V>,
 }
 
-impl<'bs, BS> DefaultSyscalls<'bs, BS> {
-    /// DefaultSyscalls constuctor
+impl<'bs, BS, V> DefaultSyscalls<'bs, BS, V> {
     pub fn new(store: &'bs BS) -> Self {
-        Self { store }
+        Self {
+            store,
+            verifier: Default::default(),
+        }
     }
 }
 
-impl<'bs, BS> Syscalls for DefaultSyscalls<'bs, BS>
+impl<'bs, BS, V> Syscalls for DefaultSyscalls<'bs, BS, V>
 where
     BS: BlockStore,
+    V: ProofVerifier,
 {
-    /// Verifies that two block headers provide proof of a consensus fault:
-    /// - both headers mined by the same actor
-    /// - headers are different
-    /// - first header is of the same or lower epoch as the second
-    /// - at least one of the headers appears in the current chain at or after epoch `earliest`
-    /// - the headers provide evidence of a fault (see the spec for the different fault types).
-    /// The parameters are all serialized block headers. The third "extra" parameter is consulted only for
-    /// the "parent grinding fault", in which case it must be the sibling of h1 (same parent tipset) and one of the
-    /// blocks in the parent of h2 (i.e. h2's grandparent).
-    /// Returns an error if the headers don't prove a fault.
     fn verify_consensus_fault(
         &self,
         h1: &[u8],
@@ -131,9 +130,53 @@ where
             Ok(cf)
         }
     }
+
+    fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        V::verify_seal(vi)
+    }
+
+    fn verify_post(
+        &self,
+        WindowPoStVerifyInfo {
+            randomness,
+            proofs,
+            challenged_sectors,
+            prover,
+        }: &WindowPoStVerifyInfo,
+    ) -> Result<(), Box<dyn StdError>> {
+        V::verify_window_post(*randomness, &proofs, challenged_sectors, *prover)
+    }
+
+    fn batch_verify_seals(
+        &self,
+        vis: &[(Address, &Vec<SealVerifyInfo>)],
+    ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        // TODO ideal to not use rayon https://github.com/ChainSafe/forest/issues/676
+        let out = vis
+            .par_iter()
+            .map(|(addr, seals)| {
+                let results = seals
+                    .par_iter()
+                    .map(|s| {
+                        if let Err(err) = V::verify_seal(s) {
+                            warn!(
+                                "seal verify in batch failed (miner: {}) (err: {})",
+                                addr, err
+                            );
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                    .collect();
+                (*addr, results)
+            })
+            .collect();
+        Ok(out)
+    }
 }
 
-impl<'bs, BS> DefaultSyscalls<'bs, BS>
+impl<'bs, BS, V> DefaultSyscalls<'bs, BS, V>
 where
     BS: BlockStore,
 {

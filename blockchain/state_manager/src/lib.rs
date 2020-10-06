@@ -15,6 +15,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
+use fil_types::verifier::ProofVerifier;
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
@@ -69,7 +70,6 @@ impl<DB> StateManager<DB>
 where
     DB: BlockStore,
 {
-    /// constructor
     pub fn new(bs: Arc<DB>) -> Self {
         Self {
             bs,
@@ -179,7 +179,7 @@ where
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
     /// This function returns the state root and receipt root of the transition.
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_blocks<R>(
+    pub fn apply_blocks<R, V, CB>(
         &self,
         parent_epoch: ChainEpoch,
         p_state: &Cid,
@@ -187,10 +187,12 @@ where
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
-        callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<CB>,
     ) -> Result<(Cid, Cid), Box<dyn StdError>>
     where
         R: Rand,
+        V: ProofVerifier,
+        CB: FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>,
     {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
@@ -198,7 +200,7 @@ where
             p_state,
             &buf_store,
             epoch,
-            DefaultSyscalls::new(&buf_store),
+            DefaultSyscalls::<_, V>::new(&buf_store),
             rand,
             base_fee,
         )?;
@@ -217,7 +219,10 @@ where
         Ok((state_root, rect_root))
     }
 
-    pub async fn tipset_state(&self, tipset: &Tipset) -> Result<(Cid, Cid), Box<dyn StdError>> {
+    pub async fn tipset_state<V>(&self, tipset: &Tipset) -> Result<(Cid, Cid), Box<dyn StdError>>
+    where
+        V: ProofVerifier,
+    {
         span!("tipset_state", {
             trace!("tipset {:?}", tipset.cids());
             // if exists in cache return
@@ -248,7 +253,7 @@ where
             let block_headers = tipset.blocks();
             // generic constants are not implemented yet this is a lowcost method for now
             let no_func = None::<fn(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>;
-            let cid_pair = self.compute_tipset_state(&block_headers, no_func)?;
+            let cid_pair = self.compute_tipset_state::<V, _>(&block_headers, no_func)?;
             self.cache
                 .write()
                 .await
@@ -257,7 +262,7 @@ where
         })
     }
 
-    fn call_raw(
+    fn call_raw<V>(
         &self,
         msg: &mut UnsignedMessage,
         bstate: &Cid,
@@ -265,7 +270,7 @@ where
         bheight: &ChainEpoch,
     ) -> StateCallResult
     where
-        DB: BlockStore,
+        V: ProofVerifier,
     {
         span!("state_call_raw", {
             let block_store = self.blockstore();
@@ -274,7 +279,7 @@ where
                 bstate,
                 &buf_store,
                 *bheight,
-                DefaultSyscalls::new(&buf_store),
+                DefaultSyscalls::<_, V>::new(&buf_store),
                 rand,
                 0.into(),
             )?;
@@ -307,9 +312,9 @@ where
     }
 
     /// runs the given message and returns its result without any persisted changes.
-    pub fn call(&self, message: &mut UnsignedMessage, tipset: Option<Tipset>) -> StateCallResult
+    pub fn call<V>(&self, message: &mut UnsignedMessage, tipset: Option<Tipset>) -> StateCallResult
     where
-        DB: BlockStore,
+        V: ProofVerifier,
     {
         let ts = if let Some(t_set) = tipset {
             t_set
@@ -320,17 +325,17 @@ where
         };
         let state = ts.parent_state();
         let chain_rand = ChainRand::new(ts.key().to_owned());
-        self.call_raw(message, state, &chain_rand, &ts.epoch())
+        self.call_raw::<V>(message, state, &chain_rand, &ts.epoch())
     }
 
-    pub async fn call_with_gas(
+    pub async fn call_with_gas<V>(
         &self,
         message: &mut UnsignedMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
     ) -> StateCallResult
     where
-        DB: BlockStore,
+        V: ProofVerifier,
     {
         let ts = if let Some(t_set) = tipset {
             t_set
@@ -340,7 +345,7 @@ where
                 .ok_or_else(|| Error::Other("Empty Tipset given".to_string()))?
         };
         let (st, _) = self
-            .tipset_state(&ts)
+            .tipset_state::<V>(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned());
@@ -349,7 +354,7 @@ where
             &st,
             self.bs.as_ref(),
             ts.epoch() + 1,
-            DefaultSyscalls::new(self.bs.as_ref()),
+            DefaultSyscalls::<_, V>::new(self.bs.as_ref()),
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
         )?;
@@ -374,13 +379,13 @@ where
     }
 
     /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
-    pub fn replay(
+    pub fn replay<V>(
         &self,
         ts: &Tipset,
         mcid: &Cid,
     ) -> Result<(UnsignedMessage, Option<ApplyRet>), Error>
     where
-        DB: BlockStore,
+        V: ProofVerifier,
     {
         let mut outm: Option<UnsignedMessage> = None;
         let mut outr: Option<ApplyRet> = None;
@@ -393,7 +398,7 @@ where
 
             Ok(())
         };
-        let result = self.compute_tipset_state(ts.blocks(), Some(callback));
+        let result = self.compute_tipset_state::<V, _>(ts.blocks(), Some(callback));
 
         if let Err(error_message) = result {
             if error_message.to_string() != "halt" {
@@ -409,11 +414,15 @@ where
         Ok((out_mes, outr))
     }
 
-    pub fn compute_tipset_state(
+    pub fn compute_tipset_state<V, CB>(
         &self,
         block_headers: &[BlockHeader],
-        callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
-    ) -> Result<(Cid, Cid), Box<dyn StdError>> {
+        callback: Option<CB>,
+    ) -> Result<(Cid, Cid), Box<dyn StdError>>
+    where
+        V: ProofVerifier,
+        CB: FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>,
+    {
         span!("compute_tipset_state", {
             let first_block = block_headers
                 .first()
@@ -470,7 +479,7 @@ where
                 })
                 .collect::<Result<Vec<_>, Box<dyn StdError>>>()?;
 
-            self.apply_blocks(
+            self.apply_blocks::<_, V, _>(
                 parent_epoch,
                 &first_block.state_root(),
                 &blocks,
@@ -487,10 +496,7 @@ where
         tipset: &Tipset,
         cid: &Cid,
         (message_from_address, message_sequence): (&Address, &u64),
-    ) -> Result<Option<MessageReceipt>, Error>
-    where
-        DB: BlockStore,
-    {
+    ) -> Result<Option<MessageReceipt>, Error> {
         if tipset.epoch() == 0 {
             return Ok(None);
         }
@@ -533,10 +539,7 @@ where
         block_store: Arc<DB>,
         current: &Tipset,
         (message_from_address, message_cid, message_sequence): (&Address, &Cid, &u64),
-    ) -> Result<Option<(Tipset, MessageReceipt)>, Error>
-    where
-        DB: BlockStore,
-    {
+    ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
         if current.epoch() == 0 {
             return Ok(None);
         }
@@ -815,11 +818,14 @@ where
 
     /// Similar to `resolve_to_key_addr` in the vm crate but does not allow `Actor` type of addresses.
     /// Uses `ts` to generate the VM state.
-    pub async fn resolve_to_key_addr(
+    pub async fn resolve_to_key_addr<V>(
         &self,
         addr: &Address,
         ts: &Tipset,
-    ) -> Result<Address, Box<dyn StdError>> {
+    ) -> Result<Address, Box<dyn StdError>>
+    where
+        V: ProofVerifier,
+    {
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 => return Ok(*addr),
             Protocol::Actor => {
@@ -829,7 +835,7 @@ where
             }
             _ => {}
         };
-        let (st, _) = self.tipset_state(&ts).await?;
+        let (st, _) = self.tipset_state::<V>(&ts).await?;
         let state = StateTree::new_from_root(self.bs.as_ref(), &st)
             .map_err(|e| Error::State(e.to_string()))?;
 

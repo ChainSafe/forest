@@ -10,7 +10,6 @@ mod error;
 mod exit_code;
 mod invoc;
 mod method;
-mod randomness;
 mod token;
 
 pub use self::actor_state::*;
@@ -19,7 +18,6 @@ pub use self::error::*;
 pub use self::exit_code::*;
 pub use self::invoc::*;
 pub use self::method::*;
-pub use self::randomness::*;
 pub use self::token::*;
 
 #[macro_use]
