@@ -253,7 +253,7 @@ where
             let block_headers = tipset.blocks();
             // generic constants are not implemented yet this is a lowcost method for now
             let no_func = None::<fn(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>;
-            let cid_pair = self.compute_tipset_state(&block_headers, no_func)?;
+            let cid_pair = self.compute_tipset_state::<V,_>(&block_headers, no_func)?;
             self.cache
                 .write()
                 .await
@@ -398,7 +398,7 @@ where
 
             Ok(())
         };
-        let result = self.compute_tipset_state::<V, _>(ts.blocks(), Some(callback));
+        let result :  Result<(Cid, Cid), Box<dyn StdError>>  = self.compute_tipset_state::<V,_>(ts.blocks(), Some(callback));
 
         if let Err(error_message) = result {
             if error_message.to_string() != "halt" {
@@ -417,8 +417,12 @@ where
     pub fn compute_tipset_state<V, CB>(
         &self,
         block_headers: &[BlockHeader],
-        callback: Option<impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
-    ) -> Result<(Cid, Cid), Box<dyn StdError>> {
+        callback: Option<CB>,
+    ) -> Result<(Cid, Cid), Box<dyn StdError>>
+    where
+        V: ProofVerifier,
+        CB: FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>,
+    {
         span!("compute_tipset_state", {
             let first_block = block_headers
                 .first()
