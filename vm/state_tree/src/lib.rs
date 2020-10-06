@@ -54,7 +54,7 @@ impl StateSnapshots {
         self.layers.push(StateSnapLayer::new())
     }
 
-    fn drop_layer(&mut self) -> Result<(), Box<dyn StdError>> {
+    fn drop_layer(&mut self) -> Result<(), String> {
         self.layers.pop().ok_or_else(|| {
             format!(
                 "drop layer failed to index snapshot layer at index {}",
@@ -65,7 +65,7 @@ impl StateSnapshots {
         Ok(())
     }
 
-    fn merge_last_layer(&mut self) -> Result<(), Box<dyn StdError>> {
+    fn merge_last_layer(&mut self) -> Result<(), String> {
         self.layers
             .get(&self.layers.len() - 2)
             .ok_or_else(|| {
@@ -130,8 +130,8 @@ impl StateSnapshots {
 
     fn get_actor(&self, addr: &Address) -> Option<ActorState> {
         for layer in self.layers.iter().rev() {
-            if let Some(state) = layer.actors.read().get(addr).cloned() {
-                return state;
+            if let Some(state) = layer.actors.read().get(addr) {
+                return state.clone();
             }
         }
 
@@ -209,7 +209,7 @@ where
         }
 
         // if state doesn't exist, find using hamt
-        let act = self.hamt.get(&addr.to_bytes())?;
+        let act = self.hamt.get(&addr.to_bytes())?.cloned();
 
         // Update cache if state was found
         if let Some(act_s) = &act {
@@ -318,18 +318,18 @@ where
     }
 
     /// Add snapshot layer to stack.
-    pub fn snapshot(&mut self) -> Result<(), Box<dyn StdError>> {
+    pub fn snapshot(&mut self) -> Result<(), String> {
         self.snaps.add_layer();
         Ok(())
     }
 
     /// Merges last two snap shot layers
-    pub fn clear_snapshot(&mut self) -> Result<(), Box<dyn StdError>> {
+    pub fn clear_snapshot(&mut self) -> Result<(), String> {
         Ok(self.snaps.merge_last_layer()?)
     }
 
     /// Revert state cache by removing last snapshot
-    pub fn revert_to_snapshot(&mut self) -> Result<(), Box<dyn StdError>> {
+    pub fn revert_to_snapshot(&mut self) -> Result<(), String> {
         self.snaps.drop_layer()?;
         self.snaps.add_layer();
         Ok(())

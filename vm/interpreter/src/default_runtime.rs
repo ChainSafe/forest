@@ -12,7 +12,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
-use fil_types::{DevnetParams, NetworkParams};
+use fil_types::{DevnetParams, NetworkParams, Randomness};
 use forest_encoding::to_vec;
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
@@ -27,7 +27,7 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use vm::{
-    actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
+    actor_error, ActorError, ActorState, ExitCode, MethodNum, Serialized, TokenAmount,
     EMPTY_ARR_CID, METHOD_SEND,
 };
 
@@ -116,7 +116,7 @@ where
 
         let caller_id = state
             .lookup_id(&message.from())
-            .map_err(|e| actor_error!(fatal("failed to lookup id: {}", e)))?
+            .map_err(|e| e.downcast_fatal("failed to lookup id"))?
             .ok_or_else(
                 || actor_error!(SysErrInvalidReceiver; "resolve msg from address failed"),
             )?;
@@ -179,7 +179,7 @@ where
         Ok(self
             .state
             .get_actor(&addr)
-            .map_err(|e| actor_error!(fatal("failed to get actor in get balance: {}", e)))?
+            .map_err(|e| e.downcast_fatal("failed to get actor in get balance"))?
             .map(|act| act.balance)
             .unwrap_or_default())
     }
@@ -190,7 +190,7 @@ where
         let mut actor = self
             .state
             .get_actor(&to_addr)
-            .map_err(|e| actor_error!(fatal("failed to get actor to commit state: {}", e)))?
+            .map_err(|e| e.downcast_fatal("failed to get actor to commit state"))?
             .ok_or_else(|| actor_error!(fatal("failed to get actor to commit state")))?;
 
         if &actor.state != old_h {
@@ -201,7 +201,7 @@ where
         actor.state = new_h;
         self.state
             .set_actor(&to_addr, actor)
-            .map_err(|e| actor_error!(fatal("failed to set actor in state_commit: {}", e)))?;
+            .map_err(|e| e.downcast_fatal("failed to set actor in state_commit"))?;
 
         Ok(())
     }
@@ -223,7 +223,7 @@ where
     {
         self.store
             .put(obj, Blake2b256)
-            .map_err(|e| ActorError::downcast_fatal(e, "failed to put cbor object"))
+            .map_err(|e| e.downcast_fatal("failed to put cbor object"))
     }
 
     /// Helper function for getting deserializable objects from blockstore.
@@ -233,7 +233,7 @@ where
     {
         self.store
             .get(cid)
-            .map_err(|e| ActorError::downcast_fatal(e, "failed to get cbor object"))
+            .map_err(|e| e.downcast_fatal("failed to get cbor object"))
     }
 
     fn internal_send(
@@ -267,7 +267,7 @@ where
         // snapshot state tree
         self.state
             .snapshot()
-            .map_err(|e| actor_error!(fatal("failed to create snapshot {}", e)))?;
+            .map_err(|e| actor_error!(fatal("failed to create snapshot: {}", e)))?;
 
         // Since it is unsafe to share a mutable reference to the state tree by copying
         // the runtime, all variables must be copied and reset at the end of the transition.
@@ -307,13 +307,13 @@ where
         let addr_id = self
             .state
             .register_new_address(addr)
-            .map_err(|e| actor_error!(fatal("failed to register new address: {}", e)))?;
+            .map_err(|e| e.downcast_fatal("failed to register new address"))?;
 
         let act = make_actor(addr)?;
 
         self.state
             .set_actor(&addr_id, act)
-            .map_err(|e| actor_error!(fatal("failed to set actor: {}", e)))?;
+            .map_err(|e| e.downcast_fatal("failed to set actor"))?;
 
         let p = Serialized::serialize(&addr).map_err(|e| {
             actor_error!(fatal(
@@ -328,12 +328,13 @@ where
             account::Method::Constructor as u64,
             TokenAmount::from(0),
             p,
-        )?;
+        )
+        .map_err(|e| e.wrap("failed to invoke account constructor"))?;
 
         let act = self
             .state
             .get_actor(&addr_id)
-            .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
+            .map_err(|e| e.downcast_fatal("failed to get actor"))?
             .ok_or_else(|| actor_error!(fatal("failed to retrieve created actor state")))?;
 
         Ok(act)
@@ -397,14 +398,14 @@ where
     fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
         self.state
             .lookup_id(&address)
-            .map_err(|e| actor_error!(fatal("failed to look up id: {}", e)))
+            .map_err(|e| e.downcast_fatal("failed to look up id"))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {
         Ok(self
             .state
             .get_actor(&addr)
-            .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
+            .map_err(|e| e.downcast_fatal("failed to get actor"))?
             .map(|act| act.code))
     }
 
@@ -417,7 +418,7 @@ where
         let r = self
             .rand
             .get_chain_randomness(&self.store, personalization, rand_epoch, entropy)
-            .map_err(|e| actor_error!(fatal("could not get randomness: {}", e.to_string())))?;
+            .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
     }
@@ -431,7 +432,7 @@ where
         let r = self
             .rand
             .get_chain_randomness(&self.store, personalization, rand_epoch, entropy)
-            .map_err(|e| actor_error!(fatal("could not get randomness: {}", e.to_string())))?;
+            .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
     }
@@ -447,8 +448,10 @@ where
             .state
             .get_actor(self.message().receiver())
             .map_err(|e| {
-                actor_error!(SysErrorIllegalArgument;
-                "failed to get actor for Readonly state: {}", e)
+                e.downcast_default(
+                    ExitCode::SysErrorIllegalArgument,
+                    "failed to get actor for Readonly state",
+                )
             })?
             .ok_or_else(
                 || actor_error!(SysErrorIllegalArgument; "Actor readonly state does not exist"),
@@ -469,10 +472,19 @@ where
         F: FnOnce(&mut C, &mut Self) -> Result<RT, ActorError>,
     {
         // get actor
-        let act = self.state.get_actor(self.message().receiver())
-            .map_err(|e| actor_error!(SysErrorIllegalActor; "failed to get actor for transaction: {}", e))?
-            .ok_or_else(|| actor_error!(SysErrorIllegalActor;
-                "actor state for transaction doesn't exist"))?;
+        let act = self
+            .state
+            .get_actor(self.message().receiver())
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::SysErrorIllegalActor,
+                    "failed to get actor for transaction",
+                )
+            })?
+            .ok_or_else(|| {
+                actor_error!(SysErrorIllegalActor;
+                "actor state for transaction doesn't exist")
+            })?;
 
         // get state for actor based on generic C
         let mut state: C = self
@@ -558,7 +570,7 @@ where
                 &address,
                 ActorState::new(code_id, EMPTY_ARR_CID.clone(), 0.into(), 0),
             )
-            .map_err(|e| actor_error!(fatal("creating actor entry: {}", e)))
+            .map_err(|e| e.downcast_fatal("creating actor entry"))
     }
 
     /// DeleteActor deletes the executing actor from the state tree, transferring
@@ -571,25 +583,21 @@ where
         let balance = self
             .state
             .get_actor(&receiver)
-            .map_err(|e| actor_error!(fatal("failed to get actor {}, {}", receiver, e)))?
+            .map_err(|e| e.downcast_fatal(format!("failed to get actor {}", receiver)))?
             .ok_or_else(
                 || actor_error!(SysErrorIllegalActor; "failed to load actor in delete actor"),
             )
             .map(|act| act.balance)?;
         if balance != 0.into() {
             // Transfer the executing actor's balance to the beneficiary
-            transfer(self.state, &receiver, beneficiary, &balance).map_err(|e| {
-                actor_error!(fatal(
-                    "failed to transfer balance to beneficiary actor: {}",
-                    e.msg()
-                ))
-            })?;
+            transfer(self.state, &receiver, beneficiary, &balance)
+                .map_err(|e| e.wrap("failed to transfer balance to beneficiary actor"))?;
         }
 
         // Delete the executing actor
         self.state
             .delete_actor(&receiver)
-            .map_err(|e| actor_error!(fatal("failed to delete actor: {}", e)))
+            .map_err(|e| e.downcast_fatal("failed to delete actor"))
     }
     fn syscalls(&self) -> &dyn Syscalls {
         &self.syscalls
@@ -629,7 +637,7 @@ where
     let to_actor = match rt
         .state
         .get_actor(msg.to())
-        .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
+        .map_err(|e| e.downcast_fatal("failed to get actor"))?
     {
         Some(act) => act,
         None => {
@@ -669,11 +677,11 @@ fn transfer<BS: BlockStore>(
 
     let from_id = state
         .lookup_id(from)
-        .map_err(|e| actor_error!(fatal("failed to lookup from id for address: {}", e)))?
+        .map_err(|e| e.downcast_fatal("failed to lookup from id for address"))?
         .ok_or_else(|| actor_error!(fatal("Failed to lookup from id for address {}", from)))?;
     let to_id = state
         .lookup_id(to)
-        .map_err(|e| actor_error!(fatal("failed to lookup to id for address: {}", e)))?
+        .map_err(|e| e.downcast_fatal("failed to lookup to id for address"))?
         .ok_or_else(|| actor_error!(fatal("Failed to lookup to id for address {}", to)))?;
 
     if from_id == to_id {
@@ -687,7 +695,7 @@ fn transfer<BS: BlockStore>(
 
     let mut f = state
         .get_actor(&from_id)
-        .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
+        .map_err(|e| e.downcast_fatal("failed to get actor"))?
         .ok_or_else(|| {
             actor_error!(fatal(
                 "sender actor does not exist in state during transfer"
@@ -695,7 +703,7 @@ fn transfer<BS: BlockStore>(
         })?;
     let mut t = state
         .get_actor(&to_id)
-        .map_err(|e| actor_error!(fatal("failed to get actor: {}", e)))?
+        .map_err(|e| e.downcast_fatal("failed to get actor: {}"))?
         .ok_or_else(|| {
             actor_error!(fatal(
                 "receiver actor does not exist in state during transfer"
@@ -710,10 +718,10 @@ fn transfer<BS: BlockStore>(
 
     state
         .set_actor(from, f)
-        .map_err(|e| actor_error!(fatal("failed to set actor: {}", e)))?;
+        .map_err(|e| e.downcast_fatal("failed to set from actor"))?;
     state
         .set_actor(to, t)
-        .map_err(|e| actor_error!(fatal("failed to set actor: {}", e)))?;
+        .map_err(|e| e.downcast_fatal("failed to set to actor"))?;
 
     Ok(())
 }
@@ -785,7 +793,7 @@ where
 
     let act = st
         .get_actor(&addr)
-        .map_err(|e| actor_error!(SysErrInternal; e))?
+        .map_err(|e| e.downcast_default(ExitCode::SysErrInternal, "Failed to get actor"))?
         .ok_or_else(|| actor_error!(SysErrInternal; "Failed to retrieve actor: {}", addr))?;
 
     if act.code != *ACCOUNT_ACTOR_CODE_ID {
@@ -796,13 +804,7 @@ where
     }
     let acc_st: account::State = store
         .get(&act.state)
-        .map_err(|e| {
-            actor_error!(fatal(
-                "Failed to get account actor state for: {}, e: {}",
-                addr,
-                e
-            ))
-        })?
+        .map_err(|e| e.downcast_fatal(format!("Failed to get account actor state for: {}", addr)))?
         .ok_or_else(|| {
             actor_error!(fatal(
                 "Address was not found for an account actor: {}",

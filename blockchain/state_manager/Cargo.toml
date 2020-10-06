@@ -19,7 +19,7 @@ interpreter = { path = "../../vm/interpreter/" }
 ipld_amt = { path = "../../ipld/amt/" }
 clock = { path = "../../node/clock" }
 chain = { path = "../chain" }
-async-std = "1.5.0"
+async-std = "1.6.3"
 async-log = "2.0.0"
 log = "0.4.8"
 fil_types = { path = "../../types" }
@@ -30,6 +30,6 @@ serde = { version = "1.0", features = ["derive"] }
 ipld_hamt = { path = "../../ipld/hamt" }
 num-traits = "0.2.11"
 flo_stream = "0.4.0"
-filecoin-proofs-api = "5.1"
+filecoin-proofs-api = "5.2"
 futures = "0.3.5"
 runtime = { path = "../../vm/runtime/" }

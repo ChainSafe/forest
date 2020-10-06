@@ -12,13 +12,13 @@ use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use db::MemoryDB;
 use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
-use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{PieceInfo, Randomness, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use runtime::{ActorCode, ConsensusFault, MessageInfo, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error as StdError;
-use vm::{actor_error, ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount};
 
 pub struct MockRuntime {
     pub epoch: ChainEpoch,
@@ -185,6 +185,11 @@ impl MockRuntime {
     }
 
     #[allow(dead_code)]
+    pub fn set_balance(&mut self, amount: TokenAmount) {
+        self.balance = amount;
+    }
+
+    #[allow(dead_code)]
     pub fn expect_verify_consensus_fault(
         &self,
         h1: Vec<u8>,
@@ -332,6 +337,7 @@ impl MockRuntime {
         self.expect_validate_caller_addr = None;
         self.expect_validate_caller_type = None;
         self.expect_create_actor = None;
+        self.expect_sends.clear();
         self.expect_verify_sigs.borrow_mut().clear();
         *self.expect_verify_seal.borrow_mut() = None;
         *self.expect_verify_post.borrow_mut() = None;
@@ -387,6 +393,11 @@ impl MockRuntime {
     #[allow(dead_code)]
     pub fn set_value(&mut self, value: TokenAmount) {
         self.value_received = value;
+    }
+
+    #[allow(dead_code)]
+    pub fn replace_state<C: Cbor>(&mut self, obj: &C) {
+        self.state = Some(self.store.put(obj, Blake2b256).unwrap());
     }
 }
 

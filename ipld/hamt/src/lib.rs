@@ -35,12 +35,15 @@ const DEFAULT_BIT_WIDTH: u32 = 8;
 
 type HashedKey = [u8; 32];
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct KeyValuePair<K, V>(K, V);
 
 impl<K, V> KeyValuePair<K, V> {
     pub fn key(&self) -> &K {
         &self.0
+    }
+    pub fn value(&self) -> &V {
+        &self.1
     }
 }
 

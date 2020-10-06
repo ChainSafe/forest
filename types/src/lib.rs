@@ -3,13 +3,19 @@
 
 pub mod genesis;
 mod piece;
+mod randomness;
 pub mod sector;
+pub mod verifier;
 
 pub use self::piece::*;
+pub use self::randomness::*;
 pub use self::sector::*;
 
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use num_bigint::BigInt;
+
+/// Identifier for Actors, includes builtin and initialized actors
+pub type ActorID = u64;
 
 /// Default bit width for the hamt in the filecoin protocol.
 pub const HAMT_BIT_WIDTH: u32 = 5;

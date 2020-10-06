@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use fil_types::verifier::MockVerifier;
 use state_manager::StateManager;
 use std::sync::Arc;
 
@@ -70,7 +71,7 @@ pub fn execute_tipset(
     let sm = StateManager::new(bs);
     let mut _applied_messages = Vec::new();
     let mut applied_results = Vec::new();
-    let (post_state_root, receipts_root) = sm.apply_blocks(
+    let (post_state_root, receipts_root) = sm.apply_blocks::<_, MockVerifier, _>(
         parent_epoch,
         pre_root,
         &tipset.blocks,

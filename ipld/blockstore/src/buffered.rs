@@ -200,6 +200,7 @@ mod tests {
         buf_store.flush(&cid).unwrap();
         assert_eq!(buf_store.get::<u8>(&cid).unwrap(), Some(8));
         assert_eq!(mem.get::<u8>(&cid).unwrap(), Some(8));
+        assert_eq!(buf_store.write.borrow().get(&cid), None);
     }
 
     #[test]

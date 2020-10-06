@@ -9,13 +9,17 @@ pub use self::post::*;
 pub use self::registered_proof::*;
 pub use self::seal::*;
 
+use crate::ActorID;
 use encoding::{repr::*, tuple::*};
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use std::fmt;
-use vm::ActorID;
 
 pub type SectorNumber = u64;
+
+/// The maximum assignable sector number.
+/// Raising this would require modifying our AMT implementation.
+pub const MAX_SECTOR_NUMBER: SectorNumber = ipld_amt::MAX_INDEX;
 
 /// Unit of storage power (measured in bytes)
 pub type StoragePower = BigInt;

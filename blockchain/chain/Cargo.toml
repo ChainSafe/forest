@@ -26,9 +26,14 @@ byteorder = "1.3.4"
 beacon = { path = "../beacon" }
 flo_stream = "0.4.0"
 address = { package = "forest_address", path = "../../vm/address" }
-lazy_static = "1.4"
+futures = "0.3.5"
 async-std = "1.6.3"
 types = { package = "fil_types", path = "../../types" }
+lazy_static = "1.4"
+
+
+[features]
+json = []
 
 [dev-dependencies]
 multihash = "0.10.0"
