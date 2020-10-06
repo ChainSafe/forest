@@ -917,7 +917,6 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
- "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
