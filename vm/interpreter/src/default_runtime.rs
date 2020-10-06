@@ -11,7 +11,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
-use fil_types::{DevnetParams, NetworkParams};
+use fil_types::{DevnetParams, NetworkParams, Randomness};
 use forest_encoding::to_vec;
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
@@ -26,7 +26,7 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use vm::{
-    actor_error, ActorError, ActorState, ExitCode, MethodNum, Randomness, Serialized, TokenAmount,
+    actor_error, ActorError, ActorState, ExitCode, MethodNum, Serialized, TokenAmount,
     EMPTY_ARR_CID, METHOD_SEND,
 };
 

@@ -9,6 +9,7 @@ use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
+use fil_types::verifier::FullVerifier;
 use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
@@ -96,7 +97,8 @@ pub(super) async fn start(config: Config) {
 
     // Initialize ChainSyncer
     let chain_store_arc = Arc::new(chain_store);
-    let chain_syncer = ChainSyncer::new(
+    // TODO allow for configuring validation strategy (defaulting to full validation)
+    let chain_syncer = ChainSyncer::<_, _, FullVerifier>::new(
         chain_store_arc.clone(),
         Arc::clone(&state_manager),
         Arc::new(beacon),

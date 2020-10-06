@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
-use vm::ActorID;
+use fil_types::ActorID;
 
 lazy_static! {
     pub static ref SYSTEM_ACTOR_ADDR: Address         = Address::new_id(0);

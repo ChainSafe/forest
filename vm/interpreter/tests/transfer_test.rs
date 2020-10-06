@@ -6,6 +6,7 @@ use address::Address;
 use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
+use fil_types::verifier::MockVerifier;
 use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
@@ -91,7 +92,7 @@ fn transfer_test() {
         .build()
         .unwrap();
 
-    let default_syscalls = DefaultSyscalls::new(&store);
+    let default_syscalls = DefaultSyscalls::<_, MockVerifier>::new(&store);
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
     let registered = HashSet::new();

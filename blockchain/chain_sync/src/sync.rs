@@ -17,6 +17,7 @@ use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{multihash::Blake2b256, Cid};
 use encoding::{Cbor, Error as EncodingError};
+use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
 use futures::select;
 use futures::stream::StreamExt;
@@ -25,6 +26,7 @@ use libp2p::core::PeerId;
 use log::{debug, warn};
 use message::{SignedMessage, UnsignedMessage};
 use state_manager::StateManager;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 // TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
@@ -45,7 +47,7 @@ enum ChainSyncState {
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
 /// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
 /// messages to be able to do the initial sync.
-pub struct ChainSyncer<DB, TBeacon> {
+pub struct ChainSyncer<DB, TBeacon, V> {
     /// State of general `ChainSync` protocol.
     state: ChainSyncState,
 
@@ -81,12 +83,16 @@ pub struct ChainSyncer<DB, TBeacon> {
 
     ///  incoming network events to be handled by syncer
     net_handler: Receiver<NetworkEvent>,
+
+    /// Proof verification implementation.
+    verifier: PhantomData<V>,
 }
 
-impl<DB, TBeacon> ChainSyncer<DB, TBeacon>
+impl<DB, TBeacon, V> ChainSyncer<DB, TBeacon, V>
 where
     TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
+    V: ProofVerifier + Sync + Send + 'static,
 {
     pub fn new(
         chain_store: Arc<ChainStore<DB>>,
@@ -111,6 +117,7 @@ where
             sync_queue: SyncBucketSet::default(),
             active_sync_tipsets: SyncBucketSet::default(),
             next_sync_target: None,
+            verifier: Default::default(),
         })
     }
 
@@ -235,6 +242,7 @@ where
             network: self.network.clone(),
             genesis: self.genesis.clone(),
             bad_blocks: self.bad_blocks.clone(),
+            verifier: PhantomData::<V>::default(),
         }
         .spawn(channel)
         .await
@@ -440,6 +448,7 @@ mod tests {
     use async_std::sync::Sender;
     use beacon::MockBeacon;
     use db::MemoryDB;
+    use fil_types::verifier::MockVerifier;
     use forest_libp2p::NetworkEvent;
     use state_manager::StateManager;
     use std::sync::Arc;
@@ -449,7 +458,7 @@ mod tests {
     fn chain_syncer_setup(
         db: Arc<MemoryDB>,
     ) -> (
-        ChainSyncer<MemoryDB, MockBeacon>,
+        ChainSyncer<MemoryDB, MockBeacon, MockVerifier>,
         Sender<NetworkEvent>,
         Receiver<NetworkMessage>,
     ) {
