@@ -277,25 +277,31 @@ impl Actor {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
             })?;
 
-            let claim = get_claim(&claims, &miner_addr)
+            let (raw_byte_power, quality_adj_power) = get_claim(&claims, &miner_addr)
                 .map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
                         "failed to read claimed power for fault",
                     )
                 })?
+                .map(|claim| {
+                    (
+                        claim.raw_byte_power.clone(),
+                        claim.quality_adj_power.clone(),
+                    )
+                })
                 .ok_or_else(|| {
                     actor_error!(ErrNotFound;
                         "miner {} not registered (already slashed?)", miner_addr)
                 })?;
-            assert_ne!(claim.raw_byte_power.sign(), Sign::Minus);
-            assert_ne!(claim.quality_adj_power.sign(), Sign::Minus);
+            assert_ne!(raw_byte_power.sign(), Sign::Minus);
+            assert_ne!(quality_adj_power.sign(), Sign::Minus);
 
             st.add_to_claim(
                 &mut claims,
                 &miner_addr,
-                &claim.raw_byte_power.neg(),
-                &claim.quality_adj_power.neg(),
+                &raw_byte_power.neg(),
+                &quality_adj_power.neg(),
             )
             .map_err(|e| {
                 e.downcast_default(
@@ -307,16 +313,21 @@ impl Actor {
             st.add_pledge_total(pledge_delta.neg());
 
             // delete miner actor claims
-            let deleted = claims.delete(&miner_addr.to_bytes()).map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to remove miner {}", miner_addr),
-                )
-            })?;
-            if !deleted {
-                return Err(actor_error!(ErrIllegalState;
-                    "failed to remove miner {}: does not exist", miner_addr));
-            }
+            claims
+                .delete(&miner_addr.to_bytes())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to remove miner {}", miner_addr),
+                    )
+                })?
+                .ok_or_else(|| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to remove miner {}: does not exist",
+                        miner_addr
+                    )
+                })?;
 
             st.miner_count -= 1;
 
@@ -567,7 +578,7 @@ impl Actor {
 
             // Remove power and leave miner frozen
             for miner_addr in failed_miner_crons {
-                let claim = match get_claim(&claims, &miner_addr) {
+                let (rbp, qap) = match get_claim(&claims, &miner_addr) {
                     Err(e) => {
                         log::error!(
                             "failed to get claim for miner {} after \
@@ -584,16 +595,14 @@ impl Actor {
                         );
                         continue;
                     }
-                    Ok(Some(claim)) => claim,
+                    Ok(Some(claim)) => (
+                        claim.raw_byte_power.clone(),
+                        claim.quality_adj_power.clone(),
+                    ),
                 };
 
                 // zero out miner power
-                let res = st.add_to_claim(
-                    &mut claims,
-                    &miner_addr,
-                    &claim.raw_byte_power.neg(),
-                    &claim.quality_adj_power.neg(),
-                );
+                let res = st.add_to_claim(&mut claims, &miner_addr, &rbp.neg(), &qap.neg());
                 if let Err(e) = res {
                     log::warn!(
                         "failed to remove power for miner {} after to failed cron: {}",

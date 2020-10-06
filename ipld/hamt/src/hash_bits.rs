@@ -5,7 +5,7 @@ use crate::{Error, HashedKey};
 use std::cmp::Ordering;
 
 /// Helper struct which indexes and allows returning bits from a hashed key
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct HashBits<'a> {
     b: &'a HashedKey,
     pub consumed: u32,
