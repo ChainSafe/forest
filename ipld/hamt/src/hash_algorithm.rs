@@ -3,6 +3,7 @@
 
 use crate::{Hash, HashedKey};
 use sha2::{Digest, Sha256 as Sha256Hasher};
+use std::hash::Hasher;
 
 /// Algorithm used as the hasher for the Hamt.
 pub trait HashAlgorithm {
@@ -39,9 +40,6 @@ impl HashAlgorithm for Sha256 {
         hasher.0.finalize().into()
     }
 }
-
-#[cfg(feature = "identity")]
-use std::hash::Hasher;
 
 #[cfg(feature = "identity")]
 #[derive(Default)]
