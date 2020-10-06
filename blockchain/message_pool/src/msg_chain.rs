@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::{get_gas_perf, get_gas_reward};
 use message::{Message, SignedMessage};
 use num_bigint::BigInt;
@@ -73,6 +76,7 @@ impl MsgChain {
         self.chain.get(self.index - 1)
     }
     /// Retrieves the next element in the MsgChain.
+    #[allow(dead_code)]
     pub(crate) fn next(&self) -> Option<&MsgChainNode> {
         if self.index == self.chain.len() - 1 {
             return None;
@@ -85,6 +89,7 @@ impl MsgChain {
         self.chain.get_mut(self.index)
     }
     /// Retrieves a mutable reference to the previous element in the MsgChain.
+    #[allow(dead_code)]
     pub(crate) fn prev_mut(&mut self) -> Option<&mut MsgChainNode> {
         if self.index == 0 {
             return None;
@@ -92,6 +97,7 @@ impl MsgChain {
         self.chain.get_mut(self.index - 1)
     }
     /// Retrieves a mutable reference to the next element in the MsgChain.
+    #[allow(dead_code)]
     pub(crate) fn next_mut(&mut self) -> Option<&mut MsgChainNode> {
         if self.index == self.chain.len() - 1 {
             return None;
@@ -167,10 +173,12 @@ impl MsgChain {
         mc.msgs = Vec::new();
         self.chain.drain(self.index..);
     }
+    #[allow(dead_code)]
     pub(crate) fn set_effective_perf(&mut self, bp: f64) {
         self.curr_mut().unwrap().bp = bp;
         self.set_eff_perf();
     }
+    #[allow(dead_code)]
     fn set_eff_perf(&mut self) {
         let prev = match self.prev() {
             Some(prev) => Some((prev.eff_perf, prev.gas_limit)),
@@ -191,6 +199,7 @@ impl MsgChain {
         }
         mc.eff_perf = eff_perf;
     }
+    #[allow(dead_code)]
     pub fn set_null_effective_perf(&mut self) {
         let mc = self.curr_mut().unwrap();
         if mc.gas_perf < 0.0 {
@@ -199,6 +208,7 @@ impl MsgChain {
             mc.eff_perf = 0.0;
         }
     }
+    #[allow(dead_code)]
     pub fn before_effective(&self, other: &MsgChain) -> bool {
         let mc = self.curr().unwrap();
         let other = other.curr().unwrap();
