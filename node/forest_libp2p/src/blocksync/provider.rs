@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use super::{
     BlockSyncRequest, BlockSyncResponse, BlockSyncResponseStatus, CompactedMessages, TipsetBundle,
-    BLOCKS_MESSAGES,
 };
 
 /// Builds blocksync response out of chain data.

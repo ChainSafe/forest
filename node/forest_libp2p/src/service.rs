@@ -190,13 +190,12 @@ where
                         ForestBehaviourEvent::BlockSyncRequest { channel, peer, request } => {
                             debug!("Received blocksync request (peerId: {:?})", peer);
                             let db = self.db.clone();
-                            task::spawn_blocking(
-                                async move {
-                                    let response = make_blocksync_response(db, &request.clone());
-
-                                    let _ = channel.send(response).await;
-                                }
-                            );
+                            async move {
+                                let response = task::spawn_blocking(move || -> BlockSyncResponse {
+                                    make_blocksync_response(db, &request.clone())
+                                }).await;
+                                let _ = channel.send(response).await;
+                            }.await;
                         }
                         ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
                             debug!("Received blocksync response (id: {:?})", request_id);
