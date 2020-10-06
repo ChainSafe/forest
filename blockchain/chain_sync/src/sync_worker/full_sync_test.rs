@@ -2,40 +2,77 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use address::Address;
+use crate::peer_manager::PeerManager;
 use async_std::sync::channel;
 use async_std::task;
 use beacon::MockBeacon;
-use blocks::BlockHeader;
+use chain::tipset_from_keys;
 use db::MemoryDB;
-use forest_libp2p::{hello::HelloRequest, rpc::ResponseChannel};
+use fil_types::verifier::MockVerifier;
+use forest_car::load_car;
+use forest_libp2p::NetworkMessage;
+use genesis::initialize_genesis;
 use libp2p::core::PeerId;
 use state_manager::StateManager;
 use std::time::Duration;
 
-#[test]
-fn space_race_full_sync() {
+async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, _db: DB) {
+    loop {
+        match chan.next().await {
+            Some(NetworkMessage::BlockSyncRequest {
+                peer_id, request, ..
+            }) => log::info!("request from {}, {:?}", peer_id, request),
+            Some(event) => log::warn!("Other request sent to network: {:?}", event),
+            None => break,
+        }
+    }
+}
+
+#[async_std::test]
+async fn space_race_full_sync() {
+    pretty_env_logger::init();
+
     let db = Arc::new(MemoryDB::default());
 
-    let chain_store = Arc::new(ChainStore::new(db.clone()));
-
-    // let (local_sender, _test_receiver) = channel(20);
-    // let (event_sender, event_receiver) = channel(20);
-
-    let msg_root = compute_msg_meta(chain_store.blockstore(), &[], &[]).unwrap();
-
-    let dummy_header = BlockHeader::builder()
-        .miner_address(Address::new_id(1000))
-        .messages(msg_root)
-        .message_receipts(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        .build_and_validate()
-        .unwrap();
-    let gen_hash = chain_store.set_genesis(&dummy_header).unwrap();
-
-    let genesis_ts = Arc::new(Tipset::new(vec![dummy_header]).unwrap());
-    let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+    let mut chain_store = ChainStore::new(db.clone());
     let state_manager = Arc::new(StateManager::new(db));
 
-    // let worker = 
+    // let (local_sender, _test_receiver) = channel(20);
+    let (network_send, network_recv) = channel(20);
+
+    // Initialize genesis using default (currently space-race) genesis
+    let (genesis, _) = initialize_genesis(None, &mut chain_store, &state_manager).unwrap();
+    let chain_store = Arc::new(chain_store);
+    let genesis = Arc::new(genesis);
+
+    // TODO this will probably cause failure
+    let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+
+    let peer = PeerId::random();
+    let peer_manager = PeerManager::default();
+    peer_manager.update_peer_head(peer, None).await;
+    let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager));
+
+    let provider_db = MemoryDB::default();
+    let bytes = include_bytes!("chain.car");
+    let cids: Vec<Cid> = load_car(&provider_db, bytes.as_ref()).unwrap();
+    let ts = tipset_from_keys(&provider_db, &TipsetKeys::new(cids)).unwrap();
+    let target = Arc::new(ts);
+
+    let worker = SyncWorker {
+        state: Default::default(),
+        beacon,
+        state_manager,
+        chain_store,
+        network,
+        genesis,
+        bad_blocks: Default::default(),
+        // Mock verifier for now, but can test FullVerifier (depends on params fetched)
+        verifier: PhantomData::<MockVerifier>::default(),
+    };
+
+    // Setup process to handle requests from syncer
+    task::spawn(async { handle_requests(network_recv, provider_db).await });
+
+    worker.sync(target).await.unwrap();
 }
