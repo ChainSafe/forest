@@ -34,8 +34,8 @@ where
 
     /// Gets token amount for given address in balance table
     #[inline]
-    pub fn get(&self, key: &Address) -> Result<TokenAmount, Box<dyn StdError>> {
-        Ok(self
+    pub fn get(&self, key: &Address) -> Result<&TokenAmount, Box<dyn StdError>> {
+        Ok(&self
             .0
             .get(&key.to_bytes())?
             .ok_or(format!("no key {} in map root", key))?
@@ -59,8 +59,8 @@ where
 
     /// Adds token amount to previously initialized account.
     pub fn add(&mut self, key: &Address, value: &TokenAmount) -> Result<(), Box<dyn StdError>> {
-        let prev = self.get(key)?;
-        Ok(self.0.set(key.to_bytes().into(), BigIntDe(prev + value))?)
+        let new_value = { self.get(key)? + value };
+        Ok(self.0.set(key.to_bytes().into(), BigIntDe(new_value))?)
     }
 
     /// Adds an amount to a balance. Creates entry if not exists
@@ -70,7 +70,7 @@ where
         value: TokenAmount,
     ) -> Result<(), Box<dyn StdError>> {
         let new_val = match self.0.get(&key.to_bytes())? {
-            Some(v) => v.0 + value,
+            Some(v) => &v.0 + value,
             None => value,
         };
         Ok(self.0.set(key.to_bytes().into(), BigIntDe(new_val))?)
@@ -85,7 +85,7 @@ where
         req: &TokenAmount,
         floor: &TokenAmount,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
-        let prev = self.get(key)?;
+        let prev = self.get(key)?.clone();
         let res = prev
             .checked_sub(req)
             .unwrap_or_else(|| TokenAmount::from(0u8));
@@ -118,17 +118,6 @@ where
         }
 
         Ok(())
-    }
-
-    /// Removes an entry from the table, returning the prior value. The entry must have been previously initialized.
-    pub fn remove(&mut self, key: &Address) -> Result<TokenAmount, Box<dyn StdError>> {
-        // Ensure entry exists and get previous value
-        let prev = self.get(key)?;
-
-        // Remove entry from table
-        self.0.delete(&key.to_bytes())?;
-
-        Ok(prev)
     }
 
     /// Returns total balance held by this balance table
