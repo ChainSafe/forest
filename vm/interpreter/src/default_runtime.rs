@@ -74,8 +74,8 @@ pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams
     allow_internal: bool,
     registered_actors: &'act HashSet<Cid>,
     params: PhantomData<P>,
-    pre_ignition: GenesisInfo,
-    post_ignition: GenesisInfo,
+    pre_ignition: Option<GenesisInfo>,
+    post_ignition: Option<GenesisInfo>,
 }
 
 impl<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
@@ -100,6 +100,8 @@ where
         num_actors_created: u64,
         rand: &'r R,
         registered_actors: &'act HashSet<Cid>,
+        pre_ignition: Option<GenesisInfo>,
+        post_ignition: Option<GenesisInfo>,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -126,11 +128,6 @@ where
             receiver: *message.to(),
             value_received: message.value().clone(),
         };
-
-        let pre_ignition = setup_preignition_genesis_actors_testnet(gas_block_store.store)
-            .map_err(|e| actor_error!(fatal(e)))?;
-        let post_ignition = setup_postignition_genesis_actors_testnet(gas_block_store.store)
-            .map_err(|e| actor_error!(fatal(e)))?;
 
         Ok(DefaultRuntime {
             state,
@@ -604,8 +601,12 @@ where
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         let total_circ = get_circulating_supply(
-            &self.pre_ignition,
-            &self.post_ignition,
+            self.pre_ignition
+                .as_ref()
+                .ok_or_else(|| actor_error!(ErrNotFound;"Genesis info not initialized"))?,
+            self.post_ignition
+                .as_ref()
+                .ok_or_else(|| actor_error!(ErrNotFound;"Genesis info not initialized"))?,
             self.epoch,
             self.state,
         )
