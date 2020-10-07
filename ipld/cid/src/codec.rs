@@ -1,23 +1,22 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::Error;
-
 macro_rules! build_codec_enum {
     {$( $val:expr => $var:ident, )*} => {
         #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
         pub enum Codec {
             $( $var, )*
+            Other(u64)
         }
 
         use Codec::*;
 
         impl Codec {
             /// Convert a number to the matching codec
-            pub fn from(raw: u64) -> Result<Codec, Error> {
+            pub fn from(raw: u64) -> Self {
                 match raw {
-                    $( $val => Ok($var), )*
-                    _ => Err(Error::UnknownCodec),
+                    $( $val => $var, )*
+                    x => Other(x),
                 }
             }
         }
@@ -27,7 +26,7 @@ macro_rules! build_codec_enum {
             fn from(codec: Codec) -> u64 {
                 match codec {
                     $( $var => $val, )*
-
+                    Other(val) => val,
                 }
             }
         }
