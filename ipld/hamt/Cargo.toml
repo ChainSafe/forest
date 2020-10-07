@@ -18,7 +18,6 @@ sha2 = "0.9.1"
 lazycell = "1.2.1"
 
 [features]
-default = ["identity", "go-interop"]
 identity = []
 go-interop = []
 

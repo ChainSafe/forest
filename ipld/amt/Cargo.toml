@@ -14,7 +14,6 @@ thiserror = "1.0"
 lazycell = "1.2.1"
 
 [features]
-default = ["go-interop"]
 go-interop = []
 
 [dev-dependencies]
