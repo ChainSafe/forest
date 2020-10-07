@@ -769,7 +769,7 @@ where
                 tip.parent_state(),
             )?;
             pub_keys.push(pk);
-            cids.push(m.cid()?.to_bytes());
+            cids.push(m.to_signing_bytes());
         }
 
         if let Some(sig) = block.header().bls_aggregate() {
@@ -860,7 +860,7 @@ where
             check_msg(m, &mut msg_meta_data, &tree)?;
             // signature validation
             m.signature()
-                .verify(&m.cid()?.to_bytes(), m.from())
+                .verify(&m.message().to_signing_bytes(), m.from())
                 .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
         }
         // validate message root from header matches message root

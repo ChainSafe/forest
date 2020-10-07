@@ -2160,7 +2160,7 @@ dependencies = [
 
 [[package]]
 name = "forest_crypto"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.12.3",
  "bls-signatures",
@@ -2247,11 +2247,10 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "base64 0.12.3",
  "derive_builder",
- "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_cid",
@@ -3764,6 +3763,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "lru",
+ "num-traits 0.2.12",
  "serde",
  "state_manager",
  "state_tree",

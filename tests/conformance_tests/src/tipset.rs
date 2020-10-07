@@ -31,15 +31,15 @@ mod block_messages_json {
                 let mut bls_messages = Vec::new();
                 for message in &m.messages {
                     match ChainMessage::unmarshal_cbor(message).map_err(de::Error::custom)? {
-                        ChainMessage::Signed(s) => secpk_messages.push(s),
-                        ChainMessage::Unsigned(u) => bls_messages.push(u),
+                        m @ ChainMessage::Signed(_) => secpk_messages.push(m),
+                        m @ ChainMessage::Unsigned(_) => bls_messages.push(m),
                     }
                 }
+                bls_messages.append(&mut secpk_messages);
                 Ok(BlockMessages {
                     miner: m.miner_addr,
                     win_count: m.win_count,
-                    bls_messages,
-                    secpk_messages,
+                    messages: bls_messages,
                 })
             })
             .collect::<Result<Vec<BlockMessages>, _>>()?)
@@ -49,8 +49,7 @@ mod block_messages_json {
 #[derive(Debug, Deserialize)]
 pub struct TipsetVector {
     pub epoch: ChainEpoch,
-    #[serde(with = "bigint_json")]
-    pub basefee: BigInt,
+    pub basefee: u64,
     #[serde(with = "block_messages_json")]
     pub blocks: Vec<BlockMessages>,
 }
@@ -58,7 +57,7 @@ pub struct TipsetVector {
 pub struct ExecuteTipsetResult {
     pub receipts_root: Cid,
     pub post_state_root: Cid,
-    pub _applied_messages: Vec<UnsignedMessage>,
+    pub _applied_messages: Vec<ChainMessage>,
     pub applied_results: Vec<ApplyRet>,
 }
 
@@ -77,9 +76,9 @@ pub fn execute_tipset(
         &tipset.blocks,
         tipset.epoch,
         &TestRand,
-        tipset.basefee.clone(),
-        Some(|_, msg, ret| {
-            _applied_messages.push(msg);
+        BigInt::from(tipset.basefee),
+        Some(|_, msg: &ChainMessage, ret| {
+            _applied_messages.push(msg.clone());
             applied_results.push(ret);
             Ok(())
         }),
