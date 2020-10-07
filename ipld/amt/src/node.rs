@@ -184,8 +184,7 @@ where
                         // Puts node in blockstore and and retrieves it's CID
                         let cid = bs.put(n, Blake2b256)?;
 
-                        #[allow(unused_mut)]
-                        let mut cache = LazyCell::new();
+                        let cache = LazyCell::new();
 
                         // Can keep the flushed node in link cache
                         let node = std::mem::take(n);

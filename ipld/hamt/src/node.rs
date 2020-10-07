@@ -385,8 +385,7 @@ where
                 // Put node in blockstore and retrieve Cid
                 let cid = store.put(node, Blake2b256)?;
 
-                #[allow(unused_mut)]
-                let mut cache = LazyCell::new();
+                let cache = LazyCell::new();
 
                 #[cfg(not(feature = "go-interop"))]
                 {
