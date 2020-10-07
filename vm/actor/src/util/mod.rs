@@ -6,7 +6,6 @@ pub mod chaos;
 mod downcast;
 pub mod math;
 mod multimap;
-pub mod puppet;
 mod set;
 mod set_multimap;
 pub mod smooth;
