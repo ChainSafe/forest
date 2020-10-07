@@ -118,6 +118,11 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         Some(file) => file,
         None => return false,
     };
+
+    if let Ok(s) = ::std::env::var("FOREST_CONF") {
+        return file_name == s;
+    }
+
     for rx in SKIP_TESTS.iter() {
         if rx.is_match(file_name) {
             println!("SKIPPING: {}", file_name);
