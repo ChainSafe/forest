@@ -136,14 +136,13 @@ where
     let (UnsignedMessageJson(umsg),) = params;
 
     let from = umsg.from();
-    let msg_cid = umsg.cid()?;
 
     let keystore = data.keystore.as_ref().write().await;
     let key = wallet::find_key(&from, &*keystore)?;
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        msg_cid.to_bytes().as_slice(),
+        umsg.to_signing_bytes().as_slice(),
     )?;
 
     let smsg = SignedMessage::new_from_parts(umsg, sig)?;
