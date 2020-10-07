@@ -7,25 +7,23 @@ use forest_cid::Cid;
 use ipld_blockstore::BlockStore;
 use log::debug;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use super::{
     BlockSyncRequest, BlockSyncResponse, BlockSyncResponseStatus, CompactedMessages, TipsetBundle,
 };
 
 /// Builds blocksync response out of chain data.
-pub fn make_blocksync_response<DB>(db: Arc<DB>, request: &BlockSyncRequest) -> BlockSyncResponse
+pub fn make_blocksync_response<DB>(db: &DB, request: &BlockSyncRequest) -> BlockSyncResponse
 where
     DB: BlockStore,
 {
-    let mut response_chain: Vec<TipsetBundle> = vec![];
+    let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
 
     let mut curr_tipset_cids = request.start.clone();
 
     loop {
-        let mut tipset_bundle: TipsetBundle = Default::default();
-        let tipset = match chain::tipset_from_keys(db.as_ref(), &TipsetKeys::new(curr_tipset_cids))
-        {
+        let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
+        let tipset = match chain::tipset_from_keys(db, &TipsetKeys::new(curr_tipset_cids)) {
             Ok(tipset) => tipset,
             Err(err) => {
                 debug!("Cannot get tipset from keys: {}", err);
@@ -38,12 +36,8 @@ where
             }
         };
 
-        if request.include_blocks() {
-            tipset_bundle.blocks = tipset.blocks().to_vec();
-        }
-
         if request.include_messages() {
-            match compact_messages(db.as_ref(), &tipset) {
+            match compact_messages(db, &tipset) {
                 Ok(compacted_messages) => tipset_bundle.messages = Some(compacted_messages),
                 Err(err) => {
                     debug!("Cannot compact messages for tipset: {}", err);
@@ -57,13 +51,18 @@ where
             }
         }
 
-        response_chain.push(tipset_bundle);
+        curr_tipset_cids = tipset.parents().cids().to_vec();
+        let tipset_epoch = tipset.epoch();
 
-        if response_chain.len() as u64 >= request.request_len || tipset.epoch() == 0 {
-            break;
+        if request.include_blocks() {
+            tipset_bundle.blocks = tipset.into_blocks();
         }
 
-        curr_tipset_cids = tipset.parents().cids().to_vec();
+        response_chain.push(tipset_bundle);
+
+        if response_chain.len() as u64 >= request.request_len || tipset_epoch == 0 {
+            break;
+        }
     }
 
     let result_chain_length = response_chain.len() as u64;
@@ -94,16 +93,16 @@ where
     for block_header in tipset.blocks().iter() {
         let (bls_cids, secp_cids) = chain::read_msg_cids(db, block_header.messages())?;
 
-        let mut block_include = vec![];
-        let mut secp_include = vec![];
+        let mut block_include = Vec::with_capacity(bls_cids.len());
+        let mut secp_include = Vec::with_capacity(secp_cids.len());
 
-        for bls_cid in bls_cids.iter() {
-            let order = match bls_messages_order.get(bls_cid) {
+        for bls_cid in bls_cids.into_iter() {
+            let order = match bls_messages_order.get(&bls_cid) {
                 Some(order) => *order,
                 None => {
                     let order = block_include.len() as u64;
                     bls_cids_combined.push(bls_cid.clone());
-                    bls_messages_order.insert(bls_cid.clone(), order);
+                    bls_messages_order.insert(bls_cid, order);
                     order
                 }
             };
@@ -111,13 +110,13 @@ where
             block_include.push(order);
         }
 
-        for secp_cid in secp_cids.iter() {
-            let order = match secp_messages_order.get(secp_cid) {
+        for secp_cid in secp_cids.into_iter() {
+            let order = match secp_messages_order.get(&secp_cid) {
                 Some(order) => *order,
                 None => {
                     let order = secp_include.len() as u64;
                     secp_cids_combined.push(secp_cid.clone());
-                    secp_messages_order.insert(secp_cid.clone(), order);
+                    secp_messages_order.insert(secp_cid, order);
                     order
                 }
             };
@@ -162,7 +161,7 @@ mod tests {
         let (cids, db) = populate_db();
 
         let response = make_blocksync_response(
-            Arc::new(db),
+            &db,
             &BlockSyncRequest {
                 start: cids,
                 request_len: 2,

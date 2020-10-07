@@ -192,7 +192,7 @@ where
                             let db = self.db.clone();
                             async {
                                 let response = task::spawn_blocking(move || -> BlockSyncResponse {
-                                    make_blocksync_response(db, &request.clone())
+                                    make_blocksync_response(db.as_ref(), &request)
                                 }).await;
                                 let _ = channel.send(response).await;
                             }.await;

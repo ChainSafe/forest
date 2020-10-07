@@ -36,6 +36,7 @@ impl BlockSyncRequest {
     }
 }
 
+/// Status codes of a blocksync response.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BlockSyncResponseStatus {
     /// All is well.
