@@ -137,9 +137,14 @@ mod tests {
                 db.as_ref().write(i.key(), bz2).unwrap();
             }
             let provider = MpoolRpcProvider::new(subscriber, state_manager_for_thread.clone());
-            MessagePool::new(provider, "test".to_string(), mpool_network_send, Default::default())
-                .await
-                .unwrap()
+            MessagePool::new(
+                provider,
+                "test".to_string(),
+                mpool_network_send,
+                Default::default(),
+            )
+            .await
+            .unwrap()
         });
 
         let state = Arc::new(RpcState {
