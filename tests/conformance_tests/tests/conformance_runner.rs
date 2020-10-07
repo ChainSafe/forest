@@ -41,7 +41,6 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
 
-
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storagemarket/AddBalance/Ok/ext-0001-fil_1_storagemarket-AddBalance-Ok-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/AddLockedFund/Ok/ext-0001-fil_1_storageminer-AddLockedFund-Ok-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/ChangeMultiaddrs/Ok/ext-0001-fil_1_storageminer-ChangeMultiaddrs-Ok-*").unwrap(),
@@ -111,7 +110,6 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-gas-for-return.json").unwrap(),
         Regex::new(r"test-vectors/corpus/reward/penalties--penalize-insufficient-balance-to-cover-gas.json").unwrap(),
         Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-balance-to-cover-gas-and-transfer.json").unwrap(),
-
     ];
 }
 
@@ -120,14 +118,13 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         Some(file) => file,
         None => return false,
     };
-
     for rx in SKIP_TESTS.iter() {
         if rx.is_match(file_name) {
             println!("SKIPPING: {}", file_name);
             return false;
         }
     }
-    return file_name.ends_with(".json");
+    file_name.ends_with(".json")
 }
 
 fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {

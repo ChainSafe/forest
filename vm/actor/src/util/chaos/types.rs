@@ -11,7 +11,6 @@ use vm::{ExitCode, Serialized, TokenAmount};
 
 /// CreateActorArgs are the arguments to CreateActor.
 #[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(rename_all = "PascalCase")]
 pub struct CreateActorArgs {
     pub undef_cid: bool,
     pub cid: Cid,
@@ -21,13 +20,11 @@ pub struct CreateActorArgs {
 
 /// Holds the response of a call to runtime.ResolveAddress
 #[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(rename_all = "PascalCase")]
 pub struct ResolveAddressResponse {
     pub address: Address,
     pub success: bool,
 }
 #[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(rename_all = "PascalCase")]
 pub struct SendArgs {
     pub to: Address,
     #[serde(with = "bigint_ser")]
@@ -38,7 +35,6 @@ pub struct SendArgs {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(rename_all = "PascalCase")]
 // SendReturn is the return values for the Send method.
 pub struct SendReturn {
     pub return_value: Serialized,
@@ -46,14 +42,12 @@ pub struct SendReturn {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(rename_all = "PascalCase")]
 pub struct MutateStateArgs {
     pub value: String,
     pub branch: i64,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(rename_all = "PascalCase")]
 pub struct AbortWithArgs {
     pub code: ExitCode,
     pub message: String,
@@ -61,7 +55,6 @@ pub struct AbortWithArgs {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(rename_all = "PascalCase")]
 pub struct InspectRuntimeReturn {
     pub caller: Address,
     pub receiver: Address,
@@ -74,7 +67,6 @@ pub struct InspectRuntimeReturn {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
-#[serde(rename_all = "PascalCase")]
 pub struct CallerValidationArgs {
     pub branch: i64,
     pub addrs: Vec<Address>,
