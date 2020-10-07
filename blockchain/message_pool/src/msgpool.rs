@@ -257,6 +257,7 @@ pub struct MessagePool<T: 'static> {
     bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     sig_val_cache: Arc<RwLock<LruCache<Cid, ()>>>,
     republished: Arc<RwLock<HashSet<Cid>>>,
+    repub_trigger: Sender<()>,
     // TODO look into adding a cap to local_msgs
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     config: MpoolConfig,
@@ -303,6 +304,7 @@ where
             republished,
             config,
             network_sender,
+            repub_trigger,
         };
 
         mp.load_local().await?;
@@ -316,10 +318,10 @@ where
 
         // TODO: Check this
         let cur_tipset = mp.cur_tipset.clone();
+        let repub_trigger = Arc::new(mp.repub_trigger.clone());
 
         // Reacts to new HeadChanges
         task::spawn(async move {
-            let repub_trigger = Arc::new(repub_trigger);
             loop {
                 if let Some(ts) = subscriber.next().await {
                     let (cur, rev, app) = match ts {
@@ -1537,7 +1539,7 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let (tx, rx) = channel(50);
+            let (tx, _rx) = channel(50);
             let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())
                 .await
                 .unwrap();
@@ -1561,10 +1563,13 @@ pub mod tests {
             let bls_sig_cache = mpool.bls_sig_cache.clone();
             let pending = mpool.pending.clone();
             let cur_tipset = mpool.cur_tipset.clone();
-
+            let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+            let republished = mpool.republished.clone();
             head_change(
                 api.as_ref(),
                 bls_sig_cache.as_ref(),
+                repub_trigger,
+                republished.as_ref(),
                 pending.as_ref(),
                 cur_tipset.as_ref(),
                 Vec::new(),
@@ -1595,7 +1600,7 @@ pub mod tests {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
-        let (tx, rx) = channel(50);
+        let (tx, _rx) = channel(50);
 
         task::block_on(async move {
             let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())
@@ -1619,10 +1624,13 @@ pub mod tests {
             let bls_sig_cache = mpool.bls_sig_cache.clone();
             let pending = mpool.pending.clone();
             let cur_tipset = mpool.cur_tipset.clone();
-
+            let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+            let republished = mpool.republished.clone();
             head_change(
                 api.as_ref(),
                 bls_sig_cache.as_ref(),
+                repub_trigger.clone(),
+                republished.as_ref(),
                 pending.as_ref(),
                 cur_tipset.as_ref(),
                 Vec::new(),
@@ -1643,6 +1651,8 @@ pub mod tests {
             head_change(
                 api.as_ref(),
                 bls_sig_cache.as_ref(),
+                repub_trigger.clone(),
+                republished.as_ref(),
                 pending.as_ref(),
                 cur_tipset.as_ref(),
                 Vec::new(),
@@ -1658,6 +1668,8 @@ pub mod tests {
             head_change(
                 api.as_ref(),
                 bls_sig_cache.as_ref(),
+                repub_trigger.clone(),
+                republished.as_ref(),
                 pending.as_ref(),
                 cur_tipset.as_ref(),
                 vec![Tipset::new(vec![b]).unwrap()],
@@ -1682,7 +1694,7 @@ pub mod tests {
 
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
-        let (tx, rx) = channel(50);
+        let (tx, _rx) = channel(50);
 
         task::block_on(async move {
             let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())
@@ -1728,7 +1740,7 @@ pub mod tests {
         let mut wallet = Wallet::new(keystore);
         let a1 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let mut tma = TestApi::default();
+        let tma = TestApi::default();
         let gas_limit = 6955002;
         task::block_on(async move {
             let tma = RwLock::new(tma);
