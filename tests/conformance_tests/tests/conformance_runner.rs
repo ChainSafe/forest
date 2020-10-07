@@ -10,6 +10,7 @@ use conformance_tests::*;
 use encoding::Cbor;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
+use interpreter::ApplyRet;
 use regex::Regex;
 use std::error::Error as StdError;
 use std::fmt;
@@ -141,14 +142,19 @@ fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
 
 fn check_msg_result(
     expected_rec: &MessageReceipt,
-    actual_rec: &MessageReceipt,
+    ret: &ApplyRet,
     label: impl fmt::Display,
 ) -> Result<(), String> {
+    let error = ret.act_error.as_ref();
+    let actual_rec = &ret.msg_receipt;
     let (expected, actual) = (expected_rec.exit_code, actual_rec.exit_code);
     if expected != actual {
         return Err(format!(
-            "exit code of msg {} did not match; expected: {:?}, got {:?}",
-            label, expected, actual
+            "exit code of msg {} did not match; expected: {:?}, got {:?}. Error: {}",
+            label,
+            expected,
+            actual,
+            error.unwrap().msg()
         ));
     }
 
@@ -196,8 +202,7 @@ fn execute_message_vector(
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
-        check_msg_result(receipt, &ret.msg_receipt, i)
-            .map_err(|e| format!("{}: Error({:?})", e, ret.act_error))?;
+        check_msg_result(receipt, &ret, i)?;
     }
 
     if root != postconditions.state_tree.root_cid {
@@ -232,13 +237,12 @@ fn execute_tipset_vector(
             ..
         } = execute_tipset(Arc::clone(&bs), &root, prev_epoch, &ts)?;
 
-        for (j, v) in applied_results.into_iter().enumerate() {
+        for (j, apply_ret) in applied_results.into_iter().enumerate() {
             check_msg_result(
                 &postconditions.receipts[receipt_idx],
-                &v.msg_receipt,
+                &apply_ret,
                 format!("{} of tipset {}", j, i),
-            )
-            .map_err(|e| format!("{}: Error({})", e, v.act_error.unwrap()))?;
+            )?;
             receipt_idx += 1;
         }
 
