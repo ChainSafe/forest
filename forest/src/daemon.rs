@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, initialize_genesis, Config};
+use super::paramfetch::{get_params_default, SectorSizeOpt};
 use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::RwLock;
 use async_std::task;
@@ -59,6 +60,11 @@ pub(super) async fn start(config: Config) {
     // Read Genesis file
     let (genesis, network_name) =
         initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
+
+    // Fetch and ensure verification keys are downloaded
+    get_params_default(SectorSizeOpt::Keys, false)
+        .await
+        .unwrap();
 
     // Libp2p service setup
     let p2p_service =
