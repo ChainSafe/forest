@@ -773,9 +773,6 @@ where
         x => {
             if rt.registered_actors.contains(&x) {
                 match x {
-                    x if x == *PUPPET_ACTOR_CODE_ID => {
-                        puppet::Actor.invoke_method(rt, method_num, params)
-                    }
                     x if x == *CHAOS_ACTOR_CODE_ID => {
                         chaos::Actor.invoke_method(rt, method_num, params)
                     }
