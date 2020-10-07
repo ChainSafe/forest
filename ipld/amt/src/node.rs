@@ -167,6 +167,16 @@ where
             for (i, link) in (0..).zip(links.iter_mut()) {
                 // links should only be flushed if the bitmap is set.
                 if bmap.get_bit(i) {
+                    #[cfg(feature = "go-interop")]
+                    if let Some(Link::Cid { cache, .. }) = link {
+                        // Yes, this is necessary to interop, and yes this is safe to borrow
+                        // mutably because there are no values changed here, just extra db writes.
+                        if let Some(cached) = cache.borrow_mut() {
+                            cached.flush(bs)?;
+                            bs.put(cached, Blake2b256)?;
+                        }
+                    }
+
                     if let Some(Link::Dirty(n)) = link {
                         // flush sub node to clear caches
                         n.flush(bs)?;
@@ -177,25 +187,12 @@ where
                         #[allow(unused_mut)]
                         let mut cache = LazyCell::new();
 
-                        #[cfg(not(feature = "go-interop"))]
-                        {
-                            // Can keep the flushed node in link cache
-                            let node = std::mem::take(n);
-                            let _ = cache.fill(node);
-                        }
+                        // Can keep the flushed node in link cache
+                        let node = std::mem::take(n);
+                        let _ = cache.fill(node);
 
                         // Turn dirty node into a Cid link
                         *link = Some(Link::Cid { cid, cache });
-                    }
-
-                    #[cfg(feature = "go-interop")]
-                    if let Some(Link::Cid { cache, .. }) = link {
-                        // Yes, this is necessary to interop, and yes this is safe to borrow
-                        // mutably because there are no values changed here, just extra db writes.
-                        if let Some(cached) = cache.borrow_mut() {
-                            cached.flush(bs)?;
-                            bs.put(cached, Blake2b256)?;
-                        }
                     }
                 }
             }

@@ -176,10 +176,7 @@ fn flush_read() {
 
     #[rustfmt::skip]
     #[cfg(feature = "go-interop")]
-    // TODO this case doesn't match go implementation but this also doesn't happen within
-    // Actors code (yet). There might need to be a workaround to match go implementation exactly.
-    assert_eq!(*db.stats.borrow(), BSStats {r: 15, w: 25, br: 1834, bw: 3086});
-    // assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 25, br: 1157, bw: 3086});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 25, br: 1157, bw: 3086});
 }
 
 #[test]
