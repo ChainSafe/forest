@@ -14,7 +14,7 @@ pub struct MessageVector {
 
 pub fn execute_message(
     bs: &db::MemoryDB,
-    msg: &UnsignedMessage,
+    msg: &ChainMessage,
     pre_root: &Cid,
     epoch: ChainEpoch,
     selector: &Option<Selector>,
@@ -29,13 +29,6 @@ pub fn execute_message(
     )?;
 
     if let Some(s) = &selector {
-        if s.puppet_actor
-            .as_ref()
-            .map(|s| s == "true")
-            .unwrap_or_default()
-        {
-            vm.register_actor(PUPPET_ACTOR_CODE_ID.clone());
-        }
         if s.chaos_actor
             .as_ref()
             .map(|s| s == "true")

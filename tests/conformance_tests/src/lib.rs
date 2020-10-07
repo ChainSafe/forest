@@ -10,7 +10,7 @@ mod tipset;
 pub use self::message::*;
 pub use self::stubs::*;
 pub use self::tipset::*;
-use actor::{CHAOS_ACTOR_CODE_ID, PUPPET_ACTOR_CODE_ID};
+use actor::CHAOS_ACTOR_CODE_ID;
 use address::Address;
 use blockstore::BlockStore;
 use cid::Cid;
@@ -18,7 +18,7 @@ use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use encoding::Cbor;
 use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
-use forest_message::{ChainMessage, MessageReceipt, UnsignedMessage};
+use forest_message::{ChainMessage, MessageReceipt};
 use interpreter::{ApplyRet, BlockMessages, Rand, VM};
 use num_bigint::BigInt;
 use runtime::{ConsensusFault, Syscalls};
@@ -54,20 +54,6 @@ mod base64_bytes {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(de::Error::custom)?)
         }
-    }
-}
-
-mod bigint_json {
-    use super::*;
-    use serde::de;
-    use std::borrow::Cow;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Ok(s.parse().map_err(de::Error::custom)?)
     }
 }
 

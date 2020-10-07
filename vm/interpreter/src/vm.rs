@@ -16,7 +16,7 @@ use fil_types::{DevnetParams, NetworkParams};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
-use message::{Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use runtime::Syscalls;
@@ -33,8 +33,7 @@ const GAS_OVERUSE_DENOM: i64 = 10;
 #[derive(Debug)]
 pub struct BlockMessages {
     pub miner: Address,
-    pub bls_messages: Vec<UnsignedMessage>,
-    pub secpk_messages: Vec<SignedMessage>,
+    pub messages: Vec<ChainMessage>,
     pub win_count: i64,
 }
 
@@ -106,7 +105,7 @@ where
 
     fn run_cron(
         &mut self,
-        callback: Option<&mut impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<&mut impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(), Box<dyn StdError>> {
         let sys_act = self
             .state()
@@ -132,7 +131,7 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(cron_msg.cid()?, cron_msg, ret)?;
+            callback(cron_msg.cid()?, &ChainMessage::Unsigned(cron_msg), ret)?;
         }
         Ok(())
     }
@@ -144,7 +143,7 @@ where
         messages: &[BlockMessages],
         parent_epoch: ChainEpoch,
         epoch: ChainEpoch,
-        mut callback: Option<impl FnMut(Cid, UnsignedMessage, ApplyRet) -> Result<(), String>>,
+        mut callback: Option<impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -160,7 +159,7 @@ where
             let mut penalty = Default::default();
             let mut gas_reward = Default::default();
 
-            let mut process_msg = |msg: &UnsignedMessage| -> Result<(), Box<dyn StdError>> {
+            let mut process_msg = |msg: &ChainMessage| -> Result<(), Box<dyn StdError>> {
                 let cid = msg.cid()?;
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
@@ -168,7 +167,7 @@ where
                 }
                 let ret = self.apply_message(msg)?;
                 if let Some(cb) = &mut callback {
-                    cb(msg.cid()?, msg.clone(), ret.clone())?;
+                    cb(msg.cid()?, msg, ret.clone())?;
                 }
 
                 // Update totals
@@ -181,11 +180,8 @@ where
                 Ok(())
             };
 
-            for msg in &block.bls_messages {
+            for msg in &block.messages {
                 process_msg(msg)?;
-            }
-            for msg in &block.secpk_messages {
-                process_msg(msg.message())?;
             }
 
             // Generate reward transaction for the miner of the block
@@ -233,7 +229,7 @@ where
             }
 
             if let Some(callback) = &mut callback {
-                callback(rew_msg.cid()?, rew_msg, ret)?;
+                callback(rew_msg.cid()?, &ChainMessage::Unsigned(rew_msg), ret)?;
             }
         }
 
@@ -262,8 +258,8 @@ where
 
     /// Applies the state transition for a single message
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
-    pub fn apply_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
-        check_message(msg)?;
+    pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
+        check_message(msg.message())?;
 
         let pl = price_list_by_epoch(self.epoch());
         let ser_msg = &msg.marshal_cbor().map_err(|e| e.to_string())?;
@@ -353,7 +349,7 @@ where
 
         self.state.snapshot()?;
 
-        let (mut ret_data, rt, mut act_err) = self.send(msg, Some(msg_gas_cost));
+        let (mut ret_data, rt, mut act_err) = self.send(msg.message(), Some(msg_gas_cost));
         if let Some(err) = &act_err {
             if err.is_fatal() {
                 return Err(format!(
