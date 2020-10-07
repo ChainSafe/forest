@@ -18,9 +18,9 @@ pub struct SignedMessage {
 impl SignedMessage {
     /// Generate new signed message from an unsigned message and a signer.
     pub fn new<S: Signer>(message: UnsignedMessage, signer: &S) -> Result<Self, CryptoError> {
-        let bz = message.marshal_cbor()?;
+        let bz = message.to_signing_bytes();
 
-        let signature = signer.sign_bytes(bz, message.from())?;
+        let signature = signer.sign_bytes(&bz, message.from())?;
 
         Ok(SignedMessage { message, signature })
     }
@@ -30,10 +30,7 @@ impl SignedMessage {
         message: UnsignedMessage,
         signature: Signature,
     ) -> Result<SignedMessage, String> {
-        signature.verify(
-            &message.marshal_cbor().map_err(|err| err.to_string())?,
-            message.from(),
-        )?;
+        signature.verify(&message.to_signing_bytes(), message.from())?;
         Ok(SignedMessage { message, signature })
     }
 
@@ -60,6 +57,12 @@ impl SignedMessage {
     /// Checks if the signed message is a Secp256k1 message.
     pub fn is_secp256k1(&self) -> bool {
         self.signature.signature_type() == SignatureType::Secp256k1
+    }
+
+    /// Verifies that the from address of the message generated the signature.
+    pub fn verify(&self) -> Result<(), String> {
+        self.signature
+            .verify(&self.message.to_signing_bytes(), self.from())
     }
 }
 
@@ -107,10 +110,6 @@ impl Message for SignedMessage {
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         self.message.set_gas_premium(prem);
-    }
-
-    fn valid_for_block_inclusion(&self, min_gas: i64) -> Result<(), String> {
-        self.message.valid_for_block_inclusion(min_gas)
     }
 }
 
