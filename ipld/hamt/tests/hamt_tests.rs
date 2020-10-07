@@ -156,7 +156,7 @@ fn set_delete_many() {
     );
     #[rustfmt::skip]
     #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*store.stats.borrow(), BSStats { r: 61, w: 93, br: 6478, bw: 12849 });
+    assert_eq!(*store.stats.borrow(), BSStats { r: 0, w: 93, br: 0, bw: 12849 });
 
     #[rustfmt::skip]
     #[cfg(feature = "go-interop")]

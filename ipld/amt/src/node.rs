@@ -174,11 +174,18 @@ where
                         // Puts node in blockstore and and retrieves it's CID
                         let cid = bs.put(n, Blake2b256)?;
 
+                        #[allow(unused_mut)]
+                        let mut cache = LazyCell::new();
+
+                        #[cfg(not(feature = "go-interop"))]
+                        {
+                            // Can keep the flushed node in link cache
+                            let node = std::mem::take(n);
+                            let _ = cache.fill(node);
+                        }
+
                         // Turn dirty node into a Cid link
-                        *link = Some(Link::Cid {
-                            cid,
-                            cache: Default::default(),
-                        });
+                        *link = Some(Link::Cid { cid, cache });
                     }
 
                     #[cfg(feature = "go-interop")]

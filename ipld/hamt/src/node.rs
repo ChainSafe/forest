@@ -7,6 +7,7 @@ use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::multihash::Blake2b256;
 use ipld_blockstore::BlockStore;
+use lazycell::LazyCell;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
@@ -384,11 +385,18 @@ where
                 // Put node in blockstore and retrieve Cid
                 let cid = store.put(node, Blake2b256)?;
 
+                #[allow(unused_mut)]
+                let mut cache = LazyCell::new();
+
+                #[cfg(not(feature = "go-interop"))]
+                {
+                    // Can keep the flushed node in link cache
+                    let node = std::mem::take(node);
+                    let _ = cache.fill(node);
+                }
+
                 // Replace cached node with Cid link
-                *pointer = Pointer::Link {
-                    cid,
-                    cache: Default::default(),
-                };
+                *pointer = Pointer::Link { cid, cache };
             }
 
             #[cfg(feature = "go-interop")]

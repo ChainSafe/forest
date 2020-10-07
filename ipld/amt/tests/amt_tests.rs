@@ -143,6 +143,46 @@ fn bulk_insert() {
 }
 
 #[test]
+fn flush_read() {
+    let mem = db::MemoryDB::default();
+    let db = TrackingBlockStore::new(&mem);
+    let mut a = Amt::new(&db);
+
+    let iterations: u64 = 100;
+
+    for i in 0..iterations {
+        a.set(i, "foo foo bar".to_owned()).unwrap();
+    }
+
+    for i in 0..iterations {
+        assert_get(&a, i, &"foo foo bar".to_owned());
+    }
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 9, br: 1157, bw: 1157});
+
+    // Flush but don't reload from Cid
+    a.flush().unwrap();
+
+    // These reads can hit cache, if saved
+    for i in 0..iterations {
+        assert_get(&a, i, &"foo foo bar".to_owned());
+    }
+
+    #[rustfmt::skip]
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*db.stats.borrow(), BSStats { r: 0, w: 16, br: 0, bw: 1929 });
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    // TODO this case doesn't match go implementation but this also doesn't happen within
+    // Actors code (yet). There might need to be a workaround to match go implementation exactly.
+    assert_eq!(*db.stats.borrow(), BSStats {r: 15, w: 25, br: 1834, bw: 3086});
+    // assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 25, br: 1157, bw: 3086});
+}
+
+#[test]
 fn delete() {
     let mem = db::MemoryDB::default();
     let db = TrackingBlockStore::new(&mem);
