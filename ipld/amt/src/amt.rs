@@ -114,6 +114,9 @@ where
         while i >= nodes_for_height(self.height() + 1) {
             // node at index exists
             if !self.root.node.empty() {
+                // Parent node for expansion
+                let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
+
                 #[cfg(feature = "go-interop")]
                 {
                     // Save and get cid to be able to link from higher level node
@@ -122,29 +125,22 @@ where
                     // Get cid from storing root node
                     let cid = self.block_store.put(&self.root.node, Blake2b256)?;
 
-                    // Set links node with first index as cid
-                    let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
+                    // Set link to child node being expanded
                     new_links[0] = Some(Link::from(cid));
-
-                    self.root.node = Node::Link {
-                        bmap: BitMap::new(0x01),
-                        links: new_links,
-                    };
                 }
                 #[cfg(not(feature = "go-interop"))]
                 {
                     // Take root node to be moved down
                     let node = std::mem::take(&mut self.root.node);
 
-                    // Set links node with first index as cid
-                    let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
+                    // Set link to child node being expanded
                     new_links[0] = Some(Link::Dirty(Box::new(node)));
-
-                    self.root.node = Node::Link {
-                        bmap: BitMap::new(0x01),
-                        links: new_links,
-                    };
                 }
+
+                self.root.node = Node::Link {
+                    bmap: BitMap::new(0x01),
+                    links: new_links,
+                };
             } else {
                 // If first expansion is before a value inserted, convert base node to Link
                 self.root.node = Node::Link {
