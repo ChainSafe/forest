@@ -232,10 +232,10 @@ pub(super) fn load_cron_events<BS: BlockStore>(
 }
 
 /// Gets claim from claims map by address
-pub fn get_claim<BS: BlockStore>(
-    claims: &Map<BS, Claim>,
+pub fn get_claim<'m, BS: BlockStore>(
+    claims: &'m Map<BS, Claim>,
     a: &Address,
-) -> Result<Option<Claim>, Box<dyn StdError>> {
+) -> Result<Option<&'m Claim>, Box<dyn StdError>> {
     Ok(claims
         .get(&a.to_bytes())
         .map_err(|e| e.downcast_wrap(format!("failed to get claim for address {}", a)))?)

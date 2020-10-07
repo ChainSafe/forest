@@ -21,10 +21,12 @@ use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
+use num_traits::Signed;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
+use types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
 use vm::ActorState;
 use wallet::KeyStore;
 
@@ -133,7 +135,9 @@ pub trait Provider {
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
     /// Resolves to the key address
-    async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>;
+    async fn state_account_key<V>(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>
+    where
+        V: ProofVerifier;
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>;
     /// Return a tipset given the tipset keys from the ChainStore
@@ -211,9 +215,12 @@ where
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
         chain::compute_base_fee(self.sm.blockstore(), ts).map_err(|err| err.into())
     }
-    async fn state_account_key(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+    async fn state_account_key<V>(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>
+    where
+        V: ProofVerifier,
+    {
         self.sm
-            .resolve_to_key_addr(addr, ts)
+            .resolve_to_key_addr::<V>(addr, ts)
             .await
             .map_err(|e| Error::Other(e.to_string()))
     }
@@ -339,7 +346,7 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        msg.valid_for_block_inclusion(0).map_err(Error::Other)?;
+        message_valid_for_block_inclusion(&msg.message(), 0).map_err(Error::Other)?;
         if msg.value() > &BigInt::from(types::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
@@ -351,13 +358,12 @@ where
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
     /// to be pushed to the MessagePool
-    pub async fn add(&self, msg: &SignedMessage) -> Result<(), Error> {
+    pub async fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg).await?;
-        let tmp = msg.clone();
 
         let tip = self.cur_tipset.read().await.clone();
 
-        self.add_tipset(tmp, &tip).await
+        self.add_tipset(msg, &tip).await
     }
 
     /// Add a SignedMessage without doing any of the checks
@@ -374,10 +380,7 @@ where
             return Ok(());
         }
 
-        let umsg = msg.message().marshal_cbor()?;
-        msg.signature()
-            .verify(umsg.as_slice(), msg.from())
-            .map_err(Error::Other)?;
+        msg.verify().map_err(Error::Other)?;
 
         self.sig_val_cache.write().await.put(cid, ());
 
@@ -452,16 +455,17 @@ where
     }
 
     /// Adds a local message returned from the call back function with the current nonce
-    pub async fn push_with_sequence(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
+    pub async fn push_with_sequence<V>(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
     where
         T: Fn(Address, u64) -> Result<SignedMessage, Error>,
+        V: ProofVerifier,
     {
         let cur_ts = self.cur_tipset.read().await.clone();
         let from_key = match addr.protocol() {
             Protocol::ID => {
                 let api = self.api.read().await;
 
-                api.state_account_key(&addr, &self.cur_tipset.read().await.clone())
+                api.state_account_key::<V>(&addr, &self.cur_tipset.read().await.clone())
                     .await?
             }
             _ => *addr,
@@ -601,8 +605,9 @@ where
         let mut rm_vec = Vec::new();
         let msg_vec: Vec<SignedMessage> = local_msgs.iter().cloned().collect();
 
-        for k in msg_vec {
-            self.add(&k).await.unwrap_or_else(|err| {
+        for k in msg_vec.into_iter() {
+            // TODO no need to clone message, if error, message could be returned in error
+            self.add(k.clone()).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
                     rm_vec.push(k);
@@ -677,8 +682,7 @@ where
 fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
-    m.valid_for_block_inclusion(min_gas.total())
-        .map_err(Error::Other)?;
+    message_valid_for_block_inclusion(&m.message(), min_gas.total()).map_err(Error::Other)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
         let base_fee_lower_bound =
@@ -694,6 +698,38 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
         }
     }
     Ok(local)
+}
+
+/// Validates the message has enough gas and is semantically validated
+// TODO move this logic to message crate under a feature or to a common location.
+fn message_valid_for_block_inclusion(msg: &UnsignedMessage, min_gas: i64) -> Result<(), String> {
+    if msg.version != 0 {
+        return Err(format!("Message version: {} not  supported", msg.version));
+    }
+    if msg.value.is_negative() {
+        return Err("message value cannot be negative".to_string());
+    }
+    if msg.value > TOTAL_FILECOIN.into() {
+        return Err("message value cannot be greater than total FIL supply".to_string());
+    }
+    if msg.gas_fee_cap.is_negative() {
+        return Err("gas_fee_cap cannot be negative".to_string());
+    }
+    if msg.gas_premium.is_negative() {
+        return Err("gas_premium cannot be negative".to_string());
+    }
+    if msg.gas_premium > msg.gas_fee_cap {
+        return Err("gas_fee_cap less than gas_premium".to_string());
+    }
+    if msg.gas_limit > BLOCK_GAS_LIMIT {
+        return Err("gas_limit cannot be greater than block gas limit".to_string());
+    }
+
+    if msg.gas_limit < min_gas {
+        return Err("gas_limit cannot be less than cost of storing a message on chain".to_string());
+    }
+
+    Ok(())
 }
 
 fn get_base_fee_lower_bound(base_fee: &BigInt, factor: i64) -> BigInt {
@@ -993,7 +1029,11 @@ pub mod test_provider {
             }
         }
 
-        async fn state_account_key(&self, addr: &Address, _ts: &Tipset) -> Result<Address, Error> {
+        async fn state_account_key<V>(
+            &self,
+            addr: &Address,
+            _ts: &Tipset,
+        ) -> Result<Address, Error> {
             match addr.protocol() {
                 Protocol::BLS | Protocol::Secp256k1 => Ok(*addr),
                 _ => Err(Error::Other("given address was not a key addr".to_string())),
@@ -1069,9 +1109,11 @@ pub mod tests {
             .gas_fee_cap(100.into())
             .build()
             .unwrap();
-        let message_cbor = Cbor::marshal_cbor(&umsg).unwrap();
-        let sig = wallet.sign(&from, message_cbor.as_slice()).unwrap();
-        SignedMessage::new_from_parts(umsg, sig).unwrap()
+        let msg_signing_bytes = umsg.to_signing_bytes();
+        let sig = wallet.sign(&from, msg_signing_bytes.as_slice()).unwrap();
+        let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap();
+        smsg.verify().unwrap();
+        smsg
     }
 
     fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
@@ -1149,9 +1191,9 @@ pub mod tests {
 
             mpool.api.write().await.set_state_sequence(&sender, 0);
             assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
-            mpool.add(&smsg_vec[0].clone()).await.unwrap();
+            mpool.add(smsg_vec[0].clone()).await.unwrap();
             assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
-            mpool.add(&smsg_vec[1].clone()).await.unwrap();
+            mpool.add(smsg_vec[1].clone()).await.unwrap();
             assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
 
             let a = mock_block(1, 1);
@@ -1207,10 +1249,10 @@ pub mod tests {
             api_temp.set_state_sequence(&sender, 0);
             drop(api_temp);
 
-            mpool.add(&smsg_vec[0]).await.unwrap();
-            mpool.add(&smsg_vec[1]).await.unwrap();
-            mpool.add(&smsg_vec[2]).await.unwrap();
-            mpool.add(&smsg_vec[3]).await.unwrap();
+            mpool.add(smsg_vec[0].clone()).await.unwrap();
+            mpool.add(smsg_vec[1].clone()).await.unwrap();
+            mpool.add(smsg_vec[2].clone()).await.unwrap();
+            mpool.add(smsg_vec[3].clone()).await.unwrap();
 
             mpool.api.write().await.set_state_sequence(&sender, 0);
 

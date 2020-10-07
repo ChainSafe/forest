@@ -3,13 +3,8 @@
 
 use ipld_hamt::{BytesKey, Hamt};
 
-#[cfg(feature = "murmur")]
 use cid::multihash::Blake2b256;
-#[cfg(feature = "murmur")]
-use ipld_blockstore::BlockStore;
-#[cfg(feature = "murmur")]
-use ipld_hamt::Murmur3;
-#[cfg(feature = "murmur")]
+use ipld_blockstore::{BSStats, BlockStore, TrackingBlockStore};
 use serde_bytes::ByteBuf;
 
 #[cfg(feature = "identity")]
@@ -24,9 +19,9 @@ fn test_basics() {
     let mut hamt = Hamt::<_, String, _>::new(&store);
     hamt.set(1, "world".to_string()).unwrap();
 
-    assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some(&"world".to_string()));
     hamt.set(1, "world2".to_string()).unwrap();
-    assert_eq!(hamt.get(&1).unwrap(), Some("world2".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some(&"world2".to_string()));
 }
 
 #[test]
@@ -36,9 +31,9 @@ fn test_load() {
     let mut hamt: Hamt<_, _, usize> = Hamt::new(&store);
     hamt.set(1, "world".to_string()).unwrap();
 
-    assert_eq!(hamt.get(&1).unwrap(), Some("world".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some(&"world".to_string()));
     hamt.set(1, "world2".to_string()).unwrap();
-    assert_eq!(hamt.get(&1).unwrap(), Some("world2".to_string()));
+    assert_eq!(hamt.get(&1).unwrap(), Some(&"world2".to_string()));
     let c = hamt.flush().unwrap();
 
     let new_hamt = Hamt::load(&c, &store).unwrap();
@@ -66,12 +61,11 @@ fn test_load() {
 }
 
 #[test]
-#[cfg(feature = "murmur")]
 fn delete() {
-    let store = db::MemoryDB::default();
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
 
-    // ! Note that bytes must be specifically indicated serde_bytes type
-    let mut hamt: Hamt<_, _, BytesKey, Murmur3> = Hamt::new(&store);
+    let mut hamt: Hamt<_, _> = Hamt::new(&store);
     let (v1, v2, v3): (&[u8], &[u8], &[u8]) = (
         b"cat dog bear".as_ref(),
         b"cat dog".as_ref(),
@@ -83,47 +77,49 @@ fn delete() {
 
     let c = hamt.flush().unwrap();
     assert_eq!(
-        hex::encode(c.to_bytes()),
-        "0171a0e402204c4cec750f4e5fc0df61e5a6b6f430d45e6d42108824492658ccd480a4f86aef"
+        c.to_string().as_str(),
+        "bafy2bzacebhjoag2qmyibmvvzq372pg2evlkchovqdksmna4hm7py5itnrlhg"
     );
 
-    let mut h2 = Hamt::<_, ByteBuf, BytesKey, Murmur3>::load(&c, &store).unwrap();
-    assert_eq!(h2.delete(&b"foo".to_vec()).unwrap(), true);
+    let mut h2 = Hamt::<_, ByteBuf>::load(&c, &store).unwrap();
+    assert!(h2.delete(&b"foo".to_vec()).unwrap().is_some());
     assert_eq!(h2.get(&b"foo".to_vec()).unwrap(), None);
-
-    // Assert previous hamt still has access
-    assert_eq!(hamt.get(&b"foo".to_vec()).unwrap(), Some(ByteBuf::from(v1)));
 
     let c2 = h2.flush().unwrap();
     assert_eq!(
-        hex::encode(c2.to_bytes()),
-        "0171a0e40220f8889d65614928ee8fd0a1fc27fb94357751ce95e99260b16b8789455eb7d212"
+        c2.to_string().as_str(),
+        "bafy2bzaceczehhtzfhg4ijrkv2omajt5ygwbd6srqhhtkxgd2hjttpihxs5ky"
     );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 1, w: 2, br: 88, bw: 154});
 }
 
 #[test]
-#[cfg(feature = "murmur")]
 fn reload_empty() {
-    let store = db::MemoryDB::default();
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
 
-    let hamt: Hamt<_, (), BytesKey, Murmur3> = Hamt::new(&store);
+    let hamt: Hamt<_, ()> = Hamt::new(&store);
     let c = store.put(&hamt, Blake2b256).unwrap();
-    assert_eq!(
-        hex::encode(c.to_bytes()),
-        "0171a0e4022018fe6acc61a3a36b0c373c4a3a8ea64b812bf2ca9b528050909c78d408558a0c"
-    );
-    let h2 = Hamt::<_, (), BytesKey, Murmur3>::load(&c, &store).unwrap();
+
+    let h2 = Hamt::<_, ()>::load(&c, &store).unwrap();
     let c2 = store.put(&h2, Blake2b256).unwrap();
     assert_eq!(c, c2);
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaceamp42wmmgr2g2ymg46euououzfyck7szknvfacqscohrvaikwfay"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 1, w: 2, br: 3, bw: 6});
 }
 
 #[test]
-#[cfg(feature = "murmur")]
 fn set_delete_many() {
-    let store = db::MemoryDB::default();
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
 
     // Test vectors setup specifically for bit width of 5
-    let mut hamt: Hamt<_, _, BytesKey, Murmur3> = Hamt::new_with_bit_width(&store, 5);
+    let mut hamt: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 0..200 {
         hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
@@ -131,8 +127,8 @@ fn set_delete_many() {
 
     let c1 = hamt.flush().unwrap();
     assert_eq!(
-        hex::encode(c1.to_bytes()),
-        "0171a0e402207c660382de99c174ce39517bdbd28f3967801aebbd9795f0591e226d93e2f010"
+        c1.to_string().as_str(),
+        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
     );
 
     for i in 200..400 {
@@ -141,23 +137,29 @@ fn set_delete_many() {
 
     let cid_all = hamt.flush().unwrap();
     assert_eq!(
-        hex::encode(cid_all.to_bytes()),
-        "0171a0e40220dba161623db24093bd90e00c3d185bae8468f8d3e81f01f112b3afe47e603fd1"
+        cid_all.to_string().as_str(),
+        "bafy2bzaceaqmub32nf33s3joo6x2l3schxreuow7jkla7a27l7qcrsb2elzay"
     );
 
     for i in 200..400 {
-        assert_eq!(hamt.delete(&format!("{}", i).into_bytes()).unwrap(), true);
+        assert!(hamt
+            .delete(&format!("{}", i).into_bytes())
+            .unwrap()
+            .is_some());
     }
     // Ensure first 200 keys still exist
     for i in 0..200 {
-        assert_eq!(hamt.get(&format!("{}", i).into_bytes()).unwrap(), Some(i));
+        assert_eq!(hamt.get(&format!("{}", i).into_bytes()).unwrap(), Some(&i));
     }
 
     let cid_d = hamt.flush().unwrap();
     assert_eq!(
-        hex::encode(cid_d.to_bytes()),
-        "0171a0e402207c660382de99c174ce39517bdbd28f3967801aebbd9795f0591e226d93e2f010"
+        cid_d.to_string().as_str(),
+        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
     );
+    #[rustfmt::skip]
+    // TODO https://github.com/ChainSafe/forest/issues/729
+    assert_eq!(*store.stats.borrow(), BSStats { r: 61, w: 93, br: 6478, bw: 12849 });
 }
 
 #[cfg(feature = "identity")]
@@ -166,6 +168,7 @@ fn add_and_remove_keys(
     keys: &[&[u8]],
     extra_keys: &[&[u8]],
     expected: &'static str,
+    stats: BSStats,
 ) {
     let all: Vec<(BytesKey, u8)> = keys
         .iter()
@@ -174,7 +177,8 @@ fn add_and_remove_keys(
         .map(|(i, k)| (k.to_vec().into(), i as u8))
         .collect();
 
-    let store = db::MemoryDB::default();
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
 
     let mut hamt: Hamt<_, _, _, Identity> = Hamt::new_with_bit_width(&store, bit_width);
 
@@ -187,7 +191,7 @@ fn add_and_remove_keys(
         Hamt::load_with_bit_width(&cid, &store, bit_width).unwrap();
 
     for (k, v) in all {
-        assert_eq!(Some(v), h1.get(&k).unwrap());
+        assert_eq!(Some(&v), h1.get(&k).unwrap());
     }
 
     // Set and delete extra keys
@@ -204,47 +208,129 @@ fn add_and_remove_keys(
     let cid1 = h1.flush().unwrap();
     let cid2 = h2.flush().unwrap();
     assert_eq!(cid1, cid2);
-    assert_eq!(hex::encode(cid1.to_bytes()), expected);
+    assert_eq!(cid1.to_string().as_str(), expected);
+    assert_eq!(*store.stats.borrow(), stats);
 }
 
 #[test]
 #[cfg(feature = "identity")]
 fn canonical_structure() {
     // Champ mutation semantics test
+    #[rustfmt::skip]
     add_and_remove_keys(
         DEFAULT_BIT_WIDTH,
         &[b"K"],
         &[b"B"],
-        "0171a0e402208683c5cd09bc6c1df93d100bee677d7a6bbe8db0b340361866e3fb20fb0a981e",
+        "bafy2bzacecdihronbg6gyhpzhuiax3thpv5gxpunwczuanqym3r7wih3bkmb4",
+        BSStats {r: 2, w: 4, br: 42, bw: 84},
     );
+    #[rustfmt::skip]
     add_and_remove_keys(
         DEFAULT_BIT_WIDTH,
         &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
         &[b"KAA4"],
-        "0171a0e40220e2a9e53c77d146010b60f2be9b3ba423c0db4efea06e66bd87e072671c8ef411",
+        "bafy2bzacedrktzj4o7iumailmdzl5gz3uqr4bw2o72qg4zv5q7qhezy4r32bc",
+        // TODO we have a LOT less reads and writes, match go with 
+        // https://github.com/ChainSafe/forest/issues/729
+        BSStats { r: 4, w: 6, br: 228, bw: 346 },
     );
 }
 
 #[test]
 #[cfg(feature = "identity")]
 fn canonical_structure_alt_bit_width() {
+    #[rustfmt::skip]
     let kb_cases = [
-        "0171a0e402209a00d457b7d5d398a225fa837125db401a5eabdf4833352aed48dd28dc6eca56",
-        "0171a0e40220b45f48552b1b802fafcb79b417c4d2972ea42cd24600eaf9a0d1314c7d46c214",
-        "0171a0e40220c4ac32c9bb0dbec96b290d68b1b1fc6e1ddfe33f99420b4b46a078255d997db8",
+        (
+            "bafy2bzacecnabvcxw7k5hgfcex5ig4jf3nabuxvl35edgnjk5ven2kg4n3ffm",
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 2, w: 4, br: 26, bw: 52 },
+        ),
+        (
+            "bafy2bzacec2f6scvfmnyal5pzn43if6e2kls5jbm2jdab2xzuditctd5i3bbi",
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 2, w: 4, br: 28, bw: 56 },
+        ),
+        (
+            "bafy2bzacedckymwjxmg35sllfegwrmnr7rxb3x7dh6muec2li2qhqjk5tf63q",
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 2, w: 4, br: 32, bw: 64 },
+        ),
     ];
+    #[rustfmt::skip]
     let other_cases = [
-        "0171a0e40220c5f39f53c67de67dbf8a058b699fb1e4673d78a5f6a0dc59583f9a175db234e3",
-        "0171a0e40220c84814bb7fdbb71a17ac24b0eb110a38e4e79c93fccaa6d87fa9e5aa771bb453",
-        "0171a0e4022094833c20da84ad6e18a603a47aa143e3393171d45786eddc5b182ae647dafd64",
+        (
+            "bafy2bzacedc7hh2tyz66m7n7ricyw2m7whsgoplyux3kbxczla7zuf25wi2og",
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 4, w: 6, br: 190, bw: 292 },
+        ),
+        (
+            "bafy2bzacedeeqff3p7n3ogqxvqslb2yrbi4ojz44sp6mvjwyp6u6lktxdo2fg",
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 4, w: 6, br: 202, bw: 306 },
+        ),
+        (
+            "bafy2bzaceckigpba3kck23qyuyb2i6vbiprtsmlr2rlyn3o4lmmcvzsh3l6wi",
+            // TODO https://github.com/ChainSafe/forest/issues/729
+            BSStats { r: 4, w: 6, br: 214, bw: 322 },
+        ),
     ];
     for i in 5..8 {
-        add_and_remove_keys(i, &[b"K"], &[b"B"], kb_cases[(i - 5) as usize]);
+        #[rustfmt::skip]
+        add_and_remove_keys(
+            i,
+            &[b"K"],
+            &[b"B"],
+            kb_cases[(i - 5) as usize].0,
+            kb_cases[(i - 5) as usize].1,
+        );
+        #[rustfmt::skip]
         add_and_remove_keys(
             i,
             &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
             &[b"KAA4"],
-            other_cases[(i - 5) as usize],
+            other_cases[(i - 5) as usize].0,
+            other_cases[(i - 5) as usize].1,
         );
     }
+}
+
+#[test]
+fn clean_child_ordering() {
+    let make_key = |i: u64| -> BytesKey {
+        let mut key = unsigned_varint::encode::u64_buffer();
+        let n = unsigned_varint::encode::u64(i, &mut key);
+        n.to_vec().into()
+    };
+
+    let dummy_value = BytesKey(vec![0xaa, 0xbb, 0xcc, 0xdd]);
+
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut h: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
+
+    for i in 100..195 {
+        h.set(make_key(i), dummy_value.clone()).unwrap();
+    }
+
+    let root = h.flush().unwrap();
+    assert_eq!(
+        root.to_string().as_str(),
+        "bafy2bzaced2mfx4zquihmrbqei2ghtbsf7bvupjzaiwkkgfmvpfrbud25gfli"
+    );
+    let mut h = Hamt::<_, BytesKey>::load_with_bit_width(&root, &store, 5).unwrap();
+
+    h.delete(&make_key(104)).unwrap();
+    h.delete(&make_key(108)).unwrap();
+    let root = h.flush().unwrap();
+    Hamt::<_, BytesKey>::load_with_bit_width(&root, &store, 5).unwrap();
+
+    assert_eq!(
+        root.to_string().as_str(),
+        "bafy2bzacec6ro3q36okye22evifu6h7kwdkjlb4keq6ogpfqivka6myk6wkjo"
+    );
+    #[rustfmt::skip]
+    // TODO https://github.com/ChainSafe/forest/issues/729
+    assert_eq!(*store.stats.borrow(), BSStats { r: 3, w: 11, br: 1992, bw: 2510 });
 }

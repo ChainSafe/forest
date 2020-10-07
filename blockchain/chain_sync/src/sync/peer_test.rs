@@ -8,6 +8,7 @@ use async_std::task;
 use beacon::MockBeacon;
 use blocks::BlockHeader;
 use db::MemoryDB;
+use fil_types::verifier::MockVerifier;
 use forest_libp2p::{hello::HelloRequest, rpc::ResponseChannel};
 use libp2p::core::PeerId;
 use state_manager::StateManager;
@@ -36,7 +37,7 @@ fn peer_manager_update() {
     let genesis_ts = Arc::new(Tipset::new(vec![dummy_header]).unwrap());
     let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
     let state_manager = Arc::new(StateManager::new(db));
-    let cs = ChainSyncer::new(
+    let cs = ChainSyncer::<_, _, MockVerifier>::new(
         chain_store,
         state_manager,
         beacon,

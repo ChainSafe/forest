@@ -8,27 +8,20 @@ pub use self::actor_code::*;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1, data_commitment_v1_to_cid};
+use commcid::data_commitment_v1_to_cid;
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
-    zero_piece_commitment, PaddedPieceSize, PieceInfo, RegisteredSealProof, SealVerifyInfo,
-    SectorInfo, WindowPoStVerifyInfo,
+    zero_piece_commitment, PaddedPieceSize, PieceInfo, Randomness, RegisteredSealProof,
+    SealVerifyInfo, WindowPoStVerifyInfo,
 };
-use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
-use filecoin_proofs_api::{
-    post::verify_window_post,
-    seal::{compute_comm_d, verify_seal as proofs_verify_seal},
-    PublicReplicaInfo,
-};
+use filecoin_proofs_api::seal::compute_comm_d;
+use filecoin_proofs_api::{self as proofs};
 use forest_encoding::{blake2b_256, Cbor};
 use ipld_blockstore::BlockStore;
-use log::warn;
-use rayon::prelude::*;
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error as StdError;
-use vm::{ActorError, MethodNum, Randomness, Serialized, TokenAmount};
+use vm::{ActorError, MethodNum, Serialized, TokenAmount};
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
@@ -214,55 +207,10 @@ pub trait Syscalls {
         Ok(data_commitment_v1_to_cid(&comm_d)?)
     }
     /// Verifies a sector seal proof.
-    // TODO needs to be updated to reflect changes
-    fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        verify_seal(vi)
-    }
-    /// Verifies a proof of spacetime.
-    fn verify_post(&self, verify_info: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        type ReplicaMapResult = Result<(SectorId, PublicReplicaInfo), String>;
+    fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>>;
 
-        // collect proof bytes
-        let proofs: Vec<(proofs::RegisteredPoStProof, &[u8])> = verify_info
-            .proofs
-            .iter()
-            .map(|post| {
-                Ok((
-                    proofs::RegisteredPoStProof::try_from(post.post_proof)?,
-                    post.proof_bytes.as_slice(),
-                ))
-            })
-            .collect::<Result<_, String>>()?;
-
-        // collect replicas
-        let replicas = verify_info
-            .challenged_sectors
-            .iter()
-            .map::<ReplicaMapResult, _>(|sector_info: &SectorInfo| {
-                let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
-                let replica = PublicReplicaInfo::new(
-                    sector_info
-                        .proof
-                        .registered_window_post_proof()?
-                        .try_into()?,
-                    commr,
-                );
-                Ok((SectorId::from(sector_info.sector_number), replica))
-            })
-            .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
-
-        // construct prover id
-        let mut prover_id = ProverId::default();
-        let prover_bytes = verify_info.prover.to_be_bytes();
-        prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
-
-        // verify
-        if !verify_window_post(&verify_info.randomness.0, &proofs, &replicas, prover_id)? {
-            return Err("Proof was invalid".to_string().into());
-        }
-
-        Ok(())
-    }
+    /// Verifies a window proof of spacetime.
+    fn verify_post(&self, verify_info: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>>;
 
     /// Verifies that two block headers provide proof of a consensus fault:
     /// - both headers mined by the same actor
@@ -285,52 +233,13 @@ pub trait Syscalls {
         &self,
         vis: &[(Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
-        let out = vis
-            .par_iter()
-            .map(|(addr, seals)| {
-                let results = seals
-                    .par_iter()
-                    .map(|s| {
-                        if let Err(err) = verify_seal(s) {
-                            warn!(
-                                "seal verify in batch failed (miner: {}) (err: {})",
-                                addr, err
-                            );
-                            false
-                        } else {
-                            true
-                        }
-                    })
-                    .collect();
-                (*addr, results)
-            })
-            .collect();
-        Ok(out)
+        let mut verified = HashMap::new();
+        for (addr, s) in vis {
+            let vals = s.iter().map(|si| self.verify_seal(si).is_ok()).collect();
+            verified.insert(*addr, vals);
+        }
+        Ok(verified)
     }
-}
-
-fn verify_seal(vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
-    let commd = cid_to_data_commitment_v1(&vi.unsealed_cid)?;
-    let commr = cid_to_replica_commitment_v1(&vi.sealed_cid)?;
-    let miner_addr = Address::new_id(vi.sector_id.miner);
-    let miner_payload = miner_addr.payload_bytes();
-    let mut prover_id = ProverId::default();
-    prover_id[..miner_payload.len()].copy_from_slice(&miner_payload);
-
-    if !proofs_verify_seal(
-        vi.registered_proof.try_into()?,
-        commr,
-        commd,
-        prover_id,
-        SectorId::from(vi.sector_id.number),
-        vi.randomness.0,
-        vi.interactive_randomness.0,
-        &vi.proof,
-    )? {
-        return Err(format!("Invalid proof detected: {:?}", base64::encode(&vi.proof)).into());
-    }
-
-    Ok(())
 }
 
 /// Result of checking two headers for a consensus fault.

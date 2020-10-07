@@ -511,7 +511,7 @@ where
             e.downcast_default(ExitCode::ErrIllegalState, "failed to get escrow balance")
         })?;
 
-        if &prev_locked + amount > escrow_balance {
+        if prev_locked + amount > *escrow_balance {
             return Err(actor_error!(ErrInsufficientFunds;
                     "not enough balance to lock for addr{}: \
                     escrow balance {} < prev locked {} + amount {}", 
