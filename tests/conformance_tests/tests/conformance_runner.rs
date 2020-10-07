@@ -196,7 +196,8 @@ fn execute_message_vector(
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
-        check_msg_result(receipt, &ret.msg_receipt, i)?;
+        check_msg_result(receipt, &ret.msg_receipt, i)
+            .map_err(|e| format!("{}: Error({:?})", e, ret.act_error))?;
     }
 
     if root != postconditions.state_tree.root_cid {
@@ -236,7 +237,8 @@ fn execute_tipset_vector(
                 &postconditions.receipts[receipt_idx],
                 &v.msg_receipt,
                 format!("{} of tipset {}", j, i),
-            )?;
+            )
+            .map_err(|e| format!("{}: Error({})", e, v.act_error.unwrap()))?;
             receipt_idx += 1;
         }
 
