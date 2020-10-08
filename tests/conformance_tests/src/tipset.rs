@@ -30,9 +30,16 @@ mod block_messages_json {
                 let mut secpk_messages = Vec::new();
                 let mut bls_messages = Vec::new();
                 for message in &m.messages {
-                    match ChainMessage::unmarshal_cbor(message).map_err(de::Error::custom)? {
-                        m @ ChainMessage::Signed(_) => secpk_messages.push(m),
-                        m @ ChainMessage::Unsigned(_) => bls_messages.push(m),
+                    let msg_decoded =
+                        UnsignedMessage::unmarshal_cbor(&message).map_err(de::Error::custom)?;
+                    match msg_decoded.from().protocol() {
+                        Protocol::Secp256k1 => secpk_messages.push(to_chain_msg(msg_decoded)),
+                        Protocol::BLS => bls_messages.push(to_chain_msg(msg_decoded)),
+                        _ => {
+                            // matching go runner to force failure (bad address)
+                            secpk_messages.push(to_chain_msg(msg_decoded.clone()));
+                            bls_messages.push(to_chain_msg(msg_decoded));
+                        }
                     }
                 }
                 bls_messages.append(&mut secpk_messages);

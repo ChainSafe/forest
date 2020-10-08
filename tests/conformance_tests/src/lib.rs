@@ -11,14 +11,14 @@ pub use self::message::*;
 pub use self::stubs::*;
 pub use self::tipset::*;
 use actor::CHAOS_ACTOR_CODE_ID;
-use address::Address;
+use address::{Address, Protocol};
 use blockstore::BlockStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use encoding::Cbor;
 use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
-use forest_message::{ChainMessage, MessageReceipt};
+use forest_message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use interpreter::{ApplyRet, BlockMessages, Rand, VM};
 use num_bigint::BigInt;
 use runtime::{ConsensusFault, Syscalls};
@@ -171,4 +171,16 @@ pub enum TestVector {
         #[serde(rename = "_meta")]
         meta: Option<MetaData>,
     },
+}
+
+// This might be changed to be encoded into vector, matching go runner for now
+pub fn to_chain_msg(msg: UnsignedMessage) -> ChainMessage {
+    if msg.from().protocol() == Protocol::Secp256k1 {
+        ChainMessage::Signed(SignedMessage {
+            message: msg,
+            signature: Signature::new_secp256k1(vec![0; 65]),
+        })
+    } else {
+        ChainMessage::Unsigned(msg)
+    }
 }
