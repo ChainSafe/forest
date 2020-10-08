@@ -84,7 +84,7 @@ pub fn execute_tipset(
         tipset.epoch,
         &TestRand,
         BigInt::from(tipset.basefee),
-        Some(|_, msg: &ChainMessage, ret: ApplyRet| {
+        Some(|_, msg: &ChainMessage, ret| {
             _applied_messages.push(msg.clone());
             applied_results.push(ret);
             Ok(())

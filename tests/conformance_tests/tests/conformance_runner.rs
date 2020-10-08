@@ -145,7 +145,7 @@ fn check_msg_result(
     ret: &ApplyRet,
     label: impl fmt::Display,
 ) -> Result<(), String> {
-    let error = ret.act_error.as_ref();
+    let error = ret.act_error.as_ref().map(|e| e.msg());
     let actual_rec = &ret.msg_receipt;
     let (expected, actual) = (expected_rec.exit_code, actual_rec.exit_code);
     if expected != actual {
@@ -154,7 +154,7 @@ fn check_msg_result(
             label,
             expected,
             actual,
-            error.unwrap().msg()
+            error.unwrap_or("No error reported with exit code")
         ));
     }
 
