@@ -20,7 +20,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 8] = [
+    static ref SKIP_TESTS: [Regex; 77] = [
 
         Regex::new(r"test-vectors/corpus/vm_violations/x--*").unwrap(),
         Regex::new(r"test-vectors/corpus/nested/x--*").unwrap(),
