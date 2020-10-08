@@ -84,12 +84,12 @@ impl<'de> Deserialize<'de> for BlockSyncResponseStatus {
 
         use BlockSyncResponseStatus::*;
         let status = match code {
-            x if x == 1 => Success,
-            x if x == 101 => PartialResponse,
-            x if x == 201 => BlockNotFound,
-            x if x == 202 => GoAway,
-            x if x == 203 => InternalError,
-            x if x == 204 => BadRequest,
+            1 => Success,
+            101 => PartialResponse,
+            201 => BlockNotFound,
+            202 => GoAway,
+            203 => InternalError,
+            204 => BadRequest,
             x => Other(x),
         };
         Ok(status)

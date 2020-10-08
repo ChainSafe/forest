@@ -93,21 +93,21 @@ where
     for block_header in tipset.blocks().iter() {
         let (bls_cids, secp_cids) = chain::read_msg_cids(db, block_header.messages())?;
 
-        let mut block_include = Vec::with_capacity(bls_cids.len());
+        let mut bls_include = Vec::with_capacity(bls_cids.len());
         let mut secp_include = Vec::with_capacity(secp_cids.len());
 
         for bls_cid in bls_cids.into_iter() {
             let order = match bls_messages_order.get(&bls_cid) {
                 Some(order) => *order,
                 None => {
-                    let order = block_include.len() as u64;
+                    let order = bls_include.len() as u64;
                     bls_cids_combined.push(bls_cid.clone());
                     bls_messages_order.insert(bls_cid, order);
                     order
                 }
             };
 
-            block_include.push(order);
+            bls_include.push(order);
         }
 
         for secp_cid in secp_cids.into_iter() {
@@ -124,7 +124,7 @@ where
             secp_include.push(order);
         }
 
-        bls_msg_includes.push(block_include);
+        bls_msg_includes.push(bls_include);
         secp_msg_includes.push(secp_include);
     }
 
