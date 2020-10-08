@@ -175,7 +175,7 @@ impl ChannelInfo {
         Ok(None)
     }
 
-    fn _has_voucher(&self, sv: &SignedVoucher) -> Result<bool, Error> {
+    pub fn has_voucher(&self, sv: &SignedVoucher) -> Result<bool, Error> {
         Ok(self.info_for_voucher(sv)?.is_some())
     }
     /// Marks the voucher, and any vouchers of lower nonce

@@ -44,17 +44,17 @@ struct ChannelAvailableFunds {
     // To is the to address of the channel
     pub to: Address,
     // ConfirmedAmt is the amount of funds that have been confirmed on-chain
-	// for the channel
+    // for the channel
     pub confirmed_amt: BigInt,
     // PendingAmt is the amount of funds that are pending confirmation on-chain
     pub pending_amt: BigInt,
     // PendingWaitSentinel can be used with PaychGetWaitReady to wait for
-	// confirmation of pending funds
+    // confirmation of pending funds
     pub pending_wait_sentinel: Option<Cid>,
     // QueuedAmt is the amount that is queued up behind a pending request
     pub queued_amt: BigInt,
     // VoucherRedeemedAmt is the amount that is redeemed by vouchers on-chain
-	// and in the local datastore
+    // and in the local datastore
     pub voucher_redeemed_amt: BigInt,
 }
 
@@ -84,8 +84,7 @@ where
                 let ca = self.accessor_by_from_to(ci.control, ci.target).await?;
                 // TODO ask if this should be blocking
                 task::spawn(async move || {
-                    ca.wait_paych_create_msg(ci.id, msg)
-                        .await?;
+                    ca.wait_paych_create_msg(ci.id, msg).await?;
                 });
                 return Ok(());
             } else if let Some(msg) = ci.add_funds_msg {
@@ -112,20 +111,22 @@ where
         ca.available_funds(ci.id)
     }
 
-    pub async fn available_funds_by_from_to(&self, from: Address, to: Address) -> Result<(), Error> {
+    pub async fn available_funds_by_from_to(
+        &self,
+        from: Address,
+        to: Address,
+    ) -> Result<(), Error> {
         let mut st = self.store.read().await;
         let ca = self.accessor_by_from_to(from, to).await?;
 
         if let Err(e) = st.outbound_active_by_from_to(from, to).await {
             if e == Error::ChannelNotTracked {
                 // If there is no active channel between from / to we still want to
-		        // return an empty ChannelAvailableFunds, so that clients can check
-		        // for the existence of a channel between from / to without getting
+                // return an empty ChannelAvailableFunds, so that clients can check
+                // for the existence of a channel between from / to without getting
                 // an error.
-                
             }
         }
-        
     }
 
     /// Ensures that a channel exists between the from and to addresses,
@@ -219,7 +220,6 @@ where
         let ci = store.by_address(ch).await?;
         self.accessor_by_from_to(ci.control, ci.target).await
     }
-    
 
     // Waits until the create channel / add funds message with the
     // given message CID arrives.

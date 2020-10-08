@@ -1095,7 +1095,7 @@ pub mod tests {
     use std::thread::sleep;
     use std::time::Duration;
     use wallet::{MemKeyStore, Wallet};
-    
+
     fn create_smsg(
         to: &Address,
         from: &Address,
