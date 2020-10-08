@@ -202,20 +202,22 @@ async fn fetch_params(
     let url = format!("{}{}", gw, info.cid);
 
     let client = Client::new();
-    let total_size: u64 = {
-        let res = client.head(&url).await?;
-        if res.status().is_success() {
-            res.header("Content-Length")
-                .and_then(|len| len.as_str().parse().ok())
-                .unwrap_or_default()
-        } else {
-            return Err(format!("failed to download file: {}", url).into());
-        }
-    };
 
     let req = client.get(url.as_str());
 
     if let Some(mb) = multi_bar {
+        let total_size: u64 = {
+            // TODO head requests are broken in Surf right now, revisit when fixed
+            // let res = client.head(&url).await?;
+            // if res.status().is_success() {
+            //     res.header("Content-Length")
+            //         .and_then(|len| len.as_str().parse().ok())
+            //         .unwrap_or_default()
+            // } else {
+            //     return Err(format!("failed to download file: {}", url).into());
+            // }
+            100
+        };
         let mut pb = mb.create_bar(total_size);
         pb.set_units(Units::Bytes);
 

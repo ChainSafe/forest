@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, initialize_genesis, Config};
+use super::paramfetch::{get_params_default, SectorSizeOpt};
 use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::RwLock;
 use async_std::task;
@@ -9,6 +10,7 @@ use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
+use fil_types::verifier::FullVerifier;
 use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
@@ -59,6 +61,11 @@ pub(super) async fn start(config: Config) {
     let (genesis, network_name) =
         initialize_genesis(&config.genesis_file, &mut chain_store).unwrap();
 
+    // Fetch and ensure verification keys are downloaded
+    get_params_default(SectorSizeOpt::Keys, false)
+        .await
+        .unwrap();
+
     // Libp2p service setup
     let p2p_service =
         Libp2pService::new(config.network, Arc::clone(&db), net_keypair, &network_name);
@@ -96,7 +103,8 @@ pub(super) async fn start(config: Config) {
 
     // Initialize ChainSyncer
     let chain_store_arc = Arc::new(chain_store);
-    let chain_syncer = ChainSyncer::new(
+    // TODO allow for configuring validation strategy (defaulting to full validation)
+    let chain_syncer = ChainSyncer::<_, _, FullVerifier>::new(
         chain_store_arc.clone(),
         Arc::clone(&state_manager),
         Arc::new(beacon),

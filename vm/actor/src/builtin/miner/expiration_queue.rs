@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{power_for_sector, PowerPair, QuantSpec, SectorOnChainInfo, SECTORS_MAX};
+use crate::ActorDowncast;
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -64,19 +65,21 @@ impl ExpirationSet {
         on_time_pledge: &TokenAmount,
         active_power: &PowerPair,
         faulty_power: &PowerPair,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         // Check for sector intersection. This could be cheaper with a combined intersection/difference method used below.
         if !self.on_time_sectors.contains_all(on_time_sectors) {
             return Err(format!(
                 "removing on-time sectors {:?} not contained in {:?}",
                 on_time_sectors, self.on_time_sectors
-            ));
+            )
+            .into());
         }
         if !self.early_sectors.contains_all(early_sectors) {
             return Err(format!(
                 "removing early sectors {:?} not contained in {:?}",
                 early_sectors, self.early_sectors
-            ));
+            )
+            .into());
         }
 
         self.on_time_sectors -= on_time_sectors;
@@ -87,10 +90,10 @@ impl ExpirationSet {
 
         // Check underflow.
         if self.on_time_pledge.is_negative() {
-            return Err(format!("expiration set pledge underflow: {:?}", self));
+            return Err(format!("expiration set pledge underflow: {:?}", self).into());
         }
         if self.active_power.qa.is_negative() || self.faulty_power.qa.is_negative() {
-            return Err(format!("expiration set power underflow: {:?}", self));
+            return Err(format!("expiration set power underflow: {:?}", self).into());
         }
 
         Ok(())
@@ -135,7 +138,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         &mut self,
         sectors: impl IntoIterator<Item = &'a SectorOnChainInfo>,
         sector_size: SectorSize,
-    ) -> Result<(BitField, PowerPair, TokenAmount), String> {
+    ) -> Result<(BitField, PowerPair, TokenAmount), Box<dyn StdError>> {
         let mut total_power = PowerPair::zero();
         let mut total_pledge = TokenAmount::zero();
         let mut total_sectors = Vec::<BitField>::new();
@@ -151,7 +154,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                 &PowerPair::zero(),
                 &group.pledge,
             )
-            .map_err(|e| format!("failed to record new sector expirations: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to record new sector expirations"))?;
 
             total_sectors.push(sector_numbers);
             total_power += &group.power;
@@ -171,14 +174,14 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         new_expiration: ChainEpoch,
         sectors: &[SectorOnChainInfo],
         sector_size: SectorSize,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         if sectors.is_empty() {
             return Ok(());
         }
 
         let (sector_numbers, power, pledge) = self
             .remove_active_sectors(sectors, sector_size)
-            .map_err(|e| format!("failed to remove sector expirations: {:?}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to remove sector expirations"))?;
 
         self.add(
             new_expiration,
@@ -188,7 +191,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
             &PowerPair::zero(),
             &pledge,
         )
-        .map_err(|e| format!("failed to record new sector expirations: {}", e))?;
+        .map_err(|e| e.downcast_wrap("failed to record new sector expirations"))?;
 
         Ok(())
     }
@@ -202,7 +205,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         new_expiration: ChainEpoch,
         sectors: &[SectorOnChainInfo],
         sector_size: SectorSize,
-    ) -> Result<PowerPair, String> {
+    ) -> Result<PowerPair, Box<dyn StdError>> {
         let mut sectors_total = Vec::new();
         let mut expiring_power = PowerPair::zero();
         let mut rescheduled_power = PowerPair::zero();
@@ -393,14 +396,14 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         old_sectors: &[SectorOnChainInfo],
         new_sectors: &[SectorOnChainInfo],
         sector_size: SectorSize,
-    ) -> Result<(BitField, BitField, PowerPair, TokenAmount), String> {
+    ) -> Result<(BitField, BitField, PowerPair, TokenAmount), Box<dyn StdError>> {
         let (old_sector_numbers, old_power, old_pledge) = self
             .remove_active_sectors(old_sectors, sector_size)
-            .map_err(|e| format!("failed to remove replaced sectors: {}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to remove replaced sectors"))?;
 
         let (new_sector_numbers, new_power, new_pledge) = self
             .add_active_sectors(new_sectors, sector_size)
-            .map_err(|e| format!("failed to add replacement sectors: {}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to add replacement sectors"))?;
 
         Ok((
             old_sector_numbers,
@@ -458,7 +461,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         // Remove non-faulty sectors.
         let (removed_sector_numbers, removed_power, removed_pledge) = self
             .remove_active_sectors(sectors, sector_size)
-            .map_err(|e| format!("failed to remove on-time recoveries: {}", e))?;
+            .map_err(|e| e.downcast_wrap("failed to remove on-time recoveries"))?;
         removed.on_time_sectors = removed_sector_numbers;
         removed.active_power = removed_power;
         removed.on_time_pledge = removed_pledge;
@@ -572,7 +575,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         active_power: &PowerPair,
         faulty_power: &PowerPair,
         pledge: &TokenAmount,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         let epoch = self.quant.quantize_up(raw_epoch);
         let mut expiration_set = self.may_get(epoch)?;
 
@@ -596,7 +599,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         active_power: &PowerPair,
         faulty_power: &PowerPair,
         pledge: &TokenAmount,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         let epoch = self.quant.quantize_up(raw_epoch);
         let mut expiration_set = self.must_get(epoch)?;
         expiration_set
@@ -622,7 +625,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         &mut self,
         sectors: &[SectorOnChainInfo],
         sector_size: SectorSize,
-    ) -> Result<(BitField, PowerPair, TokenAmount), String> {
+    ) -> Result<(BitField, PowerPair, TokenAmount), Box<dyn StdError>> {
         let mut removed_sector_numbers = BitField::new();
         let mut removed_power = PowerPair::zero();
         let mut removed_pledge = TokenAmount::zero();
@@ -679,31 +682,33 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         Ok(())
     }
 
-    fn may_get(&self, key: ChainEpoch) -> Result<ExpirationSet, String> {
+    fn may_get(&self, key: ChainEpoch) -> Result<ExpirationSet, Box<dyn StdError>> {
         Ok(self
             .amt
             .get(key as u64)
-            .map_err(|e| format!("failed to lookup queue epoch {}: {:?}", key, e))?
+            .map_err(|e| e.downcast_wrap(format!("failed to lookup queue epoch {}", key)))?
             .cloned()
             .unwrap_or_default())
     }
 
-    fn must_get(&self, key: ChainEpoch) -> Result<ExpirationSet, String> {
-        self.amt
+    fn must_get(&self, key: ChainEpoch) -> Result<ExpirationSet, Box<dyn StdError>> {
+        Ok(self
+            .amt
             .get(key as u64)
-            .map_err(|e| format!("failed to lookup queue epoch {}: {:?}", key, e))?
-            .cloned()
-            .ok_or_else(|| format!("missing expected expiration set at epoch {}", key))
+            .map_err(|e| e.downcast_wrap(format!("failed to lookup queue epoch {}", key)))?
+            .ok_or_else(|| format!("missing expected expiration set at epoch {}", key))?
+            .clone())
     }
 
     fn must_update(
         &mut self,
         epoch: ChainEpoch,
         expiration_set: ExpirationSet,
-    ) -> Result<(), String> {
-        self.amt
+    ) -> Result<(), Box<dyn StdError>> {
+        Ok(self
+            .amt
             .set(epoch as u64, expiration_set)
-            .map_err(|e| format!("failed to set queue epoch {}: {:?}", epoch, e))
+            .map_err(|e| e.downcast_wrap(format!("failed to set queue epoch {}", epoch)))?)
     }
 
     /// Since this might delete the node, it's not safe for use inside an iteration.
@@ -711,15 +716,15 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         &mut self,
         epoch: ChainEpoch,
         expiration_set: ExpirationSet,
-    ) -> Result<(), String> {
+    ) -> Result<(), Box<dyn StdError>> {
         if expiration_set.is_empty() {
             self.amt
                 .delete(epoch as u64)
-                .map_err(|e| format!("failed to delete queue epoch {}: {:?}", epoch, e))?;
+                .map_err(|e| e.downcast_wrap(format!("failed to delete queue epoch {}", epoch)))?;
         } else {
             self.amt
                 .set(epoch as u64, expiration_set)
-                .map_err(|e| format!("failed to set queue epoch {}: {:?}", epoch, e))?;
+                .map_err(|e| e.downcast_wrap(format!("failed to set queue epoch {}", epoch)))?;
         }
 
         Ok(())

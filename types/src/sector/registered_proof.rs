@@ -202,6 +202,18 @@ impl TryFrom<RegisteredSealProof> for proofs::RegisteredSealProof {
     }
 }
 
+impl From<SectorSize> for RegisteredSealProof {
+    fn from(ss: SectorSize) -> Self {
+        match ss {
+            SectorSize::_2KiB => Self::StackedDRG2KiBV1,
+            SectorSize::_8MiB => Self::StackedDRG8MiBV1,
+            SectorSize::_512MiB => Self::StackedDRG512MiBV1,
+            SectorSize::_32GiB => Self::StackedDRG32GiBV1,
+            SectorSize::_64GiB => Self::StackedDRG64GiBV1,
+        }
+    }
+}
+
 impl TryFrom<RegisteredPoStProof> for proofs::RegisteredPoStProof {
     type Error = String;
     fn try_from(p: RegisteredPoStProof) -> Result<Self, Self::Error> {

@@ -34,8 +34,8 @@ where
 
     /// Gets token amount for given address in balance table
     #[inline]
-    pub fn get(&self, key: &Address) -> Result<TokenAmount, String> {
-        Ok(self
+    pub fn get(&self, key: &Address) -> Result<&TokenAmount, Box<dyn StdError>> {
+        Ok(&self
             .0
             .get(&key.to_bytes())?
             .ok_or(format!("no key {} in map root", key))?
@@ -58,15 +58,19 @@ where
     }
 
     /// Adds token amount to previously initialized account.
-    pub fn add(&mut self, key: &Address, value: &TokenAmount) -> Result<(), String> {
-        let prev = self.get(key)?;
-        Ok(self.0.set(key.to_bytes().into(), BigIntDe(prev + value))?)
+    pub fn add(&mut self, key: &Address, value: &TokenAmount) -> Result<(), Box<dyn StdError>> {
+        let new_value = { self.get(key)? + value };
+        Ok(self.0.set(key.to_bytes().into(), BigIntDe(new_value))?)
     }
 
     /// Adds an amount to a balance. Creates entry if not exists
-    pub fn add_create(&mut self, key: &Address, value: TokenAmount) -> Result<(), String> {
+    pub fn add_create(
+        &mut self,
+        key: &Address,
+        value: TokenAmount,
+    ) -> Result<(), Box<dyn StdError>> {
         let new_val = match self.0.get(&key.to_bytes())? {
-            Some(v) => v.0 + value,
+            Some(v) => &v.0 + value,
             None => value,
         };
         Ok(self.0.set(key.to_bytes().into(), BigIntDe(new_val))?)
@@ -80,8 +84,8 @@ where
         key: &Address,
         req: &TokenAmount,
         floor: &TokenAmount,
-    ) -> Result<TokenAmount, String> {
-        let prev = self.get(key)?;
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        let prev = self.get(key)?.clone();
         let res = prev
             .checked_sub(req)
             .unwrap_or_else(|| TokenAmount::from(0u8));
@@ -99,27 +103,21 @@ where
     }
 
     /// Subtracts value from a balance, and errors if full amount was not substracted.
-    pub fn must_subtract(&mut self, key: &Address, req: &TokenAmount) -> Result<(), String> {
+    pub fn must_subtract(
+        &mut self,
+        key: &Address,
+        req: &TokenAmount,
+    ) -> Result<(), Box<dyn StdError>> {
         let sub_amt = self.subtract_with_minimum(key, req, &TokenAmount::from(0u8))?;
         if &sub_amt != req {
             return Err(format!(
                 "Couldn't subtract value from address {} (req: {}, available: {})",
                 key, req, sub_amt
-            ));
+            )
+            .into());
         }
 
         Ok(())
-    }
-
-    /// Removes an entry from the table, returning the prior value. The entry must have been previously initialized.
-    pub fn remove(&mut self, key: &Address) -> Result<TokenAmount, String> {
-        // Ensure entry exists and get previous value
-        let prev = self.get(key)?;
-
-        // Remove entry from table
-        self.0.delete(&key.to_bytes())?;
-
-        Ok(prev)
     }
 
     /// Returns total balance held by this balance table

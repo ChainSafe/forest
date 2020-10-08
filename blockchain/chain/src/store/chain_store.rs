@@ -21,7 +21,7 @@ use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
+use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
@@ -302,6 +302,24 @@ where
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
 
     Ok((bls_msgs, secp_msgs))
+}
+
+/// Returns a vector of all chain messages, these messages contain all bls messages followed
+/// by all secp messages.
+// TODO try to group functionality with block_messages
+pub fn chain_messages<DB>(db: &DB, bh: &BlockHeader) -> Result<Vec<ChainMessage>, Error>
+where
+    DB: BlockStore,
+{
+    let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
+
+    let mut bls_msgs: Vec<ChainMessage> = messages_from_cids(db, &bls_cids)?;
+    let mut secp_msgs: Vec<ChainMessage> = messages_from_cids(db, &secpk_cids)?;
+
+    // Append the secp messages to the back of the messages vector.
+    bls_msgs.append(&mut secp_msgs);
+
+    Ok(bls_msgs)
 }
 
 /// Constructs and returns a full tipset if messages from storage exists - non self version
@@ -732,8 +750,8 @@ where
 
     let out_add: BigInt = &log2_p << 8;
     let mut out = ts.weight().to_owned() + out_add;
-    let e_weight = ((log2_p * BigInt::from(ts.blocks().len())) * BigInt::from(W_RATIO_NUM)) << 8;
-    let value: BigInt = e_weight / (BigInt::from(BLOCKS_PER_EPOCH) * BigInt::from(W_RATIO_DEN));
+    let e_weight: BigInt = ((log2_p * BigInt::from(ts.blocks().len())) * W_RATIO_NUM) << 8;
+    let value: BigInt = e_weight.div_floor(&(BigInt::from(BLOCKS_PER_EPOCH) * W_RATIO_DEN));
     out += &value;
     Ok(out)
 }

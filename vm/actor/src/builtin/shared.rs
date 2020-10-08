@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::miner::Method;
+use crate::miner::{GetControlAddressesReturn, Method};
 use address::Address;
-use encoding::tuple::*;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;
 use runtime::Runtime;
@@ -24,16 +23,9 @@ where
         Serialized::default(),
         TokenAmount::zero(),
     )?;
-    let addrs: MinerAddrs = ret.deserialize()?;
+    let addrs: GetControlAddressesReturn = ret.deserialize()?;
 
-    Ok((addrs.owner, addrs.worker, addrs.control_addrs))
-}
-
-#[derive(Serialize_tuple, Deserialize_tuple)]
-struct MinerAddrs {
-    owner: Address,
-    worker: Address,
-    control_addrs: Vec<Address>,
+    Ok((addrs.owner, addrs.worker, addrs.control_addresses))
 }
 
 /// ResolveToIDAddr resolves the given address to it's ID address form.

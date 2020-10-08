@@ -4,7 +4,7 @@
 use crypto::VRFProof;
 use encoding::{blake2b_256, tuple::*};
 use fil_types::BLOCKS_PER_EPOCH;
-use num_bigint::{BigInt, ParseBigIntError, Sign};
+use num_bigint::{BigInt, Integer, ParseBigIntError, Sign};
 
 const PRECISION: u64 = 256;
 const MAX_WIN_COUNT: i64 = 3 * BLOCKS_PER_EPOCH as i64;
@@ -59,7 +59,7 @@ fn expneg(x: &BigInt) -> BigInt {
     let num = poly_val(&EXP_NUM_COEF, x);
     let deno = poly_val(&EXP_DENO_COEF, x);
 
-    (num << PRECISION) / deno
+    (num << PRECISION).div_floor(&deno)
 }
 
 /// polyval evaluates a polynomial given by coefficients `p` in Q.256 format
@@ -78,7 +78,7 @@ fn poly_val(poly: &[BigInt], x: &BigInt) -> BigInt {
 /// computes lambda in Q.256
 #[inline]
 fn lambda(power: &BigInt, total_power: &BigInt) -> BigInt {
-    ((power * BLOCKS_PER_EPOCH) << PRECISION) / total_power
+    ((power * BLOCKS_PER_EPOCH) << PRECISION).div_floor(&total_power)
 }
 
 /// Poisson inverted CDF
@@ -112,7 +112,7 @@ impl Poiss {
         self.k += 1;
 
         // calculate pmf for k
-        self.pmf /= self.k;
+        self.pmf = self.pmf.div_floor(&BigInt::from(self.k));
         self.pmf = (&self.pmf * &self.lam) >> PRECISION;
 
         // calculate output

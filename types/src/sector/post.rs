@@ -1,10 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{RegisteredPoStProof, RegisteredSealProof, SectorNumber};
+use crate::{ActorID, Randomness, RegisteredPoStProof, RegisteredSealProof, SectorNumber};
 use cid::Cid;
 use encoding::{serde_bytes, tuple::*};
-use vm::{ActorID, Randomness};
 
 pub type PoStRandomness = Randomness;
 
