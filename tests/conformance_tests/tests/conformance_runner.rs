@@ -20,8 +20,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 77] = [
-
+    static ref SKIP_TESTS: Vec<Regex> = vec![
         Regex::new(r"test-vectors/corpus/vm_violations/x--*").unwrap(),
         Regex::new(r"test-vectors/corpus/nested/x--*").unwrap(),
         // These tests are marked as invalid as they return wrong exit code on Lotus
@@ -92,7 +91,7 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/WithdrawBalance/SysErrOutOfGas/extracted-msg-fil_1_storageminer-WithdrawBalance-SysErrOutOfGas-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagepower/CreateMiner/16/extracted-msg-fil_1_storagepower-CreateMiner-16-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagepower/CreateMiner/SysErrOutOfGas/extracted-msg-fil_1_storagepower-CreateMiner-SysErrOutOfGas-*").unwrap(),
-        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/DeclareFaults/Ok/ext-0001-fil_1_storageminer-DeclareFaults-Ok-").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/DeclareFaults/Ok/ext-0001-fil_1_storageminer-DeclareFaults-Ok-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/19/ext-0001-fil_1_storageminer-PreCommitSector-19-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/Ok/ext-0001-fil_1_storageminer-PreCommitSector-Ok-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagemarket/PublishStorageDeals/19/extracted-msg-fil_1_storagemarket-PublishStorageDeals-19-*").unwrap(),
@@ -102,10 +101,6 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_account/Send/Ok/ext-0001-fil_1_account-Send-Ok-3").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/Send/SysErrOutOfGas/extracted-msg-fil_1_storageminer-Send-SysErrOutOfGas-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/DeclareFaults/Ok/extracted-msg-fil_1_storageminer-DeclareFaults-Ok-*").unwrap(),
-        Regex::new(r"test-vectors/corpus/msg_application/gas_cost--msg-ok-secp-bls-gas-costs.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-gas-for-return.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/reward/penalties--penalize-insufficient-balance-to-cover-gas.json").unwrap(),
         Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-balance-to-cover-gas-and-transfer.json").unwrap(),
     ];
 }
