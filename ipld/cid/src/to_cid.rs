@@ -64,7 +64,7 @@ fn decode_v1_bytes(bz: &[u8]) -> Result<(Vec<u8>, Version, Codec), Error> {
     let raw_codec = cur.read_varint()?;
 
     let version = Version::from(raw_version)?;
-    let codec = Codec::from(raw_codec)?;
+    let codec = Codec::from(raw_codec);
 
     let hash = &bz[cur.position() as usize..];
     Ok((hash.to_vec(), version, codec))

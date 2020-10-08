@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod message;
+mod provider;
 
 pub use self::message::*;
+pub use self::provider::*;
 use async_trait::async_trait;
 use forest_encoding::{from_slice, to_vec};
 use futures::prelude::*;
