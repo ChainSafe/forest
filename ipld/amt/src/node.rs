@@ -165,20 +165,33 @@ where
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
         if let Node::Link { links, bmap } = self {
             for (i, link) in (0..).zip(links.iter_mut()) {
-                if let Some(Link::Dirty(n)) = link {
-                    // links should only be flushed if the bitmap is set.
-                    if bmap.get_bit(i) {
+                // links should only be flushed if the bitmap is set.
+                if bmap.get_bit(i) {
+                    #[cfg(feature = "go-interop")]
+                    if let Some(Link::Cid { cache, .. }) = link {
+                        // Yes, this is necessary to interop, and yes this is safe to borrow
+                        // mutably because there are no values changed here, just extra db writes.
+                        if let Some(cached) = cache.borrow_mut() {
+                            cached.flush(bs)?;
+                            bs.put(cached, Blake2b256)?;
+                        }
+                    }
+
+                    if let Some(Link::Dirty(n)) = link {
                         // flush sub node to clear caches
                         n.flush(bs)?;
 
                         // Puts node in blockstore and and retrieves it's CID
                         let cid = bs.put(n, Blake2b256)?;
 
+                        let cache = LazyCell::new();
+
+                        // Can keep the flushed node in link cache
+                        let node = std::mem::take(n);
+                        let _ = cache.fill(node);
+
                         // Turn dirty node into a Cid link
-                        *link = Some(Link::Cid {
-                            cid,
-                            cache: Default::default(),
-                        });
+                        *link = Some(Link::Cid { cid, cache });
                     }
                 }
             }

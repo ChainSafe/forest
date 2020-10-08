@@ -10,9 +10,6 @@ use serde_bytes::ByteBuf;
 #[cfg(feature = "identity")]
 use ipld_hamt::Identity;
 
-// Duplicate kept here to not have to expose the default.
-const DEFAULT_BIT_WIDTH: u32 = 8;
-
 #[test]
 fn test_basics() {
     let store = db::MemoryDB::default();
@@ -158,8 +155,75 @@ fn set_delete_many() {
         "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
     );
     #[rustfmt::skip]
-    // TODO https://github.com/ChainSafe/forest/issues/729
-    assert_eq!(*store.stats.borrow(), BSStats { r: 61, w: 93, br: 6478, bw: 12849 });
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*store.stats.borrow(), BSStats { r: 0, w: 93, br: 0, bw: 12849 });
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 87, w: 119, br: 7671, bw: 14042});
+}
+#[test]
+fn for_each() {
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut hamt: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
+
+    for i in 0..200 {
+        hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
+    }
+
+    // Iterating through hamt with dirty caches.
+    let mut count = 0;
+    hamt.for_each(|k, v| {
+        assert_eq!(k.0, format!("{}", v).into_bytes());
+        count += 1;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(count, 200);
+
+    let c = hamt.flush().unwrap();
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
+    );
+
+    let mut hamt: Hamt<_, i32> = Hamt::load_with_bit_width(&c, &store, 5).unwrap();
+
+    // Iterating through hamt with no cache.
+    let mut count = 0;
+    hamt.for_each(|k, v| {
+        assert_eq!(k.0, format!("{}", v).into_bytes());
+        count += 1;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(count, 200);
+
+    // Iterating through hamt with cached nodes.
+    let mut count = 0;
+    hamt.for_each(|k, v| {
+        assert_eq!(k.0, format!("{}", v).into_bytes());
+        count += 1;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(count, 200);
+
+    let c = hamt.flush().unwrap();
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
+    );
+
+    #[rustfmt::skip]
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*store.stats.borrow(), BSStats { r: 30, w: 31, br: 3510, bw: 4914 });
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 59, w: 89, br: 4841, bw: 8351});
 }
 
 #[cfg(feature = "identity")]
@@ -218,79 +282,84 @@ fn canonical_structure() {
     // Champ mutation semantics test
     #[rustfmt::skip]
     add_and_remove_keys(
-        DEFAULT_BIT_WIDTH,
+        8,
         &[b"K"],
         &[b"B"],
         "bafy2bzacecdihronbg6gyhpzhuiax3thpv5gxpunwczuanqym3r7wih3bkmb4",
         BSStats {r: 2, w: 4, br: 42, bw: 84},
     );
+
     #[rustfmt::skip]
+    #[cfg(not(feature = "go-interop"))]
+    let stats = BSStats { r: 4, w: 6, br: 228, bw: 346 };
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    let stats = BSStats {r: 7, w: 10, br: 388, bw: 561};
+
     add_and_remove_keys(
-        DEFAULT_BIT_WIDTH,
+        8,
         &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
         &[b"KAA4"],
         "bafy2bzacedrktzj4o7iumailmdzl5gz3uqr4bw2o72qg4zv5q7qhezy4r32bc",
-        // TODO we have a LOT less reads and writes, match go with 
-        // https://github.com/ChainSafe/forest/issues/729
-        BSStats { r: 4, w: 6, br: 228, bw: 346 },
+        stats,
     );
 }
 
 #[test]
 #[cfg(feature = "identity")]
 fn canonical_structure_alt_bit_width() {
-    #[rustfmt::skip]
     let kb_cases = [
-        (
-            "bafy2bzacecnabvcxw7k5hgfcex5ig4jf3nabuxvl35edgnjk5ven2kg4n3ffm",
-            // TODO https://github.com/ChainSafe/forest/issues/729
-            BSStats { r: 2, w: 4, br: 26, bw: 52 },
-        ),
-        (
-            "bafy2bzacec2f6scvfmnyal5pzn43if6e2kls5jbm2jdab2xzuditctd5i3bbi",
-            // TODO https://github.com/ChainSafe/forest/issues/729
-            BSStats { r: 2, w: 4, br: 28, bw: 56 },
-        ),
-        (
-            "bafy2bzacedckymwjxmg35sllfegwrmnr7rxb3x7dh6muec2li2qhqjk5tf63q",
-            // TODO https://github.com/ChainSafe/forest/issues/729
-            BSStats { r: 2, w: 4, br: 32, bw: 64 },
-        ),
+        "bafy2bzacecnabvcxw7k5hgfcex5ig4jf3nabuxvl35edgnjk5ven2kg4n3ffm",
+        "bafy2bzacec2f6scvfmnyal5pzn43if6e2kls5jbm2jdab2xzuditctd5i3bbi",
+        "bafy2bzacedckymwjxmg35sllfegwrmnr7rxb3x7dh6muec2li2qhqjk5tf63q",
     ];
-    #[rustfmt::skip]
+
     let other_cases = [
-        (
-            "bafy2bzacedc7hh2tyz66m7n7ricyw2m7whsgoplyux3kbxczla7zuf25wi2og",
-            // TODO https://github.com/ChainSafe/forest/issues/729
-            BSStats { r: 4, w: 6, br: 190, bw: 292 },
-        ),
-        (
-            "bafy2bzacedeeqff3p7n3ogqxvqslb2yrbi4ojz44sp6mvjwyp6u6lktxdo2fg",
-            // TODO https://github.com/ChainSafe/forest/issues/729
-            BSStats { r: 4, w: 6, br: 202, bw: 306 },
-        ),
-        (
-            "bafy2bzaceckigpba3kck23qyuyb2i6vbiprtsmlr2rlyn3o4lmmcvzsh3l6wi",
-            // TODO https://github.com/ChainSafe/forest/issues/729
-            BSStats { r: 4, w: 6, br: 214, bw: 322 },
-        ),
+        "bafy2bzacedc7hh2tyz66m7n7ricyw2m7whsgoplyux3kbxczla7zuf25wi2og",
+        "bafy2bzacedeeqff3p7n3ogqxvqslb2yrbi4ojz44sp6mvjwyp6u6lktxdo2fg",
+        "bafy2bzaceckigpba3kck23qyuyb2i6vbiprtsmlr2rlyn3o4lmmcvzsh3l6wi",
     ];
+
+    #[rustfmt::skip]
+    let kb_stats = [
+        BSStats { r: 2, w: 4, br: 26, bw: 52 },
+        BSStats { r: 2, w: 4, br: 28, bw: 56 },
+        BSStats { r: 2, w: 4, br: 32, bw: 64 },
+    ];
+
+    #[rustfmt::skip]
+    #[cfg(not(feature = "go-interop"))]
+    let other_stats = [
+        BSStats { r: 4, w: 6, br: 190, bw: 292 },
+        BSStats { r: 4, w: 6, br: 202, bw: 306 },
+        BSStats { r: 4, w: 6, br: 214, bw: 322 },
+    ];
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    let other_stats = [
+        BSStats {r: 9, w: 12, br: 420, bw: 566},
+        BSStats {r: 8, w: 11, br: 385, bw: 538},
+        BSStats {r: 8, w: 11, br: 419, bw: 580},
+    ];
+
     for i in 5..8 {
         #[rustfmt::skip]
         add_and_remove_keys(
             i,
             &[b"K"],
             &[b"B"],
-            kb_cases[(i - 5) as usize].0,
-            kb_cases[(i - 5) as usize].1,
+            kb_cases[(i - 5) as usize],
+            kb_stats[(i - 5) as usize],
         );
         #[rustfmt::skip]
         add_and_remove_keys(
             i,
             &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
             &[b"KAA4"],
-            other_cases[(i - 5) as usize].0,
-            other_cases[(i - 5) as usize].1,
+            other_cases[(i - 5) as usize],
+            other_stats[(i - 5) as usize],
         );
     }
 }
@@ -330,7 +399,12 @@ fn clean_child_ordering() {
         root.to_string().as_str(),
         "bafy2bzacec6ro3q36okye22evifu6h7kwdkjlb4keq6ogpfqivka6myk6wkjo"
     );
+
     #[rustfmt::skip]
-    // TODO https://github.com/ChainSafe/forest/issues/729
+    #[cfg(not(feature = "go-interop"))]
     assert_eq!(*store.stats.borrow(), BSStats { r: 3, w: 11, br: 1992, bw: 2510 });
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 9, w: 17, br: 2327, bw: 2845});
 }
