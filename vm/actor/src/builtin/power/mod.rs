@@ -52,6 +52,15 @@ pub enum Method {
     CurrentTotalPower = 9,
 }
 
+fn validate_miner_has_claim<BS, RT>(rt : &mut  RT, st : &State, miner: &Address) -> Result<(), ActorError> 
+where 
+BS : BlockStore,
+RT : Runtime<BS>
+{
+    let claims = make_map_with_root(&st.claims, rt.store()).map_err(|_|actor_error!(ErrIllegalState; "faile dto load claim"))?;
+    let _ = claims.get(&miner.to_bytes()).map_err(|_|actor_error!(ErrIllegalState; "Failed to look up claim") ) ?.ok_or(actor_error!(ErrForbidden; "Unknown miner forbidden to interact with power actor") )?;
+    Ok(())
+}
 /// Storage Power Actor
 pub struct Actor;
 impl Actor {
@@ -344,7 +353,9 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        rt.transaction(|st: &mut State, rt| {
+        let caller = rt.message().caller().clone();
+        rt.transaction(|st: &mut State, rt: &mut RT| {
+            validate_miner_has_claim(rt , st , &caller)?;
             let mut mmap = if let Some(ref batch) = st.proof_validation_batch {
                 Multimap::from_root(rt.store(), batch).map_err(|e| {
                     e.downcast_default(

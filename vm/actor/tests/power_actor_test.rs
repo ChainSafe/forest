@@ -6,21 +6,24 @@ extern crate lazy_static;
 mod common;
 
 use actor::{
-    init, reward, make_map_with_root, power, Multimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE,
-    INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
-    STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, CRON_ACTOR_CODE_ID
+    init, make_map_with_root, miner, power, reward, Multimap, ACCOUNT_ACTOR_CODE_ID,
+    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, CRON_ACTOR_CODE_ID, INIT_ACTOR_ADDR,
+    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR,
+    STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
 use address::Address;
-use cid::Cid;
+use cid::{Cid, multihash::Identity, Codec};
 use clock::ChainEpoch;
 use common::*;
 use encoding::{de::DeserializeOwned, ser::Serialize, BytesDe};
-use fil_types::{RegisteredSealProof, StoragePower};
+use fil_types::{RegisteredSealProof, SealVerifyInfo, StoragePower, SectorID};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::BytesKey;
 use ipld_hamt::Hamt;
+use ipld_amt:: Amt;
 use libp2p::Multiaddr;
 use num_bigint::bigint_ser::BigIntSer;
+use std::collections::HashMap;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 lazy_static! {
@@ -34,7 +37,7 @@ lazy_static! {
     static ref MINER_2: Address = Address::new_id(112);
 }
 
-const MINER_1_ID: u64 = 1;
+const MINER_1_ID: u64 = 111;
 
 mod test_construction {
 
@@ -400,146 +403,323 @@ mod test_power_and_pledge_accounting {
     }
 
     #[test]
-    fn miner_power_disappear_once_below_power_threshold(){
+    fn miner_power_disappear_once_below_power_threshold() {
         let mut rt = construct_and_verify();
         let mut actor_seed = 1;
         let mut miner_id = MINER_1_ID;
         for _ in 0..5 {
             let miner_addr = Address::new_id(miner_id);
-            actor_seed = create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, actor_seed);
-            update_claimed_power(&mut rt, miner_addr, POWER_UNIT.clone(), POWER_UNIT.clone()).unwrap();
+            actor_seed = create_miner_basic(
+                &mut rt,
+                OWNER.clone(),
+                OWNER.clone(),
+                miner_addr,
+                actor_seed,
+            );
+            update_claimed_power(&mut rt, miner_addr, POWER_UNIT.clone(), POWER_UNIT.clone())
+                .unwrap();
             miner_id += 1;
         }
-        
+
         let expected_total: StoragePower = POWER_UNIT.clone() * 5;
         expect_total_power_eager(&mut rt, expected_total.clone(), expected_total);
 
         let miner_4 = Address::new_id(MINER_1_ID + 3);
-        update_claimed_power(&mut rt, miner_4, SMALL_POWER_UNIT.clone() * -1, SMALL_POWER_UNIT.clone() * -1).unwrap();
-        
-		let expected_total: StoragePower = POWER_UNIT.clone() * 4;
+        update_claimed_power(
+            &mut rt,
+            miner_4,
+            SMALL_POWER_UNIT.clone() * -1,
+            SMALL_POWER_UNIT.clone() * -1,
+        )
+        .unwrap();
+
+        let expected_total: StoragePower = POWER_UNIT.clone() * 4;
         expect_total_power_eager(&mut rt, expected_total.clone(), expected_total.clone());
     }
-    
+
     #[test]
     fn threshold_only_depends_on_raw_power() {
         let mut rt = construct_and_verify();
         let mut actor_seed = 1;
         for i in 0..4 {
             let miner_addr = Address::new_id(MINER_1_ID + i);
-            actor_seed = create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, actor_seed);
+            actor_seed = create_miner_basic(
+                &mut rt,
+                OWNER.clone(),
+                OWNER.clone(),
+                miner_addr,
+                actor_seed,
+            );
         }
 
         for i in 0..2 {
             for j in 0..3 {
                 let miner_addr = Address::new_id(MINER_1_ID + j);
-                update_claimed_power(&mut rt, miner_addr, POWER_UNIT.clone()/2, POWER_UNIT.clone()).unwrap()
+                update_claimed_power(
+                    &mut rt,
+                    miner_addr,
+                    POWER_UNIT.clone() / 2,
+                    POWER_UNIT.clone(),
+                )
+                .unwrap()
             }
-            let state : power::State = rt.get_state().unwrap();
-            assert_eq!(3*i,state.miner_above_min_power_count);
+            let state: power::State = rt.get_state().unwrap();
+            assert_eq!(3 * i, state.miner_above_min_power_count);
         }
     }
-    
+
     #[test]
-    fn qa_power_is_above_threshold_before_and_after_update(){
+    fn qa_power_is_above_threshold_before_and_after_update() {
         let mut rt = construct_and_verify();
         create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
         let mut total = 0;
 
-        for i in &[3,1]{
-            update_claimed_power(&mut rt, MINER_1.clone(), i * POWER_UNIT.clone(), i * POWER_UNIT.clone()).unwrap();
-            total +=i;
-            let state : power::State = rt.get_state().unwrap();
-            assert_eq!(total* POWER_UNIT.clone(),state.total_quality_adj_power);
-            assert_eq!(total* POWER_UNIT.clone(),state.total_raw_byte_power);
+        for i in &[3, 1] {
+            update_claimed_power(
+                &mut rt,
+                MINER_1.clone(),
+                i * POWER_UNIT.clone(),
+                i * POWER_UNIT.clone(),
+            )
+            .unwrap();
+            total += i;
+            let state: power::State = rt.get_state().unwrap();
+            assert_eq!(total * POWER_UNIT.clone(), state.total_quality_adj_power);
+            assert_eq!(total * POWER_UNIT.clone(), state.total_raw_byte_power);
         }
-	}
+    }
 
     #[test]
-	fn claimed_power_is_externally_available(){
+    fn claimed_power_is_externally_available() {
         let mut rt = construct_and_verify();
         create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
-        update_claimed_power(&mut rt, MINER_1.clone(),  POWER_UNIT.clone(), POWER_UNIT.clone()).unwrap();
+        update_claimed_power(
+            &mut rt,
+            MINER_1.clone(),
+            POWER_UNIT.clone(),
+            POWER_UNIT.clone(),
+        )
+        .unwrap();
         let claim = get_claim(&mut rt, MINER_1.clone());
         assert_eq!(POWER_UNIT.clone(), claim.raw_byte_power);
         assert_eq!(POWER_UNIT.clone(), claim.quality_adj_power);
-	}
+    }
 }
 
 mod test_update_pledge_total {
     use super::*;
 
     #[test]
-	fn update_pledge_total_aborts_if_miner_has_no_claim(){
+    fn update_pledge_total_aborts_if_miner_has_no_claim() {
         let mut rt = construct_and_verify();
         create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
-        delete_claim(&mut rt, MINER_1.clone());
+        delete_claim(&mut rt, OWNER.clone());
         assert_eq!(
             ExitCode::ErrForbidden,
-            update_pledge_total(&mut rt, MINER_1.clone(), TokenAmount::from(1_000_000)).unwrap_err().exit_code());
-	}
+            update_pledge_total(&mut rt, OWNER.clone(), TokenAmount::from(1_000_000))
+                .unwrap_err()
+                .exit_code()
+        );
+    }
 }
 
-
-mod test_cron{
+mod test_cron {
     use super::*;
     #[test]
-    fn calls_reward_actor(){
+    fn calls_reward_actor() {
         let mut rt = construct_and_verify();
         let expected_power = StoragePower::default();
         rt.epoch = 1;
         rt.expect_validate_caller_addr(vec![CRON_ACTOR_ADDR.clone()]);
-        let params = Serialized::serialize(BigIntSer(&expected_power) ).unwrap();
-        rt.expect_send(REWARD_ACTOR_ADDR.clone(), reward::Method::UpdateNetworkKPI as u64, params, TokenAmount::default(), Serialized::default(), ExitCode::Ok);
-        rt.set_caller(CRON_ACTOR_CODE_ID.clone() , CRON_ACTOR_ADDR.clone());
+        let params = Serialized::serialize(BigIntSer(&expected_power)).unwrap();
+        rt.expect_send(
+            REWARD_ACTOR_ADDR.clone(),
+            reward::Method::UpdateNetworkKPI as u64,
+            params,
+            TokenAmount::default(),
+            Serialized::default(),
+            ExitCode::Ok,
+        );
+        rt.set_caller(CRON_ACTOR_CODE_ID.clone(), CRON_ACTOR_ADDR.clone());
 
-        //TODO add expect batch verify seals		
+        //TODO add expect batch verify seals
+        rt.expect_batch_verify_seals( Default::default(), Default::default());
 
-        assert!(call(&mut rt, power::Method::OnEpochTickEnd as u64, &Serialized::default()).is_ok());
-		rt.verify()
+        assert!(call(
+            &mut rt,
+            power::Method::OnEpochTickEnd as u64,
+            &Serialized::default()
+        )
+        .is_ok());
+        rt.verify()
     }
 
     #[test]
     fn test_amount_sent_to_reward_actor_and_state_change() {
-		// powerUnit, err := builtin.ConsensusMinerMinPower(abi.RegisteredSealProof_StackedDrg2KiBV1)
-		// require.NoError(t, err)
-
-		// miner3 := tutil.NewIDAddr(t, 103)
-		// miner4 := tutil.NewIDAddr(t, 104)
-
-		// rt := builder.Build(t)
-		// actor.constructAndVerify(rt)
-
-		// actor.createMinerBasic(rt, owner, owner, miner1)
-		// actor.createMinerBasic(rt, owner, owner, miner2)
-		// actor.createMinerBasic(rt, owner, owner, miner3)
-		// actor.createMinerBasic(rt, owner, owner, miner4)
-		// actor.updateClaimedPower(rt, miner1, powerUnit, powerUnit)
-		// actor.updateClaimedPower(rt, miner1, powerUnit, powerUnit)
-		// actor.updateClaimedPower(rt, miner1, powerUnit, powerUnit)
-		// actor.updateClaimedPower(rt, miner1, powerUnit, powerUnit)
-
-		// expectedPower := big.Mul(big.NewInt(4), powerUnit)
-
-		// delta := abi.NewTokenAmount(1)
-		// actor.updatePledgeTotal(rt, miner1, delta)
-		// actor.onEpochTickEnd(rt, 0, expectedPower, nil, nil)
-
-		// st := getState(rt)
-		// require.EqualValues(t, delta, st.ThisEpochPledgeCollateral)
-		// require.EqualValues(t, expectedPower, st.ThisEpochQualityAdjPower)
-		// require.EqualValues(t, expectedPower, st.ThisEpochRawBytePower)
-	}
-    #[test]
-    fn fails_to_enroll_if_epoch_is_negative(){
         let mut rt = construct_and_verify();
-        assert_eq!(ExitCode::ErrIllegalArgument,
-            enroll_cron_event(&mut rt, MINER_1.clone(), -2 , Serialized::serialize(vec![1,3]).unwrap()).unwrap_err().exit_code()
-         );
-	}
+        let this_power_unit = RegisteredSealProof::StackedDRG2KiBV1
+            .min_miner_consensus_power()
+            .unwrap();
+        for i in 0..4 {
+            let miner_addr = Address::new_id(MINER_1_ID + i);
+            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, i);
+            update_claimed_power(
+                &mut rt,
+                MINER_1.clone(),
+                this_power_unit.clone(),
+                this_power_unit.clone(),
+            )
+            .unwrap();
+        }
 
+        let delta = TokenAmount::from(1);
+        assert!(update_pledge_total(&mut rt, MINER_1.clone(), delta.clone()).is_ok());
+        let expected_power: StoragePower = this_power_unit * 4;
+        on_epoch_tick_end(&mut rt, 0, expected_power.clone(), &[], Default::default());
+
+        let state: power::State = rt.get_state().unwrap();
+        assert_eq!(delta, state.this_epoch_pledge_collateral);
+        assert_eq!(expected_power.clone(), state.this_epoch_quality_adj_power);
+        assert_eq!(expected_power, state.this_epoch_raw_byte_power);
+    }
+
+    #[test]
+    fn fails_to_enroll_if_epoch_is_negative() {
+        let mut rt = construct_and_verify();
+        assert_eq!(
+            ExitCode::ErrIllegalArgument,
+            enroll_cron_event(
+                &mut rt,
+                MINER_1.clone(),
+                -2,
+                Serialized::serialize(vec![1, 3]).unwrap()
+            )
+            .unwrap_err()
+            .exit_code()
+        );
+    }
+
+    #[test]
+    fn skips_invocation_if_miner_has_no_claim() {
+        let mut rt = construct_and_verify();
+        rt.epoch = 1;
+        for (actor_seed,miner) in [MINER_1.clone(), MINER_2.clone()].iter().enumerate(){
+            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner.clone(), actor_seed as u64);
+            assert!(enroll_cron_event(&mut rt, miner.to_owned(), 2, Serialized::default()).is_ok());
+        }
+        delete_claim(&mut rt, MINER_1.clone());
+        rt.epoch = 2;
+        rt.expect_validate_caller_addr(vec![CRON_ACTOR_ADDR.clone() ]);
+        rt.expect_batch_verify_seals(Default::default(), Default::default());
+        rt.expect_send(MINER_2.clone(),miner::Method::OnDeferredCronEvent as u64 , Serialized::default(), TokenAmount::default(),Serialized::default(), ExitCode::Ok);
+        let expected_power = StoragePower::default();
+        rt.expect_send(REWARD_ACTOR_ADDR.clone(),reward::Method::UpdateNetworkKPI as u64 , Serialized::serialize(BigIntSer(&expected_power)).unwrap(), TokenAmount::default() ,Serialized::default(), ExitCode::Ok);
+        rt.set_caller(CRON_ACTOR_CODE_ID.clone() ,CRON_ACTOR_ADDR.clone());
+        assert!(call(&mut rt, power::Method::OnEpochTickEnd as u64 , &Serialized::default()).is_ok());
+		rt.verify();
+	}
 }
 
+mod test_submit_porep_for_bulk_verify {
+    use super::*;
+
+    #[test]
+    fn registers_porep_and_charges_gas() {
+        let mut rt = construct_and_verify();
+        create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), OWNER.clone(), 1);
+
+        let comm_r =     Cid::new_v1(Codec::Raw, Identity::digest(b"commR"));
+        let comm_d =     Cid::new_v1(Codec::Raw, Identity::digest(b"commD"));
+
+		let seal_info = SealVerifyInfo{
+            sealed_cid : comm_r.clone(),
+            unsealed_cid : comm_d,
+            registered_proof : RegisteredSealProof::StackedDRG2KiBV1,
+            sector_id : SectorID::default(),
+            deal_ids : Default::default(),
+            randomness : Default::default(),
+            interactive_randomness : Default::default(),
+            proof : vec![]
+        };
+        assert!(submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info).is_ok());
+
+		// TODO
+        //rt.ExpectGasCharged(power.GasOnSubmitVerifySeal)
+        
+        let state : power::State = rt.get_state().unwrap();
+        let cid = state.proof_validation_batch.unwrap();
+        let mmap = Multimap::from_root(&rt.store, &cid).unwrap();
+        let arr :  Amt<SealVerifyInfo,_> = mmap.get(&OWNER.to_bytes()).unwrap().unwrap();
+        assert_eq!(1,arr.count());
+
+        let v : SealVerifyInfo = arr.get(0).unwrap().unwrap().clone();
+        assert_eq!(comm_r, v.sealed_cid);
+    }
+    
+    #[test]
+    fn aborts_when_too_many_poreps() {
+        let mut rt = construct_and_verify();
+        create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), OWNER.clone(), 1);
+		
+
+		let seal_info = | i| {
+            let comm_r = format!("commR{}",i);
+            let comm_d = format!("commD{}",i);
+            SealVerifyInfo{
+                sealed_cid : Cid::new_v1(Codec::Raw, Identity::digest(comm_r.as_bytes())),
+                unsealed_cid : Cid::new_v1(Codec::Raw, Identity::digest(comm_d.as_bytes())),
+                registered_proof : RegisteredSealProof::StackedDRG2KiBV1,
+                sector_id : SectorID::default(),
+                deal_ids : Default::default(),
+                randomness : Default::default(),
+                interactive_randomness : Default::default(),
+                proof : vec![]
+            }
+
+        };
+
+		// Adding MaxMinerProveCommitsPerEpoch works without error
+		for  i in 0..power::MAX_MINER_PROVE_COMMITS_PER_EPOCH{
+            assert!(submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info(i)).is_ok());
+        }
+        
+        assert_eq!(ExitCode::ErrTooManyProveCommits,
+            submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info(power::MAX_MINER_PROVE_COMMITS_PER_EPOCH)).unwrap_err().exit_code()
+         );
+
+		// Gas only charged for successful submissions
+		//rt.ExpectGasCharged(power.GasOnSubmitVerifySeal * power.MaxMinerProveCommitsPerEpoch)
+    }
+    
+
+    #[test]
+    fn aborts_when_miner_has_no_claim() {
+        let mut rt = construct_and_verify();
+        create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), OWNER.clone(), 1);
+        delete_claim(&mut rt, OWNER.clone());
+		
+		
+        let comm_r =     Cid::new_v1(Codec::Raw, Identity::digest(b"commR"));
+        let comm_d =     Cid::new_v1(Codec::Raw, Identity::digest(b"commD"));
+		let seal_info = SealVerifyInfo{
+            sealed_cid : comm_r.clone(),
+            unsealed_cid : comm_d,
+            registered_proof : RegisteredSealProof::StackedDRG2KiBV1,
+            sector_id : SectorID::default(),
+            deal_ids : Default::default(),
+            randomness : Default::default(),
+            interactive_randomness : Default::default(),
+            proof : vec![]
+        };
+
+        // delete miner
+        delete_claim(&mut rt, OWNER.clone());
+        assert_eq!(ExitCode::ErrForbidden,
+            submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info).unwrap_err().exit_code()
+         );
+		
+	}
+}
 
 
 fn check_call_fail(rt: &mut MockRuntime, method_num: u64, ser: &Serialized, exit_code: ExitCode) {
@@ -694,6 +874,15 @@ fn init_create_miner_bytes(
     Serialized::serialize(v).unwrap()
 }
 
+fn submit_porep_for_bulk_verify(rt : &mut MockRuntime, miner_addr : Address, seal_info : SealVerifyInfo) -> Result<Serialized,ActorError>{
+    rt.expect_validate_caller_type(vec![MINER_ACTOR_CODE_ID.clone()] );
+    rt.set_caller(MINER_ACTOR_CODE_ID.clone() ,miner_addr);
+    let ser = call(rt, power::Method::SubmitPoRepForBulkVerify as u64, &Serialized::serialize(seal_info).unwrap())?;
+    rt.verify();
+    Ok(ser)
+}
+
+
 fn current_total_power(rt: &mut MockRuntime) -> Result<power::CurrentTotalPowerReturn, ActorError> {
     rt.expect_validate_caller_any();
     let ser = call(
@@ -711,10 +900,10 @@ fn expect_total_power_eager(
 ) {
     let state: power::State = rt.get_state().unwrap();
     let (total_raw_byte_power, total_quality_adj_power) = state.current_total_power();
-    println!("total_raw_byte_power is {:?}",total_raw_byte_power);
-    println!("total_quality_adj_power is {:?}",total_quality_adj_power);
-    println!("expected_raw_byte_power is {:?}",expected_raw);
-    println!("expected_quality_adj_power is {:?}",expected_qa);
+    println!("total_raw_byte_power is {:?}", total_raw_byte_power);
+    println!("total_quality_adj_power is {:?}", total_quality_adj_power);
+    println!("expected_raw_byte_power is {:?}", expected_raw);
+    println!("expected_quality_adj_power is {:?}", expected_qa);
     assert_eq!(expected_raw, total_raw_byte_power);
     assert_eq!(expected_qa, total_quality_adj_power);
 }
@@ -760,6 +949,73 @@ fn update_claimed_power(
     Ok(())
 }
 
+struct ConfirmedSectorSend {
+    miner: Address,
+    sector_nums: Vec<u64>,
+}
+
+fn batch_verify_default_output(
+    vis: HashMap<Address, Vec<SealVerifyInfo>>,
+) -> HashMap<Address, Vec<bool>> {
+    let mut out: HashMap<Address, Vec<bool>> = Default::default();
+    for (key, v) in vis {
+        let mut validations = Vec::with_capacity(v.len());
+        for i in 0..v.len() {
+            validations[i] = true
+        }
+        out.insert(key, validations);
+    }
+    out
+}
+
+fn on_epoch_tick_end(
+    rt: &mut MockRuntime,
+    curr_epoch: ChainEpoch,
+    expected_raw_power: StoragePower,
+    confirmed_sectors: &[ConfirmedSectorSend],
+    infos: HashMap<Address, Vec<SealVerifyInfo>>,
+) {
+    // // expect sends for confirmed sectors
+    for cs in confirmed_sectors {
+        let param = miner::ConfirmSectorProofsParams {
+            sectors: cs.sector_nums.clone(),
+        };
+
+        rt.expect_send(
+            cs.miner,
+            miner::Method::ConfirmSectorProofsValid as u64,
+            Serialized::serialize(param).unwrap(),
+            TokenAmount::default(),
+            Serialized::default(),
+            ExitCode::Ok,
+        );
+    }
+    let out_map = batch_verify_default_output(infos.clone());
+
+    rt.expect_batch_verify_seals(infos, out_map);
+    let ser = Serialized::serialize(BigIntSer(&expected_raw_power)).unwrap();
+    rt.expect_send(
+        REWARD_ACTOR_ADDR.clone(),
+        reward::Method::UpdateNetworkKPI as u64,
+        ser,
+        TokenAmount::default(),
+        Serialized::default(),
+        ExitCode::Ok,
+    );
+    rt.expect_validate_caller_addr(vec![CRON_ACTOR_ADDR.clone()]);
+    rt.epoch = curr_epoch;
+    rt.set_caller(CRON_ACTOR_CODE_ID.clone(), CRON_ACTOR_ADDR.clone());
+    assert!(call(
+        rt,
+        power::Method::OnEpochTickEnd as u64,
+        &Serialized::default()
+    )
+    .is_ok());
+    rt.verify();
+    let state: power::State = rt.get_state().unwrap();
+    assert!(state.proof_validation_batch.is_none());
+}
+
 fn update_pledge_total(
     rt: &mut MockRuntime,
     miner: Address,
@@ -788,13 +1044,12 @@ fn get_claim(rt: &mut MockRuntime, a: Address) -> power::Claim {
     claims.get(&a.to_bytes()).unwrap().unwrap()
 }
 
-fn delete_claim(rt : &mut MockRuntime, a : Address){
+fn delete_claim(rt: &mut MockRuntime, a: Address) {
     let mut state: power::State = rt.get_state().unwrap();
     let mut claims: Hamt<_, power::Claim> = make_map_with_root(&state.claims, &rt.store).unwrap();
     claims.delete(&a.to_bytes()).unwrap();
     state.claims = claims.flush().unwrap();
     rt.replace_state(&state);
-
 }
 
 fn enroll_cron_event(

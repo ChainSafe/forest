@@ -54,6 +54,7 @@ pub struct MockRuntime {
     pub expect_verify_post: RefCell<Option<ExpectVerifyPoSt>>,
     pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid>>,
     pub expect_verify_consensus_fault: RefCell<Option<ExpectVerifyConsensusFault>>,
+    pub expect_batch_verify_seals: RefCell<Option<ExpectBatchVerifySeals>>,
     pub hash_func: Box<dyn Fn(&[u8]) -> [u8; 32]>,
 }
 
@@ -85,6 +86,7 @@ impl Default for MockRuntime {
             expect_verify_post: Default::default(),
             expect_compute_unsealed_sector_cid: Default::default(),
             expect_verify_consensus_fault: Default::default(),
+            expect_batch_verify_seals: Default::default(),
             hash_func: Box::new(|_| [0u8; 32]),
         }
     }
@@ -135,6 +137,11 @@ pub struct ExpectVerifyConsensusFault {
     block_header_extra: Vec<u8>,
     fault: Option<ConsensusFault>,
     exit_code: ExitCode,
+}
+#[derive(Default, Debug)]
+pub struct ExpectBatchVerifySeals {
+    pub in_map: HashMap<Address, Vec<SealVerifyInfo>>,
+    pub out_map: HashMap<Address, Vec<bool>>,
 }
 
 #[derive(Clone)]
@@ -227,6 +234,16 @@ impl MockRuntime {
         self.expect_delete_actor = Some(beneficiary);
     }
 
+    #[allow(dead_code)]
+    pub fn expect_batch_verify_seals(
+        &mut self,
+        in_map: HashMap<Address, Vec<SealVerifyInfo>>,
+        out_map: HashMap<Address, Vec<bool>>,
+    ) {
+        *self.expect_batch_verify_seals.borrow_mut() =
+            Some(ExpectBatchVerifySeals { in_map, out_map });
+    }
+
     pub fn call(
         &mut self,
         to_code: &Cid,
@@ -307,6 +324,11 @@ impl MockRuntime {
             self.expect_create_actor.is_none(),
             "expected actor to be created, uncreated actor: {:?}",
             self.expect_create_actor
+        );
+        assert!(
+            self.expect_batch_verify_seals.borrow().as_ref().is_none(),
+            "expected actor to be created, uncreated actor: {:?}",
+            self.expect_batch_verify_seals
         );
         assert!(
             self.expect_verify_seal.borrow().as_ref().is_none(),
@@ -820,5 +842,19 @@ impl Syscalls for MockRuntime {
             )));
         }
         Ok(exp.fault)
+    }
+
+    fn batch_verify_seals(
+        &self,
+        vis: &[(Address, &Vec<SealVerifyInfo>)],
+    ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+
+        
+
+        let _ = self.expect_batch_verify_seals.replace(None).ok_or(Box::new(
+            actor_error!(ErrIllegalState; "Unexpected syscall to batch verify seals"),
+        ))?;
+        
+        Ok(Default::default())
     }
 }

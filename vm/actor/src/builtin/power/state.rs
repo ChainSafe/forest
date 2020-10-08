@@ -153,8 +153,7 @@ impl State {
             println!("Was above the threshold, still above");
             self.total_quality_adj_power += qa_power;
             self.total_raw_byte_power += power;
-        }
-        else{
+        } else {
             println!("was always below");
         }
 
