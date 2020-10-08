@@ -47,7 +47,6 @@ pub struct ChannelInfo {
     pub target: Address,
     /// Direction indicates if the channel is inbound (this node is the target)
     /// or outbound (this node is the control)
-    ///
     direction: u8,
     /// The list of all vouchers sent on the channel
     #[builder(default)]
@@ -211,7 +210,7 @@ impl ChannelInfo {
         }
     }
 }
-// TODO remove arc and do not need to wrap PaychStore with Rwlock
+// TODO look into changing to actual datastore
 #[derive(Clone)]
 pub struct PaychStore {
     pub ds: HashMap<String, Vec<u8>>,
@@ -262,7 +261,7 @@ impl PaychStore {
             Err(err) => Err(err),
         }
     }
-
+    // TODO review
     /// Return a Vec of all ChannelInfo Addresses in paych_store
     pub async fn list_channels(&self) -> Result<Vec<Address>, Error> {
         //let ds = self.ds.read().await;
@@ -347,7 +346,6 @@ impl PaychStore {
 
     /// Get the message info for a given message CID
     pub async fn get_message(&self, mcid: Cid) -> Result<MsgInfo, Error> {
-        // let ds = self.ds.read().await;
         let k = key_for_msg(&mcid);
         let val = self.ds.get(&k).ok_or_else(|| Error::NoVal)?;
         let minfo = MsgInfo::unmarshal_cbor(val.as_slice())?;
@@ -356,7 +354,6 @@ impl PaychStore {
 
     /// Retrieves the channel info associated with a message
     pub async fn by_message_cid(&self, mcid: Cid) -> Result<ChannelInfo, Error> {
-        //let ds = self.ds.read().await;
         let minfo = self.get_message(mcid).await?;
         for val in self.ds.values() {
             let ci = ChannelInfo::unmarshal_cbor(val)?;
@@ -391,7 +388,6 @@ impl PaychStore {
         mcid: Cid,
         msg_err: Option<Error>,
     ) -> Result<(), Error> {
-        //let mut ds = self.ds.write().await;
         let k = key_for_msg(&mcid);
         let mut minfo = self.get_message(mcid).await?;
         if msg_err.is_some() {
@@ -410,8 +406,6 @@ impl PaychStore {
         from: Address,
         to: Address,
     ) -> Result<ChannelInfo, Error> {
-        // let ds = self.ds.read().await;
-
         for val in self.ds.values() {
             let ci = ChannelInfo::unmarshal_cbor(val)?;
             if ci.direction == DIR_OUTBOUND {
@@ -438,7 +432,6 @@ impl PaychStore {
                 if ci.add_funds_msg.is_none() {
                     return false;
                 }
-                // TODO  need to figure out smarter way to do this
                 (ci.create_msg.as_ref().unwrap().clone() != Cid::default())
                     | (ci.add_funds_msg.as_ref().unwrap().clone() != Cid::default())
             }),
@@ -449,7 +442,6 @@ impl PaychStore {
 
     /// Get channel info given channel ID
     pub async fn by_channel_id(&self, channel_id: &str) -> Result<ChannelInfo, Error> {
-        // let ds = self.ds.read().await;
         let res = self
             .ds
             .get(channel_id)
@@ -487,7 +479,6 @@ impl PaychStore {
 
     /// Remove a channel with given channel ID
     pub async fn remove_channel(&mut self, channel_id: String) -> Result<(), Error> {
-        // let mut ds = self.ds.write().await;
         self.ds
             .remove(&format!("{}/{}", DS_KEY_CHANNEL_INFO, channel_id))
             .ok_or_else(|| Error::ChannelNotTracked)?;

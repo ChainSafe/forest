@@ -313,13 +313,12 @@ where
         store.put_channel_info(ci).await?;
         Ok(delta)
     }
-    // TODO see if this is even necessary
+    
     /// Allocates a lane for given address
     pub async fn allocate_lane(&self, ch: Address) -> Result<u64, Error> {
         let mut store = self.store.write().await;
         store.allocate_lane(ch).await
     }
-    // TODO see if this is even necessary
     /// Lists vouchers for given address
     pub async fn list_vouchers(&self, ch: Address) -> Result<Vec<VoucherInfo>, Error> {
         let store = self.store.read().await;
@@ -376,13 +375,17 @@ where
                     },
                 );
             }
-            let mut ls = lane_states.get_mut(&v.voucher.lane).unwrap();
-            if v.voucher.nonce < ls.nonce {
-                continue;
+            if let Some(mut ls) = lane_states.get_mut(&v.voucher.lane) {
+                if v.voucher.nonce < ls.nonce {
+                    continue;
+                }
+    
+                ls.nonce = v.voucher.nonce;
+                ls.redeemed = v.voucher.amount;
+            } else {
+                return Err(Error::Other(format!("failed to retrieve lane state for {}", v.voucher.lane)));
             }
-
-            ls.nonce = v.voucher.nonce;
-            ls.redeemed = v.voucher.amount;
+            
         }
 
         Ok(lane_states)
@@ -523,9 +526,11 @@ where
         let mut merged = MergeFundsReq::new(funds_req_queue.clone())
             .ok_or_else(|| Error::Other("MergeFunds creation".to_owned()))?;
         let amt = merged.sum();
-        if amt == BigInt::default() {
+        if amt == BigInt::zero() {
             // Note: The amount can be zero if requests are cancelled while
             // building the mergedFundsReq
+
+            // TODO current available funds call missing
             return Ok(());
         }
 
@@ -653,10 +658,9 @@ where
         let ci = store.create_channel(from, to, mcid.clone(), amt).await?;
 
         // TODO determine if this should be blocking
-        task::spawn(async {
+        task::spawn(async move || {
             self.wait_paych_create_msg(ci.id, mcid.clone())
-                .await
-                .unwrap();
+                .await?;
         });
 
         Ok(mcid)

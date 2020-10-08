@@ -25,7 +25,7 @@ where
     pub channels: Arc<RwLock<HashMap<String, Arc<ChannelAccessor<DB, KS>>>>>,
     pub state: Arc<ResourceAccessor<DB, KS>>,
 }
-/// Thread safe access to message pool and keystore for pay channel use
+/// Thread safe access to message pool and keystore resource for paychannel usage
 pub struct ResourceAccessor<DB, KS>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -34,6 +34,28 @@ where
     pub keystore: Arc<RwLock<KS>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub sa: Arc<StateAccessor<DB>>,
+}
+
+struct ChannelAvailableFunds {
+    // Channel is the address of the channel
+    pub channel: Option<Address>,
+    // From is the from address of the channel (channel creator)
+    pub from: Address,
+    // To is the to address of the channel
+    pub to: Address,
+    // ConfirmedAmt is the amount of funds that have been confirmed on-chain
+	// for the channel
+    pub confirmed_amt: BigInt,
+    // PendingAmt is the amount of funds that are pending confirmation on-chain
+    pub pending_amt: BigInt,
+    // PendingWaitSentinel can be used with PaychGetWaitReady to wait for
+	// confirmation of pending funds
+    pub pending_wait_sentinel: Option<Cid>,
+    // QueuedAmt is the amount that is queued up behind a pending request
+    pub queued_amt: BigInt,
+    // VoucherRedeemedAmt is the amount that is redeemed by vouchers on-chain
+	// and in the local datastore
+    pub voucher_redeemed_amt: BigInt,
 }
 
 impl<DB, KS> Manager<DB, KS>
@@ -48,6 +70,10 @@ where
             channels: Arc::new(RwLock::new(HashMap::new())),
         }
     }
+    /// Start restarts tracking of any messages that were sent to chain.
+    pub async fn start(&self) -> Result<(), Error> {
+        self.restart_pending().await
+    }
 
     async fn restart_pending(&mut self) -> Result<(), Error> {
         let mut st = self.store.write().await;
@@ -57,10 +83,9 @@ where
             if let Some(msg) = ci.create_msg {
                 let ca = self.accessor_by_from_to(ci.control, ci.target).await?;
                 // TODO ask if this should be blocking
-                task::spawn(async {
-                    ca.wait_paych_create_msg(ci.id, ci.create_msg.unwrap()) // TODO
-                        .await
-                        .unwrap();
+                task::spawn(async move || {
+                    ca.wait_paych_create_msg(ci.id, msg)
+                        .await?;
                 });
                 return Ok(());
             } else if let Some(msg) = ci.add_funds_msg {
@@ -70,14 +95,51 @@ where
                 let ca = self.accessor_by_address(ch).await?;
 
                 // TODO ask if this should be blocking
-                task::spawn(async {
-                    ca.wait_add_funds_msg(ci.id, ci.create_msg).await.unwrap();
+                task::spawn(async move || {
+                    ca.wait_add_funds_msg(ci.id, msg).await?;
                 });
                 return Ok(());
             }
         }
         Ok(())
     }
+
+    pub async fn available_funds(&self, ch: Address) -> Result<(), Error> {
+        let ca = self.accessor_by_address(ch).await?;
+
+        let ci = ca.get_channel_info(ch).await?;
+
+        ca.available_funds(ci.id)
+    }
+
+    pub async fn available_funds_by_from_to(&self, from: Address, to: Address) -> Result<(), Error> {
+        let mut st = self.store.read().await;
+        let ca = self.accessor_by_from_to(from, to).await?;
+
+        if let Err(e) = st.outbound_active_by_from_to(from, to).await {
+            if e == Error::ChannelNotTracked {
+                // If there is no active channel between from / to we still want to
+		        // return an empty ChannelAvailableFunds, so that clients can check
+		        // for the existence of a channel between from / to without getting
+                // an error.
+                
+            }
+        }
+        
+    }
+
+    /// Ensures that a channel exists between the from and to addresses,
+    /// and adds the given amount of funds.
+    pub async fn get_paych(
+        &self,
+        from: Address,
+        to: Address,
+        amt: BigInt,
+    ) -> Result<PaychFundsRes, Error> {
+        let chan_accesor = self.accessor_by_from_to(from, to).await?;
+        Ok(chan_accesor.get_paych(from, to, amt).await?)
+    }
+
     // TODO !!!
     async fn track_inbound_channel(&mut self, ch: Address) -> Result<ChannelInfo, Error> {
         let mut store = self.store.write().await;
@@ -123,7 +185,7 @@ where
         let ca = ChannelAccessor::new(&self);
         channel_write
             .insert(key.clone(), Arc::new(ca))
-            .ok_or_else(|| Error::Other("insert new channel accesor".to_string()))?;
+            .ok_or_else(|| Error::Other("insert new channel accessor".to_string()))?;
         let channel_check = self.channels.read().await;
         let op_locked = channel_check.get(&key);
         if let Some(channel) = op_locked {
@@ -157,17 +219,7 @@ where
         let ci = store.by_address(ch).await?;
         self.accessor_by_from_to(ci.control, ci.target).await
     }
-    /// Ensures that a channel exists between the from and to addresses,
-    /// and adds the given amount of funds.
-    pub async fn get_paych(
-        &self,
-        from: Address,
-        to: Address,
-        amt: BigInt,
-    ) -> Result<PaychFundsRes, Error> {
-        let chan_accesor = self.accessor_by_from_to(from, to).await?;
-        Ok(chan_accesor.get_paych(from, to, amt).await?)
-    }
+    
 
     // Waits until the create channel / add funds message with the
     // given message CID arrives.

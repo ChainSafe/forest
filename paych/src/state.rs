@@ -23,6 +23,7 @@ where
     DB: BlockStore,
 {
     /// Returns ActorState of provided address
+    // TODO ask if this would even work with CID default?
     pub async fn load_paych_state(&self, ch: &Address) -> Result<(ActorState, PaychState), Error> {
         let sm = self.sm.read().await;
         let state: PaychState = sm
@@ -36,10 +37,56 @@ where
         Ok((actor, state))
     }
 
+    /// Returns channel info of provided address
+    // TODO cid default should not work?
+    pub async fn load_state_channel_info(
+        &self,
+        ch: Address,
+        dir: u8,
+    ) -> Result<ChannelInfo, Error> {
+        let (_, st) = self.load_paych_state(&ch).await?;
+        let sm = self.sm.read().await;
+
+        // Load channel 'from' account actor state
+        let account_from: AccountState = sm
+            .load_actor_state(&st.from, &Cid::default())
+            .map_err(|err| Error::Other(err.to_string()))?;
+        let from = account_from.address;
+
+        // Load channel 'to' account actor state
+        let account_to: AccountState = sm
+            .load_actor_state(&st.to, &Cid::default())
+            .map_err(|err| Error::Other(err.to_string()))?;
+        let to = account_to.address;
+
+        let next_lane = self.next_lane_from_state(st).await?;
+        if dir == DIR_INBOUND {
+            let ci = ChannelInfo::builder()
+                .next_lane(next_lane)
+                .direction(dir)
+                .control(to)
+                .target(from)
+                .build()
+                .map_err(Error::Other)?;
+            Ok(ci)
+        } else if dir == DIR_OUTBOUND {
+            let ci = ChannelInfo::builder()
+                .next_lane(next_lane)
+                .direction(dir)
+                .control(from)
+                .target(to)
+                .build()
+                .map_err(Error::Other)?;
+            Ok(ci)
+        } else {
+            Err(Error::Other("invalid Direction".to_string()))
+        }
+    }
+
     async fn next_lane_from_state(&self, st: PaychState) -> Result<u64, Error> {
         let sm = self.sm.read().await;
         let store = sm.get_block_store_ref();
-        let lane_states: Amt<u64, _> = Amt::load(&st.lane_states, store).unwrap(); // TODO handle err properly
+        let lane_states: Amt<u64, _> = Amt::load(&st.lane_states, store)?;
         let mut max_id: u64 = 0;
 
         lane_states
@@ -52,44 +99,5 @@ where
             .map_err(|e| Error::Encoding(format!("failed to iterate over values in AMT: {}", e)))?;
 
         Ok(max_id + 1)
-    }
-    /// Returns channel info of provided address
-    pub async fn load_state_channel_info(
-        &self,
-        ch: Address,
-        dir: u8,
-    ) -> Result<ChannelInfo, Error> {
-        let (_, st) = self.load_paych_state(&ch).await?;
-        let sm = self.sm.read().await;
-        let account_from: AccountState = sm
-            .load_actor_state(&st.from, &Cid::default())
-            .map_err(|err| Error::Other(err.to_string()))?;
-        let from = account_from.address;
-        let account_to: AccountState = sm
-            .load_actor_state(&st.to, &Cid::default())
-            .map_err(|err| Error::Other(err.to_string()))?;
-        let to = account_to.address;
-        let next_lane = self.next_lane_from_state(st).await?;
-        if dir == DIR_INBOUND {
-            let ci = ChannelInfo::builder()
-                .next_lane(next_lane)
-                .direction(dir)
-                .control(from)
-                .target(to)
-                .build()
-                .map_err(Error::Other)?;
-            Ok(ci)
-        } else if dir == DIR_OUTBOUND {
-            let ci = ChannelInfo::builder()
-                .next_lane(next_lane)
-                .direction(dir)
-                .control(to)
-                .target(from)
-                .build()
-                .map_err(Error::Other)?;
-            Ok(ci)
-        } else {
-            Err(Error::Other("Invalid Direction".to_string()))
-        }
     }
 }
