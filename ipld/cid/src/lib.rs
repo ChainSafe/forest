@@ -85,7 +85,8 @@ impl<'de> de::Deserialize<'de> for Cid {
                     bz.remove(0);
                 }
 
-                Ok(Cid::try_from(bz).map_err(|e| de::Error::custom(e.to_string()))?)
+                Ok(Cid::try_from(bz)
+                    .map_err(|e| de::Error::custom(format!("Failed to deserialize Cid: {}", e)))?)
             }
             Some(_) => Err(de::Error::custom("unexpected tag")),
         }

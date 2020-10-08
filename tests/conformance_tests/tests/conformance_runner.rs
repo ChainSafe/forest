@@ -6,12 +6,11 @@
 #[macro_use]
 extern crate lazy_static;
 
-use address::Protocol;
 use conformance_tests::*;
-use crypto::Signature;
 use encoding::Cbor;
 use flate2::read::GzDecoder;
-use forest_message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use forest_message::{MessageReceipt, UnsignedMessage};
+use interpreter::ApplyRet;
 use regex::Regex;
 use std::error::Error as StdError;
 use std::fmt;
@@ -21,8 +20,7 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 78] = [
-
+    static ref SKIP_TESTS: Vec<Regex> = vec![
         Regex::new(r"test-vectors/corpus/vm_violations/x--*").unwrap(),
         Regex::new(r"test-vectors/corpus/nested/x--*").unwrap(),
         // These tests are marked as invalid as they return wrong exit code on Lotus
@@ -32,8 +30,6 @@ lazy_static! {
         Regex::new(r"nested/nested_sends--fail-mismatch-params.json").unwrap(),
         // Lotus client does not fail in inner transaction for insufficient funds
         Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
-        // TODO This fails but is blocked on miner actor refactor, remove skip after that comes in
-        Regex::new(r"test-vectors/corpus/reward/reward--ok-miners-awarded-no-premiums.json").unwrap(),
 
         // These 2 tests ignore test cases for Chaos actor that are checked at compile time
         // Link to discussion https://github.com/ChainSafe/forest/pull/696/files
@@ -95,7 +91,7 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/WithdrawBalance/SysErrOutOfGas/extracted-msg-fil_1_storageminer-WithdrawBalance-SysErrOutOfGas-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagepower/CreateMiner/16/extracted-msg-fil_1_storagepower-CreateMiner-16-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagepower/CreateMiner/SysErrOutOfGas/extracted-msg-fil_1_storagepower-CreateMiner-SysErrOutOfGas-*").unwrap(),
-        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/DeclareFaults/Ok/ext-0001-fil_1_storageminer-DeclareFaults-Ok-").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/DeclareFaults/Ok/ext-0001-fil_1_storageminer-DeclareFaults-Ok-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/19/ext-0001-fil_1_storageminer-PreCommitSector-19-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/Ok/ext-0001-fil_1_storageminer-PreCommitSector-Ok-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagemarket/PublishStorageDeals/19/extracted-msg-fil_1_storagemarket-PublishStorageDeals-19-*").unwrap(),
@@ -105,10 +101,6 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_account/Send/Ok/ext-0001-fil_1_account-Send-Ok-3").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/Send/SysErrOutOfGas/extracted-msg-fil_1_storageminer-Send-SysErrOutOfGas-*").unwrap(),
         Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/DeclareFaults/Ok/extracted-msg-fil_1_storageminer-DeclareFaults-Ok-*").unwrap(),
-        Regex::new(r"test-vectors/corpus/msg_application/gas_cost--msg-ok-secp-bls-gas-costs.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/msg_application/duplicates--messages-deduplicated.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-gas-for-return.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/reward/penalties--penalize-insufficient-balance-to-cover-gas.json").unwrap(),
         Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-balance-to-cover-gas-and-transfer.json").unwrap(),
     ];
 }
@@ -118,6 +110,11 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         Some(file) => file,
         None => return false,
     };
+
+    if let Ok(s) = ::std::env::var("FOREST_CONF") {
+        return file_name == s;
+    }
+
     for rx in SKIP_TESTS.iter() {
         if rx.is_match(file_name) {
             println!("SKIPPING: {}", file_name);
@@ -140,14 +137,19 @@ fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
 
 fn check_msg_result(
     expected_rec: &MessageReceipt,
-    actual_rec: &MessageReceipt,
+    ret: &ApplyRet,
     label: impl fmt::Display,
 ) -> Result<(), String> {
+    let error = ret.act_error.as_ref().map(|e| e.msg());
+    let actual_rec = &ret.msg_receipt;
     let (expected, actual) = (expected_rec.exit_code, actual_rec.exit_code);
     if expected != actual {
         return Err(format!(
-            "exit code of msg {} did not match; expected: {:?}, got {:?}",
-            label, expected, actual
+            "exit code of msg {} did not match; expected: {:?}, got {:?}. Error: {}",
+            label,
+            expected,
+            actual,
+            error.unwrap_or("No error reported with exit code")
         ));
     }
 
@@ -195,7 +197,7 @@ fn execute_message_vector(
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
-        check_msg_result(receipt, &ret.msg_receipt, i)?;
+        check_msg_result(receipt, &ret, i)?;
     }
 
     if root != postconditions.state_tree.root_cid {
@@ -207,18 +209,6 @@ fn execute_message_vector(
     }
 
     Ok(())
-}
-
-// This might be changed to be encoded into vector, matching go runner for now
-fn to_chain_msg(msg: UnsignedMessage) -> ChainMessage {
-    if msg.from().protocol() == Protocol::Secp256k1 {
-        ChainMessage::Signed(SignedMessage {
-            message: msg,
-            signature: Signature::new_secp256k1(vec![0; 65]),
-        })
-    } else {
-        ChainMessage::Unsigned(msg)
-    }
 }
 
 fn execute_tipset_vector(
@@ -242,10 +232,10 @@ fn execute_tipset_vector(
             ..
         } = execute_tipset(Arc::clone(&bs), &root, prev_epoch, &ts)?;
 
-        for (j, v) in applied_results.into_iter().enumerate() {
+        for (j, apply_ret) in applied_results.into_iter().enumerate() {
             check_msg_result(
                 &postconditions.receipts[receipt_idx],
-                &v.msg_receipt,
+                &apply_ret,
                 format!("{} of tipset {}", j, i),
             )?;
             receipt_idx += 1;
