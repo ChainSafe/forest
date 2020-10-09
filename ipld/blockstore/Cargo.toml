@@ -15,4 +15,4 @@ commcid = { path = "../../utils/commcid", optional = true }
 rocksdb = ["db/rocksdb"]
 buffered = ["commcid", "forest_ipld"]
 tracking = []
-resolve = ["forest_ipld"]
+resolve = ["forest_ipld", "commcid"]

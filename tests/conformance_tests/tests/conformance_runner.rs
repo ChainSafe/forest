@@ -198,7 +198,7 @@ fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Re
 
             let mut t = term::stdout().unwrap();
 
-            writeln!(t, "{}:", error_msg);
+            writeln!(t, "{}:", error_msg).unwrap();
 
             for i in 0..diffs.len() {
                 match diffs[i] {

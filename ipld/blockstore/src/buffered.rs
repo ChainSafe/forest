@@ -6,7 +6,7 @@
 use super::BlockStore;
 use cid::{
     multihash::{Code, MultihashDigest},
-    Cid,
+    Cid, Codec,
 };
 use commcid::{POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
 use db::{Error, Store};
@@ -56,7 +56,12 @@ where
 {
     // Skip identity and Filecoin commitment Cids
     let ch = cid.hash.algorithm();
-    if ch == Code::Identity || ch == SHA2_256_TRUNC254_PADDED || ch == POSEIDON_BLS12_381_A1_FC1 {
+    if ch == Code::Identity
+        || ch == SHA2_256_TRUNC254_PADDED
+        || ch == POSEIDON_BLS12_381_A1_FC1
+        || cid.codec == Codec::FilCommitmentUnsealed
+        || cid.codec == Codec::FilCommitmentSealed
+    {
         return Ok(());
     }
 
