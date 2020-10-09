@@ -4,11 +4,7 @@
 #![cfg(feature = "buffered")]
 
 use super::BlockStore;
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Cid, Codec,
-};
-use commcid::{POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
+use cid::{multihash::MultihashDigest, Cid, Codec};
 use db::{Error, Store};
 use encoding::{from_slice, ser::Serialize, to_vec};
 use forest_ipld::Ipld;
@@ -55,13 +51,7 @@ where
     BS: BlockStore,
 {
     // Skip identity and Filecoin commitment Cids
-    let ch = cid.hash.algorithm();
-    if ch == Code::Identity
-        || ch == SHA2_256_TRUNC254_PADDED
-        || ch == POSEIDON_BLS12_381_A1_FC1
-        || cid.codec == Codec::FilCommitmentUnsealed
-        || cid.codec == Codec::FilCommitmentSealed
-    {
+    if cid.codec != Codec::DagCBOR {
         return Ok(());
     }
 
@@ -191,6 +181,7 @@ mod tests {
     use cid::multihash::{Blake2b256, Identity};
     use cid::Codec;
     use commcid::commitment_to_cid;
+    use commcid::{POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
     use forest_ipld::{ipld, Ipld};
 
     #[test]

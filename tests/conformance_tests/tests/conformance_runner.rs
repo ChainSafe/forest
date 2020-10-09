@@ -198,15 +198,15 @@ fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Re
 
             println!("{}:", error_msg);
 
-            for diff in diffs.into_iter() {
+            for diff in diffs.iter() {
                 match diff {
-                    Difference::Same(ref x) => {
+                    Difference::Same(x) => {
                         println!(" {}", x);
                     }
-                    Difference::Add(ref x) => {
+                    Difference::Add(x) => {
                         println!("{}", format!("+{}", x).green());
                     }
-                    Difference::Rem(ref x) => {
+                    Difference::Rem(x) => {
                         println!("{}", format!("-{}", x).red());
                     }
                 }
