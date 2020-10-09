@@ -56,12 +56,12 @@ lazy_static! {
         Regex::new(r"fil_1_storageminer-Send-SysErrInsufficientFunds-").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-1").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-2").unwrap(),
-        
+
         // Extracted market faults
         Regex::new(r"fil_1_storagemarket-AddBalance-Ok-").unwrap(),
         Regex::new(r"fil_1_storagemarket-AddBalance-Ok-6").unwrap(),
         Regex::new(r"fil_1_storagemarket-PublishStorageDeals-").unwrap(),
-        
+
         // Extracted power faults (although all miner related)
         Regex::new(r"fil_1_storagepower-CreateMiner-16-").unwrap(),
         Regex::new(r"fil_1_storagepower-CreateMiner-Ok-").unwrap(),
