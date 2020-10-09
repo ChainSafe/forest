@@ -18,6 +18,7 @@ use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use interpreter::ApplyRet;
 use ipld::json::{IpldJson, IpldJsonRef};
+use ipld::Ipld;
 use ipld_hamt::{BytesKey, Hamt};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -202,7 +203,8 @@ fn root_to_state_map(
     hamt.for_each(|k: &BytesKey, actor: &ActorState| {
         let addr = Address::from_bytes(&k.0)?;
 
-        let resolved = resolve_cids_recursive(bs, &actor.state)?;
+        let resolved =
+            resolve_cids_recursive(bs, &actor.state).unwrap_or(Ipld::Link(actor.state.clone()));
         let resolved_state = ActorStateResolved {
             state: IpldJson(resolved),
             code: CidJson(actor.code.clone()),
@@ -212,7 +214,8 @@ fn root_to_state_map(
 
         actors.insert(addr.to_string(), resolved_state);
         Ok(())
-    })?;
+    })
+    .unwrap();
 
     Ok(actors)
 }
