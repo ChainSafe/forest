@@ -8,6 +8,7 @@ extern crate lazy_static;
 
 use blockstore::resolve::resolve_cids_recursive;
 use cid::Cid;
+use colored::*;
 use conformance_tests::*;
 use difference::{Changeset, Difference};
 use encoding::Cbor;
@@ -196,28 +197,21 @@ fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Re
             // Compare both texts, the third parameter defines the split level.
             let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
 
-            let mut t = term::stdout().unwrap();
-
-            writeln!(t, "{}:", error_msg).unwrap();
+            println!("{}:", error_msg);
 
             for i in 0..diffs.len() {
                 match diffs[i] {
                     Difference::Same(ref x) => {
-                        t.reset().unwrap();
-                        writeln!(t, " {}", x).unwrap();
+                        println!(" {}", x);
                     }
                     Difference::Add(ref x) => {
-                        t.fg(term::color::GREEN).unwrap();
-                        writeln!(t, "+{}", x).unwrap();
+                        println!("{}", format!("+{}", x).green());
                     }
                     Difference::Rem(ref x) => {
-                        t.fg(term::color::RED).unwrap();
-                        writeln!(t, "-{}", x).unwrap();
+                        println!("{}", format!("-{}", x).red());
                     }
                 }
             }
-            t.reset().unwrap();
-            t.flush().unwrap();
         }
 
         return Err(error_msg.into());
