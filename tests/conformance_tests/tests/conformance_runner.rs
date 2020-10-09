@@ -6,11 +6,15 @@
 #[macro_use]
 extern crate lazy_static;
 
+use blockstore::resolve::resolve_cids_recursive;
+use cid::Cid;
 use conformance_tests::*;
+use difference::{Changeset, Difference};
 use encoding::Cbor;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use interpreter::ApplyRet;
+use ipld::json::IpldJsonRef;
 use regex::Regex;
 use std::error::Error as StdError;
 use std::fmt;
@@ -174,6 +178,53 @@ fn check_msg_result(
     Ok(())
 }
 
+fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Result<(), String> {
+    if root != expected_root {
+        let error_msg = format!(
+            "wrong post root cid; expected {}, but got {}",
+            expected_root, root
+        );
+
+        if std::env::var("FOREST_DIFF") == Ok("1".to_owned()) {
+            let expected =
+                resolve_cids_recursive(bs, &expected_root).expect("Failed to populate Ipld");
+            let actual = resolve_cids_recursive(bs, &root).expect("Failed to populate Ipld");
+
+            let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected)).unwrap();
+            let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual)).unwrap();
+
+            // Compare both texts, the third parameter defines the split level.
+            let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
+
+            let mut t = term::stdout().unwrap();
+
+            writeln!(t, "{}:", error_msg);
+
+            for i in 0..diffs.len() {
+                match diffs[i] {
+                    Difference::Same(ref x) => {
+                        t.reset().unwrap();
+                        writeln!(t, " {}", x).unwrap();
+                    }
+                    Difference::Add(ref x) => {
+                        t.fg(term::color::GREEN).unwrap();
+                        writeln!(t, "+{}", x).unwrap();
+                    }
+                    Difference::Rem(ref x) => {
+                        t.fg(term::color::RED).unwrap();
+                        writeln!(t, "-{}", x).unwrap();
+                    }
+                }
+            }
+            t.reset().unwrap();
+            t.flush().unwrap();
+        }
+
+        return Err(error_msg.into());
+    }
+    Ok(())
+}
+
 fn execute_message_vector(
     selector: Option<Selector>,
     car: Vec<u8>,
@@ -200,13 +251,7 @@ fn execute_message_vector(
         check_msg_result(receipt, &ret, i)?;
     }
 
-    if root != postconditions.state_tree.root_cid {
-        return Err(format!(
-            "wrong post root cid; expected {}, but got {}",
-            postconditions.state_tree.root_cid, root
-        )
-        .into());
-    }
+    compare_state_roots(&bs, &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }
@@ -255,13 +300,7 @@ fn execute_tipset_vector(
         root = post_state_root;
     }
 
-    if root != postconditions.state_tree.root_cid {
-        return Err(format!(
-            "wrong post root cid; expected {}, but got {}",
-            postconditions.state_tree.root_cid, root
-        )
-        .into());
-    }
+    compare_state_roots(bs.as_ref(), &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }

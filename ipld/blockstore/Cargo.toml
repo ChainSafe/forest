@@ -8,10 +8,11 @@ edition = "2018"
 cid = { package = "forest_cid", path = "../cid" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
-forest_ipld = { path = "../" }
+forest_ipld = { path = "../", optional = true }
 commcid = { path = "../../utils/commcid", optional = true }
 
 [features]
 rocksdb = ["db/rocksdb"]
-buffered = ["commcid"]
+buffered = ["commcid", "forest_ipld"]
 tracking = []
+resolve = ["forest_ipld"]

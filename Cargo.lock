@@ -1087,6 +1087,7 @@ dependencies = [
  "base64 0.12.3",
  "clock",
  "db",
+ "difference",
  "fil_types",
  "flate2",
  "forest_address",
@@ -1095,6 +1096,7 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
+ "forest_ipld",
  "forest_message",
  "forest_vm",
  "interpreter",
@@ -1106,6 +1108,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_manager",
+ "term",
  "walkdir",
 ]
 
@@ -1587,6 +1590,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
 dependencies = [
  "generic-array 0.14.4",
+]
+
+[[package]]
+name = "dirs"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13aea89a5c93364a98e9b37b2fa237effbb694d5cfe01c5b70941f7eb087d5e3"
+dependencies = [
+ "cfg-if",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -5924,6 +5937,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "term"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0863a3345e70f61d613eab32ee046ccd1bcc5f9105fe402c61fcd0c13eeb8b5"
+dependencies = [
+ "dirs 2.0.2",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6382,7 +6405,7 @@ checksum = "05e42f7c18b8f902290b009cde6d651262f956c98bc51bca4cd1d511c9cd85c7"
 name = "utils"
 version = "0.1.0"
 dependencies = [
- "dirs",
+ "dirs 3.0.1",
  "serde",
  "serde_derive",
  "toml",

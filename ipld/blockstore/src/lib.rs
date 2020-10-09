@@ -5,6 +5,8 @@
 mod buffered;
 #[cfg(feature = "tracking")]
 mod tracking;
+#[cfg(feature = "resolve")]
+pub mod resolve;
 
 #[cfg(feature = "buffered")]
 pub use self::buffered::BufferedBlockStore;
