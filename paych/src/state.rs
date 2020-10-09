@@ -85,8 +85,9 @@ where
 
     async fn next_lane_from_state(&self, st: PaychState) -> Result<u64, Error> {
         let sm = self.sm.read().await;
-        let store = sm.get_block_store_ref();
-        let lane_states: Amt<u64, _> = Amt::load(&st.lane_states, store)?;
+        let store = sm.blockstore();
+        let lane_states: Amt<u64, _> =
+            Amt::load(&st.lane_states, store).map_err(|e| Error::Other(e.to_string()))?;
         let mut max_id: u64 = 0;
 
         lane_states

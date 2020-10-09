@@ -6,7 +6,7 @@ use crate::{ChannelAccessor, PaychFundsRes, VoucherInfo, DIR_INBOUND};
 use actor::paych::SignedVoucher;
 use address::Address;
 use async_std::sync::{Arc, RwLock};
-use async_std::task;
+//use async_std::task;
 use blockstore::BlockStore;
 use cid::Cid;
 use message_pool::{MessagePool, MpoolRpcProvider};
@@ -25,7 +25,7 @@ where
     pub channels: Arc<RwLock<HashMap<String, Arc<ChannelAccessor<DB, KS>>>>>,
     pub state: Arc<ResourceAccessor<DB, KS>>,
 }
-/// Thread safe access to message pool and keystore resource for paychannel usage
+/// Thread safe access to message pool, state manager and keystore resource for paychannel usage
 pub struct ResourceAccessor<DB, KS>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -36,7 +36,7 @@ where
     pub sa: Arc<StateAccessor<DB>>,
 }
 
-struct ChannelAvailableFunds {
+pub struct ChannelAvailableFunds {
     // Channel is the address of the channel
     pub channel: Option<Address>,
     // From is the from address of the channel (channel creator)
@@ -71,7 +71,7 @@ where
         }
     }
     /// Start restarts tracking of any messages that were sent to chain.
-    pub async fn start(&self) -> Result<(), Error> {
+    pub async fn start(&mut self) -> Result<(), Error> {
         self.restart_pending().await
     }
 
@@ -80,44 +80,44 @@ where
         let cis = st.with_pending_add_funds().await?;
         // TODO ask about the group err usage
         for ci in cis {
-            if let Some(msg) = ci.create_msg {
-                let ca = self.accessor_by_from_to(ci.control, ci.target).await?;
+            if let Some(_msg) = ci.create_msg {
+                let _ca = self.accessor_by_from_to(ci.control, ci.target).await?;
                 // TODO ask if this should be blocking
-                task::spawn(async move || {
-                    ca.wait_paych_create_msg(ci.id, msg).await?;
-                });
+                // task::spawn(async move {
+                //     ca.wait_paych_create_msg(ci.id, msg).await;
+                // });
                 return Ok(());
-            } else if let Some(msg) = ci.add_funds_msg {
+            } else if let Some(_msg) = ci.add_funds_msg {
                 let ch = ci
                     .channel
                     .ok_or_else(|| Error::Other("error retrieving channel".to_string()))?;
-                let ca = self.accessor_by_address(ch).await?;
+                let _ca = self.accessor_by_address(ch).await?;
 
                 // TODO ask if this should be blocking
-                task::spawn(async move || {
-                    ca.wait_add_funds_msg(ci.id, msg).await?;
-                });
+                // task::spawn(async move {
+                //     ca.wait_add_funds_msg(&mut ci, msg).await;
+                // });
                 return Ok(());
             }
         }
         Ok(())
     }
 
-    pub async fn available_funds(&self, ch: Address) -> Result<(), Error> {
+    pub async fn available_funds(&self, ch: Address) -> Result<ChannelAvailableFunds, Error> {
         let ca = self.accessor_by_address(ch).await?;
 
-        let ci = ca.get_channel_info(ch).await?;
+        let ci = ca.get_channel_info(&ch).await?;
 
-        ca.available_funds(ci.id)
+        ca.process_queue(ci.id).await
     }
 
     pub async fn available_funds_by_from_to(
         &self,
         from: Address,
         to: Address,
-    ) -> Result<(), Error> {
-        let mut st = self.store.read().await;
-        let ca = self.accessor_by_from_to(from, to).await?;
+    ) -> Result<ChannelAvailableFunds, Error> {
+        let st = self.store.read().await;
+        let _ca = self.accessor_by_from_to(from, to).await?;
 
         if let Err(e) = st.outbound_active_by_from_to(from, to).await {
             if e == Error::ChannelNotTracked {
@@ -125,8 +125,23 @@ where
                 // return an empty ChannelAvailableFunds, so that clients can check
                 // for the existence of a channel between from / to without getting
                 // an error.
+                return Ok(ChannelAvailableFunds {
+                    channel: None,
+                    from,
+                    to,
+                    confirmed_amt: BigInt::default(),
+                    pending_amt: BigInt::default(),
+                    pending_wait_sentinel: None,
+                    queued_amt: BigInt::default(),
+                    voucher_redeemed_amt: BigInt::default(),
+                });
+            } else {
+                return Err(Error::Other(e.to_string()));
             }
         }
+
+        // TODO return ca.availableFunds
+        unimplemented!()
     }
 
     /// Ensures that a channel exists between the from and to addresses,
@@ -227,24 +242,29 @@ where
     pub async fn get_paych_wait_ready(&self, mcid: Cid) -> Result<Address, Error> {
         // First check if the message has completed
         let st = self.store.read().await;
-        let msg_info = st.get_message(mcid).await?;
+        let msg_info = st.get_message(&mcid).await?;
 
         // if the create channel / add funds message failed, return an Error
-        if msg_info.err.len() > 0 {
-            // do something
+        if !msg_info.err.is_empty() {
+            return Err(Error::Other(msg_info.err.to_string()));
         }
 
         // if the message has completed successfully
         if msg_info.received {
             // get the channel address
-
-            let ci = self.store.by_message_cid(mcid).await?;
+            let ci = st.by_message_cid(&mcid).await?;
 
             if ci.channel.is_none() {
-                // panic err
+                return Err(Error::Other(format!(
+                    "create / add funds message {} succeeded but channelInfo.Channel is none",
+                    mcid
+                )));
             }
-            Ok(ci.channel.unwrap())
+
+            return Ok(ci.channel.unwrap());
         }
+
+        // TODO temp
         unimplemented!()
     }
 
@@ -296,7 +316,7 @@ where
         proof: Vec<u8>,
         min_delta: BigInt,
     ) -> Result<BigInt, Error> {
-        let ca = self.accessor_by_address(ch).await?;
+        let ca = &self.accessor_by_address(ch).await?;
         ca.add_voucher(ch, sv, proof, min_delta).await
     }
     /// Adds a voucher for an inbound channel.

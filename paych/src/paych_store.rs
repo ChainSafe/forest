@@ -181,7 +181,7 @@ impl ChannelInfo {
     /// Marks the voucher, and any vouchers of lower nonce
     /// in the same lane, as being submitted.
     /// Note: This method doesn't write anything to the store.
-    pub fn mark_voucher_submitted(&mut self, sv: SignedVoucher) -> Result<(), Error> {
+    pub fn mark_voucher_submitted(&mut self, sv: &SignedVoucher) -> Result<(), Error> {
         if let Some(mut vi) = self.info_for_voucher(&sv)? {
             // mark the voucher as submitted
             vi.submitted = true;
@@ -261,10 +261,8 @@ impl PaychStore {
             Err(err) => Err(err),
         }
     }
-    // TODO review
     /// Return a Vec of all ChannelInfo Addresses in paych_store
     pub async fn list_channels(&self) -> Result<Vec<Address>, Error> {
-        //let ds = self.ds.read().await;
         let res = self.ds.keys();
         let mut out = Vec::new();
         for addr_str in res {
@@ -334,7 +332,6 @@ impl PaychStore {
 
     /// Retrieves the ChannelInfo that matches given Address
     pub async fn by_address(&self, addr: Address) -> Result<ChannelInfo, Error> {
-        //let ds = self.ds.read().await;
         for val in self.ds.values() {
             let ci = ChannelInfo::unmarshal_cbor(val)?;
             if ci.channel.ok_or_else(|| Error::NoAddress)? == addr {
@@ -345,15 +342,15 @@ impl PaychStore {
     }
 
     /// Get the message info for a given message CID
-    pub async fn get_message(&self, mcid: Cid) -> Result<MsgInfo, Error> {
-        let k = key_for_msg(&mcid);
+    pub async fn get_message(&self, mcid: &Cid) -> Result<MsgInfo, Error> {
+        let k = key_for_msg(mcid);
         let val = self.ds.get(&k).ok_or_else(|| Error::NoVal)?;
         let minfo = MsgInfo::unmarshal_cbor(val.as_slice())?;
         Ok(minfo)
     }
 
     /// Retrieves the channel info associated with a message
-    pub async fn by_message_cid(&self, mcid: Cid) -> Result<ChannelInfo, Error> {
+    pub async fn by_message_cid(&self, mcid: &Cid) -> Result<ChannelInfo, Error> {
         let minfo = self.get_message(mcid).await?;
         for val in self.ds.values() {
             let ci = ChannelInfo::unmarshal_cbor(val)?;
@@ -366,7 +363,6 @@ impl PaychStore {
 
     /// Stores message when a new message is sent
     pub async fn save_new_message(&mut self, channel_id: String, mcid: Cid) -> Result<(), Error> {
-        //let mut ds = self.ds.write().await;
         let k = key_for_msg(&mcid);
         let mi: MsgInfo = MsgInfo {
             channel_id,
@@ -389,7 +385,7 @@ impl PaychStore {
         msg_err: Option<Error>,
     ) -> Result<(), Error> {
         let k = key_for_msg(&mcid);
-        let mut minfo = self.get_message(mcid).await?;
+        let mut minfo = self.get_message(&mcid).await?;
         if msg_err.is_some() {
             minfo.err = msg_err.unwrap().to_string();
         }
@@ -525,7 +521,7 @@ mod tests {
             let from1 = Address::new_id(102);
             let from2 = Address::new_id(202);
 
-            let mut ci1 = ChannelInfo {
+            let ci1 = ChannelInfo {
                 id: "".to_string(),
                 channel: Some(chan1.clone()),
                 vouchers: vec![VoucherInfo {
@@ -556,7 +552,7 @@ mod tests {
                 settling: false,
             };
 
-            let mut ci2 = ChannelInfo {
+            let ci2 = ChannelInfo {
                 id: "".to_string(),
                 channel: Some(chan2.clone()),
                 vouchers: vec![VoucherInfo {

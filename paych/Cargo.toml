@@ -31,3 +31,4 @@ wallet = {package = "key_management", path = "../key_management/", features = ["
 num-traits = "0.2"
 async-trait = "0.1"
 forest_blocks = { path = "../blockchain/blocks/" }
+fil_types = { path = "../types/" }

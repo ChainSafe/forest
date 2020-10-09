@@ -17,6 +17,7 @@ use db::Store;
 use encoding::Cbor;
 use flo_stream::Subscriber;
 use futures::StreamExt;
+use key_management::KeyStore;
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -28,7 +29,6 @@ use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
 use types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
 use vm::ActorState;
-use wallet::KeyStore;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -664,8 +664,8 @@ where
         let msg_cid = umsg.cid()?;
 
         let ks = keystore.as_ref().write().await;
-        let key = wallet::find_key(&from, &*ks).unwrap(); // TODO fix
-        let sig = wallet::sign(
+        let key = key_management::find_key(&from, &*ks).unwrap(); // TODO fix
+        let sig = key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
             msg_cid.to_bytes().as_slice(),

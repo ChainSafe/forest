@@ -3,8 +3,8 @@
 
 use super::Error;
 use crate::{
-    ChannelInfo, FundsReq, Manager, MergeFundsReq, MsgListeners, PaychFundsRes, PaychStore,
-    VoucherInfo,
+    ChannelAvailableFunds, ChannelInfo, FundsReq, Manager, MergeFundsReq, MsgListeners,
+    PaychFundsRes, PaychStore, StateAccessor, VoucherInfo,
 };
 extern crate log;
 use super::ResourceAccessor;
@@ -17,12 +17,12 @@ use actor::paych::{
 use actor::{ExitCode, Serialized};
 use address::Address;
 use async_std::sync::{Arc, RwLock};
-use async_std::task;
+//use async_std::task;
 use blockstore::BlockStore;
 use chain::get_heaviest_tipset;
 use cid::Cid;
 use encoding::Cbor;
-use flo_stream::{MessagePublisher, Publisher, Subscriber};
+use fil_types::verifier::FullVerifier;
 use futures::StreamExt;
 use ipld_amt::Amt;
 use message::UnsignedMessage;
@@ -41,7 +41,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     store: Arc<RwLock<PaychStore>>,
-    msg_listeners: MsgListeners,
+    _msg_listeners: MsgListeners,
     funds_req_queue: Arc<RwLock<Vec<FundsReq>>>,
     state: Arc<ResourceAccessor<DB, KS>>,
 }
@@ -64,14 +64,10 @@ where
     pub fn new(pm: &Manager<DB, KS>) -> Self {
         ChannelAccessor {
             store: pm.store.clone(),
-            msg_listeners: MsgListeners::new(),
+            _msg_listeners: MsgListeners::new(),
             funds_req_queue: Arc::new(RwLock::new(Vec::new())),
             state: pm.state.clone(),
         }
-    }
-    // TODO ask about message0
-    async fn message_builder(&self, from: Address) {
-        unimplemented!()
     }
 
     /// Returns channel info by address
@@ -143,7 +139,7 @@ where
         }
 
         let (act, pch_state) = self.state.sa.load_paych_state(&ch).await?;
-        let heaviest_ts = get_heaviest_tipset(sm.get_block_store().as_ref())
+        let heaviest_ts = get_heaviest_tipset(sm.blockstore())
             .map_err(|_| Error::HeaviestTipset)?
             .ok_or_else(|| Error::HeaviestTipset)?;
         let cid = heaviest_ts.parent_state();
@@ -207,15 +203,15 @@ where
 
         Ok(lane_states)
     }
-
-    async fn check_voucher_spendable(
+    // intentionally unused, to be used with paych rpc
+    async fn _check_voucher_spendable(
         &self,
         ch: Address,
         sv: SignedVoucher,
         secret: Vec<u8>,
         mut proof: Vec<u8>,
     ) -> Result<bool, Error> {
-        let recipient = self.get_paych_recipient(&ch).await?;
+        let recipient = self._get_paych_recipient(&ch).await?;
         let st = self.store.read().await;
         let ci: ChannelInfo = st.by_address(ch).await?;
 
@@ -244,7 +240,7 @@ where
 
         let sm = self.state.sa.sm.read().await;
         let ret = sm
-            .call(
+            .call::<FullVerifier>(
                 &mut UnsignedMessage::builder()
                     .to(recipient)
                     .from(ch)
@@ -264,10 +260,10 @@ where
 
         Ok(true)
     }
-
-    async fn get_paych_recipient(&self, ch: &Address) -> Result<Address, Error> {
+    // intentionally unused, to be used with paych rpc
+    async fn _get_paych_recipient(&self, ch: &Address) -> Result<Address, Error> {
         let sm = self.state.sa.sm.read().await;
-        let heaviest_ts = get_heaviest_tipset(sm.get_block_store().as_ref())
+        let heaviest_ts = get_heaviest_tipset(sm.blockstore())
             .map_err(|_| Error::HeaviestTipset)?
             .ok_or_else(|| Error::HeaviestTipset)?;
         let cid = heaviest_ts.parent_state();
@@ -279,7 +275,7 @@ where
     /// Adds voucher to store and returns the delta; the difference between the voucher amount and the highest
     /// previous voucher amount for the lane
     pub async fn add_voucher(
-        &mut self,
+        &self,
         ch: Address,
         sv: SignedVoucher,
         proof: Vec<u8>,
@@ -336,21 +332,21 @@ where
         store.put_channel_info(ci).await?;
         Ok(delta)
     }
-
-    async fn submit_voucher(
+    // intentionally unused, to be used with paych rpc
+    async fn _submit_voucher(
         &self,
         ch: Address,
-        sv: &SignedVoucher,
+        sv: SignedVoucher,
         secret: &[u8],
     ) -> Result<Cid, Error> {
-        let mut store = self.store.write().await;
+        let store = self.store.write().await;
         let mut ci = store.by_address(ch).await?;
 
-        let has = ci.has_voucher(sv)?;
+        let has = ci.has_voucher(&sv)?;
 
-        if has.is_some() {
+        if has {
             // Check that the voucher hasn't already been submitted
-            if ci.was_voucher_submitted(sv)? {
+            if ci.was_voucher_submitted(&sv)? {
                 return Err(Error::Other(
                     "cannot submit voucher that has already been submitted".to_string(),
                 ));
@@ -358,16 +354,20 @@ where
         } else {
             // add voucher to the channel
             ci.vouchers.push(VoucherInfo {
-                voucher: sv,
-                proof: secret,
+                voucher: sv.clone(),
+                proof: secret.to_vec(),
                 submitted: false,
             });
         }
 
-        // TODO ask about version compatibility
-        let enc = Serialized::serialize(UpdateChannelStateParams { ch, sv, secret })?;
+        // TODO ask about version compatibility & proof param
+        let enc = Serialized::serialize(UpdateChannelStateParams {
+            sv: sv.clone(),
+            secret: secret.to_vec(),
+            proof: Vec::new(),
+        })?;
         let sm = self.state.sa.sm.read().await;
-        let umsg = &mut UnsignedMessage::builder()
+        let mut umsg = UnsignedMessage::builder()
             .to(ch)
             .from(ci.control)
             .method_num(UpdateChannelState as u64)
@@ -375,7 +375,7 @@ where
             .build()
             .map_err(Error::Other)?;
 
-        sm.call(umsg, None)
+        sm.call::<FullVerifier>(&mut umsg, None)
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let smgs = self
@@ -386,9 +386,9 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
 
         // Mark the voucher and any lower-nonce vouchers as having been submitted
-        st.mark_voucher_submitted(ci, sv)?;
+        ci.mark_voucher_submitted(&sv)?;
 
-        Ok(smgs.cid())
+        Ok(smgs.cid()?)
     }
 
     /// Allocates a lane for given address
@@ -409,8 +409,8 @@ where
         ch: Address,
     ) -> Result<HashMap<u64, LaneState>, Error> {
         let sm = self.state.sa.sm.read().await;
-        let ls_amt: Amt<LaneState, _> =
-            Amt::load(&state.lane_states, sm.get_block_store_ref()).unwrap();
+        let ls_amt: Amt<LaneState, _> = Amt::load(&state.lane_states, sm.blockstore())
+            .map_err(|e| Error::Other(e.to_string()))?;
         // Note: we use a map instead of an array to store laneStates because the
         // client sets the lane ID (the index) and potentially they could use a
         // very large index.
@@ -570,11 +570,14 @@ where
         let mut funds_req_vec = self.funds_req_queue.write().await;
         funds_req_vec.push(task);
         drop(funds_req_vec);
-        task::spawn(async { self.process_queue().await })
+        // TODO
+        // task::spawn(async { self.process_queue().await });
+
+        Ok(())
     }
 
     /// Run operations in the queue
-    async fn process_queue(&self) -> Result<(), Error> {
+    pub async fn process_queue(&self, id: String) -> Result<ChannelAvailableFunds, Error> {
         // Remove cancelled requests
         self.filter_queue().await;
 
@@ -582,7 +585,7 @@ where
 
         // if funds req queue is empty return
         if funds_req_queue.len() == 0 {
-            return Ok(());
+            return self.current_available_funds(id, BigInt::default()).await;
         }
 
         // Merge all pending requests into one.
@@ -594,30 +597,30 @@ where
         if amt == BigInt::zero() {
             // Note: The amount can be zero if requests are cancelled while
             // building the mergedFundsReq
-
-            // TODO current available funds call missing
-            return Ok(());
+            return self.current_available_funds(id, amt.clone()).await;
         }
 
         // drop read lock to allow process_task to acquire write lock on self
         // TODO check if this is necessary
         drop(funds_req_queue);
 
-        let res = self.process_task(merged.from()?, merged.to()?, amt).await;
+        let res = self
+            .process_task(merged.from()?, merged.to()?, amt.clone())
+            .await;
 
         // If the task is waiting on an external event (eg something to appear on
         // chain) it will return
         if res.is_none() {
             // Stop processing the fundsReqQueue and wait. When the event occurs it will
             // call process_queue() again
-            return Ok(());
+            return self.current_available_funds(id, amt).await;
         }
 
         let mut queue = self.funds_req_queue.write().await;
         queue.clear();
 
         merged.on_complete(res.unwrap()).await;
-        Ok(())
+        self.current_available_funds(id, BigInt::default()).await
     }
 
     /// Remove all inactive fund requests from self
@@ -720,52 +723,13 @@ where
 
         // create a new channel in the store
         let mut store = self.store.write().await;
-        let ci = store.create_channel(from, to, mcid.clone(), amt).await?;
-
+        let _ci = store.create_channel(from, to, mcid.clone(), amt).await?;
         // TODO determine if this should be blocking
-        task::spawn(async move || {
-            self.wait_paych_create_msg(ci.id, mcid.clone()).await?;
-        });
+        // task::spawn(async {
+        //     wait_paych_create_msg(state.clone(), st.clone(), ci.id, mcid.clone()).await;
+        // });
 
         Ok(mcid)
-    }
-    // TODO fix tuple matching here
-    pub async fn wait_paych_create_msg(&self, ch_id: String, mcid: Cid) -> Result<(), Error> {
-        let sm = self.state.sa.sm.read().await;
-
-        let (ts, msg) = StateManager::wait_for_message(
-            sm.get_block_store(),
-            sm.get_subscriber(),
-            &mcid,
-            MESSAGE_CONFIDENCE,
-        )
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
-
-        let _t = ts.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
-        let m = msg.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
-
-        let mut store = self.store.write().await;
-        if m.exit_code != ExitCode::Ok {
-            // channel creation failed, remove the channel from the datastore
-            let _d = store
-                .remove_channel(ch_id.clone())
-                .await
-                .map_err(|e| Error::Other(format!("failed to remove channel {}", e.to_string())))?;
-        }
-
-        let exec_ret: ExecReturn = Serialized::deserialize(&m.return_data).unwrap(); // TODO handle err
-
-        // store robust address of channel
-        let mut ch_info = store.by_channel_id(&ch_id).await?;
-        ch_info.channel = Some(exec_ret.robust_address);
-        ch_info.amount = ch_info.pending_amount;
-        ch_info.pending_amount = BigInt::zero();
-        ch_info.create_msg = None;
-
-        store.put_channel_info(ch_info).await?;
-
-        Ok(())
     }
 
     async fn add_funds(&self, ci: &mut ChannelInfo, amt: BigInt) -> Result<Cid, Error> {
@@ -807,13 +771,13 @@ where
         }
 
         // TODO ask about if this should be blocking
-        task::spawn(async {
-            self.wait_add_funds_msg(ci, mcid.clone()).await?;
-        });
+        // task::spawn(async {
+        //     self.wait_add_funds_msg(ci, mcid.clone()).await;
+        // });
 
         Ok(mcid)
     }
-    // TODO fix tuple matching
+
     pub async fn wait_add_funds_msg(
         &self,
         channel_info: &mut ChannelInfo,
@@ -822,14 +786,14 @@ where
         let sm = self.state.sa.sm.read().await;
 
         let (ts, msg) = StateManager::wait_for_message(
-            sm.get_block_store(),
+            sm.blockstore_cloned(),
             sm.get_subscriber(),
             &mcid,
             MESSAGE_CONFIDENCE,
         )
         .await
         .map_err(|e| Error::Other(e.to_string()))?;
-
+        // TODO fix tuple matching
         let _t = ts.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
         let m = msg.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
 
@@ -846,23 +810,22 @@ where
         channel_info.pending_amount = BigInt::zero();
         channel_info.add_funds_msg = None;
 
-        // TODO refactor to handle error return for msg wait completed
         // TODO ask about if this should be blocking
-        task::spawn(async {
-            self.msg_wait_completed(mcid, err: Option<Error>).await?;
-        });
+        // task::spawn(async {
+        //     self.msg_wait_completed(mcid, None).await;
+        // });
 
         Ok(())
     }
 
-    async fn msg_wait_completed(&mut self, mcid: Cid, err: Option<Error>) -> Result<(), Error> {
+    async fn _msg_wait_completed(&mut self, mcid: Cid, err: Option<Error>) -> Result<(), Error> {
         // save the message result to the store
         let mut st = self.store.write().await;
         st.save_msg_result(mcid.clone(), err.clone()).await?;
 
         // inform listeners that the message has completed
         // TODO handle option err
-        self.msg_listeners
+        self._msg_listeners
             .fire_msg_complete(mcid, err.unwrap())
             .await;
 
@@ -870,13 +833,96 @@ where
         let req = self.funds_req_queue.read().await;
         if req.len() > 0 {
             // TODO ask if this should be blocking
-            task::spawn(async {
-                self.process_queue()
-                    .await
-                    .map_err(|e| Error::Other(e.to_string()))?;
-            });
+            // task::spawn(async {
+            //     self.process_queue().await;
+            // });
         }
 
         Ok(())
     }
+
+    async fn current_available_funds(
+        &self,
+        id: String,
+        queued_amt: BigInt,
+    ) -> Result<ChannelAvailableFunds, Error> {
+        let st = self.store.read().await;
+        let ch_info = st.by_channel_id(&id).await?;
+
+        // the channel may have a pending create or add funds message
+        let mut wait_sentinel = ch_info.clone().create_msg;
+        if wait_sentinel.is_none() {
+            wait_sentinel = ch_info.clone().add_funds_msg;
+        }
+
+        // Get the total amount redeemed by vouchers.
+        // This includes vouchers that have been submitted, and vouchers that are
+        // in the datastore but haven't yet been submitted.
+        let mut total_redeemed = BigInt::default();
+        if let Some(ch) = ch_info.channel {
+            let (_, pch_state) = self.state.sa.load_paych_state(&ch).await?;
+            let lane_states = self.lane_state(&pch_state, ch).await?;
+
+            for (_, v) in lane_states.iter() {
+                total_redeemed += &v.redeemed;
+            }
+        }
+
+        Ok(ChannelAvailableFunds {
+            channel: ch_info.channel,
+            from: ch_info.from(),
+            to: ch_info.to(),
+            confirmed_amt: ch_info.amount,
+            pending_amt: ch_info.pending_amount,
+            pending_wait_sentinel: wait_sentinel,
+            queued_amt,
+            voucher_redeemed_amt: total_redeemed,
+        })
+    }
+}
+
+pub async fn wait_paych_create_msg<DB>(
+    sa: Arc<StateAccessor<DB>>,
+    st: Arc<RwLock<PaychStore>>,
+    ch_id: String,
+    mcid: Cid,
+) -> Result<(), Error>
+where
+    DB: BlockStore + Send + Sync + 'static,
+{
+    let sm = sa.sm.read().await;
+
+    let (ts, msg) = StateManager::wait_for_message(
+        sm.blockstore_cloned(),
+        sm.get_subscriber(),
+        &mcid,
+        MESSAGE_CONFIDENCE,
+    )
+    .await
+    .map_err(|e| Error::Other(e.to_string()))?;
+    // TODO fix tuple matching here
+    let _t = ts.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
+    let m = msg.ok_or_else(|| "its none".to_string()).unwrap(); // TODO fix
+
+    let mut store = st.write().await;
+    if m.exit_code != ExitCode::Ok {
+        // channel creation failed, remove the channel from the datastore
+        let _d = store
+            .remove_channel(ch_id.clone())
+            .await
+            .map_err(|e| Error::Other(format!("failed to remove channel {}", e.to_string())))?;
+    }
+
+    let exec_ret: ExecReturn = Serialized::deserialize(&m.return_data).unwrap(); // TODO handle err
+
+    // store robust address of channel
+    let mut ch_info = store.by_channel_id(&ch_id).await?;
+    ch_info.channel = Some(exec_ret.robust_address);
+    ch_info.amount = ch_info.pending_amount;
+    ch_info.pending_amount = BigInt::zero();
+    ch_info.create_msg = None;
+
+    store.put_channel_info(ch_info).await?;
+
+    Ok(())
 }

@@ -26,11 +26,13 @@ libsecp256k1 = "0.3.4"
 blake2b_simd = "0.5.10"
 log = "0.4.8"
 async-std = "1.6.3"
+key_management = { path = "../../key_management" }
 state_manager = { path = "../state_manager" }
 async-trait = "0.1"
 interpreter = { path = "../../vm/interpreter/" }
 types = { package = "fil_types", path = "../../types" }
-wallet = { package = "key_management", path = "../../key_management/" }
+num-traits = "0.2"
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }
+key_management = { path = "../../key_management" }

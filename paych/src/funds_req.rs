@@ -1,11 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::Error;
 use address::Address;
 use async_std::sync::{Arc, RwLock};
 use cid::Cid;
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use num_bigint::BigInt;
+use std::ops::Add;
 
 /// Response to a channel or add funds request
 /// This struct will contain EITHER channel OR mcid OR err
@@ -24,7 +26,7 @@ pub struct FundsReq {
     from: Address,
     to: Address,
     amt: BigInt,
-    active: bool,
+    pub active: bool,
     merge: Option<MergeFundsReq>,
     publisher: Arc<RwLock<Publisher<PaychFundsRes>>>,
 }
@@ -71,7 +73,7 @@ impl FundsReq {
     }
 }
 
-// mergedFundsReq merges together multiple add funds requests that are queued
+// merges together multiple add funds requests that are queued
 // up, so that only one message is sent for all the requests (instead of one
 // message for each request)
 #[derive(Clone)]
