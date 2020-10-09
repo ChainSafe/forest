@@ -20,6 +20,7 @@ use interpreter::ApplyRet;
 use ipld::json::{IpldJson, IpldJsonRef};
 use ipld::Ipld;
 use ipld_hamt::{BytesKey, Hamt};
+use num_bigint::{BigInt, ToBigInt};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -31,9 +32,8 @@ use std::sync::Arc;
 use vm::ActorState;
 use walkdir::{DirEntry, WalkDir};
 
-const DEFAULT_BASE_FEE: u64 = 100;
-
 lazy_static! {
+    static ref DEFAULT_BASE_FEE: BigInt = 100.to_bigint().unwrap();
     static ref SKIP_TESTS: Vec<Regex> = vec![
         Regex::new(r"test-vectors/corpus/vm_violations/x--").unwrap(),
         Regex::new(r"test-vectors/corpus/nested/x--").unwrap(),
@@ -59,6 +59,7 @@ lazy_static! {
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-PreCommitSector-").unwrap(),
         Regex::new(r"fil_1_storageminer-ProveCommitSector-SysErrOutOfGas-").unwrap(),
+        Regex::new(r"fil_1_storageminer-AddLockedFund-19").unwrap(),
         Regex::new(r"fil_1_storageminer-AddLockedFund-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-").unwrap(),
         Regex::new(r"fil_1_storageminer-WithdrawBalance-Ok-").unwrap(),
@@ -271,7 +272,10 @@ fn execute_message_vector(
             &to_chain_msg(msg),
             &root,
             epoch,
-            preconditions.basefee.unwrap_or(DEFAULT_BASE_FEE),
+            preconditions
+                .basefee
+                .map(|i| i.to_bigint().unwrap_or_default())
+                .unwrap_or(DEFAULT_BASE_FEE.clone()),
             &selector,
         )?;
         root = post_root;
