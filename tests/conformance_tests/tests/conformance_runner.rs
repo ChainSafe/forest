@@ -194,13 +194,12 @@ fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Re
             let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected)).unwrap();
             let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual)).unwrap();
 
-            // Compare both texts, the third parameter defines the split level.
             let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
 
             println!("{}:", error_msg);
 
-            for i in 0..diffs.len() {
-                match diffs[i] {
+            for diff in diffs.into_iter() {
+                match diff {
                     Difference::Same(ref x) => {
                         println!(" {}", x);
                     }
