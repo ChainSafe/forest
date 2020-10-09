@@ -26,8 +26,6 @@ use serde::{Deserialize, Deserializer};
 use std::error::Error as StdError;
 use vm::{ExitCode, Serialized};
 
-const BASE_FEE: u64 = 100;
-
 mod base64_bytes {
     use super::*;
     use serde::de;
@@ -113,6 +111,8 @@ pub struct MetaData {
 pub struct PreConditions {
     pub epoch: ChainEpoch,
     pub state_tree: StateTreeVector,
+    #[serde(default)]
+    pub basefee: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

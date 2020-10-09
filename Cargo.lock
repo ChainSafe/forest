@@ -1100,6 +1100,7 @@ dependencies = [
  "interpreter",
  "ipld_blockstore",
  "lazy_static",
+ "log",
  "pretty_env_logger",
  "regex",
  "runtime",
