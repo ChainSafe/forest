@@ -274,7 +274,7 @@ fn execute_message_vector(
             epoch,
             preconditions
                 .basefee
-                .map(|i| i.to_bigint().unwrap_or_default())
+                .map(|i| i.to_bigint().unwrap())
                 .unwrap_or(DEFAULT_BASE_FEE.clone()),
             &selector,
         )?;
