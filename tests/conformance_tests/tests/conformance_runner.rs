@@ -243,7 +243,10 @@ fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Re
         if std::env::var("FOREST_DIFF") == Ok("1".to_owned()) {
             let Changeset { diffs, .. } = try_resolve_actor_states(bs, root, expected_root)
                 .unwrap_or_else(|e| {
-                    log::warn!("Could not resolve actor states: {}", e);
+                    println!(
+                        "Could not resolve actor states: {}\nUsing default resolution:",
+                        e
+                    );
                     let expected = resolve_cids_recursive(bs, &expected_root)
                         .expect("Failed to populate Ipld");
                     let actual =
