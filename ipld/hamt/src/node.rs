@@ -136,7 +136,7 @@ where
                             node
                         } else {
                             #[cfg(not(feature = "ignore-dead-links"))]
-                            return Err(Error::CidNotFound(cid.to_string()));
+                            return Err(Error::CidNotFound(cid.to_string()).into());
 
                             #[cfg(feature = "ignore-dead-links")]
                             continue;
@@ -204,7 +204,7 @@ where
                         node
                     } else {
                         #[cfg(not(feature = "ignore-dead-links"))]
-                        return Err(Error::CidNotFound(cid.to_string()));
+                        return Err(Error::CidNotFound(cid.to_string()).into());
 
                         #[cfg(feature = "ignore-dead-links")]
                         return Ok(None);
