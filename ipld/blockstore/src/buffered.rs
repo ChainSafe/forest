@@ -206,7 +206,7 @@ mod tests {
         let str_val = "value";
         let value = 8u8;
         let arr_cid = buf_store.put(&(str_val, value), Blake2b256).unwrap();
-        let identity_cid = buf_store.put(&0u8, Identity).unwrap();
+        let identity_cid = Cid::new_v1(Codec::Raw, Identity::digest(&[0u8]));
 
         // Create map to insert into store
         let sealed_comm_cid = commitment_to_cid(
