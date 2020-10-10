@@ -39,6 +39,8 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
 
+        // Same as marked tests above -- Go impl has the incorrect behaviour
+        Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-").unwrap(),
 
         // Extracted miner faults
         Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-").unwrap(),
@@ -49,7 +51,6 @@ lazy_static! {
         Regex::new(r"fil_1_storageminer-PreCommitSector-").unwrap(),
         Regex::new(r"fil_1_storageminer-ProveCommitSector-SysErrOutOfGas-").unwrap(),
         Regex::new(r"fil_1_storageminer-AddLockedFund-Ok-").unwrap(),
-        Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-").unwrap(),
         Regex::new(r"fil_1_storageminer-WithdrawBalance-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-PreCommitSector-SysErrOutOfGas-").unwrap(),
         Regex::new(r"fil_1_storageminer-ChangePeerID-Ok-").unwrap(),
