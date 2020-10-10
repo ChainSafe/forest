@@ -3314,7 +3314,6 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                check_empty_params(params)?;
                 Self::constructor(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
