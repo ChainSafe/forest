@@ -33,6 +33,7 @@ async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db:
 }
 
 #[async_std::test]
+#[ignore]
 async fn space_race_full_sync() {
     pretty_env_logger::init();
 
