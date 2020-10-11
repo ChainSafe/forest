@@ -4,7 +4,9 @@
 use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::blocksync::{BlockSyncResponse, CompactedMessages, TipsetBundle};
+use forest_libp2p::blocksync::{
+    BlockSyncResponse, BlockSyncResponseStatus, CompactedMessages, TipsetBundle,
+};
 use forest_message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use std::convert::TryFrom;
@@ -15,7 +17,7 @@ const DUMMY_SIG: [u8; 1] = [0u8];
 /// Test struct to generate one byte signature for testing
 struct DummySigner;
 impl Signer for DummySigner {
-    fn sign_bytes(&self, _: Vec<u8>, _: &Address) -> Result<Signature, Box<dyn Error>> {
+    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, Box<dyn Error>> {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }
@@ -42,7 +44,7 @@ fn convert_single_tipset_bundle() {
 
     let res = BlockSyncResponse {
         chain: vec![bundle],
-        status: 0,
+        status: BlockSyncResponseStatus::Success,
         message: "".into(),
     }
     .into_result::<FullTipset>()

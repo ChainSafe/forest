@@ -1103,6 +1103,7 @@ dependencies = [
  "interpreter",
  "ipld_blockstore",
  "lazy_static",
+ "log",
  "pretty_env_logger",
  "regex",
  "runtime",
@@ -2164,7 +2165,7 @@ dependencies = [
 
 [[package]]
 name = "forest_crypto"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.12.3",
  "bls-signatures",
@@ -2226,11 +2227,14 @@ dependencies = [
  "async-std",
  "async-trait",
  "bytes",
+ "chain",
  "clock",
+ "db",
  "fnv",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
+ "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
@@ -2251,11 +2255,10 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "base64 0.12.3",
  "derive_builder",
- "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_cid",
@@ -3756,6 +3759,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "lru",
+ "num-traits 0.2.12",
  "serde",
  "state_manager",
  "state_tree",
@@ -5822,9 +5826,9 @@ checksum = "343f3f510c2915908f155e94f17220b19ccfacf2a64a2a5d8004f2c3e311e7fd"
 
 [[package]]
 name = "surf"
-version = "2.0.0-alpha.7"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "187577a5f02b0156cb5dcc69504fb57a3f8247361dca07864a30dd294ee9a698"
+checksum = "6d38339c05d2bc84595d56e27aa07566e7b59767ea5cb5c78991b499cd188060"
 dependencies = [
  "async-std",
  "async-trait",
@@ -5839,8 +5843,6 @@ dependencies = [
  "pin-project-lite",
  "serde",
  "serde_json",
- "serde_urlencoded 0.6.1",
- "url",
  "web-sys",
 ]
 

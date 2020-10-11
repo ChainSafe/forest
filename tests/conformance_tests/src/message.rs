@@ -14,9 +14,10 @@ pub struct MessageVector {
 
 pub fn execute_message(
     bs: &db::MemoryDB,
-    msg: &UnsignedMessage,
+    msg: &ChainMessage,
     pre_root: &Cid,
     epoch: ChainEpoch,
+    basefee: u64,
     selector: &Option<Selector>,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let mut vm = VM::<_, _, _>::new(
@@ -25,17 +26,10 @@ pub fn execute_message(
         epoch,
         TestSyscalls,
         &TestRand,
-        TokenAmount::from(BASE_FEE),
+        TokenAmount::from(basefee),
     )?;
 
     if let Some(s) = &selector {
-        if s.puppet_actor
-            .as_ref()
-            .map(|s| s == "true")
-            .unwrap_or_default()
-        {
-            vm.register_actor(PUPPET_ACTOR_CODE_ID.clone());
-        }
         if s.chaos_actor
             .as_ref()
             .map(|s| s == "true")
