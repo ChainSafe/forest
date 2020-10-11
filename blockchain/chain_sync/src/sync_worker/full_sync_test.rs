@@ -3,9 +3,10 @@
 
 use super::*;
 use crate::peer_manager::PeerManager;
+use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::channel;
 use async_std::task;
-use beacon::MockBeacon;
+use beacon::{DrandBeacon, DrandPublic, DEFAULT_DRAND_URL};
 use chain::tipset_from_keys;
 use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
@@ -14,7 +15,6 @@ use forest_libp2p::{blocksync::make_blocksync_response, NetworkMessage};
 use genesis::initialize_genesis;
 use libp2p::core::PeerId;
 use state_manager::StateManager;
-use std::time::Duration;
 
 async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db: DB) {
     loop {
@@ -33,7 +33,6 @@ async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db:
 }
 
 #[async_std::test]
-#[ignore]
 async fn space_race_full_sync() {
     pretty_env_logger::init();
 
@@ -50,8 +49,14 @@ async fn space_race_full_sync() {
     let chain_store = Arc::new(chain_store);
     let genesis = Arc::new(genesis);
 
-    // TODO this is causing the failure, need to test with space race beacon
-    let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+    let beacon = Arc::new(DrandBeacon::new(
+        DEFAULT_DRAND_URL,
+        DrandPublic{coefficient: hex::decode("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31").unwrap()},
+        genesis.blocks()[0].timestamp(),
+        EPOCH_DURATION_SECONDS as u64,
+    )
+    .await
+    .unwrap());
 
     let peer = PeerId::random();
     let peer_manager = PeerManager::default();

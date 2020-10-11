@@ -961,6 +961,7 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "genesis",
+ "hex",
  "ipld_amt",
  "ipld_blockstore",
  "ipld_hamt",
