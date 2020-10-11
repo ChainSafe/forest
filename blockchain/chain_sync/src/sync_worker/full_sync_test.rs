@@ -10,18 +10,22 @@ use chain::tipset_from_keys;
 use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
 use forest_car::load_car;
-use forest_libp2p::NetworkMessage;
+use forest_libp2p::{blocksync::make_blocksync_response, NetworkMessage};
 use genesis::initialize_genesis;
 use libp2p::core::PeerId;
 use state_manager::StateManager;
 use std::time::Duration;
 
-async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, _db: DB) {
+async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db: DB) {
     loop {
         match chan.next().await {
             Some(NetworkMessage::BlockSyncRequest {
-                peer_id, request, ..
-            }) => log::info!("request from {}, {:?}", peer_id, request),
+                request,
+                response_channel,
+                ..
+            }) => response_channel
+                .send(make_blocksync_response(&db, &request))
+                .unwrap(),
             Some(event) => log::warn!("Other request sent to network: {:?}", event),
             None => break,
         }
@@ -45,7 +49,7 @@ async fn space_race_full_sync() {
     let chain_store = Arc::new(chain_store);
     let genesis = Arc::new(genesis);
 
-    // TODO this will probably cause failure
+    // TODO this is causing the failure, need to test with space race beacon
     let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
 
     let peer = PeerId::random();
@@ -54,6 +58,7 @@ async fn space_race_full_sync() {
     let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager));
 
     let provider_db = MemoryDB::default();
+    // TODO use shared export
     let bytes = include_bytes!("chain.car");
     let cids: Vec<Cid> = load_car(&provider_db, bytes.as_ref()).unwrap();
     let ts = tipset_from_keys(&provider_db, &TipsetKeys::new(cids)).unwrap();

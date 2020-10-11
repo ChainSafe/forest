@@ -74,11 +74,6 @@ pub(super) async fn start(config: Config) {
         .await
         .unwrap();
 
-    // Fetch and ensure verification keys are downloaded
-    get_params_default(SectorSizeOpt::Keys, false)
-        .await
-        .unwrap();
-
     // Libp2p service setup
     let p2p_service =
         Libp2pService::new(config.network, Arc::clone(&db), net_keypair, &network_name);

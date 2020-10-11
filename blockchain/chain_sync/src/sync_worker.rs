@@ -474,7 +474,7 @@ where
 
         // Timestamp checks
         let nulls = (header.epoch() - (base_ts.epoch() + 1)) as u64;
-        let target_timestamp = base_ts.min_timestamp() + BLOCK_DELAY_SECS * nulls + 1;
+        let target_timestamp = base_ts.min_timestamp() + BLOCK_DELAY_SECS * (nulls + 1);
         if target_timestamp != header.timestamp() {
             return Err((
                 block_cid.clone(),
