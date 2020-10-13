@@ -6,7 +6,7 @@ use crate::peer_manager::PeerManager;
 use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::channel;
 use async_std::task;
-use beacon::{DrandBeacon, DrandPublic, DEFAULT_DRAND_URL};
+use beacon::{DrandBeacon, DrandPublic};
 use chain::tipset_from_keys;
 use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
