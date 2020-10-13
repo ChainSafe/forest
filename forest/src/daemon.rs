@@ -24,8 +24,8 @@ use utils::write_to_file;
 use wallet::PersistentKeyStore;
 
 /// Number of tasks spawned for sync workers.
-// TODO benchmark and/or add this as a config option.
-const WORKER_TASKS: usize = 3;
+// TODO benchmark and/or add this as a config option. (1 is temporary value to avoid overlap)
+const WORKER_TASKS: usize = 1;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
