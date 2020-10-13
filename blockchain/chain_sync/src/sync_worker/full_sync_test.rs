@@ -34,7 +34,7 @@ async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db:
 
 #[async_std::test]
 // Test is ignored because it relies on network requests for beacon access
-#[ignore]
+// #[ignore]
 async fn space_race_full_sync() {
     pretty_env_logger::init();
 
@@ -43,7 +43,6 @@ async fn space_race_full_sync() {
     let mut chain_store = ChainStore::new(db.clone());
     let state_manager = Arc::new(StateManager::new(db));
 
-    // let (local_sender, _test_receiver) = channel(20);
     let (network_send, network_recv) = channel(20);
 
     // Initialize genesis using default (currently space-race) genesis

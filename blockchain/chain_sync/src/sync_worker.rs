@@ -19,11 +19,12 @@ use cid::{multihash::Blake2b256, Cid};
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
-    verifier::ProofVerifier, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS,
+    verifier::ProofVerifier, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, BLOCK_GAS_LIMIT,
     TICKET_RANDOMNESS_LOOKBACK, UPGRADE_SMOKE_HEIGHT,
 };
 use forest_libp2p::blocksync::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
+use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -799,14 +800,22 @@ where
             return Err("No bls signature included in the block header".into());
         }
 
+        let pl = price_list_by_epoch(base_ts.epoch());
+        let mut sum_gas_limit = 0;
+
         // check msgs for validity
-        fn check_msg<DB: BlockStore>(
-            msg: &UnsignedMessage,
-            account_sequences: &mut HashMap<Address, u64>,
-            tree: &StateTree<DB>,
-        ) -> Result<(), Box<dyn StdError>> {
+        let mut check_msg = |msg: &UnsignedMessage,
+                             account_sequences: &mut HashMap<Address, u64>,
+                             tree: &StateTree<DB>|
+         -> Result<(), Box<dyn StdError>> {
             // Phase 1: syntactic validation
-            // TODO requires valid for block inclusion logic
+            let min_gas = pl.on_chain_message(msg.marshal_cbor().unwrap().len());
+            msg.valid_for_block_inclusion(min_gas.total())?;
+
+            sum_gas_limit += msg.gas_limit();
+            if sum_gas_limit > BLOCK_GAS_LIMIT {
+                return Err("block gas limit exceeded".into());
+            }
 
             // Phase 2: (Partial) semantic validation
             // Sender exists and is account actor, and sequence is correct
@@ -838,7 +847,8 @@ where
             // Update account sequence
             account_sequences.insert(*msg.from(), sequence + 1);
             Ok(())
-        }
+        };
+
         let mut account_sequences: HashMap<Address, u64> = HashMap::default();
         let db = state_manager.blockstore();
         let (state_root, _) = task::block_on(state_manager.tipset_state::<V>(&base_ts))
