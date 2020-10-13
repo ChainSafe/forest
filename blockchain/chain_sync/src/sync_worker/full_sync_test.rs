@@ -12,7 +12,7 @@ use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
 use forest_car::load_car;
 use forest_libp2p::{blocksync::make_blocksync_response, NetworkMessage};
-use genesis::initialize_genesis;
+use genesis::{initialize_genesis, EXPORT_SR_40};
 use libp2p::core::PeerId;
 use state_manager::StateManager;
 
@@ -33,6 +33,8 @@ async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db:
 }
 
 #[async_std::test]
+// Test is ignored because it relies on network requests for beacon access
+#[ignore]
 async fn space_race_full_sync() {
     pretty_env_logger::init();
 
@@ -64,9 +66,7 @@ async fn space_race_full_sync() {
     let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager));
 
     let provider_db = MemoryDB::default();
-    // TODO use shared export
-    let bytes = include_bytes!("chain.car");
-    let cids: Vec<Cid> = load_car(&provider_db, bytes.as_ref()).unwrap();
+    let cids: Vec<Cid> = load_car(&provider_db, EXPORT_SR_40.as_ref()).unwrap();
     let ts = tipset_from_keys(&provider_db, &TipsetKeys::new(cids)).unwrap();
     let target = Arc::new(ts);
 

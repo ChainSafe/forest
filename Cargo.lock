@@ -2243,6 +2243,7 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "futures_codec",
+ "genesis",
  "ipld_blockstore",
  "libp2p",
  "libp2p-bitswap",

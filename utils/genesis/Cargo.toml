@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
+[features]
+testing = []
+
 [dependencies]
 ipld_blockstore = { path = "../../ipld/blockstore" }
 async-std = { version = "1.6.3" }

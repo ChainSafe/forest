@@ -14,6 +14,9 @@ use std::include_bytes;
 use std::io::{BufReader, Read};
 use std::sync::Arc;
 
+#[cfg(feature = "testing")]
+pub const EXPORT_SR_40: &[u8; 1226395] = include_bytes!("mainnet/export40.car");
+
 /// Uses an optional file path or the default genesis to parse the genesis and determine if
 /// chain store has existing data for the given genesis.
 pub fn initialize_genesis<BS>(
