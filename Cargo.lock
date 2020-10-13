@@ -2081,6 +2081,7 @@ dependencies = [
  "libp2p",
  "log",
  "message_pool",
+ "paych",
  "pbr",
  "pin-project-lite",
  "pretty_env_logger",

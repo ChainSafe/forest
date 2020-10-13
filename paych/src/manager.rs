@@ -35,7 +35,7 @@ where
 {
     pub keystore: Arc<RwLock<KS>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    pub sa: Arc<StateAccessor<DB>>,
+    pub sa: StateAccessor<DB>,
 }
 
 pub struct ChannelAvailableFunds {
@@ -230,7 +230,7 @@ where
         proof: Vec<u8>,
     ) -> Result<bool, Error> {
         if proof.is_empty() {
-            return Err(Error::Other("chhange to correct err type".to_string()));
+            return Err(Error::Other("change to correct err type".to_string()));
         }
         let ca = self.accessor_by_address(addr).await?;
         ca.check_voucher_spendable(addr, sv, secret, proof).await

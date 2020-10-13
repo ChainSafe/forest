@@ -21,6 +21,7 @@ use state_manager::StateManager;
 use std::sync::Arc;
 use utils::write_to_file;
 use wallet::PersistentKeyStore;
+use paych::{Manager, PaychStore, ResourceAccessor, StateAccessor};
 
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option.
@@ -148,6 +149,17 @@ pub(super) async fn start(config: Config) {
         debug!("RPC disabled");
         None
     };
+
+    // start paych manager
+    let paych_mgr = Manager::new(PaychStore::new(), ResourceAccessor{
+        keystore,
+        mpool,
+        sa: StateAccessor{ sm : Arc::new(RwLock::new(Arc::try_unwrap(state_manager))) }
+    });
+
+    task::spawn(async move {
+        paych_mgr.start().await;
+    });
 
     // Block until ctrl-c is hit
     block_until_sigint().await;

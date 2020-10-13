@@ -220,7 +220,8 @@ impl Cbor for ChannelInfo {}
 
 impl PaychStore {
     /// Create new Pay Channel Store
-    pub fn new(ds: HashMap<String, Vec<u8>>) -> Self {
+    pub fn new() -> Self {
+        let ds : HashMap<String, Vec<u8>> = HashMap::new();
         PaychStore { ds }
     }
 
