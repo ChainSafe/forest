@@ -118,11 +118,11 @@ impl RegisteredSealProof {
 
     pub fn min_miner_consensus_power(self) -> Result<StoragePower, String> {
         match self {
-            Self::StackedDRG64GiBV1 => Ok(StoragePower::from(0)),
-            Self::StackedDRG32GiBV1 => Ok(StoragePower::from_i128(16 << 20).unwrap()),
-            Self::StackedDRG2KiBV1 => Ok(StoragePower::from_i128(1 << 30).unwrap()),
-            Self::StackedDRG8MiBV1 => Ok(StoragePower::from_i128(10 << 40).unwrap()),
-            Self::StackedDRG512MiBV1 => Ok(StoragePower::from_i128(20 << 40).unwrap()),
+            Self::StackedDRG2KiBV1 => Ok(StoragePower::from(0)),
+            Self::StackedDRG8MiBV1 => Ok(StoragePower::from_i128(16 << 20).unwrap()),
+            Self::StackedDRG512MiBV1 => Ok(StoragePower::from_i128(1 << 30).unwrap()),
+            Self::StackedDRG32GiBV1 => Ok(StoragePower::from_i128(10 << 40).unwrap()),
+            Self::StackedDRG64GiBV1 => Ok(StoragePower::from_i128(20 << 40).unwrap()),
             _ => Err(format!(
                 "Unsupported mapping from {:?} to Min Miner Consensus POwer",
                 self

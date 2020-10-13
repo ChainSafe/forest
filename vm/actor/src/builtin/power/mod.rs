@@ -20,6 +20,7 @@ use ahash::AHashSet;
 use fil_types::SealVerifyInfo;
 use indexmap::IndexMap;
 use ipld_blockstore::BlockStore;
+use ipld_hamt::Hamt;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
@@ -52,13 +53,20 @@ pub enum Method {
     CurrentTotalPower = 9,
 }
 
-fn validate_miner_has_claim<BS, RT>(rt : &mut  RT, st : &State, miner: &Address) -> Result<(), ActorError> 
-where 
-BS : BlockStore,
-RT : Runtime<BS>
+fn validate_miner_has_claim<BS, RT>(rt: &RT, st: &State, miner: &Address) -> Result<(), ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
 {
-    let claims = make_map_with_root(&st.claims, rt.store()).map_err(|_|actor_error!(ErrIllegalState; "faile dto load claim"))?;
-    let _ = claims.get(&miner.to_bytes()).map_err(|_|actor_error!(ErrIllegalState; "Failed to look up claim") ) ?.ok_or(actor_error!(ErrForbidden; "Unknown miner forbidden to interact with power actor") )?;
+    let claims = make_map_with_root(&st.claims, rt.store()).map_err(
+        |_| actor_error!(ErrIllegalState; "failed to load claim in validate_miner_has_claim"),
+    )?;
+    let _ = claims
+        .get(&miner.to_bytes())
+        .map_err(|_| actor_error!(ErrIllegalState; "Failed to look up claim in validate_miner_has_claim"))?
+        .ok_or_else(||
+            actor_error!(ErrForbidden; "Unknown miner forbidden to interact with power actor"),
+        )?;
     Ok(())
 }
 /// Storage Power Actor
@@ -101,6 +109,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let value = rt.message().value_received().clone();
+        let seal_type = params.seal_proof_type;
         println!("params : {:?}", params.multiaddrs);
 
         let init::ExecReturn {
@@ -130,7 +139,15 @@ impl Actor {
             let mut claims = make_map_with_root(&st.claims, rt.store()).map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
             })?;
-            set_claim(&mut claims, &id_address, Claim::default()).map_err(|e| {
+            set_claim(
+                &mut claims,
+                &id_address,
+                Claim {
+                    seal_proof_type: seal_type,
+                    ..Default::default()
+                },
+            )
+            .map_err(|e| {
                 e.downcast_default(
                     ExitCode::ErrIllegalState,
                     "failed to put power in claimed table while creating miner",
@@ -237,16 +254,16 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR))?;
 
-        Self::process_deferred_cron_events(rt)?;
         Self::process_batch_proof_verifies(rt)?;
+        Self::process_deferred_cron_events(rt)?;
 
         let this_epoch_raw_byte_power = rt.transaction(|st: &mut State, rt| {
             let (raw_byte_power, qa_power) = st.current_total_power();
             st.this_epoch_pledge_collateral = st.total_pledge_collateral.clone();
             st.this_epoch_quality_adj_power = qa_power;
             st.this_epoch_raw_byte_power = raw_byte_power;
-            let delta = rt.curr_epoch() - st.last_processed_cron_epoch;
-            st.update_smoothed_estimate(delta);
+            // we can now assume delta is one since cron is invoked on every epoch.
+            st.update_smoothed_estimate(1);
 
             st.last_processed_cron_epoch = rt.curr_epoch();
             Ok(Serialized::serialize(&BigIntSer(
@@ -262,6 +279,7 @@ impl Actor {
             TokenAmount::from(0),
         )
         .map_err(|e| e.wrap("failed to update network KPI with reward actor"))?;
+        println!("Send 276");
 
         Ok(())
     }
@@ -272,7 +290,8 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        rt.transaction(|st: &mut State, _| {
+        rt.transaction(|st: &mut State, rt| {
+            validate_miner_has_claim(rt, st, &rt.message().caller())?;
             st.add_pledge_total(pledge_delta);
             Ok(())
         })
@@ -353,9 +372,8 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
-        let caller = rt.message().caller().clone();
         rt.transaction(|st: &mut State, rt: &mut RT| {
-            validate_miner_has_claim(rt , st , &caller)?;
+            validate_miner_has_claim(rt, st, &rt.message().caller())?;
             let mut mmap = if let Some(ref batch) = st.proof_validation_batch {
                 Multimap::from_root(rt.store(), batch).map_err(|e| {
                     e.downcast_default(
@@ -525,8 +543,13 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
                 })?;
 
-            for epoch in st.first_cron_epoch..rt_epoch {
-                let mut epoch_events = load_cron_events(&events, epoch).map_err(|e| {
+            let claims: Hamt<BS, Claim> =
+                make_map_with_root(&st.claims, rt.store()).map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+                })?;
+
+            for epoch in st.first_cron_epoch..rt_epoch + 1 {
+                let epoch_events = load_cron_events(&events, epoch).map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
                         format!("failed to load cron events at {}", epoch),
@@ -537,7 +560,13 @@ impl Actor {
                     continue;
                 }
 
-                cron_events.append(&mut epoch_events);
+                for event in &epoch_events {
+                    if let Ok(Some(_)) = claims.get(&event.miner_addr.to_bytes()) {
+                        cron_events.push(event.clone());
+                    }
+                }
+
+                //cron_events.append(&mut epoch_events);
 
                 events.remove_all(&epoch_key(epoch)).map_err(|e| {
                     e.downcast_default(

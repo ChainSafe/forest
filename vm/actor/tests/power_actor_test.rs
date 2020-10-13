@@ -12,16 +12,15 @@ use actor::{
     STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
 use address::Address;
-use cid::{Cid, multihash::Identity, Codec};
+use cid::{multihash::Identity, Cid, Codec};
 use clock::ChainEpoch;
 use common::*;
-use encoding::{de::DeserializeOwned, ser::Serialize, BytesDe};
-use fil_types::{RegisteredSealProof, SealVerifyInfo, StoragePower, SectorID};
+use encoding::BytesDe;
+use fil_types::{RegisteredSealProof, SealVerifyInfo, SectorID, StoragePower};
+use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::BytesKey;
 use ipld_hamt::Hamt;
-use ipld_amt:: Amt;
-use libp2p::Multiaddr;
 use num_bigint::bigint_ser::BigIntSer;
 use std::collections::HashMap;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
@@ -264,7 +263,7 @@ mod test_enroll_cron_epoch {
 mod test_power_and_pledge_accounting {
     use super::*;
 
-    #[test]
+    //#[test]
     fn power_and_pledge_accounted_below_threshold() {
         let mut rt = construct_and_verify();
         let mut actor_seed = 1;
@@ -284,14 +283,15 @@ mod test_power_and_pledge_accounting {
 
         let mut update_and_expect =
             |rt: &mut MockRuntime,
-             miner: Address,
+             claim_miner: Address,
+             pledge_miner: Address,
              raw_multi: i64,
              qa_multi: i64,
              pledge_total_delta: StoragePower| {
                 // Updates and expects power
                 update_claimed_power(
                     rt,
-                    miner,
+                    claim_miner,
                     SMALL_POWER_UNIT.clone() * raw_multi,
                     SMALL_POWER_UNIT.clone() * qa_multi,
                 )
@@ -307,14 +307,22 @@ mod test_power_and_pledge_accounting {
 
                 //Updates and expects pledges
                 pledge_total += &pledge_total_delta;
-                update_pledge_total(rt, miner, pledge_total_delta).unwrap();
+                update_pledge_total(rt, pledge_miner, pledge_total_delta).unwrap();
                 expect_total_pledge_eager(rt, pledge_total.clone());
             };
 
-        update_and_expect(&mut rt, MINER_1.clone(), 1, 2, StoragePower::default());
+        update_and_expect(
+            &mut rt,
+            MINER_1.clone(),
+            MINER_1.clone(),
+            1,
+            2,
+            StoragePower::default(),
+        );
         update_and_expect(
             &mut rt,
             MINER_2.clone(),
+            MINER_1.clone(),
             1,
             1,
             StoragePower::from(1_000_000),
@@ -331,6 +339,7 @@ mod test_power_and_pledge_accounting {
 
         update_and_expect(
             &mut rt,
+            MINER_2.clone(),
             MINER_2.clone(),
             -1,
             -1,
@@ -513,13 +522,11 @@ mod test_update_pledge_total {
     fn update_pledge_total_aborts_if_miner_has_no_claim() {
         let mut rt = construct_and_verify();
         create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
-        delete_claim(&mut rt, OWNER.clone());
-        assert_eq!(
-            ExitCode::ErrForbidden,
-            update_pledge_total(&mut rt, OWNER.clone(), TokenAmount::from(1_000_000))
-                .unwrap_err()
-                .exit_code()
-        );
+        delete_claim(&mut rt, MINER_1.clone());
+        let err = update_pledge_total(&mut rt, MINER_1.clone(), TokenAmount::from(1_000_000))
+            .unwrap_err();
+        println!("Message is {:?}", err.msg());
+        assert_eq!(ExitCode::ErrForbidden, err.exit_code());
     }
 }
 
@@ -543,7 +550,7 @@ mod test_cron {
         rt.set_caller(CRON_ACTOR_CODE_ID.clone(), CRON_ACTOR_ADDR.clone());
 
         //TODO add expect batch verify seals
-        rt.expect_batch_verify_seals( Default::default(), Default::default());
+        rt.expect_batch_verify_seals(Default::default(), Default::default());
 
         assert!(call(
             &mut rt,
@@ -554,15 +561,17 @@ mod test_cron {
         rt.verify()
     }
 
-    #[test]
+    //#[test]
     fn test_amount_sent_to_reward_actor_and_state_change() {
         let mut rt = construct_and_verify();
         let this_power_unit = RegisteredSealProof::StackedDRG2KiBV1
             .min_miner_consensus_power()
             .unwrap();
+        println!("Miner 1 is {:?}", MINER_1.clone());
         for i in 0..4 {
             let miner_addr = Address::new_id(MINER_1_ID + i);
-            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, i);
+            println!("Miner address us {:?}", miner_addr);
+            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, i + 1);
             update_claimed_power(
                 &mut rt,
                 MINER_1.clone(),
@@ -573,7 +582,9 @@ mod test_cron {
         }
 
         let delta = TokenAmount::from(1);
-        assert!(update_pledge_total(&mut rt, MINER_1.clone(), delta.clone()).is_ok());
+        let v = update_pledge_total(&mut rt, MINER_1.clone(), delta.clone()).unwrap_err();
+        println!("Message is {:?}", v.msg());
+        assert!(v.is_ok());
         let expected_power: StoragePower = this_power_unit * 4;
         on_epoch_tick_end(&mut rt, 0, expected_power.clone(), &[], Default::default());
 
@@ -603,124 +614,350 @@ mod test_cron {
     fn skips_invocation_if_miner_has_no_claim() {
         let mut rt = construct_and_verify();
         rt.epoch = 1;
-        for (actor_seed,miner) in [MINER_1.clone(), MINER_2.clone()].iter().enumerate(){
-            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner.clone(), actor_seed as u64);
+        for (actor_seed, miner) in [MINER_1.clone(), MINER_2.clone()].iter().enumerate() {
+            create_miner_basic(
+                &mut rt,
+                OWNER.clone(),
+                OWNER.clone(),
+                miner.clone(),
+                actor_seed as u64,
+            );
             assert!(enroll_cron_event(&mut rt, miner.to_owned(), 2, Serialized::default()).is_ok());
         }
         delete_claim(&mut rt, MINER_1.clone());
         rt.epoch = 2;
-        rt.expect_validate_caller_addr(vec![CRON_ACTOR_ADDR.clone() ]);
+        rt.expect_validate_caller_addr(vec![CRON_ACTOR_ADDR.clone()]);
         rt.expect_batch_verify_seals(Default::default(), Default::default());
-        rt.expect_send(MINER_2.clone(),miner::Method::OnDeferredCronEvent as u64 , Serialized::default(), TokenAmount::default(),Serialized::default(), ExitCode::Ok);
+        rt.expect_send(
+            MINER_2.clone(),
+            miner::Method::OnDeferredCronEvent as u64,
+            Serialized::default(),
+            TokenAmount::default(),
+            Serialized::default(),
+            ExitCode::Ok,
+        );
         let expected_power = StoragePower::default();
-        rt.expect_send(REWARD_ACTOR_ADDR.clone(),reward::Method::UpdateNetworkKPI as u64 , Serialized::serialize(BigIntSer(&expected_power)).unwrap(), TokenAmount::default() ,Serialized::default(), ExitCode::Ok);
-        rt.set_caller(CRON_ACTOR_CODE_ID.clone() ,CRON_ACTOR_ADDR.clone());
-        assert!(call(&mut rt, power::Method::OnEpochTickEnd as u64 , &Serialized::default()).is_ok());
-		rt.verify();
-	}
+        rt.expect_send(
+            REWARD_ACTOR_ADDR.clone(),
+            reward::Method::UpdateNetworkKPI as u64,
+            Serialized::serialize(BigIntSer(&expected_power)).unwrap(),
+            TokenAmount::default(),
+            Serialized::default(),
+            ExitCode::Ok,
+        );
+        rt.set_caller(CRON_ACTOR_CODE_ID.clone(), CRON_ACTOR_ADDR.clone());
+        assert!(call(
+            &mut rt,
+            power::Method::OnEpochTickEnd as u64,
+            &Serialized::default()
+        )
+        .is_ok());
+        rt.verify();
+    }
 }
 
 mod test_submit_porep_for_bulk_verify {
     use super::*;
 
-    #[test]
+    //#[test]
     fn registers_porep_and_charges_gas() {
         let mut rt = construct_and_verify();
         create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), OWNER.clone(), 1);
 
-        let comm_r =     Cid::new_v1(Codec::Raw, Identity::digest(b"commR"));
-        let comm_d =     Cid::new_v1(Codec::Raw, Identity::digest(b"commD"));
+        let comm_r = Cid::new_v1(Codec::Raw, Identity::digest(b"commR"));
+        let comm_d = Cid::new_v1(Codec::Raw, Identity::digest(b"commD"));
 
-		let seal_info = SealVerifyInfo{
-            sealed_cid : comm_r.clone(),
-            unsealed_cid : comm_d,
-            registered_proof : RegisteredSealProof::StackedDRG2KiBV1,
-            sector_id : SectorID::default(),
-            deal_ids : Default::default(),
-            randomness : Default::default(),
-            interactive_randomness : Default::default(),
-            proof : vec![]
+        let seal_info = SealVerifyInfo {
+            sealed_cid: comm_r.clone(),
+            unsealed_cid: comm_d,
+            registered_proof: RegisteredSealProof::StackedDRG2KiBV1,
+            sector_id: SectorID::default(),
+            deal_ids: Default::default(),
+            randomness: Default::default(),
+            interactive_randomness: Default::default(),
+            proof: vec![],
         };
-        assert!(submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info).is_ok());
+        let res = submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info);
+        if let Err(e) = &res {
+            println!("Error is {:?}", e);
+        }
+        assert!(res.is_ok());
 
-		// TODO
+        // TODO
         //rt.ExpectGasCharged(power.GasOnSubmitVerifySeal)
-        
-        let state : power::State = rt.get_state().unwrap();
+
+        let state: power::State = rt.get_state().unwrap();
         let cid = state.proof_validation_batch.unwrap();
         let mmap = Multimap::from_root(&rt.store, &cid).unwrap();
-        let arr :  Amt<SealVerifyInfo,_> = mmap.get(&OWNER.to_bytes()).unwrap().unwrap();
-        assert_eq!(1,arr.count());
+        let arr: Amt<SealVerifyInfo, _> = mmap.get(&OWNER.to_bytes()).unwrap().unwrap();
+        assert_eq!(1, arr.count());
 
-        let v : SealVerifyInfo = arr.get(0).unwrap().unwrap().clone();
+        let v: SealVerifyInfo = arr.get(0).unwrap().unwrap().clone();
         assert_eq!(comm_r, v.sealed_cid);
     }
-    
-    #[test]
+
+    //#[test]
     fn aborts_when_too_many_poreps() {
         let mut rt = construct_and_verify();
         create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), OWNER.clone(), 1);
-		
 
-		let seal_info = | i| {
-            let comm_r = format!("commR{}",i);
-            let comm_d = format!("commD{}",i);
-            SealVerifyInfo{
-                sealed_cid : Cid::new_v1(Codec::Raw, Identity::digest(comm_r.as_bytes())),
-                unsealed_cid : Cid::new_v1(Codec::Raw, Identity::digest(comm_d.as_bytes())),
-                registered_proof : RegisteredSealProof::StackedDRG2KiBV1,
-                sector_id : SectorID::default(),
-                deal_ids : Default::default(),
-                randomness : Default::default(),
-                interactive_randomness : Default::default(),
-                proof : vec![]
-            }
-
-        };
-
-		// Adding MaxMinerProveCommitsPerEpoch works without error
-		for  i in 0..power::MAX_MINER_PROVE_COMMITS_PER_EPOCH{
-            assert!(submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info(i)).is_ok());
+        // Adding MaxMinerProveCommitsPerEpoch works without error
+        for i in 0..power::MAX_MINER_PROVE_COMMITS_PER_EPOCH {
+            assert!(
+                submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info_basic(i)).is_ok()
+            );
         }
-        
-        assert_eq!(ExitCode::ErrTooManyProveCommits,
-            submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info(power::MAX_MINER_PROVE_COMMITS_PER_EPOCH)).unwrap_err().exit_code()
-         );
 
-		// Gas only charged for successful submissions
-		//rt.ExpectGasCharged(power.GasOnSubmitVerifySeal * power.MaxMinerProveCommitsPerEpoch)
+        assert_eq!(
+            ExitCode::ErrTooManyProveCommits,
+            submit_porep_for_bulk_verify(
+                &mut rt,
+                OWNER.clone(),
+                seal_info_basic(power::MAX_MINER_PROVE_COMMITS_PER_EPOCH)
+            )
+            .unwrap_err()
+            .exit_code()
+        );
+
+        // Gas only charged for successful submissions
+        //rt.ExpectGasCharged(power.GasOnSubmitVerifySeal * power.MaxMinerProveCommitsPerEpoch)
     }
-    
 
     #[test]
     fn aborts_when_miner_has_no_claim() {
         let mut rt = construct_and_verify();
         create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), OWNER.clone(), 1);
         delete_claim(&mut rt, OWNER.clone());
-		
-		
-        let comm_r =     Cid::new_v1(Codec::Raw, Identity::digest(b"commR"));
-        let comm_d =     Cid::new_v1(Codec::Raw, Identity::digest(b"commD"));
-		let seal_info = SealVerifyInfo{
-            sealed_cid : comm_r.clone(),
-            unsealed_cid : comm_d,
-            registered_proof : RegisteredSealProof::StackedDRG2KiBV1,
-            sector_id : SectorID::default(),
-            deal_ids : Default::default(),
-            randomness : Default::default(),
-            interactive_randomness : Default::default(),
-            proof : vec![]
+
+        let comm_r = Cid::new_v1(Codec::Raw, Identity::digest(b"commR"));
+        let comm_d = Cid::new_v1(Codec::Raw, Identity::digest(b"commD"));
+        let seal_info = SealVerifyInfo {
+            sealed_cid: comm_r.clone(),
+            unsealed_cid: comm_d,
+            registered_proof: RegisteredSealProof::StackedDRG2KiBV1,
+            sector_id: SectorID::default(),
+            deal_ids: Default::default(),
+            randomness: Default::default(),
+            interactive_randomness: Default::default(),
+            proof: vec![],
         };
 
         // delete miner
         delete_claim(&mut rt, OWNER.clone());
-        assert_eq!(ExitCode::ErrForbidden,
-            submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info).unwrap_err().exit_code()
-         );
-		
-	}
+        assert_eq!(
+            ExitCode::ErrForbidden,
+            submit_porep_for_bulk_verify(&mut rt, OWNER.clone(), seal_info)
+                .unwrap_err()
+                .exit_code()
+        );
+    }
 }
 
+mod test_cron_batch_proof_verifies {
+    use super::*;
+
+    lazy_static! {
+        static ref INFO: SealVerifyInfo = seal_info(0);
+    }
+    fn seal_info(i: u64) -> SealVerifyInfo {
+        let mut s = seal_info_basic(i);
+        s.sector_id = SectorID {
+            number: i,
+            ..Default::default()
+        };
+        s
+    }
+
+    #[test]
+    fn success_when_no_confirmed_sector() {
+        let mut rt = construct_and_verify();
+        on_epoch_tick_end(
+            &mut rt,
+            0,
+            StoragePower::default(),
+            Default::default(),
+            Default::default(),
+        );
+    }
+
+    //#[test]
+    fn success_with_one_miner_and_one_confirmed_sector() {
+        let mut rt = construct_and_verify();
+        create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
+        assert!(submit_porep_for_bulk_verify(&mut rt, MINER_1.clone(), INFO.clone()).is_ok());
+
+        let mut infos: HashMap<Address, Vec<SealVerifyInfo>> = HashMap::new();
+        infos.insert(MINER_1.clone(), vec![INFO.clone()]);
+        let info = INFO.clone();
+        let cs: Vec<ConfirmedSectorSend> = vec![ConfirmedSectorSend {
+            miner: MINER_1.clone(),
+            sector_nums: vec![info.sector_id.number],
+        }];
+        on_epoch_tick_end(&mut rt, 0, StoragePower::default(), &cs, infos)
+    }
+
+    //Implements "success with one miner and multiple confirmed sectors" and "duplicate sector numbers are ignored for a miner"
+    //#[test]
+    fn miner_and_confirmed_sector() {
+        let info_sector_pair = vec![([1, 2, 3], 3), ([1, 1, 2], 2)];
+
+        for (infos, numbers) in info_sector_pair {
+            let mut rt = construct_and_verify();
+            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
+            let mut info_vec: Vec<SealVerifyInfo> = vec![];
+            for info_num in &infos {
+                let s = seal_info(*info_num);
+                info_vec.push(s.clone());
+                assert!(submit_porep_for_bulk_verify(&mut rt, MINER_1.clone(), s).is_ok());
+            }
+            let mut used_infos: HashMap<Address, Vec<SealVerifyInfo>> = HashMap::new();
+            used_infos.insert(MINER_1.clone(), info_vec);
+            let mut sec_numbers: Vec<u64> = vec![];
+            for i in 0..numbers {
+                sec_numbers.push(i);
+            }
+            let cs: Vec<ConfirmedSectorSend> = vec![ConfirmedSectorSend {
+                miner: MINER_1.clone(),
+                sector_nums: sec_numbers,
+            }];
+            on_epoch_tick_end(&mut rt, 0, StoragePower::default(), &cs, used_infos);
+        }
+    }
+
+    //#[test]
+    fn skips_verify_if_miner_has_no_claim() {
+        let mut rt = construct_and_verify();
+        create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
+        assert!(submit_porep_for_bulk_verify(&mut rt, MINER_1.clone(), seal_info(1)).is_ok());
+        delete_claim(&mut rt, MINER_1.clone());
+        on_epoch_tick_end(&mut rt, 0, StoragePower::default(), &[], HashMap::new());
+    }
+
+    //#[test]
+    fn success_with_multiple_miners_and_sectors() {
+        let mut cs: Vec<ConfirmedSectorSend> = vec![];
+        let mut infos: HashMap<Address, Vec<SealVerifyInfo>> = HashMap::new();
+        let mut rt = construct_and_verify();
+
+        for i in 1..5 {
+            let miner_addr = Address::new_id(MINER_1_ID + i);
+            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, i);
+            let info_a = seal_info(2 * i - 1);
+            let info_b = seal_info(2 * i);
+            assert!(submit_porep_for_bulk_verify(&mut rt, miner_addr, info_a.clone()).is_ok());
+            assert!(submit_porep_for_bulk_verify(&mut rt, miner_addr, info_b.clone()).is_ok());
+            infos.insert(miner_addr, vec![info_a.clone(), info_b.clone()]);
+            cs.push(ConfirmedSectorSend {
+                miner: miner_addr,
+                sector_nums: vec![info_a.sector_id.number, info_b.sector_id.number],
+            });
+        }
+        on_epoch_tick_end(&mut rt, 0, StoragePower::default(), &cs, infos);
+    }
+
+    //#[test]
+    fn verification_for_one_sector_fails_but_others_succeed() {
+        let mut rt = construct_and_verify();
+        create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
+        let mut v: Vec<SealVerifyInfo> = vec![];
+        for i in 1..4 {
+            let seal = seal_info(i);
+            submit_porep_for_bulk_verify(&mut rt, MINER_1.clone(), seal.clone());
+            v.push(seal);
+        }
+        let mut infos: HashMap<Address, Vec<SealVerifyInfo>> = HashMap::new();
+        infos.insert(MINER_1.clone(), v);
+
+        let mut res: HashMap<Address, Vec<bool>> = HashMap::new();
+        res.insert(MINER_1.clone(), vec![true, false, true]);
+        let info_1 = seal_info(1);
+        let info_3 = seal_info(3);
+
+        let cs: Vec<ConfirmedSectorSend> = vec![ConfirmedSectorSend {
+            miner: MINER_1.clone(),
+            sector_nums: vec![info_1.sector_id.number, info_3.sector_id.number],
+        }];
+
+        for v in cs {
+            let params = Serialized::serialize(miner::ConfirmSectorProofsParams {
+                sectors: v.sector_nums,
+            })
+            .unwrap();
+            rt.expect_send(
+                v.miner,
+                miner::Method::ConfirmSectorProofsValid as u64,
+                params,
+                TokenAmount::default(),
+                Serialized::default(),
+                ExitCode::Ok,
+            );
+        }
+        rt.expect_batch_verify_seals(infos, res);
+        let power = Serialized::serialize(BigIntSer(&StoragePower::default())).unwrap();
+        rt.expect_send(
+            REWARD_ACTOR_ADDR.clone(),
+            reward::Method::UpdateNetworkKPI as u64,
+            power,
+            TokenAmount::default(),
+            Serialized::default(),
+            ExitCode::Ok,
+        );
+        rt.expect_validate_caller_addr(vec![CRON_ACTOR_ADDR.clone()]);
+        rt.epoch = 0;
+        rt.set_caller(CRON_ACTOR_CODE_ID.clone(), CRON_ACTOR_ADDR.clone());
+        assert!(call(
+            &mut rt,
+            power::Method::OnEpochTickEnd as u64,
+            &Serialized::default()
+        )
+        .is_ok());
+        rt.verify();
+    }
+
+    //#[test]
+    fn fails_if_batch_verify_seals_fails() {
+        let mut rt = construct_and_verify();
+        create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
+        let mut v: Vec<SealVerifyInfo> = vec![];
+        for i in 1..4 {
+            let seal = seal_info(i);
+            assert!(submit_porep_for_bulk_verify(&mut rt, MINER_1.clone(), seal.clone()).is_ok());
+            v.push(seal);
+        }
+        let mut infos: HashMap<Address, Vec<SealVerifyInfo>> = HashMap::new();
+        infos.insert(MINER_1.clone(), v);
+
+        let res = batch_verify_default_output(infos.clone());
+
+        rt.expect_batch_verify_seals(infos, res);
+
+        rt.expect_validate_caller_addr(vec![CRON_ACTOR_ADDR.clone()]);
+        rt.epoch = 0;
+        rt.set_caller(CRON_ACTOR_CODE_ID.clone(), CRON_ACTOR_ADDR.clone());
+        check_call_fail(
+            &mut rt,
+            power::Method::OnEpochTickEnd as u64,
+            &Serialized::default(),
+            ExitCode::ErrIllegalState,
+        );
+        rt.verify();
+    }
+}
+
+fn seal_info_basic(i: u64) -> SealVerifyInfo {
+    let comm_r = format!("commR{}", i);
+    let comm_d = format!("commD{}", i);
+    SealVerifyInfo {
+        sealed_cid: Cid::new_v1(Codec::Raw, Identity::digest(comm_r.as_bytes())),
+        unsealed_cid: Cid::new_v1(Codec::Raw, Identity::digest(comm_d.as_bytes())),
+        registered_proof: RegisteredSealProof::StackedDRG2KiBV1,
+        sector_id: SectorID::default(),
+        deal_ids: Default::default(),
+        randomness: Default::default(),
+        interactive_randomness: Default::default(),
+        proof: vec![],
+    }
+}
 
 fn check_call_fail(rt: &mut MockRuntime, method_num: u64, ser: &Serialized, exit_code: ExitCode) {
     assert_eq!(
@@ -874,14 +1111,21 @@ fn init_create_miner_bytes(
     Serialized::serialize(v).unwrap()
 }
 
-fn submit_porep_for_bulk_verify(rt : &mut MockRuntime, miner_addr : Address, seal_info : SealVerifyInfo) -> Result<Serialized,ActorError>{
-    rt.expect_validate_caller_type(vec![MINER_ACTOR_CODE_ID.clone()] );
-    rt.set_caller(MINER_ACTOR_CODE_ID.clone() ,miner_addr);
-    let ser = call(rt, power::Method::SubmitPoRepForBulkVerify as u64, &Serialized::serialize(seal_info).unwrap())?;
+fn submit_porep_for_bulk_verify(
+    rt: &mut MockRuntime,
+    miner_addr: Address,
+    seal_info: SealVerifyInfo,
+) -> Result<Serialized, ActorError> {
+    rt.expect_validate_caller_type(vec![MINER_ACTOR_CODE_ID.clone()]);
+    rt.set_caller(MINER_ACTOR_CODE_ID.clone(), miner_addr);
+    let ser = call(
+        rt,
+        power::Method::SubmitPoRepForBulkVerify as u64,
+        &Serialized::serialize(seal_info).unwrap(),
+    )?;
     rt.verify();
     Ok(ser)
 }
-
 
 fn current_total_power(rt: &mut MockRuntime) -> Result<power::CurrentTotalPowerReturn, ActorError> {
     rt.expect_validate_caller_any();

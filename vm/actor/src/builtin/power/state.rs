@@ -133,6 +133,8 @@ impl State {
         let prev_below: bool = &old_claim.raw_byte_power < min_power_ref;
         let still_below: bool = &new_claim.raw_byte_power < min_power_ref;
 
+        println!("Min power is {:?}", min_power_ref);
+
         if prev_below && !still_below {
             println!("Just passed min miner size");
             self.miner_above_min_power_count += 1;

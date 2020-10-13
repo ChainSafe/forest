@@ -848,13 +848,13 @@ impl Syscalls for MockRuntime {
         &self,
         vis: &[(Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        let _ = self
+            .expect_batch_verify_seals
+            .replace(None)
+            .ok_or(Box::new(
+                actor_error!(ErrIllegalState; "Unexpected syscall to batch verify seals"),
+            ))?;
 
-        
-
-        let _ = self.expect_batch_verify_seals.replace(None).ok_or(Box::new(
-            actor_error!(ErrIllegalState; "Unexpected syscall to batch verify seals"),
-        ))?;
-        
         Ok(Default::default())
     }
 }
