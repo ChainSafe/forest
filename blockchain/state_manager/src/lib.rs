@@ -751,13 +751,13 @@ where
 
     /// Returns a bls public key from provided address
     pub fn get_bls_public_key(
-        db: &Arc<DB>,
+        db: &DB,
         addr: &Address,
         state_cid: &Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state = StateTree::new_from_root(db.as_ref(), state_cid)
-            .map_err(|e| Error::State(e.to_string()))?;
-        let kaddr = resolve_to_key_addr(&state, db.as_ref(), addr)
+        let state =
+            StateTree::new_from_root(db, state_cid).map_err(|e| Error::State(e.to_string()))?;
+        let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
         match kaddr.into_payload() {

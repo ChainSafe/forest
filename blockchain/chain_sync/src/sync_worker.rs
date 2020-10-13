@@ -32,6 +32,7 @@ use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -515,6 +516,7 @@ where
         let sm_c = Arc::clone(&sm);
         validations.push(task::spawn_blocking(move || {
             Self::check_block_msgs(sm_c, &b, &base_ts_clone)
+                .map_err(|e| Error::Validation(e.to_string()))
         }));
 
         // * Miner validations
@@ -761,17 +763,17 @@ where
     fn check_block_msgs(
         state_manager: Arc<StateManager<DB>>,
         block: &Block,
-        tip: &Tipset,
-    ) -> Result<(), Error> {
+        base_ts: &Tipset,
+    ) -> Result<(), Box<dyn StdError>> {
         // do the initial loop here
         // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
             let pk = StateManager::get_bls_public_key(
-                &state_manager.blockstore_cloned(),
+                state_manager.blockstore(),
                 m.from(),
-                tip.parent_state(),
+                base_ts.parent_state(),
             )?;
             pub_keys.push(pk);
             cids.push(m.to_signing_bytes());
@@ -790,39 +792,42 @@ where
                     .as_slice(),
                 &sig,
             ) {
-                return Err(Error::Validation(format!(
-                    "Bls aggregate signature {:?} was invalid: {:?}",
-                    sig, cids
-                )));
+                return Err(
+                    format!("Bls aggregate signature {:?} was invalid: {:?}", sig, cids).into(),
+                );
             }
         } else {
-            return Err(Error::Validation(
-                "No bls signature included in the block header".to_owned(),
-            ));
+            return Err("No bls signature included in the block header".into());
         }
 
         // check msgs for validity
-        fn check_msg<M, DB: BlockStore>(
-            msg: &M,
+        fn check_msg<DB: BlockStore>(
+            msg: &UnsignedMessage,
             msg_meta_data: &mut HashMap<Address, MsgMetaData>,
             tree: &StateTree<DB>,
-        ) -> Result<(), Error>
-        where
-            M: Message,
-        {
+        ) -> Result<(), Box<dyn StdError>> {
+            // Phase 1: syntactic validation
+            // TODO
+
+            // Phase 2: (Partial) semantic validation
+            // Sender exists and is account actor, and sequence is correct
+            // FIXME
             let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
                 // address is present begin validity checks
                 Some(MsgMetaData { sequence, balance }) => {
                     // sequence equality check
                     if *sequence != msg.sequence() {
-                        return Err(Error::Validation("Sequences are not equal".to_owned()));
+                        return Err(format!(
+                            "Sequences are not equal: {} != {}",
+                            sequence,
+                            msg.sequence()
+                        )
+                        .into());
                     }
 
                     // sufficient funds check
                     if *balance < msg.required_funds() {
-                        return Err(Error::Validation(
-                            "Insufficient funds for message execution".to_owned(),
-                        ));
+                        return Err("Insufficient funds for message execution".into());
                     }
                     // update balance and increment sequence by 1
                     MsgMetaData {
@@ -850,28 +855,40 @@ where
             Ok(())
         }
         let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
-        let db = state_manager.blockstore_cloned();
-        let (state_root, _) = task::block_on(state_manager.tipset_state::<V>(&tip))
-            .map_err(|e| Error::Validation(format!("Could not update state: {}", e)))?;
-        let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
-            Error::Validation("Could not load from new state root in state manager".to_owned())
-        })?;
+        let db = state_manager.blockstore();
+        let (state_root, _) = task::block_on(state_manager.tipset_state::<V>(&base_ts))
+            .map_err(|e| format!("Could not update state: {}", e))?;
+        let tree = StateTree::new_from_root(db, &state_root)
+            .map_err(|e| format!("Could not load from new state root in state manager: {}", e))?;
+
         // loop through bls messages and check msg validity
-        for m in block.bls_msgs() {
-            check_msg(m, &mut msg_meta_data, &tree)?;
+        for (i, m) in block.bls_msgs().iter().enumerate() {
+            check_msg(m, &mut msg_meta_data, &tree)
+                .map_err(|e| format!("block had invalid bls message at index {}: {}", i, e))?;
         }
         // loop through secp messages and check msg validity and signature
-        for m in block.secp_msgs() {
-            check_msg(m, &mut msg_meta_data, &tree)?;
-            // signature validation
+        for (i, m) in block.secp_msgs().iter().enumerate() {
+            check_msg(m.message(), &mut msg_meta_data, &tree)
+                .map_err(|e| format!("block had invalid secp message at index {}: {}", i, e))?;
+
+            // Resolve key address for signature verification
+            let k_addr = task::block_on(state_manager.resolve_to_key_addr::<V>(m.from(), base_ts))
+                .map_err(|e| e.to_string())?;
+
+            // Secp256k1 signature validation
             m.signature()
-                .verify(&m.message().to_signing_bytes(), m.from())
-                .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
+                .verify(&m.message().to_signing_bytes(), &k_addr)
+                .map_err(|e| format!("Message signature invalid: {}", e))?;
         }
         // validate message root from header matches message root
-        let sm_root = compute_msg_meta(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = compute_msg_meta(db, block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
-            return Err(Error::InvalidRoots);
+            return Err(format!(
+                "Invalid message root expected {} calculated {}",
+                block.header().messages(),
+                sm_root
+            )
+            .into());
         }
 
         Ok(())
