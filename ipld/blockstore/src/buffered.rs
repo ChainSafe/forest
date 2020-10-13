@@ -4,11 +4,7 @@
 #![cfg(feature = "buffered")]
 
 use super::BlockStore;
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Cid,
-};
-use commcid::{POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
+use cid::{multihash::MultihashDigest, Cid, Codec};
 use db::{Error, Store};
 use encoding::{from_slice, ser::Serialize, to_vec};
 use forest_ipld::Ipld;
@@ -55,8 +51,7 @@ where
     BS: BlockStore,
 {
     // Skip identity and Filecoin commitment Cids
-    let ch = cid.hash.algorithm();
-    if ch == Code::Identity || ch == SHA2_256_TRUNC254_PADDED || ch == POSEIDON_BLS12_381_A1_FC1 {
+    if cid.codec != Codec::DagCBOR {
         return Ok(());
     }
 
@@ -186,6 +181,7 @@ mod tests {
     use cid::multihash::{Blake2b256, Identity};
     use cid::Codec;
     use commcid::commitment_to_cid;
+    use commcid::{POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
     use forest_ipld::{ipld, Ipld};
 
     #[test]
@@ -210,7 +206,7 @@ mod tests {
         let str_val = "value";
         let value = 8u8;
         let arr_cid = buf_store.put(&(str_val, value), Blake2b256).unwrap();
-        let identity_cid = buf_store.put(&0u8, Identity).unwrap();
+        let identity_cid = Cid::new_v1(Codec::Raw, Identity::digest(&[0u8]));
 
         // Create map to insert into store
         let sealed_comm_cid = commitment_to_cid(

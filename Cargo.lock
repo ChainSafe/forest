@@ -1049,6 +1049,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "colored"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "commcid"
 version = "0.1.0"
 dependencies = [
@@ -1086,7 +1097,9 @@ dependencies = [
  "actor",
  "base64 0.12.3",
  "clock",
+ "colored",
  "db",
+ "difference",
  "fil_types",
  "flate2",
  "forest_address",
@@ -1095,10 +1108,12 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
+ "forest_ipld",
  "forest_message",
  "forest_vm",
  "interpreter",
  "ipld_blockstore",
+ "ipld_hamt",
  "lazy_static",
  "log",
  "pretty_env_logger",
