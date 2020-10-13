@@ -20,13 +20,10 @@ use encoding::Cbor;
 use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
 use forest_message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use interpreter::{ApplyRet, BlockMessages, Rand, VM};
-use num_bigint::BigInt;
 use runtime::{ConsensusFault, Syscalls};
 use serde::{Deserialize, Deserializer};
 use std::error::Error as StdError;
 use vm::{ExitCode, Serialized};
-
-const BASE_FEE: u64 = 100;
 
 mod base64_bytes {
     use super::*;
@@ -113,6 +110,8 @@ pub struct MetaData {
 pub struct PreConditions {
     pub epoch: ChainEpoch,
     pub state_tree: StateTreeVector,
+    #[serde(default)]
+    pub basefee: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]

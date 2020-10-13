@@ -3,6 +3,8 @@
 
 #[cfg(feature = "buffered")]
 mod buffered;
+#[cfg(feature = "resolve")]
+pub mod resolve;
 #[cfg(feature = "tracking")]
 mod tracking;
 

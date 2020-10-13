@@ -17,16 +17,10 @@ pub fn execute_message(
     msg: &ChainMessage,
     pre_root: &Cid,
     epoch: ChainEpoch,
+    basefee: TokenAmount,
     selector: &Option<Selector>,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let mut vm = VM::<_, _, _>::new(
-        pre_root,
-        bs,
-        epoch,
-        TestSyscalls,
-        &TestRand,
-        TokenAmount::from(BASE_FEE),
-    )?;
+    let mut vm = VM::<_, _, _>::new(pre_root, bs, epoch, TestSyscalls, &TestRand, basefee)?;
 
     if let Some(s) = &selector {
         if s.chaos_actor
