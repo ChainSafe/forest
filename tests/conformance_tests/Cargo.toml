@@ -43,7 +43,7 @@ state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }
 vm = { package = "forest_vm", path = "../../vm", optional = true }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", optional = true }
+blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", features = ["resolve"], optional = true }
 crypto = { package = "forest_crypto", path = "../../crypto", optional = true }
 encoding = { package = "forest_encoding", path = "../../encoding", optional = true }
 fil_types = { path = "../../types", optional = true }
@@ -57,4 +57,8 @@ forest_car = { path = "../../ipld/car" }
 flate2 = "1.0"
 lazy_static = "1.4"
 pretty_env_logger = "0.4.0"
+difference = "2.0"
+colored = "2.0"
+ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
+ipld_hamt = { path = "../../ipld/hamt", features = ["ignore-dead-links"] }
 log = "0.4"

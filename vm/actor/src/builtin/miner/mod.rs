@@ -54,7 +54,7 @@ use crate::{
 };
 use address::{Address, Payload, Protocol};
 use bitfield::BitField;
-use byteorder::{BigEndian, ByteOrder};
+use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
@@ -3173,14 +3173,15 @@ fn assign_proving_period_offset(
     blake2b: impl FnOnce(&[u8]) -> Result<[u8; 32], Box<dyn StdError>>,
 ) -> Result<ChainEpoch, Box<dyn StdError>> {
     let mut my_addr = addr.marshal_cbor()?;
-    BigEndian::write_i64(&mut my_addr, current_epoch);
+    my_addr.write_i64::<BigEndian>(current_epoch)?;
 
     let digest = blake2b(&my_addr)?;
 
-    let mut offset: ChainEpoch = BigEndian::read_i64(&digest);
-    offset %= WPOST_PROVING_PERIOD;
+    let mut offset: u64 = BigEndian::read_u64(&digest);
+    offset %= WPOST_PROVING_PERIOD as u64;
 
-    Ok(offset)
+    // Conversion from i64 to u64 is safe because it's % WPOST_PROVING_PERIOD which is i64
+    Ok(offset as ChainEpoch)
 }
 
 /// Computes the epoch at which a proving period should start such that it is greater than the current epoch, and
@@ -3314,7 +3315,6 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                check_empty_params(params)?;
                 Self::constructor(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
