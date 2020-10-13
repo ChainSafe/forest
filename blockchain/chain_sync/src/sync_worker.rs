@@ -7,7 +7,7 @@ mod full_sync_test;
 use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
-use actor::{make_map_with_root, power, STORAGE_POWER_ACTOR_ADDR};
+use actor::{is_account_actor, make_map_with_root, power, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use amt::Amt;
 use async_std::sync::{Receiver, RwLock};
@@ -37,12 +37,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use vm::TokenAmount;
-
-/// Message data used to ensure valid state transition
-struct MsgMetaData {
-    balance: TokenAmount,
-    sequence: u64,
-}
 
 /// Worker to handle syncing chain with the blocksync protocol.
 pub(crate) struct SyncWorker<DB, TBeacon, V> {
@@ -803,58 +797,44 @@ where
         // check msgs for validity
         fn check_msg<DB: BlockStore>(
             msg: &UnsignedMessage,
-            msg_meta_data: &mut HashMap<Address, MsgMetaData>,
+            account_sequences: &mut HashMap<Address, u64>,
             tree: &StateTree<DB>,
         ) -> Result<(), Box<dyn StdError>> {
             // Phase 1: syntactic validation
-            // TODO
+            // TODO requires valid for block inclusion logic
 
             // Phase 2: (Partial) semantic validation
             // Sender exists and is account actor, and sequence is correct
-            // FIXME
-            let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
-                // address is present begin validity checks
-                Some(MsgMetaData { sequence, balance }) => {
-                    // sequence equality check
-                    if *sequence != msg.sequence() {
-                        return Err(format!(
-                            "Sequences are not equal: {} != {}",
-                            sequence,
-                            msg.sequence()
-                        )
-                        .into());
-                    }
-
-                    // sufficient funds check
-                    if *balance < msg.required_funds() {
-                        return Err("Insufficient funds for message execution".into());
-                    }
-                    // update balance and increment sequence by 1
-                    MsgMetaData {
-                        balance: balance - &msg.required_funds(),
-                        sequence: sequence + 1,
-                    }
-                }
-                // MsgMetaData not found with provided address key, insert sequence and balance with address as key
+            let sequence: u64 = match account_sequences.get(msg.from()) {
+                Some(sequence) => *sequence,
+                // Sequence does not exist in map, get actor from state
                 None => {
-                    let actor = tree
-                        .get_actor(msg.from())
-                        .map_err(|e| Error::Other(e.to_string()))?
-                        .ok_or_else(|| {
-                            Error::Other("Could not retrieve actor from state tree".to_owned())
-                        })?;
+                    let act = tree.get_actor(msg.from())?.ok_or_else(|| {
+                        "Failed to retrieve nonce for addr: Actor does not exist in state"
+                    })?;
 
-                    MsgMetaData {
-                        sequence: actor.sequence,
-                        balance: actor.balance,
+                    if !is_account_actor(&act.code) {
+                        return Err("Sender must be an account actor".into());
                     }
+                    act.sequence
                 }
             };
-            // update hash map with updated state
-            msg_meta_data.insert(*msg.from(), updated_state);
+
+            // sequence equality check
+            if sequence != msg.sequence() {
+                return Err(format!(
+                    "Message has incorrect sequence (exp: {} got: {})",
+                    sequence,
+                    msg.sequence()
+                )
+                .into());
+            }
+
+            // Update account sequence
+            account_sequences.insert(*msg.from(), sequence + 1);
             Ok(())
         }
-        let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
+        let mut account_sequences: HashMap<Address, u64> = HashMap::default();
         let db = state_manager.blockstore();
         let (state_root, _) = task::block_on(state_manager.tipset_state::<V>(&base_ts))
             .map_err(|e| format!("Could not update state: {}", e))?;
@@ -863,12 +843,12 @@ where
 
         // loop through bls messages and check msg validity
         for (i, m) in block.bls_msgs().iter().enumerate() {
-            check_msg(m, &mut msg_meta_data, &tree)
+            check_msg(m, &mut account_sequences, &tree)
                 .map_err(|e| format!("block had invalid bls message at index {}: {}", i, e))?;
         }
         // loop through secp messages and check msg validity and signature
         for (i, m) in block.secp_msgs().iter().enumerate() {
-            check_msg(m.message(), &mut msg_meta_data, &tree)
+            check_msg(m.message(), &mut account_sequences, &tree)
                 .map_err(|e| format!("block had invalid secp message at index {}: {}", i, e))?;
 
             // Resolve key address for signature verification
