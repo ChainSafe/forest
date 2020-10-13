@@ -4,7 +4,7 @@
 use crate::{smooth::FilterEstimate, DealWeight};
 use address::Address;
 use clock::ChainEpoch;
-use encoding::{tuple::*, BytesDe, Cbor};
+use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{RegisteredSealProof, SectorSize, StoragePower};
 use num_bigint::bigint_ser;
 use vm::{Serialized, TokenAmount};
@@ -23,7 +23,8 @@ pub struct CreateMinerParams {
     pub owner: Address,
     pub worker: Address,
     pub seal_proof_type: RegisteredSealProof,
-    pub peer: BytesDe,
+    #[serde(with = "serde_bytes")]
+    pub peer: Vec<u8>,
     pub multiaddrs: Vec<BytesDe>,
 }
 impl Cbor for CreateMinerParams {}
