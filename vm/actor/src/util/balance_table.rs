@@ -34,12 +34,12 @@ where
 
     /// Gets token amount for given address in balance table
     #[inline]
-    pub fn get(&self, key: &Address) -> Result<&TokenAmount, Box<dyn StdError>> {
-        Ok(&self
-            .0
-            .get(&key.to_bytes())?
-            .ok_or(format!("no key {} in map root", key))?
-            .0)
+    pub fn get(&self, key: &Address) -> Result<TokenAmount, Box<dyn StdError>> {
+        if let Some(v) = self.0.get(&key.to_bytes())? {
+            Ok(v.0.clone())
+        } else {
+            Ok(0.into())
+        }
     }
 
     /// Checks if a balance for an address exists
