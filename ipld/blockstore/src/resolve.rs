@@ -36,18 +36,11 @@ where
                 resolve_ipld(bs, v)?;
             }
         }
-        link @ Ipld::Link(_) => {
-            let resolved: Option<Ipld> = if let Ipld::Link(cid) = link {
-                if cid.codec != Codec::DagCBOR {
-                    return Ok(());
+        Ipld::Link(cid) => {
+            if cid.codec == Codec::DagCBOR {
+                if let Some(x) = bs.get(cid)? {
+                    *ipld = x;
                 }
-                bs.get(cid)?
-            } else {
-                unreachable!()
-            };
-
-            if let Some(ipld) = resolved {
-                *link = ipld;
             }
         }
         _ => (),
