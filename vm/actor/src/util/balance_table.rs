@@ -85,7 +85,7 @@ where
         req: &TokenAmount,
         floor: &TokenAmount,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
-        let prev = self.get(key)?.clone();
+        let prev = self.get(key)?;
         let res = prev
             .checked_sub(req)
             .unwrap_or_else(|| TokenAmount::from(0u8));
