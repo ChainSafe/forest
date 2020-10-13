@@ -50,8 +50,8 @@ async fn space_race_full_sync() {
     let genesis = Arc::new(genesis);
 
     let beacon = Arc::new(DrandBeacon::new(
-        DEFAULT_DRAND_URL,
-        DrandPublic{coefficient: hex::decode("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31").unwrap()},
+        "https://pl-us.incentinet.drand.sh",
+        DrandPublic{coefficient: hex::decode("8cad0c72c606ab27d36ee06de1d5b2db1faf92e447025ca37575ab3a8aac2eaae83192f846fc9e158bc738423753d000").unwrap()},
         genesis.blocks()[0].timestamp(),
         EPOCH_DURATION_SECONDS as u64,
     )

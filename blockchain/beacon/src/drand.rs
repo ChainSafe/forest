@@ -163,7 +163,7 @@ impl Beacon for DrandBeacon {
 
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64 {
         let latest_ts =
-            fil_epoch as u64 * self.fil_round_time + self.fil_gen_time - self.fil_round_time;
+            ((fil_epoch as u64 * self.fil_round_time) + self.fil_gen_time) - self.fil_round_time;
         // TODO: self.interval has to be converted to seconds. Dont know what it is right now
         (latest_ts - self.drand_gen_time) / self.interval
     }
