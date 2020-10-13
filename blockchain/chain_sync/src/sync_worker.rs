@@ -36,7 +36,6 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use vm::TokenAmount;
 
 /// Worker to handle syncing chain with the blocksync protocol.
 pub(crate) struct SyncWorker<DB, TBeacon, V> {
@@ -516,9 +515,14 @@ where
         // * Miner validations
         let sm_c = Arc::clone(&sm);
         let b_cloned = Arc::clone(&block);
+        let base_ts_clone = Arc::clone(&base_ts);
         validations.push(task::spawn_blocking(move || {
             let h = b_cloned.header();
-            Self::validate_miner(sm_c.as_ref(), h.miner_address(), h.state_root())
+            Self::validate_miner(
+                sm_c.as_ref(),
+                h.miner_address(),
+                base_ts_clone.parent_state(),
+            )
         }));
 
         // * base fee check
@@ -546,8 +550,8 @@ where
         let base_ts_clone = Arc::clone(&base_ts);
         let weight = header.weight().clone();
         validations.push(task::spawn_blocking(move || {
-            let calc_weight =
-                chain::weight(bs_cloned.as_ref(), &base_ts_clone).map_err(Error::Other)?;
+            let calc_weight = chain::weight(bs_cloned.as_ref(), &base_ts_clone)
+                .map_err(|e| Error::Other(format!("Error calculating weight: {}", e)))?;
             if weight != calc_weight {
                 return Err(Error::Validation(format!(
                     "Parent weight doesn't match: {} (header), {} (computed)",
@@ -566,7 +570,7 @@ where
             let (state_root, rec_root) = sm_cloned
                 .tipset_state::<V>(base_ts_clone.as_ref())
                 .await
-                .map_err(|e| Error::Other(e.to_string()))?;
+                .map_err(|e| Error::Other(format!("Failed to calculate state: {}", e)))?;
             if &state_root != h.state_root() {
                 return Err(Error::Validation(format!(
                     "Parent state root did not match computed state: {} (header), {} (computed)",
@@ -701,7 +705,7 @@ where
                 h.epoch() - TICKET_RANDOMNESS_LOOKBACK,
                 &buf,
             )
-            .map_err(|e| Error::Other(format!("failed to draw randomness: {}", e)))?;
+            .map_err(|e| format!("failed to draw randomness: {}", e))?;
 
             verify_election_post_vrf(
                 &work_addr,
@@ -722,7 +726,8 @@ where
                 b_clone.header(),
                 prev_beacon.as_ref(),
                 &lbst,
-            )?;
+            )
+            .map_err(|e| format!("Verify winning PoSt failed: {}", e))?;
 
             Ok(())
         }));
@@ -922,7 +927,9 @@ where
     }
 
     fn validate_miner(sm: &StateManager<DB>, maddr: &Address, ts_state: &Cid) -> Result<(), Error> {
-        let spast: power::State = sm.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts_state)?;
+        let spast: power::State = sm
+            .load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts_state)
+            .map_err(|e| format!("Could not load power state: {}", e))?;
 
         let cm = make_map_with_root::<_, power::Claim>(&spast.claims, sm.blockstore())?;
 
@@ -970,6 +977,7 @@ fn compute_msg_meta<DB: BlockStore>(
     let secp_cids = cids_from_messages(secp_msgs)?;
 
     // generate Amt and batch set message values
+    // TODO avoid having to clone all cids (from iter function on Amt)
     let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
     let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
 
