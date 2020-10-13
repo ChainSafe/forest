@@ -624,7 +624,8 @@ where
             )
             .map_err(|e| Error::Other(format!("failed to draw randomness: {}", e)))?;
 
-            verify_election_post_vrf(&work_addr, &vrf_base, election_proof.vrfproof.as_bytes())?;
+            verify_election_post_vrf(&work_addr, &vrf_base, election_proof.vrfproof.as_bytes())
+                .map_err(|e| format!("Winner election proof failed: {}", e))?;
 
             let slashed =
                 sm_c.is_miner_slashed(h.miner_address(), &base_ts_clone.parent_state())?;
@@ -684,7 +685,7 @@ where
         let p_beacon = Arc::clone(&prev_beacon);
         validations.push(task::spawn_blocking(move || {
             let h = b_cloned.header();
-            let mut buf = h.marshal_cbor()?;
+            let mut buf = h.miner_address().marshal_cbor()?;
 
             if h.epoch() > UPGRADE_SMOKE_HEIGHT {
                 let vrf_proof = base_ts
@@ -711,7 +712,8 @@ where
                 &vrf_base,
                 // Safe to unwrap here because of block sanity checks
                 h.ticket().as_ref().unwrap().vrfproof.as_bytes(),
-            )?;
+            )
+            .map_err(|e| format!("Ticket election proof failed: {}", e))?;
 
             Ok(())
         }));
