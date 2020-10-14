@@ -103,7 +103,8 @@ mod tests {
         ); //                ^^                   ^
 
         writer.write(0b0111_0100, 8);
-        assert_eq!(writer.finish(), &[0b0000_0000, 0b1011_0001, 0b1110_1001]); //                                                         ^^^^ ^^^
+        assert_eq!(writer.finish(), &[0b0000_0000, 0b1011_0001, 0b1110_1001]);
+        //                                                        ^^^^ ^^^
     }
 
     #[test]
