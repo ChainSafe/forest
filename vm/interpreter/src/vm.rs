@@ -425,6 +425,10 @@ where
             if amt.sign() == Sign::Minus {
                 return Err("attempted to transfer negative value into actor".into());
             }
+            if amt.is_zero() {
+                return Ok(());
+            }
+
             self.state
                 .mutate_actor(addr, |act| {
                     act.deposit_funds(&amt);
