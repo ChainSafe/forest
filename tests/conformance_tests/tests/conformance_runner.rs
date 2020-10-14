@@ -59,7 +59,6 @@ lazy_static! {
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-PreCommitSector-").unwrap(),
         Regex::new(r"fil_1_storageminer-AddLockedFund-Ok-").unwrap(),
-        Regex::new(r"fil_1_storageminer-WithdrawBalance-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-1").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-2").unwrap(),
 
