@@ -201,7 +201,7 @@ fn bit_vec_unset_vector() {
 
     // Test cbor marshal and unmarshal
     let cbor_bz = encoding::to_vec(&bf).unwrap();
-    assert_eq!(&cbor_bz, &[0x43, 0xa8, 0x54, 0x00]);
+    assert_eq!(&cbor_bz, &[0x42, 0xa8, 0x54]);
 
     let deserialized: BitField = encoding::from_slice(&cbor_bz).unwrap();
     assert_eq!(deserialized.len(), 4);
