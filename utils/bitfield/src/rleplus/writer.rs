@@ -58,8 +58,14 @@ impl BitWriter {
 
     /// Writes any remaining bits to the buffer and returns it.
     pub fn finish(mut self) -> Vec<u8> {
-        if self.num_bits > 0 {
+        if self.bits > 0 {
             self.bytes.push(self.bits as u8);
+        }
+
+        // This check should not be necessary, but as a sanity check to make sure 0 bytes
+        // aren't added at the end of the bytes
+        while let Some(0) = self.bytes.last() {
+            self.bytes.pop();
         }
         self.bytes
     }
