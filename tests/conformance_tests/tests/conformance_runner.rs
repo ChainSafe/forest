@@ -56,30 +56,18 @@ lazy_static! {
 
         // Extracted miner faults
         Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-").unwrap(),
-        Regex::new(r"fil_1_storageminer-ProveCommitSector-Ok-").unwrap(),
-        Regex::new(r"fil_1_storageminer-ProveCommitSector-16").unwrap(),
-        Regex::new(r"fil_1_storageminer-ProveCommitSector-18").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-PreCommitSector-").unwrap(),
-        Regex::new(r"fil_1_storageminer-ProveCommitSector-SysErrOutOfGas-").unwrap(),
-        Regex::new(r"fil_1_storageminer-AddLockedFund-19").unwrap(),
         Regex::new(r"fil_1_storageminer-AddLockedFund-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-WithdrawBalance-Ok-").unwrap(),
-        Regex::new(r"fil_1_storageminer-PreCommitSector-SysErrOutOfGas-").unwrap(),
-        Regex::new(r"fil_1_storageminer-ChangePeerID-Ok-").unwrap(),
-        Regex::new(r"fil_1_storageminer-Send-SysErrInsufficientFunds-").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-1").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-2").unwrap(),
 
         // Extracted market faults
-        Regex::new(r"fil_1_storagemarket-AddBalance-Ok-").unwrap(),
-        Regex::new(r"fil_1_storagemarket-AddBalance-Ok-6").unwrap(),
         Regex::new(r"fil_1_storagemarket-PublishStorageDeals-").unwrap(),
 
         // Extracted power faults (although all miner related)
-        Regex::new(r"fil_1_storagepower-CreateMiner-16-").unwrap(),
         Regex::new(r"fil_1_storagepower-CreateMiner-Ok-").unwrap(),
-        Regex::new(r"fil_1_storagepower-CreateMiner-SysErrOutOfGas-").unwrap(),
     ];
 }
 
