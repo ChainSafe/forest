@@ -9,7 +9,7 @@ mod common;
 use actor::{
     miner::Method as MinerMethod,
     reward::{
-        AwardBlockRewardParams, Method, State, ThisEpochRewardReturn, BASELINE_INITIAL_VALUE,
+        AwardBlockRewardParams, Method, State, ThisEpochRewardReturn, BASELINE_INITIAL_VALUE_V0,
     },
     BURNT_FUNDS_ACTOR_ADDR, POWER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, REWARD_ACTOR_CODE_ID,
     STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
@@ -41,10 +41,10 @@ mod construction_tests {
         assert_eq!(start_realized_power, state.cumsum_realized);
         assert_eq!(*EPOCH_ZERO_REWARD, state.this_epoch_reward);
         assert_eq!(
-            &*BASELINE_INITIAL_VALUE - 1,
+            &*BASELINE_INITIAL_VALUE_V0 - 1,
             state.this_epoch_baseline_power
         );
-        assert_eq!(&*BASELINE_INITIAL_VALUE, &state.effective_baseline_power);
+        assert_eq!(&*BASELINE_INITIAL_VALUE_V0, &state.effective_baseline_power);
     }
 
     #[test]
