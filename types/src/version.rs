@@ -43,7 +43,7 @@ const MAINNET_SCHEDULE: [Upgrade; 5] = [
 ];
 
 /// Specifies the network version
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
 #[repr(u32)]
 pub enum NetworkVersion {
     /// genesis (specs-actors v0.9.3)

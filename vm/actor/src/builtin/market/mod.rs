@@ -238,7 +238,7 @@ impl Actor {
 
         let mut resolved_addrs = HashMap::<Address, Address>::with_capacity(params.deals.len());
         let baseline_power = request_current_baseline_power(rt)?;
-        let network_qa_power = request_current_network_qa_power(rt)?;
+        let (network_raw_power, network_qa_power) = request_current_network_power(rt)?;
 
         let mut new_deal_ids: Vec<DealID> = Vec::new();
         rt.transaction(|st: &mut State, rt| {
@@ -254,7 +254,13 @@ impl Actor {
                 })?;
 
             for deal in &mut params.deals {
-                validate_deal(rt, &deal, &baseline_power, &network_qa_power)?;
+                validate_deal(
+                    rt,
+                    &deal,
+                    &baseline_power,
+                    &network_raw_power,
+                    &network_qa_power,
+                )?;
 
                 if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
                     return Err(actor_error!(ErrIllegalArgument;
@@ -1047,6 +1053,7 @@ fn validate_deal<BS, RT>(
     rt: &RT,
     deal: &ClientDealProposal,
     baseline_power: &StoragePower,
+    network_raw_power: &StoragePower,
     network_qa_power: &StoragePower,
 ) -> Result<(), ActorError>
 where
@@ -1091,9 +1098,11 @@ where
     let (min_provider_collateral, max_provider_collateral) = deal_provider_collateral_bounds(
         proposal.piece_size,
         proposal.verified_deal,
+        network_raw_power,
         network_qa_power,
         baseline_power,
         &rt.total_fil_circ_supply()?,
+        rt.network_version(),
     );
     if proposal.provider_collateral < min_provider_collateral
         || proposal.provider_collateral > max_provider_collateral
@@ -1141,8 +1150,8 @@ where
     Ok(())
 }
 
-// Resolves a provider or client address to the canonical form against which a balance should be held, and
-// the designated recipient address of withdrawals (which is the same, for simple account parties).
+/// Resolves a provider or client address to the canonical form against which a balance should be held, and
+/// the designated recipient address of withdrawals (which is the same, for simple account parties).
 fn escrow_address<BS, RT>(
     rt: &mut RT,
     addr: &Address,
@@ -1169,7 +1178,7 @@ where
     Ok((nominal, nominal, vec![nominal]))
 }
 
-// Requests the current epoch target block reward from the reward actor.
+/// Requests the current epoch target block reward from the reward actor.
 fn request_current_baseline_power<BS, RT>(rt: &mut RT) -> Result<StoragePower, ActorError>
 where
     BS: BlockStore,
@@ -1185,8 +1194,11 @@ where
     Ok(ret.this_epoch_baseline_power)
 }
 
-// Requests the current network total power and pledge from the power actor.
-fn request_current_network_qa_power<BS, RT>(rt: &mut RT) -> Result<StoragePower, ActorError>
+/// Requests the current network total power and pledge from the power actor.
+/// Returns a tuple of (raw_power, qa_power).
+fn request_current_network_power<BS, RT>(
+    rt: &mut RT,
+) -> Result<(StoragePower, StoragePower), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
@@ -1198,7 +1210,7 @@ where
         0.into(),
     )?;
     let ret: power::CurrentTotalPowerReturn = rwret.deserialize()?;
-    Ok(ret.quality_adj_power)
+    Ok((ret.raw_byte_power, ret.quality_adj_power))
 }
 
 impl ActorCode for Actor {
