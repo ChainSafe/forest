@@ -107,7 +107,7 @@ impl Actor {
             st.set_locked(
                 rt.curr_epoch(),
                 params.unlock_duration,
-                rt.message().value_received(),
+                rt.message().value_received().clone(),
             );
         }
         rt.create(&st)?;

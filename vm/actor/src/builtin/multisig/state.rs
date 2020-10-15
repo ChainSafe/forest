@@ -44,7 +44,7 @@ impl State {
             return TokenAmount::from(0);
         }
         if elapsed_epoch < 0 {
-            return self.initial_balance;
+            return self.initial_balance.clone();
         }
         // Division truncation is broken here: https://github.com/filecoin-project/specs-actors/issues/1131
         let unit_locked: TokenAmount = self
