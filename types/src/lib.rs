@@ -6,10 +6,12 @@ mod piece;
 mod randomness;
 pub mod sector;
 pub mod verifier;
+mod version;
 
 pub use self::piece::*;
 pub use self::randomness::*;
 pub use self::sector::*;
+pub use self::version::*;
 
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use num_bigint::BigInt;
@@ -71,6 +73,3 @@ impl NetworkParams for DevnetParams {
     const TOTAL_FILECOIN: i64 = TOTAL_FILECOIN_BASE;
     const MINING_REWARD_TOTAL: i64 = 1_400_000_000;
 }
-
-/// Space-race specific fork
-pub const UPGRADE_SMOKE_HEIGHT: i64 = 51000;
