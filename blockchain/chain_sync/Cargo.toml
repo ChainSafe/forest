@@ -17,7 +17,7 @@ libp2p = { version = "0.24", default-features = false }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 chain = { path = "../chain" }
-message = { package = "forest_message", path = "../../vm/message" }
+message = { package = "forest_message", path = "../../vm/message", features = ["proofs"] }
 state_tree = { path = "../../vm/state_tree/" }
 state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
@@ -38,7 +38,12 @@ flo_stream = "0.4.0"
 rand = "0.7.3"
 smallvec = "1.1.0"
 actor = { path = "../../vm/actor" }
+interpreter = { path = "../../vm/interpreter/" }
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
 base64 = "0.12.1"
+genesis = { path = "../../utils/genesis", features = ["testing"] }
+pretty_env_logger = "0.4.0"
+forest_car = { path = "../../ipld/car" }
+hex = "0.4"

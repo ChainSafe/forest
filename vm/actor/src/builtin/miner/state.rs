@@ -27,7 +27,7 @@ use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 /// that limits a miner actor's behavior (i.e. no balance withdrawals)
 /// Excess balance as computed by st.GetAvailableBalance will be
 /// withdrawable or usable for pre-commit deposit or pledge lock-up.
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct State {
     /// Contains static info about this miner
     pub info: Cid,

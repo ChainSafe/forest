@@ -1,0 +1,18 @@
+[package]
+name = "genesis"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[features]
+testing = []
+
+[dependencies]
+ipld_blockstore = { path = "../../ipld/blockstore" }
+async-std = { version = "1.6.3" }
+log = "0.4.8"
+forest_car = { path = "../../ipld/car" }
+state_manager = { path = "../../blockchain/state_manager" }
+cid = { package = "forest_cid", path = "../../ipld/cid" }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
+chain = { path = "../../blockchain/chain" }
