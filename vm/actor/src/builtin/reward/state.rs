@@ -85,7 +85,8 @@ impl State {
         version: NetworkVersion,
     ) {
         self.epoch += 1;
-        self.this_epoch_baseline_power = baseline_power_from_prev(&self.this_epoch_baseline_power, version);
+        self.this_epoch_baseline_power =
+            baseline_power_from_prev(&self.this_epoch_baseline_power, version);
         let capped_realized_power =
             std::cmp::min(&self.this_epoch_baseline_power, curr_realized_power);
         self.cumsum_realized += capped_realized_power;
