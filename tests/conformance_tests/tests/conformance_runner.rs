@@ -46,8 +46,6 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
 
         // These 2 tests ignore test cases for Chaos actor that are checked at compile time
-        // Link to discussion https://github.com/ChainSafe/forest/pull/696/files
-        // Maybe should look at fixing to match exit codes
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
 
@@ -55,9 +53,9 @@ lazy_static! {
         Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-").unwrap(),
 
         // Extracted miner faults
-        Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-").unwrap(),
-        Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-Ok-").unwrap(),
-        Regex::new(r"fil_1_storageminer-PreCommitSector-").unwrap(),
+        Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-3").unwrap(),
+        Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-7").unwrap(),
+        Regex::new(r"fil_1_storageminer-PreCommitSector-SysErrOutOfGas").unwrap(),
         Regex::new(r"fil_1_storageminer-AddLockedFund-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-WithdrawBalance-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-1").unwrap(),
