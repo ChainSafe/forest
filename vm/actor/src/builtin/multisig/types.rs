@@ -131,3 +131,12 @@ pub struct SwapSignerParams {
 pub struct ChangeNumApprovalsThresholdParams {
     pub new_threshold: usize,
 }
+
+/// Lock balance call params.
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct LockBalanceParams {
+    pub start_epoch: ChainEpoch,
+    pub unlock_duration: ChainEpoch,
+    #[serde(with = "bigint_ser")]
+    pub amount: TokenAmount,
+}
