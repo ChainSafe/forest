@@ -19,12 +19,12 @@ pub const DEAL_UPDATES_INTERVAL: i64 = EPOCHS_IN_DAY;
 
 /// Numerator of the percentage of normalized cirulating
 /// supply that must be covered by provider collateral
-pub const PROV_COLLATERAL_PERCENT_SUPPLY_NUM_V0: i64 = 5;
-pub const PROV_COLLATERAL_PERCENT_SUPPLY_NUM_V1: i64 = 1;
+const PROV_COLLATERAL_PERCENT_SUPPLY_NUM_V0: i64 = 5;
+const PROV_COLLATERAL_PERCENT_SUPPLY_NUM_V1: i64 = 1;
 
 /// Denominator of the percentage of normalized cirulating
 /// supply that must be covered by provider collateral
-pub const PROV_COLLATERAL_PERCENT_SUPPLY_DENOM: i64 = 100;
+const PROV_COLLATERAL_PERCENT_SUPPLY_DENOM: i64 = 100;
 
 /// Bounds (inclusive) on deal duration.
 pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, ChainEpoch) {

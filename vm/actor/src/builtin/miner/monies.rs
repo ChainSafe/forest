@@ -8,7 +8,7 @@ use crate::{
     TokenAmount,
 };
 use clock::ChainEpoch;
-use fil_types::StoragePower;
+use fil_types::{NetworkVersion, StoragePower};
 use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use std::cmp;
@@ -19,8 +19,8 @@ use std::cmp;
 // LockTarget = (LockTargetFactorNum / LockTargetFactorDenom) * FILCirculatingSupply(t)
 // PledgeShare(t) = sectorQAPower / max(BaselinePower(t), NetworkQAPower(t))
 // PARAM_FINISH
-pub const PRE_COMMIT_DEPOSIT_FACTOR: u64 = 20;
-pub const INITIAL_PLEDGE_FACTOR: u64 = 20;
+const PRE_COMMIT_DEPOSIT_FACTOR: u64 = 20;
+const INITIAL_PLEDGE_FACTOR: u64 = 20;
 pub const PRE_COMMIT_DEPOSIT_PROJECTION_PERIOD: i64 =
     (PRE_COMMIT_DEPOSIT_FACTOR as ChainEpoch) * EPOCHS_IN_DAY;
 pub const INITIAL_PLEDGE_PROJECTION_PERIOD: i64 =
@@ -39,13 +39,22 @@ lazy_static! {
 
 // FF = BR(t, DeclaredFaultProjectionPeriod)
 // projection period of 2.14 days:  2880 * 2.14 = 6163.2.  Rounded to nearest epoch 6163
-pub const DECLARED_FAULT_FACTOR_NUM: i64 = 214;
-pub const DECLARED_FAULT_FACTOR_DENOM: i64 = 100;
-pub const DECLARED_FAULT_PROJECTION_PERIOD: ChainEpoch =
-    (EPOCHS_IN_DAY * DECLARED_FAULT_FACTOR_NUM) / DECLARED_FAULT_FACTOR_DENOM;
+const DECLARED_FAULT_FACTOR_NUM_V0: i64 = 214;
+const DECLARED_FAULT_FACTOR_NUM_V3: i64 = 351;
+const DECLARED_FAULT_FACTOR_DENOM: i64 = 100;
+pub const DECLARED_FAULT_PROJECTION_PERIOD_V0: ChainEpoch =
+    (EPOCHS_IN_DAY * DECLARED_FAULT_FACTOR_NUM_V0) / DECLARED_FAULT_FACTOR_DENOM;
+pub const DECLARED_FAULT_PROJECTION_PERIOD_V3: ChainEpoch =
+    (EPOCHS_IN_DAY * DECLARED_FAULT_FACTOR_NUM_V3) / DECLARED_FAULT_FACTOR_DENOM;
 
 // SP = BR(t, UndeclaredFaultProjectionPeriod)
-pub const UNDECLARED_FAULT_PROJECTION_PERIOD: i64 = 5 * EPOCHS_IN_DAY;
+const UNDECLARED_FAULT_FACTOR_NUM_V0: i64 = 50;
+const UNDECLARED_FAULT_FACTOR_NUM_V1: i64 = 35;
+const UNDECLARED_FAULT_FACTOR_DENOM: i64 = 10;
+pub const UNDECLARED_FAULT_PROJECTION_PERIOD_V0: i64 =
+    (EPOCHS_IN_DAY * UNDECLARED_FAULT_FACTOR_NUM_V0) / UNDECLARED_FAULT_FACTOR_DENOM;
+pub const UNDECLARED_FAULT_PROJECTION_PERIOD_V1: i64 =
+    (EPOCHS_IN_DAY * UNDECLARED_FAULT_FACTOR_NUM_V1) / UNDECLARED_FAULT_FACTOR_DENOM;
 
 // Maximum number of days of BR a terminated sector can be penalized
 pub const TERMINATION_LIFETIME_CAP: ChainEpoch = 70;
@@ -82,12 +91,18 @@ pub fn pledge_penalty_for_declared_fault(
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
     qa_sector_power: &StoragePower,
+    network_version: NetworkVersion,
 ) -> TokenAmount {
+    let projection_period = if network_version < NetworkVersion::V3 {
+        DECLARED_FAULT_FACTOR_NUM_V0
+    } else {
+        DECLARED_FAULT_PROJECTION_PERIOD_V3
+    };
     expected_reward_for_power(
         reward_estimate,
         network_qa_power_estimate,
         qa_sector_power,
-        DECLARED_FAULT_PROJECTION_PERIOD,
+        projection_period,
     )
 }
 
@@ -97,12 +112,18 @@ pub fn pledge_penalty_for_undeclared_fault(
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
     qa_sector_power: &StoragePower,
+    network_version: NetworkVersion,
 ) -> TokenAmount {
+    let projection_period = if network_version < NetworkVersion::V3 {
+        UNDECLARED_FAULT_FACTOR_NUM_V0
+    } else {
+        UNDECLARED_FAULT_PROJECTION_PERIOD_V1
+    };
     expected_reward_for_power(
         reward_estimate,
         network_qa_power_estimate,
         qa_sector_power,
-        UNDECLARED_FAULT_PROJECTION_PERIOD,
+        projection_period,
     )
 }
 
@@ -111,13 +132,17 @@ pub fn pledge_penalty_for_undeclared_fault(
 pub fn pledge_penalty_for_termination(
     day_reward_at_activation: &TokenAmount,
     twenty_day_reward_at_activation: &TokenAmount,
-    sector_age: ChainEpoch,
+    mut sector_age: ChainEpoch,
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
     qa_sector_power: &StoragePower,
+    network_version: NetworkVersion,
 ) -> TokenAmount {
     // max(SP(t), BR(StartEpoch, 20d) + BR(StartEpoch, 1d)*min(SectorAgeInDays, 70))
     // and sectorAgeInDays = sectorAge / EpochsInDay
+    if network_version >= NetworkVersion::V1 {
+        sector_age /= 2;
+    }
     let capped_sector_age = BigInt::from(cmp::min(
         sector_age,
         TERMINATION_LIFETIME_CAP * EPOCHS_IN_DAY,
@@ -128,6 +153,7 @@ pub fn pledge_penalty_for_termination(
             reward_estimate,
             network_qa_power_estimate,
             qa_sector_power,
+            network_version,
         ),
         twenty_day_reward_at_activation
             + (day_reward_at_activation * capped_sector_age) / EPOCHS_IN_DAY,
