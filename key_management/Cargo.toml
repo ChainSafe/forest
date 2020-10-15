@@ -11,7 +11,7 @@ features = ["json"]
 thiserror = "1.0"
 address = { package = "forest_address", path = "../vm/address", version = "0.2" }
 crypto = { package = "forest_crypto", path = "../crypto" }
-bls-signatures = "0.6.0"
+bls-signatures = "0.6.1"
 libsecp256k1 = "0.3.4"
 rand = "0.7.3"
 encoding = { package = "forest_encoding", path = "../encoding", version = "0.1" }

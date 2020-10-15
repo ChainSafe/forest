@@ -52,6 +52,11 @@ pub fn is_singleton_actor(code: &Cid) -> bool {
         || code == &*VERIFREG_ACTOR_CODE_ID
 }
 
+/// Returns true if the code belongs to an account actor.
+pub fn is_account_actor(code: &Cid) -> bool {
+    code == &*ACCOUNT_ACTOR_CODE_ID
+}
+
 // Tests whether a code CID represents an actor that can be an external principal: i.e. an account or multisig.
 // We could do something more sophisticated here: https://github.com/filecoin-project/specs-actors/issues/178
 pub fn is_principal(code: &Cid) -> bool {
