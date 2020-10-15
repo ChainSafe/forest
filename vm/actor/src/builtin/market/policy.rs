@@ -9,7 +9,7 @@ use crate::network::{
 use crate::{DealWeight, TOTAL_FILECOIN};
 use clock::ChainEpoch;
 use fil_types::{NetworkVersion, PaddedPieceSize, StoragePower};
-use num_bigint::{BigInt, Integer};
+use num_bigint::Integer;
 use num_traits::Zero;
 use std::cmp::max;
 use vm::TokenAmount;
@@ -34,8 +34,8 @@ pub(super) fn deal_duration_bounds(_size: PaddedPieceSize) -> (ChainEpoch, Chain
 pub(super) fn deal_price_per_epoch_bounds(
     _size: PaddedPieceSize,
     _duration: ChainEpoch,
-) -> (TokenAmount, TokenAmount) {
-    (0.into(), TOTAL_FILECOIN.clone())
+) -> (TokenAmount, &'static TokenAmount) {
+    (0.into(), &TOTAL_FILECOIN)
 }
 
 pub(super) fn deal_provider_collateral_bounds(
@@ -46,7 +46,7 @@ pub(super) fn deal_provider_collateral_bounds(
     baseline_power: &StoragePower,
     network_circulating_supply: &TokenAmount,
     network_version: NetworkVersion,
-) -> (TokenAmount, TokenAmount) {
+) -> (TokenAmount, &'static TokenAmount) {
     // minimumProviderCollateral = (ProvCollateralPercentSupplyNum / ProvCollateralPercentSupplyDenom) * normalizedCirculatingSupply
     // normalizedCirculatingSupply = FILCirculatingSupply * dealPowerShare
     // dealPowerShare = dealQAPower / max(BaselinePower(t), NetworkQAPower(t), dealQAPower)
@@ -67,16 +67,16 @@ pub(super) fn deal_provider_collateral_bounds(
         (lock_target_num, power_share_num, power_share_denom)
     };
 
-    let num: BigInt = power_share_num * lock_target_num;
-    let denom: BigInt = power_share_denom * PROV_COLLATERAL_PERCENT_SUPPLY_DENOM;
-    ((num.div_floor(&denom)), TOTAL_FILECOIN.clone())
+    let num: TokenAmount = power_share_num * lock_target_num;
+    let denom: TokenAmount = power_share_denom * PROV_COLLATERAL_PERCENT_SUPPLY_DENOM;
+    ((num.div_floor(&denom)), &TOTAL_FILECOIN)
 }
 
 pub(super) fn deal_client_collateral_bounds(
     _piece_size: PaddedPieceSize,
     _duration: ChainEpoch,
-) -> (TokenAmount, TokenAmount) {
-    (TokenAmount::zero(), TOTAL_FILECOIN.clone()) // PARAM_FINISH
+) -> (TokenAmount, &'static TokenAmount) {
+    (TokenAmount::zero(), &TOTAL_FILECOIN) // PARAM_FINISH
 }
 
 /// Penalty to provider deal collateral if the deadline expires before sector commitment.

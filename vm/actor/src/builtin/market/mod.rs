@@ -1090,7 +1090,7 @@ where
 
     let (min_price, max_price) =
         deal_price_per_epoch_bounds(proposal.piece_size, proposal.duration());
-    if proposal.storage_price_per_epoch < min_price || proposal.storage_price_per_epoch > max_price
+    if proposal.storage_price_per_epoch < min_price || &proposal.storage_price_per_epoch > max_price
     {
         return Err(actor_error!(ErrIllegalArgument; "Storage price out of bounds."));
     };
@@ -1105,7 +1105,7 @@ where
         rt.network_version(),
     );
     if proposal.provider_collateral < min_provider_collateral
-        || proposal.provider_collateral > max_provider_collateral
+        || &proposal.provider_collateral > max_provider_collateral
     {
         return Err(actor_error!(ErrIllegalArgument; "Provider collateral out of bounds."));
     };
@@ -1113,7 +1113,7 @@ where
     let (min_client_collateral, max_client_collateral) =
         deal_client_collateral_bounds(proposal.piece_size, proposal.duration());
     if proposal.provider_collateral < min_client_collateral
-        || proposal.provider_collateral > max_client_collateral
+        || &proposal.provider_collateral > max_client_collateral
     {
         return Err(actor_error!(ErrIllegalArgument; "Client collateral out of bounds."));
     };
