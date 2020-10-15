@@ -52,7 +52,7 @@ pub fn is_singleton_actor(code: &Cid) -> bool {
         || code == &*VERIFREG_ACTOR_CODE_ID
 }
 
-/// Returns true if the code belongs to a singleton actor.
+/// Returns true if the code belongs to an account actor.
 pub fn is_account_actor(code: &Cid) -> bool {
     code == &*ACCOUNT_ACTOR_CODE_ID
 }
