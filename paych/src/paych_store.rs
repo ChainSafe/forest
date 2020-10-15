@@ -216,12 +216,18 @@ pub struct PaychStore {
     pub ds: HashMap<String, Vec<u8>>,
 }
 
+impl Default for PaychStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Cbor for ChannelInfo {}
 
 impl PaychStore {
     /// Create new Pay Channel Store
     pub fn new() -> Self {
-        let ds : HashMap<String, Vec<u8>> = HashMap::new();
+        let ds: HashMap<String, Vec<u8>> = HashMap::new();
         PaychStore { ds }
     }
 
@@ -280,12 +286,13 @@ impl PaychStore {
         Ok(out)
     }
 
-    /// Find a single channel using teh given filter, if no channel matches, return ChannelNotTrackedError
+    /// Find a single channel using the given filter, if no channel matches, return ChannelNotTrackedError
     pub async fn find_chan(
         &self,
-        filter: Box<dyn Fn(&ChannelInfo) -> bool>,
+        filter: Box<dyn Fn(&ChannelInfo) -> bool + Send>,
     ) -> Result<ChannelInfo, Error> {
-        let mut ci = self.find_chans(filter, 1).await?;
+        let one: usize = 1;
+        let mut ci = self.find_chans(filter, one).await?;
 
         if ci.is_empty() {
             return Err(Error::ChannelNotTracked);
@@ -298,7 +305,7 @@ impl PaychStore {
     /// of returned Vec, set max to 0 for Vec of all channels that fit the given filter
     pub async fn find_chans(
         &self,
-        filter: Box<dyn Fn(&ChannelInfo) -> bool>,
+        filter: Box<dyn Fn(&ChannelInfo) -> bool + Send>,
         max: usize,
     ) -> Result<Vec<ChannelInfo>, Error> {
         //let ds = self.ds.read().await;
@@ -506,12 +513,11 @@ impl Cbor for MsgInfo {}
 mod tests {
     use super::*;
     use async_std::task;
-    use crypto::SignatureType;
 
     #[test]
     fn test_store() {
         task::block_on(async {
-            let mut store = PaychStore::new(HashMap::new());
+            let mut store = PaychStore::new();
             let addrs = store.list_channels().await.unwrap();
             assert_eq!(addrs.len(), 0);
 

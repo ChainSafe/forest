@@ -1088,13 +1088,12 @@ pub mod tests {
     use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use cid::Cid;
     use crypto::{SignatureType, VRFProof};
+    use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigInt;
-    use std::borrow::BorrowMut;
     use std::convert::TryFrom;
     use std::thread::sleep;
     use std::time::Duration;
-    use wallet::{MemKeyStore, Wallet};
 
     fn create_smsg(
         to: &Address,

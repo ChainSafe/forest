@@ -16,12 +16,12 @@ use forest_libp2p::{get_keypair, Libp2pService};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use paych::{Manager, PaychStore, ResourceAccessor, StateAccessor};
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::sync::Arc;
 use utils::write_to_file;
 use wallet::PersistentKeyStore;
-use paych::{Manager, PaychStore, ResourceAccessor, StateAccessor};
 
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option.
@@ -126,14 +126,16 @@ pub(super) async fn start(config: Config) {
     });
     let rpc_task = if config.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
+        let sm = Arc::clone(&state_manager);
+        let msg_pool = Arc::clone(&mpool);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(
                 RpcState {
-                    state_manager,
+                    state_manager: sm,
                     keystore: keystore_rpc,
-                    mpool,
+                    mpool: msg_pool,
                     bad_blocks,
                     sync_state,
                     network_send,
@@ -151,14 +153,19 @@ pub(super) async fn start(config: Config) {
     };
 
     // start paych manager
-    let paych_mgr = Manager::new(PaychStore::new(), ResourceAccessor{
-        keystore,
-        mpool,
-        sa: StateAccessor{ sm : Arc::new(RwLock::new(Arc::try_unwrap(state_manager))) }
-    });
-
+    let mut paych_mgr = Manager::new(
+        PaychStore::new(),
+        ResourceAccessor {
+            keystore: keystore.clone(),
+            mpool,
+            sa: StateAccessor {
+                sm: Arc::new(RwLock::new(state_manager)),
+            },
+        },
+    );
+    // TODO ask about err handling for start methods
     task::spawn(async move {
-        paych_mgr.start().await;
+        paych_mgr.start().await.unwrap();
     });
 
     // Block until ctrl-c is hit

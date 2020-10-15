@@ -14,8 +14,9 @@ use ipld_amt::Amt;
 use state_manager::StateManager;
 
 /// Thread safe access to state manager
+// TODO ask about this; doesnt seem right;
 pub struct StateAccessor<DB> {
-    pub sm: Arc<RwLock<StateManager<DB>>>,
+    pub sm: Arc<RwLock<Arc<StateManager<DB>>>>,
 }
 
 impl<DB> StateAccessor<DB>

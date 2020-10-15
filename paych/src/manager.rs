@@ -39,9 +39,9 @@ where
 }
 
 pub struct ChannelAvailableFunds {
-    // Channel is the address of the channel
+    /// The address of the channel
     pub channel: Option<Address>,
-    // From is the from address of the channel (channel creator)
+    /// Address of the channel (channel creator)
     pub from: Address,
     // To is the to address of the channel
     pub to: Address,
@@ -83,7 +83,7 @@ where
         // TODO ask about the group err usage
         for ci in cis {
             if let Some(_msg) = ci.create_msg {
-                let _ca = self.accessor_by_from_to(ci.control, ci.target).await?;
+                let _ca = &*self.accessor_by_from_to(ci.control, ci.target).await?;
                 // TODO ask if this should be blocking
                 // task::spawn(async move {
                 //     ca.wait_paych_create_msg(ci.id, msg).await;
@@ -125,7 +125,7 @@ where
         ca.process_queue(ci.id).await
     }
 
-    // intentionally unused, to be used for paych usage
+    // intentionally unused, to be used for paych RPC usage
     async fn _available_funds_by_from_to(
         &self,
         from: Address,

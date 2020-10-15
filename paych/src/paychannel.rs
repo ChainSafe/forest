@@ -4,7 +4,7 @@
 use super::Error;
 use crate::{
     ChannelAvailableFunds, ChannelInfo, FundsReq, Manager, MergeFundsReq, MsgListeners,
-    PaychFundsRes, PaychStore, StateAccessor, VoucherInfo,
+    PaychFundsRes, PaychStore, VoucherInfo,
 };
 extern crate log;
 use super::ResourceAccessor;
@@ -591,16 +591,15 @@ where
             // If a channel has not yet been created, create one.
             let mcid = self.create_paych(from, to, amt).await;
             if mcid.is_err() {
-                let err = mcid.err().unwrap();
                 return Some(PaychFundsRes {
                     channel: None,
                     mcid: None,
-                    err: Some(err),
+                    err: mcid.err(),
                 });
             }
             return Some(PaychFundsRes {
                 channel: None,
-                mcid: Some(mcid.ok()?),
+                mcid: mcid.ok(),
                 err: None,
             });
         }
@@ -715,6 +714,47 @@ where
         Ok(mcid)
     }
 
+    // TODO ask about thread safety
+    pub async fn wait_paych_create_msg(&self, ch_id: String, mcid: Cid) -> Result<(), Error>
+    where
+        DB: BlockStore + Send + Sync + 'static,
+    {
+        let sm = self.state.sa.sm.read().await;
+
+        let (_, msg) = StateManager::wait_for_message(
+            sm.blockstore_cloned(),
+            sm.get_subscriber(),
+            &mcid,
+            MESSAGE_CONFIDENCE,
+        )
+        .await
+        .map_err(|e| Error::Other(e.to_string()))?;
+
+        let mut ret_data = Serialized::default();
+        let mut store = self.store.write().await;
+        if let Some(m) = msg {
+            if m.exit_code != ExitCode::Ok {
+                // channel creation failed, remove the channel from the datastore
+                store.remove_channel(ch_id.clone()).await.map_err(|e| {
+                    Error::Other(format!("failed to remove channel {}", e.to_string()))
+                })?;
+            }
+            ret_data = m.return_data;
+        }
+        let exec_ret: ExecReturn = Serialized::deserialize(&ret_data)?;
+
+        // store robust address of channel
+        let mut ch_info = store.by_channel_id(&ch_id).await?;
+        ch_info.channel = Some(exec_ret.robust_address);
+        ch_info.amount = ch_info.pending_amount;
+        ch_info.pending_amount = BigInt::zero();
+        ch_info.create_msg = None;
+
+        store.put_channel_info(ch_info).await?;
+
+        Ok(())
+    }
+
     pub async fn wait_add_funds_msg(
         &self,
         channel_info: &mut ChannelInfo,
@@ -815,50 +855,4 @@ where
             voucher_redeemed_amt: total_redeemed,
         })
     }
-}
-// TODO ask about thread safety
-pub async fn wait_paych_create_msg<DB>(
-    sa: Arc<StateAccessor<DB>>,
-    st: Arc<RwLock<PaychStore>>,
-    ch_id: String,
-    mcid: Cid,
-) -> Result<(), Error>
-where
-    DB: BlockStore + Send + Sync + 'static,
-{
-    let sm = sa.sm.read().await;
-
-    let (_, msg) = StateManager::wait_for_message(
-        sm.blockstore_cloned(),
-        sm.get_subscriber(),
-        &mcid,
-        MESSAGE_CONFIDENCE,
-    )
-    .await
-    .map_err(|e| Error::Other(e.to_string()))?;
-
-    let mut ret_data = Serialized::default();
-    let mut store = st.write().await;
-    if let Some(m) = msg {
-        if m.exit_code != ExitCode::Ok {
-            // channel creation failed, remove the channel from the datastore
-            store
-                .remove_channel(ch_id.clone())
-                .await
-                .map_err(|e| Error::Other(format!("failed to remove channel {}", e.to_string())))?;
-        }
-        ret_data = m.return_data;
-    }
-    let exec_ret: ExecReturn = Serialized::deserialize(&ret_data)?;
-
-    // store robust address of channel
-    let mut ch_info = store.by_channel_id(&ch_id).await?;
-    ch_info.channel = Some(exec_ret.robust_address);
-    ch_info.amount = ch_info.pending_amount;
-    ch_info.pending_amount = BigInt::zero();
-    ch_info.create_msg = None;
-
-    store.put_channel_info(ch_info).await?;
-
-    Ok(())
 }
