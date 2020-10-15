@@ -191,7 +191,7 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
 
     let hashed_data: Vec<G2> = data.iter().map(|x| bls_hash(x)).collect();
 
-    // DOes the aggregate verification
+    // Does the aggregate verification
     verify(&sig, &hashed_data[..], &pks[..])
 }
 

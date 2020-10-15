@@ -751,13 +751,13 @@ where
 
     /// Returns a bls public key from provided address
     pub fn get_bls_public_key(
-        db: &Arc<DB>,
+        db: &DB,
         addr: &Address,
         state_cid: &Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state = StateTree::new_from_root(db.as_ref(), state_cid)
-            .map_err(|e| Error::State(e.to_string()))?;
-        let kaddr = resolve_to_key_addr(&state, db.as_ref(), addr)
+        let state =
+            StateTree::new_from_root(db, state_cid).map_err(|e| Error::State(e.to_string()))?;
+        let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
         match kaddr.into_payload() {
@@ -849,7 +849,7 @@ where
     /// Checks power actor state for if miner meets consensus minimum requirements.
     pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> Result<bool, String> {
         let ps: power::State = self
-            .load_actor_state(&*INIT_ACTOR_ADDR, ts.parent_state())
+            .load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts.parent_state())
             .map_err(|e| format!("loading power actor state: {}", e))?;
         ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
             .map_err(|e| e.to_string())

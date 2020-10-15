@@ -2136,7 +2136,7 @@ impl Actor {
             ));
         }
 
-        let (info, newly_vested) = rt.transaction(|state: &mut State, rt| {
+        let (info, newly_vested, state) = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, state)?;
 
             // Only the owner is allowed to withdraw the balance as it belongs to/is controlled by the owner
@@ -2160,10 +2160,8 @@ impl Actor {
             // Verify InitialPledgeRequirement does not exceed unlocked funds
             verify_pledge_meets_initial_requirements(rt, state)?;
 
-            Ok((info, newly_vested))
+            Ok((info, newly_vested, state.clone()))
         })?;
-
-        let state: State = rt.state()?;
 
         let curr_balance = rt.current_balance()?;
         let amount_withdrawn = cmp::min(

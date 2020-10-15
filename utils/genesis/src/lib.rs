@@ -1,8 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::BlockHeader;
-use blocks::Tipset;
+use blocks::{BlockHeader, Tipset};
 use chain::ChainStore;
 use cid::Cid;
 use forest_car::load_car;
@@ -12,27 +11,31 @@ use state_manager::StateManager;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::include_bytes;
-use std::io::BufReader;
+use std::io::{BufReader, Read};
 use std::sync::Arc;
+
+#[cfg(feature = "testing")]
+pub const EXPORT_SR_40: &[u8; 1226395] = include_bytes!("mainnet/export40.car");
 
 /// Uses an optional file path or the default genesis to parse the genesis and determine if
 /// chain store has existing data for the given genesis.
 pub fn initialize_genesis<BS>(
-    genesis_fp: &Option<String>,
+    genesis_fp: Option<&String>,
     chain_store: &mut ChainStore<BS>,
+    state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
     let genesis = match genesis_fp {
         Some(path) => {
-            let file = File::open(path).expect("Could not open genesis file");
+            let file = File::open(path)?;
             let reader = BufReader::new(file);
             process_car(reader, chain_store)?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
-            let bz = include_bytes!("devnet.car");
+            let bz = include_bytes!("mainnet/genesis.car");
             let reader = BufReader::<&[u8]>::new(bz.as_ref());
             process_car(reader, chain_store)?
         }
@@ -40,26 +43,23 @@ where
 
     info!("Initialized genesis: {}", genesis);
 
-    // This is just a workaround to get the network name before the sync process starts to use in
-    // the pubsub topics, hopefully can be removed in future.
-    let sm = StateManager::new(chain_store.db.clone());
-    let network_name = sm.get_network_name(genesis.state_root()).expect(
-        "Genesis not initialized properly, failed to retrieve network name. \
-            Requires either a previously initialized genesis or with genesis config option set",
-    );
+    // Get network name from genesis state.
+    let network_name = state_manager
+        .get_network_name(genesis.state_root())
+        .map_err(|e| format!("Failed to retrieve network name from genesis: {}", e))?;
     Ok((Tipset::new(vec![genesis])?, network_name))
 }
 
 fn process_car<R, BS>(
-    reader: BufReader<R>,
+    reader: R,
     chain_store: &mut ChainStore<BS>,
 ) -> Result<BlockHeader, Box<dyn StdError>>
 where
-    R: std::io::Read,
+    R: Read,
     BS: BlockStore,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader).unwrap();
+    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader)?;
     if genesis_cids.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
