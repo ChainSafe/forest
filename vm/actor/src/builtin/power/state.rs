@@ -81,8 +81,8 @@ impl State {
         }
     }
 
-    pub fn total_locked(&self) -> TokenAmount {
-        self.total_pledge_collateral.clone()
+    pub fn total_locked(&self) -> &TokenAmount {
+        &self.total_pledge_collateral
     }
 
     /// Checks power actor state for if miner meets minimum consensus power.
