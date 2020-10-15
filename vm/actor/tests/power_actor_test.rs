@@ -914,14 +914,22 @@ mod test_cron_batch_proof_verifies {
         rt.verify();
     }
 
-    //#[test]
+    #[test]
     fn fails_if_batch_verify_seals_fails() {
         let mut rt = construct_and_verify();
         create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), MINER_1.clone(), 1);
         let mut v: Vec<SealVerifyInfo> = vec![];
         for i in 1..4 {
+            println!("In loop {:?}",i);
             let seal = seal_info(i);
-            assert!(submit_porep_for_bulk_verify(&mut rt, MINER_1.clone(), seal.clone()).is_ok());
+            let cl = get_claim(&mut rt, MINER_1.clone());
+            println!("Miner {:?} has claim {:?}",MINER_1.clone(), &cl);
+            let result = submit_porep_for_bulk_verify(&mut rt, MINER_1.clone(), seal.clone());
+            if let Err(e) = &result{
+                println!("Message is {:?}",e.msg());
+            }
+
+            assert!(result.is_ok());
             v.push(seal);
         }
         let mut infos: HashMap<Address, Vec<SealVerifyInfo>> = HashMap::new();
@@ -1060,6 +1068,7 @@ fn create_miner(
     assert!(call(rt, power::Method::CreateMiner as u64, &create_params).is_ok());
     rt.verify();
     let cl = get_claim(rt, miner);
+    println!("Miner {:?} has claim {:?}",&miner, &cl);
 
     assert_eq!(StoragePower::default(), cl.raw_byte_power);
     assert_eq!(StoragePower::default(), cl.quality_adj_power);
@@ -1116,8 +1125,11 @@ fn submit_porep_for_bulk_verify(
     miner_addr: Address,
     seal_info: SealVerifyInfo,
 ) -> Result<Serialized, ActorError> {
+    println!("IN submit_porep_for_bulk_verify 1128");
     rt.expect_validate_caller_type(vec![MINER_ACTOR_CODE_ID.clone()]);
     rt.set_caller(MINER_ACTOR_CODE_ID.clone(), miner_addr);
+    let cl = get_claim(rt, MINER_1.clone());
+    println!("Miner {:?} has claim {:?}",MINER_1.clone(), &cl);
     let ser = call(
         rt,
         power::Method::SubmitPoRepForBulkVerify as u64,
