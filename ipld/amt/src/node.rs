@@ -11,6 +11,8 @@ use ipld_blockstore::BlockStore;
 use lazycell::LazyCell;
 use std::error::Error as StdError;
 
+use super::ValueMut;
+
 /// This represents a link to another Node
 #[derive(Debug)]
 pub(super) enum Link<V> {
@@ -471,28 +473,35 @@ where
         Ok(true)
     }
 
+    /// Returns a `(keep_going, did_mutate)` pair. `keep_going` will be `false` iff
+    /// a closure call returned `Ok(false)`, indicating that a `break` has happened.
+    /// `did_mutate` will be `true` iff any of the values in the node was actually
+    /// mutated inside the closure, requiring the node to be cached.
     pub(super) fn for_each_while_mut<S, F>(
         &mut self,
         store: &S,
         height: u64,
         offset: u64,
         f: &mut F,
-    ) -> Result<bool, Box<dyn StdError>>
+    ) -> Result<(bool, bool), Box<dyn StdError>>
     where
-        F: FnMut(u64, &mut V) -> Result<bool, Box<dyn StdError>>,
+        F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
         S: BlockStore,
     {
+        let mut did_mutate = false;
+
         match self {
             Node::Leaf { bmap, vals } => {
                 for (i, v) in (0..).zip(vals.iter_mut()) {
                     if bmap.get_bit(i) {
-                        let keep_going = f(
-                            offset + i,
-                            v.as_mut().expect("set bit should contain value"),
-                        )?;
+                        let mut value_mut =
+                            ValueMut::new(v.as_mut().expect("set bit should contain value"));
+
+                        let keep_going = f(offset + i, &mut value_mut)?;
+                        did_mutate |= value_mut.value_changed();
 
                         if !keep_going {
-                            return Ok(false);
+                            return Ok((false, did_mutate));
                         }
                     }
                 }
@@ -502,7 +511,7 @@ where
                     if bmap.get_bit(i) {
                         let offs = offset + (i * nodes_for_height(height));
                         let link = l.as_mut().expect("bit set at index");
-                        let keep_going = match link {
+                        let (keep_going, did_mutate_node) = match link {
                             Link::Dirty(sub) => {
                                 sub.for_each_while_mut(store, height - 1, offs, f)?
                             }
@@ -515,25 +524,28 @@ where
                                     store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
                                 };
 
-                                let keep_going =
+                                let (keep_going, did_mutate_node) =
                                     node.for_each_while_mut(store, height - 1, offs, f)?;
 
-                                // TODO: only cache the node if one of the values was mutated
-                                *link = Link::Dirty(node);
+                                if did_mutate_node {
+                                    *link = Link::Dirty(node);
+                                }
 
-                                keep_going
+                                (keep_going, did_mutate_node)
                             }
                         };
 
+                        did_mutate |= did_mutate_node;
+
                         if !keep_going {
-                            return Ok(false);
+                            return Ok((false, did_mutate));
                         }
                     }
                 }
             }
         }
 
-        Ok(true)
+        Ok((true, did_mutate))
     }
 }
 
