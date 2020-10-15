@@ -951,6 +951,7 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
+ "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
@@ -959,6 +960,9 @@ dependencies = [
  "forest_vm",
  "futures 0.3.5",
  "futures-util",
+ "genesis",
+ "hex",
+ "interpreter",
  "ipld_amt",
  "ipld_blockstore",
  "ipld_hamt",
@@ -966,6 +970,7 @@ dependencies = [
  "log",
  "lru",
  "num-traits 0.2.12",
+ "pretty_env_logger",
  "rand 0.7.3",
  "serde",
  "smallvec",
@@ -1908,6 +1913,7 @@ dependencies = [
  "forest_json_utils",
  "forest_vm",
  "ipld_amt",
+ "lazy_static",
  "num-derive",
  "num-traits 0.2.12",
  "serde",
@@ -2074,6 +2080,7 @@ dependencies = [
  "forest_cid",
  "forest_libp2p",
  "futures 0.3.5",
+ "genesis",
  "hex",
  "ipld_blockstore",
  "jsonrpc-v2",
@@ -2253,6 +2260,7 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "futures_codec",
+ "genesis",
  "ipld_blockstore",
  "libp2p",
  "libp2p-bitswap",
@@ -2270,6 +2278,7 @@ version = "0.5.0"
 dependencies = [
  "base64 0.12.3",
  "derive_builder",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_cid",
@@ -2529,6 +2538,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "genesis"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "chain",
+ "forest_blocks",
+ "forest_car",
+ "forest_cid",
+ "ipld_blockstore",
+ "log",
+ "state_manager",
+]
+
+[[package]]
 name = "get_if_addrs"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2606,32 +2629,6 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "graphsync"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "async-trait",
- "bytes",
- "fnv",
- "forest_cid",
- "forest_encoding",
- "forest_ipld",
- "futures 0.3.5",
- "futures-util",
- "futures_codec",
- "ipld_blockstore",
- "libp2p",
- "log",
- "multihash 0.10.1",
- "protobuf",
- "protoc-rust",
- "rand 0.7.3",
- "serde",
- "smallvec",
- "unsigned-varint 0.5.1",
 ]
 
 [[package]]

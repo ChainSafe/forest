@@ -63,7 +63,7 @@ impl Serialize for BlockSyncResponseStatus {
     {
         use BlockSyncResponseStatus::*;
         let code: i32 = match self {
-            Success => 1,
+            Success => 0,
             PartialResponse => 101,
             BlockNotFound => 201,
             GoAway => 202,
@@ -84,7 +84,7 @@ impl<'de> Deserialize<'de> for BlockSyncResponseStatus {
 
         use BlockSyncResponseStatus::*;
         let status = match code {
-            1 => Success,
+            0 => Success,
             101 => PartialResponse,
             201 => BlockNotFound,
             202 => GoAway,

@@ -38,6 +38,7 @@ clean:
 	@cargo clean -p forest_json_utils
 	@cargo clean -p test_utils
 	@cargo clean -p message_pool
+	@cargo clean -p genesis
 	@echo "Done cleaning."
 
 lint: license clean
