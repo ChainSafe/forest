@@ -3,8 +3,9 @@
 
 use crate::DealWeight;
 use address::Address;
-use cid::{multihash::Code, Cid, Codec, Prefix, Version};
+use cid::{Cid, Codec, Prefix, Version};
 use clock::ChainEpoch;
+use commcid::SHA2_256_TRUNC254_PADDED;
 use crypto::Signature;
 use encoding::tuple::*;
 use encoding::Cbor;
@@ -12,14 +13,11 @@ use fil_types::PaddedPieceSize;
 use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
-// TODO this hash code should probably be in common place
-const SHA2_256_TRUNC254_PADDED: u64 = 0x1012;
-
 /// Cid prefix for piece Cids
 pub const PIECE_CID_PREFIX: Prefix = Prefix {
     version: Version::V1,
     codec: Codec::FilCommitmentUnsealed,
-    mh_type: Code::Custom(SHA2_256_TRUNC254_PADDED),
+    mh_type: SHA2_256_TRUNC254_PADDED,
     mh_len: 32,
 };
 
@@ -38,6 +36,9 @@ pub struct DealProposal {
     pub verified_deal: bool,
     pub client: Address,
     pub provider: Address,
+
+    /// Arbitrary client chosen label to apply to the deal
+    pub label: String,
 
     // Nominal start epoch. Deal payment is linear between StartEpoch and EndEpoch,
     // with total amount StoragePricePerEpoch * (EndEpoch - StartEpoch).

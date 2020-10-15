@@ -15,13 +15,17 @@ use crate::{
 };
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_bigint::Sign;
+use num_bigint::{
+    bigint_ser::{BigIntDe, BigIntSer},
+    Integer,
+};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{
-    actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR, METHOD_SEND,
+    actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
+    METHOD_SEND,
 };
 
 // * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
@@ -99,12 +103,10 @@ impl Actor {
             .resolve_address(&params.miner)?
             .ok_or_else(|| actor_error!(ErrNotFound; "failed to resolve given owner address"))?;
 
-        let total_reward = rt.transaction::<State, Result<_, ActorError>, _>(|st, rt| {
-            let mut block_reward =
-                (&st.this_epoch_reward * params.win_count) / EXPECTED_LEADERS_PER_EPOCH;
-            let mut total_reward = params.gas_reward.clone() + &block_reward;
-            // TODO revisit this, I removed duplicate calls to current balance, but should be
-            // matched once fully iteroping (if not fixed)
+        let total_reward = rt.transaction(|st: &mut State, rt| {
+            let mut block_reward: TokenAmount = (&st.this_epoch_reward * params.win_count)
+                .div_floor(&TokenAmount::from(EXPECTED_LEADERS_PER_EPOCH));
+            let mut total_reward = &params.gas_reward + &block_reward;
             let curr_balance = rt.current_balance()?;
             if total_reward > curr_balance {
                 log::warn!(
@@ -114,7 +116,7 @@ impl Actor {
                     total_reward
                 );
                 total_reward = curr_balance;
-                block_reward -= &params.gas_reward;
+                block_reward = &total_reward - &params.gas_reward;
                 assert_ne!(
                     block_reward.sign(),
                     Sign::Minus,
@@ -124,7 +126,7 @@ impl Actor {
             }
             st.total_mined += block_reward;
             Ok(total_reward)
-        })??;
+        })?;
 
         // Cap the penalty at the total reward value.
         let penalty = std::cmp::min(&params.penalty, &total_reward);
@@ -224,6 +226,7 @@ impl Actor {
 
             st.update_to_next_epoch_with_reward(&curr_realized_power);
             st.update_smoothed_estimates(st.epoch - prev);
+            Ok(())
         })?;
         Ok(())
     }

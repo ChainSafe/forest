@@ -24,7 +24,7 @@ impl Default for Config {
             genesis_file: None,
             drand_public: DrandPublic{coefficient: hex::decode("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31").unwrap()},
             enable_rpc : true,
-            rpc_port: "1234".to_string()
+            rpc_port: "1234".to_string(),
         }
     }
 }

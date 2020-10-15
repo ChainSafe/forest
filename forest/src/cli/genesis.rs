@@ -47,7 +47,6 @@ where
         "Genesis not initialized properly, failed to retrieve network name. \
             Requires either a previously initialized genesis or with genesis config option set",
     );
-
     Ok((Tipset::new(vec![genesis])?, network_name))
 }
 
@@ -79,7 +78,7 @@ where
         Ok(genesis_block)
     } else {
         debug!("Initialize ChainSyncer with new genesis from config");
-        chain_store.set_genesis(genesis_block.clone())?;
+        chain_store.set_genesis(&genesis_block)?;
         async_std::task::block_on(
             chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?)),
         )?;

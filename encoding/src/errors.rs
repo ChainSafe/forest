@@ -7,41 +7,20 @@ use std::fmt;
 use std::io;
 use thiserror::Error;
 
-/// Error type for encoding and decoding data through any Forest supported protocol
+/// Error type for encoding and decoding data through any Forest supported protocol.
 ///
 /// This error will provide any details about the data which was attempted to be
-/// encoded or decoded. The
-///
-/// Usage:
-/// ```no_run
-/// use forest_encoding::{Error, CodecProtocol};
-///
-/// Error::Marshalling {
-///     description: format!("{:?}", vec![0]),
-///     protocol: CodecProtocol::Cbor,
-/// };
-/// Error::Unmarshalling {
-///     description: format!("{:?}", vec![0]),
-///     protocol: CodecProtocol::Cbor,
-/// };
-/// ```
+/// encoded or decoded.
 #[derive(Debug, PartialEq, Error)]
-pub enum Error {
-    #[error("Could not decode in format {protocol}: {description}")]
-    Unmarshalling {
-        description: String,
-        protocol: CodecProtocol,
-    },
-    #[error("Could not encode in format {protocol}: {description}")]
-    Marshalling {
-        description: String,
-        protocol: CodecProtocol,
-    },
+#[error("Serialization error for {protocol} protocol: {description}")]
+pub struct Error {
+    pub description: String,
+    pub protocol: CodecProtocol,
 }
 
 impl From<CborError> for Error {
     fn from(err: CborError) -> Error {
-        Error::Marshalling {
+        Self {
             description: err.to_string(),
             protocol: CodecProtocol::Cbor,
         }
@@ -49,8 +28,8 @@ impl From<CborError> for Error {
 }
 
 impl From<CidError> for Error {
-    fn from(err: CidError) -> Error {
-        Error::Marshalling {
+    fn from(err: CidError) -> Self {
+        Self {
             description: err.to_string(),
             protocol: CodecProtocol::Cbor,
         }
@@ -58,8 +37,8 @@ impl From<CidError> for Error {
 }
 
 impl From<Error> for io::Error {
-    fn from(err: Error) -> io::Error {
-        io::Error::new(io::ErrorKind::Other, err)
+    fn from(err: Error) -> Self {
+        Self::new(io::ErrorKind::Other, err)
     }
 }
 

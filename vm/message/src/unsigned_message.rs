@@ -30,7 +30,7 @@ use vm::{MethodNum, Serialized, TokenAmount};
 ///     .build()
 ///     .unwrap();
 ///
-/// // Commands can be chained, or built seperately
+// /// Commands can be chained, or built separately
 /// let mut message_builder = UnsignedMessage::builder();
 /// message_builder.sequence(1);
 /// message_builder.from(Address::new_id(0));
@@ -64,6 +64,13 @@ pub struct UnsignedMessage {
 impl UnsignedMessage {
     pub fn builder() -> MessageBuilder {
         MessageBuilder::default()
+    }
+
+    /// Helper function to convert the message into signing bytes.
+    /// This function returns the message `Cid` bytes.
+    pub fn to_signing_bytes(&self) -> Vec<u8> {
+        // Safe to unwrap here, unsigned message cannot fail to serialize.
+        self.cid().unwrap().to_bytes()
     }
 }
 

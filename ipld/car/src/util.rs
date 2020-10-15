@@ -37,7 +37,6 @@ pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<
 }
 
 pub(crate) fn read_cid(buf: &[u8]) -> Result<(Cid, u64), Error> {
-    // TODO: Add some checks for cid v0
     // TODO: Upgrade the Cid crate to read_cid using a BufReader
     let (version, buf) =
         unsigned_varint::decode::u64(buf).map_err(|e| Error::ParsingError(e.to_string()))?;
@@ -51,7 +50,7 @@ pub(crate) fn read_cid(buf: &[u8]) -> Result<(Cid, u64), Error> {
         unsigned_varint::decode::u64(buf).map_err(|e| Error::ParsingError(e.to_string()))?;
 
     let cid: Cid = Cid::new(
-        cid::Codec::from(codec)?,
+        cid::Codec::from(codec),
         cid::Version::from(version)?,
         cid::multihash::Multihash::from_bytes(
             multihash_with_data[0..=(len as usize + hashcode_len_diff)].to_vec(),

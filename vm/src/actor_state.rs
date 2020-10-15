@@ -6,9 +6,6 @@ use cid::Cid;
 use encoding::tuple::*;
 use num_bigint::bigint_ser;
 
-/// Identifier for Actors, includes builtin and initialized actors
-pub type ActorID = u64;
-
 /// State of all actor implementations
 #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct ActorState {

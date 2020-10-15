@@ -5,7 +5,8 @@ use crate::RpcState;
 use address::Address;
 use blocks::TipsetKeys;
 use blockstore::BlockStore;
-use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_LIMIT, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
+use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
+use fil_types::{verifier::FullVerifier, BLOCK_GAS_LIMIT};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::unsigned_message::json::UnsignedMessageJson;
 use message::{ChainMessage, Message};
@@ -27,7 +28,7 @@ where
 {
     let (UnsignedMessageJson(msg), max_queue_blks, _tsk) = params;
 
-    let ts = chain::get_heaviest_tipset(data.state_manager.get_block_store_ref())?
+    let ts = chain::get_heaviest_tipset(data.state_manager.blockstore())?
         .ok_or("can't find heaviest tipset")?;
 
     let act = data
@@ -79,16 +80,16 @@ where
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
 
-    let mut ts = chain::get_heaviest_tipset(data.state_manager.get_block_store_ref())?
+    let mut ts = chain::get_heaviest_tipset(data.state_manager.blockstore())?
         .ok_or("cant get heaviest tipset")?;
 
     for _ in 0..(nblocksincl * 2) {
         if ts.parents().cids().is_empty() {
             break;
         }
-        let pts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), ts.parents())?;
+        let pts = chain::tipset_from_keys(data.state_manager.blockstore(), ts.parents())?;
         blocks += pts.blocks().len();
-        let msgs = chain::messages_for_tipset(data.state_manager.get_block_store_ref(), &pts)?;
+        let msgs = chain::messages_for_tipset(data.state_manager.blockstore(), &pts)?;
 
         prices.append(
             &mut msgs
@@ -157,11 +158,11 @@ where
     msg.set_gas_fee_cap(MINIMUM_BASE_FEE.clone() + 1);
     msg.set_gas_premium(1.into());
 
-    let curr_ts = chain::get_heaviest_tipset(data.state_manager.get_block_store_ref())?
+    let curr_ts = chain::get_heaviest_tipset(data.state_manager.blockstore())?
         .ok_or("cant find the current heaviest tipset")?;
     let from_a = data
         .state_manager
-        .resolve_to_key_addr(msg.from(), &curr_ts)
+        .resolve_to_key_addr::<FullVerifier>(msg.from(), &curr_ts)
         .await?;
 
     let pending = data.mpool.pending_for(&from_a).await;
@@ -170,8 +171,8 @@ where
         .unwrap_or_default();
     let res = data
         .state_manager
-        .call_with_gas(
-            &mut msg,
+        .call_with_gas::<FullVerifier>(
+            &mut ChainMessage::Unsigned(msg),
             &prior_messages,
             Some(data.mpool.cur_tipset.as_ref().read().await.clone()),
         )

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ExitCode;
+use encoding::error::Error as CborError;
 use encoding::Error as EncodingError;
-use std::error::Error as StdError;
 use thiserror::Error;
 
 /// The error type that gets returned by actor method calls.
@@ -35,14 +35,6 @@ impl ActorError {
         }
     }
 
-    /// Downcast a dynamic std Error into an ActorError
-    pub fn downcast(error: Box<dyn StdError>, default_exit_code: ExitCode, msg: &str) -> Self {
-        match error.downcast::<ActorError>() {
-            Ok(actor_err) => actor_err.wrap(msg),
-            Err(other) => ActorError::new(default_exit_code, format!("{}: {}", msg, other)),
-        }
-    }
-
     /// Returns true if error is fatal.
     pub fn is_fatal(&self) -> bool {
         self.fatal
@@ -64,14 +56,24 @@ impl ActorError {
     }
 
     /// Prefix error message with a string message.
-    pub fn wrap(mut self, msg: &str) -> Self {
-        self.msg = format!("{}: {}", msg, self.msg);
+    pub fn wrap(mut self, msg: impl AsRef<str>) -> Self {
+        self.msg = format!("{}: {}", msg.as_ref(), self.msg);
         self
     }
 }
 
 impl From<EncodingError> for ActorError {
     fn from(e: EncodingError) -> Self {
+        Self {
+            fatal: false,
+            exit_code: ExitCode::ErrSerialization,
+            msg: e.to_string(),
+        }
+    }
+}
+
+impl From<CborError> for ActorError {
+    fn from(e: CborError) -> Self {
         Self {
             fatal: false,
             exit_code: ExitCode::ErrSerialization,
@@ -95,6 +97,14 @@ macro_rules! actor_error {
     // String with positional arguments
     ( $code:ident; $msg:literal $(, $ex:expr)+ ) => {
         ActorError::new(ExitCode::$code, format!($msg, $($ex,)*))
+    };
+
+    // Error with only one stringable expression, with comma separator
+    ( $code:ident, $msg:expr ) => { actor_error!($code; $msg) };
+
+    // String with positional arguments, with comma separator
+    ( $code:ident, $msg:literal $(, $ex:expr)+ ) => {
+        actor_error!($code; $msg $(, $ex)*)
     };
 }
 

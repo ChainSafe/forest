@@ -61,7 +61,7 @@ where
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
-    let mut ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), &tsk)?;
+    let mut ts = chain::tipset_from_keys(data.state_manager.blockstore(), &tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending().await?;
 
@@ -103,7 +103,7 @@ where
             return Ok(pending);
         }
 
-        ts = chain::tipset_from_keys(data.state_manager.get_block_store_ref(), ts.parents())?;
+        ts = chain::tipset_from_keys(data.state_manager.blockstore(), ts.parents())?;
     }
 }
 
@@ -136,14 +136,13 @@ where
     let (UnsignedMessageJson(umsg),) = params;
 
     let from = umsg.from();
-    let msg_cid = umsg.cid()?;
 
     let keystore = data.keystore.as_ref().write().await;
     let key = wallet::find_key(&from, &*keystore)?;
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        msg_cid.to_bytes().as_slice(),
+        umsg.to_signing_bytes().as_slice(),
     )?;
 
     let smsg = SignedMessage::new_from_parts(umsg, sig)?;

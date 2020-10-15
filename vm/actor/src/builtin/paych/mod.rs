@@ -6,7 +6,7 @@ mod types;
 
 pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
-use crate::{check_empty_params, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
+use crate::{check_empty_params, ActorDowncast, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -49,9 +49,9 @@ impl Actor {
 
         let from = Self::resolve_account(rt, &params.from)?;
 
-        let empty_arr_cid = Amt::<(), _>::new(rt.store())
-            .flush()
-            .map_err(|e| actor_error!(ErrIllegalState; "failed to create empty AMT: {}", e))?;
+        let empty_arr_cid = Amt::<(), _>::new(rt.store()).flush().map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to create empty AMT")
+        })?;
 
         rt.create(&State::new(from, to, empty_arr_cid))?;
         Ok(())
@@ -109,18 +109,15 @@ impl Actor {
             .ok_or_else(|| actor_error!(ErrIllegalArgument; "voucher has no signature"))?;
 
         // Generate unsigned bytes
-        let sv_bz = sv.signing_bytes().map_err(
-            |e| actor_error!(ErrIllegalArgument; "failed to serialized SignedVoucher: {}", e),
-        )?;
+        let sv_bz = sv
+            .signing_bytes()
+            .map_err(|e| ActorError::from(e).wrap("failed to serialized SignedVoucher"))?;
 
         // Validate signature
         rt.syscalls()
             .verify_signature(&sig, &signer, &sv_bz)
-            .map_err(|e| match e.downcast::<ActorError>() {
-                Ok(actor_err) => *actor_err,
-                Err(other) => {
-                    actor_error!(ErrIllegalArgument; "voucher signature invalid: {}", other)
-                }
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalArgument, "voucher signature invalid")
             })?;
 
         let pch_addr = rt.message().receiver();
@@ -147,7 +144,7 @@ impl Actor {
             let hashed_secret: &[u8] = &rt
                 .syscalls()
                 .hash_blake2b(&params.secret)
-                .map_err(|e| *e.downcast::<ActorError>().unwrap())?;
+                .map_err(|e| e.downcast_fatal("unexpected error from blake2b hash"))?;
             if hashed_secret != sv.secret_pre_image.as_slice() {
                 return Err(actor_error!(ErrIllegalArgument; "incorrect secret"));
             }
@@ -167,8 +164,9 @@ impl Actor {
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let mut l_states = Amt::load(&st.lane_states, rt.store())
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to load lane states {}", e))?;
+            let mut l_states = Amt::load(&st.lane_states, rt.store()).map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to load lane states")
+            })?;
 
             // Find the voucher lane, create and insert it in sorted order if necessary.
             let lane_id = sv.lane;
@@ -180,7 +178,7 @@ impl Actor {
                         "voucher has an outdated nonce, existing: {}, voucher: {}, cannot redeem",
                         state.nonce, sv.nonce));
                 }
-                state
+                state.clone()
             } else {
                 LaneState::default()
             };
@@ -194,10 +192,12 @@ impl Actor {
                     return Err(actor_error!(ErrIllegalArgument;
                         "voucher cannot merge lanes into it's own lane"));
                 }
-                let mut other_ls = find_lane(&l_states, merge.lane)?.ok_or_else(|| {
-                    actor_error!(ErrIllegalArgument;
+                let mut other_ls = find_lane(&l_states, merge.lane)?
+                    .ok_or_else(|| {
+                        actor_error!(ErrIllegalArgument;
                         "voucher specifies invalid merge lane {}", merge.lane)
-                })?;
+                    })?
+                    .clone();
 
                 if other_ls.nonce >= merge.nonce {
                     return Err(actor_error!(ErrIllegalArgument;
@@ -206,9 +206,12 @@ impl Actor {
 
                 redeemed_from_others += &other_ls.redeemed;
                 other_ls.nonce = merge.nonce;
-                l_states.set(merge.lane, other_ls).map_err(
-                    |e| actor_error!(ErrIllegalState; "failed to store lane {}: {}", merge.lane, e),
-                )?;
+                l_states.set(merge.lane, other_ls).map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to store lane {}", merge.lane),
+                    )
+                })?;
             }
 
             // 2. To prevent double counting, remove already redeemed amounts (from
@@ -245,15 +248,18 @@ impl Actor {
                 }
             }
 
-            l_states.set(lane_id, lane_state).map_err(
-                |e| actor_error!(ErrIllegalState; "failed to store lane {}: {}", lane_id, e),
-            )?;
+            l_states.set(lane_id, lane_state).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to store lane {}", lane_id),
+                )
+            })?;
 
-            st.lane_states = l_states
-                .flush()
-                .map_err(|e| actor_error!(ErrIllegalState; "failed to save lanes: {}", e))?;
+            st.lane_states = l_states.flush().map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to save lanes")
+            })?;
             Ok(())
-        })?
+        })
     }
 
     pub fn settle<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -274,7 +280,7 @@ impl Actor {
             }
 
             Ok(())
-        })?
+        })
     }
 
     pub fn collect<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -301,7 +307,10 @@ impl Actor {
 }
 
 #[inline]
-fn find_lane<BS>(ls: &Amt<LaneState, BS>, id: u64) -> Result<Option<LaneState>, ActorError>
+fn find_lane<'a, BS>(
+    ls: &'a Amt<LaneState, BS>,
+    id: u64,
+) -> Result<Option<&'a LaneState>, ActorError>
 where
     BS: BlockStore,
 {
@@ -309,8 +318,12 @@ where
         return Err(actor_error!(ErrIllegalArgument; "maximum lane ID is 2^63-1"));
     }
 
-    ls.get(id)
-        .map_err(|e| actor_error!(ErrIllegalState; "failed to load lane {}: {}", id, e))
+    ls.get(id).map_err(|e| {
+        e.downcast_default(
+            ExitCode::ErrIllegalState,
+            format!("failed to load lane {}", id),
+        )
+    })
 }
 
 impl ActorCode for Actor {

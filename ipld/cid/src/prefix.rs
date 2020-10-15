@@ -26,7 +26,7 @@ impl Prefix {
         let mh_len: usize = cur.read_varint()?;
 
         let version = Version::from(raw_version)?;
-        let codec = Codec::from(raw_codec)?;
+        let codec = Codec::from(raw_codec);
 
         let mh_type = Code::from_u64(raw_mh_type);
 

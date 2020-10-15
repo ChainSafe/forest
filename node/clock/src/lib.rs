@@ -5,9 +5,14 @@ use chrono::{DateTime, NaiveDateTime, SecondsFormat, Utc};
 use std::num::TryFromIntError;
 
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
-const EPOCH_DURATION: i32 = 15;
 
+/// Duration of each tipset epoch.
+pub const EPOCH_DURATION_SECONDS: i64 = 30;
+
+/// Epoch number of a chain. This acts as a proxt for time within the VM.
 pub type ChainEpoch = i64;
+
+/// Const used within the VM to denote an unset `ChainEpoch`
 pub const EPOCH_UNDEFINED: ChainEpoch = -1;
 
 /// ChainEpochClock is used by the system node to assume weak clock synchrony amongst the other
@@ -42,7 +47,7 @@ impl ChainEpochClock {
     /// Returns the epoch at a given time
     pub fn epoch_at_time(&self, time: &DateTime<Utc>) -> Result<ChainEpoch, TryFromIntError> {
         let difference = time.signed_duration_since(self.genesis_time);
-        let epochs = (difference / EPOCH_DURATION)
+        let epochs = (difference / EPOCH_DURATION_SECONDS as i32)
             .num_nanoseconds()
             .expect("Epoch_at_time failed");
         Ok(epochs)

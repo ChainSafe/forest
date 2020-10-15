@@ -18,9 +18,21 @@ pub use self::error::Error;
 pub(crate) use self::node::Node;
 pub(crate) use self::root::Root;
 
-const WIDTH: usize = 8;
-pub const MAX_INDEX: u64 = 1 << 48;
+const MAX_INDEX_BITS: u64 = 63;
+const WIDTH_BITS: u64 = 3;
+const WIDTH: usize = 1 << WIDTH_BITS; // 8
+const MAX_HEIGHT: u64 = MAX_INDEX_BITS / WIDTH_BITS - 1;
 
-pub(crate) fn nodes_for_height(height: u32) -> u64 {
-    (WIDTH as u64).pow(height)
+// Maximum index for elements in the AMT. This is currently 1^63
+// (max int) because the width is 8. That means every "level" consumes 3 bits
+// from the index, and 63/3 is a nice even 21
+pub const MAX_INDEX: u64 = (1 << MAX_INDEX_BITS) - 1;
+
+fn nodes_for_height(height: u64) -> u64 {
+    let height_log_two = WIDTH_BITS * height;
+    assert!(
+        height_log_two < 64,
+        "height overflow, should be checked at all entry points"
+    );
+    1 << height_log_two
 }

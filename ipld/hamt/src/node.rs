@@ -7,6 +7,7 @@ use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::multihash::Blake2b256;
 use ipld_blockstore::BlockStore;
+use lazycell::LazyCell;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
@@ -15,7 +16,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 /// Node in Hamt tree which contains bitfield of set indexes and pointers to nodes
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct Node<K, V, H> {
     pub(crate) bitfield: Bitfield,
     pub(crate) pointers: Vec<Pointer<K, V, H>>,
@@ -71,9 +72,9 @@ impl<K, V, H> Default for Node<K, V, H> {
 
 impl<K, V, H> Node<K, V, H>
 where
-    K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned + Clone,
+    K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned,
     H: HashAlgorithm,
-    V: Serialize + DeserializeOwned + Clone,
+    V: Serialize + DeserializeOwned,
 {
     pub fn set<S: BlockStore>(
         &mut self,
@@ -92,12 +93,12 @@ where
         k: &Q,
         store: &S,
         bit_width: u32,
-    ) -> Result<Option<V>, Error>
+    ) -> Result<Option<&V>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
     {
-        Ok(self.search(k, store, bit_width)?.map(|kv| kv.1))
+        Ok(self.search(k, store, bit_width)?.map(|kv| kv.value()))
     }
 
     #[inline]
@@ -127,13 +128,27 @@ where
     {
         for p in &self.pointers {
             match p {
-                Pointer::Link(cid) => {
-                    match store.get::<Node<K, V, H>>(cid).map_err(|e| e.to_string())? {
-                        Some(node) => node.for_each(store, f)?,
-                        None => return Err(format!("Node with cid {} not found", cid).into()),
+                Pointer::Link { cid, cache } => {
+                    if let Some(cached_node) = cache.borrow() {
+                        cached_node.for_each(store, f)?
+                    } else {
+                        let node = if let Some(node) = store.get(cid)? {
+                            node
+                        } else {
+                            #[cfg(not(feature = "ignore-dead-links"))]
+                            return Err(Error::CidNotFound(cid.to_string()).into());
+
+                            #[cfg(feature = "ignore-dead-links")]
+                            continue;
+                        };
+
+                        // Ignore error intentionally, the cache value will always be the same
+                        let _ = cache.fill(node);
+                        let cache_node = cache.borrow().expect("cache filled on line above");
+                        cache_node.for_each(store, f)?
                     }
                 }
-                Pointer::Cache(n) => n.for_each(store, f)?,
+                Pointer::Dirty(n) => n.for_each(store, f)?,
                 Pointer::Values(kvs) => {
                     for kv in kvs {
                         f(kv.0.borrow(), kv.1.borrow())?;
@@ -150,7 +165,7 @@ where
         q: &Q,
         store: &S,
         bit_width: u32,
-    ) -> Result<Option<KeyValuePair<K, V>>, Error>
+    ) -> Result<Option<&KeyValuePair<K, V>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -166,7 +181,7 @@ where
         depth: usize,
         key: &Q,
         store: &S,
-    ) -> Result<Option<KeyValuePair<K, V>>, Error>
+    ) -> Result<Option<&KeyValuePair<K, V>>, Error>
     where
         K: Borrow<Q>,
         Q: Eq + Hash,
@@ -180,12 +195,29 @@ where
         let cindex = self.index_for_bit_pos(idx);
         let child = self.get_child(cindex);
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, V, H>>(cid)? {
-                Some(node) => Ok(node.get_value(hashed_key, bit_width, depth + 1, key, store)?),
-                None => Err(Error::CidNotFound(cid.to_string())),
-            },
-            Pointer::Cache(n) => n.get_value(hashed_key, bit_width, depth + 1, key, store),
-            Pointer::Values(vals) => Ok(vals.iter().find(|kv| key.eq(kv.key().borrow())).cloned()),
+            Pointer::Link { cid, cache } => {
+                if let Some(cached_node) = cache.borrow() {
+                    // Link node is cached
+                    cached_node.get_value(hashed_key, bit_width, depth + 1, key, store)
+                } else {
+                    let node: Box<Node<K, V, H>> = if let Some(node) = store.get(cid)? {
+                        node
+                    } else {
+                        #[cfg(not(feature = "ignore-dead-links"))]
+                        return Err(Error::CidNotFound(cid.to_string()).into());
+
+                        #[cfg(feature = "ignore-dead-links")]
+                        return Ok(None);
+                    };
+
+                    // Intentionally ignoring error, cache will always be the same.
+                    let _ = cache.fill(node);
+                    let cache_node = cache.borrow().expect("cache filled on line above");
+                    cache_node.get_value(hashed_key, bit_width, depth + 1, key, store)
+                }
+            }
+            Pointer::Dirty(n) => n.get_value(hashed_key, bit_width, depth + 1, key, store),
+            Pointer::Values(vals) => Ok(vals.iter().find(|kv| key.eq(kv.key().borrow()))),
         }
     }
 
@@ -211,16 +243,21 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, V, H>>(cid)? {
-                Some(mut node) => {
-                    // Pull value from store and update to cached node
-                    node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
-                    *child = Pointer::Cache(Box::new(node));
-                    Ok(())
-                }
-                None => Err(Error::CidNotFound(cid.to_string())),
-            },
-            Pointer::Cache(n) => {
+            Pointer::Link { cid, cache } => {
+                let cached_node = std::mem::take(cache);
+                let mut child_node = if let Some(sn) = cached_node.into_inner() {
+                    sn
+                } else {
+                    store
+                        .get(cid)?
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                };
+
+                child_node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
+                *child = Pointer::Dirty(child_node);
+                Ok(())
+            }
+            Pointer::Dirty(n) => {
                 Ok(n.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?)
             }
             Pointer::Values(vals) => {
@@ -232,10 +269,10 @@ where
 
                 // If the array is full, create a subshard and insert everything
                 if vals.len() >= MAX_ARRAY_WIDTH {
-                    let mut sub = Node::default();
+                    let mut sub = Node::<K, V, H>::default();
                     let consumed = hashed_key.consumed;
                     sub.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
-                    let kvs = std::mem::replace(vals, Vec::new());
+                    let kvs = std::mem::take(vals);
                     for p in kvs.into_iter() {
                         let hash = H::hash(p.key());
                         sub.modify_value(
@@ -248,7 +285,19 @@ where
                         )?;
                     }
 
-                    *child = Pointer::Cache(Box::new(sub));
+                    #[cfg(feature = "go-interop")]
+                    {
+                        sub.flush(store)?;
+                        let cid = store.put(&sub, Blake2b256)?;
+                        *child = Pointer::Link {
+                            cid,
+                            cache: Default::default(),
+                        };
+                    }
+                    #[cfg(not(feature = "go-interop"))]
+                    {
+                        *child = Pointer::Dirty(Box::new(sub));
+                    }
                     return Ok(());
                 }
 
@@ -291,19 +340,24 @@ where
         let child = self.get_child_mut(cindex);
 
         match child {
-            Pointer::Link(cid) => match store.get::<Node<K, V, H>>(cid)? {
-                Some(mut node) => {
-                    // Pull value from store and update to cached node
-                    let del = node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
-                    *child = Pointer::Cache(Box::new(node));
+            Pointer::Link { cid, cache } => {
+                let cached_node = std::mem::take(cache);
+                let mut child_node = if let Some(sn) = cached_node.into_inner() {
+                    sn
+                } else {
+                    store
+                        .get(cid)?
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                };
 
-                    // Clean to retrieve canonical form
-                    child.clean()?;
-                    Ok(del)
-                }
-                None => Err(Error::CidNotFound(cid.to_string())),
-            },
-            Pointer::Cache(n) => {
+                let deleted = child_node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
+                *child = Pointer::Dirty(child_node);
+
+                // Clean to retrieve canonical form
+                child.clean()?;
+                Ok(deleted)
+            }
+            Pointer::Dirty(n) => {
                 // Delete value and return deleted value
                 let deleted = n.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
 
@@ -335,15 +389,35 @@ where
 
     pub fn flush<S: BlockStore>(&mut self, store: &S) -> Result<(), Error> {
         for pointer in &mut self.pointers {
-            if let Pointer::Cache(node) = pointer {
+            if let Pointer::Dirty(node) = pointer {
                 // Flush cached sub node to clear it's cache
                 node.flush(store)?;
 
                 // Put node in blockstore and retrieve Cid
                 let cid = store.put(node, Blake2b256)?;
 
+                let cache = LazyCell::new();
+
+                #[cfg(not(feature = "go-interop"))]
+                {
+                    // Can keep the flushed node in link cache
+                    let node = std::mem::take(node);
+                    let _ = cache.fill(node);
+                }
+
                 // Replace cached node with Cid link
-                *pointer = Pointer::Link(cid);
+                *pointer = Pointer::Link { cid, cache };
+            }
+
+            #[cfg(feature = "go-interop")]
+            if let Pointer::Link { cache, .. } = pointer {
+                let cached = std::mem::take(cache);
+                if let Some(mut cached_node) = cached.into_inner() {
+                    // go implementation flushes all caches, even if the node is a link node.
+                    // Why do they do this? not sure
+                    cached_node.flush(store)?;
+                    store.put(&cached_node, Blake2b256)?;
+                }
             }
         }
 
