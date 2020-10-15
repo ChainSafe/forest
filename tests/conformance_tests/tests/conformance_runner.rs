@@ -62,9 +62,6 @@ lazy_static! {
 
         // Extracted market faults
         Regex::new(r"fil_1_storagemarket-PublishStorageDeals-").unwrap(),
-
-        // Extracted power faults (although all miner related)
-        Regex::new(r"fil_1_storagepower-CreateMiner-Ok-").unwrap(),
     ];
 }
 
