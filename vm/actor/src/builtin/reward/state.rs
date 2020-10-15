@@ -124,8 +124,8 @@ impl State {
             filter_reward.next_estimate(&self.this_epoch_reward, delta);
     }
 
-    pub fn total_storage_power_reward(&self) -> TokenAmount {
-        self.total_mined.clone()
+    pub fn total_storage_power_reward(&self) -> &TokenAmount {
+        &self.total_mined
     }
 }
 
