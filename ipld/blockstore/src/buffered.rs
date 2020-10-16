@@ -6,7 +6,7 @@
 use super::BlockStore;
 use cid::{multihash::MultihashDigest, Cid, Codec};
 use db::{Error, Store};
-use encoding::{from_slice, ser::Serialize, to_vec};
+use encoding::from_slice;
 use forest_ipld::Ipld;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -113,14 +113,12 @@ where
         self.base.get_bytes(cid)
     }
 
-    fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
+    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
-        S: Serialize,
         T: MultihashDigest,
     {
-        let bz = to_vec(obj)?;
-        let cid = Cid::new_from_cbor(&bz, hash);
-        self.write.borrow_mut().insert(cid.clone(), bz);
+        let cid = Cid::new_from_cbor(&bytes, hash);
+        self.write.borrow_mut().insert(cid.clone(), bytes);
         Ok(cid)
     }
 }
