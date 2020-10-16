@@ -186,7 +186,7 @@ impl PriceList {
     }
     /// Returns the gas required for storing an object
     #[inline]
-    pub fn on_ipld_get(&self, _: usize) -> GasCharge {
+    pub fn on_ipld_get(&self) -> GasCharge {
         GasCharge::new("on_ipld_get", self.ipld_get_base, 0)
     }
     /// Returns the gas required for storing an object

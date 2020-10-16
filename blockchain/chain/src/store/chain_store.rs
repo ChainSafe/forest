@@ -304,6 +304,24 @@ where
     Ok((bls_msgs, secp_msgs))
 }
 
+/// Returns a vector of all chain messages, these messages contain all bls messages followed
+/// by all secp messages.
+// TODO try to group functionality with block_messages
+pub fn chain_messages<DB>(db: &DB, bh: &BlockHeader) -> Result<Vec<ChainMessage>, Error>
+where
+    DB: BlockStore,
+{
+    let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
+
+    let mut bls_msgs: Vec<ChainMessage> = messages_from_cids(db, &bls_cids)?;
+    let mut secp_msgs: Vec<ChainMessage> = messages_from_cids(db, &secpk_cids)?;
+
+    // Append the secp messages to the back of the messages vector.
+    bls_msgs.append(&mut secp_msgs);
+
+    Ok(bls_msgs)
+}
+
 /// Constructs and returns a full tipset if messages from storage exists - non self version
 pub fn fill_tipsets<DB>(db: &DB, ts: Tipset) -> Result<FullTipset, Error>
 where
@@ -730,11 +748,22 @@ where
         );
     };
 
-    let out_add: BigInt = &log2_p << 8;
-    let mut out = ts.weight().to_owned() + out_add;
-    let e_weight: BigInt = ((log2_p * BigInt::from(ts.blocks().len())) * W_RATIO_NUM) << 8;
-    let value: BigInt = e_weight.div_floor(&(BigInt::from(BLOCKS_PER_EPOCH) * W_RATIO_DEN));
-    out += &value;
+    let mut total_j = 0;
+    for b in ts.blocks() {
+        total_j += b
+            .election_proof()
+            .as_ref()
+            .ok_or("Block contained no election proof when calculating weight")?
+            .win_count;
+    }
+
+    let mut out = ts.weight().to_owned();
+    out += &log2_p << 8;
+    let mut e_weight: BigInt = log2_p * W_RATIO_NUM;
+    e_weight <<= 8;
+    e_weight *= total_j;
+    e_weight = e_weight.div_floor(&(BigInt::from(BLOCKS_PER_EPOCH * W_RATIO_DEN)));
+    out += &e_weight;
     Ok(out)
 }
 

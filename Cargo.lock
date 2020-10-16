@@ -951,6 +951,7 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
+ "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
@@ -959,6 +960,9 @@ dependencies = [
  "forest_vm",
  "futures 0.3.5",
  "futures-util",
+ "genesis",
+ "hex",
+ "interpreter",
  "ipld_amt",
  "ipld_blockstore",
  "ipld_hamt",
@@ -966,6 +970,7 @@ dependencies = [
  "log",
  "lru",
  "num-traits 0.2.12",
+ "pretty_env_logger",
  "rand 0.7.3",
  "serde",
  "smallvec",
@@ -1049,6 +1054,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "colored"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "commcid"
 version = "0.1.0"
 dependencies = [
@@ -1086,7 +1102,9 @@ dependencies = [
  "actor",
  "base64 0.12.3",
  "clock",
+ "colored",
  "db",
+ "difference",
  "fil_types",
  "flate2",
  "forest_address",
@@ -1095,11 +1113,14 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
+ "forest_ipld",
  "forest_message",
  "forest_vm",
  "interpreter",
  "ipld_blockstore",
+ "ipld_hamt",
  "lazy_static",
+ "log",
  "pretty_env_logger",
  "regex",
  "runtime",
@@ -1242,7 +1263,7 @@ dependencies = [
  "rayon",
  "regex",
  "serde",
- "serde_cbor",
+ "serde_cbor 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive",
  "serde_json",
  "tinytemplate",
@@ -1892,6 +1913,7 @@ dependencies = [
  "forest_json_utils",
  "forest_vm",
  "ipld_amt",
+ "lazy_static",
  "num-derive",
  "num-traits 0.2.12",
  "serde",
@@ -2058,6 +2080,7 @@ dependencies = [
  "forest_cid",
  "forest_libp2p",
  "futures 0.3.5",
+ "genesis",
  "hex",
  "ipld_blockstore",
  "jsonrpc-v2",
@@ -2153,14 +2176,14 @@ dependencies = [
  "multihash 0.10.1",
  "serde",
  "serde_bytes",
- "serde_cbor",
+ "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
  "serde_json",
  "thiserror",
 ]
 
 [[package]]
 name = "forest_crypto"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.12.3",
  "bls-signatures",
@@ -2183,7 +2206,7 @@ dependencies = [
  "forest_cid",
  "serde",
  "serde_bytes",
- "serde_cbor",
+ "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
  "serde_repr",
  "serde_tuple",
  "thiserror",
@@ -2222,11 +2245,14 @@ dependencies = [
  "async-std",
  "async-trait",
  "bytes",
+ "chain",
  "clock",
+ "db",
  "fnv",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
+ "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
@@ -2234,6 +2260,7 @@ dependencies = [
  "futures 0.3.5",
  "futures-util",
  "futures_codec",
+ "genesis",
  "ipld_blockstore",
  "lazy_static",
  "libp2p",
@@ -2248,7 +2275,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "base64 0.12.3",
  "derive_builder",
@@ -2512,6 +2539,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "genesis"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "chain",
+ "forest_blocks",
+ "forest_car",
+ "forest_cid",
+ "ipld_blockstore",
+ "log",
+ "state_manager",
+]
+
+[[package]]
 name = "get_if_addrs"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2589,32 +2630,6 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "graphsync"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "async-trait",
- "bytes",
- "fnv",
- "forest_cid",
- "forest_encoding",
- "forest_ipld",
- "futures 0.3.5",
- "futures-util",
- "futures_codec",
- "ipld_blockstore",
- "libp2p",
- "log",
- "multihash 0.10.1",
- "protobuf",
- "protoc-rust",
- "rand 0.7.3",
- "serde",
- "smallvec",
- "unsigned-varint 0.5.1",
 ]
 
 [[package]]
@@ -5202,6 +5217,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_cbor"
+version = "0.11.1"
+source = "git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a#3e7bf81f57e9010762dbc12292bd6f927fdfe83a"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5833,9 +5857,9 @@ checksum = "343f3f510c2915908f155e94f17220b19ccfacf2a64a2a5d8004f2c3e311e7fd"
 
 [[package]]
 name = "surf"
-version = "2.0.0-alpha.7"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "187577a5f02b0156cb5dcc69504fb57a3f8247361dca07864a30dd294ee9a698"
+checksum = "6d38339c05d2bc84595d56e27aa07566e7b59767ea5cb5c78991b499cd188060"
 dependencies = [
  "async-std",
  "async-trait",
@@ -5850,8 +5874,6 @@ dependencies = [
  "pin-project-lite",
  "serde",
  "serde_json",
- "serde_urlencoded 0.6.1",
- "url",
  "web-sys",
 ]
 

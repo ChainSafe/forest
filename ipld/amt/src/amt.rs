@@ -9,6 +9,8 @@ use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
 use std::error::Error as StdError;
 
+use super::ValueMut;
+
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
 ///
 /// Amt is not threadsafe and can't be shared between threads.
@@ -114,15 +116,28 @@ where
         while i >= nodes_for_height(self.height() + 1) {
             // node at index exists
             if !self.root.node.empty() {
-                // Save and get cid to be able to link from higher level node
-                self.root.node.flush(self.block_store)?;
-
-                // Get cid from storing root node
-                let cid = self.block_store.put(&self.root.node, Blake2b256)?;
-
-                // Set links node with first index as cid
+                // Parent node for expansion
                 let mut new_links: [Option<Link<V>>; WIDTH] = Default::default();
-                new_links[0] = Some(Link::from(cid));
+
+                #[cfg(feature = "go-interop")]
+                {
+                    // Save and get cid to be able to link from higher level node
+                    self.root.node.flush(self.block_store)?;
+
+                    // Get cid from storing root node
+                    let cid = self.block_store.put(&self.root.node, Blake2b256)?;
+
+                    // Set link to child node being expanded
+                    new_links[0] = Some(Link::from(cid));
+                }
+                #[cfg(not(feature = "go-interop"))]
+                {
+                    // Take root node to be moved down
+                    let node = std::mem::take(&mut self.root.node);
+
+                    // Set link to child node being expanded
+                    new_links[0] = Some(Link::Dirty(Box::new(node)));
+                }
 
                 self.root.node = Node::Link {
                     bmap: BitMap::new(0x01),
@@ -277,7 +292,7 @@ where
     pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(u64, &mut V) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<(), Box<dyn StdError>>,
     {
         self.for_each_while_mut(|i, x| {
             f(i, x)?;
@@ -290,7 +305,7 @@ where
     pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(u64, &mut V) -> Result<bool, Box<dyn StdError>>,
+        F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
     {
         self.root
             .node

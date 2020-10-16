@@ -6,20 +6,37 @@
 #[macro_use]
 extern crate lazy_static;
 
+use address::Address;
+use blockstore::resolve::resolve_cids_recursive;
+use cid::{json::CidJson, Cid};
+use colored::*;
 use conformance_tests::*;
+use difference::{Changeset, Difference};
 use encoding::Cbor;
+use fil_types::HAMT_BIT_WIDTH;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
+use interpreter::ApplyRet;
+use ipld::json::{IpldJson, IpldJsonRef};
+use ipld::Ipld;
+use ipld_hamt::{BytesKey, Hamt};
+use num_bigint::{BigInt, ToBigInt};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::error::Error as StdError;
 use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
+use vm::ActorState;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 4] = [
+    static ref DEFAULT_BASE_FEE: BigInt = 100.to_bigint().unwrap();
+    static ref SKIP_TESTS: Vec<Regex> = vec![
+        Regex::new(r"test-vectors/corpus/vm_violations/x--").unwrap(),
+        Regex::new(r"test-vectors/corpus/nested/x--").unwrap(),
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -27,6 +44,20 @@ lazy_static! {
         Regex::new(r"nested/nested_sends--fail-mismatch-params.json").unwrap(),
         // Lotus client does not fail in inner transaction for insufficient funds
         Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
+
+        // These 2 tests ignore test cases for Chaos actor that are checked at compile time
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
+
+        // Same as marked tests above -- Go impl has the incorrect behaviour
+        Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-").unwrap(),
+
+        // Extracted miner faults
+        Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-3").unwrap(),
+        Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-7").unwrap(),
+
+        // Extracted market faults
+        Regex::new(r"fil_1_storagemarket-PublishStorageDeals-").unwrap(),
     ];
 }
 
@@ -35,6 +66,11 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         Some(file) => file,
         None => return false,
     };
+
+    if let Ok(s) = ::std::env::var("FOREST_CONF") {
+        return file_name == s;
+    }
+
     for rx in SKIP_TESTS.iter() {
         if rx.is_match(file_name) {
             println!("SKIPPING: {}", file_name);
@@ -57,14 +93,19 @@ fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
 
 fn check_msg_result(
     expected_rec: &MessageReceipt,
-    actual_rec: &MessageReceipt,
+    ret: &ApplyRet,
     label: impl fmt::Display,
 ) -> Result<(), String> {
+    let error = ret.act_error.as_ref().map(|e| e.msg());
+    let actual_rec = &ret.msg_receipt;
     let (expected, actual) = (expected_rec.exit_code, actual_rec.exit_code);
     if expected != actual {
         return Err(format!(
-            "exit code of msg {} did not match; expected: {:?}, got {:?}",
-            label, expected, actual
+            "exit code of msg {} did not match; expected: {:?}, got {:?}. Error: {}",
+            label,
+            expected,
+            actual,
+            error.unwrap_or("No error reported with exit code")
         ));
     }
 
@@ -89,6 +130,104 @@ fn check_msg_result(
     Ok(())
 }
 
+#[derive(Serialize, Deserialize)]
+struct ActorStateResolved {
+    code: CidJson,
+    sequence: u64,
+    balance: String,
+    state: IpldJson,
+}
+
+fn root_to_state_map(
+    bs: &db::MemoryDB,
+    root: &Cid,
+) -> Result<BTreeMap<String, ActorStateResolved>, Box<dyn StdError>> {
+    let mut actors = BTreeMap::new();
+    let hamt: Hamt<_, _> = Hamt::load_with_bit_width(root, bs, HAMT_BIT_WIDTH)?;
+    hamt.for_each(|k: &BytesKey, actor: &ActorState| {
+        let addr = Address::from_bytes(&k.0)?;
+
+        let resolved =
+            resolve_cids_recursive(bs, &actor.state).unwrap_or(Ipld::Link(actor.state.clone()));
+        let resolved_state = ActorStateResolved {
+            state: IpldJson(resolved),
+            code: CidJson(actor.code.clone()),
+            balance: actor.balance.to_string(),
+            sequence: actor.sequence,
+        };
+
+        actors.insert(addr.to_string(), resolved_state);
+        Ok(())
+    })
+    .unwrap();
+
+    Ok(actors)
+}
+
+/// Tries to resolve state tree actors, if all data exists in store.
+/// The actors hamt is hard to parse in a diff, so this attempts to remedy this.
+fn try_resolve_actor_states(
+    bs: &db::MemoryDB,
+    root: &Cid,
+    expected_root: &Cid,
+) -> Result<Changeset, Box<dyn StdError>> {
+    let e_state = root_to_state_map(bs, expected_root)?;
+    let c_state = root_to_state_map(bs, root)?;
+
+    let expected_json = serde_json::to_string_pretty(&e_state)?;
+    let actual_json = serde_json::to_string_pretty(&c_state)?;
+
+    Ok(Changeset::new(&expected_json, &actual_json, "\n"))
+}
+
+fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Result<(), String> {
+    if root != expected_root {
+        let error_msg = format!(
+            "wrong post root cid; expected {}, but got {}",
+            expected_root, root
+        );
+
+        if std::env::var("FOREST_DIFF") == Ok("1".to_owned()) {
+            let Changeset { diffs, .. } = try_resolve_actor_states(bs, root, expected_root)
+                .unwrap_or_else(|e| {
+                    println!(
+                        "Could not resolve actor states: {}\nUsing default resolution:",
+                        e
+                    );
+                    let expected = resolve_cids_recursive(bs, &expected_root)
+                        .expect("Failed to populate Ipld");
+                    let actual =
+                        resolve_cids_recursive(bs, &root).expect("Failed to populate Ipld");
+
+                    let expected_json =
+                        serde_json::to_string_pretty(&IpldJsonRef(&expected)).unwrap();
+                    let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual)).unwrap();
+
+                    Changeset::new(&expected_json, &actual_json, "\n")
+                });
+
+            println!("{}:", error_msg);
+
+            for diff in diffs.iter() {
+                match diff {
+                    Difference::Same(x) => {
+                        println!(" {}", x);
+                    }
+                    Difference::Add(x) => {
+                        println!("{}", format!("+{}", x).green());
+                    }
+                    Difference::Rem(x) => {
+                        println!("{}", format!("-{}", x).red());
+                    }
+                }
+            }
+        }
+
+        return Err(error_msg.into());
+    }
+    Ok(())
+}
+
 fn execute_message_vector(
     selector: Option<Selector>,
     car: Vec<u8>,
@@ -108,20 +247,24 @@ fn execute_message_vector(
             epoch = ep;
         }
 
-        let (ret, post_root) = execute_message(&bs, &msg, &root, epoch, &selector)?;
+        let (ret, post_root) = execute_message(
+            &bs,
+            &to_chain_msg(msg),
+            &root,
+            epoch,
+            preconditions
+                .basefee
+                .map(|i| i.to_bigint().unwrap())
+                .unwrap_or(DEFAULT_BASE_FEE.clone()),
+            &selector,
+        )?;
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
-        check_msg_result(receipt, &ret.msg_receipt, i)?;
+        check_msg_result(receipt, &ret, i)?;
     }
 
-    if root != postconditions.state_tree.root_cid {
-        return Err(format!(
-            "wrong post root cid; expected {}, but got {}",
-            postconditions.state_tree.root_cid, root
-        )
-        .into());
-    }
+    compare_state_roots(&bs, &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }
@@ -147,10 +290,10 @@ fn execute_tipset_vector(
             ..
         } = execute_tipset(Arc::clone(&bs), &root, prev_epoch, &ts)?;
 
-        for (j, v) in applied_results.into_iter().enumerate() {
+        for (j, apply_ret) in applied_results.into_iter().enumerate() {
             check_msg_result(
                 &postconditions.receipts[receipt_idx],
-                &v.msg_receipt,
+                &apply_ret,
                 format!("{} of tipset {}", j, i),
             )?;
             receipt_idx += 1;
@@ -170,13 +313,7 @@ fn execute_tipset_vector(
         root = post_state_root;
     }
 
-    if root != postconditions.state_tree.root_cid {
-        return Err(format!(
-            "wrong post root cid; expected {}, but got {}",
-            postconditions.state_tree.root_cid, root
-        )
-        .into());
-    }
+    compare_state_roots(bs.as_ref(), &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }
@@ -190,8 +327,14 @@ fn conformance_test_runner() {
     for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
         let file = File::open(entry.path()).unwrap();
         let reader = BufReader::new(file);
-        let vector: TestVector = serde_json::from_reader(reader).unwrap();
         let test_name = entry.path().display();
+        let vector: TestVector = match serde_json::from_reader(reader) {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("Could not deserialize vector: {}", e);
+                continue;
+            }
+        };
 
         match vector {
             TestVector::Message {

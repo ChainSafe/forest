@@ -7,6 +7,7 @@ use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::multihash::Blake2b256;
 use ipld_blockstore::BlockStore;
+use lazycell::LazyCell;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
@@ -131,9 +132,15 @@ where
                     if let Some(cached_node) = cache.borrow() {
                         cached_node.for_each(store, f)?
                     } else {
-                        let node = store
-                            .get(cid)?
-                            .ok_or_else(|| format!("Node with cid {} not found", cid))?;
+                        let node = if let Some(node) = store.get(cid)? {
+                            node
+                        } else {
+                            #[cfg(not(feature = "ignore-dead-links"))]
+                            return Err(Error::CidNotFound(cid.to_string()).into());
+
+                            #[cfg(feature = "ignore-dead-links")]
+                            continue;
+                        };
 
                         // Ignore error intentionally, the cache value will always be the same
                         let _ = cache.fill(node);
@@ -193,10 +200,15 @@ where
                     // Link node is cached
                     cached_node.get_value(hashed_key, bit_width, depth + 1, key, store)
                 } else {
-                    // Link is not cached, need to load and fill cache, then traverse for value.
-                    let node = store
-                        .get::<Box<Node<K, V, H>>>(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
+                    let node: Box<Node<K, V, H>> = if let Some(node) = store.get(cid)? {
+                        node
+                    } else {
+                        #[cfg(not(feature = "ignore-dead-links"))]
+                        return Err(Error::CidNotFound(cid.to_string()).into());
+
+                        #[cfg(feature = "ignore-dead-links")]
+                        return Ok(None);
+                    };
 
                     // Intentionally ignoring error, cache will always be the same.
                     let _ = cache.fill(node);
@@ -257,7 +269,7 @@ where
 
                 // If the array is full, create a subshard and insert everything
                 if vals.len() >= MAX_ARRAY_WIDTH {
-                    let mut sub = Node::default();
+                    let mut sub = Node::<K, V, H>::default();
                     let consumed = hashed_key.consumed;
                     sub.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
                     let kvs = std::mem::take(vals);
@@ -273,7 +285,19 @@ where
                         )?;
                     }
 
-                    *child = Pointer::Dirty(Box::new(sub));
+                    #[cfg(feature = "go-interop")]
+                    {
+                        sub.flush(store)?;
+                        let cid = store.put(&sub, Blake2b256)?;
+                        *child = Pointer::Link {
+                            cid,
+                            cache: Default::default(),
+                        };
+                    }
+                    #[cfg(not(feature = "go-interop"))]
+                    {
+                        *child = Pointer::Dirty(Box::new(sub));
+                    }
                     return Ok(());
                 }
 
@@ -372,11 +396,28 @@ where
                 // Put node in blockstore and retrieve Cid
                 let cid = store.put(node, Blake2b256)?;
 
+                let cache = LazyCell::new();
+
+                #[cfg(not(feature = "go-interop"))]
+                {
+                    // Can keep the flushed node in link cache
+                    let node = std::mem::take(node);
+                    let _ = cache.fill(node);
+                }
+
                 // Replace cached node with Cid link
-                *pointer = Pointer::Link {
-                    cid,
-                    cache: Default::default(),
-                };
+                *pointer = Pointer::Link { cid, cache };
+            }
+
+            #[cfg(feature = "go-interop")]
+            if let Pointer::Link { cache, .. } = pointer {
+                let cached = std::mem::take(cache);
+                if let Some(mut cached_node) = cached.into_inner() {
+                    // go implementation flushes all caches, even if the node is a link node.
+                    // Why do they do this? not sure
+                    cached_node.flush(store)?;
+                    store.put(&cached_node, Blake2b256)?;
+                }
             }
         }
 

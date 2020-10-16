@@ -30,7 +30,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
+// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
 
 /// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
 /// This number is empirically determined
@@ -93,6 +93,15 @@ impl Actor {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let value = rt.message().value_received().clone();
 
+        let constructor_params = Serialized::serialize(MinerConstructorParams {
+            owner: params.owner,
+            worker: params.worker,
+            seal_proof_type: params.seal_proof_type,
+            peer_id: params.peer,
+            multi_addresses: params.multiaddrs,
+            control_addresses: Default::default(),
+        })?;
+
         let init::ExecReturn {
             id_address,
             robust_address,
@@ -100,13 +109,9 @@ impl Actor {
             .send(
                 *INIT_ACTOR_ADDR,
                 init::Method::Exec as u64,
-                Serialized::serialize(MinerConstructorParams {
-                    owner: params.owner,
-                    worker: params.worker,
-                    control_addresses: Default::default(),
-                    seal_proof_type: params.seal_proof_type,
-                    peer_id: params.peer.0,
-                    multi_addresses: params.multiaddrs,
+                Serialized::serialize(init::ExecParams {
+                    code_cid: MINER_ACTOR_CODE_ID.clone(),
+                    constructor_params,
                 })?,
                 value,
             )?

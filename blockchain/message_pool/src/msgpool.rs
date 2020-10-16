@@ -413,8 +413,10 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        msg.valid_for_block_inclusion(0).map_err(Error::Other)?;
-        if msg.value() > &BigInt::from(types::TOTAL_FILECOIN) {
+        msg.message()
+            .valid_for_block_inclusion(0)
+            .map_err(Error::Other)?;
+        if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {
@@ -425,13 +427,12 @@ where
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
     /// to be pushed to the MessagePool
-    pub async fn add(&self, msg: &SignedMessage) -> Result<(), Error> {
+    pub async fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg).await?;
-        let tmp = msg.clone();
 
         let tip = self.cur_tipset.read().await.clone();
 
-        self.add_tipset(tmp, &tip, false).await?;
+        self.add_tipset(msg, &tip, false).await?;
         Ok(())
     }
 
@@ -449,10 +450,7 @@ where
             return Ok(());
         }
 
-        let umsg = msg.message().marshal_cbor()?;
-        msg.signature()
-            .verify(umsg.as_slice(), msg.from())
-            .map_err(Error::Other)?;
+        msg.verify().map_err(Error::Other)?;
 
         self.sig_val_cache.write().await.put(cid, ());
 
@@ -690,8 +688,9 @@ where
         let mut rm_vec = Vec::new();
         let msg_vec: Vec<SignedMessage> = local_msgs.iter().cloned().collect();
 
-        for k in msg_vec {
-            self.add(&k).await.unwrap_or_else(|err| {
+        for k in msg_vec.into_iter() {
+            // TODO no need to clone message, if error, message could be returned in error
+            self.add(k.clone()).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
                     rm_vec.push(k);
@@ -741,7 +740,8 @@ where
 fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
-    m.valid_for_block_inclusion(min_gas.total())
+    m.message()
+        .valid_for_block_inclusion(min_gas.total())
         .map_err(Error::Other)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
@@ -965,7 +965,7 @@ where
     }
 
     let mut republished_t = HashSet::new();
-    for m in &msgs[0..count] {
+    for m in msgs.iter() {
         republished_t.insert(m.cid()?);
     }
     *republished.write().await = republished_t;
@@ -1446,9 +1446,11 @@ pub mod tests {
             .gas_premium(gas_price.into())
             .build()
             .unwrap();
-        let message_cbor = Cbor::marshal_cbor(&umsg).unwrap();
-        let sig = wallet.sign(&from, message_cbor.as_slice()).unwrap();
-        SignedMessage::new_from_parts(umsg, sig).unwrap()
+        let msg_signing_bytes = umsg.to_signing_bytes();
+        let sig = wallet.sign(&from, msg_signing_bytes.as_slice()).unwrap();
+        let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap();
+        smsg.verify().unwrap();
+        smsg
     }
 
     fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
@@ -1526,9 +1528,9 @@ pub mod tests {
 
             mpool.api.write().await.set_state_sequence(&sender, 0);
             assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
-            mpool.add(&smsg_vec[0].clone()).await.unwrap();
+            mpool.add(smsg_vec[0].clone()).await.unwrap();
             assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
-            mpool.add(&smsg_vec[1].clone()).await.unwrap();
+            mpool.add(smsg_vec[1].clone()).await.unwrap();
             assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
 
             let a = mock_block(1, 1);
@@ -1588,10 +1590,10 @@ pub mod tests {
             api_temp.set_state_sequence(&sender, 0);
             drop(api_temp);
 
-            mpool.add(&smsg_vec[0]).await.unwrap();
-            mpool.add(&smsg_vec[1]).await.unwrap();
-            mpool.add(&smsg_vec[2]).await.unwrap();
-            mpool.add(&smsg_vec[3]).await.unwrap();
+            mpool.add(smsg_vec[0].clone()).await.unwrap();
+            mpool.add(smsg_vec[1].clone()).await.unwrap();
+            mpool.add(smsg_vec[2].clone()).await.unwrap();
+            mpool.add(smsg_vec[3].clone()).await.unwrap();
 
             mpool.api.write().await.set_state_sequence(&sender, 0);
 
