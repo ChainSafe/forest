@@ -360,21 +360,18 @@ where
         task::spawn(async move {
             let mut interval = interval(Duration::from_millis(REPUBLISH_INTERVAL));
             loop {
-                match select(interval.next(), repub_trigger_rx.next()).await {
-                    _ => {
-                        if let Err(e) = republish_pending_messages(
-                            api.as_ref(),
-                            network_sender.as_ref(),
-                            pending.as_ref(),
-                            cur_tipset.as_ref(),
-                            republished.as_ref(),
-                            local_addrs.as_ref(),
-                        )
-                        .await
-                        {
-                            warn!("Failed to republish pending messages: {}", e.to_string());
-                        }
-                    }
+                select(interval.next(), repub_trigger_rx.next()).await;
+                if let Err(e) = republish_pending_messages(
+                    api.as_ref(),
+                    network_sender.as_ref(),
+                    pending.as_ref(),
+                    cur_tipset.as_ref(),
+                    republished.as_ref(),
+                    local_addrs.as_ref(),
+                )
+                .await
+                {
+                    warn!("Failed to republish pending messages: {}", e.to_string());
                 }
             }
         });
@@ -1186,18 +1183,14 @@ where
 
             for msg in smsgs {
                 rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
-                if !repub {
-                    if republished.write().await.insert(msg.cid()?) {
-                        repub = true;
-                    }
+                if !repub && republished.write().await.insert(msg.cid()?) {
+                    repub = true;
                 }
             }
             for msg in msgs {
                 rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
-                if !repub {
-                    if republished.write().await.insert(msg.cid()?) {
-                        repub = true;
-                    }
+                if !repub && republished.write().await.insert(msg.cid()?) {
+                    repub = true;
                 }
             }
         }
