@@ -9,7 +9,6 @@ use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
 use std::error::Error as StdError;
 use std::rc::Rc;
-use vm::{actor_error, ActorError};
 
 /// Blockstore wrapper to charge gas on reads and writes
 pub(crate) struct GasBlockStore<'bs, BS> {
@@ -37,19 +36,12 @@ where
         S: Serialize,
         T: MultihashDigest,
     {
-        // TODO try to avoid serializing all data twice (it adds up)
-        // The reason this is needed is because there is unintended interactions
-        // when writing to the store directly, because other blockstore implmentations
-        // expect bytes to be written through the put function.
-        // Consider maybe adding a put_raw function, which avoids serialization.
+        let bytes = to_vec(obj)?;
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_ipld_put(to_vec(obj)?.len()))?;
+            .charge_gas(self.price_list.on_ipld_put(bytes.len()))?;
 
-        Ok(self
-            .store
-            .put(obj, hash)
-            .map_err(|e| actor_error!(fatal("failed to write to store {}", e)))?)
+        Ok(self.store.put_raw(&bytes, hash)?)
     }
 }
 
