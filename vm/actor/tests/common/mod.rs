@@ -4,7 +4,7 @@
 use actor::{
     self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
     MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
-    PUPPET_ACTOR_CODE_ID, REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFREG_ACTOR_CODE_ID,
+    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFREG_ACTOR_CODE_ID,
 };
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
@@ -12,13 +12,13 @@ use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use db::MemoryDB;
 use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
-use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{PieceInfo, Randomness, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use ipld_blockstore::BlockStore;
 use runtime::{ActorCode, ConsensusFault, MessageInfo, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error as StdError;
-use vm::{actor_error, ActorError, ExitCode, MethodNum, Randomness, Serialized, TokenAmount};
+use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount};
 
 pub struct MockRuntime {
     pub epoch: ChainEpoch,
@@ -288,9 +288,6 @@ impl MockRuntime {
                 actor::verifreg::Actor.invoke_method(self, method_num, params)
             }
 
-            x if x == &*PUPPET_ACTOR_CODE_ID => {
-                actor::puppet::Actor.invoke_method(self, method_num, params)
-            }
             _ => Err(actor_error!(SysErrForbidden; "invalid method id")),
         };
 

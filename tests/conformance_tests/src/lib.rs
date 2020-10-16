@@ -10,15 +10,15 @@ mod tipset;
 pub use self::message::*;
 pub use self::stubs::*;
 pub use self::tipset::*;
-use actor::{CHAOS_ACTOR_CODE_ID, PUPPET_ACTOR_CODE_ID};
-use address::Address;
+use actor::CHAOS_ACTOR_CODE_ID;
+use address::{Address, Protocol};
 use blockstore::BlockStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use encoding::Cbor;
 use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
-use forest_message::{ChainMessage, MessageReceipt, UnsignedMessage};
+use forest_message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use interpreter::{ApplyRet, BlockMessages, Rand, VM};
 use num_bigint::BigInt;
 use runtime::{ConsensusFault, Syscalls};
@@ -54,20 +54,6 @@ mod base64_bytes {
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(de::Error::custom)?)
         }
-    }
-}
-
-mod bigint_json {
-    use super::*;
-    use serde::de;
-    use std::borrow::Cow;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Ok(s.parse().map_err(de::Error::custom)?)
     }
 }
 
@@ -185,4 +171,16 @@ pub enum TestVector {
         #[serde(rename = "_meta")]
         meta: Option<MetaData>,
     },
+}
+
+// This might be changed to be encoded into vector, matching go runner for now
+pub fn to_chain_msg(msg: UnsignedMessage) -> ChainMessage {
+    if msg.from().protocol() == Protocol::Secp256k1 {
+        ChainMessage::Signed(SignedMessage {
+            message: msg,
+            signature: Signature::new_secp256k1(vec![0; 65]),
+        })
+    } else {
+        ChainMessage::Unsigned(msg)
+    }
 }

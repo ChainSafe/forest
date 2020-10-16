@@ -62,7 +62,7 @@ fn message_json_annotations() {
 
     struct DummySigner;
     impl Signer for DummySigner {
-        fn sign_bytes(&self, _: Vec<u8>, _: &Address) -> Result<Signature, Box<dyn Error>> {
+        fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, Box<dyn Error>> {
             Ok(Signature::new_bls(vec![0u8, 1u8]))
         }
     }

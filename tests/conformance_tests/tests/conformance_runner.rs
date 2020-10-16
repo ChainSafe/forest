@@ -10,6 +10,7 @@ use conformance_tests::*;
 use encoding::Cbor;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
+use interpreter::ApplyRet;
 use regex::Regex;
 use std::error::Error as StdError;
 use std::fmt;
@@ -19,7 +20,9 @@ use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref SKIP_TESTS: [Regex; 4] = [
+    static ref SKIP_TESTS: Vec<Regex> = vec![
+        Regex::new(r"test-vectors/corpus/vm_violations/x--*").unwrap(),
+        Regex::new(r"test-vectors/corpus/nested/x--*").unwrap(),
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
         // Following two fail for the same invalid exit code return
@@ -27,6 +30,78 @@ lazy_static! {
         Regex::new(r"nested/nested_sends--fail-mismatch-params.json").unwrap(),
         // Lotus client does not fail in inner transaction for insufficient funds
         Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
+
+        // These 2 tests ignore test cases for Chaos actor that are checked at compile time
+        // Link to discussion https://github.com/ChainSafe/forest/pull/696/files
+        // Maybe should look at fixing to match exit codes
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
+
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storagemarket/AddBalance/Ok/ext-0001-fil_1_storagemarket-AddBalance-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/AddLockedFund/Ok/ext-0001-fil_1_storageminer-AddLockedFund-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/ChangeMultiaddrs/Ok/ext-0001-fil_1_storageminer-ChangeMultiaddrs-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/ChangePeerID/Ok/ext-0001-fil_1_storageminer-ChangePeerID-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/ChangeWorkerAddress/Ok/ext-0001-fil_1_storageminer-ChangeWorkerAddress-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/DeclareFaults/16/ext-0001-fil_1_storageminer-DeclareFaults-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/DeclareFaultsRecovered/Ok/ext-0001-fil_1_storageminer-DeclareFaultsRecovered-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/16/ext-0001-fil_1_storageminer-PreCommitSector-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/SysErrInsufficientFunds/ext-0001-fil_1_storageminer-PreCommitSector-SysErrInsufficientFunds-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/SysErrOutOfGas/ext-0001-fil_1_storageminer-PreCommitSector-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/ProveCommitSector/Ok/ext-0001-fil_1_storageminer-ProveCommitSector-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/ProveCommitSector/SysErrInsufficientFunds/ext-0001-fil_1_storageminer-ProveCommitSector-SysErrInsufficientFunds-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/ProveCommitSector/SysErrOutOfGas/ext-0001-fil_1_storageminer-ProveCommitSector-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/Send/Ok/ext-0001-fil_1_storageminer-Send-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/Send/SysErrInsufficientFunds/ext-0001-fil_1_storageminer-Send-SysErrInsufficientFunds-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/SubmitWindowedPoSt/16/ext-0001-fil_1_storageminer-SubmitWindowedPoSt-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/WithdrawBalance/Ok/ext-0001-fil_1_storageminer-WithdrawBalance-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storagepower/CreateMiner/Ok/extracted-msg-0001-fil_1_storagepower-CreateMiner-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0002-init-actor/fil_1_init/Exec/Ok/ext-0002-fil_1_init-Exec-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0003-sends-to-sysactors/fil_1_reward/Send/Ok/ext-0003-fil_1_reward-Send-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0003-sends-to-sysactors/fil_1_storagemarket/Send/Ok/ext-0003-fil_1_storagemarket-Send-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagemarket/AddBalance/Ok/extracted-msg-fil_1_storagemarket-AddBalance-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagemarket/AddBalance/SysErrInsufficientFunds/extracted-msg-fil_1_storagemarket-AddBalance-SysErrInsufficientFunds-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagemarket/PublishStorageDeals/16/extracted-msg-fil_1_storagemarket-PublishStorageDeals-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagemarket/PublishStorageDeals/SysErrOutOfGas/extracted-msg-fil_1_storagemarket-PublishStorageDeals-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/AddLockedFund/19/extracted-msg-fil_1_storageminer-AddLockedFund-19-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ChangeMultiaddrs/Ok/extracted-msg-fil_1_storageminer-ChangeMultiaddrs-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ChangePeerID/Ok/extracted-msg-fil_1_storageminer-ChangePeerID-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ChangeWorkerAddress/Ok/extracted-msg-fil_1_storageminer-ChangeWorkerAddress-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/DeclareFaults/16/extracted-msg-fil_1_storageminer-DeclareFaults-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/DeclareFaultsRecovered/Ok/extracted-msg-fil_1_storageminer-DeclareFaultsRecovered-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/DeclareFaultsRecovered/SysErrOutOfGas/extracted-msg-fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/PreCommitSector/16/extracted-msg-fil_1_storageminer-PreCommitSector-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/PreCommitSector/17/extracted-msg-fil_1_storageminer-PreCommitSector-17-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/PreCommitSector/18/extracted-msg-fil_1_storageminer-PreCommitSector-18-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/PreCommitSector/19/extracted-msg-fil_1_storageminer-PreCommitSector-19-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/PreCommitSector/Ok/extracted-msg-fil_1_storageminer-PreCommitSector-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/PreCommitSector/SysErrInsufficientFunds/extracted-msg-fil_1_storageminer-PreCommitSector-SysErrInsufficientFunds-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/PreCommitSector/SysErrOutOfGas/extracted-msg-fil_1_storageminer-PreCommitSector-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ProveCommitSector/16/extracted-msg-fil_1_storageminer-ProveCommitSector-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ProveCommitSector/17/extracted-msg-fil_1_storageminer-ProveCommitSector-17-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ProveCommitSector/18/extracted-msg-fil_1_storageminer-ProveCommitSector-18-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ProveCommitSector/19/extracted-msg-fil_1_storageminer-ProveCommitSector-19-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ProveCommitSector/Ok/extracted-msg-fil_1_storageminer-ProveCommitSector-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ProveCommitSector/SysErrInsufficientFunds/extracted-msg-fil_1_storageminer-ProveCommitSector-SysErrInsufficientFunds-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/ProveCommitSector/SysErrOutOfGas/extracted-msg-fil_1_storageminer-ProveCommitSector-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/Send/Ok/extracted-msg-fil_1_storageminer-Send-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/Send/SysErrInsufficientFunds/extracted-msg-fil_1_storageminer-Send-SysErrInsufficientFunds-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/SubmitWindowedPoSt/16/extracted-msg-fil_1_storageminer-SubmitWindowedPoSt-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/SubmitWindowedPoSt/SysErrSenderInvalid/extracted-msg-fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/WithdrawBalance/Ok/extracted-msg-fil_1_storageminer-WithdrawBalance-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/WithdrawBalance/SysErrOutOfGas/extracted-msg-fil_1_storageminer-WithdrawBalance-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagepower/CreateMiner/16/extracted-msg-fil_1_storagepower-CreateMiner-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagepower/CreateMiner/SysErrOutOfGas/extracted-msg-fil_1_storagepower-CreateMiner-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/DeclareFaults/Ok/ext-0001-fil_1_storageminer-DeclareFaults-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/19/ext-0001-fil_1_storageminer-PreCommitSector-19-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_storageminer/PreCommitSector/Ok/ext-0001-fil_1_storageminer-PreCommitSector-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagemarket/PublishStorageDeals/19/extracted-msg-fil_1_storagemarket-PublishStorageDeals-19-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/AddLockedFund/Ok/extracted-msg-fil_1_storageminer-AddLockedFund-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/DeclareFaultsRecovered/16/extracted-msg-fil_1_storageminer-DeclareFaultsRecovered-16-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storagepower/CreateMiner/Ok/extracted-msg-fil_1_storagepower-CreateMiner-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0001-initial-extraction/fil_1_account/Send/Ok/ext-0001-fil_1_account-Send-Ok-3").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/Send/SysErrOutOfGas/extracted-msg-fil_1_storageminer-Send-SysErrOutOfGas-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/extracted/0004-coverage-boost/fil_1_storageminer/DeclareFaults/Ok/extracted-msg-fil_1_storageminer-DeclareFaults-Ok-*").unwrap(),
+        Regex::new(r"test-vectors/corpus/reward/penalties--not-penalized-insufficient-balance-to-cover-gas-and-transfer.json").unwrap(),
     ];
 }
 
@@ -35,6 +110,11 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         Some(file) => file,
         None => return false,
     };
+
+    if let Ok(s) = ::std::env::var("FOREST_CONF") {
+        return file_name == s;
+    }
+
     for rx in SKIP_TESTS.iter() {
         if rx.is_match(file_name) {
             println!("SKIPPING: {}", file_name);
@@ -57,14 +137,19 @@ fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
 
 fn check_msg_result(
     expected_rec: &MessageReceipt,
-    actual_rec: &MessageReceipt,
+    ret: &ApplyRet,
     label: impl fmt::Display,
 ) -> Result<(), String> {
+    let error = ret.act_error.as_ref().map(|e| e.msg());
+    let actual_rec = &ret.msg_receipt;
     let (expected, actual) = (expected_rec.exit_code, actual_rec.exit_code);
     if expected != actual {
         return Err(format!(
-            "exit code of msg {} did not match; expected: {:?}, got {:?}",
-            label, expected, actual
+            "exit code of msg {} did not match; expected: {:?}, got {:?}. Error: {}",
+            label,
+            expected,
+            actual,
+            error.unwrap_or("No error reported with exit code")
         ));
     }
 
@@ -108,11 +193,11 @@ fn execute_message_vector(
             epoch = ep;
         }
 
-        let (ret, post_root) = execute_message(&bs, &msg, &root, epoch, &selector)?;
+        let (ret, post_root) = execute_message(&bs, &to_chain_msg(msg), &root, epoch, &selector)?;
         root = post_root;
 
         let receipt = &postconditions.receipts[i];
-        check_msg_result(receipt, &ret.msg_receipt, i)?;
+        check_msg_result(receipt, &ret, i)?;
     }
 
     if root != postconditions.state_tree.root_cid {
@@ -147,10 +232,10 @@ fn execute_tipset_vector(
             ..
         } = execute_tipset(Arc::clone(&bs), &root, prev_epoch, &ts)?;
 
-        for (j, v) in applied_results.into_iter().enumerate() {
+        for (j, apply_ret) in applied_results.into_iter().enumerate() {
             check_msg_result(
                 &postconditions.receipts[receipt_idx],
-                &v.msg_receipt,
+                &apply_ret,
                 format!("{} of tipset {}", j, i),
             )?;
             receipt_idx += 1;
@@ -190,8 +275,8 @@ fn conformance_test_runner() {
     for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
         let file = File::open(entry.path()).unwrap();
         let reader = BufReader::new(file);
-        let vector: TestVector = serde_json::from_reader(reader).unwrap();
         let test_name = entry.path().display();
+        let vector: TestVector = serde_json::from_reader(reader).unwrap();
 
         match vector {
             TestVector::Message {

@@ -202,10 +202,10 @@ impl Actor {
 
             // Go implementation holds reference to state after transaction so state must be cloned
             // to match to handle possible exit code inconsistency
-            Ok((st.clone(), txn))
+            Ok((st.clone(), txn.clone()))
         })?;
 
-        let (applied, ret, code) = execute_transaction_if_approved(rt, &st, id, txn.clone())?;
+        let (applied, ret, code) = execute_transaction_if_approved(rt, &st, id, &txn)?;
         if !applied {
             // if the transaction hasn't already been approved, "process" the approval
             // and see if the transaction can be executed
@@ -263,16 +263,19 @@ impl Actor {
                 return Err(actor_error!(ErrIllegalState; "hash does not match proposal params"));
             }
 
-            let deleted = ptx.delete(&params.id.key()).map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to delete pending transaction",
-                )
-            })?;
-            if !deleted {
-                return Err(actor_error!(ErrIllegalState;
-                    "failed to delete pending transaction: does not exist"));
-            }
+            ptx.delete(&params.id.key())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to delete pending transaction",
+                    )
+                })?
+                .ok_or_else(|| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to delete pending transaction: does not exist"
+                    )
+                })?;
 
             st.pending_txs = ptx.flush().map_err(|e| {
                 e.downcast_default(
@@ -475,7 +478,7 @@ impl Actor {
             Ok(st.clone())
         })?;
 
-        execute_transaction_if_approved(rt, &st, tx_id, txn)
+        execute_transaction_if_approved(rt, &st, tx_id, &txn)
     }
 }
 
@@ -483,7 +486,7 @@ fn execute_transaction_if_approved<BS, RT>(
     rt: &mut RT,
     st: &State,
     txn_id: TxnID,
-    txn: Transaction,
+    txn: &Transaction,
 ) -> Result<(bool, Serialized, ExitCode), ActorError>
 where
     BS: BlockStore,
@@ -499,7 +502,7 @@ where
                 |e| actor_error!(ErrInsufficientFunds; "insufficient funds unlocked: {}", e),
             )?;
 
-        match rt.send(txn.to, txn.method, txn.params, txn.value) {
+        match rt.send(txn.to, txn.method, txn.params.clone(), txn.value.clone()) {
             Ok(ser) => {
                 out = ser;
             }
@@ -518,16 +521,19 @@ where
                     )
                 })?;
 
-            let deleted = ptx.delete(&txn_id.key()).map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to delete transaction for cleanup",
-                )
-            })?;
-            if !deleted {
-                return Err(actor_error!(ErrIllegalState;
-                    "failed to delete transaction for cleanup: does not exist"));
-            }
+            ptx.delete(&txn_id.key())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to delete transaction for cleanup",
+                    )
+                })?
+                .ok_or_else(|| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to delete transaction for cleanup: does not exist"
+                    )
+                })?;
 
             st.pending_txs = ptx.flush().map_err(|e| {
                 e.downcast_default(
@@ -542,23 +548,23 @@ where
     Ok((applied, out, code))
 }
 
-fn get_pending_transaction<'bs, BS: BlockStore>(
-    ptx: &Map<'bs, BS, Transaction>,
+fn get_pending_transaction<'bs, 'm, BS: BlockStore>(
+    ptx: &'m Map<'bs, BS, Transaction>,
     txn_id: TxnID,
-) -> Result<Transaction, Box<dyn StdError>> {
+) -> Result<&'m Transaction, Box<dyn StdError>> {
     Ok(ptx
         .get(&txn_id.key())
         .map_err(|e| e.downcast_wrap("failed to read transaction"))?
         .ok_or_else(|| actor_error!(ErrNotFound, "failed to find transaction: {}", txn_id.0))?)
 }
 
-fn get_transaction<'bs, BS, RT>(
+fn get_transaction<'bs, 'm, BS, RT>(
     rt: &RT,
-    ptx: &Map<'bs, BS, Transaction>,
+    ptx: &'m Map<'bs, BS, Transaction>,
     txn_id: TxnID,
     proposal_hash: Vec<u8>,
     check_hash: bool,
-) -> Result<Transaction, ActorError>
+) -> Result<&'m Transaction, ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,

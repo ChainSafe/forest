@@ -6,10 +6,10 @@ use address::{Address, Protocol};
 use cid::Cid;
 use encoding::tuple::*;
 use encoding::Cbor;
+use fil_types::ActorID;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error as HamtError;
 use std::error::Error as StdError;
-use vm::ActorID;
 
 /// State is reponsible for creating
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -66,7 +66,7 @@ impl State {
 
         let map = make_map_with_root(&self.address_map, store)?;
 
-        Ok(map.get(&addr.to_bytes())?.map(Address::new_id))
+        Ok(map.get(&addr.to_bytes())?.copied().map(Address::new_id))
     }
 }
 

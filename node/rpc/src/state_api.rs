@@ -13,7 +13,7 @@ use blocks::{tipset_json::TipsetJson, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
-use fil_types::SectorNumber;
+use fil_types::{verifier::FullVerifier, SectorNumber};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     message_receipt::json::MessageReceiptJson,
@@ -23,6 +23,8 @@ use serde::Serialize;
 use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
 use wallet::KeyStore;
+
+// TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -46,14 +48,9 @@ pub(crate) async fn state_miner_sector<
     let state_manager = &data.state_manager;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
     let mut filter = Some(&mut bitfield_filter);
-    state_manager::utils::get_miner_sector_set(
-        &state_manager,
-        &tipset,
-        &address,
-        &mut filter,
-        filter_out,
-    )
-    .map_err(|e| e.into())
+    state_manager
+        .get_miner_sector_set::<FullVerifier>(&tipset, &address, &mut filter, filter_out)
+        .map_err(|e| e.into())
 }
 
 /// runs the given message and returns its result without any persisted changes.
@@ -69,7 +66,7 @@ pub(crate) async fn state_call<
     let mut message: UnsignedMessage = unsigned_msg_json.into();
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
     state_manager
-        .call(&mut message, Some(tipset))
+        .call::<FullVerifier>(&mut message, Some(tipset))
         .map_err(|e| e.into())
 }
 
@@ -84,7 +81,9 @@ pub(crate) async fn state_miner_deadlines<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    state_manager::utils::get_miner_deadlines(&state_manager, &tipset, &actor).map_err(|e| e.into())
+    state_manager
+        .get_miner_deadlines::<FullVerifier>(&tipset, &actor)
+        .map_err(|e| e.into())
 }
 
 /// returns the PreCommit info for the specified miner's sector
@@ -98,24 +97,8 @@ pub(crate) async fn state_sector_precommit_info<
     let state_manager = &data.state_manager;
     let (address, sector_number, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    state_manager::utils::precommit_info(&state_manager, &address, &sector_number, &tipset)
-        .map_err(|e| e.into())
-}
-
-/// returns info about those sectors that a given miner is actively proving.
-pub(crate) async fn state_miner_proving_set<
-    DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
->(
-    data: Data<RpcState<DB, KS>>,
-    Params(params): Params<(Address, TipsetKeys)>,
-) -> Result<Vec<SectorOnChainInfo>, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (address, key) = params;
-    let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    let miner_actor_state: State =
-        state_manager.load_actor_state(&address, &tipset.parent_state())?;
-    state_manager::utils::get_proving_set_raw(&state_manager, &miner_actor_state)
+    state_manager
+        .precommit_info::<FullVerifier>(&address, &sector_number, &tipset)
         .map_err(|e| e.into())
 }
 
@@ -130,7 +113,9 @@ pub async fn state_miner_info<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(state_manager.blockstore(), &key)?;
-    state_manager::utils::get_miner_info(&state_manager, &tipset, &actor).map_err(|e| e.into())
+    state_manager
+        .get_miner_info::<FullVerifier>(&tipset, &actor)
+        .map_err(|e| e.into())
 }
 
 /// returns the on-chain info for the specified miner's sector
@@ -144,7 +129,8 @@ pub async fn state_sector_info<
     let state_manager = &data.state_manager;
     let (address, sector_number, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    state_manager::utils::miner_sector_info(&state_manager, &address, &sector_number, &tipset)
+    state_manager
+        .miner_sector_info::<FullVerifier>(&address, &sector_number, &tipset)
         .map_err(|e| e.into())
 }
 
@@ -179,7 +165,8 @@ pub(crate) async fn state_miner_faults<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    state_manager::utils::get_miner_faults(&state_manager, &tipset, &actor)
+    state_manager
+        .get_miner_faults::<FullVerifier>(&tipset, &actor)
         .map(|s| s.into())
         .map_err(|e| e.into())
 }
@@ -199,7 +186,7 @@ pub(crate) async fn state_all_miner_faults<
     // let (look_back, end_tsk) = params;
     // let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &end_tsk)?;
     // let cut_off = tipset.epoch() - look_back;
-    // let miners = state_manager::utils::list_miner_actors(&state_manager, &tipset)?;
+    // let miners = state_manager.list_miner_actors(&tipset)?;
     // let mut all_faults = Vec::new();
     // for m in miners {
     //     let miner_actor_state: State = state_manager
@@ -230,7 +217,8 @@ pub(crate) async fn state_miner_recoveries<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    state_manager::utils::get_miner_recoveries(&state_manager, &tipset, &actor)
+    state_manager
+        .get_miner_recoveries::<FullVerifier>(&tipset, &actor)
         .map(|s| s.into())
         .map_err(|e| e.into())
 }
@@ -247,7 +235,7 @@ pub(crate) async fn state_replay<
     let (cidjson, key) = params;
     let cid = cidjson.into();
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    let (msg, ret) = state_manager.replay(&tipset, &cid)?;
+    let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, &cid)?;
 
     Ok(InvocResult {
         msg,
@@ -384,7 +372,7 @@ where
             "Could not get heaviest tipset".to_string(),
         ))
     })?;
-    let (st, _) = task::block_on(state_manager.tipset_state(&tipset))?;
+    let (st, _) = task::block_on(state_manager.tipset_state::<FullVerifier>(&tipset))?;
     let state_tree = StateTree::new_from_root(block_store, &st)?;
     Ok(state_tree)
 }

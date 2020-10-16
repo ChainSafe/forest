@@ -3,9 +3,7 @@
 
 use crate::{Hash, HashedKey};
 use sha2::{Digest, Sha256 as Sha256Hasher};
-
-#[cfg(feature = "murmur")]
-use murmur3::murmur3_x64_128::MurmurHasher;
+use std::hash::Hasher;
 
 /// Algorithm used as the hasher for the Hamt.
 pub trait HashAlgorithm {
@@ -42,28 +40,6 @@ impl HashAlgorithm for Sha256 {
         hasher.0.finalize().into()
     }
 }
-
-#[cfg(feature = "murmur")]
-#[derive(Debug)]
-pub enum Murmur3 {}
-
-#[cfg(feature = "murmur")]
-impl HashAlgorithm for Murmur3 {
-    fn hash<X: ?Sized>(key: &X) -> HashedKey
-    where
-        X: Hash,
-    {
-        let mut hasher = MurmurHasher::default();
-        key.hash(&mut hasher);
-        let mut bz: [u8; 32] = Default::default();
-        let hash: [u8; 16] = hasher.finalize().into();
-        bz[0..16].copy_from_slice(&hash);
-        bz
-    }
-}
-
-#[cfg(feature = "identity")]
-use std::hash::Hasher;
 
 #[cfg(feature = "identity")]
 #[derive(Default)]

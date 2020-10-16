@@ -47,7 +47,7 @@ fn get_escrow_balance(rt: &MockRuntime, addr: &Address) -> Result<TokenAmount, A
 
     let et = BalanceTable::from_root(rt.store(), &st.escrow_table).unwrap();
 
-    Ok(et.get(addr).unwrap())
+    Ok(et.get(addr).unwrap().clone())
 }
 
 // TODO add array stuff

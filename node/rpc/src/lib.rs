@@ -187,11 +187,6 @@ where
             false,
         )
         .with_method(
-            "Filecoin.StateMinerProvingSet",
-            state_miner_proving_set::<DB, KS>,
-            false,
-        )
-        .with_method(
             "Filecoin.StateMinerProvingDeadline",
             state_miner_proving_deadline::<DB, KS>,
             false,

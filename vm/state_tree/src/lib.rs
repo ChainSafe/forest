@@ -130,8 +130,8 @@ impl StateSnapshots {
 
     fn get_actor(&self, addr: &Address) -> Option<ActorState> {
         for layer in self.layers.iter().rev() {
-            if let Some(state) = layer.actors.read().get(addr).cloned() {
-                return state;
+            if let Some(state) = layer.actors.read().get(addr) {
+                return state.clone();
             }
         }
 
@@ -209,7 +209,7 @@ where
         }
 
         // if state doesn't exist, find using hamt
-        let act = self.hamt.get(&addr.to_bytes())?;
+        let act = self.hamt.get(&addr.to_bytes())?.cloned();
 
         // Update cache if state was found
         if let Some(act_s) = &act {
