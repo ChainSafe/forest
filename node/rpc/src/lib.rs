@@ -462,7 +462,7 @@ async fn handle_rpc(
         }
     };
 
-    Ok(state.clone().handle(call).await)
+    Ok(state.handle(call).await)
 }
 
 async fn send_error(code: i64, ws_sender: &RwLock<WsSink>, message: String) -> Result<(), Error> {
