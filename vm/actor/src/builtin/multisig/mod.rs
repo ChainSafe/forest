@@ -12,6 +12,7 @@ use crate::{
 };
 use address::{Address, Protocol};
 use encoding::to_vec;
+use fil_types::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
@@ -23,7 +24,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
+// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -37,6 +38,7 @@ pub enum Method {
     RemoveSigner = 6,
     SwapSigner = 7,
     ChangeNumApprovalsThreshold = 8,
+    LockBalance = 9,
 }
 
 /// Multisig Actor
@@ -102,9 +104,11 @@ impl Actor {
         };
 
         if params.unlock_duration != 0 {
-            st.initial_balance = rt.message().value_received().clone();
-            st.unlock_duration = params.unlock_duration;
-            st.start_epoch = rt.curr_epoch();
+            st.set_locked(
+                rt.curr_epoch(),
+                params.unlock_duration,
+                rt.message().value_received().clone(),
+            );
         }
         rt.create(&st)?;
 
@@ -432,6 +436,44 @@ impl Actor {
         Ok(())
     }
 
+    /// Multisig actor function to change number of approvals needed
+    pub fn lock_balance<BS, RT>(rt: &mut RT, params: LockBalanceParams) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        // This method was introduced at network version 2 in testnet.
+        // Prior to that, the method did not exist so the VM would abort.
+        if rt.network_version() < NetworkVersion::V2 {
+            return Err(actor_error!(
+                SysErrInvalidMethod,
+                "invalid method until network version 2"
+            ));
+        }
+        let receiver = *rt.message().receiver();
+        rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
+
+        if params.unlock_duration <= 0 {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "unlock duration must be positive"
+            ));
+        }
+
+        rt.transaction(|st: &mut State, _| {
+            if st.unlock_duration != 0 {
+                return Err(actor_error!(
+                    ErrForbidden,
+                    "modification of unlock disallowed"
+                ));
+            }
+            st.set_locked(params.start_epoch, params.unlock_duration, params.amount);
+            Ok(())
+        })?;
+
+        Ok(())
+    }
+
     fn approve_transaction<BS, RT>(
         rt: &mut RT,
         tx_id: TxnID,
@@ -672,6 +714,10 @@ impl ActorCode for Actor {
             }
             Some(Method::ChangeNumApprovalsThreshold) => {
                 Self::change_num_approvals_threshold(rt, params.deserialize()?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::LockBalance) => {
+                Self::lock_balance(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
