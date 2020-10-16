@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod chain_api;
+mod common_api;
 mod gas_api;
 mod mpool_api;
 mod state_api;
 mod sync_api;
 mod wallet_api;
 
-use crate::state_api::*;
+use crate::{common_api::version, state_api::*};
 use async_log::span;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::sync::{Arc, RwLock, Sender};
@@ -242,6 +243,8 @@ where
             gas_estimate_fee_cap::<DB, KS>,
             false,
         )
+        // Common
+        .with_method("Filecoin.Version", version, false)
         .finish_unwrapped();
 
     let try_socket = TcpListener::bind(rpc_endpoint).await;

@@ -6,6 +6,7 @@ mod piece;
 mod randomness;
 pub mod sector;
 pub mod verifier;
+pub mod version;
 
 pub use self::piece::*;
 pub use self::randomness::*;
