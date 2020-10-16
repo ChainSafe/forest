@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use async_std::sync::RwLock;
 use num_derive::FromPrimitive;
 use std::{
