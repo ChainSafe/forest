@@ -56,15 +56,11 @@ lazy_static! {
         Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-3").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-7").unwrap(),
         Regex::new(r"fil_1_storageminer-PreCommitSector-SysErrOutOfGas").unwrap(),
-        Regex::new(r"fil_1_storageminer-AddLockedFund-Ok-").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-1").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaultsRecovered-SysErrOutOfGas-2").unwrap(),
 
         // Extracted market faults
         Regex::new(r"fil_1_storagemarket-PublishStorageDeals-").unwrap(),
-
-        // Extracted power faults (although all miner related)
-        Regex::new(r"fil_1_storagepower-CreateMiner-Ok-").unwrap(),
     ];
 }
 
