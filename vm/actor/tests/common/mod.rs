@@ -12,7 +12,10 @@ use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use db::MemoryDB;
 use encoding::{blake2b_256, de::DeserializeOwned, Cbor};
-use fil_types::{PieceInfo, Randomness, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{
+    NetworkVersion, PieceInfo, Randomness, RegisteredSealProof, SealVerifyInfo,
+    WindowPoStVerifyInfo,
+};
 use ipld_blockstore::BlockStore;
 use runtime::{ActorCode, ConsensusFault, MessageInfo, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
@@ -56,6 +59,7 @@ pub struct MockRuntime {
     pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid>>,
     pub expect_verify_consensus_fault: RefCell<Option<ExpectVerifyConsensusFault>>,
     pub hash_func: Box<dyn Fn(&[u8]) -> [u8; 32]>,
+    pub network_version: NetworkVersion,
 }
 
 impl Default for MockRuntime {
@@ -88,6 +92,7 @@ impl Default for MockRuntime {
             expect_compute_unsealed_sector_cid: Default::default(),
             expect_verify_consensus_fault: Default::default(),
             hash_func: Box::new(|_| [0u8; 32]),
+            network_version: NetworkVersion::V0,
         }
     }
 }
@@ -411,6 +416,10 @@ impl MessageInfo for MockRuntime {
 }
 
 impl Runtime<MemoryDB> for MockRuntime {
+    fn network_version(&self) -> NetworkVersion {
+        self.network_version
+    }
+
     fn message(&self) -> &dyn MessageInfo {
         self.require_in_call();
         self

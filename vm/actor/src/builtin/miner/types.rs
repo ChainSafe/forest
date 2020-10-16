@@ -12,9 +12,9 @@ use num_bigint::bigint_ser;
 use vm::{DealID, TokenAmount};
 
 pub type CronEvent = i64;
-pub const CRON_EVENT_WORKER_KEY_CHANGE: CronEvent = 1;
-pub const CRON_EVENT_PROVING_DEADLINE: CronEvent = 2;
-pub const CRON_EVENT_PROCESS_EARLY_TERMINATIONS: CronEvent = 3;
+pub const CRON_EVENT_WORKER_KEY_CHANGE: CronEvent = 0;
+pub const CRON_EVENT_PROVING_DEADLINE: CronEvent = 1;
+pub const CRON_EVENT_PROCESS_EARLY_TERMINATIONS: CronEvent = 2;
 
 /// Storage miner actor constructor params are defined here so the power actor can send them to the init actor
 /// to instantiate miners.

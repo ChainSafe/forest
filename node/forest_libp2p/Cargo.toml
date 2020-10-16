@@ -46,3 +46,4 @@ async-trait = "0.1"
 forest_address = { path = "../../vm/address" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
+genesis = { path = "../../utils/genesis", features = ["testing"] }

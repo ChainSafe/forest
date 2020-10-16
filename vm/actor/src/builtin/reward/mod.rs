@@ -28,7 +28,7 @@ use vm::{
     METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
+// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
 
 /// Reward actor methods available
 #[derive(FromPrimitive)]
@@ -215,16 +215,18 @@ impl Actor {
         let curr_realized_power = curr_realized_power
             .ok_or_else(|| actor_error!(ErrIllegalArgument; "argument cannot be None"))?;
 
+        let network_version = rt.network_version();
+
         rt.transaction(|st: &mut State, rt| {
             let prev = st.epoch;
             // if there were null runs catch up the computation until
             // st.Epoch == rt.CurrEpoch()
             while st.epoch < rt.curr_epoch() {
                 // Update to next epoch to process null rounds
-                st.update_to_next_epoch(&curr_realized_power);
+                st.update_to_next_epoch(&curr_realized_power, network_version);
             }
 
-            st.update_to_next_epoch_with_reward(&curr_realized_power);
+            st.update_to_next_epoch_with_reward(&curr_realized_power, network_version);
             st.update_smoothed_estimates(st.epoch - prev);
             Ok(())
         })?;

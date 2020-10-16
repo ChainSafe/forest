@@ -25,7 +25,8 @@ members = [
     "ipld",
     "ipld/hamt",
     "ipld/blockstore",
-    "ipld/graphsync",
+    # TODO re-enable graphsync when work continues
+    # "ipld/graphsync",
     "utils/bigint",
     "tests/serialization_tests",
     "utils/auth",
@@ -34,6 +35,7 @@ members = [
     "utils/test_utils",
     "utils/commcid",
     "utils/json_utils",
+    "utils/genesis",
     "types",
     "key_management",
 ]

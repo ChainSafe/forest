@@ -21,12 +21,11 @@ use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
-use num_traits::Signed;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
-use types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
+use types::verifier::ProofVerifier;
 use vm::ActorState;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
@@ -345,8 +344,10 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        message_valid_for_block_inclusion(&msg.message(), 0).map_err(Error::Other)?;
-        if msg.value() > &BigInt::from(types::TOTAL_FILECOIN) {
+        msg.message()
+            .valid_for_block_inclusion(0)
+            .map_err(Error::Other)?;
+        if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {
@@ -655,7 +656,9 @@ where
 fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
     let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
-    message_valid_for_block_inclusion(&m.message(), min_gas.total()).map_err(Error::Other)?;
+    m.message()
+        .valid_for_block_inclusion(min_gas.total())
+        .map_err(Error::Other)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
         let base_fee_lower_bound =
@@ -671,38 +674,6 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
         }
     }
     Ok(local)
-}
-
-/// Validates the message has enough gas and is semantically validated
-// TODO move this logic to message crate under a feature or to a common location.
-fn message_valid_for_block_inclusion(msg: &UnsignedMessage, min_gas: i64) -> Result<(), String> {
-    if msg.version != 0 {
-        return Err(format!("Message version: {} not  supported", msg.version));
-    }
-    if msg.value.is_negative() {
-        return Err("message value cannot be negative".to_string());
-    }
-    if msg.value > TOTAL_FILECOIN.into() {
-        return Err("message value cannot be greater than total FIL supply".to_string());
-    }
-    if msg.gas_fee_cap.is_negative() {
-        return Err("gas_fee_cap cannot be negative".to_string());
-    }
-    if msg.gas_premium.is_negative() {
-        return Err("gas_premium cannot be negative".to_string());
-    }
-    if msg.gas_premium > msg.gas_fee_cap {
-        return Err("gas_fee_cap less than gas_premium".to_string());
-    }
-    if msg.gas_limit > BLOCK_GAS_LIMIT {
-        return Err("gas_limit cannot be greater than block gas limit".to_string());
-    }
-
-    if msg.gas_limit < min_gas {
-        return Err("gas_limit cannot be less than cost of storing a message on chain".to_string());
-    }
-
-    Ok(())
 }
 
 fn get_base_fee_lower_bound(base_fee: &BigInt, factor: i64) -> BigInt {
