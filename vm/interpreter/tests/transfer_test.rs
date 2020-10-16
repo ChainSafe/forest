@@ -6,7 +6,7 @@ use address::Address;
 use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
-use fil_types::verifier::MockVerifier;
+use fil_types::{verifier::MockVerifier, NetworkVersion};
 use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
@@ -97,6 +97,7 @@ fn transfer_test() {
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
     let registered = HashSet::new();
     let mut runtime = DefaultRuntime::<_, _, _>::new(
+        NetworkVersion::V0,
         &mut state,
         &store,
         &default_syscalls,
