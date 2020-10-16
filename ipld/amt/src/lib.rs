@@ -11,12 +11,14 @@ mod bitmap;
 mod error;
 mod node;
 mod root;
+mod value_mut;
 
 pub use self::amt::Amt;
 pub use self::bitmap::BitMap;
 pub use self::error::Error;
 pub(crate) use self::node::Node;
 pub(crate) use self::root::Root;
+pub use self::value_mut::ValueMut;
 
 const MAX_INDEX_BITS: u64 = 63;
 const WIDTH_BITS: u64 = 3;

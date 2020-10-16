@@ -9,6 +9,8 @@ use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
 use std::error::Error as StdError;
 
+use super::ValueMut;
+
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
 ///
 /// Amt is not threadsafe and can't be shared between threads.
@@ -290,7 +292,7 @@ where
     pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(u64, &mut V) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<(), Box<dyn StdError>>,
     {
         self.for_each_while_mut(|i, x| {
             f(i, x)?;
@@ -303,7 +305,7 @@ where
     pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: DeserializeOwned,
-        F: FnMut(u64, &mut V) -> Result<bool, Box<dyn StdError>>,
+        F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
     {
         self.root
             .node

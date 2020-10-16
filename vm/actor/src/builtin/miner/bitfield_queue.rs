@@ -74,10 +74,12 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
 
         self.amt
             .for_each_mut(|epoch, bitfield| {
-                *bitfield = bitfield.cut(to_cut);
+                let bf = bitfield.cut(to_cut);
 
-                if bitfield.is_empty() {
+                if bf.is_empty() {
                     epochs_to_remove.push(epoch);
+                } else {
+                    **bitfield = bf;
                 }
 
                 Ok(())
