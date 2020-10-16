@@ -10,11 +10,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, ErrorKind};
+use std::path::Path;
 
 const KEYSTORE_NAME: &str = "/keystore.json";
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
+///
+/// TODO need to update keyinfo to not use SignatureType, use string instead to save keys like
+/// jwt secret
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct KeyInfo {
     key_type: SignatureType,
@@ -148,7 +152,8 @@ pub struct PersistentKeyStore {
 
 impl PersistentKeyStore {
     pub fn new(location: String) -> Result<Self, Error> {
-        let file_op = File::open(&format!("{}{}", location, KEYSTORE_NAME));
+        let loc = format!("{}{}", location, KEYSTORE_NAME);
+        let file_op = File::open(&loc);
         match file_op {
             Ok(file) => {
                 let reader = BufReader::new(file);
@@ -160,7 +165,7 @@ impl PersistentKeyStore {
                     .unwrap_or_default();
                 Ok(Self {
                     key_info: data,
-                    location,
+                    location: loc,
                 })
             }
             Err(e) => {
@@ -168,7 +173,7 @@ impl PersistentKeyStore {
                     warn!("keystore.json does not exist, initializing new keystore");
                     Ok(Self {
                         key_info: HashMap::new(),
-                        location,
+                        location: loc,
                     })
                 } else {
                     Err(Error::Other(e.to_string()))
@@ -178,9 +183,12 @@ impl PersistentKeyStore {
     }
 
     pub fn flush(&self) -> Result<(), Error> {
-        fs::create_dir_all(&self.location)?;
+        let dir = Path::new(&self.location)
+            .parent()
+            .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
+        fs::create_dir_all(dir)?;
 
-        let file = File::create(&format!("{}{}", &self.location, KEYSTORE_NAME))?;
+        let file = File::create(&self.location)?;
         let writer = BufWriter::new(file);
         serde_json::to_writer(writer, &self.key_info)
             .map_err(|e| Error::Other(format!("failed to serialize and write key info: {}", e)))?;

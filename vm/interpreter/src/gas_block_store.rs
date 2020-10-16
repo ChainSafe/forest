@@ -4,12 +4,11 @@
 use super::gas_tracker::{GasTracker, PriceList};
 use cid::{multihash::MultihashDigest, Cid};
 use db::{Error, Store};
-use forest_encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
+use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
 use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
 use std::error::Error as StdError;
 use std::rc::Rc;
-use vm::{actor_error, ActorError};
 
 /// Blockstore wrapper to charge gas on reads and writes
 pub(crate) struct GasBlockStore<'bs, BS> {
@@ -22,45 +21,27 @@ impl<BS> BlockStore for GasBlockStore<'_, BS>
 where
     BS: BlockStore,
 {
-    /// Get bytes from block store by Cid
-    fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        let ret = self
-            .store
-            .get_bytes(cid)
-            .map_err(|e| actor_error!(fatal("failed to get block from blockstore: {}", e)))?;
-        if let Some(bz) = &ret {
-            self.gas
-                .borrow_mut()
-                .charge_gas(self.price_list.on_ipld_get(bz.len()))?;
-        }
-        Ok(ret)
-    }
-
-    /// Get typed object from block store by Cid
     fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Box<dyn StdError>>
     where
         T: DeserializeOwned,
     {
-        match self.get_bytes(cid)? {
-            Some(bz) => Ok(Some(from_slice(&bz)?)),
-            None => Ok(None),
-        }
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_ipld_get())?;
+        self.store.get(cid)
     }
 
-    /// Put an object in the block store and return the Cid identifier
     fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,
         T: MultihashDigest,
     {
+        let bytes = to_vec(obj)?;
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_ipld_put(to_vec(obj).unwrap().len()))?;
+            .charge_gas(self.price_list.on_ipld_put(bytes.len()))?;
 
-        Ok(self
-            .store
-            .put(obj, hash)
-            .map_err(|e| actor_error!(fatal("failed to write to store {}", e)))?)
+        Ok(self.store.put_raw(bytes, hash)?)
     }
 }
 
