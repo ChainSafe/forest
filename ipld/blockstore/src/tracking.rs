@@ -6,7 +6,6 @@
 use super::BlockStore;
 use cid::{multihash::MultihashDigest, Cid};
 use db::{Error, Store};
-use encoding::{ser::Serialize, to_vec};
 use std::cell::RefCell;
 use std::error::Error as StdError;
 
