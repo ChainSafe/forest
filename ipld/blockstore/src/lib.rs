@@ -47,11 +47,11 @@ pub trait BlockStore: Store {
         T: MultihashDigest,
     {
         let bytes = to_vec(obj)?;
-        self.put_raw(&bytes, hash)
+        self.put_raw(bytes, hash)
     }
 
     /// Put raw bytes in the block store and return the Cid identifier.
-    fn put_raw<T>(&self, bytes: &[u8], hash: T) -> Result<Cid, Box<dyn StdError>>
+    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
         T: MultihashDigest,
     {
