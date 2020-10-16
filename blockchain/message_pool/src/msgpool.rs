@@ -19,10 +19,7 @@ use db::Store;
 use encoding::Cbor;
 use flo_stream::Subscriber;
 use forest_libp2p::{NetworkMessage, PUBSUB_MSG_TOPIC};
-use futures::{
-    future::{select, Either},
-    StreamExt,
-};
+use futures::{future::select, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -364,21 +361,7 @@ where
             let mut interval = interval(Duration::from_millis(REPUBLISH_INTERVAL));
             loop {
                 match select(interval.next(), repub_trigger_rx.next()).await {
-                    Either::Left(_) => {
-                        if let Err(e) = republish_pending_messages(
-                            api.as_ref(),
-                            network_sender.as_ref(),
-                            pending.as_ref(),
-                            cur_tipset.as_ref(),
-                            republished.as_ref(),
-                            local_addrs.as_ref(),
-                        )
-                        .await
-                        {
-                            warn!("Failed to republish pending messages: {}", e.to_string());
-                        }
-                    }
-                    Either::Right(_) => {
+                    _ => {
                         if let Err(e) = republish_pending_messages(
                             api.as_ref(),
                             network_sender.as_ref(),
@@ -971,7 +954,6 @@ where
         }
     }
     drop(ts);
-    let mut count = 0;
     for m in msgs.iter() {
         let mb = m.marshal_cbor()?;
         network_sender
@@ -980,13 +962,6 @@ where
                 message: mb,
             })
             .await;
-        count += 1;
-        if count < msgs.len() {
-            // this delay is here to encourage the pubsub subsystem to process the messages serially
-            // and avoid creating nonce gaps because of concurrent validation
-            // TODO: I am not sure if we will run into the same issues
-            task::sleep(Duration::from_millis(100)).await;
-        }
     }
 
     let mut republished_t = HashSet::new();
