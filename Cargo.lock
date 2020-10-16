@@ -977,6 +977,7 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
+ "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
@@ -985,6 +986,9 @@ dependencies = [
  "forest_vm",
  "futures 0.3.6",
  "futures-util",
+ "genesis",
+ "hex",
+ "interpreter",
  "ipld_amt",
  "ipld_blockstore",
  "ipld_hamt",
@@ -992,6 +996,7 @@ dependencies = [
  "log",
  "lru",
  "num-traits 0.2.12",
+ "pretty_env_logger",
  "rand 0.7.3",
  "serde",
  "smallvec",
@@ -1284,7 +1289,7 @@ dependencies = [
  "rayon",
  "regex",
  "serde",
- "serde_cbor",
+ "serde_cbor 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive",
  "serde_json",
  "tinytemplate",
@@ -1948,6 +1953,7 @@ dependencies = [
  "forest_json_utils",
  "forest_vm",
  "ipld_amt",
+ "lazy_static",
  "num-derive",
  "num-traits 0.2.12",
  "serde",
@@ -2114,7 +2120,8 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_libp2p",
- "futures 0.3.6",
+ "futures 0.3.5",
+ "genesis",
  "hex",
  "ipld_blockstore",
  "jsonrpc-v2",
@@ -2210,7 +2217,7 @@ dependencies = [
  "multihash 0.10.1",
  "serde",
  "serde_bytes",
- "serde_cbor",
+ "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
  "serde_json",
  "thiserror",
 ]
@@ -2240,7 +2247,7 @@ dependencies = [
  "forest_cid",
  "serde",
  "serde_bytes",
- "serde_cbor",
+ "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
  "serde_repr",
  "serde_tuple",
  "thiserror",
@@ -2294,6 +2301,7 @@ dependencies = [
  "futures 0.3.6",
  "futures-util",
  "futures_codec",
+ "genesis",
  "ipld_blockstore",
  "libp2p",
  "libp2p-bitswap",
@@ -2311,6 +2319,7 @@ version = "0.5.0"
 dependencies = [
  "base64 0.12.3",
  "derive_builder",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_cid",
@@ -2560,6 +2569,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "genesis"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "chain",
+ "forest_blocks",
+ "forest_car",
+ "forest_cid",
+ "ipld_blockstore",
+ "log",
+ "state_manager",
+]
+
+[[package]]
 name = "get_if_addrs"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2661,7 +2684,7 @@ dependencies = [
  "forest_cid",
  "forest_encoding",
  "forest_ipld",
- "futures 0.3.6",
+ "futures 0.3.5",
  "futures-util",
  "futures_codec",
  "ipld_blockstore",
@@ -5296,6 +5319,15 @@ name = "serde_cbor"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e18acfa2f90e8b735b2836ab8d538de304cbb6729a7360729ea5a895d15a622"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
+name = "serde_cbor"
+version = "0.11.1"
+source = "git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a#3e7bf81f57e9010762dbc12292bd6f927fdfe83a"
 dependencies = [
  "half",
  "serde",

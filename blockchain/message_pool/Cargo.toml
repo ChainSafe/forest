@@ -8,7 +8,7 @@ edition = "2018"
 address = { package = "forest_address", path = "../../vm/address" }
 vm = { package = "forest_vm", path = "../../vm" }
 blocks = { package = "forest_blocks", path = "../blocks" }
-message = { package = "forest_message", path = "../../vm/message" }
+message = { package = "forest_message", path = "../../vm/message", features = ["proofs"] }
 thiserror = "1.0"
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
@@ -26,7 +26,6 @@ libsecp256k1 = "0.3.4"
 blake2b_simd = "0.5.10"
 log = "0.4.8"
 async-std = "1.6.3"
-key_management = { path = "../../key_management" }
 state_manager = { path = "../state_manager" }
 async-trait = "0.1"
 interpreter = { path = "../../vm/interpreter/" }

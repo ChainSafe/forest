@@ -31,7 +31,6 @@ async-std = "1.6.3"
 types = { package = "fil_types", path = "../../types" }
 lazy_static = "1.4"
 
-
 [features]
 json = []
 

@@ -1,10 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
+mod full_sync_test;
+
 use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
-use actor::{make_map_with_root, power, STORAGE_POWER_ACTOR_ADDR};
+use actor::{is_account_actor, make_map_with_root, power, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use amt::Amt;
 use async_std::sync::{Receiver, RwLock};
@@ -16,11 +19,12 @@ use cid::{multihash::Blake2b256, Cid};
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
-    verifier::ProofVerifier, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS,
+    verifier::ProofVerifier, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, BLOCK_GAS_LIMIT,
     TICKET_RANDOMNESS_LOOKBACK, UPGRADE_SMOKE_HEIGHT,
 };
 use forest_libp2p::blocksync::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
+use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -29,16 +33,10 @@ use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use vm::TokenAmount;
-
-/// Message data used to ensure valid state transition
-struct MsgMetaData {
-    balance: TokenAmount,
-    sequence: u64,
-}
 
 /// Worker to handle syncing chain with the blocksync protocol.
 pub(crate) struct SyncWorker<DB, TBeacon, V> {
@@ -471,7 +469,7 @@ where
 
         // Timestamp checks
         let nulls = (header.epoch() - (base_ts.epoch() + 1)) as u64;
-        let target_timestamp = base_ts.min_timestamp() + BLOCK_DELAY_SECS * nulls + 1;
+        let target_timestamp = base_ts.min_timestamp() + BLOCK_DELAY_SECS * (nulls + 1);
         if target_timestamp != header.timestamp() {
             return Err((
                 block_cid.clone(),
@@ -512,14 +510,20 @@ where
         let sm_c = Arc::clone(&sm);
         validations.push(task::spawn_blocking(move || {
             Self::check_block_msgs(sm_c, &b, &base_ts_clone)
+                .map_err(|e| Error::Validation(e.to_string()))
         }));
 
         // * Miner validations
         let sm_c = Arc::clone(&sm);
         let b_cloned = Arc::clone(&block);
+        let base_ts_clone = Arc::clone(&base_ts);
         validations.push(task::spawn_blocking(move || {
             let h = b_cloned.header();
-            Self::validate_miner(sm_c.as_ref(), h.miner_address(), h.state_root())
+            Self::validate_miner(
+                sm_c.as_ref(),
+                h.miner_address(),
+                base_ts_clone.parent_state(),
+            )
         }));
 
         // * base fee check
@@ -547,8 +551,8 @@ where
         let base_ts_clone = Arc::clone(&base_ts);
         let weight = header.weight().clone();
         validations.push(task::spawn_blocking(move || {
-            let calc_weight =
-                chain::weight(bs_cloned.as_ref(), &base_ts_clone).map_err(Error::Other)?;
+            let calc_weight = chain::weight(bs_cloned.as_ref(), &base_ts_clone)
+                .map_err(|e| Error::Other(format!("Error calculating weight: {}", e)))?;
             if weight != calc_weight {
                 return Err(Error::Validation(format!(
                     "Parent weight doesn't match: {} (header), {} (computed)",
@@ -567,7 +571,7 @@ where
             let (state_root, rec_root) = sm_cloned
                 .tipset_state::<V>(base_ts_clone.as_ref())
                 .await
-                .map_err(|e| Error::Other(e.to_string()))?;
+                .map_err(|e| Error::Other(format!("Failed to calculate state: {}", e)))?;
             if &state_root != h.state_root() {
                 return Err(Error::Validation(format!(
                     "Parent state root did not match computed state: {} (header), {} (computed)",
@@ -621,7 +625,8 @@ where
             )
             .map_err(|e| Error::Other(format!("failed to draw randomness: {}", e)))?;
 
-            verify_election_post_vrf(&work_addr, &vrf_base, election_proof.vrfproof.as_bytes())?;
+            verify_election_post_vrf(&work_addr, &vrf_base, election_proof.vrfproof.as_bytes())
+                .map_err(|e| format!("Winner election proof failed: {}", e))?;
 
             let slashed =
                 sm_c.is_miner_slashed(h.miner_address(), &base_ts_clone.parent_state())?;
@@ -681,7 +686,7 @@ where
         let p_beacon = Arc::clone(&prev_beacon);
         validations.push(task::spawn_blocking(move || {
             let h = b_cloned.header();
-            let mut buf = h.marshal_cbor()?;
+            let mut buf = h.miner_address().marshal_cbor()?;
 
             if h.epoch() > UPGRADE_SMOKE_HEIGHT {
                 let vrf_proof = base_ts
@@ -701,14 +706,15 @@ where
                 h.epoch() - TICKET_RANDOMNESS_LOOKBACK,
                 &buf,
             )
-            .map_err(|e| Error::Other(format!("failed to draw randomness: {}", e)))?;
+            .map_err(|e| format!("failed to draw randomness: {}", e))?;
 
             verify_election_post_vrf(
                 &work_addr,
                 &vrf_base,
                 // Safe to unwrap here because of block sanity checks
                 h.ticket().as_ref().unwrap().vrfproof.as_bytes(),
-            )?;
+            )
+            .map_err(|e| format!("Ticket election proof failed: {}", e))?;
 
             Ok(())
         }));
@@ -721,7 +727,8 @@ where
                 b_clone.header(),
                 prev_beacon.as_ref(),
                 &lbst,
-            )?;
+            )
+            .map_err(|e| format!("Verify winning PoSt failed: {}", e))?;
 
             Ok(())
         }));
@@ -756,17 +763,17 @@ where
     fn check_block_msgs(
         state_manager: Arc<StateManager<DB>>,
         block: &Block,
-        tip: &Tipset,
-    ) -> Result<(), Error> {
+        base_ts: &Tipset,
+    ) -> Result<(), Box<dyn StdError>> {
         // do the initial loop here
         // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
         let mut cids = Vec::new();
         for m in block.bls_msgs() {
             let pk = StateManager::get_bls_public_key(
-                &state_manager.blockstore_cloned(),
+                state_manager.blockstore(),
                 m.from(),
-                tip.parent_state(),
+                base_ts.parent_state(),
             )?;
             pub_keys.push(pk);
             cids.push(m.to_signing_bytes());
@@ -785,88 +792,98 @@ where
                     .as_slice(),
                 &sig,
             ) {
-                return Err(Error::Validation(format!(
-                    "Bls aggregate signature {:?} was invalid: {:?}",
-                    sig, cids
-                )));
+                return Err(
+                    format!("Bls aggregate signature {:?} was invalid: {:?}", sig, cids).into(),
+                );
             }
         } else {
-            return Err(Error::Validation(
-                "No bls signature included in the block header".to_owned(),
-            ));
+            return Err("No bls signature included in the block header".into());
         }
+
+        let pl = price_list_by_epoch(base_ts.epoch());
+        let mut sum_gas_limit = 0;
 
         // check msgs for validity
-        fn check_msg<M, DB: BlockStore>(
-            msg: &M,
-            msg_meta_data: &mut HashMap<Address, MsgMetaData>,
-            tree: &StateTree<DB>,
-        ) -> Result<(), Error>
-        where
-            M: Message,
-        {
-            let updated_state: MsgMetaData = match msg_meta_data.get(msg.from()) {
-                // address is present begin validity checks
-                Some(MsgMetaData { sequence, balance }) => {
-                    // sequence equality check
-                    if *sequence != msg.sequence() {
-                        return Err(Error::Validation("Sequences are not equal".to_owned()));
-                    }
+        let mut check_msg = |msg: &UnsignedMessage,
+                             account_sequences: &mut HashMap<Address, u64>,
+                             tree: &StateTree<DB>|
+         -> Result<(), Box<dyn StdError>> {
+            // Phase 1: syntactic validation
+            let min_gas = pl.on_chain_message(msg.marshal_cbor().unwrap().len());
+            msg.valid_for_block_inclusion(min_gas.total())?;
 
-                    // sufficient funds check
-                    if *balance < msg.required_funds() {
-                        return Err(Error::Validation(
-                            "Insufficient funds for message execution".to_owned(),
-                        ));
-                    }
-                    // update balance and increment sequence by 1
-                    MsgMetaData {
-                        balance: balance - &msg.required_funds(),
-                        sequence: sequence + 1,
-                    }
-                }
-                // MsgMetaData not found with provided address key, insert sequence and balance with address as key
+            sum_gas_limit += msg.gas_limit();
+            if sum_gas_limit > BLOCK_GAS_LIMIT {
+                return Err("block gas limit exceeded".into());
+            }
+
+            // Phase 2: (Partial) semantic validation
+            // Sender exists and is account actor, and sequence is correct
+            let sequence: u64 = match account_sequences.get(msg.from()) {
+                Some(sequence) => *sequence,
+                // Sequence does not exist in map, get actor from state
                 None => {
-                    let actor = tree
-                        .get_actor(msg.from())
-                        .map_err(|e| Error::Other(e.to_string()))?
-                        .ok_or_else(|| {
-                            Error::Other("Could not retrieve actor from state tree".to_owned())
-                        })?;
+                    let act = tree.get_actor(msg.from())?.ok_or_else(|| {
+                        "Failed to retrieve nonce for addr: Actor does not exist in state"
+                    })?;
 
-                    MsgMetaData {
-                        sequence: actor.sequence,
-                        balance: actor.balance,
+                    if !is_account_actor(&act.code) {
+                        return Err("Sender must be an account actor".into());
                     }
+                    act.sequence
                 }
             };
-            // update hash map with updated state
-            msg_meta_data.insert(*msg.from(), updated_state);
+
+            // sequence equality check
+            if sequence != msg.sequence() {
+                return Err(format!(
+                    "Message has incorrect sequence (exp: {} got: {})",
+                    sequence,
+                    msg.sequence()
+                )
+                .into());
+            }
+
+            // Update account sequence
+            account_sequences.insert(*msg.from(), sequence + 1);
             Ok(())
-        }
-        let mut msg_meta_data: HashMap<Address, MsgMetaData> = HashMap::default();
-        let db = state_manager.blockstore_cloned();
-        let (state_root, _) = task::block_on(state_manager.tipset_state::<V>(&tip))
-            .map_err(|e| Error::Validation(format!("Could not update state: {}", e)))?;
-        let tree = StateTree::new_from_root(db.as_ref(), &state_root).map_err(|_| {
-            Error::Validation("Could not load from new state root in state manager".to_owned())
-        })?;
+        };
+
+        let mut account_sequences: HashMap<Address, u64> = HashMap::default();
+        let db = state_manager.blockstore();
+        let (state_root, _) = task::block_on(state_manager.tipset_state::<V>(&base_ts))
+            .map_err(|e| format!("Could not update state: {}", e))?;
+        let tree = StateTree::new_from_root(db, &state_root)
+            .map_err(|e| format!("Could not load from new state root in state manager: {}", e))?;
+
         // loop through bls messages and check msg validity
-        for m in block.bls_msgs() {
-            check_msg(m, &mut msg_meta_data, &tree)?;
+        for (i, m) in block.bls_msgs().iter().enumerate() {
+            check_msg(m, &mut account_sequences, &tree)
+                .map_err(|e| format!("block had invalid bls message at index {}: {}", i, e))?;
         }
         // loop through secp messages and check msg validity and signature
-        for m in block.secp_msgs() {
-            check_msg(m, &mut msg_meta_data, &tree)?;
-            // signature validation
+        for (i, m) in block.secp_msgs().iter().enumerate() {
+            check_msg(m.message(), &mut account_sequences, &tree)
+                .map_err(|e| format!("block had invalid secp message at index {}: {}", i, e))?;
+
+            // Resolve key address for signature verification
+            let k_addr = task::block_on(state_manager.resolve_to_key_addr::<V>(m.from(), base_ts))
+                .map_err(|e| e.to_string())?;
+
+            // Secp256k1 signature validation
             m.signature()
-                .verify(&m.message().to_signing_bytes(), m.from())
-                .map_err(|e| Error::Validation(format!("Message signature invalid: {}", e)))?;
+                .verify(&m.message().to_signing_bytes(), &k_addr)
+                .map_err(|e| format!("Message signature invalid: {}", e))?;
         }
         // validate message root from header matches message root
-        let sm_root = compute_msg_meta(db.as_ref(), block.bls_msgs(), block.secp_msgs())?;
+        let sm_root = compute_msg_meta(db, block.bls_msgs(), block.secp_msgs())?;
         if block.header().messages() != &sm_root {
-            return Err(Error::InvalidRoots);
+            return Err(format!(
+                "Invalid message root expected {} calculated {}",
+                block.header().messages(),
+                sm_root
+            )
+            .into());
         }
 
         Ok(())
@@ -920,7 +937,9 @@ where
     }
 
     fn validate_miner(sm: &StateManager<DB>, maddr: &Address, ts_state: &Cid) -> Result<(), Error> {
-        let spast: power::State = sm.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts_state)?;
+        let spast: power::State = sm
+            .load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts_state)
+            .map_err(|e| format!("Could not load power state: {}", e))?;
 
         let cm = make_map_with_root::<_, power::Claim>(&spast.claims, sm.blockstore())?;
 
@@ -968,6 +987,7 @@ fn compute_msg_meta<DB: BlockStore>(
     let secp_cids = cids_from_messages(secp_msgs)?;
 
     // generate Amt and batch set message values
+    // TODO avoid having to clone all cids (from iter function on Amt)
     let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
     let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
 

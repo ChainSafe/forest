@@ -11,8 +11,8 @@ use clock::ChainEpoch;
 use commcid::data_commitment_v1_to_cid;
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
-    zero_piece_commitment, PaddedPieceSize, PieceInfo, Randomness, RegisteredSealProof,
-    SealVerifyInfo, WindowPoStVerifyInfo,
+    zero_piece_commitment, NetworkVersion, PaddedPieceSize, PieceInfo, Randomness,
+    RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo,
 };
 use filecoin_proofs_api::seal::compute_comm_d;
 use filecoin_proofs_api::{self as proofs};
@@ -26,6 +26,9 @@ use vm::{ActorError, MethodNum, Serialized, TokenAmount};
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
 pub trait Runtime<BS: BlockStore> {
+    /// The network protocol version number at the current epoch.
+    fn network_version(&self) -> NetworkVersion;
+
     /// Information related to the current message being executed.
     fn message(&self) -> &dyn MessageInfo;
 

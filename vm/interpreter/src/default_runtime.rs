@@ -11,7 +11,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
-use fil_types::{DevnetParams, NetworkParams, Randomness};
+use fil_types::{DevnetParams, NetworkParams, NetworkVersion, Randomness};
 use forest_encoding::to_vec;
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
@@ -58,6 +58,7 @@ impl MessageInfo for VMMsg {
 
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams> {
+    version: NetworkVersion,
     state: &'st mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
     syscalls: GasSyscalls<'sys, SYS>,
@@ -86,6 +87,7 @@ where
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        version: NetworkVersion,
         state: &'st mut StateTree<'db, BS>,
         store: &'db BS,
         syscalls: &'sys SYS,
@@ -125,6 +127,7 @@ where
         };
 
         Ok(DefaultRuntime {
+            version,
             state,
             store: gas_block_store,
             syscalls: gas_syscalls,
@@ -339,6 +342,9 @@ where
     P: NetworkParams,
     R: Rand,
 {
+    fn network_version(&self) -> NetworkVersion {
+        self.version
+    }
     fn message(&self) -> &dyn MessageInfo {
         &self.vm_msg
     }
