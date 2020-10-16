@@ -6,10 +6,12 @@ mod piece;
 mod randomness;
 pub mod sector;
 pub mod verifier;
+mod version;
 
 pub use self::piece::*;
 pub use self::randomness::*;
 pub use self::sector::*;
+pub use self::version::*;
 
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use num_bigint::BigInt;
@@ -88,3 +90,4 @@ pub const UPGRADE_SMOKE_HEIGHT: i64 = 51000;
 pub const UPGRADE_IGNITION_HEIGHT: i64 = 94000;
 pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
 pub const UPGRADE_ACTORS_V2_HEIGHT: i64 = 138720;
+

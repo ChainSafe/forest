@@ -26,11 +26,27 @@ pub struct State {
 }
 
 impl State {
+    /// Set locked amount in multisig state.
+    pub fn set_locked(
+        &mut self,
+        start_epoch: ChainEpoch,
+        unlock_duration: ChainEpoch,
+        locked_amount: TokenAmount,
+    ) {
+        self.start_epoch = start_epoch;
+        self.unlock_duration = unlock_duration;
+        self.initial_balance = locked_amount;
+    }
+
     /// Returns amount locked in multisig contract
     pub fn amount_locked(&self, elapsed_epoch: ChainEpoch) -> TokenAmount {
         if elapsed_epoch >= self.unlock_duration {
             return TokenAmount::from(0);
         }
+        if elapsed_epoch < 0 {
+            return self.initial_balance.clone();
+        }
+        // Division truncation is broken here: https://github.com/filecoin-project/specs-actors/issues/1131
         let unit_locked: TokenAmount = self
             .initial_balance
             .div_floor(&TokenAmount::from(self.unlock_duration));
@@ -60,8 +76,8 @@ impl State {
         let amount_locked = self.amount_locked(curr_epoch - self.start_epoch);
         if remaining_balance < amount_locked {
             return Err(format!(
-                "actor balance if spent {} would be less than required locked amount {}",
-                remaining_balance, amount_locked
+                "actor balance {} if spent {} would be less than required locked amount {}",
+                remaining_balance, amount_to_spend, amount_locked
             ));
         }
         Ok(())

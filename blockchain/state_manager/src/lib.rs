@@ -15,7 +15,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
-use fil_types::verifier::ProofVerifier;
+use fil_types::{get_network_version_default, verifier::ProofVerifier};
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
@@ -196,13 +196,14 @@ where
     {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
-        let mut vm = VM::<_, _, _>::new(
+        let mut vm = VM::<_, _, _, _>::new(
             p_state,
             &buf_store,
             epoch,
             DefaultSyscalls::<_, V>::new(&buf_store),
             rand,
             base_fee,
+            get_network_version_default,
         )?;
 
         // Apply tipset messages
@@ -275,13 +276,14 @@ where
         span!("state_call_raw", {
             let block_store = self.blockstore();
             let buf_store = BufferedBlockStore::new(block_store);
-            let mut vm = VM::<_, _, _>::new(
+            let mut vm = VM::<_, _, _, _>::new(
                 bstate,
                 &buf_store,
                 *bheight,
                 DefaultSyscalls::<_, V>::new(&buf_store),
                 rand,
                 0.into(),
+                get_network_version_default,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -350,13 +352,14 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned());
 
-        let mut vm = VM::<_, _, _>::new(
+        let mut vm = VM::<_, _, _, _>::new(
             &st,
             self.bs.as_ref(),
             ts.epoch() + 1,
             DefaultSyscalls::<_, V>::new(self.bs.as_ref()),
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
+            get_network_version_default,
         )?;
 
         for msg in prior_messages {
