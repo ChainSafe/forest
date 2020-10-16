@@ -10,23 +10,24 @@ pub struct MessageVector {
     #[serde(with = "base64_bytes")]
     pub bytes: Vec<u8>,
     #[serde(default)]
-    pub epoch: Option<ChainEpoch>,
+    pub epoch_offset: Option<ChainEpoch>,
 }
 
-pub fn execute_message(
+pub fn execute_message<'a>(
     bs: &db::MemoryDB,
     msg: &ChainMessage,
     pre_root: &Cid,
     epoch: ChainEpoch,
     basefee: TokenAmount,
     selector: &Option<Selector>,
+    randomness: ReplayingRand<'a>,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let mut vm = VM::<_, _, _, _>::new(
         pre_root,
         bs,
         epoch,
         TestSyscalls,
-        &TestRand,
+        &randomness,
         basefee,
         get_network_version_default,
     )?;
