@@ -75,8 +75,8 @@ pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams
     allow_internal: bool,
     registered_actors: &'act HashSet<Cid>,
     params: PhantomData<P>,
-    pre_ignition: Option<GenesisInfo>,
-    post_ignition: Option<GenesisInfo>,
+    pre_ignition: GenesisInfo,
+    post_ignition: GenesisInfo,
 }
 
 impl<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
@@ -131,6 +131,11 @@ where
             value_received: message.value().clone(),
         };
 
+        let default_preignition =
+            setup_preignition_genesis_actors_testnet(&gas_block_store).unwrap();
+        let default_postignition =
+            setup_postignition_genesis_actors_testnet(&gas_block_store).unwrap();
+
         Ok(DefaultRuntime {
             version,
             state,
@@ -148,8 +153,8 @@ where
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
-            pre_ignition,
-            post_ignition,
+            pre_ignition: pre_ignition.unwrap_or(default_preignition),
+            post_ignition: post_ignition.unwrap_or(default_postignition),
         })
     }
 
@@ -607,12 +612,8 @@ where
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         let total_circ = get_circulating_supply(
-            self.pre_ignition
-                .as_ref()
-                .ok_or_else(|| actor_error!(ErrNotFound;"Genesis info not initialized"))?,
-            self.post_ignition
-                .as_ref()
-                .ok_or_else(|| actor_error!(ErrNotFound;"Genesis info not initialized"))?,
+            &self.pre_ignition,
+            &self.post_ignition,
             self.epoch,
             self.state,
         )
