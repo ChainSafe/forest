@@ -33,9 +33,24 @@ impl MsgListeners {
     pub async fn subscribe(&mut self) -> Subscriber<MsgCompleteEvt> {
         self.ps.subscribe()
     }
+    /// registers a callback for when the message with the given cid
+    /// completes
+    pub async fn on_msg_complete<F>(&mut self, mcid: Cid, cb: F) -> Subscriber<MsgCompleteEvt>
+    where
+        F: Fn(String),
+    {
+        let _ = |evt: MsgCompleteEvt| {
+            if mcid == evt.mcid {
+                cb(evt.err)
+            }
+        };
+        self.subscribe().await
+    }
 
+    /// called when a message completes
     pub async fn fire_msg_complete(&mut self, mcid: Cid, err: Error) {
         self.num_pubs += 1;
+
         self.ps
             .publish(MsgCompleteEvt {
                 mcid,

@@ -665,15 +665,17 @@ where
         let msg_cid = umsg.cid()?;
 
         let ks = keystore.as_ref().write().await;
-        let key = key_management::find_key(&from, &*ks).unwrap(); // TODO fix
+        let key = key_management::find_key(&from, &*ks)
+            .map_err(|e| Error::Other(format!("failed to find key for wallet: {}", e)))?;
         let sig = key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
             msg_cid.to_bytes().as_slice(),
         )
-        .unwrap(); // TODO fix
+        .map_err(|e| Error::Other(format!("failed to sign message: {}", e)))?;
 
-        let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap(); // TODO fix
+        let smsg = SignedMessage::new_from_parts(umsg, sig)
+            .map_err(|e| Error::Other(format!("failed to generate a new signed message: {}", e)))?;
         self.push(smsg.clone()).await?;
 
         Ok(smsg)

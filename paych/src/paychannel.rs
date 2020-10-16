@@ -46,7 +46,7 @@ where
     state: Arc<ResourceAccessor<DB, KS>>,
 }
 
-// TODO ask if needed
+// TODO dont think this is needed
 /// VoucherCreateResult is the response to calling PaychVoucherCreate
 struct _VoucherCreateResult {
     // Voucher that was created, or nil if there was an error or if there
@@ -55,6 +55,11 @@ struct _VoucherCreateResult {
     // Shortfall is the additional amount that would be needed in the channel
     // in order to be able to create the voucher
     shortfall: BigInt,
+}
+
+struct OnMsgRes {
+    channel: Address,
+    err: Error,
 }
 
 impl<DB, KS> ChannelAccessor<DB, KS>
@@ -69,11 +74,6 @@ where
             funds_req_queue: Arc::new(RwLock::new(Vec::new())),
             state: pm.state.clone(),
         }
-    }
-
-    /// Returns channel info by address
-    pub async fn get_channel_info(&self, addr: &Address) -> Result<ChannelInfo, Error> {
-        self.store.read().await.get_channel_info(addr).await
     }
     /// creates a voucher with the given specification, setting its
     /// sequence, signing the voucher and storing it in the local datastore.
@@ -213,7 +213,7 @@ where
         secret: Vec<u8>,
         mut proof: Vec<u8>,
     ) -> Result<bool, Error> {
-        let recipient = self._get_paych_recipient(&ch).await?;
+        let recipient = self.get_paych_recipient(&ch).await?;
         let st = self.store.read().await;
         let ci: ChannelInfo = st.by_address(ch).await?;
 
@@ -262,8 +262,7 @@ where
 
         Ok(true)
     }
-    // intentionally unused, to be used with paych rpc
-    async fn _get_paych_recipient(&self, ch: &Address) -> Result<Address, Error> {
+    async fn get_paych_recipient(&self, ch: &Address) -> Result<Address, Error> {
         let sm = self.state.sa.sm.read().await;
         let heaviest_ts = get_heaviest_tipset(sm.blockstore())
             .map_err(|_| Error::HeaviestTipset)?
@@ -714,8 +713,7 @@ where
         Ok(mcid)
     }
 
-    // TODO ask about thread safety
-    pub async fn wait_paych_create_msg(&self, ch_id: String, mcid: Cid) -> Result<(), Error>
+    pub async fn wait_paych_create_msg(&self, ch_id: String, mcid: &Cid) -> Result<(), Error>
     where
         DB: BlockStore + Send + Sync + 'static,
     {
@@ -724,7 +722,7 @@ where
         let (_, msg) = StateManager::wait_for_message(
             sm.blockstore_cloned(),
             sm.get_subscriber(),
-            &mcid,
+            mcid,
             MESSAGE_CONFIDENCE,
         )
         .await
@@ -792,6 +790,11 @@ where
         // });
 
         Ok(())
+    }
+
+    pub async fn msg_promise(&self, _mcid: Cid) {
+        //let unsub = self._msg_listeners.on_msg_complete(mcid, |e| {});
+        unimplemented!()
     }
 
     async fn _msg_wait_completed(&mut self, mcid: Cid, err: Option<Error>) -> Result<(), Error> {

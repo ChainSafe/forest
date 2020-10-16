@@ -39,9 +39,9 @@ where
 }
 
 pub struct ChannelAvailableFunds {
-    /// The address of the channel
+    // The address of the channel
     pub channel: Option<Address>,
-    /// Address of the channel (channel creator)
+    // Address of the channel (channel creator)
     pub from: Address,
     // To is the to address of the channel
     pub to: Address,
@@ -82,12 +82,15 @@ where
         let cis = st.with_pending_add_funds().await?;
         // TODO ask about the group err usage
         for ci in cis {
-            if let Some(_msg) = ci.create_msg {
+            if let Some(ref _msg) = ci.create_msg.clone() {
                 let _ca = &*self.accessor_by_from_to(ci.control, ci.target).await?;
                 // TODO ask if this should be blocking
-                // task::spawn(async move {
-                //     ca.wait_paych_create_msg(ci.id, msg).await;
-                // });
+                // async {
+                //     task::spawn(move || async{
+                //         ca.wait_paych_create_msg(ci.id, msg).await;
+                //     })
+                // }
+                // .await;
                 return Ok(());
             } else if let Some(_msg) = ci.add_funds_msg {
                 let ch = ci
@@ -120,7 +123,7 @@ where
     pub async fn available_funds(&self, ch: Address) -> Result<ChannelAvailableFunds, Error> {
         let ca = self.accessor_by_address(ch).await?;
 
-        let ci = ca.get_channel_info(&ch).await?;
+        let ci = self.get_channel_info(&ch).await?;
 
         ca.process_queue(ci.id).await
     }
@@ -197,9 +200,9 @@ where
         store.list_channels().await
     }
     /// Returns channel info by provided address
-    pub async fn get_channel_info(&self, addr: Address) -> Result<ChannelInfo, Error> {
-        let ca = self.accessor_by_address(addr).await?;
-        ca.get_channel_info(&addr).await
+    pub async fn get_channel_info(&self, addr: &Address) -> Result<ChannelInfo, Error> {
+        let store = self.store.read().await;
+        store.get_channel_info(addr).await
     }
     /// Creates a voucher from the provided address and signed voucher  
     pub async fn create_voucher(
