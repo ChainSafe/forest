@@ -51,7 +51,6 @@ lazy_static! {
 }
 
 /// represents the current version of the api
-
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct APIVersion {
