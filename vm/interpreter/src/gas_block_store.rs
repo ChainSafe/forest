@@ -24,15 +24,13 @@ where
 {
     /// Get bytes from block store by Cid
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_ipld_get())?;
         let ret = self
             .store
             .get_bytes(cid)
             .map_err(|e| actor_error!(fatal("failed to get block from blockstore: {}", e)))?;
-        if let Some(bz) = &ret {
-            self.gas
-                .borrow_mut()
-                .charge_gas(self.price_list.on_ipld_get(bz.len()))?;
-        }
         Ok(ret)
     }
 
@@ -53,9 +51,14 @@ where
         S: Serialize,
         T: MultihashDigest,
     {
+        // TODO try to avoid serializing all data twice (it adds up)
+        // The reason this is needed is because there is unintended interactions
+        // when writing to the store directly, because other blockstore implmentations
+        // expect bytes to be written through the put function.
+        // Consider maybe adding a put_raw function, which avoids serialization.
         self.gas
             .borrow_mut()
-            .charge_gas(self.price_list.on_ipld_put(to_vec(obj).unwrap().len()))?;
+            .charge_gas(self.price_list.on_ipld_put(to_vec(obj)?.len()))?;
 
         Ok(self
             .store
