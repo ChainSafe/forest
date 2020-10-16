@@ -20,6 +20,8 @@ lazycell = "1.2.1"
 [features]
 identity = []
 go-interop = []
+# This feature should just be used for testing (ignoring links that don't exist in store)
+ignore-dead-links = []
 
 [dev-dependencies]
 hex = "0.4.2"

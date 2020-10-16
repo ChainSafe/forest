@@ -58,8 +58,14 @@ impl BitWriter {
 
     /// Writes any remaining bits to the buffer and returns it.
     pub fn finish(mut self) -> Vec<u8> {
-        if self.num_bits > 0 {
+        if self.bits > 0 {
             self.bytes.push(self.bits as u8);
+        }
+
+        // This check should not be necessary, but as a sanity check to make sure 0 bytes
+        // aren't added at the end of the bytes
+        while let Some(0) = self.bytes.last() {
+            self.bytes.pop();
         }
         self.bytes
     }
@@ -75,13 +81,12 @@ mod tests {
         let empty_vec: Vec<u8> = Vec::new();
         assert_eq!(writer.clone().finish(), empty_vec);
 
+        // Trailing 0 bits are not included
         writer.write(0b0000_0000, 4);
-        assert_eq!(writer.clone().finish(), &[0b0000_0000]);
-        //                                           ^^^^
+        assert_eq!(writer.clone().finish(), &[] as &[u8]);
 
         writer.write(0b0000_0000, 4);
-        assert_eq!(writer.clone().finish(), &[0b0000_0000]);
-        //                                      ^^^^
+        assert_eq!(writer.clone().finish(), &[] as &[u8]);
 
         writer.write(0b0000_0001, 4);
         assert_eq!(writer.clone().finish(), &[0b0000_0000, 0b0000_0001]);
@@ -98,10 +103,8 @@ mod tests {
         ); //                ^^                   ^
 
         writer.write(0b0111_0100, 8);
-        assert_eq!(
-            writer.finish(),
-            &[0b0000_0000, 0b1011_0001, 0b1110_1001, 0b0000_0000]
-        ); //                             ^^^^ ^^^             ^
+        assert_eq!(writer.finish(), &[0b0000_0000, 0b1011_0001, 0b1110_1001]);
+        //                                                        ^^^^ ^^^
     }
 
     #[test]
@@ -136,8 +139,6 @@ mod tests {
                 //^^^^ ^
                 0b0011_0010,
                 //^^^^ ^^^^
-                0b0000_0000,
-                //   ^ ^^^^
             ]
         );
     }

@@ -748,11 +748,22 @@ where
         );
     };
 
-    let out_add: BigInt = &log2_p << 8;
-    let mut out = ts.weight().to_owned() + out_add;
-    let e_weight: BigInt = ((log2_p * BigInt::from(ts.blocks().len())) * W_RATIO_NUM) << 8;
-    let value: BigInt = e_weight.div_floor(&(BigInt::from(BLOCKS_PER_EPOCH) * W_RATIO_DEN));
-    out += &value;
+    let mut total_j = 0;
+    for b in ts.blocks() {
+        total_j += b
+            .election_proof()
+            .as_ref()
+            .ok_or("Block contained no election proof when calculating weight")?
+            .win_count;
+    }
+
+    let mut out = ts.weight().to_owned();
+    out += &log2_p << 8;
+    let mut e_weight: BigInt = log2_p * W_RATIO_NUM;
+    e_weight <<= 8;
+    e_weight *= total_j;
+    e_weight = e_weight.div_floor(&(BigInt::from(BLOCKS_PER_EPOCH * W_RATIO_DEN)));
+    out += &e_weight;
     Ok(out)
 }
 

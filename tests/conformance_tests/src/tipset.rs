@@ -3,6 +3,7 @@
 
 use super::*;
 use fil_types::verifier::MockVerifier;
+use num_bigint::ToBigInt;
 use state_manager::StateManager;
 use std::sync::Arc;
 
@@ -56,7 +57,7 @@ mod block_messages_json {
 #[derive(Debug, Deserialize)]
 pub struct TipsetVector {
     pub epoch: ChainEpoch,
-    pub basefee: u64,
+    pub basefee: f64,
     #[serde(with = "block_messages_json")]
     pub blocks: Vec<BlockMessages>,
 }
@@ -83,7 +84,7 @@ pub fn execute_tipset(
         &tipset.blocks,
         tipset.epoch,
         &TestRand,
-        BigInt::from(tipset.basefee),
+        tipset.basefee.to_bigint().unwrap_or_default(),
         Some(|_, msg: &ChainMessage, ret| {
             _applied_messages.push(msg.clone());
             applied_results.push(ret);
