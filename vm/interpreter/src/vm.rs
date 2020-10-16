@@ -12,7 +12,7 @@ use actor::{
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::{DevnetParams, NetworkParams};
+use fil_types::{DevnetParams, NetworkParams, NetworkVersion};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
@@ -39,7 +39,7 @@ pub struct BlockMessages {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
+pub struct VM<'db, 'r, DB, SYS, R, N, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
@@ -47,15 +47,17 @@ pub struct VM<'db, 'r, DB, SYS, R, P = DevnetParams> {
     rand: &'r R,
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
+    network_version_getter: N,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, SYS, R, P> VM<'db, 'r, DB, SYS, R, P>
+impl<'db, 'r, DB, SYS, R, N, P> VM<'db, 'r, DB, SYS, R, N, P>
 where
     DB: BlockStore,
     SYS: Syscalls,
     P: NetworkParams,
     R: Rand,
+    N: Fn(ChainEpoch) -> NetworkVersion,
 {
     pub fn new(
         root: &Cid,
@@ -64,10 +66,12 @@ where
         syscalls: SYS,
         rand: &'r R,
         base_fee: BigInt,
+        network_version_getter: N,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         Ok(VM {
+            network_version_getter,
             state,
             store,
             epoch,
@@ -476,6 +480,7 @@ where
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
+            (self.network_version_getter)(self.epoch),
             &mut self.state,
             self.store,
             &self.syscalls,

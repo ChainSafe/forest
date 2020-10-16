@@ -188,8 +188,15 @@ pub const PLEDGE_VESTING_SPEC: VestSpec = VestSpec {
     quantization: 12 * EPOCHS_IN_HOUR,  // PARAM_FINISH
 };
 
-pub const REWARD_VESTING_SPEC: VestSpec = VestSpec {
+pub const REWARD_VESTING_SPEC_V0: VestSpec = VestSpec {
     initial_delay: 20 * EPOCHS_IN_DAY, // PARAM_FINISH
+    vest_period: 180 * EPOCHS_IN_DAY,  // PARAM_FINISH
+    step_duration: EPOCHS_IN_DAY,      // PARAM_FINISH
+    quantization: 12 * EPOCHS_IN_HOUR, // PARAM_FINISH
+};
+
+pub const REWARD_VESTING_SPEC_V1: VestSpec = VestSpec {
+    initial_delay: 0,                  // PARAM_FINISH
     vest_period: 180 * EPOCHS_IN_DAY,  // PARAM_FINISH
     step_duration: EPOCHS_IN_DAY,      // PARAM_FINISH
     quantization: 12 * EPOCHS_IN_HOUR, // PARAM_FINISH
