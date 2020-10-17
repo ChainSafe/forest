@@ -6,7 +6,6 @@
 use super::BlockStore;
 use cid::{multihash::MultihashDigest, Cid};
 use db::{Error, Store};
-use encoding::{ser::Serialize, to_vec};
 use std::cell::RefCell;
 use std::error::Error as StdError;
 
@@ -55,12 +54,10 @@ where
         Ok(bytes)
     }
 
-    fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
+    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
-        S: Serialize,
         T: MultihashDigest,
     {
-        let bytes = to_vec(obj)?;
         self.stats.borrow_mut().w += 1;
         self.stats.borrow_mut().bw += bytes.len();
         let cid = Cid::new_from_cbor(&bytes, hash);

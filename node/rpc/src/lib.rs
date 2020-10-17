@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod auth_api;
 mod chain_api;
 mod gas_api;
 mod mpool_api;
@@ -13,7 +14,10 @@ use async_log::span;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::sync::{Arc, RwLock, Sender};
 use async_std::task::{self, JoinHandle};
-use async_tungstenite::{tungstenite::Message, WebSocketStream};
+use async_tungstenite::{
+    tungstenite::handshake::server::Request, tungstenite::Message, WebSocketStream,
+};
+use auth::{has_perms, Error as AuthError, JWT_IDENTIFIER, WRITE_ACCESS};
 use blockstore::BlockStore;
 use chain::{headchange_json::HeadChangeJson, ChainStore, EventsPayload};
 use chain_sync::{BadBlockCache, SyncState};
@@ -31,7 +35,9 @@ use log::{debug, error, info, warn};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::Serialize;
 use state_manager::StateManager;
+use utils::get_home_dir;
 use wallet::KeyStore;
+use wallet::PersistentKeyStore;
 
 type WsSink = SplitSink<WebSocketStream<TcpStream>, async_tungstenite::tungstenite::Message>;
 
@@ -65,6 +71,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
 {
+    use auth_api::*;
     use chain_api::*;
     use gas_api::*;
     use mpool_api::*;
@@ -73,6 +80,10 @@ where
     let events_pubsub = state.events_pubsub.clone();
     let rpc = Server::new()
         .with_data(Data::new(state))
+        // Auth API
+        .with_method("Filecoin.AuthNew", auth_new::<DB, KS>, false)
+        .with_method("Filecoin.AuthVerify", auth_verify::<DB, KS>, false)
+        // Chain API
         .with_method(
             "Filecoin.ChainGetMessage",
             chain_api::chain_get_message::<DB, KS>,
@@ -271,7 +282,20 @@ async fn handle_connection_and_log(
     events_in: Subscriber<EventsPayload>,
 ) {
     span!("handle_connection_and_log", {
-        if let Ok(ws_stream) = async_tungstenite::accept_async(tcp_stream).await {
+        let mut authorization_header: Option<String> = None;
+        if let Ok(ws_stream) =
+            async_tungstenite::accept_hdr_async(tcp_stream, |request: &Request, response| {
+                if let Some(authorization) = request.headers().get("Authorization") {
+                    // not all methods require authorization
+                    authorization_header = authorization
+                        .to_str()
+                        .map(|s| Some(s.to_string()))
+                        .unwrap_or_default();
+                }
+                Ok(response)
+            })
+            .await
+        {
             debug!("accepted websocket connection at {:}", addr);
             let (ws_sender, mut ws_receiver) = ws_stream.split();
             let ws_sender = Arc::new(RwLock::new(ws_sender));
@@ -286,6 +310,7 @@ async fn handle_connection_and_log(
                             Ok(call) => {
                                 // hacky but due to the limitations of jsonrpc_v2 impl
                                 // if this expands, better to implement some sort of middleware
+
                                 let call = if &*call.method == CHAIN_NOTIFY_METHOD_NAME {
                                     chain_notify_count += 1;
                                     RequestBuilder::default()
@@ -296,7 +321,19 @@ async fn handle_connection_and_log(
                                 } else {
                                     call
                                 };
-                                let response = state.clone().handle(call).await;
+                                let response = handle_rpc(&state, call, &authorization_header)
+                                    .await
+                                    .unwrap_or_else(|e| {
+                                        ResponseObjects::One(ResponseObject::Error {
+                                            jsonrpc: V2,
+                                            error: Error::Full {
+                                                code: 1,
+                                                message: e.message(),
+                                                data: None,
+                                            },
+                                            id: Id::Null,
+                                        })
+                                    });
                                 let error_send = ws_sender.clone();
 
                                 // initiate response and streaming if applicable
@@ -394,6 +431,38 @@ async fn handle_connection_and_log(
             warn!("web socket connection failed at {:}", addr)
         }
     })
+}
+
+async fn handle_rpc(
+    state: &Arc<Server<MapRouter>>,
+    call: RequestObject,
+    authorization_header: &Option<String>,
+) -> Result<ResponseObjects, Error> {
+    if WRITE_ACCESS.contains(&&*call.method) {
+        if let Some(header) = authorization_header {
+            let keystore = PersistentKeyStore::new(get_home_dir() + "/.forest")?;
+            let ki = keystore
+                .get(JWT_IDENTIFIER)
+                .map_err(|_| AuthError::Other("No JWT private key found".to_owned()))?;
+            let key = ki.private_key();
+            let perms = has_perms(header.to_string(), "write", key);
+            if perms.is_err() {
+                return Err(perms.unwrap_err());
+            }
+        } else {
+            return Ok(ResponseObjects::One(ResponseObject::Error {
+                jsonrpc: V2,
+                error: Error::Full {
+                    code: 200,
+                    message: AuthError::NoAuthHeader.to_string(),
+                    data: None,
+                },
+                id: Id::Null,
+            }));
+        }
+    };
+
+    Ok(state.handle(call).await)
 }
 
 async fn send_error(code: i64, ws_sender: &RwLock<WsSink>, message: String) -> Result<(), Error> {

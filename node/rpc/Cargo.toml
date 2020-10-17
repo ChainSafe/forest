@@ -28,13 +28,16 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 thiserror = "1.0"
 state_tree = { path = "../../vm/state_tree" }
 forest_libp2p = { path = "../forest_libp2p" }
+jsonwebtoken = "7.2.0"
+auth = { path = "../../utils/auth"}
+utils = { path = "../../node/utils" }
 rand_distr = "0.2.2"
 rand = "0.7"
 interpreter = { path = "../../vm/interpreter/" }
 fil_types = { path = "../../types" }
 bitfield = { path = "../../utils/bitfield",features = ["json"] }
 futures = "0.3.5"
-async-tungstenite = "0.8.0"
+async-tungstenite = "0.9.1"
 async-log = "2.0.0"
 log ="0.4.8"
 flo_stream = "0.4.0"

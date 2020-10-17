@@ -24,12 +24,12 @@ use db::{RocksDb, WriteBatch};
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
-    /// Get bytes from block store by Cid
+    /// Get bytes from block store by Cid.
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
         Ok(self.read(cid.to_bytes())?)
     }
 
-    /// Get typed object from block store by Cid
+    /// Get typed object from block store by Cid.
     fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Box<dyn StdError>>
     where
         T: DeserializeOwned,
@@ -40,15 +40,23 @@ pub trait BlockStore: Store {
         }
     }
 
-    /// Put an object in the block store and return the Cid identifier
+    /// Put an object in the block store and return the Cid identifier.
     fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,
         T: MultihashDigest,
     {
-        let bz = to_vec(obj)?;
-        let cid = Cid::new_from_cbor(&bz, hash);
-        self.write(cid.to_bytes(), bz)?;
+        let bytes = to_vec(obj)?;
+        self.put_raw(bytes, hash)
+    }
+
+    /// Put raw bytes in the block store and return the Cid identifier.
+    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
+    where
+        T: MultihashDigest,
+    {
+        let cid = Cid::new_from_cbor(&bytes, hash);
+        self.write(cid.to_bytes(), bytes)?;
         Ok(cid)
     }
 
