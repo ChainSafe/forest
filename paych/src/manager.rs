@@ -6,15 +6,16 @@ use crate::{ChannelAccessor, PaychFundsRes, VoucherInfo, DIR_INBOUND};
 use actor::paych::{Method::Collect, Method::Settle, SignedVoucher};
 use address::Address;
 use async_std::sync::{Arc, RwLock};
-//use async_std::task;
+use async_std::task;
 use blockstore::BlockStore;
 use cid::Cid;
 use encoding::Cbor;
+use futures::stream::{FuturesUnordered, StreamExt};
 use message::UnsignedMessage;
 use message_pool::{MessagePool, MpoolRpcProvider};
 use num_bigint::BigInt;
 use std::collections::HashMap;
-use wallet::KeyStore;
+use wallet::{KeyStore, Wallet};
 
 /// Thread safe payment channel management
 pub struct Manager<DB, KS>
@@ -36,6 +37,7 @@ where
     pub keystore: Arc<RwLock<KS>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub sa: StateAccessor<DB>,
+    pub wallet: Arc<RwLock<Wallet<KS>>>,
 }
 
 pub struct ChannelAvailableFunds {
@@ -65,7 +67,11 @@ where
     DB: BlockStore + Send + Sync,
     KS: KeyStore + Send + Sync + 'static,
 {
-    pub fn new(store: PaychStore, state: ResourceAccessor<DB, KS>) -> Self {
+    pub fn new(
+        store: PaychStore,
+        state: ResourceAccessor<DB, KS>,
+        wallet: Arc<RwLock<Wallet<KS>>>,
+    ) -> Self {
         Manager {
             store: Arc::new(RwLock::new(store)),
             state: Arc::new(state),
@@ -80,30 +86,31 @@ where
     async fn restart_pending(&mut self) -> Result<(), Error> {
         let mut st = self.store.write().await;
         let cis = st.with_pending_add_funds().await?;
-        // TODO ask about the group err usage
-        for ci in cis {
-            if let Some(ref _msg) = ci.create_msg.clone() {
-                let _ca = &*self.accessor_by_from_to(ci.control, ci.target).await?;
-                // TODO ask if this should be blocking
-                // async {
-                //     task::spawn(move || async{
-                //         ca.wait_paych_create_msg(ci.id, msg).await;
-                //     })
-                // }
-                // .await;
+        let mut err_wait_group = FuturesUnordered::new();
+
+        for mut ci in cis {
+            if let Some(msg) = ci.create_msg.clone() {
+                let ca = self.accessor_by_from_to(ci.control, ci.target).await?;
+
+                err_wait_group.push(task::spawn(async move {
+                    ca.wait_paych_create_msg(ci.id, &msg).await
+                }));
                 return Ok(());
-            } else if let Some(_msg) = ci.add_funds_msg {
+            } else if let Some(msg) = ci.add_funds_msg.clone() {
                 let ch = ci
                     .channel
                     .ok_or_else(|| Error::Other("error retrieving channel".to_string()))?;
-                let _ca = self.accessor_by_address(ch).await?;
+                let ca = self.accessor_by_address(ch).await?;
 
-                // TODO ask if this should be blocking
-                // task::spawn(async move {
-                //     ca.wait_add_funds_msg(&mut ci, msg).await;
-                // });
+                err_wait_group.push(task::spawn(async move {
+                    ca.wait_add_funds_msg(&mut ci, msg).await
+                }));
                 return Ok(());
             }
+        }
+
+        while let Some(result) = err_wait_group.next().await {
+            result?;
         }
         Ok(())
     }
@@ -163,37 +170,6 @@ where
         ca.process_queue(ci.id).await
     }
 
-    /// Waits until the create channel / add funds message with the
-    /// given message CID arrives.
-    /// The returned channel address can safely be used against the Manager methods.
-    pub async fn get_paych_wait_ready(&self, mcid: Cid) -> Result<Address, Error> {
-        // First check if the message has completed
-        let st = self.store.read().await;
-        let msg_info = st.get_message(&mcid).await?;
-
-        // if the create channel / add funds message failed, return an Error
-        if !msg_info.err.is_empty() {
-            return Err(Error::Other(msg_info.err.to_string()));
-        }
-
-        // if the message has completed successfully
-        if msg_info.received {
-            // get the channel address
-            let ci = st.by_message_cid(&mcid).await?;
-
-            if ci.channel.is_none() {
-                return Err(Error::Other(format!(
-                    "create / add funds message {} succeeded but channelInfo.Channel is none",
-                    mcid
-                )));
-            }
-
-            return Ok(ci.channel.unwrap());
-        }
-
-        // TODO include msg promise and return channel
-        unimplemented!()
-    }
     /// Lists channels that exist in the paych store
     pub async fn list_channels(&self) -> Result<Vec<Address>, Error> {
         let store = self.store.read().await;
@@ -233,7 +209,7 @@ where
         proof: Vec<u8>,
     ) -> Result<bool, Error> {
         if proof.is_empty() {
-            return Err(Error::Other("change to correct err type".to_string()));
+            return Err(Error::Other("proof is empty".to_string()));
         }
         let ca = self.accessor_by_address(addr).await?;
         ca.check_voucher_spendable(addr, sv, secret, proof).await
