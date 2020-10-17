@@ -129,7 +129,6 @@ impl Display for Version {
     }
 }
 
-
 impl std::convert::TryFrom<&NodeType> for Version {
     type Error = String;
     fn try_from(node_type: &NodeType) -> Result<Self, Self::Error> {
