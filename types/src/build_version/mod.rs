@@ -122,12 +122,13 @@ impl PartialEq for Version {
     }
 }
 
-impl ToString for Version {
-    fn to_string(&self) -> String {
+impl Display for Version {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let (major, minor, patch) = self.ints();
-        format!("{}.{}.{}", major, minor, patch)
+        write!(f, "{}.{}.{}", major, minor, patch)
     }
 }
+
 
 impl std::convert::TryFrom<&NodeType> for Version {
     type Error = String;
