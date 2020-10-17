@@ -606,7 +606,6 @@ where
         &self.syscalls
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
-
         let total_circ = get_circulating_supply(
             self.pre_ignition.as_ref().unwrap_or(
                 &setup_preignition_genesis_actors_testnet(&self.store).map_err(|e| {
