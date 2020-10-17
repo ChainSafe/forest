@@ -12,6 +12,9 @@ use message::unsigned_message::json::UnsignedMessageJson;
 
 jsonrpsee::rpc_api! {
     pub Filecoin {
+        /// Auth
+        #[rpc(method = "Filecoin.AuthNew", positional_params)]
+        fn auth_new(perm: Vec<String>) -> String;
         /// Chain
         #[rpc(method = "Filecoin.ChainGetBlock", positional_params)]
         fn chain_get_block(cid: CidJson) -> BlockHeaderJson;
