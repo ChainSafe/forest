@@ -75,8 +75,8 @@ pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams
     allow_internal: bool,
     registered_actors: &'act HashSet<Cid>,
     params: PhantomData<P>,
-    pre_ignition: GenesisInfo,
-    post_ignition: GenesisInfo,
+    pre_ignition: Option<GenesisInfo>,
+    post_ignition: Option<GenesisInfo>,
 }
 
 impl<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
@@ -131,11 +131,6 @@ where
             value_received: message.value().clone(),
         };
 
-        let default_preignition =
-            setup_preignition_genesis_actors_testnet(&gas_block_store).unwrap();
-        let default_postignition =
-            setup_postignition_genesis_actors_testnet(&gas_block_store).unwrap();
-
         Ok(DefaultRuntime {
             version,
             state,
@@ -153,8 +148,8 @@ where
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
-            pre_ignition: pre_ignition.unwrap_or(default_preignition),
-            post_ignition: post_ignition.unwrap_or(default_postignition),
+            pre_ignition,
+            post_ignition,
         })
     }
 
@@ -611,13 +606,28 @@ where
         &self.syscalls
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
+
         let total_circ = get_circulating_supply(
-            &self.pre_ignition,
-            &self.post_ignition,
+            self.pre_ignition.as_ref().unwrap_or(
+                &setup_preignition_genesis_actors_testnet(&self.store).map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "Failed to setup preignition genesis actors testnet",
+                    )
+                })?,
+            ),
+            self.post_ignition.as_ref().unwrap_or(
+                &setup_postignition_genesis_actors_testnet(&self.store).map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "Failed to setup preignition genesis actors testnet",
+                    )
+                })?,
+            ),
             self.epoch,
             self.state,
         )
-        .map_err(|e| actor_error!(fatal(e)))?;
+        .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "Failed to get circ supply"))?;
         Ok(total_circ)
     }
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
