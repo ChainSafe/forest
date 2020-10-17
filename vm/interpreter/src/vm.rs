@@ -37,6 +37,10 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
+// TODO replace with some trait or some generic solution (needs to use context)
+pub type CircSupplyCalc<BS> =
+    Box<dyn Fn(ChainEpoch, &StateTree<BS>) -> Result<TokenAmount, String>>;
+
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'db, 'r, DB, SYS, R, N, P = DevnetParams> {
@@ -48,6 +52,7 @@ pub struct VM<'db, 'r, DB, SYS, R, N, P = DevnetParams> {
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
     network_version_getter: N,
+    circ_supply_calc: Option<CircSupplyCalc<DB>>,
     params: PhantomData<P>,
 }
 
@@ -67,6 +72,7 @@ where
         rand: &'r R,
         base_fee: BigInt,
         network_version_getter: N,
+        circ_supply_calc: Option<CircSupplyCalc<DB>>,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -79,6 +85,7 @@ where
             rand,
             base_fee,
             registered_actors,
+            circ_supply_calc,
             params: PhantomData,
         })
     }
@@ -476,7 +483,7 @@ where
         gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, '_, '_, '_, '_, DB, SYS, R, P>>,
+        Option<DefaultRuntime<'db, '_, DB, SYS, R, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
@@ -492,6 +499,7 @@ where
             0,
             self.rand,
             &self.registered_actors,
+            &self.circ_supply_calc,
         );
 
         match res {

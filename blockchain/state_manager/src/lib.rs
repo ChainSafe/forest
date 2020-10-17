@@ -204,6 +204,7 @@ where
             rand,
             base_fee,
             get_network_version_default,
+            None,
         )?;
 
         // Apply tipset messages
@@ -284,6 +285,7 @@ where
                 rand,
                 0.into(),
                 get_network_version_default,
+                None,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -360,6 +362,7 @@ where
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
+            None,
         )?;
 
         for msg in prior_messages {

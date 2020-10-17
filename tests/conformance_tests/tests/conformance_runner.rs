@@ -14,7 +14,7 @@ use colored::*;
 use conformance_tests::*;
 use difference::{Changeset, Difference};
 use encoding::Cbor;
-use fil_types::HAMT_BIT_WIDTH;
+use fil_types::{HAMT_BIT_WIDTH, TOTAL_FILECOIN};
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use interpreter::ApplyRet;
@@ -34,7 +34,7 @@ use vm::ActorState;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
-    static ref DEFAULT_BASE_FEE: BigInt = 100.to_bigint().unwrap();
+    static ref DEFAULT_BASE_FEE: BigInt = BigInt::from(100);
     static ref SKIP_TESTS: Vec<Regex> = vec![
         Regex::new(r"test-vectors/corpus/vm_violations/x--").unwrap(),
         Regex::new(r"test-vectors/corpus/nested/x--").unwrap(),
@@ -234,6 +234,7 @@ fn execute_message_vector(
     car: &[u8],
     root_cid: Cid,
     base_fee: Option<f64>,
+    circ_supply: Option<f64>,
     apply_messages: &[MessageVector],
     postconditions: &PostConditions,
     randomness: &Randomness,
@@ -253,14 +254,19 @@ fn execute_message_vector(
 
         let (ret, post_root) = execute_message(
             &bs,
-            &to_chain_msg(msg),
-            &root,
-            base_epoch,
-            base_fee
-                .map(|i| i.to_bigint().unwrap())
-                .unwrap_or(DEFAULT_BASE_FEE.clone()),
             &selector,
-            ReplayingRand::new(randomness),
+            ExecuteMessageParams {
+                pre_root: &root,
+                epoch: base_epoch,
+                msg: &to_chain_msg(msg),
+                circ_supply: circ_supply
+                    .map(|i| i.to_bigint().unwrap())
+                    .unwrap_or(TOTAL_FILECOIN.clone()),
+                basefee: base_fee
+                    .map(|i| i.to_bigint().unwrap())
+                    .unwrap_or(DEFAULT_BASE_FEE.clone()),
+                randomness: ReplayingRand::new(randomness),
+            },
         )?;
         root = post_root;
 
@@ -357,6 +363,7 @@ fn conformance_test_runner() {
                         &car,
                         preconditions.state_tree.root_cid.clone(),
                         preconditions.basefee,
+                        preconditions.circ_supply,
                         &apply_messages,
                         &postconditions,
                         &randomness,

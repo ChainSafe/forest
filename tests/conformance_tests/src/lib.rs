@@ -114,6 +114,8 @@ pub struct PreConditions {
     #[serde(default)]
     pub basefee: Option<f64>,
     #[serde(default)]
+    pub circ_supply: Option<f64>,
+    #[serde(default)]
     pub variants: Vec<Variant>,
 }
 

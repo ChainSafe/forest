@@ -13,23 +13,30 @@ pub struct MessageVector {
     pub epoch_offset: Option<ChainEpoch>,
 }
 
+pub struct ExecuteMessageParams<'a> {
+    pub pre_root: &'a Cid,
+    pub epoch: ChainEpoch,
+    pub msg: &'a ChainMessage,
+    pub circ_supply: TokenAmount,
+    pub basefee: TokenAmount,
+    pub randomness: ReplayingRand<'a>,
+}
+
 pub fn execute_message<'a>(
     bs: &db::MemoryDB,
-    msg: &ChainMessage,
-    pre_root: &Cid,
-    epoch: ChainEpoch,
-    basefee: TokenAmount,
     selector: &Option<Selector>,
-    randomness: ReplayingRand<'a>,
+    params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
+    let circ_supply = params.circ_supply;
     let mut vm = VM::<_, _, _, _>::new(
-        pre_root,
+        params.pre_root,
         bs,
-        epoch,
+        params.epoch,
         TestSyscalls,
-        &randomness,
-        basefee,
+        &params.randomness,
+        params.basefee,
         get_network_version_default,
+        Some(Box::new(move |_, _| Ok(circ_supply.clone()))),
     )?;
 
     if let Some(s) = &selector {
@@ -42,7 +49,7 @@ pub fn execute_message<'a>(
         }
     }
 
-    let ret = vm.apply_message(msg)?;
+    let ret = vm.apply_message(params.msg)?;
 
     let root = vm.flush()?;
     Ok((ret, root))

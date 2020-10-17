@@ -4,6 +4,7 @@
 use super::gas_block_store::GasBlockStore;
 use super::gas_syscalls::GasSyscalls;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
+use super::CircSupplyCalc;
 use super::Rand;
 use actor::*;
 use address::{Address, Protocol};
@@ -57,11 +58,11 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'vm, BS, SYS, R, P = DevnetParams> {
     version: NetworkVersion,
-    state: &'st mut StateTree<'db, BS>,
+    state: &'vm mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
-    syscalls: GasSyscalls<'sys, SYS>,
+    syscalls: GasSyscalls<'vm, SYS>,
     gas_tracker: Rc<RefCell<GasTracker>>,
     vm_msg: VMMsg,
     epoch: ChainEpoch,
@@ -69,15 +70,15 @@ pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams
     origin_nonce: u64,
     num_actors_created: u64,
     price_list: PriceList,
-    rand: &'r R,
+    rand: &'vm R,
     caller_validated: bool,
     allow_internal: bool,
-    registered_actors: &'act HashSet<Cid>,
+    registered_actors: &'vm HashSet<Cid>,
+    circ_supply_calc: &'vm Option<CircSupplyCalc<BS>>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
-    DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
+impl<'db, 'vm, BS, SYS, R, P> DefaultRuntime<'db, 'vm, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -88,17 +89,18 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         version: NetworkVersion,
-        state: &'st mut StateTree<'db, BS>,
+        state: &'vm mut StateTree<'db, BS>,
         store: &'db BS,
-        syscalls: &'sys SYS,
+        syscalls: &'vm SYS,
         gas_used: i64,
         message: &UnsignedMessage,
         epoch: ChainEpoch,
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
-        rand: &'r R,
-        registered_actors: &'act HashSet<Cid>,
+        rand: &'vm R,
+        registered_actors: &'vm HashSet<Cid>,
+        circ_supply_calc: &'vm Option<CircSupplyCalc<BS>>,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -140,6 +142,7 @@ where
             price_list,
             rand,
             registered_actors,
+            circ_supply_calc,
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
@@ -334,8 +337,7 @@ where
     }
 }
 
-impl<'bs, BS, SYS, R, P> Runtime<GasBlockStore<'bs, BS>>
-    for DefaultRuntime<'bs, '_, '_, '_, '_, BS, SYS, R, P>
+impl<'bs, BS, SYS, R, P> Runtime<GasBlockStore<'bs, BS>> for DefaultRuntime<'bs, '_, BS, SYS, R, P>
 where
     BS: BlockStore,
     SYS: Syscalls,
@@ -599,6 +601,12 @@ where
         &self.syscalls
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
+        if let Some(circ_supply_calc) = self.circ_supply_calc.as_ref() {
+            // TODO all circ supply calculations should go through trait and not only override
+            return circ_supply_calc(self.epoch, &self.state).map_err(|e| {
+                actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
+            });
+        }
         let get_actor_state = |addr: &Address| -> Result<ActorState, ActorError> {
             self.state
                 .get_actor(&addr)
@@ -643,8 +651,8 @@ where
 
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
+pub fn vm_send<'db, 'vm, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, SYS, R, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<GasCharge>,
 ) -> Result<Serialized, ActorError>
@@ -751,8 +759,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
+fn invoke<'db, 'vm, BS, SYS, R, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, SYS, R, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
