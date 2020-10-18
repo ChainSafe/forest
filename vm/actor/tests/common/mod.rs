@@ -55,6 +55,7 @@ pub struct MockRuntime {
     pub expect_compute_unsealed_sector_cid: RefCell<Option<ExpectComputeUnsealedSectorCid>>,
     pub expect_verify_consensus_fault: RefCell<Option<ExpectVerifyConsensusFault>>,
     pub expect_batch_verify_seals: RefCell<Option<ExpectBatchVerifySeals>>,
+    pub gas_charged: TokenAmount,
     pub hash_func: Box<dyn Fn(&[u8]) -> [u8; 32]>,
 }
 
@@ -87,6 +88,7 @@ impl Default for MockRuntime {
             expect_compute_unsealed_sector_cid: Default::default(),
             expect_verify_consensus_fault: Default::default(),
             expect_batch_verify_seals: Default::default(),
+            gas_charged: Default::default(),
             hash_func: Box::new(|_| [0u8; 32]),
         }
     }
@@ -138,10 +140,11 @@ pub struct ExpectVerifyConsensusFault {
     fault: Option<ConsensusFault>,
     exit_code: ExitCode,
 }
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct ExpectBatchVerifySeals {
     pub in_map: HashMap<Address, Vec<SealVerifyInfo>>,
     pub out_map: HashMap<Address, Vec<bool>>,
+    pub exit_code: ExitCode,
 }
 
 #[derive(Clone)]
@@ -239,9 +242,20 @@ impl MockRuntime {
         &mut self,
         in_map: HashMap<Address, Vec<SealVerifyInfo>>,
         out_map: HashMap<Address, Vec<bool>>,
+        exit_code: ExitCode,
     ) {
-        *self.expect_batch_verify_seals.borrow_mut() =
-            Some(ExpectBatchVerifySeals { in_map, out_map });
+        *self.expect_batch_verify_seals.borrow_mut() = Some(ExpectBatchVerifySeals {
+            in_map,
+            out_map,
+            exit_code,
+        });
+    }
+
+    pub fn expect_gas_charged(&self, gas: &TokenAmount) -> Result<(), ActorError> {
+        if *gas != self.gas_charged {
+            return Err(actor_error!(ErrIllegalState;"Gas mismatch"));
+        }
+        Ok(())
     }
 
     pub fn call(
@@ -688,8 +702,9 @@ impl Runtime<MemoryDB> for MockRuntime {
         self
     }
 
-    fn charge_gas(&mut self, _: &'static str, _: i64) -> Result<(), ActorError> {
+    fn charge_gas(&mut self, _: &'static str, amount: i64) -> Result<(), ActorError> {
         // TODO implement functionality if needed for testing
+        self.gas_charged += TokenAmount::from(amount);
         Ok(())
     }
 }
@@ -845,13 +860,51 @@ impl Syscalls for MockRuntime {
         &self,
         vis: &[(Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
-        let _ = self
+        let exp = self
             .expect_batch_verify_seals
             .replace(None)
             .ok_or(Box::new(
                 actor_error!(ErrIllegalState; "Unexpected syscall to batch verify seals"),
             ))?;
 
-        Ok(Default::default())
+        let vis_map = {
+            let mut v: HashMap<Address, Vec<SealVerifyInfo>> = HashMap::new();
+            for (address, vec) in vis {
+                v.insert(address.clone(), vec.to_owned().to_owned());
+            }
+            v
+        };
+
+        for (key, value) in &exp.in_map {
+            let v: &Vec<SealVerifyInfo> = vis_map
+                .get(key)
+                .ok_or(Box::new(actor_error!(ErrIllegalState; "Address not found")))?;
+
+            if v.len() != value.len() {
+                return Err(Box::new(actor_error!(ErrIllegalState; "Address not found")));
+            }
+
+            for (i, info) in value.iter().enumerate() {
+                if v[i].sealed_cid != info.sealed_cid {
+                    return Err(Box::new(
+                        actor_error!(ErrIllegalState; "sealed cid does not match address"),
+                    ));
+                }
+                if v[i].unsealed_cid != info.unsealed_cid {
+                    return Err(Box::new(
+                        actor_error!(ErrIllegalState; "unsealed cid does not match address"),
+                    ));
+                }
+            }
+        }
+
+        if exp.exit_code != ExitCode::Ok {
+            return Err(Box::new(ActorError::new(
+                exp.exit_code,
+                "expected fails".to_string(),
+            )));
+        }
+
+        Ok(exp.out_map)
     }
 }

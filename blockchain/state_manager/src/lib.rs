@@ -15,8 +15,8 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
-use fil_types::RegisteredSealProof;
 use fil_types::verifier::ProofVerifier;
+use fil_types::RegisteredSealProof;
 
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};

@@ -35,7 +35,7 @@ use vm::{
 
 /// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
 /// This number is empirically determined
-const GAS_ON_SUBMIT_VERIFY_SEAL: i64 = 34721049;
+pub const GAS_ON_SUBMIT_VERIFY_SEAL: i64 = 34721049;
 
 /// Storage power actor methods available
 #[derive(FromPrimitive)]
@@ -58,7 +58,7 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let claims = make_map_with_root(&st.claims, rt.store()).map_err(
+    let claims: Hamt<_, Claim> = make_map_with_root(&st.claims, rt.store()).map_err(
         |_| actor_error!(ErrIllegalState; "failed to load claim in validate_miner_has_claim"),
     )?;
     let _ = claims
@@ -383,14 +383,13 @@ impl Actor {
     {
         println!("IN submit posrsp func");
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let state : State = rt.state().unwrap();
+        let state: State = rt.state().unwrap();
         validate_miner_has_claim(rt, &state, &rt.message().caller())?;
         println!("Passed first check");
 
-
         rt.transaction(|st: &mut State, rt: &mut RT| {
             let miner_addr = rt.message().caller();
-            println!("Caller has address {:?}",miner_addr);
+            println!("Caller has address {:?}", miner_addr);
             validate_miner_has_claim(rt, st, &miner_addr)?;
             let mut mmap = if let Some(ref batch) = st.proof_validation_batch {
                 Multimap::from_root(rt.store(), batch).map_err(|e| {
@@ -478,10 +477,21 @@ impl Actor {
                     )
                 })?;
 
+            let claims: Hamt<_, Claim> = make_map_with_root(&st.claims, rt.store())
+                .map_err(|_| actor_error!(ErrIllegalState; "Failed to load claims"))?;
+
             mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
                 let addr = Address::from_bytes(&k.0).map_err(|e| {
                     actor_error!(ErrIllegalState, "failed to parse address key: {}", e)
                 })?;
+
+                let found = claims
+                    .get(&addr.to_bytes())
+                    .map_err(|_| actor_error!(ErrIllegalState;"failed to look up claim"))?;
+
+                if found.is_none() {
+                    return Ok(());
+                }
 
                 let mut infos = Vec::new();
                 arr.for_each(|_, svi| {
@@ -684,9 +694,6 @@ impl ActorCode for Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let cl = get_claim(rt, Address::new_id(111));
-        println!("Miner {:?} has claim {:?}",Address::new_id(111), &cl);
-
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
                 check_empty_params(params)?;
