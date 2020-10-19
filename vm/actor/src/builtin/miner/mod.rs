@@ -207,7 +207,7 @@ impl Actor {
             owner,
             worker,
             control_addresses,
-            params.peer.0,
+            params.peer,
             params.multiaddrs,
             params.seal_proof_type,
         )

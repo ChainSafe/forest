@@ -116,8 +116,8 @@ impl Actor {
             owner: params.owner,
             worker: params.worker,
             seal_proof_type: params.seal_proof_type,
-            peer_id: params.peer,
-            multi_addresses: params.multiaddrs,
+            peer: params.peer,
+            multiaddrs: params.multiaddrs,
             control_addresses: Default::default(),
         })?;
 

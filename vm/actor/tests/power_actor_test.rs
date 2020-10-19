@@ -60,7 +60,7 @@ mod test_construction {
             vec![BytesDe(vec![1])],
             RegisteredSealProof::StackedDRG2KiBV1,
             TokenAmount::from(10),
-            BytesDe("miner".as_bytes().to_owned()),
+            "miner".as_bytes().to_owned(),
         );
         let state: power::State = rt.get_state().unwrap();
         assert_eq!(1, state.miner_count);
@@ -93,7 +93,7 @@ mod test_create_miner_failures {
             owner: OWNER.clone(),
             worker: OWNER.clone(),
             control_addresses: vec![],
-            peer: BytesDe("miner".as_bytes().to_owned()),
+            peer: "miner".as_bytes().to_owned(),
             seal_proof_type: RegisteredSealProof::StackedDRG2KiBV1,
             multiaddrs: vec![BytesDe(vec![1])],
         };
@@ -115,7 +115,7 @@ mod test_create_miner_failures {
             worker: OWNER.clone(),
             control_addresses: vec![],
             seal_proof_type: RegisteredSealProof::StackedDRG2KiBV1,
-            peer: BytesDe("miner".as_bytes().to_owned()),
+            peer: "miner".as_bytes().to_owned(),
             multiaddrs: vec![BytesDe(vec![1])],
         };
         rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), OWNER.clone());
@@ -476,7 +476,7 @@ mod test_power_and_pledge_accounting {
             vec![],
             RegisteredSealProof::StackedDRG64GiBV1,
             TokenAmount::default(),
-            BytesDe("m5".as_bytes().to_owned()),
+            "m5".as_bytes().to_owned(),
         );
         let power_64 = RegisteredSealProof::StackedDRG64GiBV1
             .min_miner_consensus_power()
@@ -1099,7 +1099,7 @@ fn create_miner(
     multiaddrs: Vec<BytesDe>,
     seal_proof_type: RegisteredSealProof,
     value: TokenAmount,
-    peer: BytesDe,
+    peer: Vec<u8>,
 ) -> Serialized {
     let creater_params = power::CreateMinerParams {
         owner,
@@ -1175,27 +1175,9 @@ fn create_miner_basic(
         vec![],
         RegisteredSealProof::StackedDRG32GiBV1,
         TokenAmount::default(),
-        BytesDe(string.as_bytes().to_vec()),
+        string.as_bytes().to_vec(),
     );
     actor_seed + 1
-}
-
-fn init_create_miner_bytes(
-    owner: Address,
-    worker: Address,
-    peer: BytesDe,
-    multiaddrs: Vec<BytesDe>,
-    seal_proof_type: RegisteredSealProof,
-) -> Serialized {
-    let v = power::CreateMinerParams {
-        owner,
-        worker,
-        peer,
-        multiaddrs,
-        seal_proof_type,
-        control_addresses: vec![],
-    };
-    Serialized::serialize(v).unwrap()
 }
 
 fn submit_porep_for_bulk_verify(

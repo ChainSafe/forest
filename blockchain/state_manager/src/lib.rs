@@ -16,7 +16,7 @@ use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
 use fil_types::verifier::ProofVerifier;
-use fil_types::{RegisteredSealProof,get_network_version_default};
+use fil_types::{get_network_version_default, RegisteredSealProof};
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;

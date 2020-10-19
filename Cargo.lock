@@ -2120,7 +2120,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_libp2p",
- "futures 0.3.5",
+ "futures 0.3.6",
  "genesis",
  "hex",
  "ipld_blockstore",
@@ -2671,32 +2671,6 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "graphsync"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "async-trait",
- "bytes",
- "fnv",
- "forest_cid",
- "forest_encoding",
- "forest_ipld",
- "futures 0.3.5",
- "futures-util",
- "futures_codec",
- "ipld_blockstore",
- "libp2p",
- "log",
- "multihash 0.10.1",
- "protobuf",
- "protoc-rust",
- "rand 0.7.3",
- "serde",
- "smallvec",
- "unsigned-varint 0.5.1",
 ]
 
 [[package]]
@@ -5317,8 +5291,7 @@ dependencies = [
 [[package]]
 name = "serde_cbor"
 version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e18acfa2f90e8b735b2836ab8d538de304cbb6729a7360729ea5a895d15a622"
+source = "git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a#3e7bf81f57e9010762dbc12292bd6f927fdfe83a"
 dependencies = [
  "half",
  "serde",
@@ -5327,7 +5300,8 @@ dependencies = [
 [[package]]
 name = "serde_cbor"
 version = "0.11.1"
-source = "git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a#3e7bf81f57e9010762dbc12292bd6f927fdfe83a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e18acfa2f90e8b735b2836ab8d538de304cbb6729a7360729ea5a895d15a622"
 dependencies = [
  "half",
  "serde",
