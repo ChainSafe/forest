@@ -338,6 +338,12 @@ pub mod json {
         }
     }
 
+    impl From<AddressJson> for Address {
+        fn from(address: AddressJson) -> Self {
+            address.0
+        }
+    }
+
     pub fn serialize<S>(m: &Address, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

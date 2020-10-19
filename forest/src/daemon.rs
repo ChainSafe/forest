@@ -6,6 +6,7 @@ use super::paramfetch::{get_params_default, SectorSizeOpt};
 use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::RwLock;
 use async_std::task;
+use auth::{generate_priv_key, JWT_IDENTIFIER};
 use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
@@ -21,7 +22,7 @@ use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::sync::Arc;
 use utils::write_to_file;
-use wallet::PersistentKeyStore;
+use wallet::{KeyStore, PersistentKeyStore};
 
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option. (1 is temporary value to avoid overlap)
@@ -48,9 +49,12 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize keystore
-    let keystore = Arc::new(RwLock::new(
-        PersistentKeyStore::new(config.data_dir.to_string()).unwrap(),
-    ));
+    let mut ks = PersistentKeyStore::new(config.data_dir.to_string()).unwrap();
+    if ks.get(JWT_IDENTIFIER).is_err() {
+        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
+            .unwrap();
+    }
+    let keystore = Arc::new(RwLock::new(ks));
 
     // Initialize database
     let mut db = RocksDb::new(config.data_dir + "/db");
