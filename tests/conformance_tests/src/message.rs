@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use fil_types::get_network_version_default;
 use vm::TokenAmount;
 
 #[derive(Debug, Deserialize)]
@@ -17,15 +18,17 @@ pub fn execute_message(
     msg: &ChainMessage,
     pre_root: &Cid,
     epoch: ChainEpoch,
+    basefee: TokenAmount,
     selector: &Option<Selector>,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let mut vm = VM::<_, _, _>::new(
+    let mut vm = VM::<_, _, _, _>::new(
         pre_root,
         bs,
         epoch,
         TestSyscalls,
         &TestRand,
-        TokenAmount::from(BASE_FEE),
+        basefee,
+        get_network_version_default,
     )?;
 
     if let Some(s) = &selector {

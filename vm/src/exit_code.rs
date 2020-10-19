@@ -77,23 +77,6 @@ pub enum ExitCode {
 impl ExitCode {
     /// returns true if the exit code was a success
     pub fn is_success(self) -> bool {
-        match self {
-            ExitCode::Ok => true,
-            _ => false,
-        }
-    }
-    /// returns true if exited with an error code
-    pub fn is_error(self) -> bool {
-        match self {
-            ExitCode::Ok => false,
-            _ => true,
-        }
-    }
-    /// returns true if the execution was successful
-    pub fn allows_state_update(self) -> bool {
-        match self {
-            ExitCode::Ok => true,
-            _ => false,
-        }
+        matches!(self, ExitCode::Ok)
     }
 }

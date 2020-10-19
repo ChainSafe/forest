@@ -37,6 +37,10 @@ pub struct DealProposal {
     pub client: Address,
     pub provider: Address,
 
+    /// Arbitrary client chosen label to apply to the deal
+    // ! This is the field that requires unsafe unchecked utf8 deserialization
+    pub label: String,
+
     // Nominal start epoch. Deal payment is linear between StartEpoch and EndEpoch,
     // with total amount StoragePricePerEpoch * (EndEpoch - StartEpoch).
     // Storage deal must appear in a sealed (proven) sector no later than StartEpoch,

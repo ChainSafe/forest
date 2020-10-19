@@ -16,8 +16,7 @@ use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
 use fil_types::verifier::ProofVerifier;
-use fil_types::RegisteredSealProof;
-
+use fil_types::{RegisteredSealProof,get_network_version_default};
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
@@ -200,13 +199,14 @@ where
     {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
-        let mut vm = VM::<_, _, _>::new(
+        let mut vm = VM::<_, _, _, _>::new(
             p_state,
             &buf_store,
             epoch,
             DefaultSyscalls::<_, V>::new(&buf_store),
             rand,
             base_fee,
+            get_network_version_default,
         )?;
 
         // Apply tipset messages
@@ -279,13 +279,14 @@ where
         span!("state_call_raw", {
             let block_store = self.blockstore();
             let buf_store = BufferedBlockStore::new(block_store);
-            let mut vm = VM::<_, _, _>::new(
+            let mut vm = VM::<_, _, _, _>::new(
                 bstate,
                 &buf_store,
                 *bheight,
                 DefaultSyscalls::<_, V>::new(&buf_store),
                 rand,
                 0.into(),
+                get_network_version_default,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -354,13 +355,14 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned());
 
-        let mut vm = VM::<_, _, _>::new(
+        let mut vm = VM::<_, _, _, _>::new(
             &st,
             self.bs.as_ref(),
             ts.epoch() + 1,
             DefaultSyscalls::<_, V>::new(self.bs.as_ref()),
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
+            get_network_version_default,
         )?;
 
         for msg in prior_messages {
@@ -755,13 +757,13 @@ where
 
     /// Returns a bls public key from provided address
     pub fn get_bls_public_key(
-        db: &Arc<DB>,
+        db: &DB,
         addr: &Address,
         state_cid: &Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state = StateTree::new_from_root(db.as_ref(), state_cid)
-            .map_err(|e| Error::State(e.to_string()))?;
-        let kaddr = resolve_to_key_addr(&state, db.as_ref(), addr)
+        let state =
+            StateTree::new_from_root(db, state_cid).map_err(|e| Error::State(e.to_string()))?;
+        let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
         match kaddr.into_payload() {
@@ -808,12 +810,12 @@ where
             escrow: {
                 let et = BalanceTable::from_root(self.bs.as_ref(), &market_state.escrow_table)
                     .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
-                et.get(&new_addr).map(Clone::clone).unwrap_or_default()
+                et.get(&new_addr).unwrap_or_default()
             },
             locked: {
                 let lt = BalanceTable::from_root(self.bs.as_ref(), &market_state.locked_table)
                     .map_err(|_x| Error::State("Failed to build Locked Table".to_string()))?;
-                lt.get(&new_addr).map(Clone::clone).unwrap_or_default()
+                lt.get(&new_addr).unwrap_or_default()
             },
         };
 
@@ -853,7 +855,7 @@ where
     /// Checks power actor state for if miner meets consensus minimum requirements.
     pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> Result<bool, String> {
         let ps: power::State = self
-            .load_actor_state(&*INIT_ACTOR_ADDR, ts.parent_state())
+            .load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts.parent_state())
             .map_err(|e| format!("loading power actor state: {}", e))?;
         ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
             .map_err(|e| e.to_string())

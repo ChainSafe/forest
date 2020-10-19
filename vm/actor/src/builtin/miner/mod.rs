@@ -54,7 +54,7 @@ use crate::{
 };
 use address::{Address, Payload, Protocol};
 use bitfield::BitField;
-use byteorder::{BigEndian, ByteOrder};
+use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
@@ -62,7 +62,7 @@ use crypto::DomainSeparationTag::{
 };
 use encoding::Cbor;
 use fil_types::{
-    InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredSealProof,
+    InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness, RegisteredSealProof,
     SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorInfo,
     SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
 };
@@ -81,7 +81,7 @@ use vm::{
     METHOD_SEND,
 };
 
-// * Updated to specs-actors v0.9.3 (f4024efad09a66e32bfeef10a2845b2b35325297)
+// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
 
 /// Storage Miner actor methods available
 #[derive(FromPrimitive)]
@@ -393,6 +393,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let current_epoch = rt.curr_epoch();
+        let network_version = rt.network_version();
 
         if params.deadline >= WPOST_PERIOD_DEADLINES {
             return Err(actor_error!(
@@ -556,29 +557,45 @@ impl Actor {
             // Penalize new skipped faults and retracted recoveries as undeclared faults.
             // These pay a higher fee than faults declared before the deadline challenge window opened.
             let undeclared_penalty_power = post_result.penalty_power();
-            let mut undeclared_penalty_target = pledge_penalty_for_undeclared_fault(
-                &reward_stats.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
-                &undeclared_penalty_power.qa,
-            );
+            let undeclared_penalty_target = if network_version >= NetworkVersion::V3 {
+                // From version 3, skipped faults and retracted recoveries pay nothing at Window PoSt,
+                // but will incur the "ongoing" fault fee at deadline end.
+                Default::default()
+            } else {
+                let mut undeclared_penalty_target = pledge_penalty_for_undeclared_fault(
+                    &reward_stats.this_epoch_reward_smoothed,
+                    &power_total.quality_adj_power_smoothed,
+                    &undeclared_penalty_power.qa,
+                    network_version,
+                );
+                // Subtract the "ongoing" fault fee from the amount charged now, since it will be charged at
+                // the end-of-deadline cron.
+                undeclared_penalty_target -= pledge_penalty_for_declared_fault(
+                    &reward_stats.this_epoch_reward_smoothed,
+                    &power_total.quality_adj_power_smoothed,
+                    &undeclared_penalty_power.qa,
+                    network_version,
+                );
 
-            // Subtract the "ongoing" fault fee from the amount charged now, since it will be charged at
-            // the end-of-deadline cron.
-            undeclared_penalty_target -= pledge_penalty_for_declared_fault(
-                &reward_stats.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
-                &undeclared_penalty_power.qa,
-            );
+                undeclared_penalty_target
+            };
 
             // Penalize recoveries as declared faults (a lower fee than the undeclared, above).
             // It sounds odd, but because faults are penalized in arrears, at the _end_ of the faulty period, we must
             // penalize recovered sectors here because they won't be penalized by the end-of-deadline cron for the
             // immediately-prior faulty period.
-            let declared_penalty_target = pledge_penalty_for_declared_fault(
-                &reward_stats.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
-                &post_result.recovered_power.qa,
-            );
+            let declared_penalty_target = if network_version >= NetworkVersion::V3 {
+                // From version 3, recovered sectors pay no penalty.
+                // They won't pay anything at deadline end either, since they'll no longer be faulty.
+                Default::default()
+            } else {
+                pledge_penalty_for_declared_fault(
+                    &reward_stats.this_epoch_reward_smoothed,
+                    &power_total.quality_adj_power_smoothed,
+                    &post_result.recovered_power.qa,
+                    network_version,
+                )
+            };
 
             // Note: We could delay this charge until end of deadline, but that would require more accounting state.
             let total_penalty_target = undeclared_penalty_target + declared_penalty_target;
@@ -2029,6 +2046,12 @@ impl Actor {
             ));
         }
 
+        let vesting_schedule = if rt.network_version() < NetworkVersion::V1 {
+            REWARD_VESTING_SPEC_V0
+        } else {
+            REWARD_VESTING_SPEC_V1
+        };
+
         let newly_vested = rt.transaction(|st: &mut State, rt| {
             let info = get_miner_info(rt, st)?;
             rt.validate_immediate_caller_is(info.control_addresses.iter().chain(&[
@@ -2055,7 +2078,7 @@ impl Actor {
                     rt.store(),
                     rt.curr_epoch(),
                     &amount_to_lock,
-                    REWARD_VESTING_SPEC,
+                    vesting_schedule,
                 )
                 .map_err(|e| {
                     e.downcast_default(
@@ -2136,7 +2159,7 @@ impl Actor {
             ));
         }
 
-        let (info, newly_vested) = rt.transaction(|state: &mut State, rt| {
+        let (info, newly_vested, state) = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, state)?;
 
             // Only the owner is allowed to withdraw the balance as it belongs to/is controlled by the owner
@@ -2160,10 +2183,8 @@ impl Actor {
             // Verify InitialPledgeRequirement does not exceed unlocked funds
             verify_pledge_meets_initial_requirements(rt, state)?;
 
-            Ok((info, newly_vested))
+            Ok((info, newly_vested, state.clone()))
         })?;
-
-        let state: State = rt.state()?;
 
         let curr_balance = rt.current_balance()?;
         let amount_withdrawn = cmp::min(
@@ -2217,6 +2238,7 @@ where
 {
     let reward_stats = request_current_epoch_block_reward(rt)?;
     let power_total = request_current_total_power(rt)?;
+    let network_version = rt.network_version();
 
     let (result, more, deals_to_terminate, penalty, pledge_delta) =
         rt.transaction(|state: &mut State, rt| {
@@ -2265,6 +2287,7 @@ where
                     &reward_stats.this_epoch_reward_smoothed,
                     &power_total.quality_adj_power_smoothed,
                     &sectors,
+                    network_version,
                 );
 
                 // estimate ~one deal per sector.
@@ -2327,6 +2350,7 @@ where
     RT: Runtime<BS>,
 {
     let curr_epoch = rt.curr_epoch();
+    let network_version = rt.network_version();
 
     let epoch_reward = request_current_epoch_block_reward(rt)?;
     let power_total = request_current_total_power(rt)?;
@@ -2404,6 +2428,8 @@ where
         let quant = deadline_info.quant_spec();
         let mut unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?);
 
+        let previously_faulty_power = deadline.faulty_power.qa.clone();
+
         // Detect and penalize missing proofs.
         let fault_expiration = deadline_info.last() + FAULT_MAX_AGE;
         let mut penalize_power_total = TokenAmount::zero();
@@ -2418,45 +2444,60 @@ where
             })?;
 
         power_delta -= &new_faulty_power;
-        penalize_power_total += new_faulty_power.qa;
-        penalize_power_total += failed_recovery_power.qa;
 
-        // Unlock sector penalty for all undeclared faults.
-        let mut penalty_target = pledge_penalty_for_undeclared_fault(
-            &epoch_reward.this_epoch_reward_smoothed,
-            &power_total.quality_adj_power_smoothed,
-            &penalize_power_total,
-        );
+        if network_version >= NetworkVersion::V3 {
+            // From network version 3, faults detected from a missed PoSt pay nothing.
+            // Failed recoveries pay nothing here, but will pay the ongoing fault fee
+            // in the subsequent block.
+        } else {
+            penalize_power_total += new_faulty_power.qa;
+            penalize_power_total += failed_recovery_power.qa;
 
-        // Subtract the "ongoing" fault fee from the amount charged now, since it will be added on just below.
-        penalty_target -= pledge_penalty_for_declared_fault(
-            &epoch_reward.this_epoch_reward_smoothed,
-            &power_total.quality_adj_power_smoothed,
-            &penalize_power_total,
-        );
+            // Unlock sector penalty for all undeclared faults.
+            let mut penalty_target = pledge_penalty_for_undeclared_fault(
+                &epoch_reward.this_epoch_reward_smoothed,
+                &power_total.quality_adj_power_smoothed,
+                &penalize_power_total,
+                network_version,
+            );
 
-        let (penalty_from_vesting, penalty_from_balance) = state
-            .penalize_funds_in_priority_order(
-                rt.store(),
-                curr_epoch,
-                &penalty_target,
-                &unlocked_balance,
-            )
-            .map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to unlock penalty")
-            })?;
+            // Subtract the "ongoing" fault fee from the amount charged now, since it will be added on just below.
+            penalty_target -= pledge_penalty_for_declared_fault(
+                &epoch_reward.this_epoch_reward_smoothed,
+                &power_total.quality_adj_power_smoothed,
+                &penalize_power_total,
+                network_version,
+            );
 
-        unlocked_balance -= &penalty_from_balance;
-        penalty_total += &penalty_from_vesting;
-        penalty_total += penalty_from_balance;
-        pledge_delta -= penalty_from_vesting;
+            let (penalty_from_vesting, penalty_from_balance) = state
+                .penalize_funds_in_priority_order(
+                    rt.store(),
+                    curr_epoch,
+                    &penalty_target,
+                    &unlocked_balance,
+                )
+                .map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to unlock penalty")
+                })?;
+
+            unlocked_balance -= &penalty_from_balance;
+            penalty_total += &penalty_from_vesting;
+            penalty_total += penalty_from_balance;
+            pledge_delta -= penalty_from_vesting;
+        }
 
         // Record faulty power for penalisation of ongoing faults, before popping expirations.
         // This includes any power that was just faulted from missing a PoSt.
+        let ongoing_faulty_power = if network_version < NetworkVersion::V3 {
+            &deadline.faulty_power.qa
+        } else {
+            &previously_faulty_power
+        };
         let penalty_target = pledge_penalty_for_declared_fault(
             &epoch_reward.this_epoch_reward_smoothed,
             &power_total.quality_adj_power_smoothed,
-            &deadline.faulty_power.qa,
+            &ongoing_faulty_power,
+            network_version,
         );
 
         let (penalty_from_vesting, penalty_from_balance) = state
@@ -3173,14 +3214,15 @@ fn assign_proving_period_offset(
     blake2b: impl FnOnce(&[u8]) -> Result<[u8; 32], Box<dyn StdError>>,
 ) -> Result<ChainEpoch, Box<dyn StdError>> {
     let mut my_addr = addr.marshal_cbor()?;
-    BigEndian::write_i64(&mut my_addr, current_epoch);
+    my_addr.write_i64::<BigEndian>(current_epoch)?;
 
     let digest = blake2b(&my_addr)?;
 
-    let mut offset: ChainEpoch = BigEndian::read_i64(&digest);
-    offset %= WPOST_PROVING_PERIOD;
+    let mut offset: u64 = BigEndian::read_u64(&digest);
+    offset %= WPOST_PROVING_PERIOD as u64;
 
-    Ok(offset)
+    // Conversion from i64 to u64 is safe because it's % WPOST_PROVING_PERIOD which is i64
+    Ok(offset as ChainEpoch)
 }
 
 /// Computes the epoch at which a proving period should start such that it is greater than the current epoch, and
@@ -3247,6 +3289,7 @@ fn termination_penalty(
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
     sectors: &[SectorOnChainInfo],
+    network_version: NetworkVersion,
 ) -> TokenAmount {
     let mut total_fee = TokenAmount::zero();
 
@@ -3259,6 +3302,7 @@ fn termination_penalty(
             reward_estimate,
             network_qa_power_estimate,
             &sector_power,
+            network_version,
         );
         total_fee += fee;
     }
@@ -3314,7 +3358,6 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                check_empty_params(params)?;
                 Self::constructor(rt, params.deserialize()?)?;
                 Ok(Serialized::default())
             }

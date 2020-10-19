@@ -31,7 +31,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: f4024efad09a66e32bfeef10a2845b2b35325297 (v0.9.3)
+// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
 
 /// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
 /// This number is empirically determined
@@ -112,6 +112,15 @@ impl Actor {
         let seal_type = params.seal_proof_type;
         println!("params : {:?}", params.multiaddrs);
 
+        let constructor_params = Serialized::serialize(MinerConstructorParams {
+            owner: params.owner,
+            worker: params.worker,
+            seal_proof_type: params.seal_proof_type,
+            peer_id: params.peer,
+            multi_addresses: params.multiaddrs,
+            control_addresses: Default::default(),
+        })?;
+
         let init::ExecReturn {
             id_address,
             robust_address,
@@ -121,15 +130,7 @@ impl Actor {
                 init::Method::Exec as u64,
                 Serialized::serialize(init::ExecParams {
                     code_cid: MINER_ACTOR_CODE_ID.clone(),
-                    constructor_params: Serialized::serialize(MinerConstructorParams {
-                        owner: params.owner,
-                        worker: params.worker,
-                        control_addresses: Default::default(),
-                        seal_proof_type: params.seal_proof_type,
-                        peer: params.peer,
-                        multiaddrs: params.multiaddrs,
-                    })
-                    .unwrap(),
+                    constructor_params,
                 })?,
                 value,
             )?
