@@ -447,6 +447,71 @@ mod test_power_and_pledge_accounting {
     }
 
     #[test]
+    fn consensus_minimum_power_depends_on_proof_type() {
+        // Setup four miners above threshold
+        let mut rt = construct_and_verify();
+
+        for i in 1..5 {
+            let miner_addr = Address::new_id(MINER_1_ID + i);
+            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, i);
+            assert!(update_claimed_power(
+                &mut rt,
+                miner_addr,
+                POWER_UNIT.clone(),
+                POWER_UNIT.clone()
+            )
+            .is_ok());
+        }
+        expect_miners_above_min_power(&rt, 4);
+        let expected_total: TokenAmount = 4 * POWER_UNIT.clone();
+        expect_total_power_eager(&mut rt, expected_total.clone(), expected_total.clone());
+        let miner_5 = Address::new_id(MINER_1_ID + 4);
+
+        let _ = create_miner(
+            &mut rt,
+            OWNER.clone(),
+            OWNER.clone(),
+            miner_5,
+            Address::new_actor("m5".as_bytes()),
+            vec![],
+            RegisteredSealProof::StackedDRG64GiBV1,
+            TokenAmount::default(),
+            BytesDe("m5".as_bytes().to_owned()),
+        );
+        let power_64 = RegisteredSealProof::StackedDRG64GiBV1
+            .min_miner_consensus_power()
+            .unwrap();
+        let delta = &power_64 - POWER_UNIT.clone() - TokenAmount::from(1);
+        let new_expected_total = &expected_total + &power_64;
+
+        let sequential_cases = [
+            (
+                4,
+                (POWER_UNIT.clone(), POWER_UNIT.clone()),
+                (expected_total.clone(), expected_total.clone()),
+            ),
+            (
+                4,
+                (delta.clone(), delta.clone()),
+                (expected_total.clone(), expected_total.clone()),
+            ),
+            (
+                5,
+                (TokenAmount::from(1), TokenAmount::from(1)),
+                (new_expected_total.clone(), new_expected_total),
+            ),
+        ];
+
+        for (count, (raw_delta, qa_delta), (expected_raw, expected_qa)) in sequential_cases.iter() {
+            assert!(
+                update_claimed_power(&mut rt, miner_5, raw_delta.clone(), qa_delta.clone()).is_ok()
+            );
+            expect_miners_above_min_power(&rt, *count as i64);
+            expect_total_power_eager(&mut rt, expected_raw.clone(), expected_qa.clone())
+        }
+    }
+
+    #[test]
     fn threshold_only_depends_on_raw_power() {
         let mut rt = construct_and_verify();
         let mut actor_seed = 1;
@@ -836,23 +901,25 @@ mod test_cron_batch_proof_verifies {
         on_epoch_tick_end(&mut rt, 0, StoragePower::default(), &[], HashMap::new());
     }
 
-    //#[test]
+    #[test]
     fn success_with_multiple_miners_and_sectors() {
         let mut cs: Vec<ConfirmedSectorSend> = vec![];
         let mut infos: HashMap<Address, Vec<SealVerifyInfo>> = HashMap::new();
         let mut rt = construct_and_verify();
 
-        for i in 1..5 {
-            let miner_addr = Address::new_id(MINER_1_ID + i - 1);
-            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, i);
-            let info_a = seal_info(2 * i - 1);
-            let info_b = seal_info(2 * i);
+        for i in 0..4 {
+            let miner_addr = Address::new_id(MINER_1_ID + i);
+            create_miner_basic(&mut rt, OWNER.clone(), OWNER.clone(), miner_addr, i + 1);
+            let info_a = seal_info(2 * i + 1);
+            let info_b = seal_info(2 * (i + 1));
             assert!(submit_porep_for_bulk_verify(&mut rt, miner_addr, info_a.clone()).is_ok());
             assert!(submit_porep_for_bulk_verify(&mut rt, miner_addr, info_b.clone()).is_ok());
             infos.insert(miner_addr, vec![info_a.clone(), info_b.clone()]);
         }
 
-        for i in &[1, 3, 4, 2] {
+        // TODO Because read order of keys in a multi-map is not as per insertion order,
+        // we have to move around the expected sends
+        for i in &[3, 2, 4, 1] {
             let miner_addr = Address::new_id(MINER_1_ID + i - 1);
             let info_a = seal_info(2 * i - 1);
             let info_b = seal_info(2 * i);
@@ -1214,6 +1281,11 @@ fn update_claimed_power(
     Ok(())
 }
 
+fn expect_miners_above_min_power(rt: &MockRuntime, count: i64) {
+    let state: power::State = rt.get_state().unwrap();
+    assert_eq!(count, state.miner_above_min_power_count);
+}
+
 struct ConfirmedSectorSend {
     miner: Address,
     sector_nums: Vec<u64>,
@@ -1271,6 +1343,7 @@ fn on_epoch_tick_end(
     rt.expect_validate_caller_addr(vec![CRON_ACTOR_ADDR.clone()]);
     rt.epoch = curr_epoch;
     rt.set_caller(CRON_ACTOR_CODE_ID.clone(), CRON_ACTOR_ADDR.clone());
+    println!("{:?}", rt.expect_sends);
     assert!(call(
         rt,
         power::Method::OnEpochTickEnd as u64,
