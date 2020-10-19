@@ -56,9 +56,13 @@ lazy_static! {
         // Extracted miner faults
         Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-3").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-7").unwrap(),
+        Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt").unwrap(),
 
-        // Extracted market faults
-        Regex::new(r"fil_1_storagemarket-PublishStorageDeals-").unwrap(),
+        // Other faults (related to versioning, randomness, )
+        Regex::new(r"paych--update-ok--genesis").unwrap(),
+        Regex::new(r"paych--collect-ok--").unwrap(),
+        Regex::new(r"actor_exec--msg-apply-fail-actor-execution-illegal-arg--genesis").unwrap(),
+        Regex::new(r"fail-insufficient-funds-for-transfer-in-inner-send--genesis").unwrap(),
     ];
 }
 
