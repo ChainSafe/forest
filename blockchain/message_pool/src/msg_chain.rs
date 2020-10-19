@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{get_gas_perf, get_gas_reward};
+use std::f64::EPSILON;
 use message::{Message, SignedMessage};
 use num_bigint::BigInt;
 
@@ -35,15 +36,16 @@ impl MsgChainNode {
     }
     fn set_eff_perf(&mut self, prev: Option<(f64, i64)>) {
         let mut eff_perf = self.gas_perf * self.bp;
-        if eff_perf > 0.0 && prev.is_some() {
-            let prev = prev.unwrap();
-            let prev_eff_perf = prev.0;
-            let prev_gas_limit = prev.1;
-            let eff_perf_with_parent = (eff_perf * self.gas_limit as f64
-                + prev_eff_perf * prev_gas_limit as f64)
-                / (self.gas_limit + prev_gas_limit) as f64;
-            self.parent_offset = eff_perf - eff_perf_with_parent;
-            eff_perf = eff_perf_with_parent;
+        if let Some(prev) = prev {
+            if eff_perf > 0.0 {
+                let prev_eff_perf = prev.0;
+                let prev_gas_limit = prev.1;
+                let eff_perf_with_parent = (eff_perf * self.gas_limit as f64
+                    + prev_eff_perf * prev_gas_limit as f64)
+                    / (self.gas_limit + prev_gas_limit) as f64;
+                self.parent_offset = eff_perf - eff_perf_with_parent;
+                eff_perf = eff_perf_with_parent;
+            }
         }
         self.eff_perf = eff_perf;
     }
@@ -127,7 +129,7 @@ impl MsgChain {
         let self_curr = self.curr().unwrap();
         let other_curr = other.curr().unwrap();
         self_curr.gas_perf > other_curr.gas_perf
-            || (self_curr.gas_perf == other_curr.gas_perf
+            || ((self_curr.gas_perf - other_curr.gas_perf).abs() < EPSILON
                 && self_curr.gas_reward < other_curr.gas_reward)
     }
 
@@ -161,7 +163,7 @@ impl MsgChain {
             mc.msgs.drain(0..i as usize);
         }
 
-        if let Some(_) = self.move_forward() {
+        if self.move_forward().is_some() {
             self.invalidate();
             self.move_backward();
             self.chain.remove(self.chain.len() - 1);
@@ -187,15 +189,16 @@ impl MsgChain {
 
         let mc = self.curr_mut().unwrap();
         let mut eff_perf = mc.gas_perf * mc.bp;
-        if eff_perf > 0.0 && prev.is_some() {
-            let prev = prev.unwrap();
-            let prev_eff_perf = prev.0;
-            let prev_gas_limit = prev.1;
-            let eff_perf_with_parent = (eff_perf * mc.gas_limit as f64
-                + prev_eff_perf * prev_gas_limit as f64)
-                / (mc.gas_limit + prev_gas_limit) as f64;
-            mc.parent_offset = eff_perf - eff_perf_with_parent;
-            eff_perf = eff_perf_with_parent;
+        if let Some(prev) = prev {
+            if eff_perf > 0.0 {
+                let prev_eff_perf = prev.0;
+                let prev_gas_limit = prev.1;
+                let eff_perf_with_parent = (eff_perf * mc.gas_limit as f64
+                    + prev_eff_perf * prev_gas_limit as f64)
+                    / (mc.gas_limit + prev_gas_limit) as f64;
+                mc.parent_offset = eff_perf - eff_perf_with_parent;
+                eff_perf = eff_perf_with_parent;
+            }
         }
         mc.eff_perf = eff_perf;
     }
@@ -215,9 +218,9 @@ impl MsgChain {
         (mc.merged && !other.merged)
             || (mc.gas_perf >= 0.0 && other.gas_perf < 0.0)
             || (mc.eff_perf > other.eff_perf)
-            || (mc.eff_perf == other.eff_perf && mc.gas_perf > other.gas_perf)
-            || (mc.eff_perf == other.eff_perf
-                && mc.gas_perf == other.gas_perf
+            || ((mc.eff_perf - other.eff_perf).abs() < EPSILON && mc.gas_perf > other.gas_perf)
+            || ((mc.eff_perf - other.eff_perf).abs() < EPSILON
+                && (mc.gas_perf - other.gas_perf).abs() < EPSILON
                 && mc.gas_reward > other.gas_reward)
     }
 }

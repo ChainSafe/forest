@@ -1141,6 +1141,7 @@ pub fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
 
 /// This function will revert and/or apply tipsets to the message pool. This function should be
 /// called every time that there is a head change in the message pool
+#[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &RwLock<T>,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
