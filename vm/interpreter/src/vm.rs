@@ -43,7 +43,6 @@ pub type CircSupplyCalc<BS> =
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-#[allow(clippy::too_many_arguments)]
 pub struct VM<'db, 'r, DB, SYS, R, N, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
@@ -65,6 +64,7 @@ where
     R: Rand,
     N: Fn(ChainEpoch) -> NetworkVersion,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         root: &Cid,
         store: &'db DB,
