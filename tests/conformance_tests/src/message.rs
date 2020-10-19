@@ -22,7 +22,7 @@ pub struct ExecuteMessageParams<'a> {
     pub randomness: ReplayingRand<'a>,
 }
 
-pub fn execute_message<'a>(
+pub fn execute_message(
     bs: &db::MemoryDB,
     selector: &Option<Selector>,
     params: ExecuteMessageParams,

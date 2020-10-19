@@ -4,12 +4,12 @@
 use super::*;
 
 pub struct ReplayingRand<'a> {
-    pub recorded: &'a Randomness,
+    pub recorded: &'a [RandomnessMatch],
     pub fallback: TestRand,
 }
 
 impl<'a> ReplayingRand<'a> {
-    pub fn new(recorded: &'a Randomness) -> Self {
+    pub fn new(recorded: &'a [RandomnessMatch]) -> Self {
         Self {
             recorded,
             fallback: TestRand,
