@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{get_gas_perf, get_gas_reward};
-use std::f64::EPSILON;
 use message::{Message, SignedMessage};
 use num_bigint::BigInt;
+use std::f64::EPSILON;
 
 /// Represents a node in the MsgChain.
 #[derive(Clone, Debug)]
