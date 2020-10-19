@@ -12,14 +12,16 @@ use actor::{
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::{DevnetParams, NetworkParams, NetworkVersion};
+use fil_types::{
+    verifier::{FullVerifier, ProofVerifier},
+    DevnetParams, NetworkParams, NetworkVersion,
+};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
-use runtime::Syscalls;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -43,23 +45,23 @@ pub type CircSupplyCalc<BS> =
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, SYS, R, N, P = DevnetParams> {
+pub struct VM<'db, 'r, DB, R, N, V = FullVerifier, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
-    syscalls: SYS,
     rand: &'r R,
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
     network_version_getter: N,
     circ_supply_calc: Option<CircSupplyCalc<DB>>,
+    verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, SYS, R, N, P> VM<'db, 'r, DB, SYS, R, N, P>
+impl<'db, 'r, DB, R, N, V, P> VM<'db, 'r, DB, R, N, V, P>
 where
     DB: BlockStore,
-    SYS: Syscalls,
+    V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
     N: Fn(ChainEpoch) -> NetworkVersion,
@@ -69,7 +71,6 @@ where
         root: &Cid,
         store: &'db DB,
         epoch: ChainEpoch,
-        syscalls: SYS,
         rand: &'r R,
         base_fee: BigInt,
         network_version_getter: N,
@@ -82,11 +83,11 @@ where
             state,
             store,
             epoch,
-            syscalls,
             rand,
             base_fee,
             registered_actors,
             circ_supply_calc,
+            verifier: PhantomData,
             params: PhantomData,
         })
     }
@@ -484,14 +485,13 @@ where
         gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, '_, DB, SYS, R, P>>,
+        Option<DefaultRuntime<'db, '_, DB, R, V, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
             (self.network_version_getter)(self.epoch),
             &mut self.state,
             self.store,
-            &self.syscalls,
             0,
             &msg,
             self.epoch,

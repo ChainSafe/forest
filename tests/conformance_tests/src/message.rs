@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use fil_types::get_network_version_default;
+use fil_types::{get_network_version_default, verifier::MockVerifier};
 use vm::TokenAmount;
 
 #[derive(Debug, Deserialize)]
@@ -28,11 +28,10 @@ pub fn execute_message(
     params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let circ_supply = params.circ_supply;
-    let mut vm = VM::<_, _, _, _>::new(
+    let mut vm = VM::<_, _, _, MockVerifier>::new(
         params.pre_root,
         bs,
         params.epoch,
-        TestSyscalls,
         &params.randomness,
         params.basefee,
         get_network_version_default,
