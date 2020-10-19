@@ -237,6 +237,7 @@ where
             false,
         )
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS>, false)
+        .with_method("Filecoin.NetworkName", state_network_name::<DB, KS>, false)
         // Gas API
         .with_method(
             "Filecoin.GasEstimateGasLimit",
