@@ -109,7 +109,7 @@ fn transfer_test() {
         0,
         &dummy_rand,
         &registered,
-        &None
+        &None,
     )
     .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();
