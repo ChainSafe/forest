@@ -153,7 +153,11 @@ pub fn get_circulating_supply<'a, DB: BlockStore>(
     let fil_mined = get_fil_mined(&state_tree)?;
     let fil_burnt = get_fil_burnt(&state_tree)?;
     let fil_locked = get_fil_locked(&state_tree)?;
-    let fil_reserve_distributed = get_fil_reserve_disbursed(&state_tree)?;
+    let fil_reserve_distributed = if height > UPGRADE_ACTORS_V2_HEIGHT {
+        get_fil_reserve_disbursed(&state_tree)?
+    } else {
+        TokenAmount::default()
+    };
     let fil_circulating = BigInt::max(
         &fil_vested + &fil_mined + fil_reserve_distributed - &fil_burnt - &fil_locked,
         TokenAmount::default(),

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    circ_supply,
     gas_tracker::{price_list_by_epoch, GasCharge},
     vm_send, DefaultRuntime, Rand,
 };
@@ -493,8 +492,8 @@ where
             0,
             self.rand,
             &self.registered_actors,
-            circ_supply::setup_preignition_genesis_actors_testnet(self.store).ok(),
-            circ_supply::setup_postignition_genesis_actors_testnet(self.store).ok(),
+            None,
+            None,
         );
 
         match res {
