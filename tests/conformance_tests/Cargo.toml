@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [features]
-default = ["submodule_tests"]
+default = []
 submodule_tests = [
     "serde",
     "cid",
