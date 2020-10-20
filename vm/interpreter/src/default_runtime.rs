@@ -112,11 +112,6 @@ where
             gas: Rc::clone(&gas_tracker),
             store,
         };
-        // let gas_syscalls = GasSyscalls {
-        //     price_list: price_list.clone(),
-        //     gas: Rc::clone(&gas_tracker),
-        //     syscalls,
-        // };
 
         let caller_id = state
             .lookup_id(&message.from())
