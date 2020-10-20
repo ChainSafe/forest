@@ -3,7 +3,7 @@
 </p>
 
 
-[<img alt="build status" src="https://img.shields.io/github/workflow/status/ChainSafe/forest/Rust%20CI/main?style=for-the-badge" height="20">](https://github.com/dtolnay/serde-repr/actions?query=branch%3Amaster)
+[<img alt="build status" src="https://img.shields.io/github/workflow/status/ChainSafe/forest/Rust%20CI/main?style=for-the-badge" height="20">](https://github.com/ChainSafe/forest/actions?query=branch%3Amain)
 [<img alt="Apache License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/Apache-2.0)
 [<img alt="MIT License" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/MIT)
 [<img alt="Discord" src="https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord" height="20">](https://discord.gg/Q6A3YA2)
