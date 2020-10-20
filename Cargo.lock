@@ -543,7 +543,6 @@ dependencies = [
  "forest_encoding",
  "forest_json_utils",
  "hex",
- "protoc-rust-grpc",
  "serde",
  "serde_json",
  "sha2 0.9.1",
@@ -608,7 +607,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "which 3.1.1",
+ "which",
 ]
 
 [[package]]
@@ -2120,7 +2119,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_libp2p",
- "futures 0.3.5",
+ "futures 0.3.6",
  "genesis",
  "hex",
  "ipld_blockstore",
@@ -2674,32 +2673,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "graphsync"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "async-trait",
- "bytes",
- "fnv",
- "forest_cid",
- "forest_encoding",
- "forest_ipld",
- "futures 0.3.5",
- "futures-util",
- "futures_codec",
- "ipld_blockstore",
- "libp2p",
- "log",
- "multihash 0.10.1",
- "protobuf",
- "protoc-rust",
- "rand 0.7.3",
- "serde",
- "smallvec",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
 name = "groupy"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2709,16 +2682,6 @@ dependencies = [
  "rand 0.7.3",
  "rand_xorshift",
  "thiserror",
-]
-
-[[package]]
-name = "grpc-compiler"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e2861b7dc0787cf7804c986da795827e7f73f72353677525bb83c2b5332b1ee"
-dependencies = [
- "protobuf",
- "protobuf-codegen",
 ]
 
 [[package]]
@@ -4691,7 +4654,7 @@ dependencies = [
  "prost",
  "prost-types",
  "tempfile",
- "which 3.1.1",
+ "which",
 ]
 
 [[package]]
@@ -4715,56 +4678,6 @@ checksum = "1834f67c0697c001304b75be76f67add9c89742eda3a085ad8ee0bb38c3417aa"
 dependencies = [
  "bytes",
  "prost",
-]
-
-[[package]]
-name = "protobuf"
-version = "2.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d147edb77bcccbfc81fabffdc7bd50c13e103b15ca1e27515fe40de69a5776b"
-
-[[package]]
-name = "protobuf-codegen"
-version = "2.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e81f70c25aab9506f87253c55f7cdcd8917635d5597382958d20025c211bbbd"
-dependencies = [
- "protobuf",
-]
-
-[[package]]
-name = "protoc"
-version = "2.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57408af2c106a7f08cc61e15be6a31e3ace8ea26f90dd1be1ad19abf1073d36a"
-dependencies = [
- "log",
- "which 4.0.2",
-]
-
-[[package]]
-name = "protoc-rust"
-version = "2.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21c1582ff3efeccef1385b1c2dfaf4a9b5bc7794865624fc2a3ca9dff1145fa1"
-dependencies = [
- "protobuf",
- "protobuf-codegen",
- "protoc",
- "tempfile",
-]
-
-[[package]]
-name = "protoc-rust-grpc"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a77ca3fdfd93c9d20aa208aee8bbdea7a5559b24ec8cb3a057a484faa2f963ff"
-dependencies = [
- "grpc-compiler",
- "protobuf",
- "protoc",
- "protoc-rust",
- "tempdir",
 ]
 
 [[package]]
@@ -6739,16 +6652,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "which"
-version = "4.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87c14ef7e1b8b8ecfc75d5eca37949410046e66f15d185c01d70824f1f8111ef"
-dependencies = [
- "libc",
- "thiserror",
 ]
 
 [[package]]
