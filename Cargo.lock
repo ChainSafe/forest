@@ -1125,6 +1125,7 @@ name = "conformance_tests"
 version = "0.1.0"
 dependencies = [
  "actor",
+ "async-std",
  "base64 0.12.3",
  "clock",
  "colored",
@@ -1146,6 +1147,7 @@ dependencies = [
  "ipld_hamt",
  "lazy_static",
  "log",
+ "paramfetch",
  "pretty_env_logger",
  "regex",
  "runtime",
@@ -2106,7 +2108,6 @@ dependencies = [
  "async-std",
  "auth",
  "beacon",
- "blake2b_simd",
  "chain",
  "chain_sync",
  "ctrlc",
@@ -2128,8 +2129,7 @@ dependencies = [
  "libp2p",
  "log",
  "message_pool",
- "pbr",
- "pin-project-lite",
+ "paramfetch",
  "pretty_env_logger",
  "rpc",
  "rpc-client",
@@ -2137,7 +2137,6 @@ dependencies = [
  "serde_json",
  "state_manager",
  "structopt",
- "surf",
  "utils",
  "uuid",
 ]
@@ -4303,6 +4302,22 @@ dependencies = [
  "hkdf 0.8.0",
  "rand_core 0.5.1",
  "serde",
+]
+
+[[package]]
+name = "paramfetch"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "blake2b_simd",
+ "fil_types",
+ "futures 0.3.6",
+ "log",
+ "pbr",
+ "pin-project-lite",
+ "serde",
+ "serde_json",
+ "surf",
 ]
 
 [[package]]

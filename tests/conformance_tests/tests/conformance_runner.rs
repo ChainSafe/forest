@@ -22,6 +22,7 @@ use ipld::json::{IpldJson, IpldJsonRef};
 use ipld::Ipld;
 use ipld_hamt::{BytesKey, Hamt};
 use num_bigint::{BigInt, ToBigInt};
+use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -335,6 +336,10 @@ fn execute_tipset_vector(
 #[test]
 fn conformance_test_runner() {
     pretty_env_logger::init();
+
+    // Retrieve verification params
+    async_std::task::block_on(get_params_default(SectorSizeOpt::Keys, false)).unwrap();
+
     let walker = WalkDir::new("test-vectors/corpus").into_iter();
     let mut failed = Vec::new();
     let mut succeeded = 0;

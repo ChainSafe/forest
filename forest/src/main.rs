@@ -4,7 +4,6 @@
 mod cli;
 mod daemon;
 mod logger;
-pub(crate) mod paramfetch;
 mod subcommand;
 
 use cli::CLI;
