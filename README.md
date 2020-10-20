@@ -39,7 +39,7 @@ make install
 forest
 ```
 
-> `protoc` and `OpenCL` are also required to build. Installation for protoc can be found [here](http://google.github.io/proto-lens/installing-protoc.html).
+> `OpenCL`, `hwloc` and a compatible assembly linker (ex. `clang`) are also required to build Filecoin proofs.
 
 ### Config
 
