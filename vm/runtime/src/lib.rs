@@ -167,9 +167,7 @@ pub trait Syscalls {
         signature: &Signature,
         signer: &Address,
         plaintext: &[u8],
-    ) -> Result<(), Box<dyn StdError>> {
-        Ok(signature.verify(plaintext, signer)?)
-    }
+    ) -> Result<(), Box<dyn StdError>>;
     /// Hashes input data using blake2b with 256 bit output.
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
         Ok(blake2b_256(data))
@@ -180,34 +178,7 @@ pub trait Syscalls {
         proof_type: RegisteredSealProof,
         pieces: &[PieceInfo],
     ) -> Result<Cid, Box<dyn StdError>> {
-        let sum: u64 = pieces.iter().map(|p| p.size.0).sum();
-
-        let ssize = proof_type.sector_size()? as u64;
-
-        let mut fcp_pieces: Vec<proofs::PieceInfo> = pieces
-            .iter()
-            .map(proofs::PieceInfo::try_from)
-            .collect::<Result<_, &'static str>>()?;
-
-        // pad remaining space with 0 piece commitments
-        {
-            let mut to_fill = ssize - sum;
-            let n = to_fill.count_ones();
-            for _ in 0..n {
-                let next = to_fill.trailing_zeros();
-                let p_size = 1 << next;
-                to_fill ^= p_size;
-                let padded = PaddedPieceSize(p_size);
-                fcp_pieces.push(filecoin_proofs_api::PieceInfo {
-                    commitment: zero_piece_commitment(padded),
-                    size: padded.unpadded().into(),
-                });
-            }
-        }
-
-        let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)?;
-
-        Ok(data_commitment_v1_to_cid(&comm_d)?)
+        compute_unsealed_sector_cid(proof_type, pieces)
     }
     /// Verifies a sector seal proof.
     fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>>;
@@ -262,4 +233,38 @@ pub enum ConsensusFaultType {
     DoubleForkMining = 1,
     ParentGrinding = 2,
     TimeOffsetMining = 3,
+}
+
+pub fn compute_unsealed_sector_cid(
+    proof_type: RegisteredSealProof,
+    pieces: &[PieceInfo],
+) -> Result<Cid, Box<dyn StdError>> {
+    let sum: u64 = pieces.iter().map(|p| p.size.0).sum();
+
+    let ssize = proof_type.sector_size()? as u64;
+
+    let mut fcp_pieces: Vec<proofs::PieceInfo> = pieces
+        .iter()
+        .map(proofs::PieceInfo::try_from)
+        .collect::<Result<_, &'static str>>()?;
+
+    // pad remaining space with 0 piece commitments
+    {
+        let mut to_fill = ssize - sum;
+        let n = to_fill.count_ones();
+        for _ in 0..n {
+            let next = to_fill.trailing_zeros();
+            let p_size = 1 << next;
+            to_fill ^= p_size;
+            let padded = PaddedPieceSize(p_size);
+            fcp_pieces.push(filecoin_proofs_api::PieceInfo {
+                commitment: zero_piece_commitment(padded),
+                size: padded.unpadded().into(),
+            });
+        }
+    }
+
+    let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)?;
+
+    Ok(data_commitment_v1_to_cid(&comm_d)?)
 }

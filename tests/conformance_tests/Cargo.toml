@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [features]
+default = []
 submodule_tests = [
     "serde",
     "cid",
@@ -62,3 +63,5 @@ colored = "2.0"
 ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
 ipld_hamt = { path = "../../ipld/hamt", features = ["ignore-dead-links"] }
 log = "0.4"
+paramfetch = { path = "../../utils/paramfetch" }
+async-std = "1.6"
