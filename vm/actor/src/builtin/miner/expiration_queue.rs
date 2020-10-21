@@ -8,7 +8,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::{SectorNumber, SectorSize};
-use ipld_amt::{Amt, Error as AmtError};
+use ipld_amt::{Amt, Error as AmtError, ValueMut};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
@@ -660,7 +660,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         &mut self,
         mut f: impl FnMut(
             ChainEpoch,
-            &mut ExpirationSet,
+            &mut ValueMut<'_, ExpirationSet>,
         ) -> Result</* keep going */ bool, Box<dyn StdError>>,
     ) -> Result<(), Box<dyn StdError>> {
         let mut epochs_emptied = Vec::<ChainEpoch>::new();
