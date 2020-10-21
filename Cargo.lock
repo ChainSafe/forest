@@ -1128,9 +1128,7 @@ dependencies = [
  "async-std",
  "base64 0.12.3",
  "clock",
- "colored",
  "db",
- "difference",
  "fil_types",
  "flate2",
  "forest_address",
@@ -1139,12 +1137,10 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
- "forest_ipld",
  "forest_message",
  "forest_vm",
  "interpreter",
  "ipld_blockstore",
- "ipld_hamt",
  "lazy_static",
  "log",
  "paramfetch",
@@ -1154,6 +1150,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_manager",
+ "statediff",
  "walkdir",
 ]
 
@@ -5661,6 +5658,23 @@ dependencies = [
  "ipld_blockstore",
  "ipld_hamt",
  "parking_lot 0.11.0",
+]
+
+[[package]]
+name = "statediff"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "difference",
+ "fil_types",
+ "forest_address",
+ "forest_cid",
+ "forest_ipld",
+ "forest_vm",
+ "ipld_blockstore",
+ "ipld_hamt",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
