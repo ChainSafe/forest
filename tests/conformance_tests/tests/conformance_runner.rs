@@ -57,7 +57,6 @@ lazy_static! {
         // Extracted miner faults
         Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-3").unwrap(),
         Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-7").unwrap(),
-        Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt").unwrap(),
 
         // Other fault
         Regex::new(r"fail-insufficient-funds-for-transfer-in-inner-send--genesis").unwrap(),
