@@ -41,11 +41,6 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/nested/x--").unwrap(),
         // These tests are marked as invalid as they return wrong exit code on Lotus
         Regex::new(r"actor_creation/x--params*").unwrap(),
-        // Following two fail for the same invalid exit code return
-        Regex::new(r"nested/nested_sends--fail-missing-params.json").unwrap(),
-        Regex::new(r"nested/nested_sends--fail-mismatch-params.json").unwrap(),
-        // Lotus client does not fail in inner transaction for insufficient funds
-        Regex::new(r"test-vectors/corpus/nested/nested_sends--fail-insufficient-funds-for-transfer-in-inner-send.json").unwrap(),
 
         // These 2 tests ignore test cases for Chaos actor that are checked at compile time
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
@@ -53,9 +48,6 @@ lazy_static! {
 
         // Same as marked tests above -- Go impl has the incorrect behaviour
         Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-").unwrap(),
-
-        // Other fault
-        Regex::new(r"fail-insufficient-funds-for-transfer-in-inner-send--genesis").unwrap(),
     ];
 }
 
