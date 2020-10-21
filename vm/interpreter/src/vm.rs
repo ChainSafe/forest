@@ -118,17 +118,14 @@ where
 
     fn run_cron(
         &mut self,
+        epoch: ChainEpoch,
         callback: Option<&mut impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(), Box<dyn StdError>> {
-        let sys_act = self
-            .state()
-            .get_actor(&*SYSTEM_ACTOR_ADDR)?
-            .ok_or_else(|| "Failed to query system actor".to_string())?;
-
         let cron_msg = UnsignedMessage {
             from: *SYSTEM_ACTOR_ADDR,
             to: *CRON_ACTOR_ADDR,
-            sequence: sys_act.sequence,
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
             gas_limit: 1 << 30,
             method_num: cron::Method::EpochTick as u64,
             params: Default::default(),
@@ -163,7 +160,7 @@ where
 
         for i in parent_epoch..epoch {
             if i > parent_epoch {
-                self.run_cron(callback.as_mut())?;
+                self.run_cron(epoch, callback.as_mut())?;
             }
             self.epoch = i + 1;
         }
@@ -205,17 +202,13 @@ where
                 win_count: block.win_count,
             })?;
 
-            let sys_act = self
-                .state()
-                .get_actor(&*SYSTEM_ACTOR_ADDR)?
-                .ok_or_else(|| "Failed to query system actor".to_string())?;
-
             let rew_msg = UnsignedMessage {
                 from: *SYSTEM_ACTOR_ADDR,
                 to: *REWARD_ACTOR_ADDR,
                 method_num: reward::Method::AwardBlockReward as u64,
                 params,
-                sequence: sys_act.sequence,
+                // Epoch as sequence is intentional
+                sequence: epoch as u64,
                 gas_limit: 1 << 30,
                 value: Default::default(),
                 version: Default::default(),
@@ -246,7 +239,7 @@ where
             }
         }
 
-        self.run_cron(callback.as_mut())?;
+        self.run_cron(epoch, callback.as_mut())?;
         Ok(receipts)
     }
 
