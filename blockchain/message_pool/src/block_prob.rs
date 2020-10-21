@@ -15,20 +15,18 @@ fn poiss_pdf(x: f64, mu: f64, cond: f64) -> f64 {
 }
 
 pub fn no_winners_prob() -> Vec<f64> {
-    let mut out: Vec<f64> = vec![];
-    for i in 0..MAX_BLOCKS {
-        out.push(poiss_pdf(i as f64, MU, MU));
-    }
-    out
+    (0..MAX_BLOCKS)
+        .into_iter()
+        .map(|i| poiss_pdf(i as f64, MU, MU))
+        .collect()
 }
 
 fn no_winners_prob_assuming_more_than_one() -> Vec<f64> {
     let cond = (E.powf(5.0) - 1.0).log(E);
-    let mut out: Vec<f64> = vec![];
-    for i in 0..MAX_BLOCKS {
-        out.push(poiss_pdf(i as f64 + 1.0, MU, cond));
-    }
-    out
+    (0..MAX_BLOCKS)
+        .into_iter()
+        .map(|i| poiss_pdf(i as f64, MU, cond))
+        .collect()
 }
 
 fn binomial_coefficient(mut n: f64, k: f64) -> Result<f64, ()> {
@@ -77,16 +75,18 @@ fn bino_pdf(x: f64, trials: f64, p: f64) -> f64 {
 pub fn block_probabilities(tq: f64) -> Vec<f64> {
     let no_winners = no_winners_prob_assuming_more_than_one();
     let p = 1.0 - tq;
-    let mut out: Vec<f64> = vec![];
-
-    for place in 0..MAX_BLOCKS {
-        let mut p_place = 0.0;
-        for (other_winner, p_case) in no_winners.iter().enumerate() {
-            p_place += p_case * bino_pdf(place as f64, other_winner as f64, p);
-        }
-        out.push(p_place);
-    }
-    out
+    (0..MAX_BLOCKS)
+        .into_iter()
+        .map(|place| {
+            no_winners
+                .iter()
+                .enumerate()
+                .map(|(other_winner, p_case)| {
+                    p_case * bino_pdf(place as f64, other_winner as f64, p)
+                })
+                .sum()
+        })
+        .collect()
 }
 
 #[test]
