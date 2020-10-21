@@ -54,10 +54,6 @@ lazy_static! {
         // Same as marked tests above -- Go impl has the incorrect behaviour
         Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-").unwrap(),
 
-        // Extracted miner faults
-        Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-3").unwrap(),
-        Regex::new(r"fil_1_storageminer-DeclareFaults-Ok-7").unwrap(),
-
         // Other fault
         Regex::new(r"fail-insufficient-funds-for-transfer-in-inner-send--genesis").unwrap(),
     ];
