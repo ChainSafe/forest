@@ -65,3 +65,5 @@ ipld_hamt = { path = "../../ipld/hamt", features = ["ignore-dead-links"] }
 log = "0.4"
 paramfetch = { path = "../../utils/paramfetch" }
 async-std = "1.6"
+forest_blocks = { path = "../../blockchain/blocks" }
+chain = { path = "../../blockchain/chain" }

@@ -238,7 +238,7 @@ fn execute_message_vector(
 ) -> Result<(), Box<dyn StdError>> {
     let bs = load_car(car)?;
 
-    let mut base_epoch: ChainEpoch = variant.epoch_offset;
+    let mut base_epoch: ChainEpoch = variant.epoch;
     let mut root = root_cid;
 
     for (i, m) in apply_messages.iter().enumerate() {
@@ -253,7 +253,7 @@ fn execute_message_vector(
             &selector,
             ExecuteMessageParams {
                 pre_root: &root,
-                epoch: base_epoch,
+                epoch_offset: base_epoch,
                 msg: &to_chain_msg(msg),
                 circ_supply: circ_supply
                     .map(|i| i.to_bigint().unwrap())
@@ -285,7 +285,7 @@ fn execute_tipset_vector(
 ) -> Result<(), Box<dyn StdError>> {
     let bs = Arc::new(load_car(car)?);
 
-    let base_epoch = variant.epoch_offset;
+    let base_epoch = variant.epoch;
     let mut root = root_cid;
 
     let mut receipt_idx = 0;

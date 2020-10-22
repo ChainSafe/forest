@@ -141,7 +141,7 @@ pub struct Selector {
 #[derive(Debug, Deserialize)]
 pub struct Variant {
     pub id: String,
-    pub epoch_offset: ChainEpoch,
+    pub epoch: ChainEpoch,
     pub nv: u32,
 }
 

@@ -15,7 +15,7 @@ pub struct MessageVector {
 
 pub struct ExecuteMessageParams<'a> {
     pub pre_root: &'a Cid,
-    pub epoch: ChainEpoch,
+    pub epoch_offset: ChainEpoch,
     pub msg: &'a ChainMessage,
     pub circ_supply: TokenAmount,
     pub basefee: TokenAmount,
@@ -31,7 +31,7 @@ pub fn execute_message(
     let mut vm = VM::<_, _, _>::new(
         params.pre_root,
         bs,
-        params.epoch,
+        params.epoch_offset,
         &params.randomness,
         params.basefee,
         get_network_version_default,
