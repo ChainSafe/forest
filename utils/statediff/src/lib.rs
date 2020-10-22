@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use address::Address;
 use blockstore::resolve::resolve_cids_recursive;
 use blockstore::BlockStore;
@@ -30,8 +33,8 @@ fn root_to_state_map<BS: BlockStore>(
     hamt.for_each(|k: &BytesKey, actor: &ActorState| {
         let addr = Address::from_bytes(&k.0)?;
 
-        let resolved =
-            resolve_cids_recursive(bs, &actor.state).unwrap_or(Ipld::Link(actor.state.clone()));
+        let resolved = resolve_cids_recursive(bs, &actor.state)
+            .unwrap_or_else(|_| Ipld::Link(actor.state.clone()));
         let resolved_state = ActorStateResolved {
             state: IpldJson(resolved),
             code: CidJson(actor.code.clone()),
