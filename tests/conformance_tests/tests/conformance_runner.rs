@@ -33,7 +33,9 @@ use std::io::BufReader;
 use std::sync::Arc;
 use vm::ActorState;
 use walkdir::{DirEntry, WalkDir};
-
+use blockstore::BlockStore;
+use forest_blocks::BlockHeader;
+use chain::set_genesis;
 lazy_static! {
     static ref DEFAULT_BASE_FEE: BigInt = BigInt::from(100);
     static ref SKIP_TESTS: Vec<Regex> = vec![
@@ -77,7 +79,12 @@ fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
     let d = GzDecoder::new(gzip_bz);
 
     // Load car file with bytes
-    forest_car::load_car(&bs, d)?;
+    let genesis_cids =  forest_car::load_car(&bs, d)?;
+    let genesis_block: BlockHeader = bs.get(&genesis_cids[0])?.ok_or_else(|| {
+        "Could not find genesis block despite being loaded using a genesis file".to_owned()
+    })?;
+    set_genesis(&bs, &genesis_block)?;
+
     Ok(bs)
 }
 
@@ -231,7 +238,7 @@ fn execute_message_vector(
 ) -> Result<(), Box<dyn StdError>> {
     let bs = load_car(car)?;
 
-    let mut base_epoch: ChainEpoch = variant.epoch;
+    let mut base_epoch: ChainEpoch = variant.epoch_offset;
     let mut root = root_cid;
 
     for (i, m) in apply_messages.iter().enumerate() {
@@ -278,13 +285,13 @@ fn execute_tipset_vector(
 ) -> Result<(), Box<dyn StdError>> {
     let bs = Arc::new(load_car(car)?);
 
-    let base_epoch = variant.epoch;
+    let base_epoch = variant.epoch_offset;
     let mut root = root_cid;
 
     let mut receipt_idx = 0;
     let mut prev_epoch = base_epoch;
     for (i, ts) in tipsets.into_iter().enumerate() {
-        let exec_epoch = base_epoch + ts.epoch;
+        let exec_epoch = base_epoch + ts.epoch_offset;
         let ExecuteTipsetResult {
             receipts_root,
             post_state_root,

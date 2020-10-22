@@ -56,7 +56,7 @@ mod block_messages_json {
 
 #[derive(Debug, Deserialize)]
 pub struct TipsetVector {
-    pub epoch: ChainEpoch,
+    pub epoch_offset: ChainEpoch,
     pub basefee: f64,
     #[serde(with = "block_messages_json")]
     pub blocks: Vec<BlockMessages>,
