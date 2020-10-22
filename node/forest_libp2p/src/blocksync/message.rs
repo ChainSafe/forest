@@ -115,8 +115,9 @@ impl BlockSyncResponse {
     where
         T: TryFrom<TipsetBundle, Error = String>,
     {
-        if self.status != BlockSyncResponseStatus::Success {
-            // TODO implement a better error type than string if needed to be handled differently
+        if self.status != BlockSyncResponseStatus::Success
+            && self.status != BlockSyncResponseStatus::PartialResponse
+        {
             return Err(format!("Status {:?}: {}", self.status, self.message));
         }
 

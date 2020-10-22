@@ -32,7 +32,7 @@ use state_manager::StateManager;
 use state_tree::StateTree;
 use std::cmp::min;
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -129,7 +129,7 @@ where
         }
         // Sync and validate messages from fetched tipsets
         self.set_stage(SyncStage::Messages).await;
-        if let Err(e) = self.sync_messages_check_state(&tipsets).await {
+        if let Err(e) = self.sync_messages_check_state(tipsets).await {
             self.state.write().await.error(e.to_string());
             return Err(e);
         }
@@ -299,45 +299,39 @@ where
     }
 
     /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
-    async fn sync_messages_check_state(&self, ts: &[Tipset]) -> Result<(), Error> {
-        // see https://github.com/filecoin-project/lotus/blob/master/build/params_shared.go#L109 for request window size
-        const REQUEST_WINDOW: i64 = 1;
-        // TODO refactor type handling
-        // set i to the length of provided tipsets
-        let mut i: i64 = i64::try_from(ts.len())? - 1;
+    async fn sync_messages_check_state(&self, tipsets: Vec<Tipset>) -> Result<(), Error> {
+        let mut ts_iter = tipsets.into_iter().rev();
+        // Currently syncing 1 height at a time, no reason for us to sync more
+        const REQUEST_WINDOW: usize = 1;
 
-        while i >= 0 {
+        while let Some(ts) = ts_iter.next() {
             // check storage first to see if we have full tipset
-            let fts = match self.chain_store.fill_tipsets(ts[i as usize].clone()) {
+            let fts = match self.chain_store.fill_tipset(ts) {
                 Ok(fts) => fts,
-                Err(_) => {
+                Err(ts) => {
                     // no full tipset in storage; request messages via blocksync
 
-                    let mut batch_size = REQUEST_WINDOW;
-                    if i < batch_size {
-                        batch_size = i;
-                    }
-
-                    // set params for blocksync request
-                    let idx = i - batch_size;
-                    let next = &ts[idx as usize];
-                    let req_len = batch_size + 1;
+                    let batch_size = REQUEST_WINDOW;
                     debug!(
                         "BlockSync message sync tipsets: epoch: {}, len: {}",
-                        next.epoch(),
-                        req_len
+                        ts.epoch(),
+                        batch_size
                     );
 
                     // receive tipset bundle from block sync
                     let compacted_messages = self
                         .network
-                        .blocksync_messages(None, next.key(), req_len as u64)
+                        .blocksync_messages(None, ts.key(), batch_size as u64)
                         .await?;
 
-                    let mut ts_r = ts[(idx) as usize..(idx + 1 + req_len) as usize].to_vec();
+                    // Chain current tipset with iterator
+                    let mut bs_iter = std::iter::once(ts).chain(&mut ts_iter);
+
                     // since the bundle only has messages, we have to put the headers in them
                     for messages in compacted_messages.into_iter() {
-                        let t = ts_r.pop().unwrap();
+                        let t = bs_iter.next().ok_or_else(|| {
+                            Error::Other("Messages returned exceeded tipsets in chain".to_string())
+                        })?;
 
                         let bundle = TipsetBundle {
                             blocks: t.into_blocks(),
@@ -360,7 +354,6 @@ where
                         }
                     }
 
-                    i -= REQUEST_WINDOW;
                     continue;
                 }
             };
@@ -368,7 +361,6 @@ where
             let curr_epoch = fts.epoch();
             self.validate_tipset(fts).await?;
             self.state.write().await.set_epoch(curr_epoch);
-            i -= 1;
             continue;
         }
 
