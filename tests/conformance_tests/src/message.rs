@@ -10,12 +10,12 @@ pub struct MessageVector {
     #[serde(with = "base64_bytes")]
     pub bytes: Vec<u8>,
     #[serde(default)]
-    pub epoch: Option<ChainEpoch>,
+    pub epoch_offset: Option<ChainEpoch>,
 }
 
 pub struct ExecuteMessageParams<'a> {
     pub pre_root: &'a Cid,
-    pub epoch_offset: ChainEpoch,
+    pub epoch: ChainEpoch,
     pub msg: &'a ChainMessage,
     pub circ_supply: TokenAmount,
     pub basefee: TokenAmount,
@@ -31,7 +31,7 @@ pub fn execute_message(
     let mut vm = VM::<_, _, _>::new(
         params.pre_root,
         bs,
-        params.epoch_offset,
+        params.epoch,
         &params.randomness,
         params.basefee,
         get_network_version_default,

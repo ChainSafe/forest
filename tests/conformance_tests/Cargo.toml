@@ -67,3 +67,5 @@ paramfetch = { path = "../../utils/paramfetch" }
 async-std = "1.6"
 forest_blocks = { path = "../../blockchain/blocks" }
 chain = { path = "../../blockchain/chain" }
+chain_sync = { path = "../../blockchain/chain_sync" }
+

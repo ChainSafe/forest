@@ -8,6 +8,10 @@ extern crate lazy_static;
 
 use address::Address;
 use blockstore::resolve::resolve_cids_recursive;
+use blockstore::BlockStore;
+use chain::set_genesis;
+use chain_sync::compute_msg_meta;
+use cid::multihash::Blake2b256;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
 use colored::*;
@@ -16,6 +20,7 @@ use difference::{Changeset, Difference};
 use encoding::Cbor;
 use fil_types::{HAMT_BIT_WIDTH, TOTAL_FILECOIN};
 use flate2::read::GzDecoder;
+use forest_blocks::BlockHeader;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use interpreter::ApplyRet;
 use ipld::json::{IpldJson, IpldJsonRef};
@@ -33,9 +38,7 @@ use std::io::BufReader;
 use std::sync::Arc;
 use vm::ActorState;
 use walkdir::{DirEntry, WalkDir};
-use blockstore::BlockStore;
-use forest_blocks::BlockHeader;
-use chain::set_genesis;
+
 lazy_static! {
     static ref DEFAULT_BASE_FEE: BigInt = BigInt::from(100);
     static ref SKIP_TESTS: Vec<Regex> = vec![
@@ -79,11 +82,7 @@ fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
     let d = GzDecoder::new(gzip_bz);
 
     // Load car file with bytes
-    let genesis_cids =  forest_car::load_car(&bs, d)?;
-    let genesis_block: BlockHeader = bs.get(&genesis_cids[0])?.ok_or_else(|| {
-        "Could not find genesis block despite being loaded using a genesis file".to_owned()
-    })?;
-    set_genesis(&bs, &genesis_block)?;
+    let _ = forest_car::load_car(&bs, d)?;
 
     Ok(bs)
 }
@@ -236,7 +235,9 @@ fn execute_message_vector(
     randomness: &Randomness,
     variant: &Variant,
 ) -> Result<(), Box<dyn StdError>> {
+    println!("Starting loaf");
     let bs = load_car(car)?;
+    println!("Passing load");
 
     let mut base_epoch: ChainEpoch = variant.epoch;
     let mut root = root_cid;
@@ -244,7 +245,7 @@ fn execute_message_vector(
     for (i, m) in apply_messages.iter().enumerate() {
         let msg = UnsignedMessage::unmarshal_cbor(&m.bytes)?;
 
-        if let Some(ep) = m.epoch {
+        if let Some(ep) = m.epoch_offset {
             base_epoch += ep;
         }
 
@@ -253,7 +254,7 @@ fn execute_message_vector(
             &selector,
             ExecuteMessageParams {
                 pre_root: &root,
-                epoch_offset: base_epoch,
+                epoch: base_epoch,
                 msg: &to_chain_msg(msg),
                 circ_supply: circ_supply
                     .map(|i| i.to_bigint().unwrap())
