@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
+    circ_supply::*,
     gas_tracker::{price_list_by_epoch, GasCharge},
     vm_send, DefaultRuntime, Rand,
 };
@@ -12,21 +13,22 @@ use actor::{
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::{DevnetParams, NetworkParams, NetworkVersion};
+use fil_types::{
+    verifier::{FullVerifier, ProofVerifier},
+    DevnetParams, NetworkParams, NetworkVersion,
+};
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
-use runtime::Syscalls;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
-
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
 
@@ -37,36 +39,42 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
+// TODO replace with some trait or some generic solution (needs to use context)
+pub type CircSupplyCalc<BS> =
+    Box<dyn Fn(ChainEpoch, &StateTree<BS>) -> Result<TokenAmount, String>>;
+
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, SYS, R, N, P = DevnetParams> {
+pub struct VM<'db, 'r, DB, R, N, V = FullVerifier, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
-    syscalls: SYS,
     rand: &'r R,
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
     network_version_getter: N,
+    circ_supply_calc: Option<CircSupplyCalc<DB>>,
+    verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, SYS, R, N, P> VM<'db, 'r, DB, SYS, R, N, P>
+impl<'db, 'r, DB, R, N, V, P> VM<'db, 'r, DB, R, N, V, P>
 where
     DB: BlockStore,
-    SYS: Syscalls,
+    V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
     N: Fn(ChainEpoch) -> NetworkVersion,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         root: &Cid,
         store: &'db DB,
         epoch: ChainEpoch,
-        syscalls: SYS,
         rand: &'r R,
         base_fee: BigInt,
         network_version_getter: N,
+        circ_supply_calc: Option<CircSupplyCalc<DB>>,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -75,10 +83,11 @@ where
             state,
             store,
             epoch,
-            syscalls,
             rand,
             base_fee,
             registered_actors,
+            circ_supply_calc,
+            verifier: PhantomData,
             params: PhantomData,
         })
     }
@@ -109,17 +118,14 @@ where
 
     fn run_cron(
         &mut self,
+        epoch: ChainEpoch,
         callback: Option<&mut impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
     ) -> Result<(), Box<dyn StdError>> {
-        let sys_act = self
-            .state()
-            .get_actor(&*SYSTEM_ACTOR_ADDR)?
-            .ok_or_else(|| "Failed to query system actor".to_string())?;
-
         let cron_msg = UnsignedMessage {
             from: *SYSTEM_ACTOR_ADDR,
             to: *CRON_ACTOR_ADDR,
-            sequence: sys_act.sequence,
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
             gas_limit: 1 << 30,
             method_num: cron::Method::EpochTick as u64,
             params: Default::default(),
@@ -154,7 +160,7 @@ where
 
         for i in parent_epoch..epoch {
             if i > parent_epoch {
-                self.run_cron(callback.as_mut())?;
+                self.run_cron(epoch, callback.as_mut())?;
             }
             self.epoch = i + 1;
         }
@@ -196,17 +202,13 @@ where
                 win_count: block.win_count,
             })?;
 
-            let sys_act = self
-                .state()
-                .get_actor(&*SYSTEM_ACTOR_ADDR)?
-                .ok_or_else(|| "Failed to query system actor".to_string())?;
-
             let rew_msg = UnsignedMessage {
                 from: *SYSTEM_ACTOR_ADDR,
                 to: *REWARD_ACTOR_ADDR,
                 method_num: reward::Method::AwardBlockReward as u64,
                 params,
-                sequence: sys_act.sequence,
+                // Epoch as sequence is intentional
+                sequence: epoch as u64,
                 gas_limit: 1 << 30,
                 value: Default::default(),
                 version: Default::default(),
@@ -237,7 +239,7 @@ where
             }
         }
 
-        self.run_cron(callback.as_mut())?;
+        self.run_cron(epoch, callback.as_mut())?;
         Ok(receipts)
     }
 
@@ -476,24 +478,27 @@ where
         gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, '_, '_, '_, '_, DB, SYS, R, P>>,
+        Option<DefaultRuntime<'db, '_, DB, R, V, P>>,
         Option<ActorError>,
     ) {
+        let default_preignition = setup_preignition_genesis_actors_testnet(self.store).unwrap();
+        let default_postignition = setup_postignition_genesis_actors_testnet(self.store).unwrap();
+
         let res = DefaultRuntime::new(
             (self.network_version_getter)(self.epoch),
             &mut self.state,
             self.store,
-            &self.syscalls,
             0,
             &msg,
             self.epoch,
             *msg.from(),
             msg.sequence(),
             0,
+            default_preignition,
+            default_postignition,
             self.rand,
             &self.registered_actors,
-            None,
-            None,
+            &self.circ_supply_calc,
         );
 
         match res {

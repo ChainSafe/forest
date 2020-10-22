@@ -603,7 +603,7 @@ impl State {
         proven_sectors: &BitField,
         expected_faults: &BitField,
     ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
-        let non_faults = expected_faults - proven_sectors;
+        let non_faults = proven_sectors - expected_faults;
 
         if non_faults.is_empty() {
             return Ok(Vec::new());

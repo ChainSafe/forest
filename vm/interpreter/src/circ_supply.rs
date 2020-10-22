@@ -14,13 +14,25 @@ use fil_types::{
 use ipld_blockstore::BlockStore;
 use num_bigint::BigInt;
 use state_tree::StateTree;
-use std::collections::HashMap;
 use std::error::Error as StdError;
+
+lazy_static! {
+    static ref TOTALS_BY_EPOCH: Vec<(ChainEpoch, TokenAmount)> = {
+        let epoch_in_year = 365 * network::EPOCHS_IN_DAY;
+        vec![
+            (183 * network::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
+            (epoch_in_year, TokenAmount::from(22_421_712)),
+            (2 * epoch_in_year, TokenAmount::from(7_223_364)),
+            (3 * epoch_in_year, TokenAmount::from(87_637_883)),
+            (6 * epoch_in_year, TokenAmount::from(400_000_000)),
+        ]
+    };
+}
 
 #[derive(Default)]
 pub struct GenesisInfo {
     genesis_msigs: Vec<multisig::State>,
-    // info about the Accounts in the genesis state
+    /// info about the Accounts in the genesis state
     genesis_actors: Vec<GenesisActor>,
     genesis_pledge: TokenAmount,
     genesis_market_funds: TokenAmount,
@@ -34,16 +46,10 @@ pub struct GenesisActor {
 fn get_actor_state<DB: BlockStore>(
     state_tree: &StateTree<DB>,
     addr: &Address,
-) -> Result<ActorState, ActorError> {
-    state_tree
-        .get_actor(&addr)
-        .map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "failed to get reward actor for cumputing total supply",
-            )
-        })?
-        .ok_or_else(|| actor_error!(ErrIllegalState; "Actor address ({}) does not exist", addr))
+) -> Result<ActorState, Box<dyn StdError>> {
+    Ok(state_tree
+        .get_actor(&addr)?
+        .ok_or_else(|| "Failed to get Actor ")?)
 }
 
 pub fn get_fil_vested<DB: BlockStore>(
@@ -51,7 +57,7 @@ pub fn get_fil_vested<DB: BlockStore>(
     post_ignition: &GenesisInfo,
     height: ChainEpoch,
     state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, ActorError> {
+) -> Result<TokenAmount, Box<dyn StdError>> {
     let mut return_value = TokenAmount::default();
 
     if height <= UPGRADE_IGNITION_HEIGHT {
@@ -73,7 +79,7 @@ pub fn get_fil_vested<DB: BlockStore>(
         }
     }
 
-    if height < UPGRADE_ACTORS_V2_HEIGHT {
+    if height <= UPGRADE_ACTORS_V2_HEIGHT {
         return_value += &pre_ignition.genesis_pledge + &pre_ignition.genesis_market_funds;
     }
 
@@ -121,10 +127,10 @@ pub fn get_fil_power_locked<DB: BlockStore>(
 pub fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let power_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
+    let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
-    Ok(FIL_RESERVED.clone() - power_actor.balance)
+    Ok(&*FIL_RESERVED - reserve_actor.balance)
 }
 
 pub fn get_fil_locked<DB: BlockStore>(
@@ -166,27 +172,6 @@ pub fn get_circulating_supply<'a, DB: BlockStore>(
     Ok(fil_circulating)
 }
 
-fn get_totals_by_epoch() -> HashMap<ChainEpoch, TokenAmount> {
-    let mut totals_by_epoch: HashMap<ChainEpoch, TokenAmount> = HashMap::new();
-
-    let six_months = 183 * network::EPOCHS_IN_DAY;
-    totals_by_epoch.insert(six_months, TokenAmount::from(82_717_041));
-
-    let one_year = 365 * network::EPOCHS_IN_DAY;
-    totals_by_epoch.insert(one_year, TokenAmount::from(22_421_712));
-
-    let two_years = 2 * 365 * network::EPOCHS_IN_DAY;
-    totals_by_epoch.insert(two_years, TokenAmount::from(7_223_364));
-
-    let three_years = 3 * 365 * network::EPOCHS_IN_DAY;
-    totals_by_epoch.insert(three_years, TokenAmount::from(87_637_883));
-
-    let six_years = 6 * 365 * network::EPOCHS_IN_DAY;
-    totals_by_epoch.insert(six_years, TokenAmount::from(400_000_000));
-
-    totals_by_epoch
-}
-
 fn init_genesis_info<DB: BlockStore>(bs: &DB) -> Result<GenesisInfo, Box<dyn StdError>> {
     let mut ignition = GenesisInfo::default();
 
@@ -210,16 +195,14 @@ pub fn setup_preignition_genesis_actors_testnet<DB: BlockStore>(
 ) -> Result<GenesisInfo, Box<dyn StdError>> {
     let mut pre_ignition = init_genesis_info(bs)?;
 
-    let totals_by_epoch: HashMap<ChainEpoch, TokenAmount> = get_totals_by_epoch();
-
-    for (unlock_duration, initial_balance) in totals_by_epoch {
+    for (unlock_duration, initial_balance) in &*TOTALS_BY_EPOCH {
         let ms = multisig::State {
             signers: vec![],
             num_approvals_threshold: 0,
             next_tx_id: multisig::TxnID(0),
-            initial_balance,
+            initial_balance: initial_balance.clone(),
             start_epoch: ChainEpoch::default(),
-            unlock_duration,
+            unlock_duration: *unlock_duration,
             // Default Cid is ok here because this field is never read
             pending_txs: Cid::default(),
         };
@@ -234,16 +217,14 @@ pub fn setup_postignition_genesis_actors_testnet<DB: BlockStore>(
 ) -> Result<GenesisInfo, Box<dyn StdError>> {
     let mut post_ignition = init_genesis_info(bs)?;
 
-    let totals_by_epoch: HashMap<ChainEpoch, TokenAmount> = get_totals_by_epoch();
-
-    for (unlock_duration, initial_balance) in totals_by_epoch {
+    for (unlock_duration, initial_balance) in &*TOTALS_BY_EPOCH {
         let ms = multisig::State {
             signers: vec![],
             num_approvals_threshold: 0,
             next_tx_id: multisig::TxnID(0),
             initial_balance: initial_balance * FILECOIN_PRECISION,
             start_epoch: UPGRADE_LIFTOFF_HEIGHT,
-            unlock_duration,
+            unlock_duration: *unlock_duration,
             // Default Cid is ok here because this field is never read
             pending_txs: Cid::default(),
         };

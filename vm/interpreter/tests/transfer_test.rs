@@ -7,7 +7,7 @@ use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use db::MemoryDB;
 use fil_types::{verifier::MockVerifier, NetworkVersion};
-use interpreter::{vm_send, ChainRand, DefaultRuntime, DefaultSyscalls};
+use interpreter::{vm_send, ChainRand, DefaultRuntime};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
@@ -18,6 +18,7 @@ use vm::{ActorState, Serialized};
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
+
     let mut state = StateTree::new(&store);
 
     let e_cid = Hamt::<_, String>::new_with_bit_width(&store, 5)
@@ -92,25 +93,23 @@ fn transfer_test() {
         .build()
         .unwrap();
 
-    let default_syscalls = DefaultSyscalls::<_, MockVerifier>::new(&store);
-
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
     let registered = HashSet::new();
-    let mut runtime = DefaultRuntime::<_, _, _>::new(
+    let mut runtime = DefaultRuntime::<_, _, MockVerifier>::new(
         NetworkVersion::V0,
         &mut state,
         &store,
-        &default_syscalls,
         0,
         &message,
         0,
         actor_addr_2.clone(),
         0,
         0,
+        Default::default(),
+        Default::default(),
         &dummy_rand,
         &registered,
-        None,
-        None,
+        &None,
     )
     .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();

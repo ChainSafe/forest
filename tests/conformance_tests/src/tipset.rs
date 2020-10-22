@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use fil_types::verifier::MockVerifier;
+use fil_types::verifier::FullVerifier;
 use num_bigint::ToBigInt;
 use state_manager::StateManager;
 use std::sync::Arc;
@@ -56,7 +56,7 @@ mod block_messages_json {
 
 #[derive(Debug, Deserialize)]
 pub struct TipsetVector {
-    pub epoch: ChainEpoch,
+    pub epoch_offset: ChainEpoch,
     pub basefee: f64,
     #[serde(with = "block_messages_json")]
     pub blocks: Vec<BlockMessages>,
@@ -74,15 +74,16 @@ pub fn execute_tipset(
     pre_root: &Cid,
     parent_epoch: ChainEpoch,
     tipset: &TipsetVector,
+    exec_epoch: ChainEpoch,
 ) -> Result<ExecuteTipsetResult, Box<dyn StdError>> {
     let sm = StateManager::new(bs);
     let mut _applied_messages = Vec::new();
     let mut applied_results = Vec::new();
-    let (post_state_root, receipts_root) = sm.apply_blocks::<_, MockVerifier, _>(
+    let (post_state_root, receipts_root) = sm.apply_blocks::<_, FullVerifier, _>(
         parent_epoch,
         pre_root,
         &tipset.blocks,
-        tipset.epoch,
+        exec_epoch,
         &TestRand,
         tipset.basefee.to_bigint().unwrap_or_default(),
         Some(|_, msg: &ChainMessage, ret| {

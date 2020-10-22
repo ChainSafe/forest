@@ -20,9 +20,7 @@ use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
-use interpreter::{
-    resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, DefaultSyscalls, Rand, VM,
-};
+use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, Rand, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
 use message::{message_receipt, unsigned_message};
@@ -196,14 +194,14 @@ where
     {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
-        let mut vm = VM::<_, _, _, _>::new(
+        let mut vm = VM::<_, _, _, V>::new(
             p_state,
             &buf_store,
             epoch,
-            DefaultSyscalls::<_, V>::new(&buf_store),
             rand,
             base_fee,
             get_network_version_default,
+            None,
         )?;
 
         // Apply tipset messages
@@ -276,14 +274,14 @@ where
         span!("state_call_raw", {
             let block_store = self.blockstore();
             let buf_store = BufferedBlockStore::new(block_store);
-            let mut vm = VM::<_, _, _, _>::new(
+            let mut vm = VM::<_, _, _, V>::new(
                 bstate,
                 &buf_store,
                 *bheight,
-                DefaultSyscalls::<_, V>::new(&buf_store),
                 rand,
                 0.into(),
                 get_network_version_default,
+                None,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -352,14 +350,14 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned());
 
-        let mut vm = VM::<_, _, _, _>::new(
+        let mut vm = VM::<_, _, _, V>::new(
             &st,
             self.bs.as_ref(),
             ts.epoch() + 1,
-            DefaultSyscalls::<_, V>::new(self.bs.as_ref()),
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
+            None,
         )?;
 
         for msg in prior_messages {

@@ -84,9 +84,3 @@ impl NetworkParams for DevnetParams {
     const MINING_REWARD_TOTAL: i64 = 1_400_000_000;
     const INITIAL_FIL_RESERVED: i64 = 300_000_000;
 }
-
-/// Space-race specific fork
-pub const UPGRADE_SMOKE_HEIGHT: i64 = 51000;
-pub const UPGRADE_IGNITION_HEIGHT: i64 = 94000;
-pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
-pub const UPGRADE_ACTORS_V2_HEIGHT: i64 = 138720;
