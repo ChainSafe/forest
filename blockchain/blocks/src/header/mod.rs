@@ -215,7 +215,6 @@ impl<'de> Deserialize<'de> for BlockHeader {
     }
 }
 
-
 impl BlockHeader {
     /// Generates a BlockHeader builder as a constructor
     pub fn builder() -> BlockHeaderBuilder {
