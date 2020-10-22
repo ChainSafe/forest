@@ -567,15 +567,15 @@ where
             if &state_root != h.state_root() {
                 return Err(Error::Validation(format!(
                     "Parent state root did not match computed state: {} (header), {} (computed)",
+                    h.state_root(),
                     state_root,
-                    h.state_root()
                 )));
             }
             if &rec_root != h.message_receipts() {
                 return Err(Error::Validation(format!(
                     "Parent receipt root did not match computed root: {} (header), {} (computed)",
+                    h.message_receipts(),
                     rec_root,
-                    h.message_receipts()
                 )));
             }
             Ok(())

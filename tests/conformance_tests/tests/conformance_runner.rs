@@ -6,32 +6,23 @@
 #[macro_use]
 extern crate lazy_static;
 
-use address::Address;
-use blockstore::resolve::resolve_cids_recursive;
-use cid::{json::CidJson, Cid};
+use cid::Cid;
 use clock::ChainEpoch;
-use colored::*;
 use conformance_tests::*;
-use difference::{Changeset, Difference};
 use encoding::Cbor;
-use fil_types::{HAMT_BIT_WIDTH, TOTAL_FILECOIN};
+use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use interpreter::ApplyRet;
-use ipld::json::{IpldJson, IpldJsonRef};
-use ipld::Ipld;
-use ipld_hamt::{BytesKey, Hamt};
 use num_bigint::{BigInt, ToBigInt};
 use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use statediff::print_state_diff;
 use std::error::Error as StdError;
 use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
-use vm::ActorState;
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
@@ -120,56 +111,6 @@ fn check_msg_result(
     Ok(())
 }
 
-#[derive(Serialize, Deserialize)]
-struct ActorStateResolved {
-    code: CidJson,
-    sequence: u64,
-    balance: String,
-    state: IpldJson,
-}
-
-fn root_to_state_map(
-    bs: &db::MemoryDB,
-    root: &Cid,
-) -> Result<BTreeMap<String, ActorStateResolved>, Box<dyn StdError>> {
-    let mut actors = BTreeMap::new();
-    let hamt: Hamt<_, _> = Hamt::load_with_bit_width(root, bs, HAMT_BIT_WIDTH)?;
-    hamt.for_each(|k: &BytesKey, actor: &ActorState| {
-        let addr = Address::from_bytes(&k.0)?;
-
-        let resolved =
-            resolve_cids_recursive(bs, &actor.state).unwrap_or(Ipld::Link(actor.state.clone()));
-        let resolved_state = ActorStateResolved {
-            state: IpldJson(resolved),
-            code: CidJson(actor.code.clone()),
-            balance: actor.balance.to_string(),
-            sequence: actor.sequence,
-        };
-
-        actors.insert(addr.to_string(), resolved_state);
-        Ok(())
-    })
-    .unwrap();
-
-    Ok(actors)
-}
-
-/// Tries to resolve state tree actors, if all data exists in store.
-/// The actors hamt is hard to parse in a diff, so this attempts to remedy this.
-fn try_resolve_actor_states(
-    bs: &db::MemoryDB,
-    root: &Cid,
-    expected_root: &Cid,
-) -> Result<Changeset, Box<dyn StdError>> {
-    let e_state = root_to_state_map(bs, expected_root)?;
-    let c_state = root_to_state_map(bs, root)?;
-
-    let expected_json = serde_json::to_string_pretty(&e_state)?;
-    let actual_json = serde_json::to_string_pretty(&c_state)?;
-
-    Ok(Changeset::new(&expected_json, &actual_json, "\n"))
-}
-
 fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Result<(), String> {
     if root != expected_root {
         let error_msg = format!(
@@ -178,39 +119,9 @@ fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Re
         );
 
         if std::env::var("FOREST_DIFF") == Ok("1".to_owned()) {
-            let Changeset { diffs, .. } = try_resolve_actor_states(bs, root, expected_root)
-                .unwrap_or_else(|e| {
-                    println!(
-                        "Could not resolve actor states: {}\nUsing default resolution:",
-                        e
-                    );
-                    let expected = resolve_cids_recursive(bs, &expected_root)
-                        .expect("Failed to populate Ipld");
-                    let actual =
-                        resolve_cids_recursive(bs, &root).expect("Failed to populate Ipld");
-
-                    let expected_json =
-                        serde_json::to_string_pretty(&IpldJsonRef(&expected)).unwrap();
-                    let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual)).unwrap();
-
-                    Changeset::new(&expected_json, &actual_json, "\n")
-                });
-
             println!("{}:", error_msg);
 
-            for diff in diffs.iter() {
-                match diff {
-                    Difference::Same(x) => {
-                        println!(" {}", x);
-                    }
-                    Difference::Add(x) => {
-                        println!("{}", format!("+{}", x).green());
-                    }
-                    Difference::Rem(x) => {
-                        println!("{}", format!("-{}", x).red());
-                    }
-                }
-            }
+            print_state_diff(bs, root, expected_root).unwrap();
         }
 
         return Err(error_msg.into());
