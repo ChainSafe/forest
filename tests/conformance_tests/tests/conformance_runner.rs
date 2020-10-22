@@ -237,7 +237,7 @@ fn execute_message_vector(
     for (i, m) in apply_messages.iter().enumerate() {
         let msg = UnsignedMessage::unmarshal_cbor(&m.bytes)?;
 
-        if let Some(ep) = m.epoch_offset {
+        if let Some(ep) = m.epoch {
             base_epoch += ep;
         }
 
@@ -284,7 +284,7 @@ fn execute_tipset_vector(
     let mut receipt_idx = 0;
     let mut prev_epoch = base_epoch;
     for (i, ts) in tipsets.into_iter().enumerate() {
-        let exec_epoch = base_epoch + ts.epoch_offset;
+        let exec_epoch = base_epoch + ts.epoch;
         let ExecuteTipsetResult {
             receipts_root,
             post_state_root,

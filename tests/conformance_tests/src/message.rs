@@ -10,7 +10,7 @@ pub struct MessageVector {
     #[serde(with = "base64_bytes")]
     pub bytes: Vec<u8>,
     #[serde(default)]
-    pub epoch_offset: Option<ChainEpoch>,
+    pub epoch: Option<ChainEpoch>,
 }
 
 pub struct ExecuteMessageParams<'a> {
