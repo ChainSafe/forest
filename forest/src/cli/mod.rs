@@ -72,6 +72,8 @@ pub struct DaemonOpts {
     pub kademlia: Option<bool>,
     #[structopt(short, long, help = "Allow MDNS (default = true)")]
     pub mdns: Option<bool>,
+    #[structopt(long, help = "Import a snapshot from path")]
+    pub snapshot_path: Option<String>,
 }
 
 impl DaemonOpts {
@@ -94,10 +96,11 @@ impl DaemonOpts {
         } else {
             cfg.enable_rpc = false;
         }
-
+        if let Some(snapshot_path) = &self.snapshot_path {
+            cfg.snapshot_path = Some(snapshot_path.to_owned());
+        }
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
-
         // (where to find these flags, should be easy to do with structops)
 
         Ok(cfg)

@@ -6,7 +6,8 @@ pub mod utils;
 pub use self::errors::*;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
-use async_log::span;
+use async_log::{span};
+use log::{info, error};
 use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
@@ -854,5 +855,25 @@ where
             .map_err(|e| format!("loading power actor state: {}", e))?;
         ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
             .map_err(|e| e.to_string())
+    }
+
+    pub async fn validate_chain<V:ProofVerifier>(&self, ts: Tipset) -> Result<(), Box<dyn StdError>> {
+        let mut ts_chain: Vec<Tipset> = vec![ts.clone()];
+        let mut ts = ts;
+        while ts.epoch() != 0 {
+            let next = chain::tipset_from_keys(self.blockstore(), ts.parents())?;
+            ts_chain.push(next.clone());
+            ts= next;
+        }
+        let mut last_state = ts_chain.last().unwrap().parent_state().clone();
+        for i in (0..=ts_chain.len()-1).rev(){
+            info!("Computing state (height: {}, ts={:?})", ts_chain[i].epoch(), ts_chain[i].cids());
+            if ts_chain[i].parent_state() != &last_state {
+                error!("Tipset chain has state mismatch at height: {:?}", ts_chain[i].epoch());
+            }
+            let (st, _) = self.tipset_state::<V>(&ts_chain[i]).await?;
+            last_state = st;
+        }
+        Ok(())
     }
 }
