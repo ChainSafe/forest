@@ -45,12 +45,9 @@ where
     {
         let store = self.blockstore();
 
-        let mas: miner::State = self.load_actor_state(&miner_address, &st).map_err(|err| {
-            Error::State(format!(
-                "(get sectors) failed to load miner actor state: %{:}",
-                err
-            ))
-        })?;
+        let mas: miner::State = self
+        .load_actor_state(&miner_address, &st)
+        .map_err(|err| format!("(get sectors) failed to load miner actor state: %{:}", err))?;
 
         let deadlines = mas.load_deadlines(store)?;
 

@@ -135,7 +135,7 @@ enum ProofType {
 
 fn prover_id_from_u64(id: u64) -> ProverId {
     let mut prover_id = ProverId::default();
-    let prover_bytes = Address::new_id(id).payload().to_bytes();
+    let prover_bytes = Address::new_id(id).payload().to_raw_bytes();
     prover_id[..prover_bytes.len()].copy_from_slice(&prover_bytes);
     prover_id
 }
