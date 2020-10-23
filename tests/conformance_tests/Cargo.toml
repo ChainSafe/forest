@@ -58,10 +58,7 @@ forest_car = { path = "../../ipld/car" }
 flate2 = "1.0"
 lazy_static = "1.4"
 pretty_env_logger = "0.4.0"
-difference = "2.0"
-colored = "2.0"
-ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
-ipld_hamt = { path = "../../ipld/hamt", features = ["ignore-dead-links"] }
 log = "0.4"
 paramfetch = { path = "../../utils/paramfetch" }
+statediff = { path = "../../utils/statediff" }
 async-std = "1.6"

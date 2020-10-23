@@ -8,6 +8,7 @@ use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
+use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
 use num_bigint::{
@@ -16,7 +17,6 @@ use num_bigint::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
-use std::cmp::Ordering;
 use std::fmt;
 use vm::TokenAmount;
 
@@ -215,21 +215,6 @@ impl<'de> Deserialize<'de> for BlockHeader {
     }
 }
 
-impl Ord for BlockHeader {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.ticket()
-            .cmp(other.ticket())
-            // Only compare cid bytes when tickets are equal
-            .then_with(|| self.cid().to_bytes().cmp(&other.cid().to_bytes()))
-    }
-}
-
-impl PartialOrd for BlockHeader {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 impl BlockHeader {
     /// Generates a BlockHeader builder as a constructor
     pub fn builder() -> BlockHeaderBuilder {
@@ -303,6 +288,11 @@ impl BlockHeader {
     /// Getter for BlockHeader signature
     pub fn signature(&self) -> &Option<Signature> {
         &self.signature
+    }
+    /// Key used for sorting headers and blocks.
+    pub fn to_sort_key(&self) -> Option<([u8; 32], Vec<u8>)> {
+        let ticket_hash = blake2b_256(self.ticket().as_ref()?.vrfproof.as_bytes());
+        Some((ticket_hash, self.cid().to_bytes()))
     }
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {
