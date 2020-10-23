@@ -77,7 +77,6 @@ async fn space_race_full_sync() {
         network,
         genesis,
         bad_blocks: Default::default(),
-        // Mock verifier for now, but can test FullVerifier (depends on params fetched)
         verifier: PhantomData::<FullVerifier>::default(),
     };
 
