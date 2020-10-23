@@ -3,6 +3,8 @@
 
 #[cfg(test)]
 mod full_sync_test;
+#[cfg(test)]
+mod validate_block_test;
 
 use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
@@ -565,6 +567,13 @@ where
                 .await
                 .map_err(|e| Error::Other(format!("Failed to calculate state: {}", e)))?;
             if &state_root != h.state_root() {
+                statediff::print_state_diff(
+                    sm_cloned.blockstore(),
+                    &h.state_root(),
+                    &state_root,
+                    Some(1),
+                )
+                .unwrap();
                 return Err(Error::Validation(format!(
                     "Parent state root did not match computed state: {} (header), {} (computed)",
                     h.state_root(),
