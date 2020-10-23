@@ -236,7 +236,7 @@ impl BlockHeader {
     pub fn beacon_entries(&self) -> &[BeaconEntry] {
         &self.beacon_entries
     }
-    /// Getter for window PoSt proof
+    /// Getter for winning PoSt proof
     pub fn win_post_proof(&self) -> &[PoStProof] {
         &self.win_post_proof
     }
