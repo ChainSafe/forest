@@ -11,8 +11,10 @@ use blocks::TipsetKeys;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
-use fil_types::verifier::{ProofVerifier, FullVerifier};
+use encoding::Cbor;
+use fil_types::verifier::{FullVerifier, ProofVerifier};
 use flo_stream::{MessagePublisher, Publisher};
+use forest_car::load_car;
 use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::initialize_genesis;
 use ipld_blockstore::BlockStore;
@@ -22,40 +24,41 @@ use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
 use std::sync::Arc;
 use utils::write_to_file;
 use wallet::{KeyStore, PersistentKeyStore};
-use std::io::BufReader;
-use std::fs::File;
-use std::io::Read;
-use forest_car::load_car;
 
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option. (1 is temporary value to avoid overlap)
 const WORKER_TASKS: usize = 1;
 
-
+/// Import a chain from a CAR file
 async fn import_chain<V: ProofVerifier, R: Read, DB: BlockStore>(
     bs: Arc<DB>,
     reader: R,
     snapshot: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Importing chain from snapshot");
+    println!("Importing chain from snapshot");
     //start import
     let cids = load_car(bs.as_ref(), reader)?;
     let ts = chain::tipset_from_keys(bs.as_ref(), &TipsetKeys::new(cids))?;
-
     let gb = chain::tipset_by_height(bs.as_ref(), 0, &ts, true)?.unwrap();
-    let sm = StateManager::new(bs);
-    let ts_cid = ts.cids().clone();
-    if !snapshot{
+    let sm = StateManager::new(bs.clone());
+    if !snapshot {
         info!("Validating imported chain");
-        sm.validate_chain::<V>(ts).await?;
+        sm.validate_chain::<V>(ts.clone()).await?;
     }
-    info!("Accepting {:?} as new head", ts_cid);
-    //set head here
-    //end import
-    todo!()
+    let gen_cid = chain::set_genesis(bs.as_ref(), &gb.blocks()[0])?;
+    bs.write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
+    info!(
+        "Accepting {:?} as new head with genesis {:?}",
+        ts.cids(),
+        gen_cid
+    );
+    Ok(())
 }
 
 /// Starts daemon process
@@ -95,20 +98,9 @@ pub(super) async fn start(config: Config) {
     if let Some(path) = &config.snapshot_path {
         let file = File::open(path).expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
-        import_chain::<FullVerifier, _,_>(Arc::clone(&db), reader, false).await.expect("Failed ");
-        // let genesis = match genesis_fp {
-        //     Some(path) => {
-        //         let file = File::open(path)?;
-        //         let reader = BufReader::new(file);
-        //         process_car(reader, chain_store)?
-        //     }
-        //     None => {
-        //         debug!("No specified genesis in config. Using default genesis.");
-        //         let bz = include_bytes!("mainnet/genesis.car");
-        //         let reader = BufReader::<&[u8]>::new(bz.as_ref());
-        //         process_car(reader, chain_store)?
-        //     }
-        // };
+        import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, false)
+            .await
+            .expect("Failed ");
     }
 
     let mut chain_store = ChainStore::new(Arc::clone(&db));
@@ -225,4 +217,26 @@ pub(super) async fn start(config: Config) {
     keystore_write.await;
 
     info!("Forest finish shutdown");
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::fs::File;
+    use std::io::BufReader;
+    use std::io::Read;
+    use db::MemoryDB;
+
+    #[async_std::test]
+    async fn a_test () {
+        let db = Arc::new(MemoryDB::default());
+        let file = File::open("chain4.car").expect("Snapshot file path not found!");
+        let reader = BufReader::new(file);
+        import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, true)
+            .await
+            .expect("Failed ");
+        let cs = ChainStore::new(db);
+        // println!("gen {:?}", cs.genesis());
+        // println!("head {:?}", cs.heaviest_tipset().await);
+    }
 }
