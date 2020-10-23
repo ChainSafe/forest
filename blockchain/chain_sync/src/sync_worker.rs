@@ -567,13 +567,6 @@ where
                 .await
                 .map_err(|e| Error::Other(format!("Failed to calculate state: {}", e)))?;
             if &state_root != h.state_root() {
-                statediff::print_state_diff(
-                    sm_cloned.blockstore(),
-                    &h.state_root(),
-                    &state_root,
-                    Some(1),
-                )
-                .unwrap();
                 return Err(Error::Validation(format!(
                     "Parent state root did not match computed state: {} (header), {} (computed)",
                     h.state_root(),

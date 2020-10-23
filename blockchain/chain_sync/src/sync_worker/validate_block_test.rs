@@ -6,14 +6,19 @@ use actor::EPOCH_DURATION_SECONDS;
 use async_std::task;
 use beacon::{DrandBeacon, DrandPublic};
 use chain::tipset_from_keys;
+use clock::ChainEpoch;
 use db::MemoryDB;
 use fil_types::verifier::FullVerifier;
 use forest_car::load_car;
 use genesis::{initialize_genesis, EXPORT_SR_40};
 use state_manager::StateManager;
 
+// Change this to test different blocks
+const TEST_NUM: ChainEpoch = 40;
+
 #[async_std::test]
-// #[ignore]
+// Ignored because it depends on proof parameters for full verification
+#[ignore]
 async fn validate_specific_block() {
     pretty_env_logger::init();
 
@@ -39,7 +44,7 @@ async fn validate_specific_block() {
     .unwrap());
 
     let mut ts = tipset_from_keys(chain_store.blockstore(), &TipsetKeys::new(cids)).unwrap();
-    while ts.epoch() > 51 {
+    while ts.epoch() > TEST_NUM {
         ts = chain_store.tipset_from_keys(ts.parents()).unwrap();
     }
 
