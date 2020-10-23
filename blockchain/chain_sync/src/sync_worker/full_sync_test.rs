@@ -9,7 +9,7 @@ use async_std::task;
 use beacon::{DrandBeacon, DrandPublic};
 use chain::tipset_from_keys;
 use db::MemoryDB;
-use fil_types::verifier::MockVerifier;
+use fil_types::verifier::FullVerifier;
 use forest_car::load_car;
 use forest_libp2p::{blocksync::make_blocksync_response, NetworkMessage};
 use genesis::{initialize_genesis, EXPORT_SR_40};
@@ -77,8 +77,7 @@ async fn space_race_full_sync() {
         network,
         genesis,
         bad_blocks: Default::default(),
-        // Mock verifier for now, but can test FullVerifier (depends on params fetched)
-        verifier: PhantomData::<MockVerifier>::default(),
+        verifier: PhantomData::<FullVerifier>::default(),
     };
 
     // Setup process to handle requests from syncer

@@ -43,7 +43,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0)) // optional
 ///     .beacon_entries(Vec::new()) // optional
-///     .win_post_proof(Vec::new()) // optional
+///     .winning_post_proof(Vec::new()) // optional
 ///     .election_proof(None) // optional
 ///     .bls_aggregate(None) // optional
 ///     .signature(None) // optional
@@ -82,7 +82,7 @@ pub struct BlockHeader {
 
     /// PoStProofs are the winning post proofs
     #[builder(default)]
-    win_post_proof: Vec<PoStProof>,
+    winning_post_proof: Vec<PoStProof>,
 
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
@@ -150,7 +150,7 @@ impl Serialize for BlockHeader {
             &self.ticket,
             &self.election_proof,
             &self.beacon_entries,
-            &self.win_post_proof,
+            &self.winning_post_proof,
             &self.parents,
             BigIntSer(&self.weight),
             &self.epoch,
@@ -177,7 +177,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             ticket,
             election_proof,
             beacon_entries,
-            win_post_proof,
+            winning_post_proof,
             parents,
             BigIntDe(weight),
             epoch,
@@ -196,7 +196,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             .weight(weight)
             .epoch(epoch)
             .beacon_entries(beacon_entries)
-            .win_post_proof(win_post_proof)
+            .winning_post_proof(winning_post_proof)
             .miner_address(miner_address)
             .messages(messages)
             .message_receipts(message_receipts)
@@ -236,9 +236,9 @@ impl BlockHeader {
     pub fn beacon_entries(&self) -> &[BeaconEntry] {
         &self.beacon_entries
     }
-    /// Getter for window PoSt proof
-    pub fn win_post_proof(&self) -> &[PoStProof] {
-        &self.win_post_proof
+    /// Getter for winning PoSt proof
+    pub fn winning_post_proof(&self) -> &[PoStProof] {
+        &self.winning_post_proof
     }
     /// Getter for BlockHeader miner_address
     pub fn miner_address(&self) -> &Address {
