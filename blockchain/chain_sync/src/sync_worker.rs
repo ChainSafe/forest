@@ -923,7 +923,7 @@ where
                 Error::Validation(format!("Failed to get sectors for post: {}", e.to_string()))
             })?;
 
-        V::verify_winning_post(Randomness(rand), header.win_post_proof(), &sectors, id).map_err(
+        V::verify_winning_post(Randomness(rand), header.winning_post_proof(), &sectors, id).map_err(
             |e| Error::Validation(format!("Failed to verify winning PoSt: {}", e.to_string())),
         )
     }
