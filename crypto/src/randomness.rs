@@ -1,11 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use encoding::repr::*;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 /// Specifies a domain for randomness generation.
-#[derive(PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash)]
+#[derive(PartialEq, Eq, Copy, Clone, FromPrimitive, Debug, Hash, Deserialize_repr)]
 #[repr(i64)]
 pub enum DomainSeparationTag {
     TicketProduction = 1,

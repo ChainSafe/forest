@@ -1125,11 +1125,10 @@ name = "conformance_tests"
 version = "0.1.0"
 dependencies = [
  "actor",
+ "async-std",
  "base64 0.12.3",
  "clock",
- "colored",
  "db",
- "difference",
  "fil_types",
  "flate2",
  "forest_address",
@@ -1138,20 +1137,20 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
- "forest_ipld",
  "forest_message",
  "forest_vm",
  "interpreter",
  "ipld_blockstore",
- "ipld_hamt",
  "lazy_static",
  "log",
+ "paramfetch",
  "pretty_env_logger",
  "regex",
  "runtime",
  "serde",
  "serde_json",
  "state_manager",
+ "statediff",
  "walkdir",
 ]
 
@@ -2106,7 +2105,6 @@ dependencies = [
  "async-std",
  "auth",
  "beacon",
- "blake2b_simd",
  "chain",
  "chain_sync",
  "ctrlc",
@@ -2128,9 +2126,7 @@ dependencies = [
  "libp2p",
  "log",
  "message_pool",
- "paych",
- "pbr",
- "pin-project-lite",
+ "paramfetch",
  "pretty_env_logger",
  "rpc",
  "rpc-client",
@@ -2138,7 +2134,6 @@ dependencies = [
  "serde_json",
  "state_manager",
  "structopt",
- "surf",
  "utils",
  "uuid",
 ]
@@ -4307,6 +4302,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "paramfetch"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "blake2b_simd",
+ "fil_types",
+ "futures 0.3.6",
+ "log",
+ "pbr",
+ "pin-project-lite",
+ "serde",
+ "serde_json",
+ "surf",
+]
+
+[[package]]
 name = "parity-multiaddr"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5680,6 +5691,23 @@ dependencies = [
  "ipld_blockstore",
  "ipld_hamt",
  "parking_lot 0.11.0",
+]
+
+[[package]]
+name = "statediff"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "difference",
+ "fil_types",
+ "forest_address",
+ "forest_cid",
+ "forest_ipld",
+ "forest_vm",
+ "ipld_blockstore",
+ "ipld_hamt",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

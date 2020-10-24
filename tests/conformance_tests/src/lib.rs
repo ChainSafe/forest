@@ -4,10 +4,12 @@
 #![cfg(feature = "submodule_tests")]
 
 mod message;
+mod rand_replay;
 mod stubs;
 mod tipset;
 
 pub use self::message::*;
+pub use self::rand_replay::*;
 pub use self::stubs::*;
 pub use self::tipset::*;
 use actor::CHAOS_ACTOR_CODE_ID;
@@ -16,7 +18,7 @@ use blockstore::BlockStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
-use encoding::Cbor;
+use encoding::{tuple::*, Cbor};
 use fil_types::{SealVerifyInfo, WindowPoStVerifyInfo};
 use forest_message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use interpreter::{ApplyRet, BlockMessages, Rand, VM};
@@ -86,7 +88,7 @@ pub struct StateTreeVector {
     pub root_cid: Cid,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct GenerationData {
     #[serde(default)]
     pub source: String,
@@ -94,7 +96,7 @@ pub struct GenerationData {
     pub version: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct MetaData {
     pub id: String,
     #[serde(default)]
@@ -108,10 +110,13 @@ pub struct MetaData {
 
 #[derive(Debug, Deserialize)]
 pub struct PreConditions {
-    pub epoch: ChainEpoch,
     pub state_tree: StateTreeVector,
     #[serde(default)]
     pub basefee: Option<f64>,
+    #[serde(default)]
+    pub circ_supply: Option<f64>,
+    #[serde(default)]
+    pub variants: Vec<Variant>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -129,6 +134,43 @@ pub struct Selector {
     pub puppet_actor: Option<String>,
     #[serde(default)]
     pub chaos_actor: Option<String>,
+    #[serde(default)]
+    pub min_protocol_version: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Variant {
+    pub id: String,
+    pub epoch: ChainEpoch,
+    pub nv: u32,
+}
+
+/// Encoded VM randomness used to be replayed.
+pub type Randomness = Vec<RandomnessMatch>;
+
+/// One randomness entry.
+#[derive(Debug, Deserialize)]
+pub struct RandomnessMatch {
+    pub on: RandomnessRule,
+    #[serde(with = "base64_bytes")]
+    pub ret: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum RandomnessKind {
+    Beacon,
+    Chain,
+}
+
+/// Rule for matching when randomness is returned.
+#[derive(Debug, Deserialize_tuple, PartialEq)]
+pub struct RandomnessRule {
+    pub kind: RandomnessKind,
+    pub dst: DomainSeparationTag,
+    pub epoch: ChainEpoch,
+    #[serde(with = "base64_bytes")]
+    pub entropy: Vec<u8>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,12 +187,9 @@ pub enum TestVector {
         preconditions: PreConditions,
         apply_messages: Vec<MessageVector>,
         postconditions: PostConditions,
-    },
-    #[serde(rename = "block")]
-    Block {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
+
+        #[serde(default)]
+        randomness: Randomness,
     },
     #[serde(rename = "tipset")]
     Tipset {
@@ -163,12 +202,6 @@ pub enum TestVector {
         preconditions: PreConditions,
         apply_tipsets: Vec<TipsetVector>,
         postconditions: PostConditions,
-    },
-    #[serde(rename = "chain")]
-    Chain {
-        selector: Option<Selector>,
-        #[serde(rename = "_meta")]
-        meta: Option<MetaData>,
     },
 }
 

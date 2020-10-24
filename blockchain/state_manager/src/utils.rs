@@ -7,7 +7,10 @@ use crate::errors::*;
 use crate::StateManager;
 use actor::miner::{self, Partition};
 use actor::{
-    miner::{ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo},
+    miner::{
+        ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo,
+        Sectors,
+    },
     power,
 };
 use address::{Address, Protocol};
@@ -42,14 +45,9 @@ where
     {
         let store = self.blockstore();
 
-        let mas: miner::State = self.load_actor_state(&miner_address, &st).map_err(|err| {
-            Error::State(format!(
-                "(get sectors) failed to load miner actor state: %{:}",
-                err
-            ))
-        })?;
-
-        let info = mas.get_info(store)?;
+        let mas: miner::State = self
+            .load_actor_state(&miner_address, &st)
+            .map_err(|err| format!("(get sectors) failed to load miner actor state: %{:}", err))?;
 
         let deadlines = mas.load_deadlines(store)?;
 
@@ -58,11 +56,15 @@ where
         deadlines.for_each(store, |dl_idx, deadline| {
             let partitions = deadline.partitions_amt(store)?;
 
+            let mut fault_sectors = BitField::new();
             partitions.for_each(|part_idx, partition: &miner::Partition| {
-                let p = &partition.sectors - &partition.faults;
-                proving_sectors |= &p;
+                proving_sectors |= &partition.sectors;
+                fault_sectors |= &partition.faults;
                 Ok(())
-            })
+            })?;
+
+            proving_sectors -= &fault_sectors;
+            Ok(())
         })?;
 
         let num_prov_sect = proving_sectors.len() as u64;
@@ -70,6 +72,8 @@ where
         if num_prov_sect == 0 {
             return Ok(Vec::new());
         }
+
+        let info = mas.get_info(store)?;
 
         let spt = RegisteredSealProof::from(info.sector_size);
 
@@ -79,26 +83,31 @@ where
 
         let ids = V::generate_winning_post_sector_challenge(wpt, m_id, rand, num_prov_sect)?;
 
-        let sectors: Vec<u64> = proving_sectors.iter().map(|i| i as u64).collect();
-        let sectors_amt = Amt::<SectorOnChainInfo, _>::load(&mas.sectors, store)?;
+        let mut iter = proving_sectors.iter();
 
-        Ok(ids
-            .iter()
-            .map(|n| {
-                let sid = sectors
-                    .get(*n as usize)
-                    .ok_or_else(|| "id from challenge does not exist in sectors")?;
-                let s_info = sectors_amt
-                    .get(*sid)
-                    .map_err(|e| format!("failed to get sector {}: {}", sid, e))?
-                    .ok_or_else(|| format!("failed to find sector {}", sid))?;
-                Ok(SectorInfo {
-                    sealed_cid: s_info.sealed_cid.clone(),
-                    sector_number: s_info.sector_number,
-                    proof: spt,
-                })
+        let mut selected_sectors = BitField::new();
+        for n in ids {
+            let sno = iter.nth(n as usize).ok_or_else(|| {
+                format!(
+                    "Error iterating over proving sectors, id {} does not exist",
+                    n
+                )
+            })?;
+            selected_sectors.set(sno);
+        }
+
+        let sectors = mas.load_sector_infos(store, &selected_sectors)?;
+
+        let out = sectors
+            .into_iter()
+            .map(|s_info| SectorInfo {
+                proof: spt,
+                sector_number: s_info.sector_number,
+                sealed_cid: s_info.sealed_cid,
             })
-            .collect::<Result<_, String>>()?)
+            .collect();
+
+        Ok(out)
     }
 
     pub fn get_miner_sector_set<V>(

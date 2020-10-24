@@ -72,7 +72,7 @@ impl Tipset {
 
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
-        headers.sort();
+        headers.sort_by_cached_key(|h| h.to_sort_key());
 
         // return tipset where sorted headers have smallest ticket size in the 0th index
         // and the distinct keys
@@ -152,8 +152,7 @@ impl FullTipset {
 
         // sort blocks on creation to allow for more seamless conversions between FullTipset
         // and Tipset
-        #[allow(clippy::unnecessary_sort_by)]
-        blocks.sort_by(|block1, block2| block1.header().cmp(block2.header()));
+        blocks.sort_by_cached_key(|block| block.header().to_sort_key());
         Ok(Self { blocks })
     }
     /// Returns the first block of the tipset
