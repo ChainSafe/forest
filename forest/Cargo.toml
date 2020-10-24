@@ -33,10 +33,6 @@ rpc = { path = "../node/rpc" }
 rpc_client = { package = "rpc-client", path = "../node/rpc-client" }
 fil_types = { path = "../types" }
 serde_json = "1.0"
-blake2b_simd = "0.5.9"
-surf = "2.0"
-pbr = "1.0.3"
-pin-project-lite = "0.1"
 message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
 wallet = { package = "key_management", path = "../key_management" }
 jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2", features = ["easy-errors", "macros"], default-features = false }
@@ -44,3 +40,4 @@ uuid = { version = "0.8.1", features = ["v4"] }
 auth = { path = "../utils/auth"}
 actor = { path = "../vm/actor/" }
 genesis = { path = "../utils/genesis" }
+paramfetch = { path = "../utils/paramfetch" }

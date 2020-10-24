@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
-use super::paramfetch::{get_params_default, SectorSizeOpt};
 use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::RwLock;
 use async_std::task;
@@ -18,6 +17,7 @@ use genesis::initialize_genesis;
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use paramfetch::{get_params_default, SectorSizeOpt};
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::sync::Arc;

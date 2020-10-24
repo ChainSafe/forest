@@ -8,6 +8,7 @@ use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
+use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::PoStProof;
 use num_bigint::{
@@ -16,7 +17,6 @@ use num_bigint::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
-use std::cmp::Ordering;
 use std::fmt;
 use vm::TokenAmount;
 
@@ -43,7 +43,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0)) // optional
 ///     .beacon_entries(Vec::new()) // optional
-///     .win_post_proof(Vec::new()) // optional
+///     .winning_post_proof(Vec::new()) // optional
 ///     .election_proof(None) // optional
 ///     .bls_aggregate(None) // optional
 ///     .signature(None) // optional
@@ -82,7 +82,7 @@ pub struct BlockHeader {
 
     /// PoStProofs are the winning post proofs
     #[builder(default)]
-    win_post_proof: Vec<PoStProof>,
+    winning_post_proof: Vec<PoStProof>,
 
     // MINER INFO
     /// miner_address is the address of the miner actor that mined this block
@@ -150,7 +150,7 @@ impl Serialize for BlockHeader {
             &self.ticket,
             &self.election_proof,
             &self.beacon_entries,
-            &self.win_post_proof,
+            &self.winning_post_proof,
             &self.parents,
             BigIntSer(&self.weight),
             &self.epoch,
@@ -177,7 +177,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             ticket,
             election_proof,
             beacon_entries,
-            win_post_proof,
+            winning_post_proof,
             parents,
             BigIntDe(weight),
             epoch,
@@ -196,7 +196,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             .weight(weight)
             .epoch(epoch)
             .beacon_entries(beacon_entries)
-            .win_post_proof(win_post_proof)
+            .winning_post_proof(winning_post_proof)
             .miner_address(miner_address)
             .messages(messages)
             .message_receipts(message_receipts)
@@ -212,21 +212,6 @@ impl<'de> Deserialize<'de> for BlockHeader {
             .unwrap();
 
         Ok(header)
-    }
-}
-
-impl Ord for BlockHeader {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.ticket()
-            .cmp(other.ticket())
-            // Only compare cid bytes when tickets are equal
-            .then_with(|| self.cid().to_bytes().cmp(&other.cid().to_bytes()))
-    }
-}
-
-impl PartialOrd for BlockHeader {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 
@@ -251,9 +236,9 @@ impl BlockHeader {
     pub fn beacon_entries(&self) -> &[BeaconEntry] {
         &self.beacon_entries
     }
-    /// Getter for window PoSt proof
-    pub fn win_post_proof(&self) -> &[PoStProof] {
-        &self.win_post_proof
+    /// Getter for winning PoSt proof
+    pub fn winning_post_proof(&self) -> &[PoStProof] {
+        &self.winning_post_proof
     }
     /// Getter for BlockHeader miner_address
     pub fn miner_address(&self) -> &Address {
@@ -303,6 +288,11 @@ impl BlockHeader {
     /// Getter for BlockHeader signature
     pub fn signature(&self) -> &Option<Signature> {
         &self.signature
+    }
+    /// Key used for sorting headers and blocks.
+    pub fn to_sort_key(&self) -> Option<([u8; 32], Vec<u8>)> {
+        let ticket_hash = blake2b_256(self.ticket().as_ref()?.vrfproof.as_bytes());
+        Some((ticket_hash, self.cid().to_bytes()))
     }
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {

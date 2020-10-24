@@ -23,10 +23,11 @@ jobs:
             sudo apt install ocl-icd-opencl-dev
             sudo apt-get install -y libhwloc-dev
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@master
-        with:
-          version: "3.9.1"
+      # TODO enable when protoc needed again
+      # - name: Install Protoc
+      #   uses: arduino/setup-protoc@master
+      #   with:
+      #     version: "3.9.1"
 
       - name: Toolchain setup
         uses: actions-rs/toolchain@v1
@@ -81,10 +82,10 @@ jobs:
       - name: Install OpenCL
         run: sudo apt install ocl-icd-opencl-dev
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@master
-        with:
-          version: "3.9.1"
+      # - name: Install Protoc
+      #   uses: arduino/setup-protoc@master
+      #   with:
+      #     version: "3.9.1"
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -124,10 +125,10 @@ jobs:
       - name: Install OpenCL
         run: sudo apt install ocl-icd-opencl-dev
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@master
-        with:
-          version: "3.9.1"
+      # - name: Install Protoc
+      #   uses: arduino/setup-protoc@master
+      #   with:
+      #     version: "3.9.1"
 
       - name: Build documentation
         run: cargo doc --no-deps --all-features

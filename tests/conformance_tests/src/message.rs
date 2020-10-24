@@ -10,25 +10,32 @@ pub struct MessageVector {
     #[serde(with = "base64_bytes")]
     pub bytes: Vec<u8>,
     #[serde(default)]
-    pub epoch: Option<ChainEpoch>,
+    pub epoch_offset: Option<ChainEpoch>,
+}
+
+pub struct ExecuteMessageParams<'a> {
+    pub pre_root: &'a Cid,
+    pub epoch: ChainEpoch,
+    pub msg: &'a ChainMessage,
+    pub circ_supply: TokenAmount,
+    pub basefee: TokenAmount,
+    pub randomness: ReplayingRand<'a>,
 }
 
 pub fn execute_message(
     bs: &db::MemoryDB,
-    msg: &ChainMessage,
-    pre_root: &Cid,
-    epoch: ChainEpoch,
-    basefee: TokenAmount,
     selector: &Option<Selector>,
+    params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let mut vm = VM::<_, _, _, _>::new(
-        pre_root,
+    let circ_supply = params.circ_supply;
+    let mut vm = VM::<_, _, _>::new(
+        params.pre_root,
         bs,
-        epoch,
-        TestSyscalls,
-        &TestRand,
-        basefee,
+        params.epoch,
+        &params.randomness,
+        params.basefee,
         get_network_version_default,
+        Some(Box::new(move |_, _| Ok(circ_supply.clone()))),
     )?;
 
     if let Some(s) = &selector {
@@ -41,7 +48,7 @@ pub fn execute_message(
         }
     }
 
-    let ret = vm.apply_message(msg)?;
+    let ret = vm.apply_message(params.msg)?;
 
     let root = vm.flush()?;
     Ok((ret, root))
