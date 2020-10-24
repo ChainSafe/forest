@@ -23,7 +23,7 @@ use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::sync::Arc;
 use utils::write_to_file;
-use wallet::{PersistentKeyStore, KeyStore, Wallet};
+use wallet::{KeyStore, PersistentKeyStore, Wallet};
 
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option. (1 is temporary value to avoid overlap)
@@ -55,7 +55,7 @@ pub(super) async fn start(config: Config) {
         ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
             .unwrap();
     }
-    let keystore = Arc::new(RwLock::new(ks));
+    let keystore = Arc::new(RwLock::new(ks.clone()));
 
     // Initialize database
     let mut db = RocksDb::new(config.data_dir + "/db");
@@ -162,7 +162,7 @@ pub(super) async fn start(config: Config) {
     };
 
     // start paych manager
-    let wallet = Arc::new(RwLock::new(Wallet::new(keystore.clone())));
+    let wallet = Arc::new(RwLock::new(Wallet::new(ks)));
     let mut paych_mgr = Manager::new(
         PaychStore::new(),
         ResourceAccessor {
@@ -174,7 +174,6 @@ pub(super) async fn start(config: Config) {
             wallet,
         },
     );
-    // TODO ask about err handling for start methods
     task::spawn(async move {
         paych_mgr.start().await.unwrap();
     });

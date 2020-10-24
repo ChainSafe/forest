@@ -67,11 +67,7 @@ where
     DB: BlockStore + Send + Sync,
     KS: KeyStore + Send + Sync + 'static,
 {
-    pub fn new(
-        store: PaychStore,
-        state: ResourceAccessor<DB, KS>,
-        wallet: Arc<RwLock<Wallet<KS>>>,
-    ) -> Self {
+    pub fn new(store: PaychStore, state: ResourceAccessor<DB, KS>) -> Self {
         Manager {
             store: Arc::new(RwLock::new(store)),
             state: Arc::new(state),
@@ -243,7 +239,6 @@ where
         self.accessor_by_from_to(from, to).await
     }
 
-    // TODO !!!
     async fn track_inbound_channel(&mut self, ch: Address) -> Result<ChannelInfo, Error> {
         let mut store = self.store.write().await;
 
@@ -264,8 +259,14 @@ where
             .load_state_channel_info(ch, DIR_INBOUND)
             .await?;
 
-        // TODO add ability to get channel from state
-        // TODO need to check if channel to address is in wallet
+        // TODO ask about state account key
+        // let state = self.state.sa.sm.read().await;
+        let mut w = self.state.wallet.write().await;
+        if !w.has_key(&state_ci.control) {
+            return Err(Error::NoAddress);
+        }
+
+        // save channel to store
         store.track_channel(state_ci).await
     }
     /// Allocates a lane for given address
@@ -278,12 +279,11 @@ where
         let store = self.store.read().await;
         store.vouchers_for_paych(&ch).await
     }
-
+    /// Returns the next available sequence for lane allocation
     pub async fn next_sequence_for_lane(&self, ch: Address, lane: u64) -> Result<u64, Error> {
         let ca = self.accessor_by_address(ch).await?;
         ca.next_sequence_for_lane(ch, lane).await
     }
-
     /// Returns CID of signed message thats prepared to be settled on-chain
     pub async fn settle(&self, ch: Address) -> Result<Cid, Error> {
         let mut store = self.store.write().await;
@@ -305,7 +305,7 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
 
         ci.settling = true;
-        store.put_channel_info(ci).await?;
+        store.put_channel_info(&mut ci).await?;
 
         Ok(smgs.cid()?)
     }
@@ -356,16 +356,17 @@ where
         let channel_check = self.channels.read().await;
         let op_locked = channel_check.get(&key);
         if let Some(channel) = op_locked {
-            return Ok(channel.clone());
+            Ok(channel.clone())
+        } else {
+            Ok(self.add_accessor_to_cache(from, to).await?)
         }
-        Err(Error::Other("could not find channel accessor".to_owned()))
     }
 
     /// Add a channel accessor to the cache. Note that the
     /// channel may not have been created yet, but we still want to reference
     /// the same channel accessor for a given from/to, so that all attempts to
     /// access a channel use the same lock (the lock on the accessor)
-    async fn _add_accessor_to_cache(
+    async fn add_accessor_to_cache(
         &self,
         from: Address,
         to: Address,

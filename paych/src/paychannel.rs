@@ -47,18 +47,7 @@ where
     state: Arc<ResourceAccessor<DB, KS>>,
 }
 
-// TODO dont think this is needed
-/// VoucherCreateResult is the response to calling PaychVoucherCreate
-struct _VoucherCreateResult {
-    // Voucher that was created, or nil if there was an error or if there
-    // were insufficient funds in the channel
-    voucher: SignedVoucher,
-    // Shortfall is the additional amount that would be needed in the channel
-    // in order to be able to create the voucher
-    shortfall: BigInt,
-}
-
-struct OnMsgRes {
+struct _OnMsgRes {
     channel: Address,
     err: Error,
 }
@@ -106,11 +95,10 @@ where
             .write()
             .await
             .sign(&ci.control, &vb)
-            .map_err(|e| Error::Other("failed to sign voucher".to_string()))?;
+            .map_err(|e| Error::Other(format!("failed to sign voucher: {}", e)))?;
         voucher.signature = Some(sig);
 
         // store the voucher
-        // TODO determine if returning insufficent error with shortfall is required?
         self.add_voucher(ch, voucher.clone(), Vec::new(), BigInt::zero())
             .await?;
 
@@ -120,6 +108,8 @@ where
     pub async fn next_sequence_for_lane(&self, ch: Address, lane: u64) -> Result<u64, Error> {
         let store = self.store.read().await;
         let vouchers = store.vouchers_for_paych(&ch).await?;
+
+        drop(store);
 
         let mut max_sequence = 0;
 
@@ -240,7 +230,7 @@ where
                 }
             }
         }
-        // TODO ask about version compatibility
+
         let enc = Serialized::serialize(UpdateChannelStateParams { sv, secret, proof })?;
 
         let sm = self.state.sa.sm.read().await;
@@ -326,7 +316,7 @@ where
             ci.next_lane += 1;
         }
 
-        store.put_channel_info(ci).await?;
+        store.put_channel_info(&mut ci).await?;
         Ok(delta)
     }
     // intentionally unused, to be used with paych rpc
@@ -336,7 +326,7 @@ where
         sv: SignedVoucher,
         secret: &[u8],
     ) -> Result<Cid, Error> {
-        let store = self.store.write().await;
+        let mut store = self.store.write().await;
         let mut ci = store.by_address(ch).await?;
 
         let has = ci.has_voucher(&sv)?;
@@ -357,7 +347,6 @@ where
             });
         }
 
-        // TODO ask about version compatibility & proof param
         let enc = Serialized::serialize(UpdateChannelStateParams {
             sv: sv.clone(),
             secret: secret.to_vec(),
@@ -383,7 +372,9 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
 
         // Mark the voucher and any lower-nonce vouchers as having been submitted
-        ci.mark_voucher_submitted(&sv)?;
+        store.mark_voucher_submitted(&mut ci, &sv).await?;
+
+        drop(store);
 
         Ok(smgs.cid()?)
     }
@@ -629,7 +620,7 @@ where
 
         // If the create channel message has been sent but the channel hasn't
         // been created on chain yet
-        let mut channel_info = channel_info_res.ok()?;
+        let channel_info = channel_info_res.ok()?;
         if channel_info.create_msg.is_some() {
             // Wait for the channel to be created before trying again
             return None;
@@ -646,7 +637,7 @@ where
 
         // We need to add more funds, so send an add funds message to
         // cover the amount for this request
-        let mcid = self.add_funds(&mut channel_info, amt).await.ok()?;
+        let mcid = self.add_funds(channel_info.clone(), amt).await.ok()?;
 
         Some(PaychFundsRes {
             channel: channel_info.channel,
@@ -695,13 +686,20 @@ where
         drop(store);
 
         task::spawn(async move {
-            self.clone().wait_paych_create_msg(ci.id, &mcid).await;
+            self.clone()
+                .wait_paych_create_msg(ci.id, &mcid)
+                .await
+                .unwrap();
         });
 
         Ok(ret_cid)
     }
 
-    async fn add_funds(self: Arc<Self>, ci: &mut ChannelInfo, amt: BigInt) -> Result<Cid, Error> {
+    async fn add_funds<'a>(
+        self: Arc<Self>,
+        mut ci: ChannelInfo,
+        amt: BigInt,
+    ) -> Result<Cid, Error> {
         let to = ci
             .channel
             .clone()
@@ -729,7 +727,7 @@ where
         ci.pending_amount = amt;
         ci.add_funds_msg = Some(mcid.clone());
 
-        let res = store.put_channel_info(ci.clone()).await;
+        let res = store.put_channel_info(&mut ci.clone()).await;
         if res.is_err() {
             warn!("Error writing channel info to store: {}", res.unwrap_err());
         }
@@ -741,8 +739,10 @@ where
 
         drop(store);
 
+        let c = mcid.clone();
+
         task::spawn(async move {
-            self.wait_add_funds_msg(&mut ci, mcid.clone()).await;
+            self.wait_add_funds_msg(&mut ci, c).await.unwrap();
         });
 
         Ok(mcid)
@@ -789,16 +789,16 @@ where
         ch_info.pending_amount = BigInt::zero();
         ch_info.create_msg = None;
 
-        store.put_channel_info(ch_info).await?;
+        store.put_channel_info(&mut ch_info).await?;
 
         drop(store);
 
         Ok(())
     }
 
-    pub async fn wait_add_funds_msg(
+    pub async fn wait_add_funds_msg<'a>(
         self: Arc<Self>,
-        channel_info: &mut ChannelInfo,
+        channel_info: &'a mut ChannelInfo,
         mcid: Cid,
     ) -> Result<(), Error> {
         let sm = self.state.sa.sm.read().await;
@@ -811,6 +811,8 @@ where
         )
         .await
         .map_err(|e| Error::Other(e.to_string()))?;
+
+        drop(sm);
 
         if let Some(m) = msg_receipt {
             if m.exit_code != ExitCode::Ok {
@@ -827,8 +829,8 @@ where
         channel_info.pending_amount = BigInt::zero();
         channel_info.add_funds_msg = None;
 
-        task::spawn(async {
-            self.msg_wait_completed(mcid, None).await;
+        task::block_on(async move {
+            self.msg_wait_completed(mcid, None).await.unwrap();
         });
 
         Ok(())
@@ -868,7 +870,7 @@ where
         promise
             .await
             .map_err(|e| Error::Other(format!("Sender for wait cancelled: {}", e)))?
-            .map_err(|e| Error::Other(e))
+            .map_err(Error::Other)
     }
 
     pub async fn msg_promise(&mut self, mcid: Cid) -> Receiver<Result<Address, String>> {
@@ -905,9 +907,8 @@ where
         rx
     }
 
-    // TODO this shouldn't take self, it should take clones of sto
     async fn msg_wait_completed(
-        self: &mut Arc<Self>,
+        self: Arc<Self>,
         mcid: Cid,
         err: Option<Error>,
     ) -> Result<(), Error> {
@@ -915,18 +916,19 @@ where
         let mut st = self.store.write().await;
         st.save_msg_result(mcid.clone(), err.clone()).await?;
 
+        drop(st);
+
         // inform listeners that the message has completed
-        // TODO handle option err
-        self.msg_listeners
-            .fire_msg_complete(mcid, err.unwrap())
-            .await;
+        // TODO handle self issue
+        // self.msg_listeners.fire_msg_complete(mcid).await;
 
         // the queue may have been waiting for msg completion to proceed, process the next queue item
         let req = self.funds_req_queue.read().await;
         if req.len() > 0 {
-            // TODO ask if this should be blocking
-            task::spawn(async move {
-                self.process_queue("".to_owned()).await;
+            drop(req);
+
+            task::block_on(async {
+                self.process_queue("".to_owned()).await.unwrap();
             });
         }
 

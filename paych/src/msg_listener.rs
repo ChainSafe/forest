@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Error;
 use cid::Cid;
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 
@@ -29,17 +28,13 @@ impl MsgListeners {
     pub async fn subscribe(&mut self) -> Subscriber<MsgCompleteEvt> {
         self.ps.subscribe()
     }
-    
-    /// called when a message completes
-    pub async fn fire_msg_complete(&mut self, mcid: Cid, err: Error) {
-        self.num_pubs += 1;
 
-        self.ps
-            .publish(MsgCompleteEvt {
-                mcid,
-                err: err.to_string(),
-            })
-            .await
+    /// called when a message completes
+    pub async fn fire_msg_complete(&mut self, mcid: Cid) {
+        self.num_pubs += 1;
+        let msg_complete: MsgCompleteEvt = Ok(mcid);
+
+        self.ps.publish(msg_complete).await
     }
 }
 
@@ -49,7 +44,7 @@ mod tests {
     use async_std::task;
     use futures::StreamExt;
 
-    fn test_cids() -> Vec<Cid> {
+    fn _test_cids() -> Vec<Cid> {
         let cid1 = Cid::from_raw_cid("QmdmGQmRgRjazArukTbsXuuxmSHsMCcRYPAZoGhd6e3MuS").unwrap();
         let cid2 = Cid::from_raw_cid("QmdvGCmN6YehBxS6Pyd991AiQRJ1ioqcvDsKGP2siJCTDL").unwrap();
         vec![cid1, cid2]
@@ -60,16 +55,15 @@ mod tests {
         task::block_on(async {
             let mut ml = MsgListeners::new();
 
-            let done = false;
             let cid = Cid::from_raw_cid("QmdmGQmRgRjazArukTbsXuuxmSHsMCcRYPAZoGhd6e3MuS").unwrap();
             let mut sub = ml.subscribe().await;
-            ml.fire_msg_complete(
-                cid.clone(),
-                Error::Other("this should not be an error".to_string()),
-            )
-            .await;
 
-            assert_eq!(sub.next().await.unwrap().mcid, cid)
+            ml.fire_msg_complete(cid.clone()).await;
+
+            match sub.next().await.unwrap() {
+                Ok(c) => assert_eq!(c, cid),
+                _ => println!("error"),
+            };
         })
     }
 }
