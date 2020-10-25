@@ -61,7 +61,9 @@ pub struct MarketBalance {
 pub struct StateManager<DB> {
     bs: Arc<DB>,
 
-    /// This is a cache which indexes tipsets and their calculated state and
+    /// This is a cache which indexes tipsets to their calculated state.
+    /// The calculated state is wrapped in a mutex to avoid duplicate computation
+    /// of the state/ receipt root.
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     subscriber: Option<Subscriber<HeadChange>>,
 }
@@ -228,6 +230,12 @@ where
             // Get entry in cache, if it exists.
             // Arc is cloned here to avoid holding the entire cache lock until function ends.
             // (tasks should be able to compute different tipset state's in parallel)
+            //
+            // In the case of task `A` computing the same tipset as task `B`, `A` will hold the
+            // mutex until the value is updated, which task `B` will await.
+            //
+            // If two tasks are computing different tipset states, they will only block computation
+            // when accessing/ initializing the entry in cache, not during the whole tipset calc.
             let cache_entry: Arc<_> = self
                 .cache
                 .write()
