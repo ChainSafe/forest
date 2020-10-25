@@ -119,7 +119,7 @@ where
     fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        callback: Option<&mut impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<&mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<(), Box<dyn StdError>> {
         let cron_msg = UnsignedMessage {
             from: *SYSTEM_ACTOR_ADDR,
@@ -141,7 +141,7 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(cron_msg.cid()?, &ChainMessage::Unsigned(cron_msg), ret)?;
+            callback(&cron_msg.cid()?, &ChainMessage::Unsigned(cron_msg), &ret)?;
         }
         Ok(())
     }
@@ -153,7 +153,7 @@ where
         messages: &[BlockMessages],
         parent_epoch: ChainEpoch,
         epoch: ChainEpoch,
-        mut callback: Option<impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
+        mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -177,7 +177,7 @@ where
                 }
                 let ret = self.apply_message(msg)?;
                 if let Some(cb) = &mut callback {
-                    cb(msg.cid()?, msg, ret.clone())?;
+                    cb(&cid, msg, &ret)?;
                 }
 
                 // Update totals
@@ -235,7 +235,7 @@ where
             }
 
             if let Some(callback) = &mut callback {
-                callback(rew_msg.cid()?, &ChainMessage::Unsigned(rew_msg), ret)?;
+                callback(&rew_msg.cid()?, &ChainMessage::Unsigned(rew_msg), &ret)?;
             }
         }
 

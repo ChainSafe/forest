@@ -192,7 +192,7 @@ where
     where
         R: Rand,
         V: ProofVerifier,
-        CB: FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
     {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
@@ -267,7 +267,7 @@ where
             } else {
                 let block_headers = tipset.blocks();
                 // generic constants are not implemented yet this is a lowcost method for now
-                let no_func = None::<fn(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>;
+                let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
                 self.compute_tipset_state::<V, _>(&block_headers, no_func)?
             };
 
@@ -406,10 +406,10 @@ where
     {
         let mut outm: Option<UnsignedMessage> = None;
         let mut outr: Option<ApplyRet> = None;
-        let callback = |cid: Cid, unsigned: &ChainMessage, apply_ret: ApplyRet| {
-            if cid == mcid.clone() {
+        let callback = |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
+            if cid == mcid {
                 outm = Some(unsigned.message().clone());
-                outr = Some(apply_ret);
+                outr = Some(apply_ret.clone());
                 return Err("halt".to_string());
             }
 
@@ -439,7 +439,7 @@ where
     ) -> Result<CidPair, Box<dyn StdError>>
     where
         V: ProofVerifier,
-        CB: FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
     {
         span!("compute_tipset_state", {
             let first_block = block_headers
