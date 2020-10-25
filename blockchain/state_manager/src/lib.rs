@@ -250,7 +250,7 @@ where
             let mut entry_lock = cache_entry.write().await;
             if let Some(ref entry) = *entry_lock {
                 // Entry had successfully populated state, return Cid and drop lock
-                debug!("hit cache for tipset {:?}", tipset.cids());
+                trace!("hit cache for tipset {:?}", tipset.cids());
                 return Ok(entry.clone());
             }
 
