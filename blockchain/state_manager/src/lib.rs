@@ -258,12 +258,11 @@ where
                     .blocks()
                     .first()
                     .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-                let cid_pair = (
+
+                (
                     tipset.parent_state().clone(),
                     message_receipts.message_receipts().clone(),
-                );
-
-                cid_pair.clone()
+                )
             } else {
                 let block_headers = tipset.blocks();
                 // generic constants are not implemented yet this is a lowcost method for now
