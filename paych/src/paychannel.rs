@@ -67,8 +67,7 @@ where
     }
     /// creates a voucher with the given specification, setting its
     /// sequence, signing the voucher and storing it in the local datastore.
-    /// If there are not enough funds in the channel to create the voucher, returns
-    /// the shortfall in funds.
+    /// If there are not enough funds in the channel to create the voucher, returns err
     pub async fn create_voucher(
         &self,
         ch: Address,
@@ -77,6 +76,8 @@ where
         let st = self.store.read().await;
         // Find the channel for the voucher
         let ci = st.by_address(ch).await?;
+
+        drop(st);
 
         // set the voucher channel
         voucher.channel_addr = ch;
@@ -230,7 +231,7 @@ where
                 }
             }
         }
-
+        // TODO update to include version(s)
         let enc = Serialized::serialize(UpdateChannelStateParams { sv, secret, proof })?;
 
         let sm = self.state.sa.sm.read().await;
@@ -447,7 +448,7 @@ where
 
         let mut total = BigInt::default();
         for ls in lane_states.values() {
-            let val = total.add(ls.nonce);
+            let val = total.add(ls.redeemed.clone());
             total = val
         }
 
@@ -573,7 +574,71 @@ where
         // Remove cancelled requests
         queue.retain(|val| val.active);
     }
+    async fn msg_wait_completed(
+        self: Arc<Self>,
+        mcid: Cid,
+        err: Option<Error>,
+    ) -> Result<(), Error> {
+        // save the message result to the store
+        let mut st = self.store.write().await;
+        st.save_msg_result(mcid.clone(), err).await?;
 
+        drop(st);
+
+        // inform listeners that the message has completed
+        // TODO fire msg_complete
+        // self.msg_listeners.fire_msg_complete(mcid).await;
+
+        // the queue may have been waiting for msg completion to proceed, process the next queue item
+        let req = self.funds_req_queue.read().await;
+        if req.len() > 0 {
+            drop(req);
+
+            task::block_on(async {
+                self.process_queue("".to_owned()).await.unwrap();
+            });
+        }
+
+        Ok(())
+    }
+    async fn current_available_funds(
+        self: Arc<Self>,
+        id: String,
+        queued_amt: BigInt,
+    ) -> Result<ChannelAvailableFunds, Error> {
+        let st = self.store.read().await;
+        let ch_info = st.by_channel_id(&id).await?;
+
+        // the channel may have a pending create or add funds message
+        let mut wait_sentinel = ch_info.clone().create_msg;
+        if wait_sentinel.is_none() {
+            wait_sentinel = ch_info.clone().add_funds_msg;
+        }
+
+        // Get the total amount redeemed by vouchers.
+        // This includes vouchers that have been submitted, and vouchers that are
+        // in the datastore but haven't yet been submitted.
+        let mut total_redeemed = BigInt::default();
+        if let Some(ch) = ch_info.channel {
+            let (_, pch_state) = self.state.sa.load_paych_state(&ch).await?;
+            let lane_states = self.lane_state(&pch_state, ch).await?;
+
+            for (_, v) in lane_states.iter() {
+                total_redeemed += &v.redeemed;
+            }
+        }
+
+        Ok(ChannelAvailableFunds {
+            channel: ch_info.channel,
+            from: ch_info.from(),
+            to: ch_info.to(),
+            confirmed_amt: ch_info.amount,
+            pending_amt: ch_info.pending_amount,
+            pending_wait_sentinel: wait_sentinel,
+            queued_amt,
+            voucher_redeemed_amt: total_redeemed,
+        })
+    }
     /// Checks the state of the channel and takes appropriate action
     /// (see description of get_paych).
     /// Note that process_task may be called repeatedly in the same state, and should
@@ -645,7 +710,6 @@ where
             err: None,
         })
     }
-
     /// Sends a message to create the channel and returns the message cid
     async fn create_paych(
         self: Arc<Self>,
@@ -694,7 +758,53 @@ where
 
         Ok(ret_cid)
     }
+    pub async fn wait_paych_create_msg(
+        self: Arc<Self>,
+        ch_id: String,
+        mcid: &Cid,
+    ) -> Result<(), Error>
+    where
+        DB: BlockStore + Send + Sync + 'static,
+    {
+        let sm = self.state.sa.sm.read().await;
 
+        let (_, msg) = StateManager::wait_for_message(
+            sm.blockstore_cloned(),
+            sm.get_subscriber(),
+            mcid,
+            MESSAGE_CONFIDENCE,
+        )
+        .await
+        .map_err(|e| Error::Other(e.to_string()))?;
+
+        drop(sm);
+
+        let mut ret_data = Serialized::default();
+        let mut store = self.store.write().await;
+        if let Some(m) = msg {
+            if m.exit_code != ExitCode::Ok {
+                // channel creation failed, remove the channel from the datastore
+                store.remove_channel(ch_id.clone()).await.map_err(|e| {
+                    Error::Other(format!("failed to remove channel {}", e.to_string()))
+                })?;
+            }
+            ret_data = m.return_data;
+        }
+        let exec_ret: ExecReturn = Serialized::deserialize(&ret_data)?;
+
+        // store robust address of channel
+        let mut ch_info = store.by_channel_id(&ch_id).await?;
+        ch_info.channel = Some(exec_ret.robust_address);
+        ch_info.amount = ch_info.pending_amount;
+        ch_info.pending_amount = BigInt::zero();
+        ch_info.create_msg = None;
+
+        store.put_channel_info(&mut ch_info).await?;
+
+        drop(store);
+
+        Ok(())
+    }
     async fn add_funds<'a>(
         self: Arc<Self>,
         mut ci: ChannelInfo,
@@ -747,55 +857,7 @@ where
 
         Ok(mcid)
     }
-
-    pub async fn wait_paych_create_msg(
-        self: Arc<Self>,
-        ch_id: String,
-        mcid: &Cid,
-    ) -> Result<(), Error>
-    where
-        DB: BlockStore + Send + Sync + 'static,
-    {
-        let sm = self.state.sa.sm.read().await;
-
-        let (_, msg) = StateManager::wait_for_message(
-            sm.blockstore_cloned(),
-            sm.get_subscriber(),
-            mcid,
-            MESSAGE_CONFIDENCE,
-        )
-        .await
-        .map_err(|e| Error::Other(e.to_string()))?;
-
-        drop(sm);
-
-        let mut ret_data = Serialized::default();
-        let mut store = self.store.write().await;
-        if let Some(m) = msg {
-            if m.exit_code != ExitCode::Ok {
-                // channel creation failed, remove the channel from the datastore
-                store.remove_channel(ch_id.clone()).await.map_err(|e| {
-                    Error::Other(format!("failed to remove channel {}", e.to_string()))
-                })?;
-            }
-            ret_data = m.return_data;
-        }
-        let exec_ret: ExecReturn = Serialized::deserialize(&ret_data)?;
-
-        // store robust address of channel
-        let mut ch_info = store.by_channel_id(&ch_id).await?;
-        ch_info.channel = Some(exec_ret.robust_address);
-        ch_info.amount = ch_info.pending_amount;
-        ch_info.pending_amount = BigInt::zero();
-        ch_info.create_msg = None;
-
-        store.put_channel_info(&mut ch_info).await?;
-
-        drop(store);
-
-        Ok(())
-    }
-
+    /// waits for mcid to appear on chain and returns error, if any
     pub async fn wait_add_funds_msg<'a>(
         self: Arc<Self>,
         channel_info: &'a mut ChannelInfo,
@@ -835,7 +897,6 @@ where
 
         Ok(())
     }
-
     /// Waits until the create channel / add funds message with the
     /// given message CID arrives.
     /// The returned channel address can safely be used against the Manager methods.
@@ -872,7 +933,8 @@ where
             .map_err(|e| Error::Other(format!("Sender for wait cancelled: {}", e)))?
             .map_err(Error::Other)
     }
-
+    /// msgPromise returns a channel that receives the result of the message with
+    /// the given CID
     pub async fn msg_promise(&mut self, mcid: Cid) -> Receiver<Result<Address, String>> {
         let (tx, rx) = oneshot_channel();
         // * Starting thread to subscribe and poll for cid, return address that matches
@@ -905,72 +967,5 @@ where
         });
 
         rx
-    }
-
-    async fn msg_wait_completed(
-        self: Arc<Self>,
-        mcid: Cid,
-        err: Option<Error>,
-    ) -> Result<(), Error> {
-        // save the message result to the store
-        let mut st = self.store.write().await;
-        st.save_msg_result(mcid.clone(), err.clone()).await?;
-
-        drop(st);
-
-        // inform listeners that the message has completed
-        // TODO handle self issue
-        // self.msg_listeners.fire_msg_complete(mcid).await;
-
-        // the queue may have been waiting for msg completion to proceed, process the next queue item
-        let req = self.funds_req_queue.read().await;
-        if req.len() > 0 {
-            drop(req);
-
-            task::block_on(async {
-                self.process_queue("".to_owned()).await.unwrap();
-            });
-        }
-
-        Ok(())
-    }
-
-    async fn current_available_funds(
-        self: Arc<Self>,
-        id: String,
-        queued_amt: BigInt,
-    ) -> Result<ChannelAvailableFunds, Error> {
-        let st = self.store.read().await;
-        let ch_info = st.by_channel_id(&id).await?;
-
-        // the channel may have a pending create or add funds message
-        let mut wait_sentinel = ch_info.clone().create_msg;
-        if wait_sentinel.is_none() {
-            wait_sentinel = ch_info.clone().add_funds_msg;
-        }
-
-        // Get the total amount redeemed by vouchers.
-        // This includes vouchers that have been submitted, and vouchers that are
-        // in the datastore but haven't yet been submitted.
-        let mut total_redeemed = BigInt::default();
-        if let Some(ch) = ch_info.channel {
-            let (_, pch_state) = self.state.sa.load_paych_state(&ch).await?;
-            let lane_states = self.lane_state(&pch_state, ch).await?;
-
-            for (_, v) in lane_states.iter() {
-                total_redeemed += &v.redeemed;
-            }
-        }
-
-        Ok(ChannelAvailableFunds {
-            channel: ch_info.channel,
-            from: ch_info.from(),
-            to: ch_info.to(),
-            confirmed_amt: ch_info.amount,
-            pending_amt: ch_info.pending_amount,
-            pending_wait_sentinel: wait_sentinel,
-            queued_amt,
-            voucher_redeemed_amt: total_redeemed,
-        })
     }
 }

@@ -14,7 +14,6 @@ use ipld_amt::Amt;
 use state_manager::StateManager;
 
 /// Thread safe access to state manager
-// TODO ask about this; doesnt seem right;
 pub struct StateAccessor<DB> {
     pub sm: Arc<RwLock<Arc<StateManager<DB>>>>,
 }
@@ -24,7 +23,7 @@ where
     DB: BlockStore,
 {
     /// Returns ActorState of provided address
-    // TODO ask if this would even work with CID default?
+    // TODO ask about CID default?
     pub async fn load_paych_state(&self, ch: &Address) -> Result<(ActorState, PaychState), Error> {
         let sm = self.sm.read().await;
         let state: PaychState = sm
@@ -37,9 +36,7 @@ where
 
         Ok((actor, state))
     }
-
     /// Returns channel info of provided address
-    // TODO cid default should not work?
     pub async fn load_state_channel_info(
         &self,
         ch: Address,
@@ -83,7 +80,6 @@ where
             Err(Error::Other("invalid Direction".to_string()))
         }
     }
-
     async fn next_lane_from_state(&self, st: PaychState) -> Result<u64, Error> {
         let sm = self.sm.read().await;
         let store = sm.blockstore();

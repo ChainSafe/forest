@@ -8,8 +8,10 @@ use address::Address;
 use async_std::sync::{Arc, RwLock};
 use async_std::task;
 use blockstore::BlockStore;
+use chain::get_heaviest_tipset;
 use cid::Cid;
 use encoding::Cbor;
+use fil_types::verifier::FullVerifier;
 use futures::stream::{FuturesUnordered, StreamExt};
 use message::UnsignedMessage;
 use message_pool::{MessagePool, MpoolRpcProvider};
@@ -238,7 +240,6 @@ where
 
         self.accessor_by_from_to(from, to).await
     }
-
     async fn track_inbound_channel(&mut self, ch: Address) -> Result<ChannelInfo, Error> {
         let mut store = self.store.write().await;
 
@@ -259,10 +260,20 @@ where
             .load_state_channel_info(ch, DIR_INBOUND)
             .await?;
 
-        // TODO ask about state account key
+        let sm = self.state.sa.sm.read().await;
+        let heaviest_ts = get_heaviest_tipset(sm.blockstore())
+            .map_err(|_| Error::HeaviestTipset)?
+            .ok_or_else(|| Error::HeaviestTipset)?;
+        let addr = sm
+            .resolve_to_key_addr::<FullVerifier>(&state_ci.control, &heaviest_ts)
+            .await
+            .map_err(|_| Error::NoAddress)?;
+
+        drop(sm);
+
         // let state = self.state.sa.sm.read().await;
         let mut w = self.state.wallet.write().await;
-        if !w.has_key(&state_ci.control) {
+        if !w.has_key(&addr) {
             return Err(Error::NoAddress);
         }
 
@@ -331,7 +342,6 @@ where
 
         Ok(smgs.cid()?)
     }
-
     async fn accessor_by_from_to(
         &self,
         from: Address,
@@ -361,7 +371,6 @@ where
             Ok(self.add_accessor_to_cache(from, to).await?)
         }
     }
-
     /// Add a channel accessor to the cache. Note that the
     /// channel may not have been created yet, but we still want to reference
     /// the same channel accessor for a given from/to, so that all attempts to
@@ -378,7 +387,6 @@ where
             .insert(key, Arc::new(ca))
             .ok_or_else(|| Error::Other("inserting new channel accessor".to_string()))
     }
-
     async fn accessor_by_address(
         &self,
         ch: Address,
@@ -387,7 +395,6 @@ where
         let ci = store.by_address(ch).await?;
         self.accessor_by_from_to(ci.control, ci.target).await
     }
-
     /// Adds a voucher for an inbound channel.
     /// If the channel is not in the store, fetches the channel from state (and checks that
     /// the channel To address is owned by the wallet).

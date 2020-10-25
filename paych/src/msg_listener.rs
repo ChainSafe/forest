@@ -18,17 +18,16 @@ impl Default for MsgListeners {
 }
 
 impl MsgListeners {
+    /// constructor
     pub fn new() -> Self {
         MsgListeners {
             ps: Publisher::new(50),
             num_pubs: 0,
         }
     }
-
     pub async fn subscribe(&mut self) -> Subscriber<MsgCompleteEvt> {
         self.ps.subscribe()
     }
-
     /// called when a message completes
     pub async fn fire_msg_complete(&mut self, mcid: Cid) {
         self.num_pubs += 1;
