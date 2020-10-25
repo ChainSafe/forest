@@ -27,13 +27,14 @@ struct ActorStateResolved {
 fn root_to_state_map<BS: BlockStore>(
     bs: &BS,
     root: &Cid,
+    depth: Option<u64>,
 ) -> Result<BTreeMap<String, ActorStateResolved>, Box<dyn StdError>> {
     let mut actors = BTreeMap::new();
     let hamt: Hamt<_, _> = Hamt::load_with_bit_width(root, bs, HAMT_BIT_WIDTH)?;
     hamt.for_each(|k: &BytesKey, actor: &ActorState| {
         let addr = Address::from_bytes(&k.0)?;
 
-        let resolved = resolve_cids_recursive(bs, &actor.state)
+        let resolved = resolve_cids_recursive(bs, &actor.state, depth)
             .unwrap_or_else(|_| Ipld::Link(actor.state.clone()));
         let resolved_state = ActorStateResolved {
             state: IpldJson(resolved),
@@ -44,8 +45,7 @@ fn root_to_state_map<BS: BlockStore>(
 
         actors.insert(addr.to_string(), resolved_state);
         Ok(())
-    })
-    .unwrap();
+    })?;
 
     Ok(actors)
 }
@@ -56,9 +56,10 @@ fn try_resolve_actor_states<BS: BlockStore>(
     bs: &BS,
     root: &Cid,
     expected_root: &Cid,
+    depth: Option<u64>,
 ) -> Result<Changeset, Box<dyn StdError>> {
-    let e_state = root_to_state_map(bs, expected_root)?;
-    let c_state = root_to_state_map(bs, root)?;
+    let e_state = root_to_state_map(bs, expected_root, depth)?;
+    let c_state = root_to_state_map(bs, root, depth)?;
 
     let expected_json = serde_json::to_string_pretty(&e_state)?;
     let actual_json = serde_json::to_string_pretty(&c_state)?;
@@ -72,19 +73,20 @@ pub fn print_state_diff<BS>(
     bs: &BS,
     root: &Cid,
     expected_root: &Cid,
+    depth: Option<u64>,
 ) -> Result<(), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
-    let Changeset { diffs, .. } = match try_resolve_actor_states(bs, root, expected_root) {
+    let Changeset { diffs, .. } = match try_resolve_actor_states(bs, root, expected_root, depth) {
         Ok(cs) => cs,
         Err(e) => {
             println!(
                 "Could not resolve actor states: {}\nUsing default resolution:",
                 e
             );
-            let expected = resolve_cids_recursive(bs, &expected_root)?;
-            let actual = resolve_cids_recursive(bs, &root)?;
+            let expected = resolve_cids_recursive(bs, &expected_root, depth)?;
+            let actual = resolve_cids_recursive(bs, &root, depth)?;
 
             let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
             let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
