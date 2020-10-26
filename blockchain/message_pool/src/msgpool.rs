@@ -1067,6 +1067,7 @@ pub mod tests {
     use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigInt;
+    use std::borrow::BorrowMut;
     use std::convert::TryFrom;
     use std::thread::sleep;
     use std::time::Duration;

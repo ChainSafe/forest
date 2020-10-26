@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 async-std = "1.6.0"
-jsonrpsee = "0.1.0"
 actor = { path = "../vm/actor" }
 address = { package = "forest_address", path = "../vm/address" }
 encoding = { package = "forest_encoding", path = "../encoding", version = "0.1" }
@@ -22,18 +21,10 @@ derive_builder = "0.9"
 flo_stream = "0.4.0"
 chain = { path = "../blockchain/chain"}
 message = { package = "forest_message", path = "../vm/message" }
-crypto = { package = "forest_crypto", path = "../crypto" }
 futures = "0.3.5"
 ipld_amt = { path = "../ipld/amt/" }
-rpc_client = { package = "rpc-client", path = "../node/rpc-client/" }
 message_pool = { path = "../blockchain/message_pool/" }
 wallet = { package = "key_management", path = "../key_management/", features = ["json"] }
 num-traits = "0.2"
 async-trait = "0.1"
-forest_blocks = { path = "../blockchain/blocks/" }
 fil_types = { path = "../types/" }
-bls-signatures = "0.6.1"
-rand_chacha = "0.2.2"
-rand = "0.7.3"
-clock = { path = "../node/clock/" }
-libsecp256k1 = "0.3.4"
