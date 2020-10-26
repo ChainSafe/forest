@@ -809,6 +809,8 @@ impl State {
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_unvested_funds(current_epoch, target);
         self.locked_funds -= &amount_unlocked;
+        assert!(!self.locked_funds.is_negative());
+
         self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
     }
@@ -823,6 +825,8 @@ impl State {
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
         self.locked_funds -= &amount_unlocked;
+        assert!(!self.locked_funds.is_negative());
+
         self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
     }
