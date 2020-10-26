@@ -222,17 +222,26 @@ pub(super) async fn start(config: Config) {
 #[cfg(test)]
 mod test {
     use super::*;
+    use db::MemoryDB;
     use std::fs::File;
     use std::io::BufReader;
     use std::io::Read;
-    use db::MemoryDB;
 
     #[async_std::test]
-    async fn a_test () {
+    async fn import_snapshot_from_file() {
         let db = Arc::new(MemoryDB::default());
         let file = File::open("chain4.car").expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
         import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, true)
+            .await
+            .expect("Failed to import chain");
+    }
+    #[async_std::test]
+    async fn import_chain_from_file() {
+        let db = Arc::new(MemoryDB::default());
+        let file = File::open("chain4.car").expect("Snapshot file path not found!");
+        let reader = BufReader::new(file);
+        import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, false)
             .await
             .expect("Failed to import chain");
     }

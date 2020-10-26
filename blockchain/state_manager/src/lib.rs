@@ -878,8 +878,9 @@ where
                 let e: Box<dyn StdError> = format!(
                     "Tipset chain has state mismatch at height: {:?}",
                     ts_chain[i].epoch()
-                ).into();
-                return Err(e)
+                )
+                .into();
+                return Err(e);
             }
             let (st, _) = self.tipset_state::<V>(&ts_chain[i]).await?;
             last_state = st;
