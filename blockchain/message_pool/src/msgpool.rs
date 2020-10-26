@@ -652,7 +652,7 @@ where
         self.config = cfg;
         Ok(())
     }
-
+    /// Returns signed message from given inputs
     pub async fn mpool_unsigned_msg_push<KS: KeyStore>(
         &self,
         umsg: UnsignedMessage,
@@ -667,6 +667,9 @@ where
         let ks = keystore.as_ref().write().await;
         let key = key_management::find_key(&from, &*ks)
             .map_err(|e| Error::Other(format!("failed to find key for wallet: {}", e)))?;
+
+        drop(ks);
+        
         let sig = key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),

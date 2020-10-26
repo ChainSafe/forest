@@ -264,7 +264,6 @@ where
                 return Err(Error::Other("Block marked as bad".to_string()));
             }
         }
-        // TODO: Publish LocalIncoming blocks
 
         // compare target_weight to heaviest weight stored; ignore otherwise
         let candidate_ts = self
