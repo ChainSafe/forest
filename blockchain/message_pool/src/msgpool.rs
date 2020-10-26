@@ -669,7 +669,7 @@ where
             .map_err(|e| Error::Other(format!("failed to find key for wallet: {}", e)))?;
 
         drop(ks);
-        
+
         let sig = key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
