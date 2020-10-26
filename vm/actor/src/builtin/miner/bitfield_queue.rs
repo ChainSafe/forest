@@ -121,7 +121,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
     /// Removes and returns all values with keys less than or equal to until.
     /// Modified return value indicates whether this structure has been changed by the call.
     pub fn pop_until(&mut self, until: ChainEpoch) -> Result<(BitField, bool), Box<dyn StdError>> {
-        let mut popped_values = Vec::<BitField>::new();
+        let mut popped_values = BitField::new();
         let mut popped_keys = Vec::<u64>::new();
 
         self.amt.for_each_while(|epoch, bitfield| {
@@ -131,7 +131,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             }
 
             popped_keys.push(epoch as u64);
-            popped_values.push(bitfield.clone());
+            popped_values |= bitfield;
             Ok(true)
         })?;
 
@@ -141,6 +141,6 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
         }
 
         self.amt.batch_delete(popped_keys)?;
-        Ok((BitField::union(popped_values.iter()), true))
+        Ok((popped_values, true))
     }
 }
