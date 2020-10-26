@@ -75,7 +75,7 @@ fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
     let d = GzDecoder::new(gzip_bz);
 
     // Load car file with bytes
-    let _ = forest_car::load_car(&bs, d)?;
+    forest_car::load_car(&bs, d)?;
 
     Ok(bs)
 }
@@ -148,9 +148,7 @@ fn execute_message_vector(
     randomness: &Randomness,
     variant: &Variant,
 ) -> Result<(), Box<dyn StdError>> {
-    println!("Starting loaf");
     let bs = load_car(car)?;
-    println!("Passing load");
 
     let mut base_epoch: ChainEpoch = variant.epoch;
     let mut root = root_cid;
