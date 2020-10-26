@@ -234,9 +234,6 @@ mod test {
         let reader = BufReader::new(file);
         import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, true)
             .await
-            .expect("Failed ");
-        let cs = ChainStore::new(db);
-        // println!("gen {:?}", cs.genesis());
-        // println!("head {:?}", cs.heaviest_tipset().await);
+            .expect("Failed to import chain");
     }
 }
