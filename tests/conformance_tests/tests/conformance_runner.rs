@@ -121,7 +121,7 @@ fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Re
         if std::env::var("FOREST_DIFF") == Ok("1".to_owned()) {
             println!("{}:", error_msg);
 
-            print_state_diff(bs, root, expected_root).unwrap();
+            print_state_diff(bs, root, expected_root, None).unwrap();
         }
 
         return Err(error_msg.into());

@@ -3,6 +3,8 @@
 
 #[cfg(test)]
 mod full_sync_test;
+#[cfg(test)]
+mod validate_block_test;
 
 use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
@@ -923,7 +925,7 @@ where
                 Error::Validation(format!("Failed to get sectors for post: {}", e.to_string()))
             })?;
 
-        V::verify_winning_post(Randomness(rand), header.win_post_proof(), &sectors, id).map_err(
+        V::verify_winning_post(Randomness(rand), header.winning_post_proof(), &sectors, id).map_err(
             |e| Error::Validation(format!("Failed to verify winning PoSt: {}", e.to_string())),
         )
     }

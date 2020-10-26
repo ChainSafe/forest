@@ -20,6 +20,8 @@ lazycell = "1.2.1"
 [features]
 identity = []
 go-interop = []
+# TODO would be best to just cut a release with v1 functionality and use that when needed
+v2 = []
 # This feature should just be used for testing (ignoring links that don't exist in store)
 ignore-dead-links = []
 
