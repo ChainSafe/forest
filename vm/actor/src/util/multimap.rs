@@ -68,7 +68,9 @@ where
     #[inline]
     pub fn remove_all(&mut self, key: &[u8]) -> Result<(), Box<dyn StdError>> {
         // Remove entry from table
-        self.0.delete(key)?;
+        self.0
+            .delete(key)?
+            .ok_or_else(|| "failed to delete from multimap")?;
 
         Ok(())
     }

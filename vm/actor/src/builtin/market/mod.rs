@@ -689,7 +689,7 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load state")
                 })?;
 
-            for i in (last_cron + 1)..rt.curr_epoch() {
+            for i in (last_cron + 1)..=rt.curr_epoch() {
                 // TODO specs-actors modifies msm as it's iterated through, which is memory unsafe
                 // for now the deal ids are being collected and then iterated on, which could
                 // cause a potential inconsistency in exit code returned if a deal_id fails

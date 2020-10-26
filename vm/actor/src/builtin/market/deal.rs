@@ -70,7 +70,7 @@ impl DealProposal {
         self.storage_price_per_epoch.clone() * self.duration() as u64
     }
     pub fn client_balance_requirement(&self) -> TokenAmount {
-        self.client_collateral.clone() + self.total_storage_fee()
+        &self.client_collateral + self.total_storage_fee()
     }
     pub fn provider_balance_requirement(&self) -> &TokenAmount {
         &self.provider_collateral
