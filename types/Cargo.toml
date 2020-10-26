@@ -25,6 +25,8 @@ base64 = { version = "0.12.1", optional = true }
 forest_json_utils = { path = "../utils/json_utils", optional = true }
 ipld_amt = { path = "../ipld/amt/" }
 lazy_static = "1.4"
+async-std = "1.6.3"
+
 
 [features]
 json = ["base64", "forest_json_utils"]

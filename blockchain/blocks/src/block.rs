@@ -7,7 +7,7 @@ use encoding::tuple::*;
 use message::{SignedMessage, UnsignedMessage};
 
 /// Limit of bls and secp messages combined in a block.
-pub const BLOCK_MESSAGE_LIMIT: usize = 512;
+pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 
 /// A complete block
 #[derive(Clone, Debug, PartialEq)]

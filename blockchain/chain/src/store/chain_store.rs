@@ -205,8 +205,8 @@ where
     }
 
     /// Constructs and returns a full tipset if messages from storage exists
-    pub fn fill_tipsets(&self, ts: Tipset) -> Result<FullTipset, Error> {
-        fill_tipsets(self.blockstore(), ts)
+    pub fn fill_tipset(&self, ts: Tipset) -> Result<FullTipset, Tipset> {
+        fill_tipset(self.blockstore(), ts)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
@@ -323,20 +323,35 @@ where
 }
 
 /// Constructs and returns a full tipset if messages from storage exists - non self version
-pub fn fill_tipsets<DB>(db: &DB, ts: Tipset) -> Result<FullTipset, Error>
+pub fn fill_tipset<DB>(db: &DB, ts: Tipset) -> Result<FullTipset, Tipset>
 where
     DB: BlockStore,
 {
-    let mut blocks: Vec<Block> = Vec::with_capacity(ts.blocks().len());
+    // Collect all messages before moving tipset.
+    let messages: Vec<(Vec<_>, Vec<_>)> = match ts
+        .blocks()
+        .iter()
+        .map(|h| block_messages(db, h))
+        .collect::<Result<_, Error>>()
+    {
+        Ok(m) => m,
+        Err(e) => {
+            log::trace!("failed to fill tipset: {}", e);
+            return Err(ts);
+        }
+    };
 
-    for header in ts.into_blocks() {
-        let (bls_messages, secp_messages) = block_messages(db, &header)?;
-        blocks.push(Block {
+    // Zip messages with blocks
+    let blocks = ts
+        .into_blocks()
+        .into_iter()
+        .zip(messages)
+        .map(|(header, (bls_messages, secp_messages))| Block {
             header,
             bls_messages,
             secp_messages,
-        });
-    }
+        })
+        .collect();
 
     // the given tipset has already been verified, so this cannot fail
     Ok(FullTipset::new(blocks).unwrap())
