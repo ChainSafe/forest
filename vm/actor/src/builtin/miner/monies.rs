@@ -94,7 +94,7 @@ pub fn pledge_penalty_for_declared_fault(
     network_version: NetworkVersion,
 ) -> TokenAmount {
     let projection_period = if network_version < NetworkVersion::V3 {
-        DECLARED_FAULT_FACTOR_NUM_V0
+        DECLARED_FAULT_PROJECTION_PERIOD_V0
     } else {
         DECLARED_FAULT_PROJECTION_PERIOD_V3
     };
@@ -115,7 +115,7 @@ pub fn pledge_penalty_for_undeclared_fault(
     network_version: NetworkVersion,
 ) -> TokenAmount {
     let projection_period = if network_version < NetworkVersion::V3 {
-        UNDECLARED_FAULT_FACTOR_NUM_V0
+        UNDECLARED_FAULT_PROJECTION_PERIOD_V0
     } else {
         UNDECLARED_FAULT_PROJECTION_PERIOD_V1
     };
