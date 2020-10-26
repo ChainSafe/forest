@@ -42,14 +42,9 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     store: Arc<RwLock<PaychStore>>,
-    msg_listeners: MsgListeners,
+    msg_listeners: RwLock<MsgListeners>,
     funds_req_queue: RwLock<Vec<FundsReq>>,
     state: Arc<ResourceAccessor<DB, KS>>,
-}
-
-struct _OnMsgRes {
-    channel: Address,
-    err: Error,
 }
 
 impl<DB, KS> ChannelAccessor<DB, KS>
@@ -60,14 +55,14 @@ where
     pub fn new(pm: &Manager<DB, KS>) -> Self {
         ChannelAccessor {
             store: pm.store.clone(),
-            msg_listeners: MsgListeners::new(),
+            msg_listeners: RwLock::new(MsgListeners::new()),
             funds_req_queue: RwLock::new(Vec::new()),
             state: pm.state.clone(),
         }
     }
     /// creates a voucher with the given specification, setting its
     /// sequence, signing the voucher and storing it in the local datastore.
-    /// If there are not enough funds in the channel to create the voucher, returns err
+    /// If there are not enough funds in the channel to create the voucher returns error
     pub async fn create_voucher(
         &self,
         ch: Address,
@@ -200,6 +195,7 @@ where
 
         Ok(lane_states)
     }
+    /// Returns true if the voucher is deemed spendable
     pub async fn check_voucher_spendable(
         &self,
         ch: Address,
@@ -218,8 +214,8 @@ where
         }
 
         if (sv.extra != None) & (!proof.is_empty()) {
-            let store = self.store.read().await;
-            let known = store.vouchers_for_paych(&ch).await?;
+            let known = st.vouchers_for_paych(&ch).await?;
+
             for vi in known {
                 if (proof == vi.proof) & (sv == vi.voucher) {
                     info!("using stored proof");
@@ -231,6 +227,9 @@ where
                 }
             }
         }
+
+        drop(st);
+
         // TODO update to include version(s)
         let enc = Serialized::serialize(UpdateChannelStateParams { sv, secret, proof })?;
 
@@ -247,6 +246,8 @@ where
                 None,
             )
             .map_err(|e| Error::Other(e.to_string()))?;
+
+        drop(sm);
 
         if let Some(code) = ret.msg_rct {
             if code.exit_code != ExitCode::Ok {
@@ -318,6 +319,9 @@ where
         }
 
         store.put_channel_info(&mut ci).await?;
+
+        drop(store);
+
         Ok(delta)
     }
     // intentionally unused, to be used with paych rpc
@@ -379,7 +383,6 @@ where
 
         Ok(smgs.cid()?)
     }
-
     /// Retrieves lane states from chain, then applies all vouchers in the data store over the chain state
     pub async fn lane_state(
         &self,
@@ -389,6 +392,7 @@ where
         let sm = self.state.sa.sm.read().await;
         let ls_amt: Amt<LaneState, _> = Amt::load(&state.lane_states, sm.blockstore())
             .map_err(|e| Error::Other(e.to_string()))?;
+
         // Note: we use a map instead of an array to store laneStates because the
         // client sets the lane ID (the index) and potentially they could use a
         // very large index.
@@ -400,9 +404,13 @@ where
             })
             .map_err(|e| Error::Encoding(format!("failed to iterate over values in AMT: {}", e)))?;
 
+        drop(sm);
+
         // apply locally stored vouchers
         let st = self.store.read().await;
         let vouchers = st.vouchers_for_paych(&ch).await?;
+
+        drop(st);
 
         for v in vouchers {
             if !v.voucher.merges.is_empty() {
@@ -423,7 +431,6 @@ where
                 if v.voucher.nonce < ls.nonce {
                     continue;
                 }
-
                 ls.nonce = v.voucher.nonce;
                 ls.redeemed = v.voucher.amount;
             } else {
@@ -436,7 +443,6 @@ where
 
         Ok(lane_states)
     }
-
     async fn total_redeemed_with_voucher(
         &self,
         lane_states: &HashMap<u64, LaneState>,
@@ -467,18 +473,17 @@ where
 
         Ok(total)
     }
-
-    // Ensures that a channel exists between the from and to addresses,
-    // and adds the given amount of funds.
-    // If the channel does not exist a create channel message is sent and the
-    // message CID is returned.
-    // If the channel does exist an add funds message is sent and both the channel
-    // address and message CID are returned.
-    // If there is an in progress operation (create channel / add funds), get_paych
-    // blocks until the previous operation completes, then returns both the channel
-    // address and the CID of the new add funds message.
-    // If an operation returns an error, subsequent waiting operations will still
-    // be attempted.
+    /// Ensures that a channel exists between the from and to addresses,
+    /// and adds the given amount of funds.
+    /// If the channel does not exist a create channel message is sent and the
+    /// message CID is returned.
+    /// If the channel does exist an add funds message is sent and both the channel
+    /// address and message CID are returned.
+    /// If there is an in progress operation (create channel / add funds), get_paych
+    /// blocks until the previous operation completes, then returns both the channel
+    /// address and the CID of the new add funds message.
+    /// If an operation returns an error, subsequent waiting operations will still
+    /// be attempted.
     pub async fn get_paych(
         self: Arc<Self>,
         from: Address,
@@ -509,7 +514,6 @@ where
 
         Ok(())
     }
-
     /// Run operations in the queue
     pub async fn process_queue(
         self: Arc<Self>,
@@ -567,7 +571,6 @@ where
 
         self.current_available_funds(id, BigInt::default()).await
     }
-
     /// Remove all inactive fund requests from self
     async fn filter_queue(&self) {
         let mut queue = self.funds_req_queue.write().await;
@@ -586,8 +589,10 @@ where
         drop(st);
 
         // inform listeners that the message has completed
-        // TODO fire msg_complete
-        // self.msg_listeners.fire_msg_complete(mcid).await;
+        let mut listener = self.msg_listeners.write().await;
+        listener.fire_msg_complete(mcid).await;
+
+        drop(listener);
 
         // the queue may have been waiting for msg completion to proceed, process the next queue item
         let req = self.funds_req_queue.read().await;
@@ -758,6 +763,8 @@ where
 
         Ok(ret_cid)
     }
+    /// Waits for mcid to appear on chain and stores the robust address of the
+    /// created payment channel
     pub async fn wait_paych_create_msg(
         self: Arc<Self>,
         ch_id: String,
@@ -857,7 +864,7 @@ where
 
         Ok(mcid)
     }
-    /// waits for mcid to appear on chain and returns error, if any
+    /// Waits for mcid to appear on chain and returns error, if any
     pub async fn wait_add_funds_msg<'a>(
         self: Arc<Self>,
         channel_info: &'a mut ChannelInfo,
@@ -933,12 +940,16 @@ where
             .map_err(|e| Error::Other(format!("Sender for wait cancelled: {}", e)))?
             .map_err(Error::Other)
     }
-    /// msgPromise returns a channel that receives the result of the message with
+    /// Returns a channel that receives the result of the message with
     /// the given CID
     pub async fn msg_promise(&mut self, mcid: Cid) -> Receiver<Result<Address, String>> {
         let (tx, rx) = oneshot_channel();
         // * Starting thread to subscribe and poll for cid, return address that matches
-        let mut subscriber = self.msg_listeners.subscribe().await;
+        let mut listener = self.msg_listeners.write().await;
+        let mut subscriber = listener.subscribe().await;
+
+        drop(listener);
+
         let store = self.store.clone();
         task::spawn(async move {
             while let Some(event) = subscriber.next().await {
@@ -955,6 +966,9 @@ where
                                     let _ = tx.send(Err(e.to_string()));
                                 }
                             }
+
+                            drop(store);
+
                             break;
                         }
                     }

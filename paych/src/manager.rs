@@ -41,7 +41,7 @@ where
     pub sa: StateAccessor<DB>,
     pub wallet: Arc<RwLock<Wallet<KS>>>,
 }
-
+/// Funds made available in channel
 pub struct ChannelAvailableFunds {
     // The address of the channel
     pub channel: Option<Address>,
@@ -80,10 +80,17 @@ where
     pub async fn start(&mut self) -> Result<(), Error> {
         self.restart_pending().await
     }
-
+    /// Checks the datastore to see if there are any channels that
+    /// have outstanding create / add funds messages, and if so, waits on the
+    /// messages.
+    /// Outstanding messages can occur if a create / add funds message was sent and
+    /// then the system was shut down or crashed before the result was received.
     async fn restart_pending(&mut self) -> Result<(), Error> {
         let mut st = self.store.write().await;
         let cis = st.with_pending_add_funds().await?;
+
+        drop(st);
+
         let mut err_wait_group = FuturesUnordered::new();
 
         for mut ci in cis {
@@ -112,7 +119,6 @@ where
         }
         Ok(())
     }
-
     /// Ensures that a channel exists between the from and to addresses,
     /// and adds the given amount of funds.
     pub async fn get_paych(
@@ -124,7 +130,7 @@ where
         let chan_accesor = self.accessor_by_from_to(from, to).await?;
         Ok(chan_accesor.get_paych(from, to, amt).await?)
     }
-
+    /// Returns available funds within provided addressed channel
     pub async fn available_funds(&self, ch: Address) -> Result<ChannelAvailableFunds, Error> {
         let ca = self.accessor_by_address(ch).await?;
 
@@ -132,7 +138,6 @@ where
 
         ca.process_queue(ci.id).await
     }
-
     // intentionally unused, to be used for paych RPC usage
     async fn _available_funds_by_from_to(
         &self,
@@ -167,7 +172,6 @@ where
         };
         ca.process_queue(ci.id).await
     }
-
     /// Lists channels that exist in the paych store
     pub async fn list_channels(&self) -> Result<Vec<Address>, Error> {
         let store = self.store.read().await;
@@ -199,6 +203,7 @@ where
         let _ = ca.check_voucher_valid(ch, sv).await?;
         Ok(())
     }
+    /// Returns true if voucher is deemed spendable
     pub async fn check_voucher_spendable(
         &self,
         addr: Address,
@@ -271,7 +276,6 @@ where
 
         drop(sm);
 
-        // let state = self.state.sa.sm.read().await;
         let mut w = self.state.wallet.write().await;
         if !w.has_key(&addr) {
             return Err(Error::NoAddress);

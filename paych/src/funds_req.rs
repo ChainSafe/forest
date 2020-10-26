@@ -21,7 +21,6 @@ pub struct PaychFundsRes {
 /// Request to create a channel or add funds to a channel
 #[derive(Clone)]
 pub struct FundsReq {
-    // this is set to None by default and will be added when? TODO
     promise: Option<PaychFundsRes>,
     from: Address,
     to: Address,
@@ -43,19 +42,17 @@ impl FundsReq {
             publisher: Arc::new(RwLock::new(Publisher::new(100))),
         }
     }
-
     // This will be the pub sub impl that is equivalent to the channel interface of Lotus
     pub async fn promise(&self) -> Subscriber<PaychFundsRes> {
         self.publisher.write().await.subscribe()
     }
-
     /// This is called when the funds request has been executed
     pub async fn on_complete(&mut self, res: PaychFundsRes) {
         self.promise = Some(res.clone());
         let mut publisher = self.publisher.write().await;
         publisher.publish(res.clone());
     }
-
+    // TODO can be removed
     pub fn cancel(&mut self) {
         self.active = false;
         let m = self.merge.clone();
@@ -63,19 +60,18 @@ impl FundsReq {
             ma.check_active();
         }
     }
-
     pub fn is_active(&self) -> bool {
         self.active
     }
-
+    /// sets the merge that this req is part of
     pub fn set_merge_parent(&mut self, m: MergeFundsReq) {
         self.merge = Some(m);
     }
 }
 
-// merges together multiple add funds requests that are queued
-// up, so that only one message is sent for all the requests (instead of one
-// message for each request)
+/// merges together multiple add funds requests that are queued
+/// up, so that only one message is sent for all the requests (instead of one
+/// message for each request)
 #[derive(Clone)]
 pub struct MergeFundsReq {
     reqs: Vec<FundsReq>,
@@ -95,7 +91,6 @@ impl MergeFundsReq {
         }
         None
     }
-
     pub fn check_active(&self) -> bool {
         for val in self.reqs.iter() {
             if val.active {
@@ -105,7 +100,8 @@ impl MergeFundsReq {
         // TODO cancel all active requests
         false
     }
-
+    /// Called when the queue has executed the mergeFundsReq.
+    /// Calls onComplete on each fundsReq in the mergeFundsReq.
     pub async fn on_complete(&mut self, res: PaychFundsRes) {
         for r in self.reqs.iter_mut() {
             if r.active {
@@ -113,7 +109,6 @@ impl MergeFundsReq {
             }
         }
     }
-
     /// Return sum of the amounts in all active funds requests
     pub fn sum(&self) -> BigInt {
         let mut sum = BigInt::default();
@@ -124,14 +119,12 @@ impl MergeFundsReq {
         }
         sum
     }
-
     pub fn from(&self) -> Result<Address, Error> {
         if self.reqs.is_empty() {
             return Err(Error::Other("Empty FundsReq vec".to_owned()));
         }
         Ok(self.reqs[0].from)
     }
-
     pub fn to(&self) -> Result<Address, Error> {
         if self.reqs.is_empty() {
             return Err(Error::Other("Empty FundsReq vec".to_owned()));
