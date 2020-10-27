@@ -32,6 +32,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use types::verifier::ProofVerifier;
+use types::UPGRADE_BREEZE_HEIGHT;
 use vm::ActorState;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
@@ -47,7 +48,7 @@ const REPUBLISH_INTERVAL: u64 = 10 * types::BLOCK_DELAY_SECS + PROPAGATION_DELAY
 // away in the next fork.
 // TODO: Get rid of this?
 fn allow_negative_chains(epoch: i64) -> bool {
-    epoch < 41280 + 5
+    epoch < UPGRADE_BREEZE_HEIGHT + 5
 }
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
