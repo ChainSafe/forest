@@ -225,7 +225,6 @@ mod test {
     use db::MemoryDB;
     use std::fs::File;
     use std::io::BufReader;
-    use std::io::Read;
 
     #[async_std::test]
     async fn import_snapshot_from_file() {

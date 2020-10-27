@@ -868,21 +868,18 @@ where
             ts = next;
         }
         let mut last_state = ts_chain.last().unwrap().parent_state().clone();
-        for i in (0..=ts_chain.len() - 1).rev() {
+        for ts in ts_chain.iter().rev() {
             info!(
                 "Computing state (height: {}, ts={:?})",
-                ts_chain[i].epoch(),
-                ts_chain[i].cids()
+                ts.epoch(),
+                ts.cids()
             );
-            if ts_chain[i].parent_state() != &last_state {
-                let e: Box<dyn StdError> = format!(
-                    "Tipset chain has state mismatch at height: {:?}",
-                    ts_chain[i].epoch()
-                )
-                .into();
-                return Err(e);
+            if ts.parent_state() != &last_state {
+                return Err(
+                    format!("Tipset chain has state mismatch at height: {}", ts.epoch()).into(),
+                );
             }
-            let (st, _) = self.tipset_state::<V>(&ts_chain[i]).await?;
+            let (st, _) = self.tipset_state::<V>(&ts).await?;
             last_state = st;
         }
         Ok(())
