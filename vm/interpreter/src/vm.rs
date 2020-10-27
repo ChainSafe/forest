@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    circ_supply::*,
     gas_tracker::{price_list_by_epoch, GasCharge},
     vm_send, DefaultRuntime, Rand,
 };
@@ -40,8 +39,8 @@ pub struct BlockMessages {
 }
 
 // TODO replace with some trait or some generic solution (needs to use context)
-pub type CircSupplyCalc<BS> =
-    Box<dyn Fn(ChainEpoch, &StateTree<BS>) -> Result<TokenAmount, String>>;
+pub type CircSupplyCalc<'a,BS> =
+    Box<dyn Fn(ChainEpoch, &'a StateTree<'a,BS>) -> Result<TokenAmount, String>>;
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
@@ -53,7 +52,7 @@ pub struct VM<'db, 'r, DB, R, N, V = FullVerifier, P = DevnetParams> {
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
     network_version_getter: N,
-    circ_supply_calc: Option<CircSupplyCalc<DB>>,
+    circ_supply_calc: CircSupplyCalc<'db, DB>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
@@ -74,7 +73,7 @@ where
         rand: &'r R,
         base_fee: BigInt,
         network_version_getter: N,
-        circ_supply_calc: Option<CircSupplyCalc<DB>>,
+        circ_supply_calc: CircSupplyCalc<'db, DB>,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -481,10 +480,10 @@ where
         Option<DefaultRuntime<'db, '_, DB, R, V, P>>,
         Option<ActorError>,
     ) {
-        let default_preignition =
-            setup_preignition_genesis_actors_testnet(self.store).unwrap_or_default();
-        let default_postignition =
-            setup_postignition_genesis_actors_testnet(self.store).unwrap_or_default();
+        // let default_preignition =
+        //     setup_preignition_genesis_actors_testnet(self.store).unwrap_or_default();
+        // let default_postignition =
+        //     setup_postignition_genesis_actors_testnet(self.store).unwrap_or_default();
 
         let res = DefaultRuntime::new(
             (self.network_version_getter)(self.epoch),
@@ -496,8 +495,6 @@ where
             *msg.from(),
             msg.sequence(),
             0,
-            default_preignition,
-            default_postignition,
             self.rand,
             &self.registered_actors,
             &self.circ_supply_calc,

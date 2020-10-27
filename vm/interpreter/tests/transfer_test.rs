@@ -13,8 +13,8 @@ use ipld_hamt::Hamt;
 use message::UnsignedMessage;
 use state_tree::StateTree;
 use std::collections::HashSet;
-use vm::{ActorState, Serialized};
-
+use vm::{ActorState, Serialized, };
+use interpreter::GenesisInfoPair;
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
@@ -95,6 +95,9 @@ fn transfer_test() {
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
     let registered = HashSet::new();
+    let gi_pair = GenesisInfoPair::default();
+    let circ_func = Box::new(move |epoch, state_tree| gi_pair.get_supply(epoch,&state_tree ).map_err(|_| "fail".to_owned()));
+
     let mut runtime = DefaultRuntime::<_, _, MockVerifier>::new(
         NetworkVersion::V0,
         &mut state,
@@ -105,11 +108,9 @@ fn transfer_test() {
         actor_addr_2.clone(),
         0,
         0,
-        Default::default(),
-        Default::default(),
         &dummy_rand,
         &registered,
-        &None,
+        &circ_func,
     )
     .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();

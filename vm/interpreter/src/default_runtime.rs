@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::circ_supply::*;
 use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
 use super::{CircSupplyCalc, Rand};
@@ -78,14 +77,12 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, V, P = DevnetParams> {
     caller_validated: bool,
     allow_internal: bool,
     registered_actors: &'vm HashSet<Cid>,
-    circ_supply_calc: &'vm Option<CircSupplyCalc<BS>>,
+    circ_supply_calc: &'vm CircSupplyCalc<'db, BS>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
-    pre_ignition: GenesisInfo,
-    post_ignition: GenesisInfo,
 }
 
-impl<'db, 'vm, BS, R, V, P> DefaultRuntime<'db, 'vm, BS, R, V, P>
+impl<'db, 'vm,  BS, R, V, P> DefaultRuntime<'db, 'vm, BS, R, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
@@ -104,11 +101,9 @@ where
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
-        pre_ignition: GenesisInfo,
-        post_ignition: GenesisInfo,
         rand: &'vm R,
         registered_actors: &'vm HashSet<Cid>,
-        circ_supply_calc: &'vm Option<CircSupplyCalc<BS>>,
+        circ_supply_calc: &'vm CircSupplyCalc<'db, BS>,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -148,8 +143,6 @@ where
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
-            pre_ignition,
-            post_ignition,
             verifier: PhantomData,
         })
     }
@@ -622,22 +615,25 @@ where
     fn syscalls(&self) -> &dyn Syscalls {
         self
     }
-    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
-        if let Some(circ_supply_calc) = self.circ_supply_calc.as_ref() {
+    fn total_fil_circ_supply(& self) -> Result<TokenAmount, ActorError> {
+        let state = self.state;
+        self.circ_supply_calc.as_ref()(self.epoch, self.state).map_err(|e| {
+                     actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
+                 })
             // TODO all circ supply calculations should go through trait and not only override
-            return circ_supply_calc(self.epoch, &self.state).map_err(|e| {
-                actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
-            });
-        }
+        //     return circ_supply_calc(self.epoch, &self.state).map_err(|e| {
+        //         actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
+        //     });
+        // }
 
-        // Use the normal method
-        get_circulating_supply(
-            &self.pre_ignition,
-            &self.post_ignition,
-            self.epoch,
-            self.state,
-        )
-        .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
+        // // Use the normal method
+        // get_circulating_supply(
+        //     &self.pre_ignition,
+        //     &self.post_ignition,
+        //     self.epoch,
+        //     self.state,
+        // )
+        // .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
     }
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
         self.charge_gas(GasCharge::new(name, compute, 0))

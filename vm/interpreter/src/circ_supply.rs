@@ -29,6 +29,11 @@ lazy_static! {
     };
 }
 
+pub struct GenesisActor {
+    addr: Address,
+    init_bal: TokenAmount,
+}
+
 #[derive(Default)]
 pub struct GenesisInfo {
     genesis_msigs: Vec<multisig::State>,
@@ -38,9 +43,23 @@ pub struct GenesisInfo {
     genesis_market_funds: TokenAmount,
 }
 
-pub struct GenesisActor {
-    addr: Address,
-    init_bal: TokenAmount,
+#[derive(Default)]
+pub struct GenesisInfoPair {
+    pre_ignition : GenesisInfo, 
+    post_ignition : GenesisInfo
+}
+
+pub trait CircSupply
+{
+    fn get_supply<'a, DB : BlockStore>(&'a self, height: ChainEpoch, state_tree: &'a StateTree<'a, DB>,)  -> Result<TokenAmount, Box<dyn StdError>>;
+}
+
+
+impl CircSupply for GenesisInfoPair{
+    fn get_supply<'b,'a, DB : BlockStore>(&'a self, height: ChainEpoch, state_tree: &'a StateTree<'a, DB>,)  -> Result<TokenAmount, Box<dyn StdError>>{
+        return get_circulating_supply(&self.pre_ignition, &self.post_ignition,height, state_tree)
+    }
+
 }
 
 fn get_actor_state<DB: BlockStore>(
