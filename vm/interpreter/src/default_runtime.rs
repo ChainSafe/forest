@@ -2,27 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas_block_store::GasBlockStore;
-use super::gas_syscalls::GasSyscalls;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
-use super::Rand;
+use super::{CircSupplyCalc, Rand};
 use actor::*;
 use address::{Address, Protocol};
+use blocks::BlockHeader;
 use byteorder::{BigEndian, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
-use crypto::DomainSeparationTag;
-use fil_types::{DevnetParams, NetworkParams, NetworkVersion, Randomness};
-use forest_encoding::to_vec;
-use forest_encoding::Cbor;
+use crypto::{DomainSeparationTag, Signature};
+use fil_types::{verifier::ProofVerifier, DevnetParams, NetworkParams, NetworkVersion, Randomness};
+use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use forest_encoding::{blake2b_256, to_vec, Cbor};
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
-use runtime::{ActorCode, MessageInfo, Runtime, Syscalls};
+use rayon::prelude::*;
+use runtime::{
+    compute_unsealed_sector_cid, ActorCode, ConsensusFault, ConsensusFaultType, MessageInfo,
+    Runtime, Syscalls,
+};
 use state_tree::StateTree;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use vm::{
@@ -57,11 +62,10 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'vm, BS, R, V, P = DevnetParams> {
     version: NetworkVersion,
-    state: &'st mut StateTree<'db, BS>,
+    state: &'vm mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
-    syscalls: GasSyscalls<'sys, SYS>,
     gas_tracker: Rc<RefCell<GasTracker>>,
     vm_msg: VMMsg,
     epoch: ChainEpoch,
@@ -69,18 +73,19 @@ pub struct DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P = DevnetParams
     origin_nonce: u64,
     num_actors_created: u64,
     price_list: PriceList,
-    rand: &'r R,
+    rand: &'vm R,
     caller_validated: bool,
     allow_internal: bool,
-    registered_actors: &'act HashSet<Cid>,
+    registered_actors: &'vm HashSet<Cid>,
+    circ_supply_calc: &'vm Option<CircSupplyCalc<BS>>,
+    verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
-    DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>
+impl<'db, 'vm, BS, R, V, P> DefaultRuntime<'db, 'vm, BS, R, V, P>
 where
     BS: BlockStore,
-    SYS: Syscalls,
+    V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
 {
@@ -88,17 +93,17 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         version: NetworkVersion,
-        state: &'st mut StateTree<'db, BS>,
+        state: &'vm mut StateTree<'db, BS>,
         store: &'db BS,
-        syscalls: &'sys SYS,
         gas_used: i64,
         message: &UnsignedMessage,
         epoch: ChainEpoch,
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
-        rand: &'r R,
-        registered_actors: &'act HashSet<Cid>,
+        rand: &'vm R,
+        registered_actors: &'vm HashSet<Cid>,
+        circ_supply_calc: &'vm Option<CircSupplyCalc<BS>>,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -106,11 +111,6 @@ where
             price_list: price_list.clone(),
             gas: Rc::clone(&gas_tracker),
             store,
-        };
-        let gas_syscalls = GasSyscalls {
-            price_list: price_list.clone(),
-            gas: Rc::clone(&gas_tracker),
-            syscalls,
         };
 
         let caller_id = state
@@ -130,7 +130,6 @@ where
             version,
             state,
             store: gas_block_store,
-            syscalls: gas_syscalls,
             gas_tracker,
             vm_msg,
             epoch,
@@ -140,9 +139,11 @@ where
             price_list,
             rand,
             registered_actors,
+            circ_supply_calc,
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
+            verifier: PhantomData,
         })
     }
 
@@ -273,7 +274,7 @@ where
         };
         self.caller_validated = false;
 
-        let send_res = vm_send::<BS, SYS, R, P>(self, &msg, None);
+        let send_res = vm_send::<BS, R, V, P>(self, &msg, None);
 
         // Reset values back to their values before the call
         self.vm_msg = prev_msg;
@@ -332,13 +333,29 @@ where
 
         Ok(act)
     }
+
+    fn verify_block_signature(&self, bh: &BlockHeader) -> Result<(), Box<dyn StdError>> {
+        let actor = self
+            .state
+            .get_actor(bh.miner_address())?
+            .ok_or_else(|| format!("actor not found {:?}", bh.miner_address()))?;
+
+        let ms: miner::State = self
+            .store
+            .get(&actor.state)?
+            .ok_or_else(|| format!("actor state not found {:?}", actor.state.to_string()))?;
+
+        let info = ms.get_info(&self.store)?;
+        let work_address = resolve_to_key_addr(&self.state, &self.store, &info.worker)?;
+        bh.check_block_signature(&work_address)?;
+        Ok(())
+    }
 }
 
-impl<'bs, BS, SYS, R, P> Runtime<GasBlockStore<'bs, BS>>
-    for DefaultRuntime<'bs, '_, '_, '_, '_, BS, SYS, R, P>
+impl<'bs, BS, R, V, P> Runtime<GasBlockStore<'bs, BS>> for DefaultRuntime<'bs, '_, BS, R, V, P>
 where
     BS: BlockStore,
-    SYS: Syscalls,
+    V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
 {
@@ -427,7 +444,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = self
             .rand
-            .get_chain_randomness(&self.store, personalization, rand_epoch, entropy)
+            .get_beacon_randomness(&self.store, personalization, rand_epoch, entropy)
             .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
@@ -596,9 +613,15 @@ where
             .map_err(|e| e.downcast_fatal("failed to delete actor"))
     }
     fn syscalls(&self) -> &dyn Syscalls {
-        &self.syscalls
+        self
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
+        if let Some(circ_supply_calc) = self.circ_supply_calc.as_ref() {
+            // TODO all circ supply calculations should go through trait and not only override
+            return circ_supply_calc(self.epoch, &self.state).map_err(|e| {
+                actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
+            });
+        }
         let get_actor_state = |addr: &Address| -> Result<ActorState, ActorError> {
             self.state
                 .get_actor(&addr)
@@ -641,16 +664,201 @@ where
     }
 }
 
+impl<'bs, BS, R, V, P> Syscalls for DefaultRuntime<'bs, '_, BS, R, V, P>
+where
+    BS: BlockStore,
+    V: ProofVerifier,
+    P: NetworkParams,
+    R: Rand,
+{
+    fn verify_signature(
+        &self,
+        signature: &Signature,
+        signer: &Address,
+        plaintext: &[u8],
+    ) -> Result<(), Box<dyn StdError>> {
+        self.gas_tracker.borrow_mut().charge_gas(
+            self.price_list
+                .on_verify_signature(signature.signature_type()),
+        )?;
+
+        // Resolve to key address before verifying signature.
+        let signing_addr = resolve_to_key_addr(self.state, &self.store, signer)?;
+        Ok(signature.verify(plaintext, &signing_addr)?)
+    }
+    fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {
+        self.gas_tracker
+            .borrow_mut()
+            .charge_gas(self.price_list.on_hashing(data.len()))?;
+
+        Ok(blake2b_256(data))
+    }
+    fn compute_unsealed_sector_cid(
+        &self,
+        reg: RegisteredSealProof,
+        pieces: &[PieceInfo],
+    ) -> Result<Cid, Box<dyn StdError>> {
+        self.gas_tracker
+            .borrow_mut()
+            .charge_gas(self.price_list.on_compute_unsealed_sector_cid(reg, pieces))?;
+
+        compute_unsealed_sector_cid(reg, pieces)
+    }
+    fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        self.gas_tracker
+            .borrow_mut()
+            .charge_gas(self.price_list.on_verify_seal(vi))?;
+
+        V::verify_seal(vi)
+    }
+    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+        self.gas_tracker
+            .borrow_mut()
+            .charge_gas(self.price_list.on_verify_post(vi))?;
+
+        V::verify_window_post(vi.randomness, &vi.proofs, &vi.challenged_sectors, vi.prover)
+    }
+    fn verify_consensus_fault(
+        &self,
+        h1: &[u8],
+        h2: &[u8],
+        extra: &[u8],
+    ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
+        self.gas_tracker
+            .borrow_mut()
+            .charge_gas(self.price_list.on_verify_consensus_fault())?;
+
+        // Note that block syntax is not validated. Any validly signed block will be accepted pursuant to the below conditions.
+        // Whether or not it could ever have been accepted in a chain is not checked/does not matter here.
+        // for that reason when checking block parent relationships, rather than instantiating a Tipset to do so
+        // (which runs a syntactic check), we do it directly on the CIDs.
+
+        // (0) cheap preliminary checks
+
+        if h1 == h2 {
+            return Err(format!(
+                "no consensus fault: submitted blocks are the same: {:?}, {:?}",
+                h1, h2
+            )
+            .into());
+        };
+        let bh_1 = BlockHeader::unmarshal_cbor(h1)?;
+        let bh_2 = BlockHeader::unmarshal_cbor(h2)?;
+
+        // (1) check conditions necessary to any consensus fault
+
+        if bh_1.miner_address() != bh_2.miner_address() {
+            return Err(format!(
+                "no consensus fault: blocks not mined by same miner: {:?}, {:?}",
+                bh_1.miner_address(),
+                bh_2.miner_address()
+            )
+            .into());
+        };
+        // block a must be earlier or equal to block b, epoch wise (ie at least as early in the chain).
+        if bh_1.epoch() < bh_2.epoch() {
+            return Err(format!(
+                "first block must not be of higher height than second: {:?}, {:?}",
+                bh_1.epoch(),
+                bh_2.epoch()
+            )
+            .into());
+        };
+        let mut cf: Option<ConsensusFault> = None;
+        // (a) double-fork mining fault
+        if bh_1.epoch() == bh_2.epoch() {
+            cf = Some(ConsensusFault {
+                target: *bh_1.miner_address(),
+                epoch: bh_2.epoch(),
+                fault_type: ConsensusFaultType::DoubleForkMining,
+            })
+        };
+        // (b) time-offset mining fault
+        // strictly speaking no need to compare heights based on double fork mining check above,
+        // but at same height this would be a different fault.
+        if bh_1.parents() != bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
+            cf = Some(ConsensusFault {
+                target: *bh_1.miner_address(),
+                epoch: bh_2.epoch(),
+                fault_type: ConsensusFaultType::TimeOffsetMining,
+            })
+        };
+        // (c) parent-grinding fault
+        // Here extra is the "witness", a third block that shows the connection between A and B as
+        // A's sibling and B's parent.
+        // Specifically, since A is of lower height, it must be that B was mined omitting A from its tipset
+        if !extra.is_empty() {
+            let bh_3 = BlockHeader::unmarshal_cbor(extra)?;
+            if bh_1.parents() != bh_3.parents()
+                && bh_1.epoch() != bh_3.epoch()
+                && bh_2.parents().cids().contains(bh_3.cid())
+                && !bh_2.parents().cids().contains(bh_1.cid())
+            {
+                cf = Some(ConsensusFault {
+                    target: *bh_1.miner_address(),
+                    epoch: bh_2.epoch(),
+                    fault_type: ConsensusFaultType::ParentGrinding,
+                })
+            }
+        };
+
+        // (3) return if no consensus fault by now
+        if cf.is_none() {
+            Ok(cf)
+        } else {
+            // (4) expensive final checks
+
+            // check blocks are properly signed by their respective miner
+            // note we do not need to check extra's: it is a parent to block b
+            // which itself is signed, so it was willingly included by the miner
+            self.verify_block_signature(&bh_1)?;
+            self.verify_block_signature(&bh_2)?;
+
+            Ok(cf)
+        }
+    }
+
+    fn batch_verify_seals(
+        &self,
+        vis: &[(Address, &Vec<SealVerifyInfo>)],
+    ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        // Gas charged for batch verify in actor
+
+        // TODO ideal to not use rayon https://github.com/ChainSafe/forest/issues/676
+        let out = vis
+            .par_iter()
+            .map(|(addr, seals)| {
+                let results = seals
+                    .par_iter()
+                    .map(|s| {
+                        if let Err(err) = V::verify_seal(s) {
+                            warn!(
+                                "seal verify in batch failed (miner: {}) (err: {})",
+                                addr, err
+                            );
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                    .collect();
+                (*addr, results)
+            })
+            .collect();
+        Ok(out)
+    }
+}
+
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
+pub fn vm_send<'db, 'vm, BS, R, V, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, R, V, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<GasCharge>,
 ) -> Result<Serialized, ActorError>
 where
     BS: BlockStore,
-    SYS: Syscalls,
+    V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
 {
@@ -751,8 +959,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
-    rt: &mut DefaultRuntime<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>,
+fn invoke<'db, 'vm, BS, R, V, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, R, V, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
@@ -760,7 +968,7 @@ fn invoke<'db, 'st, 'sys, 'r, 'act, BS, SYS, R, P>(
 ) -> Result<Serialized, ActorError>
 where
     BS: BlockStore,
-    SYS: Syscalls,
+    V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
 {

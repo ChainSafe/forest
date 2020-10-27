@@ -603,7 +603,7 @@ impl State {
         proven_sectors: &BitField,
         expected_faults: &BitField,
     ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
-        let non_faults = expected_faults - proven_sectors;
+        let non_faults = proven_sectors - expected_faults;
 
         if non_faults.is_empty() {
             return Ok(Vec::new());
@@ -809,6 +809,8 @@ impl State {
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_unvested_funds(current_epoch, target);
         self.locked_funds -= &amount_unlocked;
+        assert!(!self.locked_funds.is_negative());
+
         self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
     }
@@ -823,6 +825,8 @@ impl State {
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
         self.locked_funds -= &amount_unlocked;
+        assert!(!self.locked_funds.is_negative());
+
         self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
     }

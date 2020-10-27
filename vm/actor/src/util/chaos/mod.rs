@@ -44,22 +44,24 @@ pub enum Method {
 pub struct Actor;
 
 impl Actor {
-    pub fn send<BS, RT>(rt: &mut RT, arg: SendArgs) -> SendReturn
+    pub fn send<BS, RT>(rt: &mut RT, arg: SendArgs) -> Result<SendReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        rt.validate_immediate_caller_accept_any()?;
+
         let result = rt.send(arg.to, arg.method, arg.params, arg.value);
         if let Err(e) = result {
-            SendReturn {
+            Ok(SendReturn {
                 return_value: Serialized::default(),
                 code: e.exit_code(),
-            }
+            })
         } else {
-            SendReturn {
+            Ok(SendReturn {
                 return_value: result.unwrap(),
                 code: ExitCode::Ok,
-            }
+            })
         }
     }
 
@@ -222,7 +224,7 @@ impl ActorCode for Actor {
             }
 
             Some(Method::Send) => {
-                let res: SendReturn = Self::send(rt, params.deserialize()?);
+                let res: SendReturn = Self::send(rt, params.deserialize()?)?;
                 Ok(Serialized::serialize(res)?)
             }
 
