@@ -37,6 +37,7 @@ pub struct DeadlineInfo {
 }
 
 impl DeadlineInfo {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         period_start: ChainEpoch,
         deadline_idx: u64,
