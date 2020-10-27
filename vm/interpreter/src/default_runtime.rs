@@ -972,9 +972,7 @@ where
     P: NetworkParams,
     R: Rand,
 {
-    let ret = if let Some(ret) = actorv2::invoke_code(&code, rt, method_num, params) {
-        ret
-    } else if let Some(ret) = actor::invoke_code(&code, rt, method_num, params) {
+    let ret = if let Some(ret) = actor::invoke_code(&code, rt, method_num, params) {
         ret
     } else if code == *CHAOS_ACTOR_CODE_ID && rt.registered_actors.contains(&code) {
         chaos::Actor::invoke_method(rt, method_num, params)
@@ -1062,5 +1060,5 @@ fn new_secp256k1_account_actor() -> ActorState {
 }
 
 fn is_builtin_actor(code: &Cid) -> bool {
-    actor::is_builtin_actor(code) || actorv2::is_builtin_actor(code)
+    actor::is_builtin_actor(code)
 }

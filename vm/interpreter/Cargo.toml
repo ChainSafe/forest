@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 address = { package = "forest_address", path = "../address" }
 actor = { path = "../actor" }
-actorv2 = { path = "../actorv2" }
 message = { package = "forest_message", path = "../message" }
 runtime = { path = "../runtime" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }

@@ -10,7 +10,6 @@ members = [
     "blockchain/message_pool",
     "vm",
     "vm/actor",
-    "vm/actorv2",
     "vm/address",
     "vm/message",
     "vm/runtime",
