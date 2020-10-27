@@ -41,8 +41,8 @@ async fn import_chain<V: ProofVerifier, R: Read, DB: BlockStore>(
     reader: R,
     snapshot: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Importing chain from snapshot");
-    //start import
+    info!("Importing chain from snapshot");
+    // start import
     let cids = load_car(bs.as_ref(), reader)?;
     let ts = chain::tipset_from_keys(bs.as_ref(), &TipsetKeys::new(cids))?;
     let gb = chain::tipset_by_height(bs.as_ref(), 0, &ts, true)?.unwrap();
@@ -100,7 +100,7 @@ pub(super) async fn start(config: Config) {
         let reader = BufReader::new(file);
         import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, false)
             .await
-            .expect("Failed ");
+            .unwrap();
     }
 
     let mut chain_store = ChainStore::new(Arc::clone(&db));
@@ -230,7 +230,7 @@ mod test {
     #[async_std::test]
     async fn import_snapshot_from_file() {
         let db = Arc::new(MemoryDB::default());
-        let file = File::open("chain4.car").expect("Snapshot file path not found!");
+        let file = File::open("test_files/chain4.car").expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
         import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, true)
             .await
@@ -239,7 +239,7 @@ mod test {
     #[async_std::test]
     async fn import_chain_from_file() {
         let db = Arc::new(MemoryDB::default());
-        let file = File::open("chain4.car").expect("Snapshot file path not found!");
+        let file = File::open("test_files/chain4.car").expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
         import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, false)
             .await
