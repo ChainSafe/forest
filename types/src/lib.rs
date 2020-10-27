@@ -7,8 +7,10 @@ pub mod genesis;
 mod piece;
 mod randomness;
 pub mod sector;
-pub mod verifier;
 mod version;
+
+#[cfg(feature = "proofs")]
+pub mod verifier;
 
 pub use self::piece::*;
 pub use self::randomness::*;
