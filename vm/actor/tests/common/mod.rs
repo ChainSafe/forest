@@ -1,11 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{
-    self, ACCOUNT_ACTOR_CODE_ID, CRON_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID,
-    MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID,
-    REWARD_ACTOR_CODE_ID, SYSTEM_ACTOR_CODE_ID, VERIFREG_ACTOR_CODE_ID,
-};
 use address::Address;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
@@ -17,7 +12,7 @@ use fil_types::{
     WindowPoStVerifyInfo,
 };
 use ipld_blockstore::BlockStore;
-use runtime::{ActorCode, ConsensusFault, MessageInfo, Runtime, Syscalls};
+use runtime::{ConsensusFault, MessageInfo, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error as StdError;
@@ -242,44 +237,8 @@ impl MockRuntime {
     ) -> Result<Serialized, ActorError> {
         self.in_call = true;
         let prev_state = self.state.clone();
-
-        let res = match to_code {
-            x if x == &*SYSTEM_ACTOR_CODE_ID => {
-                actor::system::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*INIT_ACTOR_CODE_ID => {
-                actor::init::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*CRON_ACTOR_CODE_ID => {
-                actor::cron::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*ACCOUNT_ACTOR_CODE_ID => {
-                actor::account::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*POWER_ACTOR_CODE_ID => {
-                actor::power::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*MINER_ACTOR_CODE_ID => {
-                actor::miner::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*MARKET_ACTOR_CODE_ID => {
-                actor::market::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*PAYCH_ACTOR_CODE_ID => {
-                actor::paych::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*MULTISIG_ACTOR_CODE_ID => {
-                actor::multisig::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*REWARD_ACTOR_CODE_ID => {
-                actor::reward::Actor.invoke_method(self, method_num, params)
-            }
-            x if x == &*VERIFREG_ACTOR_CODE_ID => {
-                actor::verifreg::Actor.invoke_method(self, method_num, params)
-            }
-
-            _ => Err(actor_error!(SysErrForbidden; "invalid method id")),
-        };
+        let res = actor::invoke_code(to_code, self, method_num, params)
+            .unwrap_or_else(|| Err(actor_error!(SysErrForbidden, "invalid method id")));
 
         if res.is_err() {
             self.state = prev_state;

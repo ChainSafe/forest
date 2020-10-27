@@ -3347,7 +3347,6 @@ where
 
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
-        &self,
         rt: &mut RT,
         method: MethodNum,
         params: &Serialized,

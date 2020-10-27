@@ -5,4 +5,13 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-actor = { path = "../actor", features = ["v2"] }
+actorv1 = { path = "../actor", package = "actor" }
+cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor"] }
+ipld_blockstore = { path = "../../ipld/blockstore" }
+# TODO should use v2 feature (or released version) once separated
+ipld_hamt = { path = "../../ipld/hamt", features = ["go-interop"] }
+vm = { package = "forest_vm", path = "../../vm" }
+serde = { version = "1.0", features = ["derive"] }
+lazy_static = "1.4.0"
+fil_types = { path = "../../types" }
+runtime = { path = "../runtime" }
