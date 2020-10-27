@@ -4,7 +4,6 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod circ_supply;
 mod default_runtime;
 mod gas_block_store;
 mod gas_tracker;
@@ -15,4 +14,3 @@ pub use self::default_runtime::*;
 pub use self::gas_tracker::*;
 pub use self::rand::*;
 pub use self::vm::*;
-pub use self::circ_supply::*;

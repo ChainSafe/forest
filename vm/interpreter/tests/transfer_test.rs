@@ -5,16 +5,29 @@ use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
 use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
+use clock::ChainEpoch;
 use db::MemoryDB;
 use fil_types::{verifier::MockVerifier, NetworkVersion};
-use interpreter::{vm_send, ChainRand, DefaultRuntime};
+use interpreter::{vm_send, ChainRand, CircSupplyCalc, DefaultRuntime};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
 use state_tree::StateTree;
 use std::collections::HashSet;
-use vm::{ActorState, Serialized, };
-use interpreter::GenesisInfoPair;
+use std::error::Error as StdError;
+use vm::{ActorState, Serialized, TokenAmount};
+
+struct MockCircSupply;
+impl CircSupplyCalc for MockCircSupply {
+    fn get_supply<DB: BlockStore>(
+        &self,
+        _: ChainEpoch,
+        _: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        Ok(0.into())
+    }
+}
+
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
@@ -95,10 +108,8 @@ fn transfer_test() {
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
     let registered = HashSet::new();
-    let gi_pair = GenesisInfoPair::default();
-    let circ_func = Box::new(move |epoch, state_tree| gi_pair.get_supply(epoch,&state_tree ).map_err(|_| "fail".to_owned()));
 
-    let mut runtime = DefaultRuntime::<_, _, MockVerifier>::new(
+    let mut runtime = DefaultRuntime::<_, _, _, MockVerifier>::new(
         NetworkVersion::V0,
         &mut state,
         &store,
@@ -110,7 +121,7 @@ fn transfer_test() {
         0,
         &dummy_rand,
         &registered,
-        &circ_func,
+        &MockCircSupply,
     )
     .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();

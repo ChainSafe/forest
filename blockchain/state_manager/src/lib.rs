@@ -1,8 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[macro_use]
+extern crate lazy_static;
+
 mod errors;
 pub mod utils;
+mod vm_circ_supply;
+
 pub use self::errors::*;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
@@ -20,7 +25,7 @@ use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
-use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, Rand, VM, GenesisInfoPair, GenesisInfo, setup_postignition_genesis_actors_testnet, setup_preignition_genesis_actors_testnet,CircSupply};
+use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, Rand, VM};
 use ipld_amt::Amt;
 use log::{trace, warn};
 use message::{message_receipt, unsigned_message};
@@ -31,6 +36,10 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use vm_circ_supply::{
+    setup_postignition_genesis_actors_testnet, setup_preignition_genesis_actors_testnet,
+    GenesisInfoPair,
+};
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -62,7 +71,7 @@ pub struct StateManager<DB> {
     bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
     subscriber: Option<Subscriber<HeadChange>>,
-    gi_pair : GenesisInfoPair,
+    gi_pair: GenesisInfoPair,
 }
 
 impl<DB> StateManager<DB>
@@ -71,26 +80,26 @@ where
 {
     pub fn new(bs: Arc<DB>) -> Self {
         Self {
+            gi_pair: GenesisInfoPair {
+                pre_ignition: setup_preignition_genesis_actors_testnet(bs.as_ref()).unwrap(),
+                post_ignition: setup_postignition_genesis_actors_testnet(bs.as_ref()).unwrap(),
+            },
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
-            gi_pair : GenesisInfoPair{
-                pre_ignition : setup_preignition_genesis_actors_testnet(bs.as_ref() ).unwrap(), 
-                post_ignition : setup_preignition_genesis_actors_testnet(bs.as_ref()).unwrap()
-            }
         }
     }
 
     // Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
     pub fn new_with_subscribers(bs: Arc<DB>, chain_subs: Subscriber<HeadChange>) -> Self {
         Self {
+            gi_pair: GenesisInfoPair {
+                pre_ignition: setup_preignition_genesis_actors_testnet(bs.as_ref()).unwrap(),
+                post_ignition: setup_postignition_genesis_actors_testnet(bs.as_ref()).unwrap(),
+            },
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
-            gi_pair : GenesisInfoPair{
-                pre_ignition : setup_preignition_genesis_actors_testnet(bs.as_ref()).unwrap(), 
-                post_ignition : setup_preignition_genesis_actors_testnet(bs.as_ref()).unwrap()
-            }
         }
     }
     /// Loads actor state from IPLD Store
@@ -202,16 +211,15 @@ where
         CB: FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>,
     {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
-        let circ_func = Box::new(move |epoch, state_tree : StateTree<'_,DB>| self.gi_pair.get_supply(epoch, &state_tree ).map_err(|_| "fail".to_string()));
         // TODO change from statically using devnet params when needed
-        let mut vm = VM::<_, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, V>::new(
             p_state,
             &buf_store,
             epoch,
             rand,
             base_fee,
             get_network_version_default,
-            circ_func,
+            &self.gi_pair,
         )?;
 
         // Apply tipset messages
@@ -271,7 +279,7 @@ where
         })
     }
 
-    fn call_raw<'a,V>(
+    fn call_raw<'a, V>(
         &'a self,
         msg: &mut UnsignedMessage,
         bstate: &Cid,
@@ -284,16 +292,14 @@ where
         span!("state_call_raw", {
             let block_store = self.blockstore();
             let buf_store = BufferedBlockStore::new(block_store);
-            let state_tree = StateTree::new_from_root(block_store, bstate).unwrap();
-            let circ_func = Box::new(|height, state_tree| self.gi_pair.get_supply(height, &state_tree ).map_err(|_| "fail".to_owned()));
-            let mut vm = VM::<_, _, _, V>::new(
+            let mut vm = VM::<_, _, _, _, V>::new(
                 bstate,
-                & buf_store,
+                &buf_store,
                 *bheight,
                 rand,
                 0.into(),
                 get_network_version_default,
-                circ_func
+                &self.gi_pair,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -361,17 +367,15 @@ where
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned());
-        let state_tree = StateTree::new_from_root(self.bs.as_ref(), &st).unwrap();
-        let circ_func = Box::new(|epoch, state_tree : StateTree<'_,DB>| self.gi_pair.get_supply(epoch, &state_tree ).map_err(|_| "fail".to_owned()));
 
-        let mut vm = VM::<_, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, V>::new(
             &st,
             self.bs.as_ref(),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
-            circ_func,
+            &self.gi_pair,
         )?;
 
         for msg in prior_messages {

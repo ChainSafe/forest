@@ -22,6 +22,17 @@ pub struct ExecuteMessageParams<'a> {
     pub randomness: ReplayingRand<'a>,
 }
 
+struct MockCircSupply(TokenAmount);
+impl CircSupplyCalc for MockCircSupply {
+    fn get_supply<DB: BlockStore>(
+        &self,
+        _: ChainEpoch,
+        _: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        Ok(self.0.clone())
+    }
+}
+
 pub fn execute_message(
     bs: &db::MemoryDB,
     selector: &Option<Selector>,
@@ -35,7 +46,7 @@ pub fn execute_message(
         &params.randomness,
         params.basefee,
         get_network_version_default,
-        Some(Box::new(move |_, _| Ok(circ_supply.clone()))),
+        &MockCircSupply(circ_supply),
     )?;
 
     if let Some(s) = &selector {

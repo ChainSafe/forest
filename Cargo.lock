@@ -5640,6 +5640,7 @@ dependencies = [
  "ipld_amt",
  "ipld_blockstore",
  "ipld_hamt",
+ "lazy_static",
  "log",
  "num-traits 0.2.12",
  "runtime",

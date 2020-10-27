@@ -3,7 +3,7 @@
 
 use actor::*;
 use address::Address;
-use blocks::Tipset;
+use blockstore::BlockStore;
 use chain::*;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -11,7 +11,8 @@ use fil_types::{
     FILECOIN_PRECISION, FIL_RESERVED, UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_IGNITION_HEIGHT,
     UPGRADE_LIFTOFF_HEIGHT,
 };
-use ipld_blockstore::BlockStore;
+use forest_blocks::Tipset;
+use interpreter::CircSupplyCalc;
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::error::Error as StdError;
@@ -45,21 +46,18 @@ pub struct GenesisInfo {
 
 #[derive(Default)]
 pub struct GenesisInfoPair {
-    pre_ignition : GenesisInfo, 
-    post_ignition : GenesisInfo
+    pub pre_ignition: GenesisInfo,
+    pub post_ignition: GenesisInfo,
 }
 
-pub trait CircSupply
-{
-    fn get_supply<'a, DB : BlockStore>(&'a self, height: ChainEpoch, state_tree: &'a StateTree<'a, DB>,)  -> Result<TokenAmount, Box<dyn StdError>>;
-}
-
-
-impl CircSupply for GenesisInfoPair{
-    fn get_supply<'b,'a, DB : BlockStore>(&'a self, height: ChainEpoch, state_tree: &'a StateTree<'a, DB>,)  -> Result<TokenAmount, Box<dyn StdError>>{
-        return get_circulating_supply(&self.pre_ignition, &self.post_ignition,height, state_tree)
+impl CircSupplyCalc for GenesisInfoPair {
+    fn get_supply<DB: BlockStore>(
+        &self,
+        height: ChainEpoch,
+        state_tree: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        return get_circulating_supply(&self.pre_ignition, &self.post_ignition, height, state_tree);
     }
-
 }
 
 fn get_actor_state<DB: BlockStore>(

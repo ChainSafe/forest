@@ -62,7 +62,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'vm, BS, R, V, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'vm, BS, R, C, V, P = DevnetParams> {
     version: NetworkVersion,
     state: &'vm mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
@@ -77,17 +77,18 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, V, P = DevnetParams> {
     caller_validated: bool,
     allow_internal: bool,
     registered_actors: &'vm HashSet<Cid>,
-    circ_supply_calc: &'vm CircSupplyCalc<'db, BS>,
+    circ_supply_calc: &'vm C,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'vm,  BS, R, V, P> DefaultRuntime<'db, 'vm, BS, R, V, P>
+impl<'db, 'vm, BS, R, C, V, P> DefaultRuntime<'db, 'vm, BS, R, C, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    C: CircSupplyCalc,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
@@ -103,7 +104,7 @@ where
         num_actors_created: u64,
         rand: &'vm R,
         registered_actors: &'vm HashSet<Cid>,
-        circ_supply_calc: &'vm CircSupplyCalc<'db, BS>,
+        circ_supply_calc: &'vm C,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -274,7 +275,7 @@ where
         };
         self.caller_validated = false;
 
-        let send_res = vm_send::<BS, R, V, P>(self, &msg, None);
+        let send_res = vm_send::<BS, R, C, V, P>(self, &msg, None);
 
         // Reset values back to their values before the call
         self.vm_msg = prev_msg;
@@ -352,12 +353,14 @@ where
     }
 }
 
-impl<'bs, BS, R, V, P> Runtime<GasBlockStore<'bs, BS>> for DefaultRuntime<'bs, '_, BS, R, V, P>
+impl<'bs, BS, R, CS, V, P> Runtime<GasBlockStore<'bs, BS>>
+    for DefaultRuntime<'bs, '_, BS, R, CS, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    CS: CircSupplyCalc,
 {
     fn network_version(&self) -> NetworkVersion {
         self.version
@@ -615,12 +618,11 @@ where
     fn syscalls(&self) -> &dyn Syscalls {
         self
     }
-    fn total_fil_circ_supply(& self) -> Result<TokenAmount, ActorError> {
-        let state = self.state;
-        self.circ_supply_calc.as_ref()(self.epoch, self.state).map_err(|e| {
-                     actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
-                 })
-            // TODO all circ supply calculations should go through trait and not only override
+    fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
+        self.circ_supply_calc
+            .get_supply(self.epoch, self.state)
+            .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
+        // TODO all circ supply calculations should go through trait and not only override
         //     return circ_supply_calc(self.epoch, &self.state).map_err(|e| {
         //         actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
         //     });
@@ -640,12 +642,13 @@ where
     }
 }
 
-impl<'bs, BS, R, V, P> Syscalls for DefaultRuntime<'bs, '_, BS, R, V, P>
+impl<'bs, BS, R, C, V, P> Syscalls for DefaultRuntime<'bs, '_, BS, R, C, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    C: CircSupplyCalc,
 {
     fn verify_signature(
         &self,
@@ -827,8 +830,8 @@ where
 
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'vm, BS, R, V, P>(
-    rt: &mut DefaultRuntime<'db, 'vm, BS, R, V, P>,
+pub fn vm_send<'db, 'vm, BS, R, C, V, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, V, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<GasCharge>,
 ) -> Result<Serialized, ActorError>
@@ -837,6 +840,7 @@ where
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    C: CircSupplyCalc,
 {
     if let Some(cost) = gas_cost {
         rt.charge_gas(cost)?;
@@ -935,8 +939,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'vm, BS, R, V, P>(
-    rt: &mut DefaultRuntime<'db, 'vm, BS, R, V, P>,
+fn invoke<'db, 'vm, BS, R, C, V, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, V, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
@@ -947,6 +951,7 @@ where
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    C: CircSupplyCalc,
 {
     let ret = match code {
         x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params),
