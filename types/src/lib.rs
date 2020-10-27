@@ -24,7 +24,6 @@ lazy_static! {
     /// Total Filecoin available to the network.
     pub static ref TOTAL_FILECOIN: BigInt = BigInt::from(TOTAL_FILECOIN_BASE) * FILECOIN_PRECISION;
     pub static ref FIL_RESERVED: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
-
 }
 
 /// Identifier for Actors, includes builtin and initialized actors
@@ -59,17 +58,9 @@ pub trait NetworkParams {
     /// Available rewards for mining.
     const MINING_REWARD_TOTAL: i64;
 
-    /// Available rewards for mining.
-    const INITIAL_FIL_RESERVED: i64;
-
     /// Initial reward actor balance. This function is only called in genesis setting up state.
     fn initial_reward_balance() -> BigInt {
         BigInt::from(Self::MINING_REWARD_TOTAL) * Self::TOTAL_FILECOIN
-    }
-
-    /// Initial Fil Reserved
-    fn initial_fil_reserved() -> BigInt {
-        BigInt::from(Self::INITIAL_FIL_RESERVED) * FILECOIN_PRECISION
     }
 
     /// Convert integer value of tokens into BigInt based on the token precision.
@@ -83,5 +74,4 @@ pub struct DevnetParams;
 impl NetworkParams for DevnetParams {
     const TOTAL_FILECOIN: i64 = TOTAL_FILECOIN_BASE;
     const MINING_REWARD_TOTAL: i64 = 1_400_000_000;
-    const INITIAL_FIL_RESERVED: i64 = 300_000_000;
 }
