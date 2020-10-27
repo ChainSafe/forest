@@ -13,6 +13,7 @@ use fil_types::{
 };
 use forest_blocks::Tipset;
 use interpreter::CircSupplyCalc;
+use lazycell::AtomicLazyCell;
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::error::Error as StdError;
@@ -46,8 +47,8 @@ pub struct GenesisInfo {
 
 #[derive(Default)]
 pub struct GenesisInfoPair {
-    pub pre_ignition: GenesisInfo,
-    pub post_ignition: GenesisInfo,
+    pub pre_ignition: AtomicLazyCell<GenesisInfo>,
+    pub post_ignition: AtomicLazyCell<GenesisInfo>,
 }
 
 impl CircSupplyCalc for GenesisInfoPair {
@@ -56,7 +57,38 @@ impl CircSupplyCalc for GenesisInfoPair {
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
-        return get_circulating_supply(&self.pre_ignition, &self.post_ignition, height, state_tree);
+        // TODO investigate a better way to handle initializing the genesis actors rather than
+        // on first circ supply call. This is currently necessary because it is how Lotus does it
+        // but it's not ideal to have the side effect from the VM to modify the genesis info
+        // of the state manager. This isn't terrible because it's just caching to avoid
+        // recalculating using the store, and it avoids computing until circ_supply is called.
+        if !self.pre_ignition.filled() {
+            let _ = self
+                .pre_ignition
+                .fill(setup_preignition_genesis_actors_testnet(
+                    state_tree.store(),
+                )?);
+        }
+        if !self.post_ignition.filled() {
+            let _ = self
+                .post_ignition
+                .fill(setup_postignition_genesis_actors_testnet(
+                    state_tree.store(),
+                )?);
+        }
+
+        return get_circulating_supply(
+            &self
+                .pre_ignition
+                .borrow()
+                .expect("Pre ignition should be initialized"),
+            &self
+                .post_ignition
+                .borrow()
+                .expect("Pre ignition should be initialized"),
+            height,
+            state_tree,
+        );
     }
 }
 

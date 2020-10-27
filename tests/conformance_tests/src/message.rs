@@ -3,6 +3,8 @@
 
 use super::*;
 use fil_types::get_network_version_default;
+use interpreter::CircSupplyCalc;
+use state_tree::StateTree;
 use vm::TokenAmount;
 
 #[derive(Debug, Deserialize)]
@@ -38,15 +40,15 @@ pub fn execute_message(
     selector: &Option<Selector>,
     params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let circ_supply = params.circ_supply;
-    let mut vm = VM::<_, _, _>::new(
+    let circ_supply = MockCircSupply(params.circ_supply);
+    let mut vm = VM::<_, _, _, _>::new(
         params.pre_root,
         bs,
         params.epoch,
         &params.randomness,
         params.basefee,
         get_network_version_default,
-        &MockCircSupply(circ_supply),
+        &circ_supply,
     )?;
 
     if let Some(s) = &selector {

@@ -1153,6 +1153,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_manager",
+ "state_tree",
  "statediff",
  "walkdir",
 ]
@@ -5641,6 +5642,7 @@ dependencies = [
  "ipld_blockstore",
  "ipld_hamt",
  "lazy_static",
+ "lazycell",
  "log",
  "num-traits 0.2.12",
  "runtime",

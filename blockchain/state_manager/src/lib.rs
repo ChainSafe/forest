@@ -36,10 +36,7 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use vm_circ_supply::{
-    setup_postignition_genesis_actors_testnet, setup_preignition_genesis_actors_testnet,
-    GenesisInfoPair,
-};
+use vm_circ_supply::GenesisInfoPair;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -71,7 +68,7 @@ pub struct StateManager<DB> {
     bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
     subscriber: Option<Subscriber<HeadChange>>,
-    gi_pair: GenesisInfoPair,
+    genesis_info: GenesisInfoPair,
 }
 
 impl<DB> StateManager<DB>
@@ -80,26 +77,20 @@ where
 {
     pub fn new(bs: Arc<DB>) -> Self {
         Self {
-            gi_pair: GenesisInfoPair {
-                pre_ignition: setup_preignition_genesis_actors_testnet(bs.as_ref()).unwrap(),
-                post_ignition: setup_postignition_genesis_actors_testnet(bs.as_ref()).unwrap(),
-            },
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
+            genesis_info: GenesisInfoPair::default(),
         }
     }
 
     // Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
     pub fn new_with_subscribers(bs: Arc<DB>, chain_subs: Subscriber<HeadChange>) -> Self {
         Self {
-            gi_pair: GenesisInfoPair {
-                pre_ignition: setup_preignition_genesis_actors_testnet(bs.as_ref()).unwrap(),
-                post_ignition: setup_postignition_genesis_actors_testnet(bs.as_ref()).unwrap(),
-            },
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
+            genesis_info: GenesisInfoPair::default(),
         }
     }
     /// Loads actor state from IPLD Store
@@ -219,7 +210,7 @@ where
             rand,
             base_fee,
             get_network_version_default,
-            &self.gi_pair,
+            &self.genesis_info,
         )?;
 
         // Apply tipset messages
@@ -299,7 +290,7 @@ where
                 rand,
                 0.into(),
                 get_network_version_default,
-                &self.gi_pair,
+                &self.genesis_info,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -375,7 +366,7 @@ where
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
-            &self.gi_pair,
+            &self.genesis_info,
         )?;
 
         for msg in prior_messages {
