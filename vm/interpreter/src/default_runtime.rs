@@ -622,20 +622,6 @@ where
         self.circ_supply_calc
             .get_supply(self.epoch, self.state)
             .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
-        // TODO all circ supply calculations should go through trait and not only override
-        //     return circ_supply_calc(self.epoch, &self.state).map_err(|e| {
-        //         actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
-        //     });
-        // }
-
-        // // Use the normal method
-        // get_circulating_supply(
-        //     &self.pre_ignition,
-        //     &self.post_ignition,
-        //     self.epoch,
-        //     self.state,
-        // )
-        // .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
     }
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
         self.charge_gas(GasCharge::new(name, compute, 0))
