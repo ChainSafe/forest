@@ -485,11 +485,6 @@ where
         Option<DefaultRuntime<'db, '_, DB, R, C, V, P>>,
         Option<ActorError>,
     ) {
-        // let default_preignition =
-        //     setup_preignition_genesis_actors_testnet(self.store).unwrap_or_default();
-        // let default_postignition =
-        //     setup_postignition_genesis_actors_testnet(self.store).unwrap_or_default();
-
         let res = DefaultRuntime::new(
             (self.network_version_getter)(self.epoch),
             &mut self.state,
