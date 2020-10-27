@@ -77,7 +77,7 @@ impl CircSupplyCalc for GenesisInfoPair {
                 )?);
         }
 
-        return get_circulating_supply(
+        get_circulating_supply(
             &self
                 .pre_ignition
                 .borrow()
@@ -88,7 +88,7 @@ impl CircSupplyCalc for GenesisInfoPair {
                 .expect("Pre ignition should be initialized"),
             height,
             state_tree,
-        );
+        )
     }
 }
 
