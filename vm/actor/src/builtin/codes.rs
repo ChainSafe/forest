@@ -3,6 +3,7 @@
 
 use cid::{multihash::Identity, Cid, Codec};
 
+#[cfg(not(feature = "v2"))]
 lazy_static! {
     pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/system");
     pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/init");
@@ -16,7 +17,25 @@ lazy_static! {
     pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/reward");
     pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/verifiedregistry");
     pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/chaos");
+}
 
+#[cfg(feature = "v2")]
+lazy_static! {
+    pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/system");
+    pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/init");
+    pub static ref CRON_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/cron");
+    pub static ref ACCOUNT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/account");
+    pub static ref POWER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/storagepower");
+    pub static ref MINER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/storageminer");
+    pub static ref MARKET_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/storagemarket");
+    pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/paymentchannel");
+    pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/multisig");
+    pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/reward");
+    pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/verifiedregistry");
+    pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/chaos");
+}
+
+lazy_static! {
     // Set of actor code types that can represent external signing parties.
     pub static ref CALLER_TYPES_SIGNABLE: [Cid; 2] =
         [ACCOUNT_ACTOR_CODE_ID.clone(), MULTISIG_ACTOR_CODE_ID.clone()];
