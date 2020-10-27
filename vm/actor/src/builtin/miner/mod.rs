@@ -2215,6 +2215,8 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
+
         match payload.event_type {
             CRON_EVENT_PROVING_DEADLINE => handle_proving_deadline(rt)?,
             CRON_EVENT_WORKER_KEY_CHANGE => commit_worker_key_change(rt)?,

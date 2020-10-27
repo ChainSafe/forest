@@ -86,9 +86,9 @@ pub fn execute_tipset(
         exec_epoch,
         &TestRand,
         tipset.basefee.to_bigint().unwrap_or_default(),
-        Some(|_, msg: &ChainMessage, ret| {
+        Some(|_: &Cid, msg: &ChainMessage, ret: &ApplyRet| {
             _applied_messages.push(msg.clone());
-            applied_results.push(ret);
+            applied_results.push(ret.clone());
             Ok(())
         }),
     )?;

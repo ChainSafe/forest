@@ -525,7 +525,7 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
                 })?;
 
-            for epoch in st.first_cron_epoch..rt_epoch {
+            for epoch in st.first_cron_epoch..=rt_epoch {
                 let mut epoch_events = load_cron_events(&events, epoch).map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,

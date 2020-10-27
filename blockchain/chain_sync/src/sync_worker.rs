@@ -3,6 +3,8 @@
 
 #[cfg(test)]
 mod full_sync_test;
+#[cfg(test)]
+mod validate_block_test;
 
 use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
