@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod build_version;
+pub mod deadlines;
 pub mod genesis;
 mod piece;
 mod randomness;

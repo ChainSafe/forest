@@ -1,13 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{power_for_sector, PowerPair, QuantSpec, SectorOnChainInfo, SECTORS_MAX};
+use super::{power_for_sector, PowerPair, SectorOnChainInfo, SECTORS_MAX};
 use crate::ActorDowncast;
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::tuple::*;
-use fil_types::{SectorNumber, SectorSize};
+use fil_types::{deadlines::QuantSpec, SectorNumber, SectorSize};
 use ipld_amt::{Amt, Error as AmtError, ValueMut};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;

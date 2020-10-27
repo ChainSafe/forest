@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::QuantSpec;
 use crate::ActorDowncast;
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
+use fil_types::deadlines::QuantSpec;
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use std::collections::HashMap;
