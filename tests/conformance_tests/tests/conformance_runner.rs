@@ -6,19 +6,12 @@
 #[macro_use]
 extern crate lazy_static;
 
-use address::Address;
-use blockstore::resolve::resolve_cids_recursive;
-use blockstore::BlockStore;
-use chain::set_genesis;
-use chain_sync::compute_msg_meta;
-use cid::multihash::Blake2b256;
-use cid::{json::CidJson, Cid};
+use cid::Cid;
 use clock::ChainEpoch;
 use conformance_tests::*;
 use encoding::Cbor;
 use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
-use forest_blocks::BlockHeader;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use interpreter::ApplyRet;
 use num_bigint::{BigInt, ToBigInt};
@@ -76,7 +69,6 @@ fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
 
     // Load car file with bytes
     forest_car::load_car(&bs, d)?;
-
     Ok(bs)
 }
 
