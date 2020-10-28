@@ -882,10 +882,13 @@ where
                 );
             }
             if ts.blocks()[0].message_receipts() != &last_receipt {
-
-                return Err(
-                    format!("Tipset message receipts has a mismatch at height: {}", ts.epoch(), ts.blocks()[0].message_receipts(), &last_receipt).into(),
-                );
+                return Err(format!(
+                    "Tipset message receipts has a mismatch at height: {}",
+                    ts.epoch(),
+                    ts.blocks()[0].message_receipts(),
+                    &last_receipt
+                )
+                .into());
             }
             let (st, msg_root) = self.tipset_state::<V>(&ts).await?;
             last_state = st;
