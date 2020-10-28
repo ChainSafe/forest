@@ -161,7 +161,7 @@ where
         let mut network_stream = self.network_receiver_in.fuse();
         let mut interval = stream::interval(Duration::from_secs(10)).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
-        let pubsub_msg_str= format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
+        let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
         loop {
             select! {
