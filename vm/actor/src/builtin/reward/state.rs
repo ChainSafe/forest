@@ -132,6 +132,10 @@ impl State {
         self.this_epoch_reward_smoothed =
             filter_reward.next_estimate(&self.this_epoch_reward, delta);
     }
+
+    pub fn into_total_storage_power_reward(self) -> TokenAmount {
+        self.total_mined
+    }
 }
 
 impl Cbor for State {}
