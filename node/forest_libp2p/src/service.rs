@@ -8,6 +8,7 @@ use crate::hello::{HelloRequest, HelloResponse};
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::{stream, task};
 use forest_cid::{multihash::Blake2b256, Cid};
+use forest_encoding::from_slice;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
@@ -19,7 +20,6 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mplex, noise, yamux, PeerId, Swarm, Transport,
 };
-use forest_encoding::{from_slice};
 use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
@@ -28,9 +28,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
 
-pub use libp2p::gossipsub::Topic;
-use forest_message::SignedMessage;
 use forest_blocks::GossipBlock;
+use forest_message::SignedMessage;
+pub use libp2p::gossipsub::Topic;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
@@ -183,35 +183,35 @@ where
                         } => {
                             trace!("Got a Gossip Message from {:?}", source);
                             // there should only be one topic associated with any particular gossip message
-                            let topic = &topics[0];
-                            match topic.as_str() {
-                                pubsub_block_str => {
-                                    match from_slice::<GossipBlock>(&message) {
-                                        Ok(b) => {
-                                            emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
-                                               source,
-                                               message: PubsubMessage::Block(b),
-                                            }).await;
-                                        }
-                                        Err(e) => warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e)
-                                    }
-
+                            let topic = match topics.get(0) {
+                                Some(t) => t.as_str(),
+                                None => {
+                                    warn!("received gossipsub message without topic from {:?}", source);
+                                    continue;
                                 },
-                                pubsub_msg_str => {
-                                    match from_slice::<SignedMessage>(&message) {
-                                        Ok(m) => {
-                                            emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
-                                                source,
-                                                message: PubsubMessage::Message(m),
-                                            }).await;
-                                        }
-                                        Err(e) => warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e)
+                            };
+                            if topic == pubsub_block_str {
+                                match from_slice::<GossipBlock>(&message) {
+                                    Ok(b) => {
+                                        emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
+                                            source,
+                                            message: PubsubMessage::Block(b),
+                                        }).await;
                                     }
-                                 },
-                                _ => {
-                                    warn!("Getting gossip messages from unknown topic: {}", topic.as_str());
+                                    Err(e) => warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e)
                                 }
-
+                            } else if topic == pubsub_msg_str {
+                                match from_slice::<SignedMessage>(&message) {
+                                    Ok(m) => {
+                                        emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
+                                            source,
+                                            message: PubsubMessage::Message(m),
+                                        }).await;
+                                    }
+                                    Err(e) => warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e)
+                                }
+                            } else {
+                                warn!("Getting gossip messages from unknown topic: {}", topic);
                             }
                         }
                         ForestBehaviourEvent::HelloRequest { request, channel, .. } => {
