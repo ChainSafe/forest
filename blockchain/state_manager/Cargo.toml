@@ -33,4 +33,5 @@ flo_stream = "0.4.0"
 filecoin-proofs-api = "5.2"
 futures = "0.3.5"
 runtime = { path = "../../vm/runtime/" }
-
+lazy_static = "1.4"
+lazycell = "1.2.1"
