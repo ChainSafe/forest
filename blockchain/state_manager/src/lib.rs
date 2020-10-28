@@ -218,6 +218,7 @@ where
         Ok((state_root, rect_root))
     }
 
+    /// Returns the pair of (parent state root, message receipt root)
     pub async fn tipset_state<V>(&self, tipset: &Tipset) -> Result<(Cid, Cid), Box<dyn StdError>>
     where
         V: ProofVerifier,
@@ -868,6 +869,7 @@ where
             ts = next;
         }
         let mut last_state = ts_chain.last().unwrap().parent_state().clone();
+        let (_, mut last_receipt) = self.tipset_state::<V>(ts_chain.last().unwrap()).await?;
         for ts in ts_chain.iter().rev() {
             info!(
                 "Computing state (height: {}, ts={:?})",
@@ -879,8 +881,15 @@ where
                     format!("Tipset chain has state mismatch at height: {}", ts.epoch()).into(),
                 );
             }
-            let (st, _) = self.tipset_state::<V>(&ts).await?;
+            if ts.blocks()[0].message_receipts() != &last_receipt {
+
+                return Err(
+                    format!("Tipset message receipts has a mismatch at height: {}", ts.epoch(), ts.blocks()[0].message_receipts(), &last_receipt).into(),
+                );
+            }
+            let (st, msg_root) = self.tipset_state::<V>(&ts).await?;
             last_state = st;
+            last_receipt = msg_root;
         }
         Ok(())
     }
