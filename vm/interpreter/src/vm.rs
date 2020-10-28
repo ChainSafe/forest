@@ -577,10 +577,8 @@ pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i
     gas_to_burn *= over;
     gas_to_burn /= gas_used;
 
-    (
-        i64::try_from(gas_limit - gas_used - &gas_to_burn).unwrap(),
-        i64::try_from(gas_to_burn).unwrap(),
-    )
+    let gas_to_burn = i64::try_from(gas_to_burn).unwrap();
+    (gas_limit - gas_used - gas_to_burn, gas_to_burn)
 }
 
 /// Apply message return data
