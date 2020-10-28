@@ -1,8 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[macro_use]
+extern crate lazy_static;
+
 mod errors;
 pub mod utils;
+mod vm_circ_supply;
+
 pub use self::errors::*;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
@@ -31,6 +36,7 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use vm_circ_supply::GenesisInfoPair;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -66,6 +72,7 @@ pub struct StateManager<DB> {
     /// of the state/receipt root.
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     subscriber: Option<Subscriber<HeadChange>>,
+    genesis_info: GenesisInfoPair,
 }
 
 impl<DB> StateManager<DB>
@@ -77,6 +84,7 @@ where
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
+            genesis_info: GenesisInfoPair::default(),
         }
     }
 
@@ -86,6 +94,7 @@ where
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
+            genesis_info: GenesisInfoPair::default(),
         }
     }
     /// Loads actor state from IPLD Store
@@ -198,14 +207,14 @@ where
     {
         let mut buf_store = BufferedBlockStore::new(self.bs.as_ref());
         // TODO change from statically using devnet params when needed
-        let mut vm = VM::<_, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, V>::new(
             p_state,
             &buf_store,
             epoch,
             rand,
             base_fee,
             get_network_version_default,
-            None,
+            &self.genesis_info,
         )?;
 
         // Apply tipset messages
@@ -284,8 +293,8 @@ where
         })
     }
 
-    fn call_raw<V>(
-        &self,
+    fn call_raw<'a, V>(
+        &'a self,
         msg: &mut UnsignedMessage,
         bstate: &Cid,
         rand: &ChainRand,
@@ -297,14 +306,14 @@ where
         span!("state_call_raw", {
             let block_store = self.blockstore();
             let buf_store = BufferedBlockStore::new(block_store);
-            let mut vm = VM::<_, _, _, V>::new(
+            let mut vm = VM::<_, _, _, _, V>::new(
                 bstate,
                 &buf_store,
                 *bheight,
                 rand,
                 0.into(),
                 get_network_version_default,
-                None,
+                &self.genesis_info,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -373,14 +382,14 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned());
 
-        let mut vm = VM::<_, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, V>::new(
             &st,
             self.bs.as_ref(),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
-            None,
+            &self.genesis_info,
         )?;
 
         for msg in prior_messages {
