@@ -65,16 +65,12 @@ impl CircSupplyCalc for GenesisInfoPair {
         if !self.pre_ignition.filled() {
             let _ = self
                 .pre_ignition
-                .fill(setup_preignition_genesis_actors_testnet(
-                    state_tree.store(),
-                )?);
+                .fill(setup_preignition_genesis_actors(state_tree.store())?);
         }
         if !self.post_ignition.filled() {
             let _ = self
                 .post_ignition
-                .fill(setup_postignition_genesis_actors_testnet(
-                    state_tree.store(),
-                )?);
+                .fill(setup_postignition_genesis_actors(state_tree.store())?);
         }
 
         get_circulating_supply(
@@ -98,7 +94,7 @@ fn get_actor_state<DB: BlockStore>(
 ) -> Result<ActorState, Box<dyn StdError>> {
     Ok(state_tree
         .get_actor(&addr)?
-        .ok_or_else(|| "Failed to get Actor ")?)
+        .ok_or_else(|| "Failed to get Actor")?)
 }
 
 pub fn get_fil_vested<DB: BlockStore>(
@@ -239,7 +235,7 @@ fn init_genesis_info<DB: BlockStore>(bs: &DB) -> Result<GenesisInfo, Box<dyn Std
     Ok(ignition)
 }
 
-pub fn setup_preignition_genesis_actors_testnet<DB: BlockStore>(
+pub fn setup_preignition_genesis_actors<DB: BlockStore>(
     bs: &DB,
 ) -> Result<GenesisInfo, Box<dyn StdError>> {
     let mut pre_ignition = init_genesis_info(bs)?;
@@ -261,7 +257,7 @@ pub fn setup_preignition_genesis_actors_testnet<DB: BlockStore>(
     Ok(pre_ignition)
 }
 
-pub fn setup_postignition_genesis_actors_testnet<DB: BlockStore>(
+pub fn setup_postignition_genesis_actors<DB: BlockStore>(
     bs: &DB,
 ) -> Result<GenesisInfo, Box<dyn StdError>> {
     let mut post_ignition = init_genesis_info(bs)?;
@@ -271,8 +267,13 @@ pub fn setup_postignition_genesis_actors_testnet<DB: BlockStore>(
             signers: vec![],
             num_approvals_threshold: 0,
             next_tx_id: multisig::TxnID(0),
+
+            // In the pre-ignition logic, we incorrectly set this value in Fil, not attoFil, an off-by-10^18 error
             initial_balance: initial_balance * FILECOIN_PRECISION,
+
+            // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic of the Ignition upgrade itself.
             start_epoch: UPGRADE_LIFTOFF_HEIGHT,
+
             unlock_duration: *unlock_duration,
             // Default Cid is ok here because this field is never read
             pending_txs: Cid::default(),
