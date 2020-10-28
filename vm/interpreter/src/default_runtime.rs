@@ -430,7 +430,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = self
             .rand
-            .get_chain_randomness(&self.store, personalization, rand_epoch, entropy)
+            .get_chain_randomness(self.state.store(), personalization, rand_epoch, entropy)
             .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
@@ -444,7 +444,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = self
             .rand
-            .get_beacon_randomness(&self.store, personalization, rand_epoch, entropy)
+            .get_beacon_randomness(self.state.store(), personalization, rand_epoch, entropy)
             .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
