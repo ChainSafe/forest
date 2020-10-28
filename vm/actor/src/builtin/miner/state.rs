@@ -14,7 +14,7 @@ use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER};
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error as HamtError, Hamt};
+use ipld_hamt::Error as HamtError;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
 use std::{cmp, error::Error as StdError};
@@ -424,7 +424,7 @@ impl State {
 
     /// Assign new sectors to deadlines.
     pub fn assign_sectors_to_deadlines<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
         current_epoch: ChainEpoch,
         mut sectors: Vec<SectorOnChainInfo>,
@@ -474,6 +474,8 @@ impl State {
 
             deadlines.update_deadline(store, deadline_idx as u64, deadline)?;
         }
+
+        self.save_deadlines(store, deadlines)?;
 
         Ok(new_power)
     }
