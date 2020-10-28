@@ -291,8 +291,10 @@ impl State {
         store: &BS,
         sector_nums: &[SectorNumber],
     ) -> Result<(), HamtError> {
-        let mut precommitted =
-            Hamt::<_, SectorPreCommitOnChainInfo>::load(&self.pre_committed_sectors, store)?;
+        let mut precommitted = make_map_with_root::<_, SectorPreCommitOnChainInfo>(
+            &self.pre_committed_sectors,
+            store,
+        )?;
 
         for &sector_num in sector_nums {
             precommitted.delete(&u64_key(sector_num))?;
