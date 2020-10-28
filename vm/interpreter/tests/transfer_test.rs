@@ -5,19 +5,33 @@ use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
 use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
+use clock::ChainEpoch;
 use db::MemoryDB;
 use fil_types::{verifier::MockVerifier, NetworkVersion};
-use interpreter::{vm_send, ChainRand, DefaultRuntime};
+use interpreter::{vm_send, ChainRand, CircSupplyCalc, DefaultRuntime};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
 use state_tree::StateTree;
 use std::collections::HashSet;
-use vm::{ActorState, Serialized};
+use std::error::Error as StdError;
+use vm::{ActorState, Serialized, TokenAmount};
+
+struct MockCircSupply;
+impl CircSupplyCalc for MockCircSupply {
+    fn get_supply<DB: BlockStore>(
+        &self,
+        _: ChainEpoch,
+        _: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        Ok(0.into())
+    }
+}
 
 #[test]
 fn transfer_test() {
     let store = MemoryDB::default();
+
     let mut state = StateTree::new(&store);
 
     let e_cid = Hamt::<_, String>::new_with_bit_width(&store, 5)
@@ -94,7 +108,8 @@ fn transfer_test() {
 
     let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
     let registered = HashSet::new();
-    let mut runtime = DefaultRuntime::<_, _, MockVerifier>::new(
+
+    let mut runtime = DefaultRuntime::<_, _, _, MockVerifier>::new(
         NetworkVersion::V0,
         &mut state,
         &store,
@@ -106,7 +121,7 @@ fn transfer_test() {
         0,
         &dummy_rand,
         &registered,
-        &None,
+        &MockCircSupply,
     )
     .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();

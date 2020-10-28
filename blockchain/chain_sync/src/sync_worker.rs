@@ -971,7 +971,7 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), &'static str> {
 }
 
 /// Returns message root CID from bls and secp message contained in the param Block
-fn compute_msg_meta<DB: BlockStore>(
+pub fn compute_msg_meta<DB: BlockStore>(
     blockstore: &DB,
     bls_msgs: &[UnsignedMessage],
     secp_msgs: &[SignedMessage],

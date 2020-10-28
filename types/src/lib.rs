@@ -23,6 +23,7 @@ extern crate lazy_static;
 lazy_static! {
     /// Total Filecoin available to the network.
     pub static ref TOTAL_FILECOIN: BigInt = BigInt::from(TOTAL_FILECOIN_BASE) * FILECOIN_PRECISION;
+    pub static ref FIL_RESERVED: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
 }
 
 /// Identifier for Actors, includes builtin and initialized actors
