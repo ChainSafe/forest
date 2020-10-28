@@ -39,6 +39,5 @@ COPY --from=build-env /usr/local/cargo/bin/forest /usr/local/bin/forest
 
 # Expose ports for RPC
 EXPOSE 1234
-EXPOSE 64899
 
 CMD ["forest"]
