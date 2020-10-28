@@ -81,7 +81,7 @@ impl CircSupplyCalc for GenesisInfoPair {
             &self
                 .post_ignition
                 .borrow()
-                .expect("Pre ignition should be initialized"),
+                .expect("Post ignition should be initialized"),
             height,
             state_tree,
         )
@@ -94,7 +94,7 @@ fn get_actor_state<DB: BlockStore>(
 ) -> Result<ActorState, Box<dyn StdError>> {
     Ok(state_tree
         .get_actor(&addr)?
-        .ok_or_else(|| "Failed to get Actor")?)
+        .ok_or_else(|| format!("Failed to get Actor for address {}", addr))?)
 }
 
 pub fn get_fil_vested<DB: BlockStore>(
@@ -140,7 +140,7 @@ pub fn get_fil_mined<DB: BlockStore>(
         .get(&reward_actor.state)?
         .ok_or_else(|| "Failed to get Rewrad Actor State".to_string())?;
 
-    Ok(reward_state.total_storage_power_reward().clone())
+    Ok(reward_state.into_total_storage_power_reward())
 }
 
 pub fn get_fil_market_locked<DB: BlockStore>(
@@ -166,7 +166,7 @@ pub fn get_fil_power_locked<DB: BlockStore>(
         .get(&power_actor.state)?
         .ok_or_else(|| "Failed to get Power Actor State".to_string())?;
 
-    Ok(power_state.total_locked().clone())
+    Ok(power_state.into_total_locked())
 }
 
 pub fn get_fil_reserve_disbursed<DB: BlockStore>(
