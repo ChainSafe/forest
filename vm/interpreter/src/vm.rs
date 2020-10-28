@@ -28,7 +28,6 @@ use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
-
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
 
@@ -39,13 +38,17 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
-// TODO replace with some trait or some generic solution (needs to use context)
-pub type CircSupplyCalc<BS> =
-    Box<dyn Fn(ChainEpoch, &StateTree<BS>) -> Result<TokenAmount, String>>;
+pub trait CircSupplyCalc {
+    fn get_supply<DB: BlockStore>(
+        &self,
+        height: ChainEpoch,
+        state_tree: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>>;
+}
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, R, N, V = FullVerifier, P = DevnetParams> {
+pub struct VM<'db, 'r, DB, R, N, C, V = FullVerifier, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
@@ -53,18 +56,19 @@ pub struct VM<'db, 'r, DB, R, N, V = FullVerifier, P = DevnetParams> {
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
     network_version_getter: N,
-    circ_supply_calc: Option<CircSupplyCalc<DB>>,
+    circ_supply_calc: &'r C,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, R, N, V, P> VM<'db, 'r, DB, R, N, V, P>
+impl<'db, 'r, DB, R, N, C, V, P> VM<'db, 'r, DB, R, N, C, V, P>
 where
     DB: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
     N: Fn(ChainEpoch) -> NetworkVersion,
+    C: CircSupplyCalc,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -74,7 +78,7 @@ where
         rand: &'r R,
         base_fee: BigInt,
         network_version_getter: N,
-        circ_supply_calc: Option<CircSupplyCalc<DB>>,
+        circ_supply_calc: &'r C,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -119,7 +123,7 @@ where
     fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        callback: Option<&mut impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
+        callback: Option<&mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<(), Box<dyn StdError>> {
         let cron_msg = UnsignedMessage {
             from: *SYSTEM_ACTOR_ADDR,
@@ -141,7 +145,7 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(cron_msg.cid()?, &ChainMessage::Unsigned(cron_msg), ret)?;
+            callback(&cron_msg.cid()?, &ChainMessage::Unsigned(cron_msg), &ret)?;
         }
         Ok(())
     }
@@ -153,7 +157,7 @@ where
         messages: &[BlockMessages],
         parent_epoch: ChainEpoch,
         epoch: ChainEpoch,
-        mut callback: Option<impl FnMut(Cid, &ChainMessage, ApplyRet) -> Result<(), String>>,
+        mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -177,7 +181,7 @@ where
                 }
                 let ret = self.apply_message(msg)?;
                 if let Some(cb) = &mut callback {
-                    cb(msg.cid()?, msg, ret.clone())?;
+                    cb(&cid, msg, &ret)?;
                 }
 
                 // Update totals
@@ -235,7 +239,7 @@ where
             }
 
             if let Some(callback) = &mut callback {
-                callback(rew_msg.cid()?, &ChainMessage::Unsigned(rew_msg), ret)?;
+                callback(&rew_msg.cid()?, &ChainMessage::Unsigned(rew_msg), &ret)?;
             }
         }
 
@@ -478,7 +482,7 @@ where
         gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, '_, DB, R, V, P>>,
+        Option<DefaultRuntime<'db, '_, DB, R, C, V, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
@@ -493,7 +497,7 @@ where
             0,
             self.rand,
             &self.registered_actors,
-            &self.circ_supply_calc,
+            self.circ_supply_calc,
         );
 
         match res {

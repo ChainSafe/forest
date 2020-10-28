@@ -81,6 +81,10 @@ impl State {
         }
     }
 
+    pub fn into_total_locked(self) -> TokenAmount {
+        self.total_pledge_collateral
+    }
+
     /// Checks power actor state for if miner meets minimum consensus power.
     pub fn miner_nominal_power_meets_consensus_minimum<BS: BlockStore>(
         &self,

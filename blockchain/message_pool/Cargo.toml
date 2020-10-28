@@ -36,3 +36,4 @@ key_management = { path = "../../key_management" }
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }
 key_management = { path = "../../key_management" }
+rand = "0.7.3"

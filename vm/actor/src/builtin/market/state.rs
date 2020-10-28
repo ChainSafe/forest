@@ -71,6 +71,12 @@ impl State {
         }
     }
 
+    pub fn total_locked(&self) -> TokenAmount {
+        &self.total_client_locked_colateral
+            + &self.total_provider_locked_colateral
+            + &self.total_client_storage_fee
+    }
+
     pub(super) fn mutator<'bs, BS: BlockStore>(
         &mut self,
         store: &'bs BS,
