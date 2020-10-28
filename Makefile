@@ -51,6 +51,9 @@ build:
 release:
 	cargo build --release --bin forest
 
+docker-run:
+	docker build -t forest:latest -f ./Dockerfile . && docker run forest
+
 # Git submodule test vectors
 pull-serialization-tests:
 	git submodule update --init
