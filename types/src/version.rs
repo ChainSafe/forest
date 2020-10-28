@@ -14,6 +14,8 @@ pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = 138720;
 /// V5 network upgrade
 pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = 140760;
 
+pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
+
 struct Upgrade {
     height: ChainEpoch,
     network: NetworkVersion,
