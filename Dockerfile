@@ -37,7 +37,4 @@ RUN apt-get update && \
 # Copy over binaries from the build-env
 COPY --from=build-env /usr/local/cargo/bin/forest /usr/local/bin/forest
 
-# Expose ports for RPC
-EXPOSE 1234
-
 CMD ["forest"]
