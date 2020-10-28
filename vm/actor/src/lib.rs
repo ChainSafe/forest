@@ -25,16 +25,6 @@ use runtime::{ActorCode, Runtime};
 use serde::{de::DeserializeOwned, Serialize};
 use unsigned_varint::decode::Error as UVarintError;
 
-lazy_static! {
-    /// The maximum supply of Filecoin that will ever exist (in token units)
-    pub static ref TOTAL_FILECOIN: TokenAmount = TokenAmount::from(2_000_000_000) * TOKEN_PRECISION;
-}
-
-/// Number of token units in an abstract "FIL" token.
-/// The network works purely in the indivisible token amounts.
-/// This constant converts to a fixed decimal with more human-friendly scale.
-pub const TOKEN_PRECISION: u64 = 1_000_000_000_000_000_000;
-
 /// Map type to be used within actors. The underlying type is a hamt.
 pub type Map<'bs, BS, V> = Hamt<'bs, BS, V, BytesKey>;
 
