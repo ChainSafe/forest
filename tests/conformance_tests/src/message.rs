@@ -3,6 +3,8 @@
 
 use super::*;
 use fil_types::get_network_version_default;
+use interpreter::CircSupplyCalc;
+use state_tree::StateTree;
 use vm::TokenAmount;
 
 #[derive(Debug, Deserialize)]
@@ -22,20 +24,31 @@ pub struct ExecuteMessageParams<'a> {
     pub randomness: ReplayingRand<'a>,
 }
 
+struct MockCircSupply(TokenAmount);
+impl CircSupplyCalc for MockCircSupply {
+    fn get_supply<DB: BlockStore>(
+        &self,
+        _: ChainEpoch,
+        _: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        Ok(self.0.clone())
+    }
+}
+
 pub fn execute_message(
     bs: &db::MemoryDB,
     selector: &Option<Selector>,
     params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let circ_supply = params.circ_supply;
-    let mut vm = VM::<_, _, _>::new(
+    let circ_supply = MockCircSupply(params.circ_supply);
+    let mut vm = VM::<_, _, _, _>::new(
         params.pre_root,
         bs,
         params.epoch,
         &params.randomness,
         params.basefee,
         get_network_version_default,
-        Some(Box::new(move |_, _| Ok(circ_supply.clone()))),
+        &circ_supply,
     )?;
 
     if let Some(s) = &selector {
