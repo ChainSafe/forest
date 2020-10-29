@@ -31,7 +31,7 @@ use std::sync::Arc;
 use types::WINNING_POST_SECTOR_SET_LOOKBACK;
 
 const GENESIS_KEY: &str = "gen_block";
-const HEAD_KEY: &str = "head";
+pub const HEAD_KEY: &str = "head";
 const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 
 // constants for Weight calculation
@@ -389,7 +389,10 @@ where
     }
 }
 
-fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
+/// Sets the genesis key in the BlockStore. Be careful if using this outside of
+/// the ChainStore as it will not update what the ChainStore thinks is the genesis
+/// after the ChainStore has been created.
+pub fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
     DB: BlockStore,
 {

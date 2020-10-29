@@ -2141,6 +2141,7 @@ dependencies = [
  "forest_blocks",
  "forest_car",
  "forest_cid",
+ "forest_encoding",
  "forest_libp2p",
  "futures 0.3.6",
  "genesis",

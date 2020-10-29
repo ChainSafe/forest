@@ -27,7 +27,7 @@ use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, Rand, VM};
 use ipld_amt::Amt;
-use log::{debug, trace, warn};
+use log::{debug, info, trace, warn};
 use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
@@ -231,6 +231,7 @@ where
         Ok((state_root, rect_root))
     }
 
+    /// Returns the pair of (parent state root, message receipt root)
     pub async fn tipset_state<V>(&self, tipset: &Tipset) -> Result<CidPair, Box<dyn StdError>>
     where
         V: ProofVerifier,
@@ -886,5 +887,46 @@ where
             .map_err(|e| format!("loading power actor state: {}", e))?;
         ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
             .map_err(|e| e.to_string())
+    }
+
+    pub async fn validate_chain<V: ProofVerifier>(
+        &self,
+        ts: Tipset,
+    ) -> Result<(), Box<dyn StdError>> {
+        let mut ts_chain = Vec::<Tipset>::new();
+        let mut ts = ts;
+        while ts.epoch() != 0 {
+            let next = chain::tipset_from_keys(self.blockstore(), ts.parents())?;
+            ts_chain.push(std::mem::replace(&mut ts, next));
+        }
+        ts_chain.push(ts);
+
+        let mut last_state = ts_chain.last().unwrap().parent_state().clone();
+        let mut last_receipt = ts_chain.last().unwrap().blocks()[0]
+            .message_receipts()
+            .clone();
+        for ts in ts_chain.iter().rev() {
+            info!(
+                "Computing state (height: {}, ts={:?})",
+                ts.epoch(),
+                ts.cids()
+            );
+            if ts.parent_state() != &last_state {
+                return Err(
+                    format!("Tipset chain has state mismatch at height: {}", ts.epoch()).into(),
+                );
+            }
+            if ts.blocks()[0].message_receipts() != &last_receipt {
+                return Err(format!(
+                    "Tipset message receipts has a mismatch at height: {}",
+                    ts.epoch(),
+                )
+                .into());
+            }
+            let (st, msg_root) = self.tipset_state::<V>(&ts).await?;
+            last_state = st;
+            last_receipt = msg_root;
+        }
+        Ok(())
     }
 }
