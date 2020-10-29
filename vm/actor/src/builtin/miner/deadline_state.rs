@@ -315,9 +315,11 @@ impl Deadline {
                 continue;
             }
 
-            let size = cmp::min(partition_size - sector_count, sectors.len() as u64);
-            let (start, partition_new_sectors) = sectors.split_at(size as usize);
-            sectors = start;
+            let size = cmp::min(partition_size - sector_count, sectors.len() as u64) as usize;
+            let partition_new_sectors = &sectors[..size];
+
+            // Intentionally ignoring the index at size, split_at returns size inclusively for start
+            sectors = &sectors[size..];
 
             // Add sectors to partition.
             let partition_new_power =
@@ -329,12 +331,11 @@ impl Deadline {
 
             // Record deadline -> partition mapping so we can later update the deadlines.
             for sector in partition_new_sectors {
-                if let Some(partition_update) =
-                    partition_deadline_updates.get_mut(&sector.expiration)
-                {
-                    if partition_update.last() != Some(&partition_idx) {
-                        partition_update.push(partition_idx);
-                    }
+                let partition_update = partition_deadline_updates
+                    .entry(sector.expiration)
+                    .or_default();
+                if partition_update.is_empty() || partition_update.last() != Some(&partition_idx) {
+                    partition_update.push(partition_idx);
                 }
             }
         }
