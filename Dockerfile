@@ -3,7 +3,7 @@
 # docker build -t forest:latest -f ./Dockerfile .
 # docker run forest
 
-FROM rust:1.42-stretch AS build-env
+FROM rust:1.47-buster AS build-env
 
 WORKDIR /usr/src/forest
 COPY . .
@@ -17,8 +17,8 @@ RUN rm -f $PROTOC_ZIP
 
 # Extra dependencies needed for rust-fil-proofs
 RUN apt-get update && \
-    apt-get install -y curl file gcc g++ git make openssh-client \
-    autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev \
+    apt-get install --no-install-recommends -y curl file gcc g++ hwloc libhwloc-dev git make openssh-client \
+    ca-certificates autoconf automake cmake libtool libcurl4 libcurl4-openssl-dev libssl-dev \
     libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
     xz-utils pkg-config python clang ocl-icd-opencl-dev
 
@@ -26,6 +26,13 @@ RUN cargo install --path forest
 
 # Prod image for forest binary
 FROM debian:buster-slim
+
+# Install binary dependencies
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y curl file gcc g++ hwloc libhwloc-dev make openssh-client \
+    autoconf automake cmake libtool libcurl4 libcurl4-openssl-dev libssl-dev \
+    libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+    xz-utils pkg-config python clang ocl-icd-opencl-dev ca-certificates
 
 # Copy over binaries from the build-env
 COPY --from=build-env /usr/local/cargo/bin/forest /usr/local/bin/forest
