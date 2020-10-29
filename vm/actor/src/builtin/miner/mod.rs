@@ -9,7 +9,6 @@ mod expiration_queue;
 mod monies;
 mod partition_state;
 mod policy;
-mod quantize;
 mod sector_map;
 mod sectors;
 mod state;
@@ -25,7 +24,6 @@ pub use expiration_queue::*;
 pub use monies::*;
 pub use partition_state::*;
 pub use policy::*;
-pub use quantize::*;
 pub use sector_map::*;
 pub use sectors::*;
 pub use state::*;
@@ -62,9 +60,9 @@ use crypto::DomainSeparationTag::{
 };
 use encoding::Cbor;
 use fil_types::{
-    InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness, RegisteredSealProof,
-    SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorInfo,
-    SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
+    deadlines::DeadlineInfo, InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness,
+    RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
+    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -3258,7 +3256,7 @@ fn declaration_deadline_info(
         ));
     }
 
-    let deadline = DeadlineInfo::new(period_start, deadline_idx, current_epoch).next_not_elapsed();
+    let deadline = new_deadline_info(period_start, deadline_idx, current_epoch).next_not_elapsed();
     Ok(deadline)
 }
 
@@ -3348,7 +3346,6 @@ where
 
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
-        &self,
         rt: &mut RT,
         method: MethodNum,
         params: &Serialized,

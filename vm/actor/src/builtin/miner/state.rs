@@ -1,9 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{assign_deadlines, deadline_is_mutable, policy::*, Deadline};
-use super::{deadlines::DeadlineInfo, DeadlineSectorMap};
-use super::{types::*, Deadlines, PowerPair, QuantSpec, Sectors, TerminationResult, VestingFunds};
+use super::DeadlineSectorMap;
+use super::{
+    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, Deadline,
+};
+use super::{types::*, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds};
 use crate::{make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
@@ -11,7 +13,10 @@ use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
-use fil_types::{RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER};
+use fil_types::{
+    deadlines::{DeadlineInfo, QuantSpec},
+    RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
+};
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error as HamtError;
@@ -140,7 +145,7 @@ impl State {
 
     /// Returns deadline calculations for the current (according to state) proving period.
     pub fn deadline_info(&self, current_epoch: ChainEpoch) -> DeadlineInfo {
-        DeadlineInfo::new(
+        new_deadline_info(
             self.proving_period_start,
             self.current_deadline,
             current_epoch,
@@ -149,7 +154,7 @@ impl State {
 
     /// Returns deadline calculations for the current (according to state) proving period.
     pub fn quant_spec_for_deadline(&self, deadline_idx: u64) -> QuantSpec {
-        DeadlineInfo::new(self.proving_period_start, deadline_idx, 0).quant_spec()
+        new_deadline_info(self.proving_period_start, deadline_idx, 0).quant_spec()
     }
 
     pub fn allocate_sector_number<BS: BlockStore>(
@@ -401,7 +406,7 @@ impl State {
 
         for (deadline_idx, partition_sectors) in deadline_sectors.iter() {
             let deadline_info =
-                DeadlineInfo::new(self.proving_period_start, deadline_idx, current_epoch);
+                new_deadline_info(self.proving_period_start, deadline_idx, current_epoch);
             let new_expiration = deadline_info.last();
             let mut deadline = deadlines.load_deadline(store, deadline_idx)?;
 

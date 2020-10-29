@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
+[features]
+v2 = ["ipld_hamt/v2"]
+
 [dependencies]
 vm = { package = "forest_vm", path = "../../vm" }
 address = { package = "forest_address", path = "../address" }
