@@ -15,7 +15,7 @@ forest_encoding = { path = "../../encoding" }
 commcid = { path = "../../utils/commcid" }
 filecoin-proofs-api = "5.2"
 base64 = "0.12.1"
-fil_types = { path = "../../types" }
+fil_types = { path = "../../types", features = ["proofs"] }
 log = "0.4.8"
 
 [dev-dependencies]

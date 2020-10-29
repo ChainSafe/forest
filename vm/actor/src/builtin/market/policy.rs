@@ -6,9 +6,9 @@ use crate::network::{
     DEAL_WEIGHT_MULTIPLIER, EPOCHS_IN_DAY, QUALITY_BASE_MULTIPLIER, SECTOR_QUALITY_PRECISION,
     VERIFIED_DEAL_WEIGHT_MULTIPLIER,
 };
-use crate::{DealWeight, TOTAL_FILECOIN};
+use crate::DealWeight;
 use clock::ChainEpoch;
-use fil_types::{NetworkVersion, PaddedPieceSize, StoragePower};
+use fil_types::{NetworkVersion, PaddedPieceSize, StoragePower, TOTAL_FILECOIN};
 use num_bigint::Integer;
 use num_traits::Zero;
 use std::cmp::max;

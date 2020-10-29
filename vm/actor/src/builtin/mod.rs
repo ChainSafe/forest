@@ -13,7 +13,7 @@ pub mod paych;
 pub mod power;
 pub mod reward;
 mod shared;
-mod singletons;
+pub mod singletons;
 pub mod system;
 pub mod verifreg;
 

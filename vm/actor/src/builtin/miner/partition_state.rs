@@ -3,14 +3,17 @@
 
 use super::{
     power_for_sectors, validate_partition_contains_sectors, BitFieldQueue, ExpirationQueue,
-    ExpirationSet, QuantSpec, SectorOnChainInfo, Sectors, TerminationResult, NO_QUANTIZATION,
+    ExpirationSet, SectorOnChainInfo, Sectors, TerminationResult,
 };
 use crate::{actor_error, ActorDowncast};
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::tuple::*;
-use fil_types::{SectorSize, StoragePower};
+use fil_types::{
+    deadlines::{QuantSpec, NO_QUANTIZATION},
+    SectorSize, StoragePower,
+};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
 use num_traits::Zero;
