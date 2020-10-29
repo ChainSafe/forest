@@ -3,8 +3,8 @@
 
 use crate::RpcState;
 use actor::miner::{
-    ChainSectorInfo, DeadlineInfo, Deadlines, Fault, MinerInfo, SectorOnChainInfo,
-    SectorPreCommitOnChainInfo, State,
+    ChainSectorInfo, Deadlines, Fault, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo,
+    State,
 };
 use address::{json::AddressJson, Address};
 use async_std::task;
@@ -13,7 +13,7 @@ use blocks::{tipset_json::TipsetJson, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
-use fil_types::{verifier::FullVerifier, SectorNumber};
+use fil_types::{deadlines::DeadlineInfo, verifier::FullVerifier, SectorNumber};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     message_receipt::json::MessageReceiptJson,

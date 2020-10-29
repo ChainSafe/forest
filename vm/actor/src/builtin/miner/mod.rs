@@ -9,7 +9,6 @@ mod expiration_queue;
 mod monies;
 mod partition_state;
 mod policy;
-mod quantize;
 mod sector_map;
 mod sectors;
 mod state;
@@ -25,7 +24,6 @@ pub use expiration_queue::*;
 pub use monies::*;
 pub use partition_state::*;
 pub use policy::*;
-pub use quantize::*;
 pub use sector_map::*;
 pub use sectors::*;
 pub use state::*;
@@ -62,9 +60,9 @@ use crypto::DomainSeparationTag::{
 };
 use encoding::Cbor;
 use fil_types::{
-    InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness, RegisteredSealProof,
-    SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorInfo,
-    SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
+    deadlines::DeadlineInfo, InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness,
+    RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
+    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -2363,7 +2361,7 @@ where
     let mut penalty_total = TokenAmount::zero();
     let mut pledge_delta = TokenAmount::zero();
 
-    rt.transaction(|state: &mut State, rt| {
+    let state: State = rt.transaction(|state: &mut State, rt| {
         // Vest locked funds.
         // This happens first so that any subsequent penalties are taken
         // from locked vesting funds before funds free this epoch.
@@ -2416,7 +2414,7 @@ where
         let deadline_info = state.deadline_info(curr_epoch);
         if !deadline_info.period_started() {
             // Skip checking faults on the first, incomplete period.
-            return Ok(());
+            return Ok(state.clone());
         }
 
         let mut deadlines = state
@@ -2573,7 +2571,7 @@ where
             }
         }
 
-        Ok(())
+        Ok(state.clone())
     })?;
 
     // Remove power for new faults, and burn penalties.
@@ -2582,7 +2580,6 @@ where
     notify_pledge_changed(rt, &pledge_delta)?;
 
     // Schedule cron callback for next deadline's last epoch.
-    let state: State = rt.state()?;
     let new_deadline_info = state.deadline_info(curr_epoch);
     enroll_cron_event(
         rt,
@@ -3259,7 +3256,7 @@ fn declaration_deadline_info(
         ));
     }
 
-    let deadline = DeadlineInfo::new(period_start, deadline_idx, current_epoch).next_not_elapsed();
+    let deadline = new_deadline_info(period_start, deadline_idx, current_epoch).next_not_elapsed();
     Ok(deadline)
 }
 
@@ -3349,7 +3346,6 @@ where
 
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
-        &self,
         rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
