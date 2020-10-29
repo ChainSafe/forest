@@ -2363,7 +2363,7 @@ where
     let mut penalty_total = TokenAmount::zero();
     let mut pledge_delta = TokenAmount::zero();
 
-    rt.transaction(|state: &mut State, rt| {
+    let state: State = rt.transaction(|state: &mut State, rt| {
         // Vest locked funds.
         // This happens first so that any subsequent penalties are taken
         // from locked vesting funds before funds free this epoch.
@@ -2416,7 +2416,7 @@ where
         let deadline_info = state.deadline_info(curr_epoch);
         if !deadline_info.period_started() {
             // Skip checking faults on the first, incomplete period.
-            return Ok(());
+            return Ok(state.clone());
         }
 
         let mut deadlines = state
@@ -2573,7 +2573,7 @@ where
             }
         }
 
-        Ok(())
+        Ok(state.clone())
     })?;
 
     // Remove power for new faults, and burn penalties.
@@ -2582,7 +2582,6 @@ where
     notify_pledge_changed(rt, &pledge_delta)?;
 
     // Schedule cron callback for next deadline's last epoch.
-    let state: State = rt.state()?;
     let new_deadline_info = state.deadline_info(curr_epoch);
     enroll_cron_event(
         rt,
