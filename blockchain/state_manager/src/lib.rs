@@ -893,15 +893,18 @@ where
         &self,
         ts: Tipset,
     ) -> Result<(), Box<dyn StdError>> {
-        let mut ts_chain: Vec<Tipset> = vec![ts.clone()];
+        let mut ts_chain = Vec::<Tipset>::new();
         let mut ts = ts;
         while ts.epoch() != 0 {
             let next = chain::tipset_from_keys(self.blockstore(), ts.parents())?;
-            ts_chain.push(next.clone());
-            ts = next;
+            ts_chain.push(std::mem::replace(&mut ts, next));
         }
+        ts_chain.push(ts);
+
         let mut last_state = ts_chain.last().unwrap().parent_state().clone();
-        let (_, mut last_receipt) = self.tipset_state::<V>(ts_chain.last().unwrap()).await?;
+        let mut last_receipt = ts_chain.last().unwrap().blocks()[0]
+            .message_receipts()
+            .clone();
         for ts in ts_chain.iter().rev() {
             info!(
                 "Computing state (height: {}, ts={:?})",
