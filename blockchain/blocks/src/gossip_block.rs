@@ -6,7 +6,7 @@ use cid::Cid;
 use encoding::{tuple::*, Cbor};
 
 /// Block message used as serialized gossipsub messages for blocks topic
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct GossipBlock {
     pub header: BlockHeader,
     pub bls_messages: Vec<Cid>,
