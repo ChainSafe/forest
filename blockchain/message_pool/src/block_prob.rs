@@ -16,7 +16,6 @@ fn poiss_pdf(x: f64, mu: f64, cond: f64) -> f64 {
 
 pub fn no_winners_prob() -> Vec<f64> {
     (0..MAX_BLOCKS)
-        .into_iter()
         .map(|i| poiss_pdf(i as f64, MU, MU))
         .collect()
 }
@@ -24,7 +23,6 @@ pub fn no_winners_prob() -> Vec<f64> {
 fn no_winners_prob_assuming_more_than_one() -> Vec<f64> {
     let cond = (E.powf(5.0) - 1.0).log(E);
     (0..MAX_BLOCKS)
-        .into_iter()
         .map(|i| poiss_pdf(i as f64, MU, cond))
         .collect()
 }
@@ -76,7 +74,6 @@ pub fn block_probabilities(tq: f64) -> Vec<f64> {
     let no_winners = no_winners_prob_assuming_more_than_one();
     let p = 1.0 - tq;
     (0..MAX_BLOCKS)
-        .into_iter()
         .map(|place| {
             no_winners
                 .iter()
