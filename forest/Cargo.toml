@@ -42,3 +42,4 @@ actor = { path = "../vm/actor/" }
 paych = { path = "../paych/" }
 genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
+encoding = { package = "forest_encoding", path = "../encoding" }
