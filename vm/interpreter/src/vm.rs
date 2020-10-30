@@ -12,6 +12,7 @@ use actor::{
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
+use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     DevnetParams, NetworkParams, NetworkVersion,
@@ -130,7 +131,8 @@ where
             to: *CRON_ACTOR_ADDR,
             // Epoch as sequence is intentional
             sequence: epoch as u64,
-            gas_limit: 1 << 30,
+            // Arbitrarily large gas limit for cron (matching Lotus value)
+            gas_limit: BLOCK_GAS_LIMIT * 10000,
             method_num: cron::Method::EpochTick as u64,
             params: Default::default(),
             value: Default::default(),

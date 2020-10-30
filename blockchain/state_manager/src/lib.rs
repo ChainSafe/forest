@@ -912,9 +912,13 @@ where
                 ts.cids()
             );
             if ts.parent_state() != &last_state {
-                return Err(
-                    format!("Tipset chain has state mismatch at height: {}", ts.epoch()).into(),
-                );
+                return Err(format!(
+                    "Tipset chain has state mismatch at height: {}, {} != {}",
+                    ts.epoch(),
+                    ts.parent_state(),
+                    last_state
+                )
+                .into());
             }
             if ts.blocks()[0].message_receipts() != &last_receipt {
                 return Err(format!(
