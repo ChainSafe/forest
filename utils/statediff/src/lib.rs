@@ -81,7 +81,8 @@ fn try_print_actor_states<BS: BlockStore>(
                 let expected_json =
                     serde_json::to_string_pretty(&actor_to_resolved(bs, &other, depth))?;
                 let Changeset { diffs, .. } = Changeset::new(&expected_json, &calc_json, "\n");
-                print_diffs(&diffs)
+                println!("Address {} changed: ", addr);
+                print_diffs(&diffs);
             }
         } else {
             // Added actor, print out the json format actor state.
