@@ -3,7 +3,7 @@
 
 use crate::DealWeight;
 use address::Address;
-use bitfield::BitField;
+use bitfield::UnvalidatedBitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe};
@@ -74,7 +74,7 @@ pub struct PoStPartition {
     /// Partitions are numbered per-deadline, from zero.
     pub index: u64,
     /// Sectors skipped while proving that weren't already declared faulty.
-    pub skipped: BitField,
+    pub skipped: UnvalidatedBitField,
 }
 
 /// Information submitted by a miner to provide a Window PoSt.
@@ -114,7 +114,7 @@ pub struct ExtendSectorExpirationParams {
 pub struct ExpirationExtension {
     pub deadline: u64,
     pub partition: u64,
-    pub sectors: BitField,
+    pub sectors: UnvalidatedBitField,
     pub new_expiration: ChainEpoch,
 }
 
@@ -127,7 +127,7 @@ pub struct TerminateSectorsParams {
 pub struct TerminationDeclaration {
     pub deadline: u64,
     pub partition: u64,
-    pub sectors: BitField,
+    pub sectors: UnvalidatedBitField,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -152,7 +152,7 @@ pub struct FaultDeclaration {
     /// Partition index within the deadline containing the faulty sectors.
     pub partition: u64,
     /// Sectors in the partition being declared faulty.
-    pub sectors: BitField,
+    pub sectors: UnvalidatedBitField,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -167,18 +167,18 @@ pub struct RecoveryDeclaration {
     /// Partition index within the deadline containing the recovered sectors.
     pub partition: u64,
     /// Sectors in the partition being declared recovered.
-    pub sectors: BitField,
+    pub sectors: UnvalidatedBitField,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CompactPartitionsParams {
     pub deadline: u64,
-    pub partitions: BitField,
+    pub partitions: UnvalidatedBitField,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CompactSectorNumbersParams {
-    pub mask_sector_numbers: BitField,
+    pub mask_sector_numbers: UnvalidatedBitField,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]

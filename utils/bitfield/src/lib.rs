@@ -3,6 +3,9 @@
 
 pub mod iter;
 mod rleplus;
+mod unvalidated;
+
+pub use unvalidated::{UnvalidatedBitField, Validate};
 
 use ahash::AHashSet;
 use iter::{ranges_from_bits, RangeIterator};
@@ -13,7 +16,7 @@ use std::{
 
 type Result<T> = std::result::Result<T, &'static str>;
 
-/// An bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
+/// A bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
 /// `HashSet<usize>`, but more memory-efficient when long runs of 1s and 0s are present.
 #[derive(Debug, Default, Clone)]
 pub struct BitField {
