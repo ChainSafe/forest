@@ -41,6 +41,7 @@ libp2p-bitswap = "=0.6.1"
 tiny-cid = "0.2.0"
 ipld_blockstore = { path = "../../ipld/blockstore" }
 async-trait = "0.1"
+message_pool = { path = "../../blockchain/message_pool" }
 
 [dev-dependencies]
 forest_address = { path = "../../vm/address" }
