@@ -7,12 +7,15 @@ use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::{stream, task};
+use forest_blocks::GossipBlock;
 use forest_cid::{multihash::Blake2b256, Cid};
 use forest_encoding::from_slice;
+use forest_message::SignedMessage;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
+pub use libp2p::gossipsub::Topic;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -22,15 +25,12 @@ use libp2p::{
 };
 use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, error, info, trace, warn};
+use message_pool::{MessagePool, Provider};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
-
-use forest_blocks::GossipBlock;
-use forest_message::SignedMessage;
-pub use libp2p::gossipsub::Topic;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
@@ -95,9 +95,10 @@ pub enum NetworkMessage {
     },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
-pub struct Libp2pService<DB: BlockStore> {
+pub struct Libp2pService<DB, T> {
     pub swarm: Swarm<ForestBehaviour>,
     db: Arc<DB>,
+    mpool: Arc<MessagePool<T>>,
     /// Keeps track of Blocksync requests to responses
     bs_request_table: HashMap<RequestId, OneShotSender<BlockSyncResponse>>,
     network_receiver_in: Receiver<NetworkMessage>,
@@ -107,14 +108,16 @@ pub struct Libp2pService<DB: BlockStore> {
     network_name: String,
 }
 
-impl<DB> Libp2pService<DB>
+impl<DB, T> Libp2pService<DB, T>
 where
     DB: BlockStore + Sync + Send + 'static,
+    T: Provider + Sync + Send + 'static,
 {
     /// Constructs a Libp2pService
     pub fn new(
         config: Libp2pConfig,
         db: Arc<DB>,
+        mpool: Arc<MessagePool<T>>,
         net_keypair: Keypair,
         network_name: &str,
     ) -> Self {
@@ -146,6 +149,7 @@ where
         Libp2pService {
             swarm,
             db,
+            mpool,
             bs_request_table: HashMap::new(),
             network_receiver_in,
             network_sender_in,
@@ -205,8 +209,12 @@ where
                                     Ok(m) => {
                                         emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
                                             source,
-                                            message: PubsubMessage::Message(m),
+                                            message: PubsubMessage::Message(m.clone()),
                                         }).await;
+                                        // add message to message pool
+                                        if let Err(e) = self.mpool.add(m).await {
+                                            warn!("Gossip Message failed to be added to Message pool");
+                                        }
                                     }
                                     Err(e) => warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e)
                                 }

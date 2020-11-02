@@ -121,12 +121,6 @@ pub(super) async fn start(config: Config) {
         .await
         .unwrap();
 
-    // Libp2p service setup
-    let p2p_service =
-        Libp2pService::new(config.network, Arc::clone(&db), net_keypair, &network_name);
-    let network_rx = p2p_service.network_receiver();
-    let network_send = p2p_service.network_sender();
-
     // Initialize mpool
     let publisher = chain_store.publisher();
     let subscriber = publisher.write().await.subscribe();
@@ -140,6 +134,17 @@ pub(super) async fn start(config: Config) {
         .await
         .unwrap(),
     );
+
+    // Libp2p service setup
+    let p2p_service = Libp2pService::new(
+        config.network,
+        Arc::clone(&db),
+        Arc::clone(&mpool),
+        net_keypair,
+        &network_name,
+    );
+    let network_rx = p2p_service.network_receiver();
+    let network_send = p2p_service.network_sender();
 
     // Get Drand Coefficients
     let coeff = config.drand_public;

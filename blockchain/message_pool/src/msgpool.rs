@@ -225,7 +225,7 @@ where
 }
 
 /// This is the main MessagePool struct
-pub struct MessagePool<T: 'static> {
+pub struct MessagePool<T> {
     local_addrs: Arc<RwLock<Vec<Address>>>,
     pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
     pub cur_tipset: Arc<RwLock<Tipset>>,
