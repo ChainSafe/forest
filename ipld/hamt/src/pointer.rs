@@ -126,17 +126,14 @@ where
                 }
                 2..=MAX_ARRAY_WIDTH => {
                     // If more child values than max width, nothing to change.
-                    let children_len: usize = n
-                        .pointers
-                        .iter()
-                        .filter_map(|p| {
-                            if let Pointer::Values(vals) = p {
-                                Some(vals.len())
-                            } else {
-                                None
-                            }
-                        })
-                        .sum();
+                    let mut children_len = 0;
+                    for c in n.pointers.iter() {
+                        if let Pointer::Values(vals) = c {
+                            children_len += vals.len();
+                        } else {
+                            return Ok(());
+                        }
+                    }
                     if children_len > MAX_ARRAY_WIDTH {
                         return Ok(());
                     }
