@@ -123,3 +123,44 @@ where
     );
     Ok(())
 }
+// TODO update
+// async fn import_chain<V: ProofVerifier, DB: BlockStore>(
+//     bs: Arc<DB>,
+//     path: String,
+//     snapshot: bool,
+// ) -> Result<(), Box<dyn std::error::Error>> {
+//     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
+
+//     let mut file_path = path;
+//     if is_remote_file {
+//         match download_file(file_path).await {
+//             Ok(file) => file_path = file,
+//             Err(err) => return Err(err),
+//         }
+//     }
+
+//     let file = File::open(&file_path).expect("Snapshot file path not found!");
+//     let reader = BufReader::new(file);
+//     info!("Importing chain from snapshot");
+//     // start import
+//     let cids = load_car(bs.as_ref(), reader)?;
+//     let ts = chain::tipset_from_keys(bs.as_ref(), &TipsetKeys::new(cids))?;
+//     let gb = chain::tipset_by_height(bs.as_ref(), 0, &ts, true)?.unwrap();
+//     let sm = StateManager::new(bs.clone());
+//     if !snapshot {
+//         info!("Validating imported chain");
+//         sm.validate_chain::<V>(ts.clone()).await?;
+//     }
+//     let gen_cid = chain::set_genesis(bs.as_ref(), &gb.blocks()[0])?;
+//     bs.write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
+//     info!(
+//         "Accepting {:?} as new head with genesis {:?}",
+//         ts.cids(),
+//         gen_cid
+//     );
+
+//     if is_remote_file {
+//         remove_file(file_path).unwrap();
+//     }
+//     Ok(())
+// }

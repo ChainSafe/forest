@@ -2057,7 +2057,7 @@ dependencies = [
  "groupy",
  "hex",
  "humansize",
- "indicatif",
+ "indicatif 0.14.0",
  "itertools 0.9.0",
  "lazy_static",
  "log",
@@ -2199,6 +2199,7 @@ dependencies = [
  "libp2p",
  "log",
  "message_pool",
+ "net_utils",
  "paramfetch",
  "pretty_env_logger",
  "rpc",
@@ -3058,6 +3059,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicatif"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7baab56125e25686df467fe470785512329883aab42696d661247aca2a2896e4"
+dependencies = [
+ "console 0.12.0",
+ "lazy_static",
+ "number_prefix",
+ "regex",
+]
+
+[[package]]
 name = "infer"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3188,6 +3201,7 @@ dependencies = [
  "crossbeam-utils 0.8.0",
  "curl",
  "curl-sys",
+ "encoding_rs",
  "futures-channel",
  "futures-io",
  "futures-util",
@@ -4157,6 +4171,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "net_utils"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "futures 0.3.6",
+ "indicatif 0.15.0",
+ "isahc",
+ "log",
+ "thiserror",
+ "url",
+]
+
+[[package]]
 name = "nix"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4659,6 +4686,17 @@ dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.7",
  "syn 1.0.48",
+]
+
+[[package]]
+name = "pin-project-internal"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81a4ffa594b66bff340084d4081df649a7dc049ac8d7fc458d8e628bfbbb2f86"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.7",
+ "syn 1.0.44",
 ]
 
 [[package]]

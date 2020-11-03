@@ -1,0 +1,14 @@
+[package]
+name = "net_utils"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+indicatif = "0.15.0"
+futures = "0.3.5"
+async-std = { version = "1.6.3" }
+isahc = "0.9.11"
+url = "2.1.1"
+log = "0.4.8"
+thiserror = "1.0"
