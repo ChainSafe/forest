@@ -194,6 +194,17 @@ where
                             )
                             .await
                     }
+                    Some(NetworkEvent::PubsubMessage { source, message }) => {
+                        match message {
+                            forest_libp2p::PubsubMessage::Block(b) => {
+                            // HandleIncomingBlocks
+                                ()
+                            }
+                            // ignore pubsub messages because they get handled in the service
+                            // and get added into the mempool
+                            _ => ()
+                        }
+                    }
                     // All other network events are being ignored currently
                     _ => (),
                     None => break,
