@@ -72,7 +72,7 @@ pub struct ChainSyncer<DB, TBeacon, V> {
     chain_store: Arc<ChainStore<DB>>,
 
     /// Context to be able to send requests to p2p network
-    network: SyncNetworkContext,
+    network: SyncNetworkContext<DB>,
 
     /// the known genesis tipset
     genesis: Arc<Tipset>,
@@ -102,7 +102,8 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
     ) -> Result<Self, Error> {
-        let network = SyncNetworkContext::new(network_send, Default::default());
+        let network =
+            SyncNetworkContext::new(network_send, Default::default(), chain_store.db.clone());
 
         Ok(Self {
             state: ChainSyncState::Bootstrap,
@@ -213,7 +214,7 @@ where
     /// to inform of the new head.
     async fn fetch_and_inform_tipset(
         cs: Arc<ChainStore<DB>>,
-        network: SyncNetworkContext,
+        network: SyncNetworkContext<DB>,
         peer_id: PeerId,
         tsk: TipsetKeys,
         channel: Sender<(PeerId, FullTipset)>,
@@ -374,7 +375,7 @@ where
     /// `FullTipset` from block sync
     async fn fetch_full_tipset(
         cs: &ChainStore<DB>,
-        network: &SyncNetworkContext,
+        network: &SyncNetworkContext<DB>,
         peer_id: PeerId,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {

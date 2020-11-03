@@ -55,7 +55,7 @@ pub(crate) struct SyncWorker<DB, TBeacon, V> {
     pub chain_store: Arc<ChainStore<DB>>,
 
     /// Context to be able to send requests to p2p network.
-    pub network: SyncNetworkContext,
+    pub network: SyncNetworkContext<DB>,
 
     /// The known genesis tipset.
     pub genesis: Arc<Tipset>,
