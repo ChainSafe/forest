@@ -266,7 +266,7 @@ pub fn compute_unsealed_sector_cid(
     let mut all_pieces = Vec::<proofs::PieceInfo>::with_capacity(pieces.len());
 
     let pssize = PaddedPieceSize(ssize);
-    if pieces.len() == 0 {
+    if pieces.is_empty() {
         all_pieces.push(proofs::PieceInfo {
             size: pssize.unpadded().into(),
             commitment: zero_piece_commitment(pssize),
