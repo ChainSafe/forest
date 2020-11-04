@@ -14,7 +14,7 @@ use forest_libp2p::{
     hello::HelloRequest,
     NetworkMessage,
 };
-use futures::channel::oneshot::{channel as oneshot_channel};
+use futures::channel::oneshot::channel as oneshot_channel;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{trace, warn};
