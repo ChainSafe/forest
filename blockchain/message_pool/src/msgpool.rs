@@ -165,7 +165,7 @@ where
 #[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Sync + Send,
+    DB: BlockStore + Sync + Send + 'static,
 {
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.clone()

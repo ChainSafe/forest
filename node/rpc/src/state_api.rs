@@ -22,6 +22,7 @@ use message::{
 use serde::Serialize;
 use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
+use std::sync::Arc;
 use wallet::KeyStore;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
@@ -243,7 +244,7 @@ pub(crate) async fn state_replay<
     let (cidjson, key) = params;
     let cid = cidjson.into();
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, &cid)?;
+    let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, &cid).await?;
 
     Ok(InvocResult {
         msg,
@@ -383,11 +384,11 @@ pub(crate) async fn state_wait_msg<
 
 /// returns a state tree given a tipset
 pub fn state_for_ts<DB>(
-    state_manager: &StateManager<DB>,
+    state_manager: &Arc<StateManager<DB>>,
     maybe_tipset: Option<Tipset>,
 ) -> Result<StateTree<DB>, JsonRpcError>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
 {
     let block_store = state_manager.blockstore();
     let maybe_tipset = if maybe_tipset.is_none() {
