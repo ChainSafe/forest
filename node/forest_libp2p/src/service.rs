@@ -212,8 +212,10 @@ where
                                             message: PubsubMessage::Message(m.clone()),
                                         }).await;
                                         // add message to message pool
+                                        // TODO handle adding message to mempool in seperate task.
+                                        // Not ideal that it could potentially block network thread
                                         if let Err(e) = self.mpool.add(m).await {
-                                            warn!("Gossip Message failed to be added to Message pool");
+                                            trace!("Gossip Message failed to be added to Message pool: {}", e);
                                         }
                                     }
                                     Err(e) => warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e)

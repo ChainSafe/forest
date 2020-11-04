@@ -406,7 +406,8 @@ impl State {
 
         for (deadline_idx, partition_sectors) in deadline_sectors.iter() {
             let deadline_info =
-                new_deadline_info(self.proving_period_start, deadline_idx, current_epoch);
+                new_deadline_info(self.proving_period_start, deadline_idx, current_epoch)
+                    .next_not_elapsed();
             let new_expiration = deadline_info.last();
             let mut deadline = deadlines.load_deadline(store, deadline_idx)?;
 
