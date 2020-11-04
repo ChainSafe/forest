@@ -63,6 +63,7 @@ where
     if genesis_cids.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
+    println!("Do we even get here?");
 
     let genesis_block: BlockHeader = chain_store.db.get(&genesis_cids[0])?.ok_or_else(|| {
         "Could not find genesis block despite being loaded using a genesis file".to_owned()

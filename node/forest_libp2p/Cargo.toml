@@ -37,7 +37,7 @@ clock = { path = "../clock" }
 db = { path = "../db" }
 forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-libp2p-bitswap = "=0.6.1"
+libp2p-bitswap = { path = "../../../../ipfs-rust/libp2p-bitswap" }
 tiny-cid = "0.2.0"
 ipld_blockstore = { path = "../../ipld/blockstore" }
 async-trait = "0.1"

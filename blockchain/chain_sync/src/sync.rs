@@ -23,7 +23,7 @@ use futures::select;
 use futures::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::{debug, warn};
+use log::{info, debug, warn};
 use message::{SignedMessage, UnsignedMessage};
 use state_manager::StateManager;
 use std::marker::PhantomData;
@@ -197,8 +197,35 @@ where
                     Some(NetworkEvent::PubsubMessage { source, message }) => {
                         match message {
                             forest_libp2p::PubsubMessage::Block(b) => {
+                            info!("Receieved block over GossipSub: {}", b.header.epoch());
                             // HandleIncomingBlocks
-                                ()
+                            // Get Messages over Bitswap
+                            // Get SignedMessages over Bitswap
+                            // InformNewBlock with peer
+                            let mut bmsgs: Vec<UnsignedMessage> = Vec::with_capacity(b.bls_messages.len());
+                            for m in b.bls_messages.clone() {
+                                info!("bs fetch bmessage: {:?}", m);
+                                let bmsg: UnsignedMessage =self.network.bitswap_get(m).await.unwrap();
+
+                                bmsgs.push(bmsg);
+                            }
+                            let mut smsgs: Vec<SignedMessage> = Vec::with_capacity(b.secpk_messages.len());
+                            for m in b.secpk_messages.clone() {
+                                info!("bs fetch smessage: {:?}", m);
+
+                                let smsg: SignedMessage = self.network.bitswap_get(m).await.unwrap();
+                                smsgs.push(smsg);
+                            }
+                            let block = Block {
+                                header: b.header.clone(),
+                                bls_messages: bmsgs,
+                                secp_messages: smsgs,
+                            };
+                            let ts = FullTipset::new(vec![block]).unwrap();
+                            if let Err(e) = self.inform_new_head(source.clone().unwrap(), &ts).await {
+                                warn!("failed to inform new head from peer {}", source.unwrap());
+                            }
+                            info!("Great Success");
                             }
                             // ignore pubsub messages because they get handled in the service
                             // and get added into the mempool
