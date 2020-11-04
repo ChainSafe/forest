@@ -636,7 +636,7 @@ impl Partition {
         }
 
         // Find all skipped faults that have been labeled recovered
-        let retracted_recoveries = &self.recoveries & &skipped;
+        let retracted_recoveries = &self.recoveries & skipped;
         let retracted_recovery_sectors = sectors
             .load_sector(&retracted_recoveries)
             .map_err(|e| e.wrap("failed to load sectors"))?;
