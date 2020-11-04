@@ -1035,9 +1035,9 @@ mod tests {
             SyncWorker {
                 state: Default::default(),
                 beacon,
-                state_manager: Arc::new(StateManager::new(db)),
+                state_manager: Arc::new(StateManager::new(db.clone())),
                 chain_store,
-                network: SyncNetworkContext::new(local_sender, Default::default()),
+                network: SyncNetworkContext::new(local_sender, Default::default(), db),
                 genesis: genesis_ts,
                 bad_blocks: Default::default(),
                 verifier: Default::default(),
