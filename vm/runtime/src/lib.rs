@@ -235,36 +235,70 @@ pub enum ConsensusFaultType {
     TimeOffsetMining = 3,
 }
 
+fn get_required_padding(
+    old_length: PaddedPieceSize,
+    new_piece_length: PaddedPieceSize,
+) -> (Vec<PaddedPieceSize>, PaddedPieceSize) {
+    let mut sum = 0;
+
+    let mut to_fill = 0u64.wrapping_sub(old_length.0) % new_piece_length.0;
+    let n = to_fill.count_ones();
+    let mut pad_pieces = Vec::with_capacity(n as usize);
+    for _ in 0..n {
+        let next = to_fill.trailing_zeros();
+        let p_size = 1 << next;
+        to_fill ^= p_size;
+
+        let padded = PaddedPieceSize(p_size);
+        pad_pieces.push(padded);
+        sum += padded.0;
+    }
+
+    (pad_pieces, PaddedPieceSize(sum))
+}
+
 pub fn compute_unsealed_sector_cid(
     proof_type: RegisteredSealProof,
     pieces: &[PieceInfo],
 ) -> Result<Cid, Box<dyn StdError>> {
-    let sum: u64 = pieces.iter().map(|p| p.size.0).sum();
-
     let ssize = proof_type.sector_size()? as u64;
 
-    let mut fcp_pieces: Vec<proofs::PieceInfo> = pieces
-        .iter()
-        .map(proofs::PieceInfo::try_from)
-        .collect::<Result<_, &'static str>>()?;
+    let mut all_pieces = Vec::<proofs::PieceInfo>::with_capacity(pieces.len());
 
-    // pad remaining space with 0 piece commitments
-    {
-        let mut to_fill = ssize - sum;
-        let n = to_fill.count_ones();
-        for _ in 0..n {
-            let next = to_fill.trailing_zeros();
-            let p_size = 1 << next;
-            to_fill ^= p_size;
-            let padded = PaddedPieceSize(p_size);
-            fcp_pieces.push(filecoin_proofs_api::PieceInfo {
-                commitment: zero_piece_commitment(padded),
-                size: padded.unpadded().into(),
-            });
+    let pssize = PaddedPieceSize(ssize);
+    if pieces.is_empty() {
+        all_pieces.push(proofs::PieceInfo {
+            size: pssize.unpadded().into(),
+            commitment: zero_piece_commitment(pssize),
+        })
+    } else {
+        // pad remaining space with 0 piece commitments
+        let mut sum = PaddedPieceSize(0);
+        let pad_to = |pads: Vec<PaddedPieceSize>,
+                      all_pieces: &mut Vec<proofs::PieceInfo>,
+                      sum: &mut PaddedPieceSize| {
+            for p in pads {
+                all_pieces.push(proofs::PieceInfo {
+                    size: p.unpadded().into(),
+                    commitment: zero_piece_commitment(p),
+                });
+
+                sum.0 += p.0;
+            }
+        };
+        for p in pieces {
+            let (ps, _) = get_required_padding(sum, p.size);
+            pad_to(ps, &mut all_pieces, &mut sum);
+
+            all_pieces.push(proofs::PieceInfo::try_from(p)?);
+            sum.0 += p.size.0;
         }
+
+        let (ps, _) = get_required_padding(sum, pssize);
+        pad_to(ps, &mut all_pieces, &mut sum);
     }
 
-    let comm_d = compute_comm_d(proof_type.try_into()?, &fcp_pieces)?;
+    let comm_d = compute_comm_d(proof_type.try_into()?, &all_pieces)?;
 
     Ok(data_commitment_v1_to_cid(&comm_d)?)
 }
