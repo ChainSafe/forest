@@ -29,7 +29,7 @@ impl<'a> ReplayingRand<'a> {
 }
 
 impl Rand for ReplayingRand<'_> {
-    fn get_chain_randomness<DB: BlockStore>(
+    fn get_chain_randomness(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -44,10 +44,10 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_chain_randomness(db, dst, epoch, entropy)
+            self.fallback.get_chain_randomness(dst, epoch, entropy)
         }
     }
-    fn get_beacon_randomness<DB: BlockStore>(
+    fn get_beacon_randomness(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -62,7 +62,7 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_beacon_randomness(db, dst, epoch, entropy)
+            self.fallback.get_beacon_randomness(dst, epoch, entropy)
         }
     }
 }
