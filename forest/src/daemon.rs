@@ -22,6 +22,7 @@ use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
+use paych::{Manager, PaychStore, ResourceAccessor, StateAccessor};
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::fs::File;
@@ -29,7 +30,7 @@ use std::io::BufReader;
 use std::io::Read;
 use std::sync::Arc;
 use utils::write_to_file;
-use wallet::{KeyStore, PersistentKeyStore};
+use wallet::{KeyStore, PersistentKeyStore, Wallet};
 
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option. (1 is temporary value to avoid overlap)
@@ -87,7 +88,7 @@ pub(super) async fn start(config: Config) {
         ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
             .unwrap();
     }
-    let keystore = Arc::new(RwLock::new(ks));
+    let keystore = Arc::new(RwLock::new(ks.clone()));
 
     // Initialize database
     let mut db = RocksDb::new(config.data_dir + "/db");
@@ -182,14 +183,16 @@ pub(super) async fn start(config: Config) {
     });
     let rpc_task = if config.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
+        let sm = Arc::clone(&state_manager);
+        let msg_pool = Arc::clone(&mpool);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc(
                 RpcState {
-                    state_manager,
+                    state_manager: sm,
                     keystore: keystore_rpc,
-                    mpool,
+                    mpool: msg_pool,
                     bad_blocks,
                     sync_state,
                     network_send,
@@ -205,6 +208,23 @@ pub(super) async fn start(config: Config) {
         debug!("RPC disabled");
         None
     };
+
+    // start paych manager
+    let wallet = Arc::new(RwLock::new(Wallet::new(ks)));
+    let mut paych_mgr = Manager::new(
+        PaychStore::new(),
+        ResourceAccessor {
+            keystore: keystore.clone(),
+            mpool,
+            sa: StateAccessor {
+                sm: Arc::new(RwLock::new(state_manager)),
+            },
+            wallet,
+        },
+    );
+    task::spawn(async move {
+        paych_mgr.start().await.unwrap();
+    });
 
     // Block until ctrl-c is hit
     block_until_sigint().await;

@@ -39,4 +39,5 @@ members = [
     "utils/statediff",
     "types",
     "key_management",
+    "paych",
 ]

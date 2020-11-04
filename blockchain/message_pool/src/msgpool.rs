@@ -17,6 +17,7 @@ use db::Store;
 use encoding::Cbor;
 use flo_stream::Subscriber;
 use futures::StreamExt;
+use key_management::KeyStore;
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
@@ -650,6 +651,37 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
         self.config = cfg;
         Ok(())
+    }
+    /// Returns signed message from given inputs
+    pub async fn mpool_unsigned_msg_push<KS: KeyStore>(
+        &self,
+        umsg: UnsignedMessage,
+        keystore: Arc<RwLock<KS>>,
+    ) -> Result<SignedMessage, Error>
+    where
+        KS: KeyStore + Send + Sync + 'static,
+    {
+        let from = umsg.from();
+        let msg_cid = umsg.cid()?;
+
+        let ks = keystore.as_ref().write().await;
+        let key = key_management::find_key(&from, &*ks)
+            .map_err(|e| Error::Other(format!("failed to find key for wallet: {}", e)))?;
+
+        drop(ks);
+
+        let sig = key_management::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            msg_cid.to_bytes().as_slice(),
+        )
+        .map_err(|e| Error::Other(format!("failed to sign message: {}", e)))?;
+
+        let smsg = SignedMessage::new_from_parts(umsg, sig)
+            .map_err(|e| Error::Other(format!("failed to generate a new signed message: {}", e)))?;
+        self.push(smsg.clone()).await?;
+
+        Ok(smsg)
     }
 }
 
