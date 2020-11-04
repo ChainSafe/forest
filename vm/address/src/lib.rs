@@ -11,6 +11,7 @@ pub use self::payload::{BLSPublicKey, Payload};
 pub use self::protocol::Protocol;
 
 use data_encoding::Encoding;
+#[allow(unused_imports)]
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, serde_bytes, Cbor};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};

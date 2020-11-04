@@ -2328,6 +2328,7 @@ dependencies = [
  "libp2p-bitswap",
  "libp2p-request-response",
  "log",
+ "message_pool",
  "serde",
  "smallvec",
  "tiny-cid",
