@@ -244,14 +244,12 @@ pub(crate) async fn state_replay<
     let (cidjson, key) = params;
     let cid = cidjson.into();
     let tipset = chain::tipset_from_keys(data.state_manager.blockstore(), &key)?;
-    let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, &cid).await?;
+    let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, cid).await?;
 
     Ok(InvocResult {
         msg,
-        msg_rct: ret.as_ref().map(|s| s.msg_receipt.clone()),
-        error: ret
-            .map(|act| act.act_error.map(|e| e.to_string()))
-            .unwrap_or_default(),
+        msg_rct: Some(ret.msg_receipt),
+        error: ret.act_error.map(|e| e.to_string()),
     })
 }
 

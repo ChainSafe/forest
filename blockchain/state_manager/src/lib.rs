@@ -27,6 +27,7 @@ use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, Rand, VM};
 use ipld_amt::Amt;
+use lazycell::AtomicLazyCell;
 use log::{debug, info, trace, warn};
 use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
@@ -419,41 +420,47 @@ where
     /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
     pub async fn replay<V>(
         self: &Arc<Self>,
-        _ts: &Tipset,
-        _mcid: &Cid,
-    ) -> Result<(UnsignedMessage, Option<ApplyRet>), Error>
+        ts: &Tipset,
+        mcid: Cid,
+    ) -> Result<(UnsignedMessage, ApplyRet), Error>
     where
         V: ProofVerifier,
     {
-        // TODO fix
-        todo!()
-        // let mut outm: Option<UnsignedMessage> = None;
-        // let mut outr: Option<ApplyRet> = None;
-        // let callback = |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
-        //     if *cid == mcid {
-        //         outm = Some(unsigned.message().clone());
-        //         outr = Some(apply_ret.clone());
-        //         return Err("halt".to_string());
-        //     }
+        // This isn't ideal to have, since the execution is syncronous, but this needs to be the
+        // case because the state transition has to be in blocking thread to avoid starving executor
+        let outm: AtomicLazyCell<UnsignedMessage> = Default::default();
+        let outr: AtomicLazyCell<ApplyRet> = Default::default();
+        let m_clone = outm.clone();
+        let r_clone = outr.clone();
+        let callback = move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
+            if *cid == mcid {
+                let _ = m_clone.fill(unsigned.message().clone());
+                let _ = r_clone.fill(apply_ret.clone());
+                return Err("halt".to_string());
+            }
 
-        //     Ok(())
-        // };
-        // let result = self
-        //     .compute_tipset_state::<V, _>(ts.blocks(), Some(callback))
-        //     .await;
+            Ok(())
+        };
+        let result = self
+            .compute_tipset_state::<V, _>(ts.blocks(), Some(callback))
+            .await;
 
-        // if let Err(error_message) = result {
-        //     if error_message.to_string() != "halt" {
-        //         return Err(Error::Other(format!(
-        //             "unexpected error during execution : {:}",
-        //             error_message
-        //         )));
-        //     }
-        // }
+        if let Err(error_message) = result {
+            if error_message.to_string() != "halt" {
+                return Err(Error::Other(format!(
+                    "unexpected error during execution : {:}",
+                    error_message
+                )));
+            }
+        }
 
-        // let out_mes =
-        //     outm.ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
-        // Ok((out_mes, outr))
+        let out_mes = outm
+            .into_inner()
+            .ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
+        let out_ret = outr
+            .into_inner()
+            .ok_or_else(|| Error::Other("message did not have a return".to_string()))?;
+        Ok((out_mes, out_ret))
     }
 
     pub async fn compute_tipset_state<V, CB: 'static>(
@@ -463,7 +470,7 @@ where
     ) -> Result<CidPair, Error>
     where
         V: ProofVerifier,
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String> + Send + 'static,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String> + Send,
     {
         span!("compute_tipset_state", {
             let first_block = block_headers
