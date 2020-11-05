@@ -13,7 +13,7 @@ chrono = "0.4.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.56"
 commcid = { path = "../utils/commcid" }
-filecoin-proofs-api = "5.2"
+filecoin-proofs-api = { version = "5.2", optional = true }
 vm = { package = "forest_vm", path = "../vm" }
 cid = { package = "forest_cid", path = "../ipld/cid", features = ["cbor"] }
 num-bigint = { path = "../utils/bigint", package = "forest_bigint", features=["json"] }
@@ -30,3 +30,4 @@ async-std = "1.6.3"
 
 [features]
 json = ["base64", "forest_json_utils"]
+proofs = ["filecoin-proofs-api"]

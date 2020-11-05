@@ -3,14 +3,14 @@
 
 use super::{
     BitFieldQueue, ExpirationSet, Partition, PartitionSectorMap, PoStPartition, PowerPair,
-    QuantSpec, SectorOnChainInfo, Sectors, TerminationResult, WPOST_PERIOD_DEADLINES,
+    SectorOnChainInfo, Sectors, TerminationResult, WPOST_PERIOD_DEADLINES,
 };
 use crate::{actor_error, ActorDowncast, ActorError, ExitCode, TokenAmount};
 use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use encoding::tuple::*;
-use fil_types::SectorSize;
+use fil_types::{deadlines::QuantSpec, SectorSize};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;

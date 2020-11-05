@@ -1,14 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(feature = "proofs")]
 mod zero;
 
+#[cfg(feature = "proofs")]
+pub use zero::zero_piece_commitment;
+
 use cid::Cid;
-use commcid::cid_to_piece_commitment_v1;
 use encoding::tuple::*;
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
-pub use zero::zero_piece_commitment;
 
 /// Size of a piece in bytes
 #[derive(PartialEq, Debug, Eq, Clone, Copy)]
@@ -69,17 +70,22 @@ pub struct PieceInfo {
     pub cid: Cid,
 }
 
+#[cfg(feature = "proofs")]
+use std::convert::TryFrom;
+
+#[cfg(feature = "proofs")]
 impl TryFrom<&PieceInfo> for filecoin_proofs_api::PieceInfo {
     type Error = &'static str;
 
     fn try_from(p: &PieceInfo) -> Result<Self, Self::Error> {
         Ok(Self {
-            commitment: cid_to_piece_commitment_v1(&p.cid)?,
+            commitment: commcid::cid_to_piece_commitment_v1(&p.cid)?,
             size: p.size.unpadded().into(),
         })
     }
 }
 
+#[cfg(feature = "proofs")]
 impl From<UnpaddedPieceSize> for filecoin_proofs_api::UnpaddedBytesAmount {
     fn from(p: UnpaddedPieceSize) -> Self {
         Self(p.0)

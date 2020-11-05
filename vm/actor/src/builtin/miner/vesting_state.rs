@@ -1,9 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{QuantSpec, VestSpec};
+use super::VestSpec;
 use clock::ChainEpoch;
 use encoding::tuple::*;
+use fil_types::deadlines::QuantSpec;
 use num_bigint::{bigint_ser, Integer};
 use num_traits::Zero;
 use std::{cmp::Ordering, collections::HashMap};

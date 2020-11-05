@@ -16,7 +16,7 @@ ipld_blockstore = { path = "../../ipld/blockstore" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 forest_encoding = { path = "../../encoding" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-crypto = { package = "forest_crypto", path = "../../crypto" } 
+crypto = { package = "forest_crypto", path = "../../crypto" }
 num-traits = "0.2.11"
 byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }
