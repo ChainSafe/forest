@@ -333,7 +333,6 @@ where
                                 } else {
                                     self.bitswap_response_channels.insert(cid, vec![response_channel]);
                                 }
-                                debug!("");
                             }
                         }
                     }
@@ -410,6 +409,3 @@ pub fn get_keypair(path: &str) -> Option<Keypair> {
         },
     }
 }
-
-#[cfg(test)]
-mod tests {}
