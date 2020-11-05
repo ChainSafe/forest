@@ -120,7 +120,11 @@ where
         &self,
         content: Cid,
     ) -> Result<TMessage, String> {
-        // TODO: check to see if we have it in our database
+        // Check if what we are fetching over Bitswap already exists in the
+        // database. If it does, return it, else fetch over the network.
+        if let Some(b) = self.db.get(&content).map_err(|e| e.to_string())? {
+            return Ok(b);
+        }
         let (tx, rx) = oneshot_channel();
         self.network_send
             .send(NetworkMessage::BitswapRequest {
@@ -137,8 +141,8 @@ where
                     Err(e) => Err(format!("Bitswap response successful for: {:?}, but can't retreive it from the database: {}", content, e.to_string())),
                 }
             }
-            Err(e) => {
-               Err(format!("Bitswap get for {:?} timed out: {}", content, e.to_string()))
+            Err(_e) => {
+               Err(format!("Bitswap get for {:?} timed out", content))
             }
             Ok(Err(e)) => {
                 Err(format!("Bitswap get for {:?} failed: {}", content, e.to_string()))
