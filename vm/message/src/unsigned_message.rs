@@ -252,7 +252,7 @@ pub mod json {
         gas_premium: String,
         #[serde(rename = "Method")]
         method_num: u64,
-        params: String,
+        params: Option<String>,
     }
 
     pub fn serialize<S>(m: &UnsignedMessage, serializer: S) -> Result<S::Ok, S::Error>
@@ -269,7 +269,7 @@ pub mod json {
             gas_fee_cap: m.gas_fee_cap.to_string(),
             gas_premium: m.gas_premium.to_string(),
             method_num: m.method_num,
-            params: base64::encode(m.params.bytes()),
+            params: Some(base64::encode(m.params.bytes())),
         }
         .serialize(serializer)
     }
@@ -289,7 +289,10 @@ pub mod json {
             gas_fee_cap: m.gas_fee_cap.parse().map_err(de::Error::custom)?,
             gas_premium: m.gas_premium.parse().map_err(de::Error::custom)?,
             method_num: m.method_num,
-            params: Serialized::new(base64::decode(&m.params).map_err(de::Error::custom)?),
+            params: Serialized::new(
+                base64::decode(&m.params.unwrap_or_else(|| "".to_string()))
+                    .map_err(de::Error::custom)?,
+            ),
         })
     }
 
