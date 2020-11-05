@@ -16,7 +16,7 @@ libsecp256k1 = "0.3.4"
 rand = "0.7.3"
 encoding = { package = "forest_encoding", path = "../encoding", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
-base64 = { version = "0.12.1", optional = true }
+base64 = { version = "0.13", optional = true }
 serde_json = "1.0.57"
 log = "0.4.8"
 

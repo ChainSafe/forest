@@ -39,7 +39,7 @@ db = { path = "../../node/db/", optional = true }
 address = { package = "forest_address", path = "../../vm/address", features = [
     "json"
 ], optional = true }
-base64 = { version = "0.12.1", optional = true }
+base64 = { version = "0.13", optional = true }
 runtime = { path = "../../vm/runtime/", optional = true }
 state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true }
