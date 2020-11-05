@@ -2273,7 +2273,7 @@ version = "0.1.1"
 dependencies = [
  "forest_json_utils",
  "integer-encoding",
- "multibase",
+ "multibase 0.9.0",
  "multihash 0.10.1",
  "serde",
  "serde_bytes",
@@ -2325,7 +2325,7 @@ dependencies = [
  "forest_encoding",
  "indexmap",
  "ipld_blockstore",
- "multibase",
+ "multibase 0.9.0",
  "serde",
  "serde_json",
  "thiserror",
@@ -3071,9 +3071,9 @@ dependencies = [
 
 [[package]]
 name = "integer-encoding"
-version = "1.1.5"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f4ebd0bd29be0f11973e9b3e219005661042a019fd757798c36a47c87852625"
+checksum = "1ddae3dfefb8ba2cb7c2bab20594847cea19f0cd0f28d57a4e79a12ddcfa9940"
 
 [[package]]
 name = "interpreter"
@@ -3990,6 +3990,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "multibase"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cdffa0234be468d0598066308d42867e6b846103964f214aab88e8531546f46"
+dependencies = [
+ "base-x",
+ "data-encoding",
+ "data-encoding-macro",
+]
+
+[[package]]
 name = "multihash"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4053,7 +4064,7 @@ dependencies = [
  "num-rational 0.2.4",
  "num-traits 0.2.14",
  "rand 0.7.3",
- "rand_distr",
+ "rand_distr 0.2.2",
  "typenum",
 ]
 
@@ -4940,6 +4951,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_distr"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9e9532ada3929fb8b2e9dbe28d1e06c9b2cc65813f074fcb6bd5fbefeff9d56"
+dependencies = [
+ "num-traits 0.2.14",
+ "rand 0.7.3",
+]
+
+[[package]]
 name = "rand_hc"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5156,7 +5177,7 @@ dependencies = [
  "message_pool",
  "num-traits 0.2.14",
  "rand 0.7.3",
- "rand_distr",
+ "rand_distr 0.3.0",
  "serde",
  "serde_json",
  "state_manager",
@@ -6311,7 +6332,7 @@ version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8db0f10795d9047653976779741a9f5b763a87aadc7bf0c80be5a2361ecc7a9"
 dependencies = [
- "multibase",
+ "multibase 0.8.0",
  "tiny-multihash",
  "unsigned-varint 0.5.1",
 ]
