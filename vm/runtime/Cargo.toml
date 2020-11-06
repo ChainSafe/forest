@@ -13,8 +13,8 @@ ipld_blockstore = { path = "../../ipld/blockstore" }
 clock = { path = "../../node/clock" }
 forest_encoding = { path = "../../encoding" }
 commcid = { path = "../../utils/commcid" }
-filecoin-proofs-api = "5.2"
-base64 = "0.12.1"
+filecoin-proofs-api = { version = "5.3", features = ["blst"], default_features = false }
+base64 = "0.13"
 fil_types = { path = "../../types", features = ["proofs"] }
 log = "0.4.8"
 

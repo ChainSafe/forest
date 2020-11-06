@@ -2,7 +2,7 @@ SER_TESTS = "tests/serialization_tests"
 CONF_TESTS = "tests/conformance_tests"
 
 install:
-	cargo install --path forest --force
+	cargo install --locked --path forest --force
 
 clean-all:
 	cargo clean
