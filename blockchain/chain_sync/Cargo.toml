@@ -42,7 +42,7 @@ interpreter = { path = "../../vm/interpreter/" }
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
-base64 = "0.12.1"
+base64 = "0.13"
 genesis = { path = "../../utils/genesis", features = ["testing"] }
 pretty_env_logger = "0.4.0"
 forest_car = { path = "../../ipld/car" }
