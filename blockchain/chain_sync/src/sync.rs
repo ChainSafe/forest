@@ -198,7 +198,14 @@ where
                     Some(NetworkEvent::PubsubMessage { source, message }) => {
                         match message {
                             forest_libp2p::PubsubMessage::Block(b) => {
-                                info!("Received block over GossipSub: {} from {}", b.header.epoch(), source.clone().unwrap());
+                                let source = match source.clone() {
+                                    Some(source) => source,
+                                    None => {
+                                        warn!("Got a GossipBlock with no Source sender. This should not happen based on Filecoin's GossipSub options");
+                                        continue;
+                                    }
+                                };
+                                info!("Received block over GossipSub: {} from {}", b.header.epoch(), source);
                                 // Get bls_messages in the store or over Bitswap
                                 let bmsgs: Vec<_> = b.bls_messages.into_iter().map(|m| self.network.bitswap_get::<UnsignedMessage>(m)).collect();
                                 let bmsgs = try_join_all(bmsgs).await;
@@ -220,8 +227,8 @@ where
                                     secp_messages: smsgs.unwrap(),
                                 };
                                 let ts = FullTipset::new(vec![block]).unwrap();
-                                if let Err(e) = self.inform_new_head(source.clone().unwrap(), &ts).await {
-                                    warn!("failed to inform new head from peer {}", source.unwrap());
+                                if let Err(e) = self.inform_new_head(source.clone(), &ts).await {
+                                    warn!("failed to inform new head from peer {}", source);
                                 }
                             }
                             // ignore pubsub messages because they get handled in the service
