@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-rocksdb = { version = "0.14.0", optional = true }
+rocksdb = { version = "0.15.0", optional = true }
 parking_lot = "0.11"
 encoding = { package = "forest_encoding", path = "../../encoding" }
 thiserror = "1.0"
