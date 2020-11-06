@@ -19,11 +19,12 @@ use cid::{multihash::Blake2b256, Cid};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
+use futures::future::try_join_all;
 use futures::select;
 use futures::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use message::{SignedMessage, UnsignedMessage};
 use state_manager::StateManager;
 use std::marker::PhantomData;
@@ -72,7 +73,7 @@ pub struct ChainSyncer<DB, TBeacon, V> {
     chain_store: Arc<ChainStore<DB>>,
 
     /// Context to be able to send requests to p2p network
-    network: SyncNetworkContext,
+    network: SyncNetworkContext<DB>,
 
     /// the known genesis tipset
     genesis: Arc<Tipset>,
@@ -102,7 +103,8 @@ where
         network_rx: Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
     ) -> Result<Self, Error> {
-        let network = SyncNetworkContext::new(network_send, Default::default());
+        let network =
+            SyncNetworkContext::new(network_send, Default::default(), chain_store.db.clone());
 
         Ok(Self {
             state: ChainSyncState::Bootstrap,
@@ -193,6 +195,47 @@ where
                             )
                             .await
                     }
+                    Some(NetworkEvent::PubsubMessage { source, message }) => {
+                        match message {
+                            forest_libp2p::PubsubMessage::Block(b) => {
+                                let source = match source.clone() {
+                                    Some(source) => source,
+                                    None => {
+                                        warn!("Got a GossipBlock with no Source sender. This should not happen based on Filecoin's GossipSub options");
+                                        continue;
+                                    }
+                                };
+                                info!("Received block over GossipSub: {} from {}", b.header.epoch(), source);
+                                // Get bls_messages in the store or over Bitswap
+                                let bmsgs: Vec<_> = b.bls_messages.into_iter().map(|m| self.network.bitswap_get::<UnsignedMessage>(m)).collect();
+                                let bmsgs = try_join_all(bmsgs).await;
+                                if let Err(e) = &bmsgs {
+                                    warn!("Failed to get UnsignedMessage: {}", e);
+                                    continue;
+                                }
+                                // Get secp_messages in the store or over Bitswap
+                                let smsgs: Vec<_> = b.secpk_messages.into_iter().map(|m| self.network.bitswap_get::<SignedMessage>(m)).collect();
+                                let smsgs = try_join_all(smsgs).await;
+                                if let Err(e) = &smsgs {
+                                    warn!("Failed to get SignedMessage: {}", e);
+                                    continue;
+                                }
+                                // Form block
+                                let block = Block {
+                                    header: b.header,
+                                    bls_messages: bmsgs.unwrap(),
+                                    secp_messages: smsgs.unwrap(),
+                                };
+                                let ts = FullTipset::new(vec![block]).unwrap();
+                                if let Err(e) = self.inform_new_head(source.clone(), &ts).await {
+                                    warn!("failed to inform new head from peer {}", source);
+                                }
+                            }
+                            // ignore pubsub messages because they get handled in the service
+                            // and get added into the mempool
+                            _ => ()
+                        }
+                    }
                     // All other network events are being ignored currently
                     _ => (),
                     None => break,
@@ -213,7 +256,7 @@ where
     /// to inform of the new head.
     async fn fetch_and_inform_tipset(
         cs: Arc<ChainStore<DB>>,
-        network: SyncNetworkContext,
+        network: SyncNetworkContext<DB>,
         peer_id: PeerId,
         tsk: TipsetKeys,
         channel: Sender<(PeerId, FullTipset)>,
@@ -374,7 +417,7 @@ where
     /// `FullTipset` from block sync
     async fn fetch_full_tipset(
         cs: &ChainStore<DB>,
-        network: &SyncNetworkContext,
+        network: &SyncNetworkContext<DB>,
         peer_id: PeerId,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {

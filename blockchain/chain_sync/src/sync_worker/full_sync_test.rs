@@ -41,7 +41,7 @@ async fn space_race_full_sync() {
     let db = Arc::new(MemoryDB::default());
 
     let mut chain_store = ChainStore::new(db.clone());
-    let state_manager = Arc::new(StateManager::new(db));
+    let state_manager = Arc::new(StateManager::new(db.clone()));
 
     let (network_send, network_recv) = channel(20);
 
@@ -62,7 +62,7 @@ async fn space_race_full_sync() {
     let peer = PeerId::random();
     let peer_manager = PeerManager::default();
     peer_manager.update_peer_head(peer, None).await;
-    let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager));
+    let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager), db);
 
     let provider_db = MemoryDB::default();
     let cids: Vec<Cid> = load_car(&provider_db, EXPORT_SR_40.as_ref()).unwrap();

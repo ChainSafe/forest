@@ -55,7 +55,7 @@ pub(crate) struct SyncWorker<DB, TBeacon, V> {
     pub chain_store: Arc<ChainStore<DB>>,
 
     /// Context to be able to send requests to p2p network.
-    pub network: SyncNetworkContext,
+    pub network: SyncNetworkContext<DB>,
 
     /// The known genesis tipset.
     pub genesis: Arc<Tipset>,
@@ -1035,9 +1035,9 @@ mod tests {
             SyncWorker {
                 state: Default::default(),
                 beacon,
-                state_manager: Arc::new(StateManager::new(db)),
+                state_manager: Arc::new(StateManager::new(db.clone())),
                 chain_store,
-                network: SyncNetworkContext::new(local_sender, Default::default()),
+                network: SyncNetworkContext::new(local_sender, Default::default(), db),
                 genesis: genesis_ts,
                 bad_blocks: Default::default(),
                 verifier: Default::default(),

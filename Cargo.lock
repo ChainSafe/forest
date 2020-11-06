@@ -3456,8 +3456,7 @@ dependencies = [
 [[package]]
 name = "libp2p-bitswap"
 version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c62ec0af0cf8e8bb1cf125bc35155696a3d174c54a88426b759206954d8f4f80"
+source = "git+https://github.com/ChainSafe/libp2p-bitswap?rev=bd7e083cc5d9ad13bb357e0e0055338c33b18173#bd7e083cc5d9ad13bb357e0e0055338c33b18173"
 dependencies = [
  "async-std",
  "fnv",
