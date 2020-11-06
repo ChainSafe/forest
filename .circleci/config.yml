@@ -232,7 +232,8 @@ jobs:
           command: |
             export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Coverflow-checks=off"
             RUST_BACKTRACE=1 cargo build --verbose $CARGO_OPTIONS
-            RUST_BACKTRACE=1 cargo test --verbose $CARGO_OPTIONS
+            sudo make test-vectors
+            make test-all
       - run:
           name: Upload to codecov
           command: |
@@ -243,14 +244,19 @@ jobs:
     executor: test-executor
     description: Publish documentation to GitHub pages
     steps:
-      - build_setup
-      - restore_cargo_package_cache
-      - run:
-          name: Build Docs
-          command: cargo doc --no-deps --all-features
-      - run:
-          name: Publish Docs
-          command: bash ./scripts/build-rust-docs.sh
+      - checkout
+      - when:
+          condition:
+            equal: [ main, << pipeline.git.branch >> ]
+          steps:
+            - build_setup
+            - restore_cargo_package_cache  
+            - run:
+                name: Build Docs
+                command: cargo doc --no-deps --all-features
+            - run:
+                name: Publish Docs
+                command: bash ./scripts/build-rust-docs.sh
 
 ######################################################################################################################
   #  Security audit
@@ -296,6 +302,10 @@ workflows:
   docs:
     jobs:
       - publish-docs
+        filters:
+          branches:
+            only:
+              - main
   coverage:
     jobs:
       - coverage
