@@ -19,6 +19,7 @@ use cid::{multihash::Blake2b256, Cid};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
+use futures::future::try_join_all;
 use futures::select;
 use futures::stream::StreamExt;
 use ipld_blockstore::BlockStore;
@@ -199,22 +200,24 @@ where
                             forest_libp2p::PubsubMessage::Block(b) => {
                                 info!("Received block over GossipSub: {} from {}", b.header.epoch(), source.clone().unwrap());
                                 // Get bls_messages in the store or over Bitswap
-                                let mut bmsgs: Vec<UnsignedMessage> = Vec::with_capacity(b.bls_messages.len());
-                                for m in b.bls_messages.clone() {
-                                    let bmsg: UnsignedMessage = self.network.bitswap_get(m).await.unwrap();
-                                    bmsgs.push(bmsg);
+                                let bmsgs: Vec<_> = b.bls_messages.into_iter().map(|m| self.network.bitswap_get::<UnsignedMessage>(m)).collect();
+                                let bmsgs = try_join_all(bmsgs).await;
+                                if let Err(e) = &bmsgs {
+                                    warn!("Failed to get UnsignedMessage: {}", e);
+                                    ()
                                 }
                                 // Get secp_messages in the store or over Bitswap
-                                let mut smsgs: Vec<SignedMessage> = Vec::with_capacity(b.secpk_messages.len());
-                                for m in b.secpk_messages.clone() {
-                                    let smsg: SignedMessage = self.network.bitswap_get(m).await.unwrap();
-                                    smsgs.push(smsg);
+                                let smsgs: Vec<_> = b.secpk_messages.into_iter().map(|m| self.network.bitswap_get::<SignedMessage>(m)).collect();
+                                let smsgs = try_join_all(smsgs).await;
+                                if let Err(e) = &smsgs {
+                                    warn!("Failed to get SignedMessage: {}", e);
+                                    ()
                                 }
                                 // Form block
                                 let block = Block {
                                     header: b.header,
-                                    bls_messages: bmsgs,
-                                    secp_messages: smsgs,
+                                    bls_messages: bmsgs.unwrap(),
+                                    secp_messages: smsgs.unwrap(),
                                 };
                                 let ts = FullTipset::new(vec![block]).unwrap();
                                 if let Err(e) = self.inform_new_head(source.clone().unwrap(), &ts).await {
