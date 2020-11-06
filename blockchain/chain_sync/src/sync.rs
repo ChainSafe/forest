@@ -204,14 +204,14 @@ where
                                 let bmsgs = try_join_all(bmsgs).await;
                                 if let Err(e) = &bmsgs {
                                     warn!("Failed to get UnsignedMessage: {}", e);
-                                    ()
+                                    continue;
                                 }
                                 // Get secp_messages in the store or over Bitswap
                                 let smsgs: Vec<_> = b.secpk_messages.into_iter().map(|m| self.network.bitswap_get::<SignedMessage>(m)).collect();
                                 let smsgs = try_join_all(smsgs).await;
                                 if let Err(e) = &smsgs {
                                     warn!("Failed to get SignedMessage: {}", e);
-                                    ()
+                                    continue;
                                 }
                                 // Form block
                                 let block = Block {

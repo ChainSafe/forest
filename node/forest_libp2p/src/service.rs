@@ -268,7 +268,7 @@ where
                             };
                         }
                         ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {
-                            let res: Result<_, String> = self.db.put_raw(block.to_vec(), Blake2b256).map_err(|e| e.to_string());
+                            let res: Result<_, String> = self.db.put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
                             match res {
                                 Ok(actual_cid) => {
                                     if actual_cid != cid {

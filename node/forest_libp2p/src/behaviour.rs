@@ -300,7 +300,6 @@ impl ForestBehaviour {
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig {
-            // TODO revisit validation (permissive validation allows unsigned messages)
             validation_mode: ValidationMode::Strict,
             // Using go gossipsub default, not certain this is intended
             max_transmit_size: 1 << 20,
