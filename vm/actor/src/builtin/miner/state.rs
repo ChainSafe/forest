@@ -200,7 +200,7 @@ impl State {
         Ok(())
     }
 
-    pub fn mask_sector_number<BS: BlockStore>(
+    pub fn mask_sector_numbers<BS: BlockStore>(
         &mut self,
         store: &BS,
         sector_numbers: &BitField,
@@ -399,7 +399,7 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
         sector_size: SectorSize,
-        deadline_sectors: DeadlineSectorMap,
+        mut deadline_sectors: DeadlineSectorMap,
     ) -> Result<(), Box<dyn StdError>> {
         let mut deadlines = self.load_deadlines(store)?;
         let sectors = Sectors::load(store, &self.sectors)?;

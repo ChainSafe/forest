@@ -5,6 +5,8 @@ use super::peer_manager::PeerManager;
 use async_std::future;
 use async_std::sync::Sender;
 use blocks::{FullTipset, Tipset, TipsetKeys};
+use cid::Cid;
+use encoding::de::DeserializeOwned;
 use forest_libp2p::{
     blocksync::{
         BlockSyncRequest, BlockSyncResponse, CompactedMessages, TipsetBundle, BLOCKS, MESSAGES,
@@ -13,6 +15,7 @@ use forest_libp2p::{
     NetworkMessage,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
+use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{trace, warn};
 use std::convert::TryFrom;
@@ -23,20 +26,38 @@ use std::time::{Duration, SystemTime};
 const RPC_TIMEOUT: u64 = 20;
 
 /// Context used in chain sync to handle network requests
-#[derive(Clone)]
-pub struct SyncNetworkContext {
+pub struct SyncNetworkContext<DB> {
     /// Channel to send network messages through p2p service
     network_send: Sender<NetworkMessage>,
 
     /// Manages peers to send requests to and updates request stats for the respective peers.
     peer_manager: Arc<PeerManager>,
+    db: Arc<DB>,
 }
 
-impl SyncNetworkContext {
-    pub fn new(network_send: Sender<NetworkMessage>, peer_manager: Arc<PeerManager>) -> Self {
+impl<DB> Clone for SyncNetworkContext<DB> {
+    fn clone(&self) -> Self {
+        Self {
+            network_send: self.network_send.clone(),
+            peer_manager: self.peer_manager.clone(),
+            db: self.db.clone(),
+        }
+    }
+}
+
+impl<DB> SyncNetworkContext<DB>
+where
+    DB: BlockStore + Sync + Send + 'static,
+{
+    pub fn new(
+        network_send: Sender<NetworkMessage>,
+        peer_manager: Arc<PeerManager>,
+        db: Arc<DB>,
+    ) -> Self {
         Self {
             network_send,
             peer_manager,
+            db,
         }
     }
 
@@ -91,6 +112,42 @@ impl SyncNetworkContext {
             ));
         }
         Ok(fts.remove(0))
+    }
+
+    /// Requests that some content with a particular Cid get fetched over Bitswap if it doesn't
+    /// exist in the BlockStore.
+    pub async fn bitswap_get<TMessage: DeserializeOwned>(
+        &self,
+        content: Cid,
+    ) -> Result<TMessage, String> {
+        // Check if what we are fetching over Bitswap already exists in the
+        // database. If it does, return it, else fetch over the network.
+        if let Some(b) = self.db.get(&content).map_err(|e| e.to_string())? {
+            return Ok(b);
+        }
+        let (tx, rx) = oneshot_channel();
+        self.network_send
+            .send(NetworkMessage::BitswapRequest {
+                cid: content.clone(),
+                response_channel: tx,
+            })
+            .await;
+        let res = future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
+        match res {
+            Ok(Ok(())) => {
+                match self.db.get(&content) {
+                    Ok(Some(b)) => Ok(b),
+                    Ok(None) => Err(format!("Bitswap response successful for: {:?}, but can't find it in the database", content)),
+                    Err(e) => Err(format!("Bitswap response successful for: {:?}, but can't retreive it from the database: {}", content, e.to_string())),
+                }
+            }
+            Err(_e) => {
+               Err(format!("Bitswap get for {:?} timed out", content))
+            }
+            Ok(Err(e)) => {
+                Err(format!("Bitswap get for {:?} failed: {}", content, e.to_string()))
+            }
+        }
     }
 
     /// Helper function to handle the peer retrieval if no peer supplied as well as the logging

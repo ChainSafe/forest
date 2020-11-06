@@ -3,7 +3,6 @@
 
 use super::SectorOnChainInfo;
 use crate::{actor_error, ActorDowncast, ActorError, ExitCode};
-use bitfield::BitField;
 use cid::Cid;
 use fil_types::{SectorNumber, MAX_SECTOR_NUMBER};
 use ipld_amt::{Amt, Error as AmtError};
@@ -21,10 +20,21 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
         })
     }
 
-    pub fn load_sector(
+    pub fn load_sector<'a>(
         &self,
-        sector_numbers: &BitField,
+        sector_numbers: impl bitfield::Validate<'a>,
     ) -> Result<Vec<SectorOnChainInfo>, ActorError> {
+        let sector_numbers = match sector_numbers.validate() {
+            Ok(sector_numbers) => sector_numbers,
+            Err(e) => {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "failed to load sectors: {}",
+                    e
+                ))
+            }
+        };
+
         let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
         for sector_number in sector_numbers.iter() {
             let sector_on_chain = self

@@ -6,7 +6,7 @@ use super::{
     ExpirationSet, SectorOnChainInfo, Sectors, TerminationResult,
 };
 use crate::{actor_error, ActorDowncast};
-use bitfield::BitField;
+use bitfield::{BitField, UnvalidatedBitField, Validate};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::tuple::*;
@@ -161,13 +161,17 @@ impl Partition {
         &mut self,
         store: &BS,
         sectors: &Sectors<'_, BS>,
-        sector_numbers: &BitField,
+        sector_numbers: &mut UnvalidatedBitField,
         fault_expiration_epoch: ChainEpoch,
         sector_size: SectorSize,
         quant: QuantSpec,
     ) -> Result<(BitField, PowerPair), Box<dyn StdError>> {
         validate_partition_contains_sectors(&self, sector_numbers)
             .map_err(|e| actor_error!(ErrIllegalArgument; "failed fault declaration: {}", e))?;
+
+        let sector_numbers = sector_numbers
+            .validate()
+            .map_err(|e| format!("failed to intersect sectors with recoveries: {}", e))?;
 
         // Split declarations into declarations of new faults, and retraction of declared recoveries.
         let retracted_recoveries = &self.recoveries & sector_numbers;
@@ -244,11 +248,15 @@ impl Partition {
         &mut self,
         sectors: &Sectors<'_, BS>,
         sector_size: SectorSize,
-        sector_numbers: &BitField,
-    ) -> Result<(), ActorError> {
+        sector_numbers: &mut UnvalidatedBitField,
+    ) -> Result<(), Box<dyn StdError>> {
         // Check that the declared sectors are actually assigned to the partition.
         validate_partition_contains_sectors(self, sector_numbers)
             .map_err(|e| actor_error!(ErrIllegalArgument; "failed fault declaration: {}", e))?;
+
+        let sector_numbers = sector_numbers
+            .validate()
+            .map_err(|e| format!("failed to validate recoveries: {}", e))?;
 
         // Ignore sectors not faulty or already declared recovered
         let mut recoveries = sector_numbers & &self.faults;
@@ -296,12 +304,14 @@ impl Partition {
         store: &BS,
         sectors: &Sectors<'_, BS>,
         new_expiration: ChainEpoch,
-        sector_numbers: &BitField,
+        sector_numbers: &mut UnvalidatedBitField,
         sector_size: SectorSize,
         quant: QuantSpec,
     ) -> Result<BitField, Box<dyn StdError>> {
+        let sector_numbers = sector_numbers.validate()?;
+
         // Ensure these sectors actually belong to this partition.
-        let present = sector_numbers & &self.sectors;
+        let present = &*sector_numbers & &self.sectors;
 
         // Filter out terminated sectors.
         let live = &present - &self.terminated;
@@ -396,11 +406,19 @@ impl Partition {
         store: &BS,
         sectors: &Sectors<'_, BS>,
         epoch: ChainEpoch,
-        sector_numbers: &BitField,
+        sector_numbers: &mut UnvalidatedBitField,
         sector_size: SectorSize,
         quant: QuantSpec,
     ) -> Result<ExpirationSet, Box<dyn StdError>> {
         let live_sectors = self.live_sectors();
+        let sector_numbers = sector_numbers.validate().map_err(|e| {
+            actor_error!(
+                ErrIllegalArgument,
+                "failed to validate terminating sectors: {}",
+                e
+            )
+        })?;
+
         if live_sectors.contains_all(sector_numbers) {
             return Err(actor_error!(ErrIllegalArgument; "can only terminate live sectors").into());
         }
@@ -599,14 +617,22 @@ impl Partition {
         sector_size: SectorSize,
         quant: QuantSpec,
         fault_expiration: ChainEpoch,
-        skipped: &BitField,
+        skipped: &mut UnvalidatedBitField,
     ) -> Result<(PowerPair, PowerPair), ActorError> {
+        let skipped = skipped.validate().map_err(|e| {
+            actor_error!(
+                ErrIllegalArgument,
+                "failed to validate skipped sectors: {}",
+                e
+            )
+        })?;
+
         if skipped.is_empty() {
             return Ok((PowerPair::zero(), PowerPair::zero()));
         }
 
         // Check that the declared sectors are actually in the partition.
-        if !self.sectors.contains_all(skipped) {
+        if !self.sectors.contains_all(&skipped) {
             return Err(
                 actor_error!(ErrIllegalArgument; "skipped faults contains sectors outside partition"),
             );
@@ -620,7 +646,7 @@ impl Partition {
         let retracted_recovery_power = power_for_sectors(sector_size, &retracted_recovery_sectors);
 
         // Ignore skipped faults that are already faults or terminated.
-        let new_faults = &(skipped - &self.terminated) - &self.faults;
+        let new_faults = &(&*skipped - &self.terminated) - &self.faults;
         let new_fault_sectors = sectors
             .load_sector(&new_faults)
             .map_err(|e| e.wrap("failed to load sectors"))?;

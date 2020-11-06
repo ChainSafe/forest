@@ -300,8 +300,7 @@ impl ForestBehaviour {
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig {
-            // TODO revisit validation (permissive validation allows unsigned messages)
-            validation_mode: ValidationMode::Permissive,
+            validation_mode: ValidationMode::Strict,
             // Using go gossipsub default, not certain this is intended
             max_transmit_size: 1 << 20,
             ..Default::default()
@@ -315,7 +314,7 @@ impl ForestBehaviour {
         let network = format!("/fil/kad/{}/kad/1.0.0", network_name);
         kad_config.set_protocol_name(network.as_bytes().to_vec());
         let kademlia_opt = if config.kademlia {
-            let mut kademlia = Kademlia::with_config(local_peer_id.to_owned(), store, kad_config);
+            let mut kademlia = Kademlia::with_config(local_peer_id, store, kad_config);
             for multiaddr in config.bootstrap_peers.iter() {
                 let mut addr = multiaddr.to_owned();
                 if let Some(Protocol::P2p(mh)) = addr.pop() {
@@ -348,7 +347,10 @@ impl ForestBehaviour {
         req_res_config.set_connection_keep_alive(Duration::from_secs(20));
 
         ForestBehaviour {
-            gossipsub: Gossipsub::new(MessageAuthenticity::Author(local_peer_id), gossipsub_config),
+            gossipsub: Gossipsub::new(
+                MessageAuthenticity::Signed(local_key.clone()),
+                gossipsub_config,
+            ),
             mdns: mdns_opt.into(),
             ping: Ping::default(),
             identify: Identify::new(

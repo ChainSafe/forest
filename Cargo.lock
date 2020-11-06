@@ -14,8 +14,8 @@ dependencies = [
 name = "actor"
 version = "0.1.0"
 dependencies = [
- "ahash 0.4.6",
- "base64 0.12.3",
+ "ahash 0.5.6",
+ "base64 0.13.0",
  "bitfield",
  "byteorder 1.3.4",
  "clock",
@@ -161,6 +161,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "aesni"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea2e11f5e94c2f7d386164cc2aa1f97823fed6f259e486940a71c174dd01b0ce"
+dependencies = [
+ "cipher",
+ "opaque-debug 0.3.0",
+]
+
+[[package]]
 name = "ahash"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -171,8 +181,15 @@ name = "ahash"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6789e291be47ace86a60303502173d84af8327e3627ecf334356ee0f87a164c"
+
+[[package]]
+name = "ahash"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2deff5792519f5985c9cdd5a0399df3ca3419114841d282bae646acadbf0a99"
 dependencies = [
- "const-random",
+ "getrandom 0.2.0",
+ "lazy_static",
 ]
 
 [[package]]
@@ -534,10 +551,10 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 name = "beacon"
 version = "0.1.0"
 dependencies = [
- "ahash 0.4.6",
+ "ahash 0.5.6",
  "async-std",
  "async-trait",
- "base64 0.12.3",
+ "base64 0.13.0",
  "bls-signatures",
  "byteorder 1.3.4",
  "clock",
@@ -559,6 +576,7 @@ dependencies = [
  "ahash 0.5.6",
  "bit-vec",
  "blake2s_simd",
+ "blstrs",
  "byteorder 1.3.4",
  "crossbeam-channel 0.5.0",
  "ff-cl-gen",
@@ -621,7 +639,7 @@ checksum = "5f0dc55f2d8a1a85650ac47858bb001b4c0dd73d79e3c455a842925e68d29cd3"
 name = "bitfield"
 version = "0.1.0"
 dependencies = [
- "ahash 0.4.6",
+ "ahash 0.5.6",
  "criterion",
  "forest_encoding",
  "rand 0.7.3",
@@ -777,6 +795,30 @@ dependencies = [
  "rayon",
  "sha2ni",
  "thiserror",
+]
+
+[[package]]
+name = "blst"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ce0ad2fe12998eb01f41b8ba29e697927b26b5ce04b60856bd8254658ba0fbb"
+dependencies = [
+ "cc",
+ "glob",
+ "threadpool",
+]
+
+[[package]]
+name = "blstrs"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a4284735e22f7104c7983d95ad876aa1447c7be815080190ff32ba169c9fca0"
+dependencies = [
+ "blst",
+ "fff",
+ "groupy",
+ "rand_core 0.5.1",
+ "serde",
 ]
 
 [[package]]
@@ -946,7 +988,7 @@ version = "0.1.0"
 dependencies = [
  "actor",
  "async-std",
- "base64 0.12.3",
+ "base64 0.13.0",
  "beacon",
  "chain",
  "clock",
@@ -1116,7 +1158,7 @@ version = "0.1.0"
 dependencies = [
  "actor",
  "async-std",
- "base64 0.12.3",
+ "base64 0.13.0",
  "chain",
  "chain_sync",
  "clock",
@@ -1162,26 +1204,6 @@ dependencies = [
  "unicode-width",
  "winapi 0.3.9",
  "winapi-util",
-]
-
-[[package]]
-name = "const-random"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02dc82c12dc2ee6e1ded861cf7d582b46f66f796d1b6c93fa28b911ead95da02"
-dependencies = [
- "const-random-macro",
- "proc-macro-hack",
-]
-
-[[package]]
-name = "const-random-macro"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc757bbb9544aa296c2ae00c679e81f886b37e28e59097defe0cf524306f6685"
-dependencies = [
- "getrandom 0.2.0",
- "proc-macro-hack",
 ]
 
 [[package]]
@@ -1983,7 +2005,7 @@ name = "fil_types"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "base64 0.12.3",
+ "base64 0.13.0",
  "chrono",
  "clock",
  "commcid",
@@ -2209,7 +2231,7 @@ dependencies = [
 name = "forest_blocks"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "beacon",
  "byteorder 1.3.4",
  "clock",
@@ -2251,7 +2273,7 @@ version = "0.1.1"
 dependencies = [
  "forest_json_utils",
  "integer-encoding",
- "multibase",
+ "multibase 0.9.0",
  "multihash 0.10.1",
  "serde",
  "serde_bytes",
@@ -2264,7 +2286,7 @@ dependencies = [
 name = "forest_crypto"
 version = "0.3.1"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "bls-signatures",
  "forest_address",
  "forest_encoding",
@@ -2303,7 +2325,7 @@ dependencies = [
  "forest_encoding",
  "indexmap",
  "ipld_blockstore",
- "multibase",
+ "multibase 0.9.0",
  "serde",
  "serde_json",
  "thiserror",
@@ -2356,7 +2378,7 @@ dependencies = [
 name = "forest_message"
 version = "0.5.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "derive_builder",
  "fil_types",
  "forest_address",
@@ -3049,16 +3071,16 @@ dependencies = [
 
 [[package]]
 name = "integer-encoding"
-version = "1.1.5"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f4ebd0bd29be0f11973e9b3e219005661042a019fd757798c36a47c87852625"
+checksum = "1ddae3dfefb8ba2cb7c2bab20594847cea19f0cd0f28d57a4e79a12ddcfa9940"
 
 [[package]]
 name = "interpreter"
 version = "0.1.0"
 dependencies = [
  "actor",
- "ahash 0.4.6",
+ "ahash 0.5.6",
  "byteorder 1.3.4",
  "chain",
  "clock",
@@ -3312,7 +3334,7 @@ dependencies = [
 name = "key_management"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "bls-signatures",
  "forest_address",
  "forest_crypto",
@@ -3434,8 +3456,7 @@ dependencies = [
 [[package]]
 name = "libp2p-bitswap"
 version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c62ec0af0cf8e8bb1cf125bc35155696a3d174c54a88426b759206954d8f4f80"
+source = "git+https://github.com/ChainSafe/libp2p-bitswap?rev=bd7e083cc5d9ad13bb357e0e0055338c33b18173#bd7e083cc5d9ad13bb357e0e0055338c33b18173"
 dependencies = [
  "async-std",
  "fnv",
@@ -3968,6 +3989,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "multibase"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cdffa0234be468d0598066308d42867e6b846103964f214aab88e8531546f46"
+dependencies = [
+ "base-x",
+ "data-encoding",
+ "data-encoding-macro",
+]
+
+[[package]]
 name = "multihash"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4031,7 +4063,7 @@ dependencies = [
  "num-rational 0.2.4",
  "num-traits 0.2.14",
  "rand 0.7.3",
- "rand_distr",
+ "rand_distr 0.2.2",
  "typenum",
 ]
 
@@ -4934,6 +4966,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_distr"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9e9532ada3929fb8b2e9dbe28d1e06c9b2cc65813f074fcb6bd5fbefeff9d56"
+dependencies = [
+ "num-traits 0.2.14",
+ "rand 0.7.3",
+]
+
+[[package]]
 name = "rand_hc"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5107,9 +5149,9 @@ dependencies = [
 
 [[package]]
 name = "rocksdb"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61aa17a99a2413cd71c1106691bf59dad7de0cd5099127f90e9d99c429c40d4a"
+checksum = "23d83c02c429044d58474eaf5ae31e062d0de894e21125b47437ec0edc1397e6"
 dependencies = [
  "libc",
  "librocksdb-sys",
@@ -5150,7 +5192,7 @@ dependencies = [
  "message_pool",
  "num-traits 0.2.14",
  "rand 0.7.3",
- "rand_distr",
+ "rand_distr 0.3.0",
  "serde",
  "serde_json",
  "state_manager",
@@ -5180,7 +5222,7 @@ dependencies = [
 name = "runtime"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "clock",
  "commcid",
  "db",
@@ -5503,7 +5545,7 @@ dependencies = [
 name = "serialization_tests"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "bls-signatures",
  "fil_types",
  "forest_address",
@@ -6190,7 +6232,7 @@ name = "test_utils"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "base64 0.12.3",
+ "base64 0.13.0",
  "chain",
  "forest_address",
  "forest_bigint",
@@ -6239,6 +6281,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d40c6d1b69745a6ec6fb1ca717914848da4b44ae29d9b3080cbee91d72a69b14"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "threadpool"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d050e60b33d41c19108b32cea32164033a9013fe3b46cbd4457559bfbf77afaa"
+dependencies = [
+ "num_cpus",
 ]
 
 [[package]]
@@ -6296,7 +6347,7 @@ version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8db0f10795d9047653976779741a9f5b763a87aadc7bf0c80be5a2361ecc7a9"
 dependencies = [
- "multibase",
+ "multibase 0.8.0",
  "tiny-multihash",
  "unsigned-varint 0.5.1",
 ]
