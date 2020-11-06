@@ -12,6 +12,7 @@ unsigned-varint = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.3"
 ahash = "0.5"
+encoding = { package = "forest_encoding", path = "../../encoding" }
 
 [dev-dependencies]
 rand_xorshift = "0.2.0"

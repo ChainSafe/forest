@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::WPOST_PERIOD_DEADLINES;
-use bitfield::BitField;
+use bitfield::{BitField, UnvalidatedBitField, Validate};
 use std::collections::HashMap;
 
 /// Maps deadlines to partition maps.
@@ -17,7 +17,7 @@ impl DeadlineSectorMap {
     /// Check validates all bitfields and counts the number of partitions & sectors
     /// contained within the map, and returns an error if they exceed the given
     /// maximums.
-    pub fn check(&self, max_partitions: u64, max_sectors: u64) -> Result<(), String> {
+    pub fn check(&mut self, max_partitions: u64, max_sectors: u64) -> Result<(), String> {
         let (partition_count, sector_count) = self
             .count()
             .map_err(|e| format!("failed to count sectors: {:?}", e))?;
@@ -40,8 +40,8 @@ impl DeadlineSectorMap {
     }
 
     /// Counts the number of partitions & sectors within the map.
-    pub fn count(&self) -> Result<(/* partitions */ u64, /* sectors */ u64), String> {
-        self.0.iter().try_fold(
+    pub fn count(&mut self) -> Result<(/* partitions */ u64, /* sectors */ u64), String> {
+        self.0.iter_mut().try_fold(
             (0_u64, 0_u64),
             |(partitions, sectors), (deadline_idx, pm)| {
                 let (partition_count, sector_count) = pm
@@ -64,7 +64,7 @@ impl DeadlineSectorMap {
         &mut self,
         deadline_idx: u64,
         partition_idx: u64,
-        sector_numbers: BitField,
+        sector_numbers: UnvalidatedBitField,
     ) -> Result<(), String> {
         if deadline_idx >= WPOST_PERIOD_DEADLINES {
             return Err(format!("invalid deadline {}", deadline_idx));
@@ -73,9 +73,7 @@ impl DeadlineSectorMap {
         self.0
             .entry(deadline_idx)
             .or_default()
-            .add(partition_idx, sector_numbers);
-
-        Ok(())
+            .add(partition_idx, sector_numbers)
     }
 
     /// Records the given sectors at the given deadline/partition index.
@@ -88,7 +86,11 @@ impl DeadlineSectorMap {
         self.add(
             deadline_idx,
             partition_idx,
-            sector_numbers.iter().map(|&i| i as usize).collect(),
+            sector_numbers
+                .iter()
+                .map(|&i| i as usize)
+                .collect::<BitField>()
+                .into(),
         )
     }
 
@@ -100,41 +102,71 @@ impl DeadlineSectorMap {
     }
 
     /// Walks the deadlines in deadline order.
-    pub fn iter(&self) -> impl Iterator<Item = (u64, &PartitionSectorMap)> + '_ {
-        self.deadlines().into_iter().map(move |i| (i, &self.0[&i]))
+    pub fn iter(&mut self) -> impl Iterator<Item = (u64, &mut PartitionSectorMap)> + '_ {
+        let mut vec: Vec<_> = self.0.iter_mut().map(|(&i, x)| (i, x)).collect();
+        vec.sort_unstable_by_key(|&(i, _)| i);
+        vec.into_iter()
     }
 }
 
 /// Maps partitions to sector bitfields.
 #[derive(Default)]
-pub struct PartitionSectorMap(HashMap<u64, BitField>);
+pub struct PartitionSectorMap(HashMap<u64, UnvalidatedBitField>);
 
 impl PartitionSectorMap {
     /// Records the given sectors at the given partition.
-    pub fn add_values(&mut self, partition_idx: u64, sector_numbers: Vec<u64>) {
+    pub fn add_values(
+        &mut self,
+        partition_idx: u64,
+        sector_numbers: Vec<u64>,
+    ) -> Result<(), String> {
         self.add(
             partition_idx,
-            sector_numbers.into_iter().map(|i| i as usize).collect(),
-        );
+            sector_numbers
+                .into_iter()
+                .map(|i| i as usize)
+                .collect::<BitField>()
+                .into(),
+        )
     }
     /// Records the given sector bitfield at the given partition index, merging
     /// it with any existing bitfields if necessary.
-    pub fn add(&mut self, partition_idx: u64, sector_numbers: BitField) {
-        self.0
-            .entry(partition_idx)
-            .and_modify(|old_sector_numbers| *old_sector_numbers |= &sector_numbers)
-            .or_insert(sector_numbers);
+    pub fn add(
+        &mut self,
+        partition_idx: u64,
+        mut sector_numbers: UnvalidatedBitField,
+    ) -> Result<(), String> {
+        match self.0.get_mut(&partition_idx) {
+            Some(old_sector_numbers) => {
+                let old = old_sector_numbers
+                    .validate_mut()
+                    .map_err(|e| format!("failed to validate sector bitfield: {}", e))?;
+                let new = sector_numbers
+                    .validate()
+                    .map_err(|e| format!("failed to validate new sector bitfield: {}", e))?;
+                *old |= new;
+            }
+            None => {
+                self.0.insert(partition_idx, sector_numbers);
+            }
+        }
+        Ok(())
     }
 
     /// Counts the number of partitions & sectors within the map.
-    pub fn count(&self) -> Result<(/* partitions */ u64, /* sectors */ u64), String> {
+    pub fn count(&mut self) -> Result<(/* partitions */ u64, /* sectors */ u64), String> {
         let sectors = self
             .0
-            .values()
-            .map(|bf| bf.len())
-            .try_fold(0_u64, |sectors, count| {
+            .iter_mut()
+            .try_fold(0_u64, |sectors, (partition_idx, bf)| {
+                let validated = bf.validate().map_err(|e| {
+                    format!(
+                        "failed to parse bitmap for partition {}: {}",
+                        partition_idx, e
+                    )
+                })?;
                 sectors
-                    .checked_add(count as u64)
+                    .checked_add(validated.len() as u64)
                     .ok_or_else(|| "integer overflow when counting sectors".to_string())
             })?;
         Ok((self.0.len() as u64, sectors))
@@ -148,8 +180,10 @@ impl PartitionSectorMap {
     }
 
     /// Walks the partitions in the map, in order of increasing index.
-    pub fn iter(&self) -> impl Iterator<Item = (u64, &BitField)> + '_ {
-        self.partitions().into_iter().map(move |i| (i, &self.0[&i]))
+    pub fn iter(&mut self) -> impl Iterator<Item = (u64, &mut UnvalidatedBitField)> + '_ {
+        let mut vec: Vec<_> = self.0.iter_mut().map(|(&i, x)| (i, x)).collect();
+        vec.sort_unstable_by_key(|&(i, _)| i);
+        vec.into_iter()
     }
 
     pub fn len(&self) -> usize {
