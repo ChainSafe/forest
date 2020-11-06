@@ -161,16 +161,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aesni"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea2e11f5e94c2f7d386164cc2aa1f97823fed6f259e486940a71c174dd01b0ce"
-dependencies = [
- "cipher",
- "opaque-debug 0.3.0",
-]
-
-[[package]]
 name = "ahash"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -181,16 +171,6 @@ name = "ahash"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6789e291be47ace86a60303502173d84af8327e3627ecf334356ee0f87a164c"
-
-[[package]]
-name = "ahash"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2deff5792519f5985c9cdd5a0399df3ca3419114841d282bae646acadbf0a99"
-dependencies = [
- "getrandom 0.2.0",
- "lazy_static",
-]
 
 [[package]]
 name = "ahash"
@@ -587,7 +567,6 @@ dependencies = [
  "log",
  "memmap",
  "num_cpus",
- "paired 0.21.0",
  "rand 0.7.3",
  "rand_core 0.5.1",
  "rayon",
@@ -790,7 +769,7 @@ dependencies = [
  "fff",
  "groupy",
  "hkdf 0.8.0",
- "paired 0.20.1",
+ "paired",
  "rand_core 0.5.1",
  "rayon",
  "sha2ni",
@@ -2273,7 +2252,7 @@ version = "0.1.1"
 dependencies = [
  "forest_json_utils",
  "integer-encoding",
- "multibase 0.9.0",
+ "multibase 0.9.1",
  "multihash 0.10.1",
  "serde",
  "serde_bytes",
@@ -2325,7 +2304,7 @@ dependencies = [
  "forest_encoding",
  "indexmap",
  "ipld_blockstore",
- "multibase 0.9.0",
+ "multibase 0.9.1",
  "serde",
  "serde_json",
  "thiserror",
@@ -3990,9 +3969,9 @@ dependencies = [
 
 [[package]]
 name = "multibase"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cdffa0234be468d0598066308d42867e6b846103964f214aab88e8531546f46"
+checksum = "9b3539ec3c1f04ac9748a260728e855f261b4977f5c3406612c884564f329404"
 dependencies = [
  "base-x",
  "data-encoding",
@@ -4428,22 +4407,6 @@ dependencies = [
  "groupy",
  "hkdf 0.8.0",
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "paired"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42fc2daf8d5a8e22a9833f798e72c0d6862b5f0288f0a2d289b37cd03fa5e283"
-dependencies = [
- "blake2b_simd",
- "byteorder 1.3.4",
- "digest 0.9.0",
- "fff",
- "groupy",
- "hkdf 0.10.0",
- "rand_core 0.5.1",
- "serde",
 ]
 
 [[package]]
