@@ -301,7 +301,7 @@ impl ForestBehaviour {
         let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig {
             // TODO revisit validation (permissive validation allows unsigned messages)
-            validation_mode: ValidationMode::Permissive,
+            validation_mode: ValidationMode::Strict,
             // Using go gossipsub default, not certain this is intended
             max_transmit_size: 1 << 20,
             ..Default::default()
@@ -348,7 +348,10 @@ impl ForestBehaviour {
         req_res_config.set_connection_keep_alive(Duration::from_secs(20));
 
         ForestBehaviour {
-            gossipsub: Gossipsub::new(MessageAuthenticity::Author(local_peer_id), gossipsub_config),
+            gossipsub: Gossipsub::new(
+                MessageAuthenticity::Signed(local_key.clone()),
+                gossipsub_config,
+            ),
             mdns: mdns_opt.into(),
             ping: Ping::default(),
             identify: Identify::new(
