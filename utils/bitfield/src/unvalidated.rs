@@ -3,7 +3,7 @@
 
 use super::{BitField, Result};
 use encoding::serde_bytes;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// A trait for types that can produce a `&BitField` (or fail to do so).
 /// Generalizes over `&BitField` and `&mut UnvalidatedBitField`.
@@ -28,10 +28,11 @@ impl<'a> Validate<'a> for &'a BitField {
 /// A bit field that may not yet have been validated for valid RLE+.
 /// Used to defer this validation step until when the bit field is
 /// first used, rather than at deserialization.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
 pub enum UnvalidatedBitField {
     Validated(BitField),
-    Unvalidated(Vec<u8>),
+    Unvalidated(#[serde(with = "serde_bytes")] Vec<u8>),
 }
 
 impl UnvalidatedBitField {
@@ -52,18 +53,6 @@ impl UnvalidatedBitField {
 impl From<BitField> for UnvalidatedBitField {
     fn from(bf: BitField) -> Self {
         Self::Validated(bf)
-    }
-}
-
-impl Serialize for UnvalidatedBitField {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Self::Validated(bf) => serde_bytes::serialize(&bf.to_bytes(), serializer),
-            Self::Unvalidated(bytes) => serde_bytes::serialize(&bytes, serializer),
-        }
     }
 }
 
