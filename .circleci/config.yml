@@ -5,6 +5,10 @@ executors:
     machine:
       image: ubuntu-1604:202004-01
     resource_class: xlarge
+  mac-executor:
+    macos:
+      xcode: 12.0.1
+    resource_class: xlarge
 
 ######################################################################################################################
   #  Reusable single command definitions
@@ -59,8 +63,7 @@ commands:
                 curl file gcc g++ git make openssh-client \
                 autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
                 libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
-                xz-utils pkg-config python libclang-6.0-dev clang++-6 ocl-icd-opencl-dev libgflags-dev libhwloc-dev
-            sudo ln -s /usr/bin/clang-6.0 /usr/bin/clang
+                xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
             rustup component add clippy rustfmt
             git submodule update --init
 
@@ -140,8 +143,7 @@ jobs:
             rustup run nightly cargo --version --verbose
             rustup run nightly cargo build
   macos-build-check:
-    macos:
-      xcode: 12.0.1
+    executor: mac-executor
     description: Check macos build
     steps:
       - checkout
@@ -210,30 +212,48 @@ jobs:
           name: Run test vectors
           command: make run-vectors
   coverage:
-    executor: test-executor
-    description: Runs code coverage for unit tests
+    executor: mac-executor
+    description: Run coverage reporting using grcov
     steps:
       - checkout
-      - install_rust
-      - install_deps
+      - when:
+        condition:
+          equal: [ main, << pipeline.git.branch >> ]
+      - run:
+          name: Install rust toolchain          
+          command: |
+            curl https://sh.rustup.rs -sSf -o install_rust.sh
+            chmod +x install_rust.sh
+            ./install_rust.sh -q -y
+            rm install_rust.sh
+            export PATH="${HOME}/.cargo/bin:${PATH}"
+            rustc -V
       - env_setup
       - run:
           name: Set rustc version
           command: |
             rustup default nightly
             rustup update nightly
+      - run: 
+          name: Install deps
+          command: |
+            brew install hwloc
       - restore_cargo_package_cache
       - run:
           name: Install grcov
           command: |
             curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
       - run:
+          name: Avoid hosts unknown for github
+          command: echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+      - run:
           name: Run test suite
           command: |
             export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Coverflow-checks=off"
-            RUST_BACKTRACE=1 cargo build --verbose $CARGO_OPTIONS
-            sudo make test-vectors
-            make test-all
+            make build
+            git submodule update --init
+            sudo make run-vectors
+            sudo make test-all
       - run:
           name: Upload to codecov
           command: |
@@ -296,19 +316,32 @@ workflows:
       - macos-build-check:
           requires:
             - prefetch-crates
+  daily-check:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - prefetch-crates
       - install:
           requires:
-          - prefetch-crates
+            - prefetch-crates
   docs:
     jobs:
-      - publish-docs
+      - publish-docs:
         filters:
           branches:
             only:
               - main
   coverage:
     jobs:
-      - coverage
+      - prefetch-crates
+      - coverage:
+          requires:
+            - prefetch-crates
   security:
     jobs:
       - prefetch-crates
