@@ -31,7 +31,6 @@ impl<'a> ReplayingRand<'a> {
 impl Rand for ReplayingRand<'_> {
     fn get_chain_randomness<DB: BlockStore>(
         &self,
-        db: &DB,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
         entropy: &[u8],
@@ -50,7 +49,6 @@ impl Rand for ReplayingRand<'_> {
     }
     fn get_beacon_randomness<DB: BlockStore>(
         &self,
-        db: &DB,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
         entropy: &[u8],
