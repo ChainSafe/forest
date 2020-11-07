@@ -19,7 +19,7 @@ crypto = { package = "forest_crypto", path = "../../crypto" }
 async-std = { version = "1.6.3", features = ["unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p/", optional = true }
 encoding = { package = "forest_encoding",  path = "../../encoding/"}
-base64 = "0.12.1"
+base64 = "0.13"
 
 [features]
 test_constructors = ["blocks", "chain", "cid", "message", "forest_libp2p"]

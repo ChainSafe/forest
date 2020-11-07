@@ -31,7 +31,7 @@ forest_libp2p = { path = "../forest_libp2p" }
 jsonwebtoken = "7.2.0"
 auth = { path = "../../utils/auth"}
 utils = { path = "../../node/utils" }
-rand_distr = "0.2.2"
+rand_distr = "0.3"
 rand = "0.7"
 interpreter = { path = "../../vm/interpreter/" }
 fil_types = { path = "../../types" }

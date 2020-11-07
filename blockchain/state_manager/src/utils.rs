@@ -1,28 +1,22 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(unused)]
-
 use crate::errors::*;
 use crate::StateManager;
 use actor::miner::{self, Partition};
 use actor::{
-    miner::{
-        ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo,
-        Sectors,
-    },
+    miner::{ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
 };
-use address::{Address, Protocol};
+use address::Address;
 use bitfield::BitField;
 use blockstore::BlockStore;
 use cid::Cid;
 use encoding::serde_bytes::ByteBuf;
 use fil_types::{
-    verifier::ProofVerifier, Randomness, RegisteredSealProof, SectorInfo, SectorNumber, SectorSize,
+    verifier::ProofVerifier, Randomness, RegisteredSealProof, SectorInfo, SectorNumber,
     HAMT_BIT_WIDTH,
 };
-use filecoin_proofs_api::{post::generate_winning_post_sector_challenge, ProverId};
 use forest_blocks::Tipset;
 use ipld_amt::Amt;
 use ipld_hamt::Hamt;
@@ -53,11 +47,11 @@ where
 
         let mut proving_sectors = BitField::new();
 
-        deadlines.for_each(store, |dl_idx, deadline| {
+        deadlines.for_each(store, |_, deadline| {
             let partitions = deadline.partitions_amt(store)?;
 
             let mut fault_sectors = BitField::new();
-            partitions.for_each(|part_idx, partition: &miner::Partition| {
+            partitions.for_each(|_, partition: &miner::Partition| {
                 proving_sectors |= &partition.sectors;
                 fault_sectors |= &partition.faults;
                 Ok(())
@@ -281,16 +275,16 @@ where
         let miner_actor_state: miner::State =
             self.load_actor_state(&address, tipset.parent_state())?;
         let deadlines = miner_actor_state.load_deadlines(store)?;
-        let pa = deadlines.for_each(store, |i, deadline| {
+        deadlines.for_each(store, |_, deadline| {
             let partitions = deadline.partitions_amt(store).map_err(|e| e.to_string())?;
             partitions
-                .for_each(|i, part| {
-                    cb(part);
+                .for_each(|_, part| {
+                    cb(part)?;
                     Ok(())
                 })
                 .map_err(|e| e.to_string())?;
             Ok(())
-        });
+        })?;
 
         Ok(())
     }
