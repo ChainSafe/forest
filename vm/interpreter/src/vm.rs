@@ -108,8 +108,8 @@ where
     }
 
     /// Flush stores in VM and return state root.
-    pub fn flush(&mut self) -> Result<Cid, String> {
-        self.state.flush().map_err(|e| e.to_string())
+    pub fn flush(&mut self) -> Result<Cid, Box<dyn StdError>> {
+        self.state.flush()
     }
 
     /// Returns ChainEpoch

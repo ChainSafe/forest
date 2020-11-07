@@ -785,14 +785,13 @@ where
 
     fn batch_verify_seals(
         &self,
-        vis: &[(Address, &Vec<SealVerifyInfo>)],
+        vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // Gas charged for batch verify in actor
 
-        // TODO ideal to not use rayon https://github.com/ChainSafe/forest/issues/676
         let out = vis
             .par_iter()
-            .map(|(addr, seals)| {
+            .map(|(&addr, seals)| {
                 let results = seals
                     .par_iter()
                     .map(|s| {
@@ -807,7 +806,7 @@ where
                         }
                     })
                     .collect();
-                (*addr, results)
+                (addr, results)
             })
             .collect();
         Ok(out)

@@ -27,6 +27,7 @@ use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, ChainRand, Rand, VM};
 use ipld_amt::Amt;
+use lazycell::AtomicLazyCell;
 use log::{debug, info, trace, warn};
 use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
@@ -77,7 +78,7 @@ pub struct StateManager<DB> {
 
 impl<DB> StateManager<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
 {
     pub fn new(bs: Arc<DB>) -> Self {
         Self {
@@ -232,7 +233,10 @@ where
     }
 
     /// Returns the pair of (parent state root, message receipt root)
-    pub async fn tipset_state<V>(&self, tipset: &Tipset) -> Result<CidPair, Box<dyn StdError>>
+    pub async fn tipset_state<V>(
+        self: &Arc<Self>,
+        tipset: &Tipset,
+    ) -> Result<CidPair, Box<dyn StdError>>
     where
         V: ProofVerifier,
     {
@@ -285,7 +289,8 @@ where
                 let block_headers = tipset.blocks();
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
-                self.compute_tipset_state::<V, _>(&block_headers, no_func)?
+                self.compute_tipset_state::<V, _>(&block_headers, no_func)
+                    .await?
             };
 
             // Fill entry with calculated cid pair
@@ -362,7 +367,7 @@ where
     }
 
     pub async fn call_with_gas<V>(
-        &self,
+        self: &Arc<Self>,
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Tipset>,
@@ -413,27 +418,32 @@ where
     }
 
     /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
-    pub fn replay<V>(
-        &self,
+    pub async fn replay<V>(
+        self: &Arc<Self>,
         ts: &Tipset,
-        mcid: &Cid,
-    ) -> Result<(UnsignedMessage, Option<ApplyRet>), Error>
+        mcid: Cid,
+    ) -> Result<(UnsignedMessage, ApplyRet), Error>
     where
         V: ProofVerifier,
     {
-        let mut outm: Option<UnsignedMessage> = None;
-        let mut outr: Option<ApplyRet> = None;
-        let callback = |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
-            if cid == mcid {
-                outm = Some(unsigned.message().clone());
-                outr = Some(apply_ret.clone());
+        // This isn't ideal to have, since the execution is syncronous, but this needs to be the
+        // case because the state transition has to be in blocking thread to avoid starving executor
+        let outm: AtomicLazyCell<UnsignedMessage> = Default::default();
+        let outr: AtomicLazyCell<ApplyRet> = Default::default();
+        let m_clone = outm.clone();
+        let r_clone = outr.clone();
+        let callback = move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
+            if *cid == mcid {
+                let _ = m_clone.fill(unsigned.message().clone());
+                let _ = r_clone.fill(apply_ret.clone());
                 return Err("halt".to_string());
             }
 
             Ok(())
         };
-        let result: Result<CidPair, Box<dyn StdError>> =
-            self.compute_tipset_state::<V, _>(ts.blocks(), Some(callback));
+        let result = self
+            .compute_tipset_state::<V, _>(ts.blocks(), Some(callback))
+            .await;
 
         if let Err(error_message) = result {
             if error_message.to_string() != "halt" {
@@ -444,24 +454,28 @@ where
             }
         }
 
-        let out_mes =
-            outm.ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
-        Ok((out_mes, outr))
+        let out_mes = outm
+            .into_inner()
+            .ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
+        let out_ret = outr
+            .into_inner()
+            .ok_or_else(|| Error::Other("message did not have a return".to_string()))?;
+        Ok((out_mes, out_ret))
     }
 
-    pub fn compute_tipset_state<V, CB>(
-        &self,
+    pub async fn compute_tipset_state<V, CB: 'static>(
+        self: &Arc<Self>,
         block_headers: &[BlockHeader],
         callback: Option<CB>,
-    ) -> Result<CidPair, Box<dyn StdError>>
+    ) -> Result<CidPair, Error>
     where
         V: ProofVerifier,
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String> + Send,
     {
         span!("compute_tipset_state", {
             let first_block = block_headers
                 .first()
-                .ok_or("Empty tipset in compute_tipset_state")?;
+                .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
 
             let check_for_duplicates = |s: &BlockHeader| {
                 block_headers
@@ -472,10 +486,7 @@ where
             };
             if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
                 // Duplicate Miner found
-                return Err(Box::new(Error::Other(format!(
-                    "duplicate miner in a tipset ({})",
-                    a
-                ))));
+                return Err(Error::Other(format!("duplicate miner in a tipset ({})", a)));
             }
 
             let parent_epoch = if first_block.epoch() > 0 {
@@ -483,10 +494,14 @@ where
                     .parents()
                     .cids()
                     .get(0)
-                    .ok_or("block must have parents")?;
-                let parent: BlockHeader = self.bs.get(parent_cid)?.ok_or_else(|| {
-                    format!("Could not find parent block with cid {}", parent_cid)
-                })?;
+                    .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
+                let parent: BlockHeader = self
+                    .bs
+                    .get(parent_cid)
+                    .map_err(|e| Error::Other(e.to_string()))?
+                    .ok_or_else(|| {
+                        format!("Could not find parent block with cid {}", parent_cid)
+                    })?;
                 parent.epoch()
             } else {
                 Default::default()
@@ -495,9 +510,9 @@ where
             let tipset_keys =
                 TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
             let chain_rand = ChainRand::new(tipset_keys);
-            let base_fee = first_block.parent_base_fee();
+            let base_fee = first_block.parent_base_fee().clone();
 
-            let blocks = block_headers
+            let blocks: Vec<BlockMessages> = block_headers
                 .iter()
                 .map(|s: &BlockHeader| {
                     let messages = chain_messages(self.bs.as_ref(), &s)?;
@@ -511,17 +526,25 @@ where
                             .unwrap_or_default(),
                     })
                 })
-                .collect::<Result<Vec<_>, Box<dyn StdError>>>()?;
+                .collect::<Result<Vec<_>, Box<dyn StdError>>>()
+                .map_err(|e| Error::Other(e.to_string()))?;
 
-            self.apply_blocks::<_, V, _>(
-                parent_epoch,
-                &first_block.state_root(),
-                &blocks,
-                first_block.epoch(),
-                &chain_rand,
-                base_fee.clone(),
-                callback,
-            )
+            let sm = self.clone();
+            let sr = first_block.state_root().clone();
+            let epoch = first_block.epoch();
+            task::spawn_blocking(move || {
+                sm.apply_blocks::<_, V, _>(
+                    parent_epoch,
+                    &sr,
+                    &blocks,
+                    epoch,
+                    &chain_rand,
+                    base_fee,
+                    callback,
+                )
+                .map_err(|e| Error::Other(e.to_string()))
+            })
+            .await
         })
     }
 
@@ -853,7 +876,7 @@ where
     /// Similar to `resolve_to_key_addr` in the vm crate but does not allow `Actor` type of addresses.
     /// Uses `ts` to generate the VM state.
     pub async fn resolve_to_key_addr<V>(
-        &self,
+        self: &Arc<Self>,
         addr: &Address,
         ts: &Tipset,
     ) -> Result<Address, Box<dyn StdError>>
@@ -890,7 +913,7 @@ where
     }
 
     pub async fn validate_chain<V: ProofVerifier>(
-        &self,
+        self: &Arc<Self>,
         ts: Tipset,
     ) -> Result<(), Box<dyn StdError>> {
         let mut ts_chain = Vec::<Tipset>::new();
