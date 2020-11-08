@@ -463,7 +463,7 @@ where
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
             // The first match for a sender is guaranteed to have correct nonce
             // the block isn't valid otherwise.
-            let entry = applied.entry(*m.from()).or_insert(m.sequence());
+            let entry = applied.entry(*m.from()).or_insert_with(|| m.sequence());
 
             if *entry != m.sequence() {
                 return None;
