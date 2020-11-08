@@ -16,7 +16,7 @@ use async_log::span;
 use async_std::{sync::RwLock, task};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{chain_messages, ChainStore, HeadChange};
+use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -295,11 +295,9 @@ where
                     message_receipts.message_receipts().clone(),
                 )
             } else {
-                let block_headers = tipset.blocks();
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
-                self.compute_tipset_state::<V, _>(&block_headers, no_func)
-                    .await?
+                self.compute_tipset_state::<V, _>(&tipset, no_func).await?
             };
 
             // Fill entry with calculated cid pair
@@ -456,9 +454,7 @@ where
 
             Ok(())
         };
-        let result = self
-            .compute_tipset_state::<V, _>(ts.blocks(), Some(callback))
-            .await;
+        let result = self.compute_tipset_state::<V, _>(&ts, Some(callback)).await;
 
         if let Err(error_message) = result {
             if error_message.to_string() != "halt" {
@@ -480,7 +476,7 @@ where
 
     pub async fn compute_tipset_state<V, CB: 'static>(
         self: &Arc<Self>,
-        block_headers: &[BlockHeader],
+        tipset: &Tipset,
         callback: Option<CB>,
     ) -> Result<CidPair, Error>
     where
@@ -488,6 +484,7 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String> + Send,
     {
         span!("compute_tipset_state", {
+            let block_headers = tipset.blocks();
             let first_block = block_headers
                 .first()
                 .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
@@ -527,21 +524,9 @@ where
             let chain_rand = ChainRand::new(tipset_keys, self.cs.clone());
             let base_fee = first_block.parent_base_fee().clone();
 
-            let blocks: Vec<BlockMessages> = block_headers
-                .iter()
-                .map(|s: &BlockHeader| {
-                    let messages = chain_messages(self.blockstore(), &s)?;
-                    Ok(BlockMessages {
-                        miner: *s.miner_address(),
-                        messages,
-                        win_count: s
-                            .election_proof()
-                            .as_ref()
-                            .map(|e| e.win_count)
-                            .unwrap_or_default(),
-                    })
-                })
-                .collect::<Result<Vec<_>, Box<dyn StdError>>>()
+            let blocks = self
+                .chain_store()
+                .block_msgs_for_tipset(tipset)
                 .map_err(|e| Error::Other(e.to_string()))?;
 
             let sm = self.clone();

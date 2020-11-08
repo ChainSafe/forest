@@ -19,7 +19,7 @@ use flo_stream::Subscriber;
 use futures::StreamExt;
 use log::{error, warn};
 use lru::LruCache;
-use message::{Message, SignedMessage, UnsignedMessage};
+use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -137,7 +137,7 @@ pub trait Provider {
     where
         V: ProofVerifier;
     /// Return all messages for a tipset
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>;
+    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the ChainStore
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>;
     /// Computes the base fee
@@ -200,8 +200,8 @@ where
         chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        chain::unsigned_messages_for_tipset(self.sm.blockstore(), h).map_err(|err| err.into())
+    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
+        Ok(self.sm.chain_store().messages_for_tipset(h)?)
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
@@ -984,15 +984,15 @@ pub mod test_provider {
             }
         }
 
-        fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Errors> {
+        fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Errors> {
             let (us, s) = self.messages_for_block(&h.blocks()[0]).unwrap();
             let mut msgs = Vec::new();
 
             for msg in us {
-                msgs.push(msg);
+                msgs.push(ChainMessage::Unsigned(msg));
             }
             for smsg in s {
-                msgs.push(smsg.message().clone());
+                msgs.push(ChainMessage::Signed(smsg));
             }
             Ok(msgs)
         }
