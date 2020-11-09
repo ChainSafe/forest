@@ -5,18 +5,16 @@ use super::*;
 
 pub struct TestRand;
 impl Rand for TestRand {
-    fn get_chain_randomness<DB: BlockStore>(
+    fn get_chain_randomness(
         &self,
-        _: &DB,
         _: DomainSeparationTag,
         _: ChainEpoch,
         _: &[u8],
     ) -> Result<[u8; 32], Box<dyn StdError>> {
         Ok(*b"i_am_random_____i_am_random_____")
     }
-    fn get_beacon_randomness<DB: BlockStore>(
+    fn get_beacon_randomness(
         &self,
-        _: &DB,
         _: DomainSeparationTag,
         _: ChainEpoch,
         _: &[u8],

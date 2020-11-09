@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use chain::Error as ChainError;
+use chain::{ChainStore, Error as ChainError};
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_cid::Cid;
 use ipld_blockstore::BlockStore;
@@ -13,7 +13,10 @@ use super::{
 };
 
 /// Builds blocksync response out of chain data.
-pub fn make_blocksync_response<DB>(db: &DB, request: &BlockSyncRequest) -> BlockSyncResponse
+pub fn make_blocksync_response<DB>(
+    cs: &ChainStore<DB>,
+    request: &BlockSyncRequest,
+) -> BlockSyncResponse
 where
     DB: BlockStore,
 {
@@ -23,7 +26,7 @@ where
 
     loop {
         let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-        let tipset = match chain::tipset_from_keys(db, &TipsetKeys::new(curr_tipset_cids)) {
+        let tipset = match cs.tipset_from_keys(&TipsetKeys::new(curr_tipset_cids)) {
             Ok(tipset) => tipset,
             Err(err) => {
                 debug!("Cannot get tipset from keys: {}", err);
@@ -37,7 +40,7 @@ where
         };
 
         if request.include_messages() {
-            match compact_messages(db, &tipset) {
+            match compact_messages(cs.blockstore(), &tipset) {
                 Ok(compacted_messages) => tipset_bundle.messages = Some(compacted_messages),
                 Err(err) => {
                     debug!("Cannot compact messages for tipset: {}", err);
@@ -146,6 +149,7 @@ mod tests {
     use forest_car::load_car;
     use genesis::EXPORT_SR_40;
     use std::io::BufReader;
+    use std::sync::Arc;
 
     fn populate_db() -> (Vec<Cid>, MemoryDB) {
         let db = MemoryDB::default();
@@ -160,7 +164,7 @@ mod tests {
         let (cids, db) = populate_db();
 
         let response = make_blocksync_response(
-            &db,
+            &ChainStore::new(Arc::new(db)),
             &BlockSyncRequest {
                 start: cids,
                 request_len: 2,

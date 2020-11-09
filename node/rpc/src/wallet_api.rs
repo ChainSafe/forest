@@ -5,7 +5,6 @@ use crate::RpcState;
 
 use address::Address;
 use blockstore::BlockStore;
-use chain::get_heaviest_tipset;
 use crypto::{signature::json::SignatureJson, SignatureType};
 use encoding::Cbor;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -31,8 +30,12 @@ where
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
 
-    let heaviest_ts =
-        get_heaviest_tipset(data.state_manager.blockstore())?.ok_or("No heaviest tipset")?;
+    let heaviest_ts = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
+        .ok_or("No heaviest tipset")?;
     let cid = heaviest_ts.parent_state();
 
     let state = StateTree::new_from_root(data.state_manager.blockstore(), &cid)?;
