@@ -36,17 +36,20 @@ use wallet::{KeyStore, PersistentKeyStore};
 const WORKER_TASKS: usize = 1;
 
 /// Import a chain from a CAR file
-async fn import_chain<V: ProofVerifier, R: Read, DB: BlockStore>(
+async fn import_chain<V: ProofVerifier, R: Read, DB>(
     bs: Arc<DB>,
     reader: R,
     snapshot: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    DB: BlockStore + Send + Sync + 'static,
+{
     info!("Importing chain from snapshot");
     // start import
     let cids = load_car(bs.as_ref(), reader)?;
     let ts = chain::tipset_from_keys(bs.as_ref(), &TipsetKeys::new(cids))?;
     let gb = chain::tipset_by_height(bs.as_ref(), 0, &ts, true)?.unwrap();
-    let sm = StateManager::new(bs.clone());
+    let sm = Arc::new(StateManager::new(bs.clone()));
     if !snapshot {
         info!("Validating imported chain");
         sm.validate_chain::<V>(ts.clone()).await?;

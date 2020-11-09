@@ -25,7 +25,7 @@ pub fn initialize_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), Box<dyn StdError>>
 where
-    BS: BlockStore,
+    BS: BlockStore + Send + Sync + 'static,
 {
     let genesis = match genesis_fp {
         Some(path) => {
