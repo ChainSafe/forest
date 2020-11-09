@@ -7,6 +7,7 @@ use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::{stream, task};
+use chain::ChainStore;
 use forest_blocks::GossipBlock;
 use forest_cid::{multihash::Blake2b256, Cid};
 use forest_encoding::from_slice;
@@ -25,7 +26,6 @@ use libp2p::{
 };
 use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, error, info, trace, warn};
-use message_pool::{MessagePool, Provider};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
@@ -99,10 +99,9 @@ pub enum NetworkMessage {
     },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
-pub struct Libp2pService<DB, T> {
+pub struct Libp2pService<DB> {
     pub swarm: Swarm<ForestBehaviour>,
-    db: Arc<DB>,
-    mpool: Arc<MessagePool<T>>,
+    cs: Arc<ChainStore<DB>>,
     /// Keeps track of Blocksync requests to responses
     bs_request_table: HashMap<RequestId, OneShotSender<BlockSyncResponse>>,
     network_receiver_in: Receiver<NetworkMessage>,
@@ -113,16 +112,14 @@ pub struct Libp2pService<DB, T> {
     bitswap_response_channels: HashMap<Cid, Vec<OneShotSender<()>>>,
 }
 
-impl<DB, T> Libp2pService<DB, T>
+impl<DB> Libp2pService<DB>
 where
     DB: BlockStore + Sync + Send + 'static,
-    T: Provider + Sync + Send + 'static,
 {
     /// Constructs a Libp2pService
     pub fn new(
         config: Libp2pConfig,
-        db: Arc<DB>,
-        mpool: Arc<MessagePool<T>>,
+        cs: Arc<ChainStore<DB>>,
         net_keypair: Keypair,
         network_name: &str,
     ) -> Self {
@@ -153,8 +150,7 @@ where
 
         Libp2pService {
             swarm,
-            db,
-            mpool,
+            cs,
             bs_request_table: HashMap::new(),
             network_receiver_in,
             network_sender_in,
@@ -215,14 +211,8 @@ where
                                     Ok(m) => {
                                         emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
                                             source,
-                                            message: PubsubMessage::Message(m.clone()),
+                                            message: PubsubMessage::Message(m),
                                         }).await;
-                                        // add message to message pool
-                                        // TODO handle adding message to mempool in seperate task.
-                                        // Not ideal that it could potentially block network thread
-                                        if let Err(e) = self.mpool.add(m).await {
-                                            trace!("Gossip Message failed to be added to Message pool: {}", e);
-                                        }
                                     }
                                     Err(e) => warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e)
                                 }
@@ -246,7 +236,7 @@ where
                         }
                         ForestBehaviourEvent::BlockSyncRequest { channel, peer, request } => {
                             debug!("Received blocksync request (peerId: {:?})", peer);
-                            let db = self.db.clone();
+                            let db = self.cs.clone();
                             async {
                                 let response = task::spawn_blocking(move || -> BlockSyncResponse {
                                     make_blocksync_response(db.as_ref(), &request)
@@ -268,7 +258,7 @@ where
                             };
                         }
                         ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {
-                            let res: Result<_, String> = self.db.put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
+                            let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
                             match res {
                                 Ok(actual_cid) => {
                                     if actual_cid != cid {
@@ -292,7 +282,7 @@ where
                                 }
                             }
                         },
-                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) =>  match self.db.get(&cid) {
+                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => match self.cs.blockstore().get(&cid) {
                             Ok(Some(data)) => {
                                 match swarm_stream.get_mut().send_block(&peer_id, cid, data) {
                                     Ok(_) => trace!("Sent bitswap message successfully"),

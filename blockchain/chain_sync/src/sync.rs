@@ -24,8 +24,9 @@ use futures::select;
 use futures::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use message::{SignedMessage, UnsignedMessage};
+use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -48,7 +49,7 @@ enum ChainSyncState {
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
 /// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
 /// messages to be able to do the initial sync.
-pub struct ChainSyncer<DB, TBeacon, V> {
+pub struct ChainSyncer<DB, TBeacon, V, M> {
     /// State of general `ChainSync` protocol.
     state: ChainSyncState,
 
@@ -69,9 +70,6 @@ pub struct ChainSyncer<DB, TBeacon, V> {
     /// Represents next tipset to be synced.
     next_sync_target: Option<SyncBucket>,
 
-    /// access and store tipsets / blocks / messages
-    chain_store: Arc<ChainStore<DB>>,
-
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext<DB>,
 
@@ -87,24 +85,30 @@ pub struct ChainSyncer<DB, TBeacon, V> {
 
     /// Proof verification implementation.
     verifier: PhantomData<V>,
+
+    mpool: Arc<MessagePool<M>>,
 }
 
-impl<DB, TBeacon, V> ChainSyncer<DB, TBeacon, V>
+impl<DB, TBeacon, V, M> ChainSyncer<DB, TBeacon, V, M>
 where
     TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static,
+    M: Provider + Sync + Send + 'static,
 {
     pub fn new(
-        chain_store: Arc<ChainStore<DB>>,
         state_manager: Arc<StateManager<DB>>,
         beacon: Arc<TBeacon>,
+        mpool: Arc<MessagePool<M>>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
     ) -> Result<Self, Error> {
-        let network =
-            SyncNetworkContext::new(network_send, Default::default(), chain_store.db.clone());
+        let network = SyncNetworkContext::new(
+            network_send,
+            Default::default(),
+            state_manager.blockstore_cloned(),
+        );
 
         Ok(Self {
             state: ChainSyncState::Bootstrap,
@@ -113,13 +117,13 @@ where
             network,
             genesis,
             state_manager,
-            chain_store,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
             sync_queue: SyncBucketSet::default(),
             active_sync_tipsets: SyncBucketSet::default(),
             next_sync_target: None,
             verifier: Default::default(),
+            mpool,
         })
     }
 
@@ -166,7 +170,7 @@ where
                             request.heaviest_tip_set
                         );
                         let new_ts_tx_cloned = new_ts_tx.clone();
-                        let cs_cloned = self.chain_store.clone();
+                        let cs_cloned = self.state_manager.chain_store().clone();
                         let net_cloned = self.network.clone();
                         // TODO determine if tasks started to fetch and load tipsets should be
                         // limited. Currently no cap on this.
@@ -182,7 +186,7 @@ where
                         });
                     }
                     Some(NetworkEvent::PeerDialed { peer_id }) => {
-                        let heaviest = self.chain_store.heaviest_tipset().await.unwrap();
+                        let heaviest = self.state_manager.chain_store().heaviest_tipset().await.unwrap();
                         self.network
                             .hello_request(
                                 peer_id,
@@ -231,9 +235,13 @@ where
                                     warn!("failed to inform new head from peer {}", source);
                                 }
                             }
-                            // ignore pubsub messages because they get handled in the service
-                            // and get added into the mempool
-                            _ => ()
+                            forest_libp2p::PubsubMessage::Message(m) => {
+                                // add message to message pool
+                                // TODO handle adding message to mempool in seperate task.
+                                if let Err(e) = self.mpool.add(m).await {
+                                    trace!("Gossip Message failed to be added to Message pool: {}", e);
+                                }
+                            }
                         }
                     }
                     // All other network events are being ignored currently
@@ -281,7 +289,6 @@ where
             state,
             beacon: self.beacon.clone(),
             state_manager: self.state_manager.clone(),
-            chain_store: self.chain_store.clone(),
             network: self.network.clone(),
             genesis: self.genesis.clone(),
             bad_blocks: self.bad_blocks.clone(),
@@ -310,7 +317,8 @@ where
 
         // compare target_weight to heaviest weight stored; ignore otherwise
         let candidate_ts = self
-            .chain_store
+            .state_manager
+            .chain_store()
             .heaviest_tipset()
             .await
             // TODO we should be able to queue a tipset with the same weight on a different chain.
@@ -399,7 +407,7 @@ where
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
         let sm_root = compute_msg_meta(
-            self.chain_store.blockstore(),
+            self.state_manager.blockstore(),
             block.bls_msgs(),
             block.secp_msgs(),
         )?;
@@ -407,7 +415,7 @@ where
             return Err(Error::InvalidRoots);
         }
 
-        chain::persist_objects(self.chain_store.blockstore(), block.bls_msgs())?;
+        chain::persist_objects(self.state_manager.blockstore(), block.bls_msgs())?;
         chain::persist_objects(self.state_manager.blockstore(), block.secp_msgs())?;
 
         Ok(())
@@ -489,10 +497,12 @@ mod tests {
     use super::*;
     use async_std::sync::channel;
     use async_std::sync::Sender;
+    use async_std::task;
     use beacon::MockBeacon;
     use db::MemoryDB;
     use fil_types::verifier::MockVerifier;
     use forest_libp2p::NetworkEvent;
+    use message_pool::{test_provider::TestApi, MessagePool};
     use state_manager::StateManager;
     use std::sync::Arc;
     use std::time::Duration;
@@ -501,12 +511,19 @@ mod tests {
     fn chain_syncer_setup(
         db: Arc<MemoryDB>,
     ) -> (
-        ChainSyncer<MemoryDB, MockBeacon, MockVerifier>,
+        ChainSyncer<MemoryDB, MockBeacon, MockVerifier, TestApi>,
         Sender<NetworkEvent>,
         Receiver<NetworkMessage>,
     ) {
         let chain_store = Arc::new(ChainStore::new(db.clone()));
-
+        let test_provider = TestApi::default();
+        let mpool = task::block_on(MessagePool::new(
+            test_provider,
+            "test".to_string(),
+            Default::default(),
+        ))
+        .unwrap();
+        let mpool = Arc::new(mpool);
         let (local_sender, test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
 
@@ -518,9 +535,9 @@ mod tests {
         let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
         (
             ChainSyncer::new(
-                chain_store,
-                Arc::new(StateManager::new(db)),
+                Arc::new(StateManager::new(chain_store)),
                 beacon,
+                mpool,
                 local_sender,
                 event_receiver,
                 genesis_ts,
@@ -551,7 +568,7 @@ mod tests {
             Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
-        let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
+        let root = compute_msg_meta(cs.state_manager.blockstore(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
     }
 
