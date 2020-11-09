@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Error, TipIndex, TipsetMetadata};
-use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
+use actor::{miner, power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::RwLock;
 use async_std::task;
@@ -357,6 +357,38 @@ where
     Ok(FullTipset::new(blocks).unwrap())
 }
 
+/// get miner state given address and tipsetkeys
+pub fn miner_load_actor_tsk<DB>(
+    db: &DB,
+    address: &Address,
+    tsk: &TipsetKeys,
+) -> Result<miner::State, Error>
+where
+    DB: BlockStore,
+{
+    let state = parent_state_tsk(db, tsk)?;
+    let actor = state
+        .get_actor(address)
+        .map_err(|_| Error::Other("Failure getting actor".to_string()))?
+        .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
+
+    let act: miner::State = db
+        .get(&actor.state)
+        .map_err(|e| Error::State(e.to_string()))?
+        .ok_or_else(|| Error::Other("Could not get actor state".to_string()))?;
+
+    Ok(act)
+}
+
+fn parent_state_tsk<'a, DB>(db: &'a DB, key: &TipsetKeys) -> Result<StateTree<'a, DB>, Error>
+where
+    DB: BlockStore,
+{
+    let ts = tipset_from_keys(db, key)?;
+    StateTree::new_from_root(db, ts.parent_state())
+        .map_err(|_| Error::Other("Could not get actor state".to_string()))
+}
+
 /// Returns a tuple of UnsignedMessage and SignedMessages from their Cid
 pub fn block_messages_from_cids<DB>(
     db: &DB,
@@ -547,19 +579,23 @@ pub fn tipset_from_keys<DB>(db: &DB, tsk: &TipsetKeys) -> Result<Tipset, Error>
 where
     DB: BlockStore,
 {
-    let block_headers: Vec<BlockHeader> = tsk
-        .cids()
-        .iter()
-        .map(|c| {
-            db.get(c)
-                .map_err(|e| Error::Other(e.to_string()))?
-                .ok_or_else(|| Error::NotFound("Key for header"))
-        })
-        .collect::<Result<_, Error>>()?;
+    if tsk.cids().is_empty() {
+        Ok(get_heaviest_tipset(db)?.ok_or_else(|| Error::NotFound("Heaviest Tipset not found"))?)
+    } else {
+        let block_headers: Vec<BlockHeader> = tsk
+            .cids()
+            .iter()
+            .map(|c| {
+                db.get(c)
+                    .map_err(|e| Error::Other(e.to_string()))?
+                    .ok_or_else(|| Error::NotFound("Key for header"))
+            })
+            .collect::<Result<_, Error>>()?;
 
-    // construct new Tipset to return
-    let ts = Tipset::new(block_headers)?;
-    Ok(ts)
+        // construct new Tipset to return
+        let ts = Tipset::new(block_headers)?;
+        Ok(ts)
+    }
 }
 /// Returns the tipset behind `tsk` at a given `height`.
 /// If the given height is a null round:
@@ -582,7 +618,7 @@ where
         ));
     }
     if height == ts.epoch() {
-        return Ok(None);
+        return Ok(Some(ts.clone()));
     }
     // TODO: If ts.epoch()-h > Fork Length Threshold, it could be expensive to look up
     let mut ts_temp: Option<Tipset> = None;

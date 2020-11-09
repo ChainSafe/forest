@@ -4,22 +4,26 @@
 use super::{assign_deadlines, deadline_is_mutable, policy::*, Deadline};
 use super::{deadlines::DeadlineInfo, DeadlineSectorMap};
 use super::{types::*, Deadlines, PowerPair, QuantSpec, Sectors, TerminationResult, VestingFunds};
-use crate::{make_map_with_root, u64_key, ActorDowncast};
+use crate::{make_map_with_root, miner::SectorInfo, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
+use beacon::{json::BeaconEntryJson, BeaconEntry};
 use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
-use clock::ChainEpoch;
+use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
-use fil_types::{RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER};
+use fil_types::{
+    json::SectorInfoJson, RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
+};
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{Error as HamtError, Hamt};
+use libp2p::PeerId;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
+use serde::Serialize;
 use std::{cmp, error::Error as StdError};
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
-
 /// Balance of Miner Actor should be greater than or equal to
 /// the sum of PreCommitDeposits and LockedFunds.
 /// It is possible for balance to fall below the sum of PCD, LF and
@@ -963,6 +967,26 @@ pub struct MinerInfo {
     /// The number of sectors in each Window PoSt partition (proof).
     /// This is computed from the proof type and represented here redundantly.
     pub window_post_partition_sectors: u64,
+
+    pub consensus_fault_elapsed: ChainEpoch,
+}
+
+pub struct MinerBaseInfo {
+    pub miner_power: Option<TokenAmount>,
+
+    pub network_power: Option<TokenAmount>,
+
+    pub sectors: Vec<SectorInfo>,
+
+    pub worker_key: Address,
+
+    pub sector_size: SectorSize,
+
+    pub prev_beacon_entry: BeaconEntry,
+
+    pub beacon_entries: Vec<BeaconEntry>,
+
+    pub elligable_for_minning: bool,
 }
 
 impl MinerInfo {
@@ -987,7 +1011,103 @@ impl MinerInfo {
             seal_proof_type,
             sector_size,
             window_post_partition_sectors,
+            consensus_fault_elapsed: EPOCH_UNDEFINED,
         })
+    }
+}
+
+#[cfg(feature = "json")]
+pub mod json {
+    use super::*;
+    use address::json::AddressJson;
+
+    #[cfg(feature = "json")]
+    #[derive(Serialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct MinerBaseInfoJson {
+        #[serde(with = "bigint_ser::json::opt")]
+        pub miner_power: Option<TokenAmount>,
+
+        #[serde(with = "bigint_ser::json::opt")]
+        pub network_power: Option<TokenAmount>,
+
+        pub sectors: Vec<SectorInfoJson>,
+
+        #[serde(with = "address::json")]
+        pub worker_key: Address,
+
+        pub sector_size: SectorSize,
+
+        #[serde(with = "beacon::json")]
+        pub prev_beacon_entry: BeaconEntry,
+
+        pub beacon_entries: Vec<BeaconEntryJson>,
+
+        pub eligible_for_mining: bool,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct MinerInfoJson {
+        pub owner: AddressJson,
+
+        pub worker: AddressJson,
+
+        #[serde(with = "address::json::opt")]
+        pub new_worker: Option<Address>,
+
+        #[serde(with = "address::json::opt_vec")]
+        pub control_addresses: Option<Vec<Address>>, // Must all be ID addresses.
+
+        pub worker_change_epoch: ChainEpoch,
+
+        /// Optional worker key to update at an epoch
+        pub pending_worker_key: Option<WorkerKeyChange>,
+
+        /// Libp2p identity that should be used when connecting to this miner
+        pub peer_id: String,
+
+        /// Vector of byte arrays representing Libp2p multi-addresses used for establishing a connection with this miner.
+        pub multi_address: Option<Vec<BytesDe>>,
+
+        /// The proof type used by this miner for sealing sectors.
+        pub seal_proof_type: RegisteredSealProof,
+
+        /// Amount of space in each sector committed to the network by this miner
+        pub sector_size: SectorSize,
+
+        /// The number of sectors in each Window PoSt partition (proof).
+        /// This is computed from the proof type and represented here redundantly.
+        pub window_post_partition_sectors: u64,
+
+        pub consensus_fault_elapsed: ChainEpoch,
+    }
+
+    impl From<MinerInfo> for MinerInfoJson {
+        fn from(info: MinerInfo) -> Self {
+            Self {
+                owner: info.owner.into(),
+                worker: info.worker.into(),
+                new_worker: None,
+                control_addresses: if info.control_addresses.is_empty() {
+                    None
+                } else {
+                    Some(info.control_addresses)
+                },
+                worker_change_epoch: EPOCH_UNDEFINED,
+                pending_worker_key: info.pending_worker_key,
+                peer_id: PeerId::from_bytes(info.peer_id).unwrap().to_string(),
+                multi_address: if info.multi_address.is_empty() {
+                    None
+                } else {
+                    Some(info.multi_address)
+                },
+                seal_proof_type: info.seal_proof_type,
+                sector_size: info.sector_size,
+                window_post_partition_sectors: info.window_post_partition_sectors,
+                consensus_fault_elapsed: info.consensus_fault_elapsed,
+            }
+        }
     }
 }
 
@@ -1010,7 +1130,25 @@ mod tests {
             seal_proof_type: RegisteredSealProof::from(1),
             window_post_partition_sectors: 0,
         };
+        println!("miner info {:?}", &info);
         let bz = to_vec(&info).unwrap();
         assert_eq!(from_slice::<MinerInfo>(&bz).unwrap(), info);
+    }
+
+    #[test]
+    fn miner_info_serde_json() {
+        let info = MinerInfo {
+            owner: Address::new_id(2),
+            worker: Address::new_id(3),
+            control_addresses: vec![Address::new_id(4), Address::new_id(5)],
+            pending_worker_key: None,
+            peer_id: PeerId::random().into_bytes(),
+            multi_address: vec![BytesDe(PeerId::random().into_bytes())],
+            sector_size: SectorSize::_2KiB,
+            seal_proof_type: RegisteredSealProof::from(1),
+            window_post_partition_sectors: 0,
+        };
+        let val = serde_json::to_string(&info);
+        println!("miner info {:?}", val);
     }
 }

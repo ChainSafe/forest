@@ -6,7 +6,7 @@ use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::RwLock;
 use async_std::task;
 use auth::{generate_priv_key, JWT_IDENTIFIER};
-use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
+use beacon::{BeaconPoint, DrandBeacon, Schedule, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
@@ -113,10 +113,11 @@ pub(super) async fn start(config: Config) {
     // Initialize ChainSyncer
     let chain_store_arc = Arc::new(chain_store);
     // TODO allow for configuring validation strategy (defaulting to full validation)
+    let beacon = Arc::new(beacon);
     let chain_syncer = ChainSyncer::<_, _, FullVerifier>::new(
         chain_store_arc.clone(),
         Arc::clone(&state_manager),
-        Arc::new(beacon),
+        beacon.clone(),
         network_send.clone(),
         network_rx,
         Arc::new(genesis),
@@ -137,7 +138,7 @@ pub(super) async fn start(config: Config) {
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
-            start_rpc(
+            start_rpc::<_, _, _, FullVerifier>(
                 RpcState {
                     state_manager,
                     keystore: keystore_rpc,
@@ -148,6 +149,9 @@ pub(super) async fn start(config: Config) {
                     network_name,
                     chain_store: chain_store_arc,
                     events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
+                    beacon: Schedule {
+                        0: vec![BeaconPoint { start: 0, beacon }],
+                    },
                 },
                 &rpc_listen,
             )

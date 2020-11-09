@@ -267,6 +267,7 @@ pub mod tipset_keys_json {
 #[cfg(feature = "json")]
 pub mod tipset_json {
     use super::*;
+    use cid::json::vec::CidJsonVec;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
@@ -278,6 +279,18 @@ pub mod tipset_json {
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct TipsetKeysJson {
+        pub cids: CidJsonVec,
+    }
+
+    impl From<TipsetKeysJson> for TipsetKeys {
+        fn from(s: TipsetKeysJson) -> Self {
+            Self { cids: s.cids.0 }
+        }
+    }
 
     impl From<TipsetJson> for Tipset {
         fn from(wrapper: TipsetJson) -> Self {

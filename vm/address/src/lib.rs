@@ -358,4 +358,92 @@ pub mod json {
         let address_as_string: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
         Ok(Address::from_str(&address_as_string).map_err(de::Error::custom)?)
     }
+
+    #[cfg(feature = "json")]
+    pub mod vec {
+        use super::*;
+        use crate::json::{AddressJson, AddressJsonRef};
+        use forest_json_utils::GoVecVisitor;
+        use serde::ser::SerializeSeq;
+
+        /// Wrapper for serializing and deserializing a Cid vector from JSON.
+        #[derive(Deserialize, Serialize)]
+        #[serde(transparent)]
+        pub struct AddressJsonVec(#[serde(with = "self")] pub Vec<Address>);
+
+        /// Wrapper for serializing a cid slice to JSON.
+        #[derive(Serialize)]
+        #[serde(transparent)]
+        pub struct AddressJsonSlice<'a>(#[serde(with = "self")] pub &'a [Address]);
+
+        pub fn serialize<S>(m: &[Address], serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq = serializer.serialize_seq(Some(m.len()))?;
+            for e in m {
+                seq.serialize_element(&AddressJsonRef(e))?;
+            }
+            seq.end()
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Address>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_any(GoVecVisitor::<Address, AddressJson>::new())
+        }
+    }
+
+    pub mod opt {
+        use super::*;
+        use serde::{self, Deserialize, Deserializer, Serializer};
+        use std::borrow::Cow;
+
+        pub fn serialize<S>(v: &Option<Address>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            if let Some(unwrapped_address) = v.as_ref() {
+                serializer.serialize_str(&encode(unwrapped_address))
+            } else {
+                serializer.serialize_str("\u{003c}\u{0065}\u{006d}\u{0070}\u{0074}\u{0079}\u{003e}")
+            }
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Address>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let address_as_string: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+            if address_as_string == "\u{003c}\u{0065}\u{006d}\u{0070}\u{0074}\u{0079}\u{003e}" {
+                return Ok(None);
+            }
+            Ok(Some(
+                Address::from_str(&address_as_string).map_err(de::Error::custom)?,
+            ))
+        }
+    }
+
+    pub mod opt_vec {
+        use super::*;
+        use crate::json::AddressJsonRef;
+        use serde::ser::SerializeSeq;
+        use serde::{self, Serializer};
+
+        pub fn serialize<S>(v: &Option<Vec<Address>>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            if let Some(unwrapped_addresses) = v.as_ref() {
+                let mut seq = serializer.serialize_seq(Some(unwrapped_addresses.len()))?;
+                for e in unwrapped_addresses {
+                    seq.serialize_element(&AddressJsonRef(e))?;
+                }
+                seq.end()
+            } else {
+                serializer.serialize_none()
+            }
+        }
+    }
 }

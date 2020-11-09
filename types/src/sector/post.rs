@@ -65,6 +65,27 @@ pub mod json {
     #[serde(transparent)]
     pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a PoStProof);
 
+    #[derive(Clone, Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct SectorInfoJson {
+        #[serde(rename = "SealProof")]
+        pub proof: RegisteredSealProof,
+        pub sector_number: SectorNumber,
+        #[serde(with = "cid::json")]
+        #[serde(rename = "SealedCID")]
+        pub sealed_cid: Cid,
+    }
+
+    impl From<SectorInfo> for SectorInfoJson {
+        fn from(sector: SectorInfo) -> Self {
+            Self {
+                proof: sector.proof,
+                sector_number: sector.sector_number,
+                sealed_cid: sector.sealed_cid,
+            }
+        }
+    }
+
     impl From<PoStProofJson> for PoStProof {
         fn from(wrapper: PoStProofJson) -> Self {
             wrapper.0

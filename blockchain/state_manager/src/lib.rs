@@ -4,18 +4,22 @@
 mod errors;
 pub mod utils;
 pub use self::errors::*;
+use crate::{miner::CHAIN_FINALITY, power::Claim};
+use actor::miner::MinerBaseInfo;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
+use beacon::{Beacon, Schedule};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{chain_messages, get_heaviest_tipset, HeadChange};
+use chain::{chain_messages, draw_randomness, get_heaviest_tipset, HeadChange};
 use cid::Cid;
 use clock::ChainEpoch;
+use crypto::DomainSeparationTag;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
-use fil_types::{get_network_version_default, verifier::ProofVerifier};
+use fil_types::{get_network_version_default, verifier::ProofVerifier, NetworkVersion, Randomness};
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use futures::channel::oneshot;
@@ -26,6 +30,7 @@ use log::{trace, warn};
 use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
+use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -46,6 +51,10 @@ pub struct InvocResult {
     pub error: Option<String>,
 }
 
+struct VersionSpec {
+    network_version: NetworkVersion,
+    at_or_below: ChainEpoch,
+}
 // An alias Result that represents an InvocResult and an Error
 pub type StateCallResult = Result<InvocResult, Error>;
 
@@ -62,6 +71,8 @@ pub struct StateManager<DB> {
     bs: Arc<DB>,
     cache: RwLock<HashMap<TipsetKeys, CidPair>>,
     subscriber: Option<Subscriber<HeadChange>>,
+    network_versions: Vec<VersionSpec>,
+    latest_version: NetworkVersion,
 }
 
 impl<DB> StateManager<DB>
@@ -73,6 +84,8 @@ where
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
+            network_versions: Vec::new(),
+            latest_version: NetworkVersion::V0,
         }
     }
 
@@ -82,6 +95,8 @@ where
             bs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
+            network_versions: Vec::new(),
+            latest_version: NetworkVersion::V0,
         }
     }
     /// Loads actor state from IPLD Store
@@ -414,6 +429,215 @@ where
         let out_mes =
             outm.ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
         Ok((out_mes, outr))
+    }
+
+    async fn get_lookback_tipset_for_round<V>(
+        &self,
+        tipset: &Tipset,
+        round: ChainEpoch,
+    ) -> Result<(Tipset, Cid), Error>
+    where
+        V: ProofVerifier,
+    {
+        let mut lbr: ChainEpoch = ChainEpoch::from(0);
+        let version = self
+            .network_versions
+            .iter()
+            .find(|s| round == s.at_or_below)
+            .map(|s| s.network_version)
+            .unwrap_or(self.latest_version);
+        let lb = if version as u8 <= 3 {
+            ChainEpoch::from(10)
+        } else {
+            CHAIN_FINALITY
+        };
+
+        if round > lb {
+            lbr = round - lb
+        }
+
+        if lbr >= tipset.epoch() {
+            let (st, _) = self.tipset_state::<V>(&tipset).await.unwrap();
+            return Ok((tipset.clone(), st));
+        }
+
+        let next_ts = chain::tipset_by_height(self.blockstore(), lbr, &tipset, false)
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?
+            .ok_or_else(|| Error::Other("could not get tipset by height".to_string()))?;
+
+        if lbr == next_ts.epoch() {
+            return Err(Error::Other(format!(
+                "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
+                tipset.key(),
+                tipset.epoch(),
+                next_ts.key(),
+                next_ts.epoch()
+            )));
+        }
+
+        let lbts = chain::tipset_from_keys(self.blockstore(), tipset.parents()).unwrap();
+        Ok((lbts.clone(), next_ts.parent_state().clone()))
+    }
+
+    fn elligable_to_mine<V: ProofVerifier>(
+        &self,
+        address: &Address,
+        base_tipset: &Tipset,
+        lookback_tipset: &Tipset,
+    ) -> Result<bool, Error> {
+        let hmp_result = self.miner_has_min_power(address, lookback_tipset);
+        let version = self
+            .network_versions
+            .iter()
+            .find(|s| base_tipset.epoch() == s.at_or_below)
+            .map(|s| s.network_version)
+            .unwrap_or(self.latest_version);
+
+        if version as u8 <= 3 {
+            if let Ok(hmp) = hmp_result {
+                return Ok(hmp);
+            }
+        }
+
+        let hmp = hmp_result?;
+
+        if !hmp {
+            return Ok(false);
+        }
+
+        let power_state: power::State =
+            self.load_actor_state(&STORAGE_POWER_ACTOR_ADDR, &base_tipset.parent_state())?;
+
+        let miner_state: miner::State =
+            self.load_actor_state(&address, &base_tipset.parent_state())?;
+
+        let claim = power_state
+            .miner_power(self.blockstore(), &address)
+            .map_err(|e| {
+                Error::Other(format!(
+                    "Could not execute miner_power func for elligable to mine func : {:?}",
+                    e
+                ))
+            })?;
+        if claim.is_none() {
+            return Ok(false);
+        } else if claim
+            .map(|s| s.quality_adj_power <= BigInt::zero())
+            .unwrap_or_default()
+        {
+            return Ok(false);
+        }
+
+        let info = miner_state.get_info(self.blockstore()).map_err(|e| {
+            Error::Other(format!(
+                "Could not execute get_info func for elligable to mine func : {:?}",
+                e
+            ))
+        })?;
+
+        if base_tipset.epoch() <= info.consensus_fault_elapsed {
+            return Ok(false);
+        }
+
+        return Ok(true);
+    }
+
+    fn get_power_raw(
+        &self,
+        st: &Cid,
+        address: Option<&Address>,
+    ) -> Result<(Option<Claim>, Option<Claim>, bool), Error> {
+        let power_state: power::State = self.load_actor_state(&STORAGE_POWER_ACTOR_ADDR, &st)?;
+        let (raw_byte_power, quality_adj_power) = power_state.current_total_power();
+        let tpow = Claim {
+            raw_byte_power,
+            quality_adj_power,
+        };
+
+        if address.is_some() {
+            let address = address.unwrap();
+            let mpow = power_state
+                .miner_power(self.blockstore(), address)
+                .map_err(|e| {
+                    Error::Other(format!(
+                        "Could not execute miner_power func for get_power_raw {:?}",
+                        e
+                    ))
+                })?
+                .ok_or_else(|| {
+                    Error::Other("Could not find miner power for get_power_raw".to_string())
+                })?;
+            let min_pow = power_state.miner_nominal_power_meets_consensus_minimum(self.blockstore(),address).map_err(|e|Error::Other(format!("Could not execute miner_nominal_power_meets_consensus_minimum func for get_power_raw {:?}",e)))?;
+            Ok((Some(tpow), Some(mpow), min_pow))
+        } else {
+            Ok((Some(tpow), None, false))
+        }
+    }
+
+    /// gets associated miner base info based
+    pub async fn miner_get_base_info<V: ProofVerifier, B: Beacon>(
+        &self,
+        schedule: &Schedule<B>,
+        key: &TipsetKeys,
+        round: ChainEpoch,
+        address: Address,
+    ) -> Result<Option<MinerBaseInfo>, Box<dyn StdError>> {
+        let tipset = chain::tipset_from_keys(self.blockstore(), key)?;
+        let prev = match chain::latest_beacon_entry(self.blockstore(), &tipset) {
+            Ok(prev) => prev,
+            Err(err) => {
+                if std::env::var("LOTUS_IGNORE_DRAND")
+                    .map(|e| e == "_yes_")
+                    .unwrap_or_default()
+                {
+                    return Err(Box::from(format!(
+                        "failed to get latest beacon entry: {:?}",
+                        err
+                    )));
+                }
+                beacon::BeaconEntry::default()
+            }
+        };
+        let beacon = schedule.beacon_for_epoch(round)?;
+        let entries = beacon::beacon_entries_for_block(beacon, round, &prev).await?;
+        let rbase = entries.iter().last().cloned().unwrap_or(prev.clone());
+        let (lbts, lbst) = self
+            .get_lookback_tipset_for_round::<V>(&tipset, round)
+            .await?;
+        let state: miner::State = self.load_actor_state(&address, &lbst)?;
+
+        let buf = address.marshal_cbor()?;
+        let prand = draw_randomness(
+            rbase.data(),
+            DomainSeparationTag::WinningPoStChallengeSeed,
+            round,
+            &buf,
+        )?;
+
+        let sectors = self.get_sectors_for_winning_post::<V>(&lbst, &address, Randomness(prand))?;
+
+        if sectors.is_empty() {
+            return Ok(None);
+        }
+
+        let (mpow, tpow, _) = self.get_power_raw(&lbst, Some(&address))?;
+
+        let info = state.get_info(self.blockstore())?;
+
+        let worker_key = self.resolve_to_key_addr::<V>(&info.worker, &tipset).await?;
+
+        let elligable = self.elligable_to_mine::<V>(&address, &tipset, &lbts)?;
+
+        Ok(Some(MinerBaseInfo {
+            miner_power: mpow.map(|s| s.quality_adj_power),
+            network_power: tpow.map(|s| s.quality_adj_power),
+            sectors,
+            worker_key,
+            sector_size: info.sector_size,
+            prev_beacon_entry: prev,
+            beacon_entries: entries,
+            elligable_for_minning: elligable,
+        }))
     }
 
     pub fn compute_tipset_state<V, CB>(

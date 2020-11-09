@@ -9,6 +9,7 @@ vm = { package = "forest_vm", path = "../../vm" }
 address = { package = "forest_address", path = "../address" }
 runtime = { path = "../runtime" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+beacon = { path = "../../blockchain/beacon" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 num-traits = "0.2"
 num-derive = "0.3.0"
@@ -31,9 +32,13 @@ base64 = "0.12.1"
 log = "0.4.8"
 commcid = { path = "../../utils/commcid" }
 indexmap = { version = "1.3.2", features = ["serde-1"] }
+libp2p = { version = "0.24", default-features = false }
 
 [dev-dependencies]
+hex = "0.4.2"
 derive_builder = "0.9"
 db = { path = "../../node/db" }
-hex = "0.4.2"
-libp2p = { version = "0.24", default-features = false }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+
+[features]
+json = []

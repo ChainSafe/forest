@@ -3,6 +3,7 @@
 
 use crate::RpcState;
 use async_std::sync::RwLock;
+use beacon::Beacon;
 use blocks::gossip_block::json::GossipBlockJson;
 use blockstore::BlockStore;
 use chain_sync::SyncState;
@@ -21,26 +22,28 @@ pub struct RPCSyncState {
 }
 
 /// Checks if a given block is marked as bad.
-pub(crate) async fn sync_check_bad<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn sync_check_bad<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
     Ok(data.bad_blocks.peek(&cid).await.unwrap_or_default())
 }
 
 /// Marks a block as bad, meaning it will never be synced.
-pub(crate) async fn sync_mark_bad<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn sync_mark_bad<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
     data.bad_blocks
@@ -60,25 +63,27 @@ async fn clone_state(states: &RwLock<Vec<Arc<RwLock<SyncState>>>>) -> Vec<SyncSt
 }
 
 /// Returns the current status of the ChainSync process.
-pub(crate) async fn sync_state<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn sync_state<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
 ) -> Result<RPCSyncState, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let active_syncs = clone_state(data.sync_state.as_ref()).await;
     Ok(RPCSyncState { active_syncs })
 }
 
 /// Submits block to be sent through gossipsub.
-pub(crate) async fn sync_submit_block<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn sync_submit_block<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params((GossipBlockJson(blk),)): Params<(GossipBlockJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     // TODO validate by constructing full block and validate (cids of messages could be invalid)
     // Also, we may want to indicate to chain sync process specifically about this block
