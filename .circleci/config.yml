@@ -11,7 +11,7 @@ executors:
     resource_class: xlarge
 
 ######################################################################################################################
-  #  Reusable single command definitions
+#  Reusable single command definitions
 ######################################################################################################################
 commands:
   install_rust:
@@ -119,9 +119,9 @@ jobs:
           command: cargo fetch
       - save_cargo_package_cache
 
-######################################################################################################################
+  ######################################################################################################################
   #  Build related jobs
-######################################################################################################################
+  ######################################################################################################################
   # TODO change builds over to matrix style once Windows build is ready
   nightly-build-check:
     executor: test-executor
@@ -148,7 +148,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install rust toolchain          
+          name: Install rust toolchain
           command: |
             curl https://sh.rustup.rs -sSf -o install_rust.sh
             chmod +x install_rust.sh
@@ -158,7 +158,7 @@ jobs:
             rustc -V
       - rust_setup
       - env_setup
-      - run: 
+      - run:
           name: Install deps
           command: |
             brew install hwloc
@@ -178,9 +178,9 @@ jobs:
           name: Install binary
           command: make install
 
-######################################################################################################################
+  ######################################################################################################################
   #  Testing, linting, code coverage and doc publishing
-######################################################################################################################
+  ######################################################################################################################
   lint:
     executor: test-executor
     description: Run Rust linting tools.
@@ -211,57 +211,57 @@ jobs:
       - run:
           name: Run test vectors
           command: make run-vectors
-  # TODO: change executor to ubuntu         
+  # TODO: change executor to ubuntu
   coverage:
     executor: mac-executor
     description: Run coverage reporting using grcov
     steps:
       - checkout
       - when:
-        condition:
-          equal: [ main, << pipeline.git.branch >> ]
+          condition:
+            equal: [main, << pipeline.git.branch >>]
           steps:
-            - run:
-                name: Install rust toolchain          
-                command: |
-                  curl https://sh.rustup.rs -sSf -o install_rust.sh
-                  chmod +x install_rust.sh
-                  ./install_rust.sh -q -y
-                  rm install_rust.sh
-                  export PATH="${HOME}/.cargo/bin:${PATH}"
-                  rustc -V
-            - env_setup
-            - run:
-                name: Set rustc version
-                command: |
-                  rustup default nightly
-                  rustup update nightly
-            - run: 
-                name: Install deps
-                command: |
-                  brew install hwloc
-            - restore_cargo_package_cache
-            - run:
-                name: Install grcov
-                command: |
-                  curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
-            - run:
-                name: Avoid hosts unknown for github
-                command: echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
-            - run:
-                name: Run test suite
-                command: |
-                  export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Coverflow-checks=off"
-                  make build
-                  git submodule update --init
-                  sudo make run-vectors
-                  sudo make test-all
-            - run:
-                name: Upload to codecov
-                command: |
-                  zip -0 ccov.zip `find . \( -name "forest*.gc*" \) -print`;
-                  ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" --ignore="target/debug/build/*" --ignore="**/tests/*" -o lcov.info;
-                  bash <(curl -s https://codecov.io/bash) -f lcov.info;
+          - run:
+              name: Install rust toolchain
+              command: |
+                curl https://sh.rustup.rs -sSf -o install_rust.sh
+                chmod +x install_rust.sh
+                ./install_rust.sh -q -y
+                rm install_rust.sh
+                export PATH="${HOME}/.cargo/bin:${PATH}"
+                rustc -V
+          - env_setup
+          - run:
+              name: Set rustc version
+              command: |
+                rustup default nightly
+                rustup update nightly
+          - run:
+              name: Install deps
+              command: |
+                brew install hwloc
+          - restore_cargo_package_cache
+          - run:
+              name: Install grcov
+              command: |
+                curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
+          - run:
+              name: Avoid hosts unknown for github
+              command: echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+          - run:
+              name: Run test suite
+              command: |
+                export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Coverflow-checks=off"
+                make build
+                git submodule update --init
+                sudo make run-vectors
+                sudo make test-all
+          - run:
+              name: Upload to codecov
+              command: |
+                zip -0 ccov.zip `find . \( -name "forest*.gc*" \) -print`;
+                ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" --ignore="target/debug/build/*" --ignore="**/tests/*" -o lcov.info;
+                bash <(curl -s https://codecov.io/bash) -f lcov.info;
   publish-docs:
     executor: test-executor
     description: Publish documentation to GitHub pages
@@ -269,10 +269,10 @@ jobs:
       - checkout
       - when:
           condition:
-            equal: [ main, << pipeline.git.branch >> ]
+            equal: [main, << pipeline.git.branch >>]
           steps:
             - build_setup
-            - restore_cargo_package_cache  
+            - restore_cargo_package_cache
             - run:
                 name: Build Docs
                 command: cargo doc --no-deps --all-features
@@ -280,9 +280,9 @@ jobs:
                 name: Publish Docs
                 command: bash ./scripts/build-rust-docs.sh
 
-######################################################################################################################
+  ######################################################################################################################
   #  Security audit
-######################################################################################################################
+  ######################################################################################################################
   security:
     executor: test-executor
     description: Cargo audit
@@ -334,16 +334,20 @@ workflows:
   docs:
     jobs:
       - publish-docs:
-        filters:
-          branches:
-            only:
-              - main
+          filters:
+            branches:
+              only:
+                - main
   coverage:
     jobs:
       - prefetch-crates
       - coverage:
           requires:
             - prefetch-crates
+          filters:
+            branches:
+              only:
+                - main
   security:
     jobs:
       - prefetch-crates
