@@ -166,7 +166,6 @@ impl MsgChain {
         if self.move_forward().is_some() {
             self.invalidate();
             self.move_backward();
-            self.chain.remove(self.chain.len() - 1);
         }
     }
     pub(crate) fn invalidate(&mut self) {
