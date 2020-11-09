@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use chain::ChainStore;
 use fil_types::verifier::FullVerifier;
 use num_bigint::ToBigInt;
 use state_manager::StateManager;
@@ -76,7 +77,7 @@ pub fn execute_tipset(
     tipset: &TipsetVector,
     exec_epoch: ChainEpoch,
 ) -> Result<ExecuteTipsetResult, Box<dyn StdError>> {
-    let sm = StateManager::new(bs);
+    let sm = StateManager::new(Arc::new(ChainStore::new(bs)));
     let mut _applied_messages = Vec::new();
     let mut applied_results = Vec::new();
     let (post_state_root, receipts_root) = sm.apply_blocks::<_, FullVerifier, _>(

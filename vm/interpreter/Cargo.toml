@@ -16,17 +16,18 @@ ipld_blockstore = { path = "../../ipld/blockstore" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 forest_encoding = { path = "../../encoding" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-crypto = { package = "forest_crypto", path = "../../crypto" } 
+crypto = { package = "forest_crypto", path = "../../crypto" }
 num-traits = "0.2.11"
 byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }
 log = "0.4.8"
 db = { path = "../../node/db" }
-chain = { path = "../../blockchain/chain" }
 fil_types = { path = "../../types" }
-ahash = "0.4"
+ahash = "0.5"
 lazy_static = "1.4"
 rayon = "1.3"
 
 [dev-dependencies]
 ipld_hamt = { path = "../../ipld/hamt" }
+interpreter = { path = "../interpreter/" }
+

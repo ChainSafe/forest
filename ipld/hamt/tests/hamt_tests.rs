@@ -1,11 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ipld_hamt::{BytesKey, Hamt};
+use ipld_hamt::Hamt;
 
 use cid::multihash::Blake2b256;
 use ipld_blockstore::{BSStats, BlockStore, TrackingBlockStore};
 use serde_bytes::ByteBuf;
+
+#[cfg(any(feature = "identity", feature = "v2"))]
+use ipld_hamt::BytesKey;
 
 #[cfg(feature = "identity")]
 use ipld_hamt::Identity;
@@ -92,6 +95,35 @@ fn delete() {
 }
 
 #[test]
+fn delete_case() {
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut hamt: Hamt<_, _> = Hamt::new(&store);
+
+    hamt.set([0].to_vec().into(), ByteBuf::from(b"Test data".as_ref()))
+        .unwrap();
+
+    let c = hamt.flush().unwrap();
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzacecngbbdw3ut45b3tnsan3fgxwlsnit25unejfmh4ihlhkxr2hutuo"
+    );
+
+    let mut h2 = Hamt::<_, ByteBuf>::load(&c, &store).unwrap();
+    assert!(h2.delete(&[0].to_vec()).unwrap().is_some());
+    assert_eq!(h2.get(&[0].to_vec()).unwrap(), None);
+
+    let c2 = h2.flush().unwrap();
+    assert_eq!(
+        c2.to_string().as_str(),
+        "bafy2bzaceamp42wmmgr2g2ymg46euououzfyck7szknvfacqscohrvaikwfay"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r:1, w:2, br:34, bw:37});
+}
+
+#[test]
 fn reload_empty() {
     let mem = db::MemoryDB::default();
     let store = TrackingBlockStore::new(&mem);
@@ -111,6 +143,7 @@ fn reload_empty() {
 }
 
 #[test]
+#[cfg(feature = "v2")]
 fn set_delete_many() {
     let mem = db::MemoryDB::default();
     let store = TrackingBlockStore::new(&mem);
@@ -365,6 +398,7 @@ fn canonical_structure_alt_bit_width() {
 }
 
 #[test]
+#[cfg(feature = "v2")]
 fn clean_child_ordering() {
     let make_key = |i: u64| -> BytesKey {
         let mut key = unsigned_varint::encode::u64_buffer();

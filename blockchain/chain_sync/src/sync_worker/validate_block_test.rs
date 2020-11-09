@@ -5,7 +5,6 @@ use super::*;
 use actor::EPOCH_DURATION_SECONDS;
 use async_std::task;
 use beacon::{DrandBeacon, DrandPublic};
-use chain::tipset_from_keys;
 use clock::ChainEpoch;
 use db::MemoryDB;
 use fil_types::verifier::FullVerifier;
@@ -26,12 +25,11 @@ async fn validate_specific_block() {
 
     let cids = load_car(db.as_ref(), EXPORT_SR_40.as_ref()).unwrap();
 
-    let mut chain_store = ChainStore::new(db.clone());
-    let state_manager = Arc::new(StateManager::new(db));
+    let chain_store = Arc::new(ChainStore::new(db.clone()));
+    let state_manager = Arc::new(StateManager::new(chain_store.clone()));
 
     // Initialize genesis using default (currently space-race) genesis
-    let (genesis, _) = initialize_genesis(None, &mut chain_store, &state_manager).unwrap();
-    let chain_store = Arc::new(chain_store);
+    let (genesis, _) = initialize_genesis(None, &state_manager).unwrap();
     let genesis = Arc::new(genesis);
 
     let beacon = Arc::new(DrandBeacon::new(
@@ -43,7 +41,9 @@ async fn validate_specific_block() {
     .await
     .unwrap());
 
-    let mut ts = tipset_from_keys(chain_store.blockstore(), &TipsetKeys::new(cids)).unwrap();
+    let mut ts = chain_store
+        .tipset_from_keys(&TipsetKeys::new(cids))
+        .unwrap();
     while ts.epoch() > TEST_NUM {
         ts = chain_store.tipset_from_keys(ts.parents()).unwrap();
     }

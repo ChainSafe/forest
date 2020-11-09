@@ -40,21 +40,22 @@ pub mod json {
         }
     }
 
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct JsonHelper {
+        exit_code: u64,
+        #[serde(rename = "Return")]
+        return_data: String,
+        gas_used: i64,
+    }
+
     pub fn serialize<S>(m: &MessageReceipt, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        #[derive(Serialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct MessageReceiptSer<'a> {
-            exit_code: u64,
-            #[serde(rename = "Return")]
-            return_data: &'a [u8],
-            gas_used: i64,
-        }
-        MessageReceiptSer {
+        JsonHelper {
             exit_code: m.exit_code as u64,
-            return_data: m.return_data.bytes(),
+            return_data: base64::encode(m.return_data.bytes()),
             gas_used: m.gas_used,
         }
         .serialize(serializer)
@@ -64,15 +65,7 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct MessageReceiptDe {
-            exit_code: u64,
-            #[serde(rename = "Return")]
-            return_data: Vec<u8>,
-            gas_used: i64,
-        }
-        let MessageReceiptDe {
+        let JsonHelper {
             exit_code,
             return_data,
             gas_used,
@@ -81,7 +74,7 @@ pub mod json {
             exit_code: ExitCode::from_u64(exit_code).ok_or_else(|| {
                 de::Error::custom("MessageReceipt deserialization: Could not turn u64 to ExitCode")
             })?,
-            return_data: Serialized::new(return_data),
+            return_data: Serialized::new(base64::decode(&return_data).map_err(de::Error::custom)?),
             gas_used,
         })
     }

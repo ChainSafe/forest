@@ -72,6 +72,10 @@ pub struct DaemonOpts {
     pub kademlia: Option<bool>,
     #[structopt(short, long, help = "Allow MDNS (default = true)")]
     pub mdns: Option<bool>,
+    #[structopt(long, help = "Import a snapshot from a CAR file")]
+    pub import_snapshot: Option<String>,
+    #[structopt(long, help = "Import a chain from CAR file")]
+    pub import_chain: Option<String>,
 }
 
 impl DaemonOpts {
@@ -94,10 +98,21 @@ impl DaemonOpts {
         } else {
             cfg.enable_rpc = false;
         }
+        if self.import_snapshot.is_some() && self.import_chain.is_some() {
+            panic!("Can't set import_snapshot and import_chain at the same time!");
+        } else {
+            if let Some(snapshot_path) = &self.import_snapshot {
+                cfg.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.snapshot = true;
+            }
+            if let Some(snapshot_path) = &self.import_chain {
+                cfg.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.snapshot = false;
+            }
+        }
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
-
         // (where to find these flags, should be easy to do with structops)
 
         Ok(cfg)

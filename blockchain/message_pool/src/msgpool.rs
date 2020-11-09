@@ -22,7 +22,7 @@ use forest_libp2p::{NetworkMessage, PUBSUB_MSG_TOPIC};
 use futures::{future::select, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
-use message::{Message, SignedMessage, UnsignedMessage};
+use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
 use num_traits::cast::ToPrimitive;
 use state_manager::StateManager;
@@ -139,7 +139,7 @@ pub trait Provider {
     /// Update Mpool's cur_tipset whenever there is a chnge to the provider
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
-    async fn get_heaviest_tipset(&mut self) -> Option<Tipset>;
+    async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>>;
     /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
@@ -155,7 +155,7 @@ pub trait Provider {
     where
         V: ProofVerifier;
     /// Return all messages for a tipset
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error>;
+    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the ChainStore
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>;
     /// Computes the base fee
@@ -183,16 +183,14 @@ where
 #[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Sync + Send,
+    DB: BlockStore + Sync + Send + 'static,
 {
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.clone()
     }
 
-    async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-        chain::get_heaviest_tipset(self.sm.blockstore())
-            .ok()
-            .unwrap_or(None)
+    async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
+        self.sm.chain_store().heaviest_tipset().await
     }
 
     fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
@@ -220,12 +218,12 @@ where
         chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Error> {
-        chain::unsigned_messages_for_tipset(self.sm.blockstore(), h).map_err(|err| err.into())
+    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
+        Ok(self.sm.chain_store().messages_for_tipset(h)?)
     }
 
     fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        let ts = chain::tipset_from_keys(self.sm.blockstore(), tsk)?;
+        let ts = self.sm.chain_store().tipset_from_keys(tsk)?;
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
@@ -243,10 +241,10 @@ where
 }
 
 /// This is the main MessagePool struct
-pub struct MessagePool<T: 'static> {
+pub struct MessagePool<T> {
     local_addrs: Arc<RwLock<Vec<Address>>>,
     pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
-    pub cur_tipset: Arc<RwLock<Tipset>>,
+    pub cur_tipset: Arc<RwLock<Arc<Tipset>>>,
     api: Arc<RwLock<T>>,
     pub min_gas_price: BigInt,
     pub max_tx_pool_size: i64,
@@ -605,7 +603,7 @@ where
 
     /// Return a tuple that contains a vector of all signed messages and the current tipset for
     /// self.
-    pub async fn pending(&self) -> Result<(Vec<SignedMessage>, Tipset), Error> {
+    pub async fn pending(&self) -> Result<(Vec<SignedMessage>, Arc<Tipset>), Error> {
         let mut out: Vec<SignedMessage> = Vec::new();
         let pending = self.pending.read().await;
         let pending_hm = pending.clone();
@@ -862,7 +860,7 @@ async fn republish_pending_messages<T>(
     api: &RwLock<T>,
     network_sender: &Sender<NetworkMessage>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &RwLock<Tipset>,
+    cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
 ) -> Result<(), Error>
@@ -1149,7 +1147,7 @@ pub async fn head_change<T>(
     repub_trigger: Arc<Sender<()>>,
     republished: &RwLock<HashSet<Cid>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
-    cur_tipset: &RwLock<Tipset>,
+    cur_tipset: &RwLock<Arc<Tipset>>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
 ) -> Result<(), Error>
@@ -1160,7 +1158,7 @@ where
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
         let pts = api.write().await.load_tipset(ts.parents())?;
-        *cur_tipset.write().await = pts;
+        *cur_tipset.write().await = Arc::new(pts);
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
@@ -1196,7 +1194,7 @@ where
                 }
             }
         }
-        *cur_tipset.write().await = ts;
+        *cur_tipset.write().await = Arc::new(ts);
     }
     if repub {
         repub_trigger.send(()).await;
@@ -1304,8 +1302,10 @@ pub mod test_provider {
             self.publisher.subscribe()
         }
 
-        async fn get_heaviest_tipset(&mut self) -> Option<Tipset> {
-            Tipset::new(vec![create_header(1, b"", b"")]).ok()
+        async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
+            Tipset::new(vec![create_header(1, b"", b"")])
+                .ok()
+                .map(Arc::new)
         }
 
         fn put_message(&self, _msg: &SignedMessage) -> Result<Cid, Errors> {
@@ -1367,15 +1367,15 @@ pub mod test_provider {
             }
         }
 
-        fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<UnsignedMessage>, Errors> {
+        fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Errors> {
             let (us, s) = self.messages_for_block(&h.blocks()[0]).unwrap();
             let mut msgs = Vec::new();
 
             for msg in us {
-                msgs.push(msg);
+                msgs.push(ChainMessage::Unsigned(msg));
             }
             for smsg in s {
-                msgs.push(smsg.message().clone());
+                msgs.push(ChainMessage::Signed(smsg));
             }
             Ok(msgs)
         }
@@ -1702,7 +1702,7 @@ pub mod tests {
             sleep(Duration::new(2, 0));
 
             let cur_ts = mpool.cur_tipset.read().await.clone();
-            assert_eq!(cur_ts, tipset);
+            assert_eq!(cur_ts.as_ref(), &tipset);
         })
     }
 
