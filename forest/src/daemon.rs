@@ -134,12 +134,7 @@ pub(super) async fn start(config: Config) {
     );
 
     // Libp2p service setup
-    let p2p_service = Libp2pService::new(
-        config.network,
-        chain_store,
-        net_keypair,
-        &network_name,
-    );
+    let p2p_service = Libp2pService::new(config.network, chain_store, net_keypair, &network_name);
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
