@@ -30,6 +30,7 @@ futures = "0.3.5"
 async-std = "1.6.3"
 types = { package = "fil_types", path = "../../types" }
 lazy_static = "1.4"
+interpreter = { path = "../../vm/interpreter/" }
 
 [features]
 json = []

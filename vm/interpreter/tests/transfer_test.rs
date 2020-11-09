@@ -3,12 +3,12 @@
 
 use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
-use blocks::TipsetKeys;
 use cid::multihash::{Blake2b256, Identity};
 use clock::ChainEpoch;
+use crypto::DomainSeparationTag;
 use db::MemoryDB;
 use fil_types::{verifier::MockVerifier, NetworkVersion};
-use interpreter::{vm_send, ChainRand, CircSupplyCalc, DefaultRuntime};
+use interpreter::{vm_send, CircSupplyCalc, DefaultRuntime, Rand};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
@@ -25,6 +25,26 @@ impl CircSupplyCalc for MockCircSupply {
         _: &StateTree<DB>,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         Ok(0.into())
+    }
+}
+
+struct MockRand;
+impl Rand for MockRand {
+    fn get_chain_randomness(
+        &self,
+        _: DomainSeparationTag,
+        _: ChainEpoch,
+        _: &[u8],
+    ) -> Result<[u8; 32], Box<dyn StdError>> {
+        Ok(*b"i_am_random_____i_am_random_____")
+    }
+    fn get_beacon_randomness(
+        &self,
+        _: DomainSeparationTag,
+        _: ChainEpoch,
+        _: &[u8],
+    ) -> Result<[u8; 32], Box<dyn StdError>> {
+        Ok(*b"i_am_random_____i_am_random_____")
     }
 }
 
@@ -106,7 +126,6 @@ fn transfer_test() {
         .build()
         .unwrap();
 
-    let dummy_rand = ChainRand::new(TipsetKeys::new(vec![]));
     let registered = HashSet::new();
 
     let mut runtime = DefaultRuntime::<_, _, _, MockVerifier>::new(
@@ -119,7 +138,7 @@ fn transfer_test() {
         actor_addr_2.clone(),
         0,
         0,
-        &dummy_rand,
+        &MockRand,
         &registered,
         &MockCircSupply,
     )

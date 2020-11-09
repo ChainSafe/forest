@@ -433,7 +433,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = self
             .rand
-            .get_chain_randomness(self.state.store(), personalization, rand_epoch, entropy)
+            .get_chain_randomness(personalization, rand_epoch, entropy)
             .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
@@ -447,7 +447,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = self
             .rand
-            .get_beacon_randomness(self.state.store(), personalization, rand_epoch, entropy)
+            .get_beacon_randomness(personalization, rand_epoch, entropy)
             .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
@@ -785,14 +785,13 @@ where
 
     fn batch_verify_seals(
         &self,
-        vis: &[(Address, &Vec<SealVerifyInfo>)],
+        vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // Gas charged for batch verify in actor
 
-        // TODO ideal to not use rayon https://github.com/ChainSafe/forest/issues/676
         let out = vis
             .par_iter()
-            .map(|(addr, seals)| {
+            .map(|(&addr, seals)| {
                 let results = seals
                     .par_iter()
                     .map(|s| {
@@ -807,7 +806,7 @@ where
                         }
                     })
                     .collect();
-                (*addr, results)
+                (addr, results)
             })
             .collect();
         Ok(out)

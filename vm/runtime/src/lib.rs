@@ -205,12 +205,12 @@ pub trait Syscalls {
 
     fn batch_verify_seals(
         &self,
-        vis: &[(Address, &Vec<SealVerifyInfo>)],
+        vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         let mut verified = HashMap::new();
-        for (addr, s) in vis {
+        for (&addr, s) in vis.iter() {
             let vals = s.iter().map(|si| self.verify_seal(si).is_ok()).collect();
-            verified.insert(*addr, vals);
+            verified.insert(addr, vals);
         }
         Ok(verified)
     }
