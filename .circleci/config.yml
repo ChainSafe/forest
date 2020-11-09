@@ -211,6 +211,7 @@ jobs:
       - run:
           name: Run test vectors
           command: make run-vectors
+  # TODO: change executor to ubuntu         
   coverage:
     executor: mac-executor
     description: Run coverage reporting using grcov
