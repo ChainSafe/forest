@@ -37,7 +37,7 @@ const WORKER_TASKS: usize = 1;
 
 /// Import a chain from a CAR file
 async fn import_chain<V: ProofVerifier, R: Read, DB>(
-    bs: Arc<DB>,
+    sm: &Arc<StateManager<DB>>,
     reader: R,
     snapshot: bool,
 ) -> Result<(), Box<dyn std::error::Error>>
@@ -46,16 +46,16 @@ where
 {
     info!("Importing chain from snapshot");
     // start import
-    let cids = load_car(bs.as_ref(), reader)?;
-    let ts = chain::tipset_from_keys(bs.as_ref(), &TipsetKeys::new(cids))?;
-    let gb = chain::tipset_by_height(bs.as_ref(), 0, &ts, true)?.unwrap();
-    let sm = Arc::new(StateManager::new(bs.clone()));
+    let cids = load_car(sm.blockstore(), reader)?;
+    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
+    let gb = sm.chain_store().tipset_by_height(0, &ts, true)?.unwrap();
     if !snapshot {
         info!("Validating imported chain");
         sm.validate_chain::<V>(ts.clone()).await?;
     }
-    let gen_cid = chain::set_genesis(bs.as_ref(), &gb.blocks()[0])?;
-    bs.write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
+    let gen_cid = sm.chain_store().set_genesis(&gb.blocks()[0])?;
+    sm.blockstore()
+        .write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
     info!(
         "Accepting {:?} as new head with genesis {:?}",
         ts.cids(),
@@ -97,27 +97,22 @@ pub(super) async fn start(config: Config) {
     db.open().unwrap();
     let db = Arc::new(db);
 
+    // Initialize StateManager
+    let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
+    let state_manager = Arc::new(StateManager::new(Arc::clone(&chain_store)));
+
     // Sync from snapshot
     if let Some(path) = &config.snapshot_path {
         let file = File::open(path).expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
-        import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, false)
+        import_chain::<FullVerifier, _, _>(&state_manager, reader, false)
             .await
             .unwrap();
     }
 
-    let mut chain_store = ChainStore::new(Arc::clone(&db));
-
-    // Initialize StateManager
-    let state_manager = Arc::new(StateManager::new(Arc::clone(&db)));
-
     // Read Genesis file
-    let (genesis, network_name) = initialize_genesis(
-        config.genesis_file.as_ref(),
-        &mut chain_store,
-        &state_manager,
-    )
-    .unwrap();
+    let (genesis, network_name) =
+        initialize_genesis(config.genesis_file.as_ref(), &state_manager).unwrap();
 
     // Fetch and ensure verification keys are downloaded
     get_params_default(SectorSizeOpt::Keys, false)
@@ -141,7 +136,7 @@ pub(super) async fn start(config: Config) {
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network,
-        Arc::clone(&db),
+        chain_store,
         Arc::clone(&mpool),
         net_keypair,
         &network_name,
@@ -162,10 +157,8 @@ pub(super) async fn start(config: Config) {
     .unwrap();
 
     // Initialize ChainSyncer
-    let chain_store_arc = Arc::new(chain_store);
     // TODO allow for configuring validation strategy (defaulting to full validation)
     let chain_syncer = ChainSyncer::<_, _, FullVerifier>::new(
-        chain_store_arc.clone(),
         Arc::clone(&state_manager),
         Arc::new(beacon),
         network_send.clone(),
@@ -197,7 +190,6 @@ pub(super) async fn start(config: Config) {
                     sync_state,
                     network_send,
                     network_name,
-                    chain_store: chain_store_arc,
                     events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
                 },
                 &rpc_listen,
@@ -237,18 +229,22 @@ mod test {
     #[async_std::test]
     async fn import_snapshot_from_file() {
         let db = Arc::new(MemoryDB::default());
+        let cs = Arc::new(ChainStore::new(db));
+        let sm = Arc::new(StateManager::new(cs));
         let file = File::open("test_files/chain4.car").expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
-        import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, true)
+        import_chain::<FullVerifier, _, _>(&sm, reader, true)
             .await
             .expect("Failed to import chain");
     }
     #[async_std::test]
     async fn import_chain_from_file() {
         let db = Arc::new(MemoryDB::default());
+        let cs = Arc::new(ChainStore::new(db));
+        let sm = Arc::new(StateManager::new(cs));
         let file = File::open("test_files/chain4.car").expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
-        import_chain::<FullVerifier, _, _>(Arc::clone(&db), reader, false)
+        import_chain::<FullVerifier, _, _>(&sm, reader, false)
             .await
             .expect("Failed to import chain");
     }

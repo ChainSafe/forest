@@ -28,7 +28,11 @@ where
 {
     let (UnsignedMessageJson(msg), max_queue_blks, _tsk) = params;
 
-    let ts = chain::get_heaviest_tipset(data.state_manager.blockstore())?
+    let ts = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
         .ok_or("can't find heaviest tipset")?;
 
     let act = data
@@ -80,14 +84,23 @@ where
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
 
-    let mut ts = chain::get_heaviest_tipset(data.state_manager.blockstore())?
-        .ok_or("cant get heaviest tipset")?;
+    let mut ts = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
+        .ok_or("cant get heaviest tipset")?
+        .as_ref()
+        .clone();
 
     for _ in 0..(nblocksincl * 2) {
         if ts.parents().cids().is_empty() {
             break;
         }
-        let pts = chain::tipset_from_keys(data.state_manager.blockstore(), ts.parents())?;
+        let pts = data
+            .state_manager
+            .chain_store()
+            .tipset_from_keys(ts.parents())?;
         blocks += pts.blocks().len();
         let msgs = chain::messages_for_tipset(data.state_manager.blockstore(), &pts)?;
 
@@ -158,7 +171,11 @@ where
     msg.set_gas_fee_cap(MINIMUM_BASE_FEE.clone() + 1);
     msg.set_gas_premium(1.into());
 
-    let curr_ts = chain::get_heaviest_tipset(data.state_manager.blockstore())?
+    let curr_ts = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
         .ok_or("cant find the current heaviest tipset")?;
     let from_a = data
         .state_manager

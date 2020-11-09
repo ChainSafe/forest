@@ -69,9 +69,6 @@ pub struct ChainSyncer<DB, TBeacon, V> {
     /// Represents next tipset to be synced.
     next_sync_target: Option<SyncBucket>,
 
-    /// access and store tipsets / blocks / messages
-    chain_store: Arc<ChainStore<DB>>,
-
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext<DB>,
 
@@ -96,15 +93,17 @@ where
     V: ProofVerifier + Sync + Send + 'static,
 {
     pub fn new(
-        chain_store: Arc<ChainStore<DB>>,
         state_manager: Arc<StateManager<DB>>,
         beacon: Arc<TBeacon>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
     ) -> Result<Self, Error> {
-        let network =
-            SyncNetworkContext::new(network_send, Default::default(), chain_store.db.clone());
+        let network = SyncNetworkContext::new(
+            network_send,
+            Default::default(),
+            state_manager.blockstore_cloned(),
+        );
 
         Ok(Self {
             state: ChainSyncState::Bootstrap,
@@ -113,7 +112,6 @@ where
             network,
             genesis,
             state_manager,
-            chain_store,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
             sync_queue: SyncBucketSet::default(),
@@ -166,7 +164,7 @@ where
                             request.heaviest_tip_set
                         );
                         let new_ts_tx_cloned = new_ts_tx.clone();
-                        let cs_cloned = self.chain_store.clone();
+                        let cs_cloned = self.state_manager.chain_store().clone();
                         let net_cloned = self.network.clone();
                         // TODO determine if tasks started to fetch and load tipsets should be
                         // limited. Currently no cap on this.
@@ -182,7 +180,7 @@ where
                         });
                     }
                     Some(NetworkEvent::PeerDialed { peer_id }) => {
-                        let heaviest = self.chain_store.heaviest_tipset().await.unwrap();
+                        let heaviest = self.state_manager.chain_store().heaviest_tipset().await.unwrap();
                         self.network
                             .hello_request(
                                 peer_id,
@@ -281,7 +279,6 @@ where
             state,
             beacon: self.beacon.clone(),
             state_manager: self.state_manager.clone(),
-            chain_store: self.chain_store.clone(),
             network: self.network.clone(),
             genesis: self.genesis.clone(),
             bad_blocks: self.bad_blocks.clone(),
@@ -310,7 +307,8 @@ where
 
         // compare target_weight to heaviest weight stored; ignore otherwise
         let candidate_ts = self
-            .chain_store
+            .state_manager
+            .chain_store()
             .heaviest_tipset()
             .await
             // TODO we should be able to queue a tipset with the same weight on a different chain.
@@ -399,7 +397,7 @@ where
     /// bls and secp messages contained in the passed in block and stores them in a key-value store
     fn validate_msg_meta(&self, block: &Block) -> Result<(), Error> {
         let sm_root = compute_msg_meta(
-            self.chain_store.blockstore(),
+            self.state_manager.blockstore(),
             block.bls_msgs(),
             block.secp_msgs(),
         )?;
@@ -407,7 +405,7 @@ where
             return Err(Error::InvalidRoots);
         }
 
-        chain::persist_objects(self.chain_store.blockstore(), block.bls_msgs())?;
+        chain::persist_objects(self.state_manager.blockstore(), block.bls_msgs())?;
         chain::persist_objects(self.state_manager.blockstore(), block.secp_msgs())?;
 
         Ok(())
@@ -518,8 +516,7 @@ mod tests {
         let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
         (
             ChainSyncer::new(
-                chain_store,
-                Arc::new(StateManager::new(db)),
+                Arc::new(StateManager::new(chain_store)),
                 beacon,
                 local_sender,
                 event_receiver,
@@ -551,7 +548,7 @@ mod tests {
             Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
-        let root = compute_msg_meta(cs.chain_store.blockstore(), &[bls], &[secp]).unwrap();
+        let root = compute_msg_meta(cs.state_manager.blockstore(), &[bls], &[secp]).unwrap();
         assert_eq!(root, expected_root);
     }
 
