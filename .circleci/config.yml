@@ -4,8 +4,15 @@ executors:
   test-executor:
     machine:
       image: ubuntu-1604:202004-01
-    resource_class: large
+    resource_class: xlarge
+  mac-executor:
+    macos:
+      xcode: 12.0.1
+    resource_class: xlarge
 
+######################################################################################################################
+  #  Reusable single command definitions
+######################################################################################################################
 commands:
   install_rust:
     description: Install Rust Toolchain
@@ -52,11 +59,11 @@ commands:
           name: Install Dependencies
           command: |
             sudo apt-get update
-            sudo apt-get install -y clang  \
+            sudo apt-get install -y \
                 curl file gcc g++ git make openssh-client \
-                autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev \
+                autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
                 libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
-                xz-utils pkg-config python clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
+                xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
             rustup component add clippy rustfmt
             git submodule update --init
 
@@ -99,6 +106,7 @@ commands:
       - print_versions
       - env_setup
       - install_deps
+
 jobs:
   prefetch-crates:
     executor: test-executor
@@ -110,6 +118,69 @@ jobs:
           name: Fetch workspace dependencies over network
           command: cargo fetch
       - save_cargo_package_cache
+
+######################################################################################################################
+  #  Build related jobs
+######################################################################################################################
+  # TODO change builds over to matrix style once Windows build is ready
+  nightly-build-check:
+    executor: test-executor
+    description: Check nightly build
+    steps:
+      - checkout
+      - install_rust
+      - install_deps
+      - env_setup
+      - run:
+          name: Set rustc version
+          command: |
+            rustup default nightly
+            rustup update nightly
+      - run:
+          name: Nightly Build
+          command: |
+            rustup run nightly rustc --version --verbose
+            rustup run nightly cargo --version --verbose
+            rustup run nightly cargo build
+  macos-build-check:
+    executor: mac-executor
+    description: Check macos build
+    steps:
+      - checkout
+      - run:
+          name: Install rust toolchain          
+          command: |
+            curl https://sh.rustup.rs -sSf -o install_rust.sh
+            chmod +x install_rust.sh
+            ./install_rust.sh -q -y
+            rm install_rust.sh
+            export PATH="${HOME}/.cargo/bin:${PATH}"
+            rustc -V
+      - rust_setup
+      - env_setup
+      - run: 
+          name: Install deps
+          command: |
+            brew install hwloc
+      - run:
+          name: Macos build
+          command: |
+            rustup run stable rustc --version --verbose
+            rustup run stable cargo --version --verbose
+            rustup run stable cargo build
+  install:
+    executor: test-executor
+    description: Install forest binary
+    steps:
+      - build_setup
+      - restore_cargo_package_cache
+      - run:
+          name: Install binary
+          command: make install
+
+######################################################################################################################
+  #  Testing, linting, code coverage and doc publishing
+######################################################################################################################
   lint:
     executor: test-executor
     description: Run Rust linting tools.
@@ -140,15 +211,90 @@ jobs:
       - run:
           name: Run test vectors
           command: make run-vectors
-  install:
+  # TODO: change executor to ubuntu         
+  coverage:
+    executor: mac-executor
+    description: Run coverage reporting using grcov
+    steps:
+      - checkout
+      - when:
+        condition:
+          equal: [ main, << pipeline.git.branch >> ]
+          steps:
+            - run:
+                name: Install rust toolchain          
+                command: |
+                  curl https://sh.rustup.rs -sSf -o install_rust.sh
+                  chmod +x install_rust.sh
+                  ./install_rust.sh -q -y
+                  rm install_rust.sh
+                  export PATH="${HOME}/.cargo/bin:${PATH}"
+                  rustc -V
+            - env_setup
+            - run:
+                name: Set rustc version
+                command: |
+                  rustup default nightly
+                  rustup update nightly
+            - run: 
+                name: Install deps
+                command: |
+                  brew install hwloc
+            - restore_cargo_package_cache
+            - run:
+                name: Install grcov
+                command: |
+                  curl -L https://github.com/mozilla/grcov/releases/latest/download/grcov-linux-x86_64.tar.bz2 | tar jxf -
+            - run:
+                name: Avoid hosts unknown for github
+                command: echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+            - run:
+                name: Run test suite
+                command: |
+                  export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Coverflow-checks=off"
+                  make build
+                  git submodule update --init
+                  sudo make run-vectors
+                  sudo make test-all
+            - run:
+                name: Upload to codecov
+                command: |
+                  zip -0 ccov.zip `find . \( -name "forest*.gc*" \) -print`;
+                  ./grcov ccov.zip -s . -t lcov --llvm --branch --ignore-not-existing --ignore "/*" --ignore="target/debug/build/*" --ignore="**/tests/*" -o lcov.info;
+                  bash <(curl -s https://codecov.io/bash) -f lcov.info;
+  publish-docs:
     executor: test-executor
-    description: Install forest binary
+    description: Publish documentation to GitHub pages
+    steps:
+      - checkout
+      - when:
+          condition:
+            equal: [ main, << pipeline.git.branch >> ]
+          steps:
+            - build_setup
+            - restore_cargo_package_cache  
+            - run:
+                name: Build Docs
+                command: cargo doc --no-deps --all-features
+            - run:
+                name: Publish Docs
+                command: bash ./scripts/build-rust-docs.sh
+
+######################################################################################################################
+  #  Security audit
+######################################################################################################################
+  security:
+    executor: test-executor
+    description: Cargo audit
     steps:
       - build_setup
       - restore_cargo_package_cache
       - run:
-          name: Build Unit Tests
-          command: make install
+          name: Install dependency auditing tool
+          command: cargo install cargo-audit
+      - run:
+          name: Check for known security issues in dependencies
+          command: cargo audit
 
 workflows:
   setup_test:
@@ -161,5 +307,46 @@ workflows:
           requires:
             - prefetch-crates
       - test-vectors:
+          requires:
+            - prefetch-crates
+  build-check:
+    jobs:
+      - prefetch-crates
+      - nightly-build-check:
+          requires:
+            - prefetch-crates
+      - macos-build-check:
+          requires:
+            - prefetch-crates
+  daily-check:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - prefetch-crates
+      - install:
+          requires:
+            - prefetch-crates
+  docs:
+    jobs:
+      - publish-docs:
+        filters:
+          branches:
+            only:
+              - main
+  coverage:
+    jobs:
+      - prefetch-crates
+      - coverage:
+          requires:
+            - prefetch-crates
+  security:
+    jobs:
+      - prefetch-crates
+      - security:
           requires:
             - prefetch-crates
