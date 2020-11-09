@@ -21,7 +21,6 @@ pub const EXPORT_SR_40: &[u8; 1226395] = include_bytes!("mainnet/export40.car");
 /// chain store has existing data for the given genesis.
 pub fn initialize_genesis<BS>(
     genesis_fp: Option<&String>,
-    chain_store: &mut ChainStore<BS>,
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), Box<dyn StdError>>
 where
@@ -31,13 +30,13 @@ where
         Some(path) => {
             let file = File::open(path)?;
             let reader = BufReader::new(file);
-            process_car(reader, chain_store)?
+            process_car(reader, state_manager.chain_store())?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let bz = include_bytes!("mainnet/genesis.car");
             let reader = BufReader::<&[u8]>::new(bz.as_ref());
-            process_car(reader, chain_store)?
+            process_car(reader, state_manager.chain_store())?
         }
     };
 
@@ -52,7 +51,7 @@ where
 
 fn process_car<R, BS>(
     reader: R,
-    chain_store: &mut ChainStore<BS>,
+    chain_store: &ChainStore<BS>,
 ) -> Result<BlockHeader, Box<dyn StdError>>
 where
     R: Read,

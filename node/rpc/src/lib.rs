@@ -20,7 +20,7 @@ use async_tungstenite::{
 };
 use auth::{has_perms, Error as AuthError, JWT_IDENTIFIER, WRITE_ACCESS};
 use blockstore::BlockStore;
-use chain::{headchange_json::HeadChangeJson, ChainStore, EventsPayload};
+use chain::{headchange_json::HeadChangeJson, EventsPayload};
 use chain_sync::{BadBlockCache, SyncState};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use forest_libp2p::NetworkMessage;
@@ -64,7 +64,6 @@ where
     pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
     pub network_send: Sender<NetworkMessage>,
     pub network_name: String,
-    pub chain_store: Arc<ChainStore<DB>>,
 }
 
 pub async fn start_rpc<DB, KS>(state: RpcState<DB, KS>, rpc_endpoint: &str)

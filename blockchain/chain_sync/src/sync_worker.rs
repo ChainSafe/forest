@@ -51,9 +51,6 @@ pub(crate) struct SyncWorker<DB, TBeacon, V> {
     /// manages retrieving and updates state objects.
     pub state_manager: Arc<StateManager<DB>>,
 
-    /// access and store tipsets / blocks / messages.
-    pub chain_store: Arc<ChainStore<DB>>,
-
     /// Context to be able to send requests to p2p network.
     pub network: SyncNetworkContext<DB>,
 
@@ -74,6 +71,10 @@ where
     DB: BlockStore + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static,
 {
+    fn chain_store(&self) -> &Arc<ChainStore<DB>> {
+        self.state_manager.chain_store()
+    }
+
     pub async fn spawn(self, mut inbound_channel: Receiver<Arc<Tipset>>) -> JoinHandle<()> {
         task::spawn(async move {
             while let Some(ts) = inbound_channel.next().await {
@@ -102,7 +103,7 @@ where
         }
 
         // Get heaviest tipset from storage to sync toward
-        let heaviest = self.chain_store.heaviest_tipset().await.unwrap();
+        let heaviest = self.chain_store().heaviest_tipset().await.unwrap();
 
         info!("Starting block sync...");
 
@@ -125,7 +126,7 @@ where
         // Persist header chain pulled from network
         self.set_stage(SyncStage::PersistHeaders).await;
         let headers: Vec<&BlockHeader> = tipsets.iter().map(|t| t.blocks()).flatten().collect();
-        if let Err(e) = persist_objects(self.chain_store.blockstore(), &headers) {
+        if let Err(e) = persist_objects(self.chain_store().blockstore(), &headers) {
             self.state.write().await.error(e.to_string());
             return Err(e.into());
         }
@@ -138,7 +139,7 @@ where
         self.set_stage(SyncStage::Complete).await;
 
         // At this point the head is synced and the head can be set as the heaviest.
-        self.chain_store.put_tipset(head.as_ref()).await?;
+        self.chain_store().put_tipset(head.as_ref()).await?;
 
         Ok(())
     }
@@ -179,7 +180,7 @@ where
             }
 
             // Try to load parent tipset from local storage
-            if let Ok(ts) = self.chain_store.tipset_from_keys(cur_ts.parents()) {
+            if let Ok(ts) = self.chain_store().tipset_from_keys(cur_ts.parents()) {
                 // Add blocks in tipset to accepted chain and push the tipset to return set
                 accepted_blocks.extend_from_slice(ts.cids());
                 return_set.push(ts);
@@ -279,7 +280,7 @@ where
             .blocksync_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
             .await?;
 
-        let mut ts = self.chain_store.tipset_from_keys(to.parents())?;
+        let mut ts = self.chain_store().tipset_from_keys(to.parents())?;
 
         for i in 0..tips.len() {
             while ts.epoch() > tips[i].epoch() {
@@ -288,7 +289,7 @@ where
                         "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));
                 }
-                ts = self.chain_store.tipset_from_keys(ts.parents())?;
+                ts = self.chain_store().tipset_from_keys(ts.parents())?;
             }
             if ts == tips[i] {
                 return Ok(tips[0..=i].to_vec());
@@ -308,7 +309,7 @@ where
 
         while let Some(ts) = ts_iter.next() {
             // check storage first to see if we have full tipset
-            let fts = match self.chain_store.fill_tipset(ts) {
+            let fts = match self.chain_store().fill_tipset(ts) {
                 Ok(fts) => fts,
                 Err(ts) => {
                     // no full tipset in storage; request messages via blocksync
@@ -349,8 +350,8 @@ where
 
                         // store messages
                         if let Some(m) = bundle.messages {
-                            self.chain_store.put_messages(&m.bls_msgs)?;
-                            self.chain_store.put_messages(&m.secp_msgs)?;
+                            chain::persist_objects(self.state_manager.blockstore(), &m.bls_msgs)?;
+                            chain::persist_objects(self.state_manager.blockstore(), &m.secp_msgs)?;
                         } else {
                             warn!("Blocksync request for messages returned null messages");
                         }
@@ -380,7 +381,7 @@ where
 
         let mut validations = FuturesUnordered::new();
         for b in fts.into_blocks() {
-            let cs = self.chain_store.clone();
+            let cs = self.chain_store().clone();
             let sm = self.state_manager.clone();
             let bc = self.beacon.clone();
             let v = task::spawn(async move { Self::validate_block(cs, sm, bc, Arc::new(b)).await });
@@ -390,7 +391,7 @@ where
         while let Some(result) = validations.next().await {
             match result {
                 Ok(b) => {
-                    self.chain_store.set_tipset_tracker(b.header()).await?;
+                    self.chain_store().set_tipset_tracker(b.header()).await?;
                 }
                 Err((cid, e)) => {
                     // If the error is temporally invalidated, don't add to bad blocks cache.
@@ -457,7 +458,8 @@ where
         })?;
         let lbst = Arc::new(lbst);
 
-        let prev_beacon = chain::latest_beacon_entry(cs.blockstore(), base_ts.as_ref())
+        let prev_beacon = cs
+            .latest_beacon_entry(base_ts.as_ref())
             .map_err(|e| (block_cid.clone(), e.into()))?;
         let prev_beacon = Arc::new(prev_beacon);
 
@@ -1035,8 +1037,7 @@ mod tests {
             SyncWorker {
                 state: Default::default(),
                 beacon,
-                state_manager: Arc::new(StateManager::new(db.clone())),
-                chain_store,
+                state_manager: Arc::new(StateManager::new(chain_store)),
                 network: SyncNetworkContext::new(local_sender, Default::default(), db),
                 genesis: genesis_ts,
                 bad_blocks: Default::default(),
