@@ -3,8 +3,8 @@
 </p>
 
 
-[![forest](https://circleci.com/gh/ChainSafe/forest.svg?style=shield)](https://app.circleci.com/pipelines/github/ChainSafe/forest?branch=main)
-[![codecov](https://codecov.io/gh/ChainSafe/forest/branch/master/graph/badge.svg?token=1OHO2CSD17)](https://codecov.io/gh/ChainSafe/forest)
+[<img alt="build status" src="https://img.shields.io/circleci/build/gh/ChainSafe/forest/main?style=for-the-badge" height="20">](https://app.circleci.com/pipelines/github/ChainSafe/forest?branch=main)
+[<img alt="Coverage" src="https://img.shields.io/codecov/c/gh/ChainSafe/forest?color=orange&flag=main&style=for-the-badge&token=1OHO2CSD17" height="20">](https://codecov.io/gh/ChainSafe/forest)
 [<img alt="Apache License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/Apache-2.0)
 [<img alt="MIT License" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/MIT)
 [<img alt="Discord" src="https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord" height="20">](https://discord.gg/Q6A3YA2)
