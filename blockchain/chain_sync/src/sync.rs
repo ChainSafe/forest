@@ -499,10 +499,12 @@ mod tests {
     use super::*;
     use async_std::sync::channel;
     use async_std::sync::Sender;
+    use async_std::task;
     use beacon::MockBeacon;
     use db::MemoryDB;
     use fil_types::verifier::MockVerifier;
     use forest_libp2p::NetworkEvent;
+    use message_pool::{test_provider::TestApi, MessagePool};
     use state_manager::StateManager;
     use std::sync::Arc;
     use std::time::Duration;
@@ -511,12 +513,19 @@ mod tests {
     fn chain_syncer_setup(
         db: Arc<MemoryDB>,
     ) -> (
-        ChainSyncer<MemoryDB, MockBeacon, MockVerifier>,
+        ChainSyncer<MemoryDB, MockBeacon, MockVerifier, TestApi>,
         Sender<NetworkEvent>,
         Receiver<NetworkMessage>,
     ) {
         let chain_store = Arc::new(ChainStore::new(db.clone()));
-
+        let test_provider = TestApi::default();
+        let mpool = task::block_on(MessagePool::new(
+            test_provider,
+            "test".to_string(),
+            Default::default(),
+        ))
+        .unwrap();
+        let mpool = Arc::new(mpool);
         let (local_sender, test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
 
@@ -531,6 +540,7 @@ mod tests {
                 chain_store,
                 Arc::new(StateManager::new(db)),
                 beacon,
+                mpool,
                 local_sender,
                 event_receiver,
                 genesis_ts,
