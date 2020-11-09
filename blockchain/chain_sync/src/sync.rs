@@ -24,8 +24,9 @@ use futures::select;
 use futures::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use message::{SignedMessage, UnsignedMessage};
+use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -48,7 +49,7 @@ enum ChainSyncState {
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
 /// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
 /// messages to be able to do the initial sync.
-pub struct ChainSyncer<DB, TBeacon, V> {
+pub struct ChainSyncer<DB, TBeacon, V, M> {
     /// State of general `ChainSync` protocol.
     state: ChainSyncState,
 
@@ -84,17 +85,21 @@ pub struct ChainSyncer<DB, TBeacon, V> {
 
     /// Proof verification implementation.
     verifier: PhantomData<V>,
+
+    mpool: Arc<MessagePool<M>>,
 }
 
-impl<DB, TBeacon, V> ChainSyncer<DB, TBeacon, V>
+impl<DB, TBeacon, V, M> ChainSyncer<DB, TBeacon, V, M>
 where
     TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static,
+    M: Provider + Sync + Send + 'static,
 {
     pub fn new(
         state_manager: Arc<StateManager<DB>>,
         beacon: Arc<TBeacon>,
+        mpool: Arc<MessagePool<M>>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
@@ -118,6 +123,7 @@ where
             active_sync_tipsets: SyncBucketSet::default(),
             next_sync_target: None,
             verifier: Default::default(),
+            mpool,
         })
     }
 
@@ -229,9 +235,13 @@ where
                                     warn!("failed to inform new head from peer {}", source);
                                 }
                             }
-                            // ignore pubsub messages because they get handled in the service
-                            // and get added into the mempool
-                            _ => ()
+                            forest_libp2p::PubsubMessage::Message(m) => {
+                                // add message to message pool
+                                // TODO handle adding message to mempool in seperate task.
+                                if let Err(e) = self.mpool.add(m).await {
+                                    trace!("Gossip Message failed to be added to Message pool: {}", e);
+                                }
+                            }
                         }
                     }
                     // All other network events are being ignored currently
@@ -487,10 +497,12 @@ mod tests {
     use super::*;
     use async_std::sync::channel;
     use async_std::sync::Sender;
+    use async_std::task;
     use beacon::MockBeacon;
     use db::MemoryDB;
     use fil_types::verifier::MockVerifier;
     use forest_libp2p::NetworkEvent;
+    use message_pool::{test_provider::TestApi, MessagePool};
     use state_manager::StateManager;
     use std::sync::Arc;
     use std::time::Duration;
@@ -499,12 +511,19 @@ mod tests {
     fn chain_syncer_setup(
         db: Arc<MemoryDB>,
     ) -> (
-        ChainSyncer<MemoryDB, MockBeacon, MockVerifier>,
+        ChainSyncer<MemoryDB, MockBeacon, MockVerifier, TestApi>,
         Sender<NetworkEvent>,
         Receiver<NetworkMessage>,
     ) {
         let chain_store = Arc::new(ChainStore::new(db.clone()));
-
+        let test_provider = TestApi::default();
+        let mpool = task::block_on(MessagePool::new(
+            test_provider,
+            "test".to_string(),
+            Default::default(),
+        ))
+        .unwrap();
+        let mpool = Arc::new(mpool);
         let (local_sender, test_receiver) = channel(20);
         let (event_sender, event_receiver) = channel(20);
 
@@ -518,6 +537,7 @@ mod tests {
             ChainSyncer::new(
                 Arc::new(StateManager::new(chain_store)),
                 beacon,
+                mpool,
                 local_sender,
                 event_receiver,
                 genesis_ts,
