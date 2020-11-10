@@ -35,6 +35,7 @@ use std::time::Duration;
 use types::verifier::ProofVerifier;
 use types::UPGRADE_BREEZE_HEIGHT;
 use vm::ActorState;
+
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
 const RBF_DENOM: u64 = 256;
