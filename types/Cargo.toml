@@ -1,33 +1,35 @@
 [package]
 name = "fil_types"
-version = "0.1.0"
+description = "Filecoin types used in Forest."
+version = "0.1.1"
+license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
 features = ["json"]
 
 [dependencies]
-address = { package = "forest_address", path = "../vm/address", features = ["json"]}
+address = { package = "forest_address", path = "../vm/address", features = ["json"], version = "0.3" }
 chrono = "0.4.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.56"
-commcid = { path = "../utils/commcid" }
+commcid = { path = "../utils/commcid", version = "0.1", optional = true }
 filecoin-proofs-api = { version = "5.3", features = ["blst"], default_features = false, optional = true }
-vm = { package = "forest_vm", path = "../vm" }
-cid = { package = "forest_cid", path = "../ipld/cid", features = ["cbor"] }
-num-bigint = { path = "../utils/bigint", package = "forest_bigint", features=["json"] }
+vm = { package = "forest_vm", path = "../vm", version = "0.3" }
+cid = { package = "forest_cid", path = "../ipld/cid", features = ["cbor"], version = "0.2" }
+num-bigint = { path = "../utils/bigint", package = "forest_bigint", version = "0.1.1" }
 num-traits = "0.2"
 num-derive = "0.3.0"
-encoding = { package = "forest_encoding", path = "../encoding" }
-clock = { path = "../node/clock" }
+encoding = { package = "forest_encoding", path = "../encoding", version = "0.2" }
+clock = { package = "fil_clock", path = "../node/clock", version = "0.1" }
 base64 = { version = "0.13", optional = true }
-forest_json_utils = { path = "../utils/json_utils", optional = true }
-ipld_amt = { path = "../ipld/amt/" }
+forest_json_utils = { path = "../utils/json_utils", optional = true, version = "0.1" }
 lazy_static = "1.4"
 async-std = "1.6.3"
 
 
 [features]
-json = ["base64", "forest_json_utils"]
-proofs = ["filecoin-proofs-api"]
+json = ["base64", "forest_json_utils", "num-bigint/json"]
+proofs = ["filecoin-proofs-api", "commcid"]

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{Cid, Codec, Multihash, POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
-use filecoin_proofs_api::Commitment;
+
+pub type Commitment = [u8; 32];
 
 /// CommitmentToCID converts a raw commitment hash to a CID
 /// by adding:
