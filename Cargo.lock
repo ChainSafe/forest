@@ -4001,10 +4001,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6f97339ef1e4092fa22e397929fdf9c1a106b925fd11cab90e097bdbfbbe25c"
 dependencies = [
  "blake2b_simd",
- "digest 0.9.0",
  "generic-array 0.14.4",
  "multihash-derive",
- "sha2 0.9.2",
  "unsigned-varint 0.5.1",
 ]
 
