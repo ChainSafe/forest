@@ -240,7 +240,6 @@ jobs:
               name: Install deps
               command: |
                 brew install hwloc
-          - restore_cargo_package_cache
           - run:
               name: Install grcov
               command: |
