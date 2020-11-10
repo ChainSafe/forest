@@ -903,10 +903,7 @@ where
         return Ok(());
     }
 
-    chains.sort_by(|a, b| match a.before(b) {
-        true => Ordering::Greater,
-        false => Ordering::Less,
-    });
+    chains.sort_by(|a, b| a.cmp(b));
 
     let mut msgs: Vec<SignedMessage> = vec![];
     let mut gas_limit = types::BLOCK_GAS_LIMIT;
@@ -943,7 +940,7 @@ where
         msg_chain.trim(gas_limit, &base_fee, true);
         let mut j = i;
         while j < chains.len() - 1 {
-            if chains[j].before(&chains[j + 1]) {
+            if chains[j].cmp(&chains[j + 1]) == Ordering::Less {
                 break;
             }
             chains.swap(j, j + 1);
@@ -1061,14 +1058,11 @@ where
             valid: true,
             merged: false,
         };
-        MsgChain {
-            index: 0,
-            chain: vec![node],
-        }
+        MsgChain::new(vec![node])
     };
 
     let mut chains = Vec::new();
-    let mut cur_chain = MsgChain::new();
+    let mut cur_chain = MsgChain::default();
 
     for (i, m) in msgs.into_iter().enumerate() {
         if i == 0 {

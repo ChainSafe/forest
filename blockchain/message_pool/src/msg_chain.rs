@@ -4,6 +4,7 @@
 use crate::{get_gas_perf, get_gas_reward};
 use message::{Message, SignedMessage};
 use num_bigint::BigInt;
+use std::cmp::Ordering;
 use std::f64::EPSILON;
 
 /// Represents a node in the MsgChain.
@@ -53,16 +54,25 @@ impl MsgChainNode {
 /// Mimics the doubly linked circular-referenced message chain from Lotus by keeping a current index
 #[derive(Clone, Debug)]
 pub(crate) struct MsgChain {
-    pub index: usize,
-    pub chain: Vec<MsgChainNode>,
+    index: usize,
+    chain: Vec<MsgChainNode>,
+}
+
+impl Default for MsgChain {
+    fn default() -> Self {
+       Self {
+           index: 0,
+           chain: vec![MsgChainNode::new()],
+       }
+    }
 }
 
 impl MsgChain {
     /// Creates a new message chain
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(nodes: Vec<MsgChainNode>) -> Self {
         Self {
             index: 0,
-            chain: vec![MsgChainNode::new()],
+            chain: nodes,
         }
     }
     /// Retrieves the current node in the MsgChain.
@@ -125,12 +135,11 @@ impl MsgChain {
 }
 
 impl MsgChain {
-    pub(crate) fn before(&self, other: &MsgChain) -> bool {
+    pub(crate) fn cmp(&self, other: &Self) -> Ordering {
         let self_curr = self.curr().unwrap();
         let other_curr = other.curr().unwrap();
-        self_curr.gas_perf > other_curr.gas_perf
-            || ((self_curr.gas_perf - other_curr.gas_perf).abs() < EPSILON
-                && self_curr.gas_reward < other_curr.gas_reward)
+        approx_cmp(self_curr.gas_perf, other_curr.gas_perf)
+            .then_with(|| self_curr.gas_reward.cmp(&other_curr.gas_reward))
     }
 
     pub(crate) fn trim(&mut self, gas_limit: i64, base_fee: &BigInt, allow_negative: bool) {
@@ -211,15 +220,22 @@ impl MsgChain {
         }
     }
     #[allow(dead_code)]
-    pub fn before_effective(&self, other: &MsgChain) -> bool {
+    fn cmp_effective(&self, other: &Self) -> Ordering {
         let mc = self.curr().unwrap();
         let other = other.curr().unwrap();
-        (mc.merged && !other.merged)
-            || (mc.gas_perf >= 0.0 && other.gas_perf < 0.0)
-            || (mc.eff_perf > other.eff_perf)
-            || ((mc.eff_perf - other.eff_perf).abs() < EPSILON && mc.gas_perf > other.gas_perf)
-            || ((mc.eff_perf - other.eff_perf).abs() < EPSILON
-                && (mc.gas_perf - other.gas_perf).abs() < EPSILON
-                && mc.gas_reward > other.gas_reward)
+        mc.merged
+            .cmp(&other.merged)
+            .then_with(|| (mc.gas_perf >= 0.0).cmp(&(other.gas_perf >= 0.0)))
+            .then_with(|| approx_cmp(mc.eff_perf, other.eff_perf))
+            .then_with(|| approx_cmp(mc.gas_perf, other.gas_perf))
+            .then_with(|| mc.gas_reward.cmp(&other.gas_reward))
+    }
+}
+
+fn approx_cmp(a: f64, b: f64) -> Ordering {
+    if (a - b).abs() < EPSILON {
+        Ordering::Equal
+    } else {
+        a.partial_cmp(&b).unwrap()
     }
 }
