@@ -16,7 +16,7 @@ use vm::TokenAmount;
 pub const PIECE_CID_PREFIX: Prefix = Prefix {
     version: Version::V1,
     codec: Codec::FilCommitmentUnsealed,
-    mh_type: cid::SHA2_256_TRUNC_256P_MH_CODE,
+    mh_type: cid::SHA2_256_TRUNC254_PADDED,
     mh_len: 32,
 };
 

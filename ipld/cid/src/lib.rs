@@ -36,12 +36,6 @@ const MULTIBASE_IDENTITY: u8 = 0;
 #[cfg(feature = "json")]
 pub mod json;
 
-/// Multihash code for Poseidon BLS replica commitments.
-pub const POSEIDON_MH_CODE: u64 = 0xb401;
-
-/// Multihash code for Sha2 256 trunc254 padded used in data commitments.
-pub const SHA2_256_TRUNC_256P_MH_CODE: u64 = 0x1012;
-
 /// Representation of a IPLD CID.
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Cid {

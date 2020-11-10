@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{Cid, Codec, Multihash, POSEIDON_MH_CODE, SHA2_256_TRUNC_256P_MH_CODE};
+use cid::{Cid, Codec, Multihash, POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
 use filecoin_proofs_api::Commitment;
 
 /// CommitmentToCID converts a raw commitment hash to a CID
@@ -35,7 +35,7 @@ pub fn cid_to_commitment(c: &Cid) -> Result<(Codec, u64, Commitment), &'static s
 pub fn data_commitment_v1_to_cid(comm_d: &Commitment) -> Result<Cid, &'static str> {
     commitment_to_cid(
         Codec::FilCommitmentUnsealed,
-        SHA2_256_TRUNC_256P_MH_CODE,
+        SHA2_256_TRUNC254_PADDED,
         comm_d,
     )
 }
@@ -58,7 +58,7 @@ pub fn cid_to_data_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
 /// - codec: cid.FilCommitmentSealed
 /// - hash type: multihash.PoseidonBls12381A1Fc1
 pub fn replica_commitment_v1_to_cid(comm_r: &Commitment) -> Result<Cid, &'static str> {
-    commitment_to_cid(Codec::FilCommitmentSealed, POSEIDON_MH_CODE, comm_r)
+    commitment_to_cid(Codec::FilCommitmentSealed, POSEIDON_BLS12_381_A1_FC1, comm_r)
 }
 
 /// cid_to_replica_commitment_v1 extracts the raw replica commitment from a CID
@@ -79,12 +79,12 @@ pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str>
 fn validate_filecoin_cid_segments(mc: Codec, mh: u64, comm_x: &[u8]) -> Result<(), &'static str> {
     match mc {
         Codec::FilCommitmentUnsealed => {
-            if mh != SHA2_256_TRUNC_256P_MH_CODE {
+            if mh != SHA2_256_TRUNC254_PADDED {
                 return Err("Incorrect hash function for unsealed commitment");
             }
         }
         Codec::FilCommitmentSealed => {
-            if mh != POSEIDON_MH_CODE {
+            if mh != POSEIDON_BLS12_381_A1_FC1 {
                 return Err("Incorrect hash function for sealed commitment");
             }
         }

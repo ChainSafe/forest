@@ -3,6 +3,12 @@
 
 use multihash::{derive::Multihash, U32};
 
+/// Multihash code for Poseidon BLS replica commitments.
+pub const POSEIDON_BLS12_381_A1_FC1: u64 = 0xb401;
+
+/// Multihash code for Sha2 256 trunc254 padded used in data commitments.
+pub const SHA2_256_TRUNC254_PADDED: u64 = 0x1012;
+
 /// Multihash generation codes for the Filecoin protocol. This is not an exhausting list of
 /// codes used, just the ones used to generate multihashes.
 #[derive(Clone, Copy, Debug, Eq, Multihash, PartialEq)]

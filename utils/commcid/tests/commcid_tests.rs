@@ -24,7 +24,7 @@ fn comm_d_to_cid() {
     let cid = data_commitment_v1_to_cid(&comm).unwrap();
 
     assert_eq!(cid.codec, Codec::FilCommitmentUnsealed);
-    assert_eq!(cid.hash.code(), cid::SHA2_256_TRUNC_256P_MH_CODE);
+    assert_eq!(cid.hash.code(), cid::SHA2_256_TRUNC254_PADDED);
     assert_eq!(cid.hash.digest(), comm);
 }
 
@@ -33,7 +33,7 @@ fn cid_to_comm_d() {
     let comm = rand_comm();
 
     // Correct hash format
-    let mh = cid::Multihash::wrap(cid::SHA2_256_TRUNC_256P_MH_CODE, &comm).unwrap();
+    let mh = cid::Multihash::wrap(cid::SHA2_256_TRUNC254_PADDED, &comm).unwrap();
     let c = Cid::new_v1(Codec::FilCommitmentUnsealed, mh.clone());
     let decoded = cid_to_data_commitment_v1(&c).unwrap();
     assert_eq!(decoded, comm);
@@ -55,7 +55,7 @@ fn comm_r_to_cid() {
     let cid = replica_commitment_v1_to_cid(&comm).unwrap();
 
     assert_eq!(cid.codec, Codec::FilCommitmentSealed);
-    assert_eq!(cid.hash.code(), cid::POSEIDON_MH_CODE);
+    assert_eq!(cid.hash.code(), cid::POSEIDON_BLS12_381_A1_FC1);
     assert_eq!(cid.hash.digest(), comm);
 }
 
@@ -64,7 +64,7 @@ fn cid_to_comm_r() {
     let comm = rand_comm();
 
     // Correct hash format
-    let mh = cid::Multihash::wrap(cid::POSEIDON_MH_CODE, &comm).unwrap();
+    let mh = cid::Multihash::wrap(cid::POSEIDON_BLS12_381_A1_FC1, &comm).unwrap();
     let c = Cid::new_v1(Codec::FilCommitmentSealed, mh.clone());
     let decoded = cid_to_replica_commitment_v1(&c).unwrap();
     assert_eq!(decoded, comm);
@@ -89,7 +89,7 @@ fn symmetric_conversion() {
         cid_to_commitment(&cid).unwrap(),
         (
             Codec::FilCommitmentUnsealed,
-            cid::SHA2_256_TRUNC_256P_MH_CODE,
+            cid::SHA2_256_TRUNC254_PADDED,
             comm
         )
     );
@@ -98,7 +98,7 @@ fn symmetric_conversion() {
     let cid = replica_commitment_v1_to_cid(&comm).unwrap();
     assert_eq!(
         cid_to_commitment(&cid).unwrap(),
-        (Codec::FilCommitmentSealed, cid::POSEIDON_MH_CODE, comm)
+        (Codec::FilCommitmentSealed, cid::POSEIDON_BLS12_381_A1_FC1, comm)
     );
 
     // piece
@@ -107,7 +107,7 @@ fn symmetric_conversion() {
         cid_to_commitment(&cid).unwrap(),
         (
             Codec::FilCommitmentUnsealed,
-            cid::SHA2_256_TRUNC_256P_MH_CODE,
+            cid::SHA2_256_TRUNC254_PADDED,
             comm
         )
     );
