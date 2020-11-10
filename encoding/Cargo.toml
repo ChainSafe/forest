@@ -14,7 +14,7 @@ serde_bytes = "0.11.3"
 # TODO remove fork in future (allowing non utf8 strings to be cbor deserialized)
 serde_cbor = { package = "cs_serde_cbor", version = "0.12", features = [
     "tags"
-], optional = true }
+] }
 serde_tuple = "0.5"
 serde_repr = "0.1"
 cid = { package = "forest_cid", path = "../ipld/cid", version = "0.2" }
