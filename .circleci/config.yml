@@ -257,7 +257,7 @@ jobs:
           - run:
               name: Upload to codecov
               command: |
-                grcov ./target/debug -s . -t lcov --llvm --branch --ignore-not-existing --ignore="target/debug/build/*" --ignore="**/tests/*" -o lcov.info;
+                grcov ./target/debug -s . -t lcov --llvm --branch --ignore-not-existing --ignore="tests/*" --ignore="target/debug/build/*" --ignore="**/tests/*" -o lcov.info;
                 bash <(curl -s https://codecov.io/bash) -f lcov.info;
   publish-docs:
     executor: test-executor
