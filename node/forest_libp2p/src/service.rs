@@ -9,7 +9,7 @@ use async_std::sync::{channel, Receiver, Sender};
 use async_std::{stream, task};
 use chain::ChainStore;
 use forest_blocks::GossipBlock;
-use forest_cid::{multihash::Blake2b256, Cid};
+use forest_cid::{Cid, Code::Blake2b256};
 use forest_encoding::from_slice;
 use forest_message::SignedMessage;
 use futures::channel::oneshot::Sender as OneShotSender;
@@ -254,7 +254,7 @@ where
                             let tx = self.bs_request_table.remove(&request_id);
 
                             if let Some(tx) = tx {
-                                if let Err(e) = tx.send(response) {
+                                if tx.send(response).is_err() {
                                     debug!("RPCResponse receive failed")
                                 }
                             }
@@ -262,23 +262,21 @@ where
                                 debug!("RPCResponse receive failed: channel not found");
                             };
                         }
-                        ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {
+                        ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block) => {
                             let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
                             match res {
                                 Ok(actual_cid) => {
                                     if actual_cid != cid {
                                         warn!("Bitswap cid mismatch: cid {:?}, expected cid: {:?}", actual_cid, cid);
-                                    } else {
-                                        if let Some (chans) = self.bitswap_response_channels.remove(&cid) {
+                                    } else if let Some (chans) = self.bitswap_response_channels.remove(&cid) {
                                             for chan in chans.into_iter(){
-                                                if let Err(e) = chan.send(()){
+                                                if chan.send(()).is_err() {
                                                     debug!("Bitswap response channel send failed");
                                                 }
                                                 trace!("Saved Bitswap block with cid {:?}", cid);
-                                            }
-                                        } else {
-                                            warn!("Received Bitswap response, but response channel cannot be found");
                                         }
+                                    } else {
+                                        warn!("Received Bitswap response, but response channel cannot be found");
                                     }
                                     emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{cid}).await;
                                 }
@@ -320,15 +318,13 @@ where
                             self.bs_request_table.insert(id, response_channel);
                         }
                         NetworkMessage::BitswapRequest { cid, response_channel } => {
-                            if let Err(e) = swarm_stream.get_mut().want_block(cid.clone(), 1000) {
+                            if let Err(e) = swarm_stream.get_mut().want_block(cid, 1000) {
                                 warn!("Failed to send a bitswap want_block: {}", e.to_string());
-                            } else {
-                                if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
+                            } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
                                     chans.push(response_channel);
                                 } else {
                                     self.bitswap_response_channels.insert(cid, vec![response_channel]);
                                 }
-                            }
                         }
                     }
                     None => { break; }

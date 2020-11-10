@@ -4,7 +4,7 @@
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use address::Address;
 use beacon::{self, Beacon, BeaconEntry};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
@@ -33,7 +33,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
 /// use address::Address;
-/// use cid::{Cid, multihash::Identity};
+/// use cid::{Cid, Code::Identity};
 /// use num_bigint::BigInt;
 /// use crypto::Signature;
 ///
@@ -136,7 +136,7 @@ pub struct BlockHeader {
 
 impl Cbor for BlockHeader {
     fn cid(&self) -> Result<Cid, EncodingError> {
-        Ok(self.cid().clone())
+        Ok(*self.cid())
     }
 }
 

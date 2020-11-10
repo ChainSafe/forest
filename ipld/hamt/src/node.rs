@@ -5,7 +5,7 @@ use super::bitfield::Bitfield;
 use super::hash_bits::HashBits;
 use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
-use cid::multihash::Blake2b256;
+use cid::Code::Blake2b256;
 use ipld_blockstore::BlockStore;
 use lazycell::LazyCell;
 use serde::de::DeserializeOwned;

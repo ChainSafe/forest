@@ -3,7 +3,6 @@
 
 use super::{Codec, Error, Version};
 use integer_encoding::{VarIntReader, VarIntWriter};
-use multihash::Code;
 use std::io::Cursor;
 
 /// Prefix represents all metadata of a CID, without the actual content.
@@ -11,7 +10,7 @@ use std::io::Cursor;
 pub struct Prefix {
     pub version: Version,
     pub codec: Codec,
-    pub mh_type: Code,
+    pub mh_type: u64,
     pub mh_len: usize,
 }
 
@@ -22,13 +21,11 @@ impl Prefix {
 
         let raw_version = cur.read_varint()?;
         let raw_codec = cur.read_varint()?;
-        let raw_mh_type: u64 = cur.read_varint()?;
+        let mh_type: u64 = cur.read_varint()?;
         let mh_len: usize = cur.read_varint()?;
 
         let version = Version::from(raw_version)?;
         let codec = Codec::from(raw_codec);
-
-        let mh_type = Code::from_u64(raw_mh_type);
 
         Ok(Prefix {
             version,
@@ -45,7 +42,7 @@ impl Prefix {
         // io can't fail on Vec
         res.write_varint(u64::from(self.version)).unwrap();
         res.write_varint(u64::from(self.codec)).unwrap();
-        res.write_varint(self.mh_type.to_u64()).unwrap();
+        res.write_varint(self.mh_type).unwrap();
         res.write_varint(self.mh_len).unwrap();
 
         res

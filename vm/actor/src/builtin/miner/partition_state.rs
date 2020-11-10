@@ -57,7 +57,7 @@ impl Partition {
             faults: BitField::new(),
             recoveries: BitField::new(),
             terminated: BitField::new(),
-            expirations_epochs: empty_array_cid.clone(),
+            expirations_epochs: empty_array_cid,
             early_terminated: empty_array_cid,
             live_power: PowerPair::zero(),
             faulty_power: PowerPair::zero(),

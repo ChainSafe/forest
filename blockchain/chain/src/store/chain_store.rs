@@ -10,8 +10,8 @@ use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use byteorder::{BigEndian, WriteBytesExt};
-use cid::multihash::Blake2b256;
 use cid::Cid;
+use cid::Code::Blake2b256;
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
@@ -136,8 +136,8 @@ where
     pub async fn set_tipset_tracker(&self, header: &BlockHeader) -> Result<(), Error> {
         let ts = Arc::new(Tipset::new(vec![header.clone()])?);
         let meta = TipsetMetadata {
-            tipset_state_root: header.state_root().clone(),
-            tipset_receipts_root: header.message_receipts().clone(),
+            tipset_state_root: *header.state_root(),
+            tipset_receipts_root: *header.message_receipts(),
             tipset: ts,
         };
         self.tip_index.write().await.put(&meta).await;
@@ -620,7 +620,7 @@ where
     let mut cids = Vec::new();
     for i in 0..amt.count() {
         if let Some(c) = amt.get(i)? {
-            cids.push(c.clone());
+            cids.push(*c);
         }
     }
 
@@ -856,7 +856,7 @@ pub mod headchange_json {
 mod tests {
     use super::*;
     use address::Address;
-    use cid::multihash::{Identity, Sha2_256};
+    use cid::Code::{Blake2b256, Identity};
 
     #[test]
     fn genesis_test() {
@@ -884,7 +884,7 @@ mod tests {
 
         let cs = ChainStore::new(Arc::new(db));
 
-        let cid = Cid::new_from_cbor(&[1, 2, 3], Sha2_256);
+        let cid = Cid::new_from_cbor(&[1, 2, 3], Blake2b256);
         assert_eq!(cs.is_block_validated(&cid).unwrap(), false);
 
         cs.mark_block_as_validated(&cid).unwrap();

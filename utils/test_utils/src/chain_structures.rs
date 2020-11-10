@@ -8,7 +8,7 @@ use blocks::{
     Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta,
 };
 use chain::TipsetMetadata;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
 use forest_libp2p::blocksync::{
@@ -36,7 +36,7 @@ fn template_header(
     let cids = construct_keys();
     BlockHeader::builder()
         .parents(TipsetKeys {
-            cids: vec![cids[0].clone()],
+            cids: vec![cids[0]],
         })
         .miner_address(Address::new_actor(&ticket_p))
         .timestamp(timestamp)
@@ -83,9 +83,9 @@ pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let msg_root = Cid::new_from_cbor(&bz, Blake2b256);
 
     return vec![
-        template_header(data0, cids[0].clone(), 1, epoch, msg_root.clone(), weight),
-        template_header(data1, cids[1].clone(), 2, epoch, msg_root.clone(), weight),
-        template_header(data2, cids[2].clone(), 3, epoch, msg_root, weight),
+        template_header(data0, cids[0], 1, epoch, msg_root, weight),
+        template_header(data1, cids[1], 2, epoch, msg_root, weight),
+        template_header(data2, cids[2], 3, epoch, msg_root, weight),
     ];
 }
 
@@ -152,8 +152,8 @@ pub fn construct_tipset_metadata() -> TipsetMetadata {
     const WEIGHT: u64 = 10;
     let tip_set = construct_tipset(EPOCH, WEIGHT);
     TipsetMetadata {
-        tipset_state_root: tip_set.blocks()[0].state_root().clone(),
-        tipset_receipts_root: tip_set.blocks()[0].message_receipts().clone(),
+        tipset_state_root: *tip_set.blocks()[0].state_root(),
+        tipset_receipts_root: *tip_set.blocks()[0].message_receipts(),
         tipset: Arc::new(tip_set),
     }
 }

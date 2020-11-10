@@ -56,10 +56,10 @@ pub struct State {
 impl State {
     pub fn new(empty_arr: Cid, empty_map: Cid, empty_mset: Cid) -> Self {
         Self {
-            proposals: empty_arr.clone(),
+            proposals: empty_arr,
             states: empty_arr,
-            pending_proposals: empty_map.clone(),
-            escrow_table: empty_map.clone(),
+            pending_proposals: empty_map,
+            escrow_table: empty_map,
             locked_table: empty_map,
             next_id: 0,
             deal_ops_by_epoch: empty_mset,

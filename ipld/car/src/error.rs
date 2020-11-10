@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::DecodeOwnedError;
 use thiserror::Error;
 
 /// Car utility error
@@ -21,8 +20,8 @@ impl From<cid::Error> for Error {
     }
 }
 
-impl From<DecodeOwnedError> for Error {
-    fn from(err: DecodeOwnedError) -> Error {
+impl From<cid::multihash::Error> for Error {
+    fn from(err: cid::multihash::Error) -> Error {
         Error::ParsingError(err.to_string())
     }
 }

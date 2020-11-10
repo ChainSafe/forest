@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 protobuf = "2.14.0"
-cid = { package = "forest_cid", path = "../cid", version = "0.1" }
+cid = { package = "forest_cid", path = "../cid" }
 forest_ipld = { path = "../" }
 fnv = "1.0.6"
 forest_encoding = { path = "../../encoding", version = "0.1" }
@@ -26,6 +26,6 @@ ipld_blockstore = { path = "../blockstore" }
 protoc-rust = "2.14.0"
 
 [dev-dependencies]
-multihash = "0.10"
+multihash = { version = "0.13", default-features = false, features = ["std", "blake2b", "derive"] }
 async-std = "1.6.3"
 rand = "0.7"

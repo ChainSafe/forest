@@ -2,7 +2,7 @@
 name = "forest_cid"
 description = "A Cid library used in Forest for the Filecoin protocol"
 license = "MIT OR Apache-2.0"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
@@ -11,15 +11,18 @@ repository = "https://github.com/ChainSafe/forest"
 features = ["cbor", "json"]
 
 [dependencies]
-multihash = "0.10.0"
+multihash = { version = "0.13", default-features = false, features = ["std", "blake2b", "derive"] }
 multibase = "0.9.0"
 integer-encoding = { version = "2.1", default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
 # TODO remove fork in future (allowing non utf8 strings to be cbor deserialized)
-serde_cbor = { git = "https://github.com/ChainSafe/cbor", rev = "3e7bf81f57e9010762dbc12292bd6f927fdfe83a", features = ["tags"], optional = true }
+serde_cbor = { package = "cs_serde_cbor", version = "0.12", features = [
+    "tags"
+], optional = true }
 serde_bytes = { version = "0.11.3", optional = true }
 thiserror = "1.0"
 forest_json_utils = { path = "../../utils/json_utils", optional = true, version = "0.1" }
+generic-array = "0.14.4"
 
 [dev-dependencies]
 serde_json = "1.0"

@@ -8,7 +8,7 @@ use actor::*;
 use address::{Address, Protocol};
 use blocks::BlockHeader;
 use byteorder::{BigEndian, WriteBytesExt};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{verifier::ProofVerifier, DevnetParams, NetworkParams, NetworkVersion, Randomness};
@@ -587,7 +587,7 @@ where
         self.state
             .set_actor(
                 &address,
-                ActorState::new(code_id, EMPTY_ARR_CID.clone(), 0.into(), 0),
+                ActorState::new(code_id, *EMPTY_ARR_CID, 0.into(), 0),
             )
             .map_err(|e| e.downcast_fatal("creating actor entry"))
     }
@@ -1012,18 +1012,18 @@ fn make_actor(addr: &Address) -> Result<ActorState, ActorError> {
 
 fn new_bls_account_actor() -> ActorState {
     ActorState {
-        code: ACCOUNT_ACTOR_CODE_ID.clone(),
+        code: *ACCOUNT_ACTOR_CODE_ID,
         balance: TokenAmount::from(0),
-        state: EMPTY_ARR_CID.clone(),
+        state: *EMPTY_ARR_CID,
         sequence: 0,
     }
 }
 
 fn new_secp256k1_account_actor() -> ActorState {
     ActorState {
-        code: ACCOUNT_ACTOR_CODE_ID.clone(),
+        code: *ACCOUNT_ACTOR_CODE_ID,
         balance: TokenAmount::from(0),
-        state: EMPTY_ARR_CID.clone(),
+        state: *EMPTY_ARR_CID,
         sequence: 0,
     }
 }

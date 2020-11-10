@@ -1,29 +1,18 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{
-    multihash::{self, Code},
-    Cid, Codec,
-};
-use filecoin_proofs_api::Commitment;
+use cid::{Cid, Codec, Multihash, POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
 
-/// Multihash code for Sha2 256 trunc254 padded used in data commitments.
-pub const SHA2_256_TRUNC254_PADDED: Code = Code::Custom(0x1012);
-/// Multihash code for Poseidon BLS replica commitments.
-pub const POSEIDON_BLS12_381_A1_FC1: Code = Code::Custom(0xb401);
+pub type Commitment = [u8; 32];
 
 /// CommitmentToCID converts a raw commitment hash to a CID
 /// by adding:
 /// - the given filecoin codec type
 /// - the given filecoin hash type
-pub fn commitment_to_cid(
-    mc: Codec,
-    mh: Code,
-    commitment: &Commitment,
-) -> Result<Cid, &'static str> {
+pub fn commitment_to_cid(mc: Codec, mh: u64, commitment: &Commitment) -> Result<Cid, &'static str> {
     validate_filecoin_cid_segments(mc, mh, commitment)?;
 
-    let mh = multihash::wrap(mh, commitment);
+    let mh = Multihash::wrap(mh, commitment).map_err(|_| "failed to wrap commitment cid")?;
 
     Ok(Cid::new_v1(mc, mh))
 }
@@ -31,19 +20,19 @@ pub fn commitment_to_cid(
 /// CIDToCommitment extracts the raw commitment bytes, the FilMultiCodec and
 /// FilMultiHash from a CID, after validating that the codec and hash type are
 /// consistent
-pub fn cid_to_commitment(c: &Cid) -> Result<(Codec, Code, Commitment), &'static str> {
-    validate_filecoin_cid_segments(c.codec, c.hash.algorithm(), c.hash.digest())?;
+pub fn cid_to_commitment(c: &Cid) -> Result<(Codec, u64, Commitment), &'static str> {
+    validate_filecoin_cid_segments(c.codec, c.hash.code(), c.hash.digest())?;
 
     let mut comm = Commitment::default();
     comm.copy_from_slice(c.hash.digest());
 
-    Ok((c.codec, c.hash.algorithm(), comm))
+    Ok((c.codec, c.hash.code(), comm))
 }
 
 /// DataCommitmentV1ToCID converts a raw data commitment to a CID
 /// by adding:
 /// - codec: cid.FilCommitmentUnsealed
-/// - hash type: multihash.SHA2_256_TRUNC254_PADDED
+/// - hash type: multihash.Sha2256Truncated256Padded
 pub fn data_commitment_v1_to_cid(comm_d: &Commitment) -> Result<Cid, &'static str> {
     commitment_to_cid(
         Codec::FilCommitmentUnsealed,
@@ -68,7 +57,7 @@ pub fn cid_to_data_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
 /// ReplicaCommitmentV1ToCID converts a raw data commitment to a CID
 /// by adding:
 /// - codec: cid.FilCommitmentSealed
-/// - hash type: multihash.POSEIDON_BLS12_381_A1_FC1
+/// - hash type: multihash.PoseidonBls12381A1Fc1
 pub fn replica_commitment_v1_to_cid(comm_r: &Commitment) -> Result<Cid, &'static str> {
     commitment_to_cid(
         Codec::FilCommitmentSealed,
@@ -92,7 +81,7 @@ pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str>
 
 /// ValidateFilecoinCidSegments returns an error if the provided CID parts
 /// conflict with each other.
-fn validate_filecoin_cid_segments(mc: Codec, mh: Code, comm_x: &[u8]) -> Result<(), &'static str> {
+fn validate_filecoin_cid_segments(mc: Codec, mh: u64, comm_x: &[u8]) -> Result<(), &'static str> {
     match mc {
         Codec::FilCommitmentUnsealed => {
             if mh != SHA2_256_TRUNC254_PADDED {

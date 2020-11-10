@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use multihash::Blake2b256;
+use Code::Blake2b256;
 use rand::{thread_rng, Rng};
 use std::iter;
 

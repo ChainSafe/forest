@@ -22,7 +22,7 @@ pub use self::token::*;
 
 #[macro_use]
 extern crate lazy_static;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use encoding::to_vec;
 
 lazy_static! {

@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use clock::ChainEpochClock;
+use fil_clock::ChainEpochClock;
 
 #[test]
 fn create_chain_epoch_clock() {

@@ -10,7 +10,7 @@ use crate::{make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
 use bitfield::BitField;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
@@ -115,7 +115,7 @@ impl State {
             initial_pledge_requirement: TokenAmount::default(),
 
             pre_committed_sectors: empty_map_cid,
-            pre_committed_sectors_expiry: empty_array_cid.clone(),
+            pre_committed_sectors_expiry: empty_array_cid,
             allocated_sectors: empty_bitfield_cid,
             sectors: empty_array_cid,
             proving_period_start: period_start,

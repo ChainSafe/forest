@@ -4,7 +4,7 @@
 use crate::{
     node::Link, nodes_for_height, BitMap, Error, Node, Root, MAX_HEIGHT, MAX_INDEX, WIDTH,
 };
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
 use std::error::Error as StdError;
