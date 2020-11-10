@@ -8,7 +8,7 @@ use blocks::{
     Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta,
 };
 use chain::TipsetMetadata;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
 use forest_libp2p::blocksync::{

@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{actor_error, ActorDowncast, ActorError, ExitCode, TokenAmount};
 use bitfield::BitField;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::{deadlines::QuantSpec, SectorSize};

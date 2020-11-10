@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{
-    multihash::{Blake2b256, Identity},
     Cid,
+    Code::{Blake2b256, Identity},
 };
 use encoding::{from_slice, to_vec};
 use forest_ipld::{ipld, to_ipld, Ipld};

@@ -26,6 +26,6 @@ ipld_blockstore = { path = "../blockstore" }
 protoc-rust = "2.14.0"
 
 [dev-dependencies]
-multihash = "0.10"
+multihash = { version = "0.12", default-features = false, features = ["std", "multihash-impl", "blake2b", "sha2", "multihash-impl", "derive"] }
 async-std = "1.6.3"
 rand = "0.7"

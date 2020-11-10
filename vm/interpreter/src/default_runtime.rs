@@ -8,7 +8,7 @@ use actor::*;
 use address::{Address, Protocol};
 use blocks::BlockHeader;
 use byteorder::{BigEndian, WriteBytesExt};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{verifier::ProofVerifier, DevnetParams, NetworkParams, NetworkVersion, Randomness};

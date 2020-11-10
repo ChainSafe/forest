@@ -3,7 +3,7 @@
 
 use ipld_hamt::Hamt;
 
-use cid::multihash::Blake2b256;
+use cid::Code::Blake2b256;
 use ipld_blockstore::{BSStats, BlockStore, TrackingBlockStore};
 use serde_bytes::ByteBuf;
 

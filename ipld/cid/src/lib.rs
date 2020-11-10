@@ -3,6 +3,7 @@
 
 mod codec;
 mod error;
+mod poseidon;
 mod prefix;
 mod to_cid;
 mod version;
@@ -13,16 +14,16 @@ pub use self::prefix::Prefix;
 pub use self::version::Version;
 use integer_encoding::VarIntWriter;
 pub use multihash;
-use multihash::{Identity, Multihash, MultihashDigest};
-use std::convert::TryInto;
+use multihash::derive::Multihash;
+use multihash::typenum::U32;
+use multihash::{MultihashDigest, Sha2Digest, Sha2_256, StatefulHasher};
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 #[cfg(feature = "cbor")]
 use serde::{de, ser};
 #[cfg(feature = "cbor")]
 use serde_cbor::tags::Tagged;
-#[cfg(feature = "cbor")]
-use std::convert::TryFrom;
 
 #[cfg(feature = "cbor")]
 const CBOR_TAG_CID: u64 = 42;
@@ -34,17 +35,89 @@ const MULTIBASE_IDENTITY: u8 = 0;
 #[cfg(feature = "json")]
 pub mod json;
 
+pub type MultihashAlloc = multihash::typenum::U32;
+pub type Multihash = multihash::Multihash<MultihashAlloc>;
+
+#[derive(Default, Debug)]
+pub struct Sha2256Truncated256Padded(Sha2_256);
+impl StatefulHasher for Sha2256Truncated256Padded {
+    type Size = U32;
+    type Digest = Sha2Digest<Self::Size>;
+    fn update(&mut self, _: &[u8]) {
+        todo!()
+    }
+    fn finalize(&self) -> Self::Digest {
+        // TODO not needed yet
+        todo!()
+    }
+    fn reset(&mut self) {
+        // TODO not needed yet
+    }
+}
+#[derive(Default, Debug)]
+pub struct PoseidonHasher(Sha2_256);
+impl StatefulHasher for PoseidonHasher {
+    type Size = U32;
+    type Digest = Sha2Digest<Self::Size>;
+    fn update(&mut self, _: &[u8]) {
+        todo!()
+    }
+    fn finalize(&self) -> Self::Digest {
+        // TODO not needed yet
+        todo!()
+    }
+    fn reset(&mut self) {
+        // TODO not needed yet
+    }
+}
+
+pub const POSEIDON_MH_CODE: u64 = 0xb401;
+pub const SHA2_256_TRUNC_256P_MH_CODE: u64 = 0x1012;
+
+/// Multihash codes for the Filecoin protocol.
+#[derive(Clone, Copy, Debug, Eq, Multihash, PartialEq)]
+#[mh(alloc_size = U32)]
+pub enum Code {
+    /// Multihash code for Sha2 256 trunc254 padded used in data commitments.
+    #[mh(code = SHA2_256_TRUNC_256P_MH_CODE, hasher = Sha2256Truncated256Padded, digest = multihash::Sha2Digest<U32>)]
+    Sha2256Truncated256Padded,
+
+    /// Multihash code for Poseidon BLS replica commitments.
+    #[mh(code = POSEIDON_MH_CODE, hasher = PoseidonHasher, digest = poseidon::PoseidonDigest<U32>)]
+    PoseidonBls12381A1Fc1,
+
+    /// BLAKE2b-256 (32-byte hash size)
+    #[mh(code = 0xb220, hasher = multihash::Blake2b256, digest = multihash::Blake2bDigest<U32>)]
+    Blake2b256,
+
+    /// Identity multihash (max 32 bytes)
+    #[mh(code = 0x00, hasher = multihash::IdentityHasher::<U32>, digest = multihash::IdentityDigest<U32>)]
+    Identity,
+}
+
 /// Representation of a IPLD CID.
-#[derive(PartialEq, Eq, Hash, Clone)]
+// TODO this can now be copy
+#[derive(PartialEq, Eq, Clone)]
 pub struct Cid {
     pub version: Version,
     pub codec: Codec,
     pub hash: Multihash,
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
+impl std::hash::Hash for Cid {
+    fn hash<T: std::hash::Hasher>(&self, state: &mut T) {
+        // * Manual implementation is required because of generic size on multihash
+        self.version.hash(state);
+        self.codec.hash(state);
+        self.hash.code().hash(state);
+        self.hash.digest().hash(state);
+    }
+}
+
 impl Default for Cid {
     fn default() -> Self {
-        Self::new(Codec::Raw, Version::V0, Identity.digest(&[]))
+        Self::new(Codec::Raw, Version::V0, Code::Identity.digest(&[]))
     }
 }
 
@@ -114,7 +187,7 @@ impl Cid {
     }
 
     /// Constructs a cid with bytes using default version and codec
-    pub fn new_from_cbor<T: MultihashDigest>(bz: &[u8], hash: T) -> Self {
+    pub fn new_from_cbor<T: MultihashDigest<AllocSize = U32>>(bz: &[u8], hash: T) -> Self {
         let hash = hash.digest(bz);
         Cid {
             version: Version::V1,
@@ -130,10 +203,8 @@ impl Cid {
 
     /// Create a new CID from a prefix and some data.
     pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
-        let hash = prefix
-            .mh_type
-            .hasher()
-            .ok_or_else(|| Error::Other("Prefix must use builtin hasher".to_owned()))?
+        let hash: multihash::Multihash<U32> = Code::try_from(prefix.mh_type)
+            .map_err(|e| Error::Other(e.to_string()))?
             .digest(data);
         Ok(Cid {
             version: prefix.version,
@@ -145,7 +216,7 @@ impl Cid {
     fn to_string_v0(&self) -> String {
         use multibase::{encode, Base};
 
-        let mut string = encode(Base::Base58Btc, self.hash.clone());
+        let mut string = encode(Base::Base58Btc, self.hash.to_bytes());
 
         // Drop the first character as v0 does not know
         // about multibase
@@ -161,14 +232,15 @@ impl Cid {
     }
 
     fn to_bytes_v0(&self) -> Vec<u8> {
-        self.hash.clone().into_bytes()
+        self.hash.to_bytes()
     }
 
     fn to_bytes_v1(&self) -> Vec<u8> {
-        let mut res = Vec::with_capacity(16);
+        let mut res = Vec::with_capacity(32);
         res.write_varint(u64::from(self.version)).unwrap();
         res.write_varint(u64::from(self.codec)).unwrap();
-        res.extend_from_slice(self.hash.as_bytes());
+        // TODO avoid allocation here
+        res.append(&mut self.hash.to_bytes());
 
         res
     }
@@ -186,8 +258,8 @@ impl Cid {
         Prefix {
             version: self.version,
             codec: self.codec.to_owned(),
-            mh_type: self.hash.algorithm(),
-            mh_len: self.hash.digest().len(),
+            mh_type: self.hash.code(),
+            mh_len: self.hash.size() as usize,
         }
     }
 

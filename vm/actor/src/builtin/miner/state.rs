@@ -10,7 +10,7 @@ use crate::{make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
 use bitfield::BitField;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{

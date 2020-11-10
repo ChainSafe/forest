@@ -53,7 +53,7 @@ use crate::{
 use address::{Address, Payload, Protocol};
 use bitfield::{BitField, UnvalidatedBitField, Validate};
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
     self, InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,

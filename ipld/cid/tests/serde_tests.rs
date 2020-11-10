@@ -3,8 +3,7 @@
 
 #![cfg(feature = "cbor")]
 
-use forest_cid::Cid;
-use multihash::Blake2b256;
+use forest_cid::{Cid, Code::Blake2b256};
 use serde_cbor::{from_slice, to_vec};
 
 #[test]

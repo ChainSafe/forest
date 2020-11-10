@@ -17,7 +17,7 @@ use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::{persist_objects, ChainStore};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{

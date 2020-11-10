@@ -3,7 +3,7 @@
 
 use actor::{init, INIT_ACTOR_ADDR};
 use address::{Address, Protocol};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;

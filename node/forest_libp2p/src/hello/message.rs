@@ -28,7 +28,7 @@ pub struct HelloResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use forest_cid::multihash::Identity;
+    use forest_cid::Code::Identity;
     use forest_encoding::*;
 
     #[test]

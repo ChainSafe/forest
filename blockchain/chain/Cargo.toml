@@ -36,7 +36,7 @@ interpreter = { path = "../../vm/interpreter/" }
 json = []
 
 [dev-dependencies]
-multihash = "0.10.0"
+multihash = { version = "0.12", default-features = false, features = ["std", "multihash-impl", "blake2b", "sha2", "multihash-impl", "derive"] }
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
     "test_constructors"
 ] }
