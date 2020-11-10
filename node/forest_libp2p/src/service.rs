@@ -313,7 +313,7 @@ where
                             self.bs_request_table.insert(id, response_channel);
                         }
                         NetworkMessage::BitswapRequest { cid, response_channel } => {
-                            if let Err(e) = swarm_stream.get_mut().want_block(cid.clone(), 1000) {
+                            if let Err(e) = swarm_stream.get_mut().want_block(cid, 1000) {
                                 warn!("Failed to send a bitswap want_block: {}", e.to_string());
                             } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
                                     chans.push(response_channel);

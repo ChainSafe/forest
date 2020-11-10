@@ -194,7 +194,7 @@ where
                                     heaviest_tip_set: heaviest.cids().to_vec(),
                                     heaviest_tipset_height: heaviest.epoch(),
                                     heaviest_tipset_weight: heaviest.weight().clone(),
-                                    genesis_hash: self.genesis.blocks()[0].cid().clone(),
+                                    genesis_hash: *self.genesis.blocks()[0].cid(),
                                 },
                             )
                             .await
