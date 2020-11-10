@@ -34,7 +34,7 @@ use std::time::Duration;
 use types::verifier::ProofVerifier;
 use types::UPGRADE_BREEZE_HEIGHT;
 use vm::ActorState;
-
+use num_rational::BigRational;
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
 const RBF_DENOM: u64 = 256;
@@ -1134,8 +1134,8 @@ pub fn get_gas_reward(msg: &SignedMessage, base_fee: &BigInt) -> BigInt {
     max_prem * msg.gas_limit()
 }
 pub fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
-    let a = gas_reward * types::BLOCK_GAS_LIMIT;
-    a.to_f64().unwrap() / gas_limit as f64
+    let a = BigRational::new(gas_reward * types::BLOCK_GAS_LIMIT, gas_limit.into());
+    a.to_f64().unwrap()
 }
 
 /// This function will revert and/or apply tipsets to the message pool. This function should be
