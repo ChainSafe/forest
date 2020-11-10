@@ -36,9 +36,8 @@ fn peer_manager_update() {
 
     let genesis_ts = Arc::new(Tipset::new(vec![dummy_header]).unwrap());
     let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
-    let state_manager = Arc::new(StateManager::new(db));
+    let state_manager = Arc::new(StateManager::new(chain_store));
     let cs = ChainSyncer::<_, _, MockVerifier>::new(
-        chain_store,
         state_manager,
         beacon,
         local_sender,

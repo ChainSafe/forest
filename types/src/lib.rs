@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod build_version;
+pub mod deadlines;
 pub mod genesis;
 mod piece;
 mod randomness;
 pub mod sector;
-pub mod verifier;
 mod version;
+
+#[cfg(feature = "proofs")]
+pub mod verifier;
 
 pub use self::piece::*;
 pub use self::randomness::*;
@@ -23,6 +26,7 @@ extern crate lazy_static;
 lazy_static! {
     /// Total Filecoin available to the network.
     pub static ref TOTAL_FILECOIN: BigInt = BigInt::from(TOTAL_FILECOIN_BASE) * FILECOIN_PRECISION;
+    pub static ref FIL_RESERVED: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
 }
 
 /// Identifier for Actors, includes builtin and initialized actors

@@ -22,7 +22,8 @@ use async_tungstenite::{
 use auth::{has_perms, Error as AuthError, JWT_IDENTIFIER, WRITE_ACCESS};
 use beacon::{Beacon, Schedule};
 use blockstore::BlockStore;
-use chain::{headchange_json::HeadChangeJson, ChainStore, EventsPayload};
+use chain::ChainStore;
+use chain::{headchange_json::HeadChangeJson, EventsPayload};
 use chain_sync::{BadBlockCache, SyncState};
 use fil_types::verifier::ProofVerifier;
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
@@ -271,6 +272,7 @@ where
             state_miner_get_base_info::<DB, KS, B, V>,
             false,
         )
+        .with_method("Filecoin.NetworkVersion", state_get_network_version, false)
         // Gas API
         .with_method(
             "Filecoin.GasEstimateGasLimit",
@@ -346,7 +348,6 @@ async fn handle_connection_and_log(
                 match message_result {
                     Ok(message) => {
                         let request_text = message.into_text().unwrap();
-                        info!("request senty {:?}", request_text.clone());
                         match serde_json::from_str(&request_text)
                             as Result<RequestObject, serde_json::Error>
                         {

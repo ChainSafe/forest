@@ -1,9 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{assign_deadlines, deadline_is_mutable, policy::*, Deadline};
-use super::{deadlines::DeadlineInfo, DeadlineSectorMap};
-use super::{types::*, Deadlines, PowerPair, QuantSpec, Sectors, TerminationResult, VestingFunds};
+use super::{
+    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, types::*,
+    Deadline, DeadlineInfo, DeadlineSectorMap, Deadlines, PowerPair, Sectors, TerminationResult,
+    VestingFunds,
+};
 use crate::{make_map_with_root, miner::SectorInfo, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
@@ -13,11 +15,12 @@ use cid::{multihash::Blake2b256, Cid};
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
-    json::SectorInfoJson, RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
+    deadlines::QuantSpec, json::SectorInfoJson, RegisteredSealProof, SectorNumber, SectorSize,
+    MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
-use ipld_hamt::{Error as HamtError, Hamt};
+use ipld_hamt::Error as HamtError;
 use libp2p::PeerId;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
@@ -144,7 +147,7 @@ impl State {
 
     /// Returns deadline calculations for the current (according to state) proving period.
     pub fn deadline_info(&self, current_epoch: ChainEpoch) -> DeadlineInfo {
-        DeadlineInfo::new(
+        new_deadline_info(
             self.proving_period_start,
             self.current_deadline,
             current_epoch,
@@ -153,7 +156,7 @@ impl State {
 
     /// Returns deadline calculations for the current (according to state) proving period.
     pub fn quant_spec_for_deadline(&self, deadline_idx: u64) -> QuantSpec {
-        DeadlineInfo::new(self.proving_period_start, deadline_idx, 0).quant_spec()
+        new_deadline_info(self.proving_period_start, deadline_idx, 0).quant_spec()
     }
 
     pub fn allocate_sector_number<BS: BlockStore>(
@@ -199,7 +202,7 @@ impl State {
         Ok(())
     }
 
-    pub fn mask_sector_number<BS: BlockStore>(
+    pub fn mask_sector_numbers<BS: BlockStore>(
         &mut self,
         store: &BS,
         sector_numbers: &BitField,
@@ -295,8 +298,10 @@ impl State {
         store: &BS,
         sector_nums: &[SectorNumber],
     ) -> Result<(), HamtError> {
-        let mut precommitted =
-            Hamt::<_, SectorPreCommitOnChainInfo>::load(&self.pre_committed_sectors, store)?;
+        let mut precommitted = make_map_with_root::<_, SectorPreCommitOnChainInfo>(
+            &self.pre_committed_sectors,
+            store,
+        )?;
 
         for &sector_num in sector_nums {
             precommitted.delete(&u64_key(sector_num))?;
@@ -396,14 +401,15 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
         sector_size: SectorSize,
-        deadline_sectors: DeadlineSectorMap,
+        mut deadline_sectors: DeadlineSectorMap,
     ) -> Result<(), Box<dyn StdError>> {
         let mut deadlines = self.load_deadlines(store)?;
         let sectors = Sectors::load(store, &self.sectors)?;
 
         for (deadline_idx, partition_sectors) in deadline_sectors.iter() {
             let deadline_info =
-                DeadlineInfo::new(self.proving_period_start, deadline_idx, current_epoch);
+                new_deadline_info(self.proving_period_start, deadline_idx, current_epoch)
+                    .next_not_elapsed();
             let new_expiration = deadline_info.last();
             let mut deadline = deadlines.load_deadline(store, deadline_idx)?;
 
@@ -426,7 +432,7 @@ impl State {
 
     /// Assign new sectors to deadlines.
     pub fn assign_sectors_to_deadlines<BS: BlockStore>(
-        &self,
+        &mut self,
         store: &BS,
         current_epoch: ChainEpoch,
         mut sectors: Vec<SectorOnChainInfo>,
@@ -476,6 +482,8 @@ impl State {
 
             deadlines.update_deadline(store, deadline_idx as u64, deadline)?;
         }
+
+        self.save_deadlines(store, deadlines)?;
 
         Ok(new_power)
     }
@@ -813,6 +821,8 @@ impl State {
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_unvested_funds(current_epoch, target);
         self.locked_funds -= &amount_unlocked;
+        assert!(!self.locked_funds.is_negative());
+
         self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
     }
@@ -827,6 +837,8 @@ impl State {
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
         self.locked_funds -= &amount_unlocked;
+        assert!(!self.locked_funds.is_negative());
+
         self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
     }

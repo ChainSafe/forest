@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::SectorSize;
-use filecoin_proofs_api as proofs;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+#[cfg(feature = "proofs")]
 use std::convert::TryFrom;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
@@ -187,7 +188,8 @@ i64_conversion! {
     StackedDRG64GiBV1 => 4,
 }
 
-impl TryFrom<RegisteredSealProof> for proofs::RegisteredSealProof {
+#[cfg(feature = "proofs")]
+impl TryFrom<RegisteredSealProof> for filecoin_proofs_api::RegisteredSealProof {
     type Error = String;
     fn try_from(p: RegisteredSealProof) -> Result<Self, Self::Error> {
         use RegisteredSealProof::*;
@@ -214,7 +216,8 @@ impl From<SectorSize> for RegisteredSealProof {
     }
 }
 
-impl TryFrom<RegisteredPoStProof> for proofs::RegisteredPoStProof {
+#[cfg(feature = "proofs")]
+impl TryFrom<RegisteredPoStProof> for filecoin_proofs_api::RegisteredPoStProof {
     type Error = String;
     fn try_from(p: RegisteredPoStProof) -> Result<Self, Self::Error> {
         use RegisteredPoStProof::*;

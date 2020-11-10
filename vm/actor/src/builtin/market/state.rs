@@ -71,6 +71,12 @@ impl State {
         }
     }
 
+    pub fn total_locked(&self) -> TokenAmount {
+        &self.total_client_locked_colateral
+            + &self.total_provider_locked_colateral
+            + &self.total_client_storage_fee
+    }
+
     pub(super) fn mutator<'bs, BS: BlockStore>(
         &mut self,
         store: &'bs BS,
@@ -341,11 +347,10 @@ where
 
         let num_epochs_elapsed = elapsed_end - payment_start_epoch;
 
-        self.transfer_balance(
-            &deal.client,
-            &deal.provider,
-            &(&deal.storage_price_per_epoch * num_epochs_elapsed as u64),
-        )?;
+        let total_payment = &deal.storage_price_per_epoch * num_epochs_elapsed as u64;
+        if total_payment > 0.into() {
+            self.transfer_balance(&deal.client, &deal.provider, &total_payment)?;
+        }
 
         if ever_slashed {
             // unlock client collateral and locked storage fee

@@ -3,14 +3,14 @@
 
 use super::{
     BitFieldQueue, ExpirationSet, Partition, PartitionSectorMap, PoStPartition, PowerPair,
-    QuantSpec, SectorOnChainInfo, Sectors, TerminationResult, WPOST_PERIOD_DEADLINES,
+    SectorOnChainInfo, Sectors, TerminationResult, WPOST_PERIOD_DEADLINES,
 };
 use crate::{actor_error, ActorDowncast, ActorError, ExitCode, TokenAmount};
 use bitfield::BitField;
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
 use encoding::tuple::*;
-use fil_types::SectorSize;
+use fil_types::{deadlines::QuantSpec, SectorSize};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_traits::Zero;
@@ -315,9 +315,11 @@ impl Deadline {
                 continue;
             }
 
-            let size = cmp::min(partition_size - sector_count, sectors.len() as u64);
-            let (start, partition_new_sectors) = sectors.split_at(size as usize);
-            sectors = start;
+            let size = cmp::min(partition_size - sector_count, sectors.len() as u64) as usize;
+            let partition_new_sectors = &sectors[..size];
+
+            // Intentionally ignoring the index at size, split_at returns size inclusively for start
+            sectors = &sectors[size..];
 
             // Add sectors to partition.
             let partition_new_power =
@@ -329,12 +331,11 @@ impl Deadline {
 
             // Record deadline -> partition mapping so we can later update the deadlines.
             for sector in partition_new_sectors {
-                if let Some(partition_update) =
-                    partition_deadline_updates.get_mut(&sector.expiration)
-                {
-                    if partition_update.last() != Some(&partition_idx) {
-                        partition_update.push(partition_idx);
-                    }
+                let partition_update = partition_deadline_updates
+                    .entry(sector.expiration)
+                    .or_default();
+                if partition_update.is_empty() || partition_update.last() != Some(&partition_idx) {
+                    partition_update.push(partition_idx);
                 }
             }
         }
@@ -438,7 +439,7 @@ impl Deadline {
         store: &BS,
         sectors: &Sectors<'_, BS>,
         epoch: ChainEpoch,
-        partition_sectors: &PartitionSectorMap,
+        partition_sectors: &mut PartitionSectorMap,
         sector_size: SectorSize,
         quant: QuantSpec,
     ) -> Result<PowerPair, Box<dyn StdError>> {
@@ -610,7 +611,7 @@ impl Deadline {
         sector_size: SectorSize,
         quant: QuantSpec,
         fault_expiration_epoch: ChainEpoch,
-        partition_sectors: &PartitionSectorMap,
+        partition_sectors: &mut PartitionSectorMap,
     ) -> Result<PowerPair, Box<dyn StdError>> {
         let mut partitions = self.partitions_amt(store)?;
 
@@ -686,8 +687,8 @@ impl Deadline {
         store: &BS,
         sectors: &Sectors<'_, BS>,
         sector_size: SectorSize,
-        partition_sectors: &PartitionSectorMap,
-    ) -> Result<(), ActorError> {
+        partition_sectors: &mut PartitionSectorMap,
+    ) -> Result<(), Box<dyn StdError>> {
         let mut partitions = self.partitions_amt(store)?;
 
         for (partition_idx, sector_numbers) in partition_sectors.iter() {
@@ -704,7 +705,7 @@ impl Deadline {
 
             partition
                 .declare_faults_recovered(sectors, sector_size, sector_numbers)
-                .map_err(|e| e.wrap("failed to add recoveries"))?;
+                .map_err(|e| e.downcast_wrap("failed to add recoveries"))?;
 
             partitions.set(partition_idx, partition).map_err(|e| {
                 e.downcast_default(
@@ -869,7 +870,7 @@ impl Deadline {
         sector_size: SectorSize,
         quant: QuantSpec,
         fault_expiration: ChainEpoch,
-        post_partitions: &[PoStPartition],
+        post_partitions: &mut [PoStPartition],
     ) -> Result<PoStResult, Box<dyn StdError>> {
         let mut partitions = self.partitions_amt(store)?;
 
@@ -904,7 +905,7 @@ impl Deadline {
                     sector_size,
                     quant,
                     fault_expiration,
-                    &post.skipped,
+                    &mut post.skipped,
                 )
                 .map_err(|e| {
                     e.wrap(format!(
@@ -993,7 +994,7 @@ impl Deadline {
         store: &BS,
         sectors: &Sectors<'_, BS>,
         expiration: ChainEpoch,
-        partition_sectors: &PartitionSectorMap,
+        partition_sectors: &mut PartitionSectorMap,
         sector_size: SectorSize,
         quant: QuantSpec,
     ) -> Result<(), Box<dyn StdError>> {

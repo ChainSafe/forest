@@ -7,28 +7,31 @@ use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
 use async_std::sync::{channel, Receiver, Sender};
 use async_std::{stream, task};
+use chain::ChainStore;
+use forest_blocks::GossipBlock;
 use forest_cid::{multihash::Blake2b256, Cid};
+use forest_encoding::from_slice;
+use forest_message::SignedMessage;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
+pub use libp2p::gossipsub::Topic;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
     core::transport::boxed::Boxed,
-    gossipsub::TopicHash,
     identity::{ed25519, Keypair},
     mplex, noise, yamux, PeerId, Swarm, Transport,
 };
 use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, error, info, trace, warn};
+use message_pool::{MessagePool, Provider};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
-
-pub use libp2p::gossipsub::Topic;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
@@ -40,8 +43,7 @@ const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 pub enum NetworkEvent {
     PubsubMessage {
         source: Option<PeerId>,
-        topics: Vec<TopicHash>,
-        message: Vec<u8>,
+        message: PubsubMessage,
     },
     HelloRequest {
         request: HelloRequest,
@@ -67,6 +69,15 @@ pub enum NetworkEvent {
     },
 }
 
+/// Message types that can come over GossipSub
+#[derive(Debug, Clone)]
+pub enum PubsubMessage {
+    /// Messages that come over the block topic
+    Block(GossipBlock),
+    /// Messages that come over the message topic
+    Message(SignedMessage),
+}
+
 /// Events into this Service
 #[derive(Debug)]
 pub enum NetworkMessage {
@@ -83,27 +94,36 @@ pub enum NetworkMessage {
         peer_id: PeerId,
         request: HelloRequest,
     },
+    BitswapRequest {
+        cid: Cid,
+        response_channel: OneShotSender<()>,
+    },
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
-pub struct Libp2pService<DB: BlockStore> {
+pub struct Libp2pService<DB, T> {
     pub swarm: Swarm<ForestBehaviour>,
-    db: Arc<DB>,
+    cs: Arc<ChainStore<DB>>,
+    mpool: Arc<MessagePool<T>>,
     /// Keeps track of Blocksync requests to responses
     bs_request_table: HashMap<RequestId, OneShotSender<BlockSyncResponse>>,
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: Receiver<NetworkEvent>,
     network_sender_out: Sender<NetworkEvent>,
+    network_name: String,
+    bitswap_response_channels: HashMap<Cid, Vec<OneShotSender<()>>>,
 }
 
-impl<DB> Libp2pService<DB>
+impl<DB, T> Libp2pService<DB, T>
 where
     DB: BlockStore + Sync + Send + 'static,
+    T: Provider + Sync + Send + 'static,
 {
     /// Constructs a Libp2pService
     pub fn new(
         config: Libp2pConfig,
-        db: Arc<DB>,
+        cs: Arc<ChainStore<DB>>,
+        mpool: Arc<MessagePool<T>>,
         net_keypair: Keypair,
         network_name: &str,
     ) -> Self {
@@ -120,7 +140,8 @@ where
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
-            swarm.subscribe(Topic::new(format!("{}/{}", topic, network_name)));
+            let t = Topic::new(format!("{}/{}", topic, network_name));
+            swarm.subscribe(t);
         }
 
         // Bootstrap with Kademlia
@@ -133,12 +154,15 @@ where
 
         Libp2pService {
             swarm,
-            db,
+            cs,
+            mpool,
             bs_request_table: HashMap::new(),
             network_receiver_in,
             network_sender_in,
             network_receiver_out,
             network_sender_out,
+            network_name: network_name.to_owned(),
+            bitswap_response_channels: Default::default(),
         }
     }
 
@@ -147,6 +171,8 @@ where
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
         let mut interval = stream::interval(Duration::from_secs(10)).fuse();
+        let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
+        let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
         loop {
             select! {
@@ -167,11 +193,43 @@ where
                             message,
                         } => {
                             trace!("Got a Gossip Message from {:?}", source);
-                            emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage {
-                                source,
-                                topics,
-                                message
-                            }).await;
+                            // there should only be one topic associated with any particular gossip message
+                            let topic = match topics.get(0) {
+                                Some(t) => t.as_str(),
+                                None => {
+                                    warn!("received gossipsub message without topic from {:?}", source);
+                                    continue;
+                                },
+                            };
+                            if topic == pubsub_block_str {
+                                match from_slice::<GossipBlock>(&message) {
+                                    Ok(b) => {
+                                        emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
+                                            source,
+                                            message: PubsubMessage::Block(b),
+                                        }).await;
+                                    }
+                                    Err(e) => warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e)
+                                }
+                            } else if topic == pubsub_msg_str {
+                                match from_slice::<SignedMessage>(&message) {
+                                    Ok(m) => {
+                                        emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
+                                            source,
+                                            message: PubsubMessage::Message(m.clone()),
+                                        }).await;
+                                        // add message to message pool
+                                        // TODO handle adding message to mempool in seperate task.
+                                        // Not ideal that it could potentially block network thread
+                                        if let Err(e) = self.mpool.add(m).await {
+                                            trace!("Gossip Message failed to be added to Message pool: {}", e);
+                                        }
+                                    }
+                                    Err(e) => warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e)
+                                }
+                            } else {
+                                warn!("Getting gossip messages from unknown topic: {}", topic);
+                            }
                         }
                         ForestBehaviourEvent::HelloRequest { request, channel, .. } => {
                             debug!("Received hello request: {:?}", request);
@@ -189,7 +247,7 @@ where
                         }
                         ForestBehaviourEvent::BlockSyncRequest { channel, peer, request } => {
                             debug!("Received blocksync request (peerId: {:?})", peer);
-                            let db = self.db.clone();
+                            let db = self.cs.clone();
                             async {
                                 let response = task::spawn_blocking(move || -> BlockSyncResponse {
                                     make_blocksync_response(db.as_ref(), &request)
@@ -211,13 +269,22 @@ where
                             };
                         }
                         ForestBehaviourEvent::BitswapReceivedBlock(peer_id, cid, block) => {
-                            let res: Result<_, String> = self.db.put(&block, Blake2b256).map_err(|e| e.to_string());
+                            let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
                             match res {
                                 Ok(actual_cid) => {
                                     if actual_cid != cid {
                                         warn!("Bitswap cid mismatch: cid {:?}, expected cid: {:?}", actual_cid, cid);
                                     } else {
-                                        trace!("saved bitswap block with cid {:?}", cid);
+                                        if let Some (chans) = self.bitswap_response_channels.remove(&cid) {
+                                            for chan in chans.into_iter(){
+                                                if let Err(e) = chan.send(()){
+                                                    debug!("Bitswap response channel send failed");
+                                                }
+                                                trace!("Saved Bitswap block with cid {:?}", cid);
+                                            }
+                                        } else {
+                                            warn!("Received Bitswap response, but response channel cannot be found");
+                                        }
                                     }
                                     emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{cid}).await;
                                 }
@@ -226,7 +293,7 @@ where
                                 }
                             }
                         },
-                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) =>  match self.db.get(&cid) {
+                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => match self.cs.blockstore().get(&cid) {
                             Ok(Some(data)) => {
                                 match swarm_stream.get_mut().send_block(&peer_id, cid, data) {
                                     Ok(_) => trace!("Sent bitswap message successfully"),
@@ -257,6 +324,17 @@ where
                             let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request));
                             debug!("Sent BS Request with id: {:?}", id);
                             self.bs_request_table.insert(id, response_channel);
+                        }
+                        NetworkMessage::BitswapRequest { cid, response_channel } => {
+                            if let Err(e) = swarm_stream.get_mut().want_block(cid.clone(), 1000) {
+                                warn!("Failed to send a bitswap want_block: {}", e.to_string());
+                            } else {
+                                if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
+                                    chans.push(response_channel);
+                                } else {
+                                    self.bitswap_response_channels.insert(cid, vec![response_channel]);
+                                }
+                            }
                         }
                     }
                     None => { break; }

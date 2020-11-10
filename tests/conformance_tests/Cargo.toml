@@ -14,6 +14,7 @@ submodule_tests = [
     "db",
     "address",
     "base64",
+    "chain",
     "runtime",
     "interpreter",
     "num-bigint",
@@ -22,6 +23,7 @@ submodule_tests = [
     "encoding",
     "fil_types",
     "state_manager",
+    "state_tree",
     "forest_message",
     "crypto"
 ]
@@ -38,7 +40,7 @@ db = { path = "../../node/db/", optional = true }
 address = { package = "forest_address", path = "../../vm/address", features = [
     "json"
 ], optional = true }
-base64 = { version = "0.12.1", optional = true }
+base64 = { version = "0.13", optional = true }
 runtime = { path = "../../vm/runtime/", optional = true }
 state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true }
@@ -49,6 +51,8 @@ crypto = { package = "forest_crypto", path = "../../crypto", optional = true }
 encoding = { package = "forest_encoding", path = "../../encoding", optional = true }
 fil_types = { path = "../../types", optional = true }
 forest_message = { path = "../../vm/message", features = ["json"], optional = true }
+state_tree = { path = "../../vm/state_tree/", optional = true }
+chain = { path = "../../blockchain/chain", optional = true }
 
 [dev-dependencies]
 regex = { version = "1.0" }
@@ -60,5 +64,8 @@ lazy_static = "1.4"
 pretty_env_logger = "0.4.0"
 log = "0.4"
 paramfetch = { path = "../../utils/paramfetch" }
-statediff = { path = "../../utils/statediff" }
 async-std = "1.6"
+forest_blocks = { path = "../../blockchain/blocks" }
+chain_sync = { path = "../../blockchain/chain_sync" }
+statediff = { path = "../../utils/statediff" }
+

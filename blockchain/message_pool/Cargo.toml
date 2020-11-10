@@ -31,7 +31,10 @@ async-trait = "0.1"
 interpreter = { path = "../../vm/interpreter/" }
 types = { package = "fil_types", path = "../../types" }
 num-traits = "0.2"
+statrs = "0.13.0"
+
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }
 key_management = { path = "../../key_management" }
+rand = "0.7.3"

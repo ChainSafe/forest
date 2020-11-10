@@ -62,7 +62,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'vm, BS, R, V, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'vm, BS, R, C, V, P = DevnetParams> {
     version: NetworkVersion,
     state: &'vm mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
@@ -77,17 +77,18 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, V, P = DevnetParams> {
     caller_validated: bool,
     allow_internal: bool,
     registered_actors: &'vm HashSet<Cid>,
-    circ_supply_calc: &'vm Option<CircSupplyCalc<BS>>,
+    circ_supply_calc: &'vm C,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'vm, BS, R, V, P> DefaultRuntime<'db, 'vm, BS, R, V, P>
+impl<'db, 'vm, BS, R, C, V, P> DefaultRuntime<'db, 'vm, BS, R, C, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    C: CircSupplyCalc,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
@@ -103,7 +104,7 @@ where
         num_actors_created: u64,
         rand: &'vm R,
         registered_actors: &'vm HashSet<Cid>,
-        circ_supply_calc: &'vm Option<CircSupplyCalc<BS>>,
+        circ_supply_calc: &'vm C,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -274,7 +275,7 @@ where
         };
         self.caller_validated = false;
 
-        let send_res = vm_send::<BS, R, V, P>(self, &msg, None);
+        let send_res = vm_send::<BS, R, C, V, P>(self, &msg, None);
 
         // Reset values back to their values before the call
         self.vm_msg = prev_msg;
@@ -352,12 +353,14 @@ where
     }
 }
 
-impl<'bs, BS, R, V, P> Runtime<GasBlockStore<'bs, BS>> for DefaultRuntime<'bs, '_, BS, R, V, P>
+impl<'bs, BS, R, CS, V, P> Runtime<GasBlockStore<'bs, BS>>
+    for DefaultRuntime<'bs, '_, BS, R, CS, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    CS: CircSupplyCalc,
 {
     fn network_version(&self) -> NetworkVersion {
         self.version
@@ -430,7 +433,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = self
             .rand
-            .get_chain_randomness(&self.store, personalization, rand_epoch, entropy)
+            .get_chain_randomness(personalization, rand_epoch, entropy)
             .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
@@ -444,7 +447,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = self
             .rand
-            .get_beacon_randomness(&self.store, personalization, rand_epoch, entropy)
+            .get_beacon_randomness(personalization, rand_epoch, entropy)
             .map_err(|e| e.downcast_fatal("could not get randomness"))?;
 
         Ok(Randomness(r))
@@ -616,60 +619,22 @@ where
         self
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
-        if let Some(circ_supply_calc) = self.circ_supply_calc.as_ref() {
-            // TODO all circ supply calculations should go through trait and not only override
-            return circ_supply_calc(self.epoch, &self.state).map_err(|e| {
-                actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e)
-            });
-        }
-        let get_actor_state = |addr: &Address| -> Result<ActorState, ActorError> {
-            self.state
-                .get_actor(&addr)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to get reward actor for cumputing total supply",
-                    )
-                })?
-                .ok_or_else(
-                    || actor_error!(ErrIllegalState; "Actor address ({}) does not exist", addr),
-                )
-        };
-
-        let rew = get_actor_state(&REWARD_ACTOR_ADDR)?;
-        let burnt = get_actor_state(&BURNT_FUNDS_ACTOR_ADDR)?;
-        let market = get_actor_state(&STORAGE_MARKET_ACTOR_ADDR)?;
-        let power = get_actor_state(&STORAGE_POWER_ACTOR_ADDR)?;
-
-        let st: power::State = self
-            .store
-            .get(&power.state)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to get storage power state",
-                )
-            })?
-            .ok_or_else(|| actor_error!(ErrIllegalState; "Failed to retrieve power state"))?;
-
-        let total = P::from_fil(P::TOTAL_FILECOIN)
-            - rew.balance
-            - market.balance
-            - burnt.balance
-            - st.total_pledge_collateral;
-        Ok(total)
+        self.circ_supply_calc
+            .get_supply(self.epoch, self.state)
+            .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
     }
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
         self.charge_gas(GasCharge::new(name, compute, 0))
     }
 }
 
-impl<'bs, BS, R, V, P> Syscalls for DefaultRuntime<'bs, '_, BS, R, V, P>
+impl<'bs, BS, R, C, V, P> Syscalls for DefaultRuntime<'bs, '_, BS, R, C, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    C: CircSupplyCalc,
 {
     fn verify_signature(
         &self,
@@ -820,14 +785,13 @@ where
 
     fn batch_verify_seals(
         &self,
-        vis: &[(Address, &Vec<SealVerifyInfo>)],
+        vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // Gas charged for batch verify in actor
 
-        // TODO ideal to not use rayon https://github.com/ChainSafe/forest/issues/676
         let out = vis
             .par_iter()
-            .map(|(addr, seals)| {
+            .map(|(&addr, seals)| {
                 let results = seals
                     .par_iter()
                     .map(|s| {
@@ -842,7 +806,7 @@ where
                         }
                     })
                     .collect();
-                (*addr, results)
+                (addr, results)
             })
             .collect();
         Ok(out)
@@ -851,8 +815,8 @@ where
 
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'vm, BS, R, V, P>(
-    rt: &mut DefaultRuntime<'db, 'vm, BS, R, V, P>,
+pub fn vm_send<'db, 'vm, BS, R, C, V, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, V, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<GasCharge>,
 ) -> Result<Serialized, ActorError>
@@ -861,6 +825,7 @@ where
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    C: CircSupplyCalc,
 {
     if let Some(cost) = gas_cost {
         rt.charge_gas(cost)?;
@@ -959,8 +924,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'vm, BS, R, V, P>(
-    rt: &mut DefaultRuntime<'db, 'vm, BS, R, V, P>,
+fn invoke<'db, 'vm, BS, R, C, V, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, V, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
@@ -971,33 +936,20 @@ where
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
+    C: CircSupplyCalc,
 {
-    let ret = match code {
-        x if x == *SYSTEM_ACTOR_CODE_ID => system::Actor.invoke_method(rt, method_num, params),
-        x if x == *INIT_ACTOR_CODE_ID => init::Actor.invoke_method(rt, method_num, params),
-        x if x == *CRON_ACTOR_CODE_ID => cron::Actor.invoke_method(rt, method_num, params),
-        x if x == *ACCOUNT_ACTOR_CODE_ID => account::Actor.invoke_method(rt, method_num, params),
-        x if x == *POWER_ACTOR_CODE_ID => power::Actor.invoke_method(rt, method_num, params),
-        x if x == *MINER_ACTOR_CODE_ID => miner::Actor.invoke_method(rt, method_num, params),
-        x if x == *MARKET_ACTOR_CODE_ID => market::Actor.invoke_method(rt, method_num, params),
-        x if x == *PAYCH_ACTOR_CODE_ID => paych::Actor.invoke_method(rt, method_num, params),
-        x if x == *MULTISIG_ACTOR_CODE_ID => multisig::Actor.invoke_method(rt, method_num, params),
-        x if x == *REWARD_ACTOR_CODE_ID => reward::Actor.invoke_method(rt, method_num, params),
-        x if x == *VERIFREG_ACTOR_CODE_ID => verifreg::Actor.invoke_method(rt, method_num, params),
-        x => {
-            if rt.registered_actors.contains(&x) {
-                match x {
-                    x if x == *CHAOS_ACTOR_CODE_ID => {
-                        chaos::Actor.invoke_method(rt, method_num, params)
-                    }
-                    _ => Err(actor_error!(SysErrorIllegalActor;
-                                "no code for registered actor at address {}", to)),
-                }
-            } else {
-                Err(actor_error!(SysErrorIllegalActor; "no code for actor at address {}", to))
-            }
-        }
+    let ret = if let Some(ret) = actor::invoke_code(&code, rt, method_num, params) {
+        ret
+    } else if code == *CHAOS_ACTOR_CODE_ID && rt.registered_actors.contains(&code) {
+        chaos::Actor::invoke_method(rt, method_num, params)
+    } else {
+        Err(actor_error!(
+            SysErrorIllegalActor,
+            "no code for actor at address {}",
+            to
+        ))
     }?;
+
     if !rt.caller_validated {
         Err(actor_error!(SysErrorIllegalActor; "Caller must be validated during method execution"))
     } else {
@@ -1071,4 +1023,8 @@ fn new_secp256k1_account_actor() -> ActorState {
         state: EMPTY_ARR_CID.clone(),
         sequence: 0,
     }
+}
+
+fn is_builtin_actor(code: &Cid) -> bool {
+    actor::is_builtin_actor(code)
 }

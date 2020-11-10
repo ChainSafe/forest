@@ -12,8 +12,8 @@ features = ["cbor", "json"]
 
 [dependencies]
 multihash = "0.10.0"
-multibase = "0.8.0"
-integer-encoding = "1.0.3"
+multibase = "0.9.0"
+integer-encoding = { version = "2.1", default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
 # TODO remove fork in future (allowing non utf8 strings to be cbor deserialized)
 serde_cbor = { git = "https://github.com/ChainSafe/cbor", rev = "3e7bf81f57e9010762dbc12292bd6f927fdfe83a", features = ["tags"], optional = true }

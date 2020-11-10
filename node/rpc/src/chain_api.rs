@@ -67,10 +67,10 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let data_subscribe = data.chain_store.subscribe().await;
+    let data_subscribe = data.state_manager.chain_store().subscribe().await;
     let index = chain::sub_head_changes(
         data_subscribe,
-        &data.chain_store.heaviest_tipset().await,
+        &data.state_manager.chain_store().heaviest_tipset().await,
         params,
         data.events_pubsub.clone(),
     )
@@ -159,9 +159,12 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (height, tsk) = params;
-    let ts = chain::tipset_from_keys(data.state_manager.blockstore(), &tsk)?;
-    let tss =
-        chain::tipset_by_height(data.state_manager.blockstore(), height, &ts, true)?.unwrap_or(ts);
+    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let tss = data
+        .state_manager
+        .chain_store()
+        .tipset_by_height(height, &ts, true)?
+        .unwrap_or(ts);
     Ok(TipsetJson(tss))
 }
 
@@ -187,9 +190,13 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let heaviest = chain::get_heaviest_tipset(data.state_manager.blockstore())?
+    let heaviest = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
         .ok_or("can't find heaviest tipset")?;
-    Ok(TipsetJson(heaviest))
+    Ok(TipsetJson(heaviest.as_ref().clone()))
 }
 
 pub(crate) async fn chain_tipset_weight<DB, KS, B>(
@@ -202,7 +209,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (tsk,) = params;
-    let ts = chain::tipset_from_keys(data.state_manager.blockstore(), &tsk)?;
+    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     Ok(ts.weight().to_str_radix(10))
 }
 
@@ -234,7 +241,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (tsk,) = params;
-    let ts = chain::tipset_from_keys(data.state_manager.blockstore(), &tsk)?;
+    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     Ok(TipsetJson(ts))
 }
 
@@ -248,8 +255,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (tsk, pers, epoch, entropy) = params;
-    Ok(chain::get_chain_randomness(
-        data.state_manager.blockstore(),
+    Ok(data.state_manager.chain_store().get_chain_randomness(
         &tsk,
         DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
         epoch,

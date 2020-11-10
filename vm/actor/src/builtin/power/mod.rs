@@ -474,9 +474,8 @@ impl Actor {
             Ok(())
         })?;
 
-        // TODO update this to not need to create vector to verify these things (ref batch_v_s)
-        let verif_arr: Vec<(Address, &Vec<SealVerifyInfo>)> =
-            verifies.iter().map(|(a, v)| (*a, v)).collect();
+        // TODO if verifies is ever Rayon compatible, this won't be needed
+        let verif_arr: Vec<(&Address, &Vec<SealVerifyInfo>)> = verifies.iter().collect();
         let res = rt
             .syscalls()
             .batch_verify_seals(verif_arr.as_slice())
@@ -525,7 +524,7 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
                 })?;
 
-            for epoch in st.first_cron_epoch..rt_epoch {
+            for epoch in st.first_cron_epoch..=rt_epoch {
                 let mut epoch_events = load_cron_events(&events, epoch).map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
@@ -629,7 +628,6 @@ impl Actor {
 
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
-        &self,
         rt: &mut RT,
         method: MethodNum,
         params: &Serialized,

@@ -2,7 +2,7 @@ SER_TESTS = "tests/serialization_tests"
 CONF_TESTS = "tests/conformance_tests"
 
 install:
-	cargo install --path forest --force
+	cargo install --locked --path forest --force
 
 clean-all:
 	cargo clean
@@ -50,6 +50,9 @@ build:
 
 release:
 	cargo build --release --bin forest
+
+docker-run:
+	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
 # Git submodule test vectors
 pull-serialization-tests:

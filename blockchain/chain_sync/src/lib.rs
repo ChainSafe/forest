@@ -20,3 +20,4 @@ pub use self::errors::Error;
 pub use self::network_context::SyncNetworkContext;
 pub use self::sync::ChainSyncer;
 pub use self::sync_state::{SyncStage, SyncState};
+pub use self::sync_worker::compute_msg_meta;

@@ -9,7 +9,6 @@ mod expiration_queue;
 mod monies;
 mod partition_state;
 mod policy;
-mod quantize;
 mod sector_map;
 mod sectors;
 mod state;
@@ -25,7 +24,6 @@ pub use expiration_queue::*;
 pub use monies::*;
 pub use partition_state::*;
 pub use policy::*;
-pub use quantize::*;
 pub use sector_map::*;
 pub use sectors::*;
 pub use state::*;
@@ -53,7 +51,7 @@ use crate::{
     ActorDowncast,
 };
 use address::{Address, Payload, Protocol};
-use bitfield::BitField;
+use bitfield::{BitField, UnvalidatedBitField, Validate};
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use cid::{multihash::Blake2b256, Cid};
 use clock::ChainEpoch;
@@ -62,9 +60,9 @@ use crypto::DomainSeparationTag::{
 };
 use encoding::Cbor;
 use fil_types::{
-    InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness, RegisteredSealProof,
-    SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorInfo,
-    SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
+    deadlines::DeadlineInfo, InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness,
+    RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
+    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -386,7 +384,7 @@ impl Actor {
     /// Invoked by miner's worker address to submit their fallback post
     fn submit_windowed_post<BS, RT>(
         rt: &mut RT,
-        params: SubmitWindowedPoStParams,
+        mut params: SubmitWindowedPoStParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -516,7 +514,7 @@ impl Actor {
                     info.sector_size,
                     current_deadline.quant_spec(),
                     fault_expiration,
-                    &params.partitions,
+                    &mut params.partitions,
                 )
                 .map_err(|e| {
                     e.downcast_default(
@@ -1281,7 +1279,7 @@ impl Actor {
     /// The sector's power is recomputed for the new expiration.
     fn extend_sector_expiration<BS, RT>(
         rt: &mut RT,
-        params: ExtendSectorExpirationParams,
+        mut params: ExtendSectorExpirationParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -1300,7 +1298,7 @@ impl Actor {
         // https://github.com/filecoin-project/specs-actors/issues/416
         let mut sector_count: u64 = 0;
 
-        for decl in &params.extensions {
+        for decl in &mut params.extensions {
             if decl.deadline >= WPOST_PERIOD_DEADLINES {
                 return Err(actor_error!(
                     ErrIllegalArgument,
@@ -1310,7 +1308,20 @@ impl Actor {
                 ));
             }
 
-            match sector_count.checked_add(decl.sectors.len() as u64) {
+            let sectors = match decl.sectors.validate() {
+                Ok(sectors) => sectors,
+                Err(e) => {
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "failed to validate sectors for deadline {}, partition {}: {}",
+                        decl.deadline,
+                        decl.partition,
+                        e
+                    ))
+                }
+            };
+
+            match sector_count.checked_add(sectors.len() as u64) {
                 Some(sum) => sector_count = sum,
                 None => {
                     return Err(actor_error!(
@@ -1346,10 +1357,10 @@ impl Actor {
                 .map_err(|e| e.wrap("failed to load deadlines"))?;
 
             // Group declarations by deadline, and remember iteration order.
-            let mut decls_by_deadline = HashMap::<u64, Vec<&ExpirationExtension>>::new();
+            let mut decls_by_deadline = HashMap::<u64, Vec<ExpirationExtension>>::new();
             let mut deadlines_to_load = Vec::<u64>::new();
 
-            for decl in &params.extensions {
+            for decl in params.extensions {
                 decls_by_deadline
                     .entry(decl.deadline)
                     .or_insert_with(|| {
@@ -1380,7 +1391,7 @@ impl Actor {
 
                 let quant = state.quant_spec_for_deadline(deadline_idx);
 
-                for &decl in &decls_by_deadline[&deadline_idx] {
+                for decl in decls_by_deadline.get_mut(&deadline_idx).unwrap() {
                     let key = PartitionKey {
                         deadline: deadline_idx,
                         partition: decl.partition,
@@ -1398,7 +1409,7 @@ impl Actor {
                         .ok_or_else(|| actor_error!(ErrNotFound, "no such partition {:?}", key))?;
 
                     let old_sectors = sectors
-                        .load_sector(&decl.sectors)
+                        .load_sector(&mut decl.sectors)
                         .map_err(|e| e.wrap("failed to load sectors"))?;
 
                     let new_sectors: Vec<SectorOnChainInfo> = old_sectors
@@ -1843,10 +1854,10 @@ impl Actor {
                 deadline
                     .declare_faults_recovered(store, &sectors, info.sector_size, partition_map)
                     .map_err(|e| {
-                        e.wrap(format!(
-                            "failed to declare recoveries for deadline {}",
-                            deadline_idx
-                        ))
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to declare recoveries for deadline {}", deadline_idx),
+                        )
                     })?;
 
                 deadlines
@@ -1878,7 +1889,7 @@ impl Actor {
     /// May not be invoked if the deadline has any un-processed early terminations.
     fn compact_partitions<BS, RT>(
         rt: &mut RT,
-        params: CompactPartitionsParams,
+        mut params: CompactPartitionsParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -1892,7 +1903,16 @@ impl Actor {
             ));
         }
 
-        let partition_count = params.partitions.len() as u64;
+        let partitions = params.partitions.validate().map_err(|e| {
+            actor_error!(
+                ErrIllegalArgument,
+                "failed to parse partitions bitfield: {}",
+                e
+            )
+        })?;
+        let partition_count = partitions.len() as u64;
+
+        let params_deadline = params.deadline;
 
         rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt, state)?;
@@ -1905,11 +1925,11 @@ impl Actor {
 
             let store = rt.store();
 
-            if !deadline_is_mutable(state.proving_period_start, params.deadline, rt.curr_epoch()) {
+            if !deadline_is_mutable(state.proving_period_start, params_deadline, rt.curr_epoch()) {
                 return Err(actor_error!(
                     ErrForbidden,
                     "cannot compact deadline {} during its challenge window or the prior challenge window",
-                    params.deadline
+                    params_deadline
                 ));
             }
 
@@ -1924,25 +1944,25 @@ impl Actor {
                 ));
             }
 
-            let quant = state.quant_spec_for_deadline(params.deadline);
+            let quant = state.quant_spec_for_deadline(params_deadline);
             let deadlines = state
                 .load_deadlines(store)
                 .map_err(|e| e.wrap("failed to load deadlines"))?;
 
             let mut deadline = deadlines
-                .load_deadline(store, params.deadline)
+                .load_deadline(store, params_deadline)
                 .map_err(|e| {
-                    e.wrap(format!("failed to load deadline {}", params.deadline))
+                    e.wrap(format!("failed to load deadline {}", params_deadline))
                 })?;
 
             let (live, dead, removed_power) = deadline
-                .remove_partitions(store, &params.partitions, quant)
+                .remove_partitions(store, partitions, quant)
                 .map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
                         format!(
                             "failed to remove partitions from deadline {}",
-                            params.deadline
+                            params_deadline
                         ),
                     )
                 })?;
@@ -1996,14 +2016,18 @@ impl Actor {
     /// 99 can be masked out to collapse these two ranges into one.
     fn compact_sector_numbers<BS, RT>(
         rt: &mut RT,
-        params: CompactSectorNumbersParams,
+        mut params: CompactSectorNumbersParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let last_sector_number = params
+        let mask_sector_numbers = params
             .mask_sector_numbers
+            .validate()
+            .map_err(|e| actor_error!(ErrIllegalArgument, "invalid mask bitfield: {}", e))?;
+
+        let last_sector_number = mask_sector_numbers
             .iter()
             .last()
             .ok_or_else(|| actor_error!(ErrIllegalArgument, "invalid mask bitfield"))?
@@ -2027,7 +2051,7 @@ impl Actor {
                     .chain(&[info.worker, info.owner]),
             )?;
 
-            state.mask_sector_number(rt.store(), &params.mask_sector_numbers)
+            state.mask_sector_numbers(rt.store(), mask_sector_numbers)
         })?;
 
         Ok(())
@@ -2215,6 +2239,8 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
+        rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
+
         match payload.event_type {
             CRON_EVENT_PROVING_DEADLINE => handle_proving_deadline(rt)?,
             CRON_EVENT_WORKER_KEY_CHANGE => commit_worker_key_change(rt)?,
@@ -2361,7 +2387,7 @@ where
     let mut penalty_total = TokenAmount::zero();
     let mut pledge_delta = TokenAmount::zero();
 
-    rt.transaction(|state: &mut State, rt| {
+    let state: State = rt.transaction(|state: &mut State, rt| {
         // Vest locked funds.
         // This happens first so that any subsequent penalties are taken
         // from locked vesting funds before funds free this epoch.
@@ -2414,7 +2440,7 @@ where
         let deadline_info = state.deadline_info(curr_epoch);
         if !deadline_info.period_started() {
             // Skip checking faults on the first, incomplete period.
-            return Ok(());
+            return Ok(state.clone());
         }
 
         let mut deadlines = state
@@ -2571,7 +2597,7 @@ where
             }
         }
 
-        Ok(())
+        Ok(state.clone())
     })?;
 
     // Remove power for new faults, and burn penalties.
@@ -2580,7 +2606,6 @@ where
     notify_pledge_changed(rt, &pledge_delta)?;
 
     // Schedule cron callback for next deadline's last epoch.
-    let state: State = rt.state()?;
     let new_deadline_info = state.deadline_info(curr_epoch);
     enroll_cron_event(
         rt,
@@ -3257,7 +3282,7 @@ fn declaration_deadline_info(
         ));
     }
 
-    let deadline = DeadlineInfo::new(period_start, deadline_idx, current_epoch).next_not_elapsed();
+    let deadline = new_deadline_info(period_start, deadline_idx, current_epoch).next_not_elapsed();
     Ok(deadline)
 }
 
@@ -3273,13 +3298,17 @@ fn validate_fr_declaration_deadline(deadline: &DeadlineInfo) -> Result<(), Strin
 /// Validates that a partition contains the given sectors.
 fn validate_partition_contains_sectors(
     partition: &Partition,
-    sectors: &BitField,
-) -> Result<(), &'static str> {
+    sectors: &mut UnvalidatedBitField,
+) -> Result<(), String> {
+    let sectors = sectors
+        .validate()
+        .map_err(|e| format!("failed to check sectors: {}", e))?;
+
     // Check that the declared sectors are actually assigned to the partition.
     if partition.sectors.contains_all(sectors) {
         Ok(())
     } else {
-        Err("not all sectors are assigned to the partition")
+        Err("not all sectors are assigned to the partition".to_string())
     }
 }
 
@@ -3347,7 +3376,6 @@ where
 
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
-        &self,
         rt: &mut RT,
         method: MethodNum,
         params: &Serialized,
