@@ -67,12 +67,12 @@ pub trait BlockStore: Store {
     fn bulk_put<'a, S, T, V>(&self, values: V, hash: T) -> Result<Vec<Cid>, Box<dyn StdError>>
     where
         S: Serialize + 'a,
-        T: MultihashDigest<AllocSize = U32> + Clone,
+        T: MultihashDigest<AllocSize = U32>,
         V: IntoIterator<Item = &'a S>,
     {
         values
             .into_iter()
-            .map(|value| self.put(value, hash.clone()))
+            .map(|value| self.put(value, hash))
             .collect()
     }
 }
@@ -84,7 +84,7 @@ impl BlockStore for RocksDb {
     fn bulk_put<'a, S, T, V>(&self, values: V, hash: T) -> Result<Vec<Cid>, Box<dyn StdError>>
     where
         S: Serialize + 'a,
-        T: MultihashDigest<AllocSize = U32> + Clone,
+        T: MultihashDigest<AllocSize = U32>,
         V: IntoIterator<Item = &'a S>,
     {
         let mut batch = WriteBatch::default();
@@ -92,7 +92,7 @@ impl BlockStore for RocksDb {
             .into_iter()
             .map(|v| {
                 let bz = to_vec(v)?;
-                let cid = Cid::new_from_cbor(&bz, hash.clone());
+                let cid = Cid::new_from_cbor(&bz, hash);
                 batch.put(cid.to_bytes(), bz);
                 Ok(cid)
             })

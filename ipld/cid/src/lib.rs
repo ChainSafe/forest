@@ -3,20 +3,21 @@
 
 mod codec;
 mod error;
-mod poseidon;
+mod mh_code;
 mod prefix;
 mod to_cid;
 mod version;
 
 pub use self::codec::Codec;
 pub use self::error::Error;
+pub use self::mh_code::*;
 pub use self::prefix::Prefix;
 pub use self::version::Version;
 use integer_encoding::VarIntWriter;
 pub use multihash;
 use multihash::derive::Multihash;
 use multihash::typenum::U32;
-use multihash::{MultihashDigest, Sha2Digest, Sha2_256, StatefulHasher};
+use multihash::MultihashDigest;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
@@ -35,64 +36,11 @@ const MULTIBASE_IDENTITY: u8 = 0;
 #[cfg(feature = "json")]
 pub mod json;
 
-pub type MultihashAlloc = multihash::typenum::U32;
-
-#[derive(Default, Debug)]
-pub struct Sha2256Truncated256Padded(Sha2_256);
-impl StatefulHasher for Sha2256Truncated256Padded {
-    type Size = U32;
-    type Digest = Sha2Digest<Self::Size>;
-    fn update(&mut self, _: &[u8]) {
-        todo!()
-    }
-    fn finalize(&self) -> Self::Digest {
-        // TODO not needed yet
-        todo!()
-    }
-    fn reset(&mut self) {
-        // TODO not needed yet
-    }
-}
-#[derive(Default, Debug)]
-pub struct PoseidonHasher(Sha2_256);
-impl StatefulHasher for PoseidonHasher {
-    type Size = U32;
-    type Digest = Sha2Digest<Self::Size>;
-    fn update(&mut self, _: &[u8]) {
-        todo!()
-    }
-    fn finalize(&self) -> Self::Digest {
-        // TODO not needed yet
-        todo!()
-    }
-    fn reset(&mut self) {
-        // TODO not needed yet
-    }
-}
-
+/// Multihash code for Poseidon BLS replica commitments.
 pub const POSEIDON_MH_CODE: u64 = 0xb401;
+
+/// Multihash code for Sha2 256 trunc254 padded used in data commitments.
 pub const SHA2_256_TRUNC_256P_MH_CODE: u64 = 0x1012;
-
-/// Multihash codes for the Filecoin protocol.
-#[derive(Clone, Copy, Debug, Eq, Multihash, PartialEq)]
-#[mh(alloc_size = U32)]
-pub enum Code {
-    /// Multihash code for Sha2 256 trunc254 padded used in data commitments.
-    #[mh(code = SHA2_256_TRUNC_256P_MH_CODE, hasher = Sha2256Truncated256Padded, digest = multihash::Sha2Digest<U32>)]
-    Sha2256Truncated256Padded,
-
-    /// Multihash code for Poseidon BLS replica commitments.
-    #[mh(code = POSEIDON_MH_CODE, hasher = PoseidonHasher, digest = poseidon::PoseidonDigest<U32>)]
-    PoseidonBls12381A1Fc1,
-
-    /// BLAKE2b-256 (32-byte hash size)
-    #[mh(code = 0xb220, hasher = multihash::Blake2b256, digest = multihash::Blake2bDigest<U32>)]
-    Blake2b256,
-
-    /// Identity multihash (max 32 bytes)
-    #[mh(code = 0x00, hasher = multihash::IdentityHasher::<U32>, digest = multihash::IdentityDigest<U32>)]
-    Identity,
-}
 
 /// Representation of a IPLD CID.
 // TODO this can now be copy

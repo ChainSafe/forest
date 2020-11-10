@@ -210,13 +210,13 @@ mod tests {
         // Create map to insert into store
         let sealed_comm_cid = commitment_to_cid(
             Codec::FilCommitmentSealed,
-            Code::PoseidonBls12381A1Fc1,
+            cid::POSEIDON_MH_CODE,
             &[7u8; 32],
         )
         .unwrap();
         let unsealed_comm_cid = commitment_to_cid(
             Codec::FilCommitmentUnsealed,
-            Code::Sha2256Truncated256Padded,
+            cid::SHA2_256_TRUNC_256P_MH_CODE,
             &[5u8; 32],
         )
         .unwrap();

@@ -52,9 +52,7 @@ pub(crate) fn read_cid(buf: &[u8]) -> Result<(Cid, u64), Error> {
     let cid: Cid = Cid::new(
         cid::Codec::from(codec),
         cid::Version::from(version)?,
-        cid::Multihash::read(
-            &multihash_with_data[0..=(len as usize + hashcode_len_diff)],
-        )?,
+        cid::Multihash::read(&multihash_with_data[0..=(len as usize + hashcode_len_diff)])?,
     );
     let len = cid.to_bytes().len() as u64;
     Ok((cid, len))

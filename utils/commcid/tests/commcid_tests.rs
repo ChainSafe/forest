@@ -1,12 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{
-    multihash::MultihashDigest,
-    Cid,
-    Code::{self, PoseidonBls12381A1Fc1, Sha2256Truncated256Padded},
-    Codec,
-};
+use cid::{multihash::MultihashDigest, Cid, Code, Codec};
 use commcid::*;
 use filecoin_proofs_api::Commitment;
 use rand::thread_rng;
@@ -29,7 +24,7 @@ fn comm_d_to_cid() {
     let cid = data_commitment_v1_to_cid(&comm).unwrap();
 
     assert_eq!(cid.codec, Codec::FilCommitmentUnsealed);
-    assert_eq!(cid.hash.code(), u64::from(Sha2256Truncated256Padded));
+    assert_eq!(cid.hash.code(), cid::SHA2_256_TRUNC_256P_MH_CODE);
     assert_eq!(cid.hash.digest(), comm);
 }
 
@@ -38,7 +33,7 @@ fn cid_to_comm_d() {
     let comm = rand_comm();
 
     // Correct hash format
-    let mh = cid::Multihash::wrap(u64::from(Sha2256Truncated256Padded), &comm).unwrap();
+    let mh = cid::Multihash::wrap(cid::SHA2_256_TRUNC_256P_MH_CODE, &comm).unwrap();
     let c = Cid::new_v1(Codec::FilCommitmentUnsealed, mh.clone());
     let decoded = cid_to_data_commitment_v1(&c).unwrap();
     assert_eq!(decoded, comm);
@@ -60,7 +55,7 @@ fn comm_r_to_cid() {
     let cid = replica_commitment_v1_to_cid(&comm).unwrap();
 
     assert_eq!(cid.codec, Codec::FilCommitmentSealed);
-    assert_eq!(cid.hash.code(), u64::from(PoseidonBls12381A1Fc1));
+    assert_eq!(cid.hash.code(), cid::POSEIDON_MH_CODE);
     assert_eq!(cid.hash.digest(), comm);
 }
 
@@ -69,7 +64,7 @@ fn cid_to_comm_r() {
     let comm = rand_comm();
 
     // Correct hash format
-    let mh = cid::Multihash::wrap(PoseidonBls12381A1Fc1.into(), &comm).unwrap();
+    let mh = cid::Multihash::wrap(cid::POSEIDON_MH_CODE, &comm).unwrap();
     let c = Cid::new_v1(Codec::FilCommitmentSealed, mh.clone());
     let decoded = cid_to_replica_commitment_v1(&c).unwrap();
     assert_eq!(decoded, comm);
@@ -94,7 +89,7 @@ fn symmetric_conversion() {
         cid_to_commitment(&cid).unwrap(),
         (
             Codec::FilCommitmentUnsealed,
-            u64::from(Sha2256Truncated256Padded),
+            cid::SHA2_256_TRUNC_256P_MH_CODE,
             comm
         )
     );
@@ -103,11 +98,7 @@ fn symmetric_conversion() {
     let cid = replica_commitment_v1_to_cid(&comm).unwrap();
     assert_eq!(
         cid_to_commitment(&cid).unwrap(),
-        (
-            Codec::FilCommitmentSealed,
-            u64::from(PoseidonBls12381A1Fc1),
-            comm
-        )
+        (Codec::FilCommitmentSealed, cid::POSEIDON_MH_CODE, comm)
     );
 
     // piece
@@ -116,7 +107,7 @@ fn symmetric_conversion() {
         cid_to_commitment(&cid).unwrap(),
         (
             Codec::FilCommitmentUnsealed,
-            u64::from(Sha2256Truncated256Padded),
+            cid::SHA2_256_TRUNC_256P_MH_CODE,
             comm
         )
     );
