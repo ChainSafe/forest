@@ -93,5 +93,16 @@ https://chainsafe.github.io/forest/
 - Check out our contribution guidelines: [CONTRIBUTING.md](CONTRIBUTING.md)  
 - Have questions? Say hi on [Discord](https://discord.gg/Q6A3YA2)!
 
+## ChainSafe Security Policy
+
+### Reporting a Security Bug
+
+We take all security issues seriously, if you believe you have found a security issue within a ChainSafe
+project please notify us immediately. If an issue is confirmed, we will take all necessary precautions 
+to ensure a statement and patch release is made in a timely manner.
+
+Please email us a description of the flaw and any related information (e.g. reproduction steps, version) to
+[security at chainsafe dot io](mailto:security@chainsafe.io).
+
 ## License 
 Forest is dual licensed under [MIT](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT) + [Apache 2.0](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE).
