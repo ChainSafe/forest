@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{actor_error, ActorDowncast, ActorError, ExitCode, TokenAmount};
 use bitfield::BitField;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::{deadlines::QuantSpec, SectorSize};
@@ -123,7 +123,7 @@ pub struct Deadline {
 impl Deadline {
     pub fn new(empty_array_cid: Cid) -> Self {
         Self {
-            partitions: empty_array_cid.clone(),
+            partitions: empty_array_cid,
             expirations_epochs: empty_array_cid,
             post_submissions: BitField::new(),
             early_terminations: BitField::new(),

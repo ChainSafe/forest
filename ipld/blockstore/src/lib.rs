@@ -14,7 +14,10 @@ pub use self::buffered::BufferedBlockStore;
 #[cfg(feature = "tracking")]
 pub use self::tracking::{BSStats, TrackingBlockStore};
 
-use cid::{multihash::MultihashDigest, Cid};
+use cid::{
+    multihash::{MultihashDigest, U32},
+    Cid,
+};
 use db::{MemoryDB, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use std::error::Error as StdError;
@@ -44,7 +47,7 @@ pub trait BlockStore: Store {
     fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,
-        T: MultihashDigest,
+        T: MultihashDigest<AllocSize = U32>,
     {
         let bytes = to_vec(obj)?;
         self.put_raw(bytes, hash)
@@ -53,7 +56,7 @@ pub trait BlockStore: Store {
     /// Put raw bytes in the block store and return the Cid identifier.
     fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
-        T: MultihashDigest,
+        T: MultihashDigest<AllocSize = U32>,
     {
         let cid = Cid::new_from_cbor(&bytes, hash);
         self.write(cid.to_bytes(), bytes)?;
@@ -64,12 +67,12 @@ pub trait BlockStore: Store {
     fn bulk_put<'a, S, T, V>(&self, values: V, hash: T) -> Result<Vec<Cid>, Box<dyn StdError>>
     where
         S: Serialize + 'a,
-        T: MultihashDigest + Clone,
+        T: MultihashDigest<AllocSize = U32>,
         V: IntoIterator<Item = &'a S>,
     {
         values
             .into_iter()
-            .map(|value| self.put(value, hash.clone()))
+            .map(|value| self.put(value, hash))
             .collect()
     }
 }
@@ -81,7 +84,7 @@ impl BlockStore for RocksDb {
     fn bulk_put<'a, S, T, V>(&self, values: V, hash: T) -> Result<Vec<Cid>, Box<dyn StdError>>
     where
         S: Serialize + 'a,
-        T: MultihashDigest + Clone,
+        T: MultihashDigest<AllocSize = U32>,
         V: IntoIterator<Item = &'a S>,
     {
         let mut batch = WriteBatch::default();
@@ -89,7 +92,7 @@ impl BlockStore for RocksDb {
             .into_iter()
             .map(|v| {
                 let bz = to_vec(v)?;
-                let cid = Cid::new_from_cbor(&bz, hash.clone());
+                let cid = Cid::new_from_cbor(&bz, hash);
                 batch.put(cid.to_bytes(), bz);
                 Ok(cid)
             })

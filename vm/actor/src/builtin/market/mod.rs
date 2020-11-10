@@ -645,7 +645,7 @@ impl Actor {
                 .ok_or_else(|| actor_error!(ErrNotFound; "proposal doesn't exist ({})", deal_id))?;
 
             pieces.push(PieceInfo {
-                cid: deal.piece_cid.clone(),
+                cid: deal.piece_cid,
                 size: deal.piece_size,
             });
         }

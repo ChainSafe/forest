@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{multihash::Identity, Cid, Codec};
+use cid::{multihash::MultihashDigest, Cid, Code::Identity, Codec};
 
 lazy_static! {
     pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/system");
@@ -19,11 +19,11 @@ lazy_static! {
 
     // Set of actor code types that can represent external signing parties.
     pub static ref CALLER_TYPES_SIGNABLE: [Cid; 2] =
-        [ACCOUNT_ACTOR_CODE_ID.clone(), MULTISIG_ACTOR_CODE_ID.clone()];
+        [*ACCOUNT_ACTOR_CODE_ID, *MULTISIG_ACTOR_CODE_ID];
 }
 
 fn make_builtin(bz: &[u8]) -> Cid {
-    Cid::new_v1(Codec::Raw, Identity::digest(bz))
+    Cid::new_v1(Codec::Raw, Identity.digest(bz))
 }
 
 /// Returns true if the code `Cid` belongs to a builtin actor.

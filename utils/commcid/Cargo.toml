@@ -1,13 +1,15 @@
 [package]
 name = "commcid"
+description = "Filecoin commitment to Cid conversion utilities"
 version = "0.1.0"
+license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 num-traits = "0.2"
-cid = { package = "forest_cid", path = "../../ipld/cid" }
-filecoin-proofs-api = { version = "5.3", features = ["blst"], default_features = false }
+cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.2" }
 
 [dev-dependencies]
 rand = "0.7.3"

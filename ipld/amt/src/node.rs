@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{nodes_for_height, BitMap, Error, WIDTH};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use encoding::{
     de::{self, Deserialize, DeserializeOwned},
     ser::{self, Serialize},

@@ -18,10 +18,10 @@ dependencies = [
  "base64 0.13.0",
  "bitfield",
  "byteorder 1.3.4",
- "clock",
  "commcid",
  "db",
  "derive_builder",
+ "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -537,7 +537,7 @@ dependencies = [
  "base64 0.13.0",
  "bls-signatures",
  "byteorder 1.3.4",
- "clock",
+ "fil_clock",
  "forest_encoding",
  "forest_json_utils",
  "hex",
@@ -937,8 +937,8 @@ dependencies = [
  "beacon",
  "blake2b_simd",
  "byteorder 1.3.4",
- "clock",
  "db",
+ "fil_clock",
  "fil_types",
  "flo_stream",
  "forest_address",
@@ -954,7 +954,7 @@ dependencies = [
  "ipld_blockstore",
  "lazy_static",
  "log",
- "multihash 0.10.1",
+ "multihash 0.13.0",
  "num-traits 0.2.14",
  "serde",
  "state_tree",
@@ -971,9 +971,9 @@ dependencies = [
  "base64 0.13.0",
  "beacon",
  "chain",
- "clock",
  "commcid",
  "db",
+ "fil_clock",
  "fil_types",
  "flo_stream",
  "forest_address",
@@ -1067,13 +1067,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clock"
-version = "0.1.0"
-dependencies = [
- "chrono",
-]
-
-[[package]]
 name = "cloudabi"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1106,7 +1099,6 @@ dependencies = [
 name = "commcid"
 version = "0.1.0"
 dependencies = [
- "filecoin-proofs-api",
  "forest_cid",
  "num-traits 0.2.14",
  "rand 0.7.3",
@@ -1142,8 +1134,8 @@ dependencies = [
  "base64 0.13.0",
  "chain",
  "chain_sync",
- "clock",
  "db",
+ "fil_clock",
  "fil_types",
  "flate2",
  "forest_address",
@@ -1266,7 +1258,7 @@ dependencies = [
  "rayon",
  "regex",
  "serde",
- "serde_cbor 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_cbor",
  "serde_derive",
  "serde_json",
  "tinytemplate",
@@ -1460,6 +1452,16 @@ checksum = "4857fd85a0c34b3c3297875b747c1e02e06b6a0ea32dd892d8192b9ce0813ea6"
 dependencies = [
  "generic-array 0.14.4",
  "subtle 2.3.0",
+]
+
+[[package]]
+name = "cs_serde_cbor"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7b77425566bdb3932243a292a4b072e1e34fb93aba95926f8d4a3b6ce542c5"
+dependencies = [
+ "half",
+ "serde",
 ]
 
 [[package]]
@@ -1971,6 +1973,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_clock"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
 name = "fil_logger"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1983,13 +1992,13 @@ dependencies = [
 
 [[package]]
 name = "fil_types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-std",
  "base64 0.13.0",
  "chrono",
- "clock",
  "commcid",
+ "fil_clock",
  "filecoin-proofs-api",
  "forest_address",
  "forest_bigint",
@@ -1997,7 +2006,6 @@ dependencies = [
  "forest_encoding",
  "forest_json_utils",
  "forest_vm",
- "ipld_amt",
  "lazy_static",
  "num-derive",
  "num-traits 0.2.14",
@@ -2186,7 +2194,7 @@ dependencies = [
 
 [[package]]
 name = "forest_address"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "data-encoding",
  "data-encoding-macro",
@@ -2200,7 +2208,7 @@ dependencies = [
 
 [[package]]
 name = "forest_bigint"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "num-bigint 0.3.1",
  "num-integer",
@@ -2215,8 +2223,8 @@ dependencies = [
  "base64 0.13.0",
  "beacon",
  "byteorder 1.3.4",
- "clock",
  "derive_builder",
+ "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -2250,22 +2258,23 @@ dependencies = [
 
 [[package]]
 name = "forest_cid"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
+ "cs_serde_cbor",
  "forest_json_utils",
+ "generic-array 0.14.4",
  "integer-encoding",
  "multibase 0.9.1",
- "multihash 0.10.1",
+ "multihash 0.13.0",
  "serde",
  "serde_bytes",
- "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
  "serde_json",
  "thiserror",
 ]
 
 [[package]]
 name = "forest_crypto"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "base64 0.13.0",
  "bls-signatures",
@@ -2282,13 +2291,13 @@ dependencies = [
 
 [[package]]
 name = "forest_encoding"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "blake2b_simd",
+ "cs_serde_cbor",
  "forest_cid",
  "serde",
  "serde_bytes",
- "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
  "serde_repr",
  "serde_tuple",
  "thiserror",
@@ -2328,8 +2337,8 @@ dependencies = [
  "async-trait",
  "bytes",
  "chain",
- "clock",
  "db",
+ "fil_clock",
  "fnv",
  "forest_address",
  "forest_bigint",
@@ -2356,7 +2365,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64 0.13.0",
  "derive_builder",
@@ -2375,7 +2384,7 @@ dependencies = [
 
 [[package]]
 name = "forest_vm"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "forest_address",
  "forest_bigint",
@@ -3062,8 +3071,8 @@ dependencies = [
  "actor",
  "ahash 0.5.6",
  "byteorder 1.3.4",
- "clock",
  "db",
+ "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -3980,21 +3989,6 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47fbc227f7e2b1cb701f95404579ecb2668abbdd3c7ef7a6cbb3cc0d3b236869"
-dependencies = [
- "blake2b_simd",
- "blake2s_simd",
- "digest 0.8.1",
- "sha-1 0.8.2",
- "sha2 0.8.2",
- "sha3 0.8.2",
- "unsigned-varint 0.3.3",
-]
-
-[[package]]
-name = "multihash"
 version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "567122ab6492f49b59def14ecc36e13e64dca4188196dd0cd41f9f3f979f3df6"
@@ -4002,10 +3996,36 @@ dependencies = [
  "blake2b_simd",
  "blake2s_simd",
  "digest 0.9.0",
- "sha-1 0.9.2",
+ "sha-1",
  "sha2 0.9.2",
- "sha3 0.9.1",
+ "sha3",
  "unsigned-varint 0.5.1",
+]
+
+[[package]]
+name = "multihash"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6f97339ef1e4092fa22e397929fdf9c1a106b925fd11cab90e097bdbfbbe25c"
+dependencies = [
+ "blake2b_simd",
+ "generic-array 0.14.4",
+ "multihash-derive",
+ "unsigned-varint 0.5.1",
+]
+
+[[package]]
+name = "multihash-derive"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f5653449cd45d502a53480ee08d7a599e8f4893d2bacb33c63d65bc20af6c1a"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro-error",
+ "proc-macro2 1.0.24",
+ "quote 1.0.7",
+ "syn 1.0.48",
+ "synstructure",
 ]
 
 [[package]]
@@ -5132,8 +5152,8 @@ dependencies = [
  "bitfield",
  "chain",
  "chain_sync",
- "clock",
  "db",
+ "fil_clock",
  "fil_types",
  "flo_stream",
  "forest_address",
@@ -5186,9 +5206,9 @@ name = "runtime"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
- "clock",
  "commcid",
  "db",
+ "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
  "forest_address",
@@ -5406,15 +5426,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_cbor"
-version = "0.11.1"
-source = "git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a#3e7bf81f57e9010762dbc12292bd6f927fdfe83a"
-dependencies = [
- "half",
- "serde",
-]
-
-[[package]]
 name = "serde_derive"
 version = "1.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5526,18 +5537,6 @@ dependencies = [
 
 [[package]]
 name = "sha-1"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7d94d0bede923b3cea61f3f1ff57ff8cdfd77b400fb8f9998949e0cf04163df"
-dependencies = [
- "block-buffer 0.7.3",
- "digest 0.8.1",
- "fake-simd",
- "opaque-debug 0.2.3",
-]
-
-[[package]]
-name = "sha-1"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce3cdf1b5e620a498ee6f2a171885ac7e22f0e12089ec4b3d22b84921792507c"
@@ -5616,19 +5615,6 @@ dependencies = [
  "lazy_static",
  "opaque-debug 0.2.3",
  "sha2-asm",
-]
-
-[[package]]
-name = "sha3"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd26bc0e7a2e3a7c959bc494caf58b72ee0c71d67704e9520f736ca7e4853ecf"
-dependencies = [
- "block-buffer 0.7.3",
- "byte-tools",
- "digest 0.8.1",
- "keccak",
- "opaque-debug 0.2.3",
 ]
 
 [[package]]
@@ -5774,8 +5760,8 @@ dependencies = [
  "async-std",
  "bitfield",
  "chain",
- "clock",
  "db",
+ "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
  "flo_stream",
@@ -6335,9 +6321,9 @@ dependencies = [
  "blake2s_simd",
  "digest 0.9.0",
  "generic-array 0.14.4",
- "sha-1 0.9.2",
+ "sha-1",
  "sha2 0.9.2",
- "sha3 0.9.1",
+ "sha3",
  "strobe-rs",
  "tiny-multihash-derive",
  "unsigned-varint 0.5.1",
@@ -6493,7 +6479,7 @@ dependencies = [
  "input_buffer",
  "log",
  "rand 0.7.3",
- "sha-1 0.9.2",
+ "sha-1",
  "url",
  "utf-8",
 ]
@@ -6576,12 +6562,6 @@ dependencies = [
  "generic-array 0.14.4",
  "subtle 2.3.0",
 ]
-
-[[package]]
-name = "unsigned-varint"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f67332660eb59a6f1eb24ff1220c9e8d01738a8503c6002e30bcfe4bd9f2b4a9"
 
 [[package]]
 name = "unsigned-varint"

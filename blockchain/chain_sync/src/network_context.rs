@@ -128,7 +128,7 @@ where
         let (tx, rx) = oneshot_channel();
         self.network_send
             .send(NetworkMessage::BitswapRequest {
-                cid: content.clone(),
+                cid: content,
                 response_channel: tx,
             })
             .await;

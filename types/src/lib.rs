@@ -3,11 +3,13 @@
 
 pub mod build_version;
 pub mod deadlines;
-pub mod genesis;
 mod piece;
 mod randomness;
 pub mod sector;
 mod version;
+
+#[cfg(feature = "json")]
+pub mod genesis;
 
 #[cfg(feature = "proofs")]
 pub mod verifier;

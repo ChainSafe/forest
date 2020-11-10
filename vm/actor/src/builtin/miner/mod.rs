@@ -53,7 +53,7 @@ use crate::{
 use address::{Address, Payload, Protocol};
 use bitfield::{BitField, UnvalidatedBitField, Validate};
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
     self, InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,
@@ -160,7 +160,7 @@ impl Actor {
 
         let empty_deadline_cid = rt
             .store()
-            .put(&Deadline::new(empty_array.clone()), Blake2b256)
+            .put(&Deadline::new(empty_array), Blake2b256)
             .map_err(|e| {
                 e.downcast_default(
                     ExitCode::ErrIllegalState,
@@ -973,7 +973,7 @@ impl Actor {
         let svi = get_verify_info(
             rt,
             SealVerifyParams {
-                sealed_cid: precommit.info.sealed_cid.clone(),
+                sealed_cid: precommit.info.sealed_cid,
                 interactive_epoch: precommit.pre_commit_epoch + PRE_COMMIT_CHALLENGE_DELAY,
                 seal_rand_epoch: precommit.info.seal_rand_epoch,
                 proof: params.proof,
@@ -2897,7 +2897,7 @@ where
         .map(|s| SectorInfo {
             proof: s.seal_proof,
             sector_number: s.sector_number,
-            sealed_cid: s.sealed_cid.clone(),
+            sealed_cid: s.sealed_cid,
         })
         .collect();
 

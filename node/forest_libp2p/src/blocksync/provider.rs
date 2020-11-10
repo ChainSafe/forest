@@ -102,7 +102,7 @@ where
                 Some(order) => *order,
                 None => {
                     let order = bls_cids_combined.len() as u64;
-                    bls_cids_combined.push(bls_cid.clone());
+                    bls_cids_combined.push(bls_cid);
                     bls_messages_order.insert(bls_cid, order);
                     order
                 }
@@ -119,7 +119,7 @@ where
                 Some(order) => *order,
                 None => {
                     let order = secp_cids_combined.len() as u64;
-                    secp_cids_combined.push(secp_cid.clone());
+                    secp_cids_combined.push(secp_cid);
                     secp_messages_order.insert(secp_cid, order);
                     order
                 }

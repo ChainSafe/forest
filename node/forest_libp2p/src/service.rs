@@ -9,7 +9,7 @@ use async_std::sync::{channel, Receiver, Sender};
 use async_std::{stream, task};
 use chain::ChainStore;
 use forest_blocks::GossipBlock;
-use forest_cid::{multihash::Blake2b256, Cid};
+use forest_cid::{Cid, Code::Blake2b256};
 use forest_encoding::from_slice;
 use forest_message::SignedMessage;
 use futures::channel::oneshot::Sender as OneShotSender;

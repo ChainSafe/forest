@@ -51,7 +51,7 @@ pub const CHAIN_FINALITY: ChainEpoch = 900;
 pub const SEALED_CID_PREFIX: cid::Prefix = cid::Prefix {
     version: cid::Version::V1,
     codec: cid::Codec::FilCommitmentSealed,
-    mh_type: commcid::POSEIDON_BLS12_381_A1_FC1,
+    mh_type: cid::POSEIDON_BLS12_381_A1_FC1,
     mh_len: 32,
 };
 

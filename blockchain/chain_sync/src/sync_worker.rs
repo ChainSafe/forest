@@ -17,7 +17,7 @@ use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::{persist_objects, ChainStore};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
@@ -255,7 +255,7 @@ where
             if let Some(reason) = self.bad_blocks.get(cid).await {
                 for bh in accepted_blocks {
                     self.bad_blocks
-                        .put(bh.clone(), format!("chain contained {}", cid))
+                        .put(*bh, format!("chain contained {}", cid))
                         .await;
                 }
 
@@ -426,7 +426,7 @@ where
         // Check block validation cache in store.
         let is_validated = cs
             .is_block_validated(block_cid)
-            .map_err(|e| (block_cid.clone(), e.into()))?;
+            .map_err(|e| (*block_cid, e.into()))?;
         if is_validated {
             return Ok(block);
         }
@@ -436,23 +436,23 @@ where
         let header = block.header();
 
         // Check to ensure all optional values exist
-        block_sanity_checks(header).map_err(|e| (block_cid.clone(), e.into()))?;
+        block_sanity_checks(header).map_err(|e| (*block_cid, e.into()))?;
 
         let base_ts = Arc::new(
             cs.tipset_from_keys(header.parents())
-                .map_err(|e| (block_cid.clone(), e.into()))?,
+                .map_err(|e| (*block_cid, e.into()))?,
         );
 
         // Retrieve lookback tipset for validation.
         let lbts = cs
             .get_lookback_tipset_for_round(&base_ts, block.header().epoch())
-            .map_err(|e| (block_cid.clone(), e.into()))?
+            .map_err(|e| (*block_cid, e.into()))?
             .map(Arc::new)
             .unwrap_or_else(|| Arc::clone(&base_ts));
 
         let (lbst, _) = sm.tipset_state::<V>(&lbts).await.map_err(|e| {
             (
-                block_cid.clone(),
+                *block_cid,
                 Error::Validation(format!("Could not update state: {}", e.to_string())),
             )
         })?;
@@ -460,7 +460,7 @@ where
 
         let prev_beacon = cs
             .latest_beacon_entry(base_ts.as_ref())
-            .map_err(|e| (block_cid.clone(), e.into()))?;
+            .map_err(|e| (*block_cid, e.into()))?;
         let prev_beacon = Arc::new(prev_beacon);
 
         // Timestamp checks
@@ -468,7 +468,7 @@ where
         let target_timestamp = base_ts.min_timestamp() + BLOCK_DELAY_SECS * (nulls + 1);
         if target_timestamp != header.timestamp() {
             return Err((
-                block_cid.clone(),
+                *block_cid,
                 Error::Validation(format!(
                     "block had the wrong timestamp: {} != {}",
                     header.timestamp(),
@@ -481,10 +481,7 @@ where
             .expect("Retrieved system time before UNIX epoch")
             .as_secs();
         if header.timestamp() > time_now + ALLOWABLE_CLOCK_DRIFT {
-            return Err((
-                block_cid.clone(),
-                Error::Temporal(time_now, header.timestamp()),
-            ));
+            return Err((*block_cid, Error::Temporal(time_now, header.timestamp())));
         } else if header.timestamp() > time_now {
             warn!(
                 "Got block from the future, but within clock drift threshold, {} > {}",
@@ -496,7 +493,7 @@ where
         // Work address needed for async validations, so necessary to do sync to avoid duplication.
         let work_addr = sm
             .get_miner_work_addr(&lbst, header.miner_address())
-            .map_err(|e| (block_cid.clone(), e.into()))?;
+            .map_err(|e| (*block_cid, e.into()))?;
 
         // Async validations
 
@@ -739,12 +736,12 @@ where
         // combine vec of error strings and return Validation error with this resultant string
         if !error_vec.is_empty() {
             let error_string = error_vec.join(", ");
-            return Err((block_cid.clone(), Error::Validation(error_string)));
+            return Err((*block_cid, Error::Validation(error_string)));
         }
 
         cs.mark_block_as_validated(block_cid).map_err(|e| {
             (
-                block_cid.clone(),
+                *block_cid,
                 Error::Validation(format!(
                     "failed to mark block {} as validated: {}",
                     block_cid, e

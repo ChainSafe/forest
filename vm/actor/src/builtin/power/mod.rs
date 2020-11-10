@@ -110,7 +110,7 @@ impl Actor {
                 *INIT_ACTOR_ADDR,
                 init::Method::Exec as u64,
                 Serialized::serialize(init::ExecParams {
-                    code_cid: MINER_ACTOR_CODE_ID.clone(),
+                    code_cid: *MINER_ACTOR_CODE_ID,
                     constructor_params,
                 })?,
                 value,

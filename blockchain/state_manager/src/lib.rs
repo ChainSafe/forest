@@ -274,7 +274,7 @@ where
             if let Some(ref entry) = *entry_lock {
                 // Entry had successfully populated state, return Cid and drop lock
                 trace!("hit cache for tipset {:?}", tipset.cids());
-                return Ok(entry.clone());
+                return Ok(*entry);
             }
 
             // Entry does not have state computed yet, this task will fill entry if successful.
@@ -290,10 +290,7 @@ where
                     .first()
                     .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
 
-                (
-                    tipset.parent_state().clone(),
-                    message_receipts.message_receipts().clone(),
-                )
+                (*tipset.parent_state(), *message_receipts.message_receipts())
             } else {
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
@@ -301,7 +298,7 @@ where
             };
 
             // Fill entry with calculated cid pair
-            *entry_lock = Some(cid_pair.clone());
+            *entry_lock = Some(cid_pair);
             Ok(cid_pair)
         })
     }
@@ -530,7 +527,7 @@ where
                 .map_err(|e| Error::Other(e.to_string()))?;
 
             let sm = self.clone();
-            let sr = first_block.state_root().clone();
+            let sr = *first_block.state_root();
             let epoch = first_block.epoch();
             task::spawn_blocking(move || {
                 sm.apply_blocks::<_, V, _>(
@@ -704,7 +701,7 @@ where
             .cid()
             .map_err(|e| Error::Other(format!("Could not get cid from message {:?}", e)))?;
 
-        let cid_for_task = cid.clone();
+        let cid_for_task = cid;
         let address_for_task = *message.from();
         let sequence_for_task = message.sequence();
         let height_of_head = tipset.epoch();
@@ -919,10 +916,8 @@ where
         }
         ts_chain.push(ts);
 
-        let mut last_state = ts_chain.last().unwrap().parent_state().clone();
-        let mut last_receipt = ts_chain.last().unwrap().blocks()[0]
-            .message_receipts()
-            .clone();
+        let mut last_state = *ts_chain.last().unwrap().parent_state();
+        let mut last_receipt = *ts_chain.last().unwrap().blocks()[0].message_receipts();
         for ts in ts_chain.iter().rev() {
             if ts.parent_state() != &last_state {
                 return Err(format!(

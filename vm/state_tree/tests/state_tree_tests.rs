@@ -3,7 +3,10 @@
 
 use actor::{init, ActorState, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::{Address, SECP_PUB_LEN};
-use cid::{multihash::Identity, Cid};
+use cid::{
+    Cid,
+    Code::{Blake2b256, Identity},
+};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use state_tree::*;
@@ -58,7 +61,7 @@ fn get_set_non_id() {
     let init_state = init::State::new(e_cid.clone(), "test".to_owned());
     let state_cid = tree
         .store()
-        .put(&init_state, Identity)
+        .put(&init_state, Blake2b256)
         .map_err(|e| e.to_string())
         .unwrap();
 

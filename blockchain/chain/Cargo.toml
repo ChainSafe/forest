@@ -8,7 +8,7 @@ edition = "2018"
 blocks = { package = "forest_blocks", path = "../blocks" }
 db = { path = "../../node/db" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-clock = { path = "../../node/clock" }
+clock = { package = "fil_clock", path = "../../node/clock" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
@@ -36,7 +36,7 @@ interpreter = { path = "../../vm/interpreter/" }
 json = []
 
 [dev-dependencies]
-multihash = "0.10.0"
+multihash = { version = "0.13", default-features = false, features = ["std", "blake2b", "derive"] }
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
     "test_constructors"
 ] }
