@@ -29,11 +29,11 @@ fn actor_to_resolved(
     actor: &ActorState,
     depth: Option<u64>,
 ) -> ActorStateResolved {
-    let resolved = resolve_cids_recursive(bs, &actor.state, depth)
-        .unwrap_or_else(|_| Ipld::Link(actor.state.clone()));
+    let resolved =
+        resolve_cids_recursive(bs, &actor.state, depth).unwrap_or_else(|_| Ipld::Link(actor.state));
     ActorStateResolved {
         state: IpldJson(resolved),
-        code: CidJson(actor.code.clone()),
+        code: CidJson(actor.code),
         balance: actor.balance.to_string(),
         sequence: actor.sequence,
     }

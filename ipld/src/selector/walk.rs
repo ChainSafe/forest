@@ -118,7 +118,7 @@ where
             if let Some(resolver) = &mut self.resolver {
                 self.last_block = Some(LastBlockInfo {
                     path: self.path.clone(),
-                    link: cid.clone(),
+                    link: *cid,
                 });
                 let mut node = resolver.load_link(cid).await.map_err(Error::Link)?;
                 while let Some(Ipld::Link(c)) = node {

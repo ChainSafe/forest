@@ -902,7 +902,7 @@ pub mod test_provider {
 
         /// Set the block messages for TestApi
         pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
-            self.bmsgs.insert(h.cid().clone(), msgs);
+            self.bmsgs.insert(*h.cid(), msgs);
             self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
         }
 

@@ -57,7 +57,7 @@ pub fn execute_message(
             .map(|s| s == "true")
             .unwrap_or_default()
         {
-            vm.register_actor(CHAOS_ACTOR_CODE_ID.clone());
+            vm.register_actor(*CHAOS_ACTOR_CODE_ID);
         }
     }
 

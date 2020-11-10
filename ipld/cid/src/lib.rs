@@ -43,8 +43,7 @@ pub const POSEIDON_MH_CODE: u64 = 0xb401;
 pub const SHA2_256_TRUNC_256P_MH_CODE: u64 = 0x1012;
 
 /// Representation of a IPLD CID.
-// TODO this can now be copy
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Cid {
     pub version: Version,
     pub codec: Codec,

@@ -115,7 +115,7 @@ impl State {
             initial_pledge_requirement: TokenAmount::default(),
 
             pre_committed_sectors: empty_map_cid,
-            pre_committed_sectors_expiry: empty_array_cid.clone(),
+            pre_committed_sectors_expiry: empty_array_cid,
             allocated_sectors: empty_bitfield_cid,
             sectors: empty_array_cid,
             proving_period_start: period_start,

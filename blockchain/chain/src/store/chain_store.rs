@@ -136,8 +136,8 @@ where
     pub async fn set_tipset_tracker(&self, header: &BlockHeader) -> Result<(), Error> {
         let ts = Arc::new(Tipset::new(vec![header.clone()])?);
         let meta = TipsetMetadata {
-            tipset_state_root: header.state_root().clone(),
-            tipset_receipts_root: header.message_receipts().clone(),
+            tipset_state_root: *header.state_root(),
+            tipset_receipts_root: *header.message_receipts(),
             tipset: ts,
         };
         self.tip_index.write().await.put(&meta).await;
@@ -620,7 +620,7 @@ where
     let mut cids = Vec::new();
     for i in 0..amt.count() {
         if let Some(c) = amt.get(i)? {
-            cids.push(c.clone());
+            cids.push(*c);
         }
     }
 

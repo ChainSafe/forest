@@ -136,7 +136,7 @@ pub struct BlockHeader {
 
 impl Cbor for BlockHeader {
     fn cid(&self) -> Result<Cid, EncodingError> {
-        Ok(self.cid().clone())
+        Ok(*self.cid())
     }
 }
 

@@ -121,7 +121,7 @@ where
         T: MultihashDigest<AllocSize = U32>,
     {
         let cid = Cid::new_from_cbor(&bytes, hash);
-        self.write.borrow_mut().insert(cid.clone(), bytes);
+        self.write.borrow_mut().insert(cid, bytes);
         Ok(cid)
     }
 }
