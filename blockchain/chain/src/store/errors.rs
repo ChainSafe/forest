@@ -9,7 +9,7 @@ use ipld_amt::Error as AmtErr;
 use thiserror::Error;
 
 /// Chain error
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Error)]
 pub enum Error {
     /// Key was not found
     #[error("Invalid tipset: {0}")]

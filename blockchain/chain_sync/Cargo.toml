@@ -32,7 +32,7 @@ thiserror = "1.0"
 num-traits = "0.2"
 fil_types = { path = "../../types" }
 commcid = { path = "../../utils/commcid" }
-clock = { path = "../../node/clock" }
+clock = { package = "fil_clock", path = "../../node/clock" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 flo_stream = "0.4.0"
 rand = "0.7.3"

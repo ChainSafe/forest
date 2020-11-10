@@ -1,13 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_cid::{Cid, Codec, Error, Prefix, Version};
-use multihash::{self, Blake2b256, Code, Sha2_256};
+use forest_cid::{Cid, Code, Codec, Error, Prefix, Version};
+use multihash::{self, MultihashDigest};
 use std::collections::HashMap;
 
 #[test]
 fn basic_marshalling() {
-    let h = Sha2_256::digest(b"beep boop");
+    let h = Code::Blake2b256.digest(b"beep boop");
 
     let cid = Cid::new(Codec::DagProtobuf, Version::V1, h);
 
@@ -24,7 +24,7 @@ fn basic_marshalling() {
 
 #[test]
 fn empty_string() {
-    assert_eq!(Cid::from_raw_cid(""), Err(Error::InputTooShort));
+    assert!(matches!(Cid::from_raw_cid(""), Err(Error::InputTooShort)));
 }
 
 #[test]
@@ -44,19 +44,19 @@ fn from_str() {
     assert_eq!(cid.version, Version::V0);
 
     let bad = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zIII".parse::<Cid>();
-    assert_eq!(bad, Err(Error::ParsingError));
+    assert!(matches!(bad, Err(Error::ParsingError)));
 }
 
 #[test]
 fn v0_error() {
     let bad = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zIII";
-    assert_eq!(Cid::from_raw_cid(bad), Err(Error::ParsingError));
+    assert!(matches!(Cid::from_raw_cid(bad), Err(Error::ParsingError)));
 }
 
 #[test]
 fn prefix_roundtrip() {
     let data = b"awesome test content";
-    let h = Sha2_256::digest(data);
+    let h = Code::Blake2b256.digest(data);
 
     let cid = Cid::new(Codec::DagProtobuf, Version::V1, h);
     let prefix = cid.prefix();
@@ -94,7 +94,7 @@ fn test_hash() {
     let prefix = Prefix {
         version: Version::V0,
         codec: Codec::DagProtobuf,
-        mh_type: Code::Sha2_256,
+        mh_type: Code::Blake2b256.into(),
         mh_len: 32,
     };
     let mut map = HashMap::new();
@@ -107,10 +107,10 @@ fn test_hash() {
 fn test_prefix_retrieval() {
     let data: Vec<u8> = vec![1, 2, 3];
 
-    let cid = Cid::new_from_cbor(&data, Blake2b256);
+    let cid = Cid::new_from_cbor(&data, Code::Blake2b256);
 
     let prefix = cid.prefix();
     assert_eq!(prefix.version, Version::V1);
     assert_eq!(prefix.codec, Codec::DagCBOR);
-    assert_eq!(prefix.mh_type, Code::Blake2b256);
+    assert_eq!(prefix.mh_type, Code::Blake2b256.into());
 }

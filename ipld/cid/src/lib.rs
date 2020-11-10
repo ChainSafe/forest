@@ -3,26 +3,28 @@
 
 mod codec;
 mod error;
+mod mh_code;
 mod prefix;
 mod to_cid;
 mod version;
 
 pub use self::codec::Codec;
 pub use self::error::Error;
+pub use self::mh_code::*;
 pub use self::prefix::Prefix;
 pub use self::version::Version;
 use integer_encoding::VarIntWriter;
 pub use multihash;
-use multihash::{Identity, Multihash, MultihashDigest};
-use std::convert::TryInto;
+use multihash::derive::Multihash;
+use multihash::typenum::U32;
+use multihash::MultihashDigest;
+use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
 #[cfg(feature = "cbor")]
 use serde::{de, ser};
 #[cfg(feature = "cbor")]
 use serde_cbor::tags::Tagged;
-#[cfg(feature = "cbor")]
-use std::convert::TryFrom;
 
 #[cfg(feature = "cbor")]
 const CBOR_TAG_CID: u64 = 42;
@@ -35,16 +37,27 @@ const MULTIBASE_IDENTITY: u8 = 0;
 pub mod json;
 
 /// Representation of a IPLD CID.
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Cid {
     pub version: Version,
     pub codec: Codec,
     pub hash: Multihash,
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
+impl std::hash::Hash for Cid {
+    fn hash<T: std::hash::Hasher>(&self, state: &mut T) {
+        // * Manual implementation is required because of generic size on multihash
+        self.version.hash(state);
+        self.codec.hash(state);
+        self.hash.code().hash(state);
+        self.hash.digest().hash(state);
+    }
+}
+
 impl Default for Cid {
     fn default() -> Self {
-        Self::new(Codec::Raw, Version::V0, Identity.digest(&[]))
+        Self::new(Codec::Raw, Version::V0, Code::Identity.digest(&[]))
     }
 }
 
@@ -114,7 +127,7 @@ impl Cid {
     }
 
     /// Constructs a cid with bytes using default version and codec
-    pub fn new_from_cbor<T: MultihashDigest>(bz: &[u8], hash: T) -> Self {
+    pub fn new_from_cbor<T: MultihashDigest<AllocSize = U32>>(bz: &[u8], hash: T) -> Self {
         let hash = hash.digest(bz);
         Cid {
             version: Version::V1,
@@ -130,10 +143,8 @@ impl Cid {
 
     /// Create a new CID from a prefix and some data.
     pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
-        let hash = prefix
-            .mh_type
-            .hasher()
-            .ok_or_else(|| Error::Other("Prefix must use builtin hasher".to_owned()))?
+        let hash: Multihash = Code::try_from(prefix.mh_type)
+            .map_err(|e| Error::Other(e.to_string()))?
             .digest(data);
         Ok(Cid {
             version: prefix.version,
@@ -145,7 +156,7 @@ impl Cid {
     fn to_string_v0(&self) -> String {
         use multibase::{encode, Base};
 
-        let mut string = encode(Base::Base58Btc, self.hash.clone());
+        let mut string = encode(Base::Base58Btc, self.hash.to_bytes());
 
         // Drop the first character as v0 does not know
         // about multibase
@@ -161,14 +172,15 @@ impl Cid {
     }
 
     fn to_bytes_v0(&self) -> Vec<u8> {
-        self.hash.clone().into_bytes()
+        self.hash.to_bytes()
     }
 
     fn to_bytes_v1(&self) -> Vec<u8> {
-        let mut res = Vec::with_capacity(16);
+        let mut res = Vec::with_capacity(32);
         res.write_varint(u64::from(self.version)).unwrap();
         res.write_varint(u64::from(self.codec)).unwrap();
-        res.extend_from_slice(self.hash.as_bytes());
+        // TODO avoid allocation here
+        res.append(&mut self.hash.to_bytes());
 
         res
     }
@@ -186,8 +198,8 @@ impl Cid {
         Prefix {
             version: self.version,
             codec: self.codec.to_owned(),
-            mh_type: self.hash.algorithm(),
-            mh_len: self.hash.digest().len(),
+            mh_type: self.hash.code(),
+            mh_len: self.hash.size() as usize,
         }
     }
 

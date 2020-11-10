@@ -1,8 +1,11 @@
 [package]
-name = "clock"
+name = "fil_clock"
+description = "Filecoin clock types and ChainEpoch functionality"
 version = "0.1.0"
+license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 chrono = "0.4.9"

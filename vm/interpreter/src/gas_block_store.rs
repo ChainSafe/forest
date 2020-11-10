@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas_tracker::{GasTracker, PriceList};
-use cid::{multihash::MultihashDigest, Cid};
+use cid::{
+    multihash::{MultihashDigest, U32},
+    Cid,
+};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
 use ipld_blockstore::BlockStore;
@@ -34,7 +37,7 @@ where
     fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,
-        T: MultihashDigest,
+        T: MultihashDigest<AllocSize = U32>,
     {
         let bytes = to_vec(obj)?;
         self.gas
@@ -98,7 +101,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::Blake2b256;
+    use cid::Code::Blake2b256;
     use db::MemoryDB;
     use vm::{ActorError, ExitCode};
 

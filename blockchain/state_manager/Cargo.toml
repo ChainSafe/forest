@@ -17,7 +17,7 @@ forest_blocks = { path = "../../blockchain/blocks" }
 thiserror = "1.0"
 interpreter = { path = "../../vm/interpreter/" }
 ipld_amt = { path = "../../ipld/amt/" }
-clock = { path = "../../node/clock" }
+clock = { package = "fil_clock", path = "../../node/clock" }
 chain = { path = "../chain" }
 async-std = "1.6.3"
 async-log = "2.0.0"

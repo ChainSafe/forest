@@ -10,7 +10,7 @@ clean-all:
 clean:
 	@echo "Cleaning local packages..."
 	@cargo clean -p forest
-	@cargo clean -p clock
+	@cargo clean -p fil_clock
 	@cargo clean -p forest_libp2p
 	@cargo clean -p forest_blocks
 	@cargo clean -p chain_sync

@@ -10,7 +10,7 @@ actor = { path = "../actor" }
 message = { package = "forest_message", path = "../message" }
 runtime = { path = "../runtime" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
-clock = { path = "../../node/clock" }
+clock = { package = "fil_clock", path = "../../node/clock" }
 vm = { package = "forest_vm", path = "../" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

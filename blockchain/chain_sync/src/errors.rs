@@ -12,7 +12,7 @@ use state_manager::Error as StErr;
 use thiserror::Error;
 
 /// ChainSync error
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("No blocks for tipset")]
     NoBlocks,

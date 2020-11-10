@@ -92,7 +92,7 @@ mod tests {
     use super::*;
     use address::Address;
     use blocks::BlockHeader;
-    use cid::{multihash::Blake2b256, Cid};
+    use cid::{Cid, Code::Blake2b256};
     use num_bigint::BigInt;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {

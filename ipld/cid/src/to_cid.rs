@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{Cid, Codec, Error, Version};
+use crate::{Cid, Codec, Error, Multihash, Version};
 use integer_encoding::VarIntReader;
-use multihash::Multihash;
 use std::convert::TryFrom;
 use std::io::Cursor;
 use std::str::FromStr;
@@ -47,12 +46,12 @@ impl TryFrom<&[u8]> for Cid {
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if Version::is_v0_binary(value) {
             // Verify that hash can be decoded, this is very cheap
-            let hash = Multihash::from_bytes(value.to_vec())?;
+            let hash = Multihash::read(value)?;
             Ok(Cid::new(Codec::DagCBOR, Version::V0, hash))
         } else {
             let (hash, version, codec) = decode_v1_bytes(value)?;
             // convert hash bytes to Multihash object
-            let multihash = Multihash::from_bytes(hash)?;
+            let multihash = Multihash::read(hash.as_slice())?;
             Ok(Cid::new(codec, version, multihash))
         }
     }
@@ -98,7 +97,7 @@ fn decode_str(cid_str: &str) -> Result<Vec<u8>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use multihash::Code::Blake2b256;
+    use crate::Code::Blake2b256;
 
     #[test]
     fn verify_base32_upper() {
@@ -108,8 +107,8 @@ mod tests {
         let (hash, version, codec) = decode_v1_bytes(&decoded).unwrap();
         assert_eq!(version, Version::V1, "failed version check");
         assert_eq!(codec, Codec::DagCBOR, "failed codec check");
-        let hash = Multihash::from_bytes(hash.to_vec()).unwrap();
-        assert_eq!(hash.algorithm(), Blake2b256);
+        let hash = Multihash::read(hash.as_slice()).unwrap();
+        assert_eq!(hash.code(), Blake2b256.into());
     }
     #[test]
     fn verify_base32_lower() {
@@ -119,7 +118,7 @@ mod tests {
         let (hash, version, codec) = decode_v1_bytes(&decoded).unwrap();
         assert_eq!(version, Version::V1, "failed version check");
         assert_eq!(codec, Codec::DagCBOR, "failed codec check");
-        let hash = Multihash::from_bytes(hash.to_vec()).unwrap();
-        assert_eq!(hash.algorithm(), Blake2b256);
+        let hash = Multihash::read(hash.as_slice()).unwrap();
+        assert_eq!(hash.code(), Blake2b256.into());
     }
 }

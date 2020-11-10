@@ -9,12 +9,12 @@ features = ["json"]
 
 [dependencies]
 thiserror = "1.0"
-address = { package = "forest_address", path = "../vm/address", version = "0.2" }
+address = { package = "forest_address", path = "../vm/address" }
 crypto = { package = "forest_crypto", path = "../crypto" }
 bls-signatures = "0.6.1"
 libsecp256k1 = "0.3.4"
 rand = "0.7.3"
-encoding = { package = "forest_encoding", path = "../encoding", version = "0.1" }
+encoding = { package = "forest_encoding", path = "../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 base64 = { version = "0.13", optional = true }
 serde_json = "1.0.57"

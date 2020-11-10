@@ -9,7 +9,7 @@ use async_std::sync::{channel, Receiver, Sender};
 use async_std::{stream, task};
 use chain::ChainStore;
 use forest_blocks::GossipBlock;
-use forest_cid::{multihash::Blake2b256, Cid};
+use forest_cid::{Cid, Code::Blake2b256};
 use forest_encoding::from_slice;
 use forest_message::SignedMessage;
 use futures::channel::oneshot::Sender as OneShotSender;
@@ -316,9 +316,9 @@ where
                             if let Err(e) = swarm_stream.get_mut().want_block(cid.clone(), 1000) {
                                 warn!("Failed to send a bitswap want_block: {}", e.to_string());
                             } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
-                                chans.push(response_channel);
+                                    chans.push(response_channel);
                                 } else {
-                                self.bitswap_response_channels.insert(cid, vec![response_channel]);
+                                    self.bitswap_response_channels.insert(cid, vec![response_channel]);
                                 }
                         }
                     }
