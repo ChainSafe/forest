@@ -910,7 +910,7 @@ where
     let mut i = 0;
     'l: while i < chains.len() {
         let msg_chain = &mut chains[i];
-        let chain = msg_chain.curr().unwrap().clone();
+        let chain = msg_chain.curr().clone();
         if msgs.len() > REPUB_MSG_LIMIT {
             break;
         }
@@ -1069,17 +1069,17 @@ where
             cur_chain = new_chain(m, i);
             continue;
         }
-        let gas_reward = cur_chain.curr().unwrap().gas_reward.clone() + &rewards[i];
-        let gas_limit = cur_chain.curr().unwrap().gas_limit + m.gas_limit();
+        let gas_reward = cur_chain.curr().gas_reward.clone() + &rewards[i];
+        let gas_limit = cur_chain.curr().gas_limit + m.gas_limit();
         let gas_perf = get_gas_perf(&gas_reward, gas_limit);
 
         // try to add the message to the current chain -- if it decreases the gasPerf, then make a
         // new chain
-        if gas_perf < cur_chain.curr().unwrap().gas_perf {
+        if gas_perf < cur_chain.curr().gas_perf {
             chains.push(cur_chain.clone());
             cur_chain = new_chain(m, i);
         } else {
-            let cur = cur_chain.curr_mut().unwrap();
+            let cur = cur_chain.curr_mut();
             cur.msgs.push(m);
             cur.gas_reward = gas_reward;
             cur.gas_limit = gas_limit;
@@ -1093,30 +1093,28 @@ where
         let mut merged = 0;
         for i in (1..chains.len()).rev() {
             let (head, tail) = chains.split_at_mut(i);
-            if tail[0].curr().unwrap().gas_perf >= head.last().unwrap().curr().unwrap().gas_perf {
-                let mut chain_a_msgs = tail[0].curr().unwrap().msgs.clone();
+            if tail[0].curr().gas_perf >= head.last().unwrap().curr().gas_perf {
+                let mut chain_a_msgs = tail[0].curr().msgs.clone();
                 head.last_mut()
                     .unwrap()
                     .curr_mut()
-                    .unwrap()
                     .msgs
                     .append(&mut chain_a_msgs);
-                head.last_mut().unwrap().curr_mut().unwrap().gas_reward +=
-                    &tail[0].curr().unwrap().gas_reward;
-                head.last_mut().unwrap().curr_mut().unwrap().gas_limit +=
-                    head.last().unwrap().curr().unwrap().gas_limit;
-                head.last_mut().unwrap().curr_mut().unwrap().gas_perf = get_gas_perf(
-                    &head.last().unwrap().curr().unwrap().gas_reward,
-                    head.last().unwrap().curr().unwrap().gas_limit,
+                head.last_mut().unwrap().curr_mut().gas_reward += &tail[0].curr().gas_reward;
+                head.last_mut().unwrap().curr_mut().gas_limit +=
+                    head.last().unwrap().curr().gas_limit;
+                head.last_mut().unwrap().curr_mut().gas_perf = get_gas_perf(
+                    &head.last().unwrap().curr().gas_reward,
+                    head.last().unwrap().curr().gas_limit,
                 );
-                tail[0].curr_mut().unwrap().valid = false;
+                tail[0].curr_mut().valid = false;
                 merged += 1;
             }
         }
         if merged == 0 {
             break;
         }
-        chains.retain(|c| c.curr().unwrap().valid);
+        chains.retain(|c| c.curr().valid);
     }
     // No need to link the chains because its linked for free
     Ok(chains)
@@ -1730,12 +1728,12 @@ pub mod tests {
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(
-                chains[0].curr().unwrap().msgs.len(),
+                chains[0].curr().msgs.len(),
                 10,
                 "expected 10 messages in single chain, got: {}",
-                chains[0].curr().unwrap().msgs.len()
+                chains[0].curr().msgs.len()
             );
-            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+            for (i, m) in chains[0].curr().msgs.iter().enumerate() {
                 assert_eq!(
                     m.sequence(),
                     i as u64,
@@ -1760,15 +1758,15 @@ pub mod tests {
             assert_eq!(chains.len(), 10, "expected 10 chains");
             for (i, chain) in chains.iter().enumerate() {
                 assert_eq!(
-                    chain.curr().unwrap().msgs.len(),
+                    chain.curr().msgs.len(),
                     1,
                     "expected 1 message in chain {} but got {}",
                     i,
-                    chain.curr().unwrap().msgs.len()
+                    chain.curr().msgs.len()
                 );
             }
             for (i, chain) in chains.iter().enumerate() {
-                let m = &chain.curr().unwrap().msgs[0];
+                let m = &chain.curr().msgs[0];
                 assert_eq!(
                     m.sequence(),
                     i as u64,
@@ -1791,11 +1789,11 @@ pub mod tests {
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 2, "expected 2 chains");
-            assert_eq!(chains[0].curr().unwrap().msgs.len(), 9);
-            assert_eq!(chains[1].curr().unwrap().msgs.len(), 1);
+            assert_eq!(chains[0].curr().msgs.len(), 9);
+            assert_eq!(chains[1].curr().msgs.len(), 1);
             let mut next_nonce = 0;
             for chain in chains.iter() {
-                for m in chain.curr().unwrap().msgs.iter() {
+                for m in chain.curr().msgs.iter() {
                     assert_eq!(
                         next_nonce,
                         m.sequence(),
@@ -1831,17 +1829,17 @@ pub mod tests {
             for (i, chain) in chains.iter().enumerate() {
                 let expected_len = if i > 2 { 1 } else { 3 };
                 assert_eq!(
-                    chain.curr().unwrap().msgs.len(),
+                    chain.curr().msgs.len(),
                     expected_len,
                     "expected {} message in chain {} but got {}",
                     expected_len,
                     i,
-                    chain.curr().unwrap().msgs.len()
+                    chain.curr().msgs.len()
                 );
             }
             let mut next_nonce = 0;
             for chain in chains.iter() {
-                for m in chain.curr().unwrap().msgs.iter() {
+                for m in chain.curr().msgs.iter() {
                     assert_eq!(
                         next_nonce,
                         m.sequence(),
@@ -1867,7 +1865,7 @@ pub mod tests {
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
-            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+            for (i, m) in chains[0].curr().msgs.iter().enumerate() {
                 assert_eq!(
                     m.sequence(),
                     i as u64,
@@ -1897,8 +1895,8 @@ pub mod tests {
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
-            assert_eq!(chains[0].curr().unwrap().msgs.len(), 5);
-            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+            assert_eq!(chains[0].curr().msgs.len(), 5);
+            for (i, m) in chains[0].curr().msgs.iter().enumerate() {
                 assert_eq!(
                     m.sequence(),
                     i as u64,
@@ -1930,8 +1928,8 @@ pub mod tests {
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
-            assert_eq!(chains[0].curr().unwrap().msgs.len(), max_messages as usize);
-            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+            assert_eq!(chains[0].curr().msgs.len(), max_messages as usize);
+            for (i, m) in chains[0].curr().msgs.iter().enumerate() {
                 assert_eq!(
                     m.sequence(),
                     i as u64,
@@ -1956,8 +1954,8 @@ pub mod tests {
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
-            assert_eq!(chains[0].curr().unwrap().msgs.len(), 2);
-            for (i, m) in chains[0].curr().unwrap().msgs.iter().enumerate() {
+            assert_eq!(chains[0].curr().msgs.len(), 2);
+            for (i, m) in chains[0].curr().msgs.iter().enumerate() {
                 assert_eq!(
                     m.sequence(),
                     i as u64,

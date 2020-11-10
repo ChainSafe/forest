@@ -76,9 +76,8 @@ impl MsgChain {
         }
     }
     /// Retrieves the current node in the MsgChain.
-    /// This should never be None if created through the constructor.
-    pub(crate) fn curr(&self) -> Option<&MsgChainNode> {
-        self.chain.get(self.index)
+    pub(crate) fn curr(&self) -> &MsgChainNode {
+        self.chain.get(self.index).unwrap()
     }
     /// Retrieves the previous element in the MsgChain.
     pub(crate) fn prev(&self) -> Option<&MsgChainNode> {
@@ -97,8 +96,8 @@ impl MsgChain {
     }
     /// Retrieves a mutable reference to the current node in the MsgChain.
     /// This should never be None if created through the constructor.
-    pub(crate) fn curr_mut(&mut self) -> Option<&mut MsgChainNode> {
-        self.chain.get_mut(self.index)
+    pub(crate) fn curr_mut(&mut self) -> &mut MsgChainNode {
+        self.chain.get_mut(self.index).unwrap()
     }
     /// Retrieves a mutable reference to the previous element in the MsgChain.
     #[allow(dead_code)]
@@ -136,8 +135,8 @@ impl MsgChain {
 
 impl MsgChain {
     pub(crate) fn cmp(&self, other: &Self) -> Ordering {
-        let self_curr = self.curr().unwrap();
-        let other_curr = other.curr().unwrap();
+        let self_curr = self.curr();
+        let other_curr = other.curr();
         approx_cmp(self_curr.gas_perf, other_curr.gas_perf)
             .then_with(|| self_curr.gas_reward.cmp(&other_curr.gas_reward))
     }
@@ -148,7 +147,7 @@ impl MsgChain {
             Some(prev) => Some((prev.eff_perf, prev.gas_limit)),
             None => None,
         };
-        let mut mc = self.curr_mut().unwrap();
+        let mut mc = self.curr_mut();
         while i >= 0 && (mc.gas_limit > gas_limit || (!allow_negative && mc.gas_perf < 0.0)) {
             let gas_reward = get_gas_reward(&mc.msgs[i as usize], base_fee);
             mc.gas_reward -= gas_reward;
@@ -178,14 +177,14 @@ impl MsgChain {
         }
     }
     pub(crate) fn invalidate(&mut self) {
-        let mc = self.curr_mut().unwrap();
+        let mc = self.curr_mut();
         mc.valid = false;
         mc.msgs = Vec::new();
         self.chain.drain((self.index + 1)..);
     }
     #[allow(dead_code)]
     pub(crate) fn set_effective_perf(&mut self, bp: f64) {
-        self.curr_mut().unwrap().bp = bp;
+        self.curr_mut().bp = bp;
         self.set_eff_perf();
     }
     #[allow(dead_code)]
@@ -195,7 +194,7 @@ impl MsgChain {
             None => None,
         };
 
-        let mc = self.curr_mut().unwrap();
+        let mc = self.curr_mut();
         let mut eff_perf = mc.gas_perf * mc.bp;
         if let Some(prev) = prev {
             if eff_perf > 0.0 {
@@ -212,7 +211,7 @@ impl MsgChain {
     }
     #[allow(dead_code)]
     pub fn set_null_effective_perf(&mut self) {
-        let mc = self.curr_mut().unwrap();
+        let mc = self.curr_mut();
         if mc.gas_perf < 0.0 {
             mc.eff_perf = mc.gas_perf;
         } else {
@@ -221,8 +220,8 @@ impl MsgChain {
     }
     #[allow(dead_code)]
     fn cmp_effective(&self, other: &Self) -> Ordering {
-        let mc = self.curr().unwrap();
-        let other = other.curr().unwrap();
+        let mc = self.curr();
+        let other = other.curr();
         mc.merged
             .cmp(&other.merged)
             .then_with(|| (mc.gas_perf >= 0.0).cmp(&(other.gas_perf >= 0.0)))
