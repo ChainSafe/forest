@@ -98,7 +98,11 @@ fn symmetric_conversion() {
     let cid = replica_commitment_v1_to_cid(&comm).unwrap();
     assert_eq!(
         cid_to_commitment(&cid).unwrap(),
-        (Codec::FilCommitmentSealed, cid::POSEIDON_BLS12_381_A1_FC1, comm)
+        (
+            Codec::FilCommitmentSealed,
+            cid::POSEIDON_BLS12_381_A1_FC1,
+            comm
+        )
     );
 
     // piece

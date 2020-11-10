@@ -58,7 +58,11 @@ pub fn cid_to_data_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
 /// - codec: cid.FilCommitmentSealed
 /// - hash type: multihash.PoseidonBls12381A1Fc1
 pub fn replica_commitment_v1_to_cid(comm_r: &Commitment) -> Result<Cid, &'static str> {
-    commitment_to_cid(Codec::FilCommitmentSealed, POSEIDON_BLS12_381_A1_FC1, comm_r)
+    commitment_to_cid(
+        Codec::FilCommitmentSealed,
+        POSEIDON_BLS12_381_A1_FC1,
+        comm_r,
+    )
 }
 
 /// cid_to_replica_commitment_v1 extracts the raw replica commitment from a CID
