@@ -60,10 +60,10 @@ pub(crate) struct MsgChain {
 
 impl Default for MsgChain {
     fn default() -> Self {
-       Self {
-           index: 0,
-           chain: vec![MsgChainNode::new()],
-       }
+        Self {
+            index: 0,
+            chain: vec![MsgChainNode::new()],
+        }
     }
 }
 
