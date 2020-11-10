@@ -172,7 +172,7 @@ impl MsgChain {
         let mc = self.curr_mut().unwrap();
         mc.valid = false;
         mc.msgs = Vec::new();
-        self.chain.drain(self.index..);
+        self.chain.drain((self.index + 1)..);
     }
     #[allow(dead_code)]
     pub(crate) fn set_effective_perf(&mut self, bp: f64) {
