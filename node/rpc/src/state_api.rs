@@ -320,7 +320,7 @@ pub(crate) async fn state_get_network_version(
         return Ok(NetworkVersion::V0);
     }
 
-    return Ok(NEWEST_NETWORK_VERSION);
+    Ok(NEWEST_NETWORK_VERSION)
 }
 
 /// returns the indicated actor's nonce and balance.
@@ -366,13 +366,13 @@ pub(crate) async fn state_miner_get_base_info<
                 .into_iter()
                 .map(|s| s.into())
                 .collect::<Vec<SectorInfoJson>>(),
-            worker_key: s.worker_key.into(),
+            worker_key: s.worker_key,
             sector_size: s.sector_size,
             prev_beacon_entry: s.prev_beacon_entry,
             beacon_entries: s
                 .beacon_entries
                 .into_iter()
-                .map(|s| BeaconEntryJson(s))
+                .map(BeaconEntryJson)
                 .collect::<Vec<BeaconEntryJson>>(),
             eligible_for_mining: s.elligable_for_minning,
         });

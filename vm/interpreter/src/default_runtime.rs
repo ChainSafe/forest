@@ -509,8 +509,11 @@ where
 
         // Update the state
         self.allow_internal = false;
-        let r = f(&mut state, self)?;
+        let r = f(&mut state, self);
         self.allow_internal = true;
+
+        // Return error after allow_internal is reset
+        let r = r?;
 
         let c = self.put(&state)?;
 

@@ -3,7 +3,8 @@
 </p>
 
 
-[<img alt="build status" src="https://img.shields.io/github/workflow/status/ChainSafe/forest/Rust%20CI/main?style=for-the-badge" height="20">](https://github.com/ChainSafe/forest/actions?query=branch%3Amain)
+[<img alt="build status" src="https://img.shields.io/circleci/build/gh/ChainSafe/forest/main?style=for-the-badge" height="20">](https://app.circleci.com/pipelines/github/ChainSafe/forest?branch=main)
+[<img alt="Coverage" src="https://img.shields.io/codecov/c/gh/ChainSafe/forest?color=orange&flag=main&style=for-the-badge&token=1OHO2CSD17" height="20">](https://codecov.io/gh/ChainSafe/forest)
 [<img alt="Apache License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/Apache-2.0)
 [<img alt="MIT License" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/MIT)
 [<img alt="Discord" src="https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord" height="20">](https://discord.gg/Q6A3YA2)
@@ -91,6 +92,17 @@ https://chainsafe.github.io/forest/
 ## Contributing
 - Check out our contribution guidelines: [CONTRIBUTING.md](CONTRIBUTING.md)  
 - Have questions? Say hi on [Discord](https://discord.gg/Q6A3YA2)!
+
+## ChainSafe Security Policy
+
+### Reporting a Security Bug
+
+We take all security issues seriously, if you believe you have found a security issue within a ChainSafe
+project please notify us immediately. If an issue is confirmed, we will take all necessary precautions 
+to ensure a statement and patch release is made in a timely manner.
+
+Please email us a description of the flaw and any related information (e.g. reproduction steps, version) to
+[security at chainsafe dot io](mailto:security@chainsafe.io).
 
 ## License 
 Forest is dual licensed under [MIT](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT) + [Apache 2.0](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE).

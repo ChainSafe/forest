@@ -79,7 +79,7 @@ pub fn use_newest_network() -> bool {
         return true;
     }
 
-    return false;
+    false
 }
 
 /// Gets network version from epoch using default Mainnet schedule

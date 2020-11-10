@@ -11,6 +11,7 @@ use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
 use forest_libp2p::{hello::HelloRequest, rpc::ResponseChannel};
 use libp2p::core::PeerId;
+use message_pool::{test_provider::TestApi, MessagePool};
 use state_manager::StateManager;
 use std::time::Duration;
 
@@ -19,6 +20,14 @@ fn peer_manager_update() {
     let db = Arc::new(MemoryDB::default());
 
     let chain_store = Arc::new(ChainStore::new(db.clone()));
+
+    let mpool = task::block_on(MessagePool::new(
+        TestApi::default(),
+        "test".to_string(),
+        Default::default(),
+    ))
+    .unwrap();
+    let mpool = Arc::new(mpool);
 
     let (local_sender, _test_receiver) = channel(20);
     let (event_sender, event_receiver) = channel(20);
@@ -37,9 +46,10 @@ fn peer_manager_update() {
     let genesis_ts = Arc::new(Tipset::new(vec![dummy_header]).unwrap());
     let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
     let state_manager = Arc::new(StateManager::new(chain_store));
-    let cs = ChainSyncer::<_, _, MockVerifier>::new(
+    let cs = ChainSyncer::<_, _, MockVerifier, TestApi>::new(
         state_manager,
         beacon,
+        mpool,
         local_sender,
         event_receiver,
         genesis_ts.clone(),

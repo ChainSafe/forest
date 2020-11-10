@@ -979,8 +979,6 @@ pub struct MinerInfo {
     /// The number of sectors in each Window PoSt partition (proof).
     /// This is computed from the proof type and represented here redundantly.
     pub window_post_partition_sectors: u64,
-
-    pub consensus_fault_elapsed: ChainEpoch,
 }
 
 pub struct MinerBaseInfo {
@@ -1023,7 +1021,6 @@ impl MinerInfo {
             seal_proof_type,
             sector_size,
             window_post_partition_sectors,
-            consensus_fault_elapsed: EPOCH_UNDEFINED,
         })
     }
 }
@@ -1033,7 +1030,6 @@ pub mod json {
     use super::*;
     use address::json::AddressJson;
 
-    #[cfg(feature = "json")]
     #[derive(Serialize)]
     #[serde(rename_all = "PascalCase")]
     pub struct MinerBaseInfoJson {
@@ -1117,7 +1113,7 @@ pub mod json {
                 seal_proof_type: info.seal_proof_type,
                 sector_size: info.sector_size,
                 window_post_partition_sectors: info.window_post_partition_sectors,
-                consensus_fault_elapsed: info.consensus_fault_elapsed,
+                consensus_fault_elapsed: EPOCH_UNDEFINED,
             }
         }
     }

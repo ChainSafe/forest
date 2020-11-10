@@ -538,7 +538,7 @@ where
 
         let lbts = chain::tipset_from_keys(self.blockstore(), tipset.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {:?}", e)))?;
-        Ok((lbts.clone(), next_ts.parent_state().clone()))
+        Ok((lbts, next_ts.parent_state().clone()))
     }
 
     fn elligable_to_mine<V: ProofVerifier>(
@@ -570,9 +570,6 @@ where
         let power_state: power::State =
             self.load_actor_state(&STORAGE_POWER_ACTOR_ADDR, &base_tipset.parent_state())?;
 
-        let miner_state: miner::State =
-            self.load_actor_state(&address, &base_tipset.parent_state())?;
-
         let claim = power_state
             .miner_power(self.blockstore(), &address)
             .map_err(|e| {
@@ -586,14 +583,7 @@ where
             return Ok(false);
         }
 
-        let info = miner_state.get_info(self.blockstore()).map_err(|e| {
-            Error::Other(format!(
-                "Could not execute get_info func for elligable to mine func : {:?}",
-                e
-            ))
-        })?;
-
-        if base_tipset.epoch() <= info.consensus_fault_elapsed {
+        if base_tipset.epoch() <= clock::EPOCH_UNDEFINED {
             return Ok(false);
         }
 

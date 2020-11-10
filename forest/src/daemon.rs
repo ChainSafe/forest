@@ -138,7 +138,6 @@ pub(super) async fn start(config: Config) {
     let p2p_service = Libp2pService::new(
         config.network,
         chain_store.clone(),
-        Arc::clone(&mpool),
         net_keypair,
         &network_name,
     );
@@ -160,9 +159,10 @@ pub(super) async fn start(config: Config) {
     // Initialize ChainSyncer
     // TODO allow for configuring validation strategy (defaulting to full validation)
     let beacon = Arc::new(beacon);
-    let chain_syncer = ChainSyncer::<_, _, FullVerifier>::new(
+    let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
         beacon.clone(),
+        Arc::clone(&mpool),
         network_send.clone(),
         network_rx,
         Arc::new(genesis),
