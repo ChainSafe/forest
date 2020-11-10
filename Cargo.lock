@@ -1266,7 +1266,7 @@ dependencies = [
  "rayon",
  "regex",
  "serde",
- "serde_cbor 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_cbor",
  "serde_derive",
  "serde_json",
  "tinytemplate",
@@ -1460,6 +1460,16 @@ checksum = "4857fd85a0c34b3c3297875b747c1e02e06b6a0ea32dd892d8192b9ce0813ea6"
 dependencies = [
  "generic-array 0.14.4",
  "subtle 2.3.0",
+]
+
+[[package]]
+name = "cs_serde_cbor"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7b77425566bdb3932243a292a4b072e1e34fb93aba95926f8d4a3b6ce542c5"
+dependencies = [
+ "half",
+ "serde",
 ]
 
 [[package]]
@@ -2186,7 +2196,7 @@ dependencies = [
 
 [[package]]
 name = "forest_address"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "data-encoding",
  "data-encoding-macro",
@@ -2250,8 +2260,9 @@ dependencies = [
 
 [[package]]
 name = "forest_cid"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
+ "cs_serde_cbor",
  "forest_json_utils",
  "generic-array 0.14.4",
  "integer-encoding",
@@ -2259,7 +2270,6 @@ dependencies = [
  "multihash 0.13.0",
  "serde",
  "serde_bytes",
- "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
  "serde_json",
  "thiserror",
 ]
@@ -2283,13 +2293,13 @@ dependencies = [
 
 [[package]]
 name = "forest_encoding"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "blake2b_simd",
+ "cs_serde_cbor",
  "forest_cid",
  "serde",
  "serde_bytes",
- "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
  "serde_repr",
  "serde_tuple",
  "thiserror",
@@ -2357,7 +2367,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64 0.13.0",
  "derive_builder",
@@ -2376,7 +2386,7 @@ dependencies = [
 
 [[package]]
 name = "forest_vm"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "forest_address",
  "forest_bigint",
@@ -5412,15 +5422,6 @@ name = "serde_cbor"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e18acfa2f90e8b735b2836ab8d538de304cbb6729a7360729ea5a895d15a622"
-dependencies = [
- "half",
- "serde",
-]
-
-[[package]]
-name = "serde_cbor"
-version = "0.11.1"
-source = "git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a#3e7bf81f57e9010762dbc12292bd6f927fdfe83a"
 dependencies = [
  "half",
  "serde",
