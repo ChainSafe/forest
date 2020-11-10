@@ -231,7 +231,7 @@ where
                                     secp_messages: smsgs.unwrap(),
                                 };
                                 let ts = FullTipset::new(vec![block]).unwrap();
-                                if let Err(e) = self.inform_new_head(source.clone(), &ts).await {
+                                if self.inform_new_head(source.clone(), &ts).await.is_err() {
                                     warn!("failed to inform new head from peer {}", source);
                                 }
                             }
@@ -244,13 +244,13 @@ where
                             }
                         }
                     }
+                    None => break,
                     // All other network events are being ignored currently
                     _ => (),
-                    None => break,
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
-                        if let Err(e) = self.inform_new_head(peer.clone(), &new_head).await {
+                        if self.inform_new_head(peer.clone(), &new_head).await.is_err() {
                             warn!("failed to inform new head from peer {}", peer);
                         }
                     }
