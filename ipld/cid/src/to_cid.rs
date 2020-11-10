@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{Cid, Codec, Error, Version};
+use crate::{Cid, Codec, Error, Multihash, Version};
 use integer_encoding::VarIntReader;
-use multihash::Multihash;
 use std::convert::TryFrom;
 use std::io::Cursor;
 use std::str::FromStr;
@@ -108,7 +107,7 @@ mod tests {
         let (hash, version, codec) = decode_v1_bytes(&decoded).unwrap();
         assert_eq!(version, Version::V1, "failed version check");
         assert_eq!(codec, Codec::DagCBOR, "failed codec check");
-        let hash = Multihash::<crate::MultihashAlloc>::read(hash.as_slice()).unwrap();
+        let hash = Multihash::read(hash.as_slice()).unwrap();
         assert_eq!(hash.code(), Blake2b256.into());
     }
     #[test]
@@ -119,7 +118,7 @@ mod tests {
         let (hash, version, codec) = decode_v1_bytes(&decoded).unwrap();
         assert_eq!(version, Version::V1, "failed version check");
         assert_eq!(codec, Codec::DagCBOR, "failed codec check");
-        let hash = Multihash::<crate::MultihashAlloc>::read(hash.as_slice()).unwrap();
+        let hash = Multihash::read(hash.as_slice()).unwrap();
         assert_eq!(hash.code(), Blake2b256.into());
     }
 }

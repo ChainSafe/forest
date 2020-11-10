@@ -36,7 +36,6 @@ const MULTIBASE_IDENTITY: u8 = 0;
 pub mod json;
 
 pub type MultihashAlloc = multihash::typenum::U32;
-pub type Multihash = multihash::Multihash<MultihashAlloc>;
 
 #[derive(Default, Debug)]
 pub struct Sha2256Truncated256Padded(Sha2_256);
@@ -203,7 +202,7 @@ impl Cid {
 
     /// Create a new CID from a prefix and some data.
     pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
-        let hash: multihash::Multihash<U32> = Code::try_from(prefix.mh_type)
+        let hash: Multihash = Code::try_from(prefix.mh_type)
             .map_err(|e| Error::Other(e.to_string()))?
             .digest(data);
         Ok(Cid {

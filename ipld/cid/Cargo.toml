@@ -11,7 +11,7 @@ repository = "https://github.com/ChainSafe/forest"
 features = ["cbor", "json"]
 
 [dependencies]
-multihash = { version = "0.12", default-features = false, features = ["std", "multihash-impl", "blake2b", "sha2", "multihash-impl", "derive"] }
+multihash = { version = "0.13", default-features = false, features = ["std", "multihash-impl", "blake2b", "sha2", "multihash-impl", "derive"] }
 multibase = "0.9.0"
 integer-encoding = { version = "2.1", default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }

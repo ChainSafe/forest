@@ -691,21 +691,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blake3"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9ff35b701f3914bdb8fad3368d822c766ef2858b2583198e41639b936f09d3f"
-dependencies = [
- "arrayref",
- "arrayvec",
- "cc",
- "cfg-if 0.1.10",
- "constant_time_eq",
- "crypto-mac 0.8.0",
- "digest 0.9.0",
-]
-
-[[package]]
 name = "block-buffer"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -969,7 +954,7 @@ dependencies = [
  "ipld_blockstore",
  "lazy_static",
  "log",
- "multihash 0.12.0",
+ "multihash 0.13.0",
  "num-traits 0.2.14",
  "serde",
  "state_tree",
@@ -2271,7 +2256,7 @@ dependencies = [
  "generic-array 0.14.4",
  "integer-encoding",
  "multibase 0.9.1",
- "multihash 0.12.0",
+ "multihash 0.13.0",
  "serde",
  "serde_bytes",
  "serde_cbor 0.11.1 (git+https://github.com/ChainSafe/cbor?rev=3e7bf81f57e9010762dbc12292bd6f927fdfe83a)",
@@ -4011,28 +3996,23 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64e1f107745548b55e678fec1ebfd04b888db80b0c206cafca2014dd85dd7970"
+checksum = "a6f97339ef1e4092fa22e397929fdf9c1a106b925fd11cab90e097bdbfbbe25c"
 dependencies = [
  "blake2b_simd",
- "blake2s_simd",
- "blake3",
  "digest 0.9.0",
  "generic-array 0.14.4",
  "multihash-derive",
- "sha-1",
  "sha2 0.9.2",
- "sha3",
- "strobe-rs",
  "unsigned-varint 0.5.1",
 ]
 
 [[package]]
 name = "multihash-derive"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfbb7db5e8bea3e8942669543a0fe217ee4fb726c3ca891ad474bea3e8a85680"
+checksum = "2f5653449cd45d502a53480ee08d7a599e8f4893d2bacb33c63d65bc20af6c1a"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",

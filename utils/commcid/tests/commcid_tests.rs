@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{
-    multihash::{self, MultihashDigest},
+    multihash::MultihashDigest,
     Cid,
     Code::{self, PoseidonBls12381A1Fc1, Sha2256Truncated256Padded},
     Codec,
@@ -38,7 +38,7 @@ fn cid_to_comm_d() {
     let comm = rand_comm();
 
     // Correct hash format
-    let mh = multihash::Multihash::wrap(u64::from(Sha2256Truncated256Padded), &comm).unwrap();
+    let mh = cid::Multihash::wrap(u64::from(Sha2256Truncated256Padded), &comm).unwrap();
     let c = Cid::new_v1(Codec::FilCommitmentUnsealed, mh.clone());
     let decoded = cid_to_data_commitment_v1(&c).unwrap();
     assert_eq!(decoded, comm);
@@ -69,7 +69,7 @@ fn cid_to_comm_r() {
     let comm = rand_comm();
 
     // Correct hash format
-    let mh = multihash::Multihash::wrap(PoseidonBls12381A1Fc1.into(), &comm).unwrap();
+    let mh = cid::Multihash::wrap(PoseidonBls12381A1Fc1.into(), &comm).unwrap();
     let c = Cid::new_v1(Codec::FilCommitmentSealed, mh.clone());
     let decoded = cid_to_replica_commitment_v1(&c).unwrap();
     assert_eq!(decoded, comm);
