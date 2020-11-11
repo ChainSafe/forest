@@ -77,7 +77,7 @@ Will show all debug logs by default, but the `forest_libp2p::service` logs will 
 ### Testing
 ```bash
 # To run base tests
-make test # use test-release for longer compilation but faster execution
+cargo test # use `make test-release` for longer compilation but faster execution
 
 # To pull serialization vectors submodule and run serialization and conformance tests
 make test-vectors
