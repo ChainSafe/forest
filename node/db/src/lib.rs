@@ -11,12 +11,6 @@ pub use memory::MemoryDB;
 #[cfg(feature = "rocksdb")]
 pub use rocks::{RocksDb, WriteBatch};
 
-pub trait DatabaseService {
-    fn open(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
 /// Store interface used as a KV store implementation
 pub trait Store {
     /// Read single value from data store and return `None` if key doesn't exist.

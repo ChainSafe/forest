@@ -1,9 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::{BlockHeader, Tipset};
+use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
 use cid::Cid;
+use encoding::Cbor;
+use fil_types::verifier::ProofVerifier;
 use forest_car::load_car;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
@@ -83,4 +85,34 @@ where
         )?;
         Ok(genesis_block)
     }
+}
+
+/// Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain
+/// state and instead accept the largest height as genesis.
+pub async fn import_chain<V: ProofVerifier, R: Read, DB>(
+    sm: &Arc<StateManager<DB>>,
+    reader: R,
+    validate_height: Option<i64>,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    DB: BlockStore + Send + Sync + 'static,
+{
+    info!("Importing chain from snapshot");
+    // start import
+    let cids = load_car(sm.blockstore(), reader)?;
+    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
+    let gb = sm.chain_store().tipset_by_height(0, &ts, true)?.unwrap();
+    if let Some(height) = validate_height {
+        info!("Validating imported chain");
+        sm.validate_chain::<V>(ts.clone(), height).await?;
+    }
+    let gen_cid = sm.chain_store().set_genesis(&gb.blocks()[0])?;
+    sm.blockstore()
+        .write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
+    info!(
+        "Accepting {:?} as new head with genesis {:?}",
+        ts.cids(),
+        gen_cid
+    );
+    Ok(())
 }

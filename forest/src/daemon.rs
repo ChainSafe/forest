@@ -7,17 +7,13 @@ use async_std::sync::RwLock;
 use async_std::task;
 use auth::{generate_priv_key, JWT_IDENTIFIER};
 use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
-use blocks::TipsetKeys;
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use db::RocksDb;
-use encoding::Cbor;
-use fil_types::verifier::{FullVerifier, ProofVerifier};
+use fil_types::verifier::FullVerifier;
 use flo_stream::{MessagePublisher, Publisher};
-use forest_car::load_car;
 use forest_libp2p::{get_keypair, Libp2pService};
-use genesis::initialize_genesis;
-use ipld_blockstore::BlockStore;
+use genesis::{import_chain, initialize_genesis};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
@@ -26,7 +22,6 @@ use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::fs::File;
 use std::io::BufReader;
-use std::io::Read;
 use std::sync::Arc;
 use utils::write_to_file;
 use wallet::{KeyStore, PersistentKeyStore};
@@ -34,35 +29,6 @@ use wallet::{KeyStore, PersistentKeyStore};
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option. (1 is temporary value to avoid overlap)
 const WORKER_TASKS: usize = 1;
-
-/// Import a chain from a CAR file
-async fn import_chain<V: ProofVerifier, R: Read, DB>(
-    sm: &Arc<StateManager<DB>>,
-    reader: R,
-    snapshot: bool,
-) -> Result<(), Box<dyn std::error::Error>>
-where
-    DB: BlockStore + Send + Sync + 'static,
-{
-    info!("Importing chain from snapshot");
-    // start import
-    let cids = load_car(sm.blockstore(), reader)?;
-    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
-    let gb = sm.chain_store().tipset_by_height(0, &ts, true)?.unwrap();
-    if !snapshot {
-        info!("Validating imported chain");
-        sm.validate_chain::<V>(ts.clone()).await?;
-    }
-    let gen_cid = sm.chain_store().set_genesis(&gb.blocks()[0])?;
-    sm.blockstore()
-        .write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
-    info!(
-        "Accepting {:?} as new head with genesis {:?}",
-        ts.cids(),
-        gen_cid
-    );
-    Ok(())
-}
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -101,18 +67,19 @@ pub(super) async fn start(config: Config) {
     let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
     let state_manager = Arc::new(StateManager::new(Arc::clone(&chain_store)));
 
+    // Read Genesis file
+    // * When snapshot command implemented, this genesis does not need to be initialized
+    let (genesis, network_name) =
+        initialize_genesis(config.genesis_file.as_ref(), &state_manager).unwrap();
+
     // Sync from snapshot
     if let Some(path) = &config.snapshot_path {
         let file = File::open(path).expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
-        import_chain::<FullVerifier, _, _>(&state_manager, reader, false)
+        import_chain::<FullVerifier, _, _>(&state_manager, reader, Some(0))
             .await
             .unwrap();
     }
-
-    // Read Genesis file
-    let (genesis, network_name) =
-        initialize_genesis(config.genesis_file.as_ref(), &state_manager).unwrap();
 
     // Fetch and ensure verification keys are downloaded
     get_params_default(SectorSizeOpt::Keys, false)
@@ -228,7 +195,7 @@ mod test {
         let sm = Arc::new(StateManager::new(cs));
         let file = File::open("test_files/chain4.car").expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
-        import_chain::<FullVerifier, _, _>(&sm, reader, true)
+        import_chain::<FullVerifier, _, _>(&sm, reader, None)
             .await
             .expect("Failed to import chain");
     }
@@ -239,7 +206,7 @@ mod test {
         let sm = Arc::new(StateManager::new(cs));
         let file = File::open("test_files/chain4.car").expect("Snapshot file path not found!");
         let reader = BufReader::new(file);
-        import_chain::<FullVerifier, _, _>(&sm, reader, false)
+        import_chain::<FullVerifier, _, _>(&sm, reader, Some(0))
             .await
             .expect("Failed to import chain");
     }
