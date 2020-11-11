@@ -72,18 +72,10 @@ test-vectors: pull-serialization-tests run-vectors
 test:
 	cargo test --all --all-features --exclude serialization_tests --exclude conformance_tests
 
-# This will run all tests will all features enabled, which will exclude some tests with
-# specific features disabled
-test-all: pull-serialization-tests
-	cargo test --all-features
+test-release:
+	cargo test --release --all --all-features --exclude serialization_tests --exclude conformance_tests
 
-# This will run all tests will all features enabled, which will exclude some tests with
-# specific features disabled with verbose compiler output
-test-all-verbose: pull-serialization-tests
-	cargo test --verbose --all-features
-
-test-all-no-run: pull-serialization-tests
-	cargo test --all-features --no-run
+test-all: test-release run-vectors
 
 # Checks if all headers are present and adds if not
 license:
@@ -92,4 +84,4 @@ license:
 docs:
 	cargo doc --no-deps --all-features
 
-.PHONY: clean clean-all lint build release test license test-all test-vectors run-vectors pull-serialization-tests install docs
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors
