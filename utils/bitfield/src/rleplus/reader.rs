@@ -157,6 +157,7 @@ mod tests {
         assert_eq!(reader.read_len().unwrap(), None);
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic(expected = "assertion failed")]
     fn too_many_bits_at_once() {
