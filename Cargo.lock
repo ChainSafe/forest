@@ -2630,9 +2630,11 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "chain",
+ "fil_types",
  "forest_blocks",
  "forest_car",
  "forest_cid",
+ "forest_encoding",
  "ipld_blockstore",
  "log",
  "state_manager",

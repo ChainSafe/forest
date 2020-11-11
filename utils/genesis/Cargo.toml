@@ -16,3 +16,5 @@ state_manager = { path = "../../blockchain/state_manager" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 chain = { path = "../../blockchain/chain" }
+fil_types = { path = "../../types" }
+encoding = { path = "../../encoding", package = "forest_encoding" }

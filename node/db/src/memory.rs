@@ -1,13 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{DatabaseService, Error, Store};
+use super::{Error, Store};
 use parking_lot::RwLock;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
 
 /// A thread-safe `HashMap` wrapper.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryDB {
     db: RwLock<HashMap<u64, Vec<u8>>>,
 }
@@ -30,16 +30,6 @@ impl Clone for MemoryDB {
         }
     }
 }
-
-impl Default for MemoryDB {
-    fn default() -> Self {
-        Self {
-            db: RwLock::new(HashMap::new()),
-        }
-    }
-}
-
-impl DatabaseService for MemoryDB {}
 
 impl Store for MemoryDB {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
