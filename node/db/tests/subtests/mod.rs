@@ -1,14 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use db::{DatabaseService, Store};
-
-pub fn open<DB>(db: &mut DB)
-where
-    DB: DatabaseService,
-{
-    db.open().unwrap();
-}
+use db::Store;
 
 pub fn write<DB>(db: &DB)
 where

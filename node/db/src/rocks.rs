@@ -4,7 +4,7 @@
 #![cfg(feature = "rocksdb")]
 
 use super::errors::Error;
-use super::{DatabaseService, Store};
+use super::Store;
 pub use rocksdb::{Options, WriteBatch, DB};
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
@@ -64,12 +64,6 @@ impl RocksDb {
             DbStatus::Unopened(_) => Err(Error::Unopened),
             DbStatus::Open(db) => Ok(db),
         }
-    }
-}
-
-impl DatabaseService for RocksDb {
-    fn open(&mut self) -> Result<(), Error> {
-        self.open()
     }
 }
 
