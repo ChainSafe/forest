@@ -4,10 +4,7 @@
 #![cfg(feature = "buffered")]
 
 use super::BlockStore;
-use cid::{
-    multihash::{MultihashDigest, U32},
-    Cid, Codec,
-};
+use cid::{Cid, Code, Codec};
 use db::{Error, Store};
 use encoding::from_slice;
 use forest_ipld::Ipld;
@@ -116,11 +113,8 @@ where
         self.base.get_bytes(cid)
     }
 
-    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
-    where
-        T: MultihashDigest<AllocSize = U32>,
-    {
-        let cid = Cid::new_from_cbor(&bytes, hash);
+    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
+        let cid = Cid::new_from_cbor(&bytes, code);
         self.write.borrow_mut().insert(cid, bytes);
         Ok(cid)
     }
@@ -179,7 +173,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::{Code, Codec};
+    use cid::{multihash::MultihashDigest, Code, Codec};
     use commcid::commitment_to_cid;
     use forest_ipld::{ipld, Ipld};
 
