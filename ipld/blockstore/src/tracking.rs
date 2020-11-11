@@ -4,10 +4,7 @@
 #![cfg(feature = "tracking")]
 
 use super::BlockStore;
-use cid::{
-    multihash::{MultihashDigest, U32},
-    Cid,
-};
+use cid::{Cid, Code};
 use db::{Error, Store};
 use std::cell::RefCell;
 use std::error::Error as StdError;
@@ -57,13 +54,10 @@ where
         Ok(bytes)
     }
 
-    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
-    where
-        T: MultihashDigest<AllocSize = U32>,
-    {
+    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
         self.stats.borrow_mut().w += 1;
         self.stats.borrow_mut().bw += bytes.len();
-        let cid = Cid::new_from_cbor(&bytes, hash);
+        let cid = Cid::new_from_cbor(&bytes, code);
         self.write(cid.to_bytes(), bytes)?;
         Ok(cid)
     }
