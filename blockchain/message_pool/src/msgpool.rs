@@ -255,7 +255,7 @@ where
         // LruCache sizes have been taken from the lotus implementation
         let pending = Arc::new(RwLock::new(HashMap::new()));
         let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().await.ok_or_else(
-            || Error::Other("No ts in api to set as cur_tipset".to_owned()),
+            || Error::Other("Failed to retrieve heaviest tipset from provider".to_owned()),
         )?));
         let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(40000)));
         let sig_val_cache = Arc::new(RwLock::new(LruCache::new(32000)));
