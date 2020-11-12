@@ -330,10 +330,20 @@ fn for_each() {
 
     // Ensure all values were added into the amt
     for i in indexes.iter() {
-        a.set(*i, "value".to_owned()).unwrap();
+        assert_eq!(a.get(*i).unwrap(), Some(&"value".to_owned()));
     }
 
     assert_eq!(a.count(), indexes.len() as u64);
+
+    // Iterate over amt with dirty cache
+    let mut x = 0;
+    a.for_each(|_, _: &String| {
+        x += 1;
+        Ok(())
+    })
+    .unwrap();
+
+    assert_eq!(x, indexes.len());
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
@@ -353,8 +363,10 @@ fn for_each() {
             Ok(())
         })
         .unwrap();
-
     assert_eq!(x, indexes.len());
+
+    // Iteration again will be read diff with go-interop, since they do not cache
+    new_amt.for_each(|_, _: &String| Ok(())).unwrap();
 
     assert_eq!(
         c.to_string().as_str(),
@@ -367,7 +379,7 @@ fn for_each() {
 
     #[rustfmt::skip]
     #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 2016, w: 2016, br: 124875, bw: 124875});
+    assert_eq!(*db.stats.borrow(), BSStats {r:3446, w:2016, br:213384, bw:124875});
 }
 
 #[test]

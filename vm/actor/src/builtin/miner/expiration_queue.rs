@@ -670,6 +670,8 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
             let keep_going = f(epoch, expiration_set)?;
 
             if expiration_set.is_empty() {
+                // Mark expiration set as unchanged, it will be removed after the iteration.
+                expiration_set.mark_unchanged();
                 epochs_emptied.push(epoch);
             }
 

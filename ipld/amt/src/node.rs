@@ -453,11 +453,18 @@ where
                                         .get(cid)?
                                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
-                                    // Ignore error intentionally, the cache value will always be the same
-                                    let _ = cache.fill(node);
-                                    let cache_node =
-                                        cache.borrow().expect("cache filled on line above");
-                                    cache_node.for_each_while(store, height - 1, offs, f)?
+                                    #[cfg(not(feature = "go-interop"))]
+                                    {
+                                        // Ignore error intentionally, the cache value will always be the same
+                                        let _ = cache.fill(node);
+                                        let cache_node =
+                                            cache.borrow().expect("cache filled on line above");
+
+                                        cache_node.for_each_while(store, height - 1, offs, f)?
+                                    }
+
+                                    #[cfg(feature = "go-interop")]
+                                    node.for_each_while(store, height - 1, offs, f)?
                                 }
                             }
                         };
