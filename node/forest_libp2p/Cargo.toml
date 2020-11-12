@@ -41,6 +41,7 @@ libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "b
 tiny-cid = "0.2.0"
 ipld_blockstore = { path = "../../ipld/blockstore" }
 async-trait = "0.1"
+lazy_static = "1.4"
 
 [dev-dependencies]
 forest_address = { path = "../../vm/address" }

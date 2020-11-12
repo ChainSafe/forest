@@ -35,6 +35,11 @@ use utils::read_file_to_vec;
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
+lazy_static! {
+    pub static ref PUBSUB_BLOCK_TOPIC: Topic = Topic::new(PUBSUB_BLOCK_STR.to_owned());
+    pub static ref PUBSUB_MSG_TOPIC: Topic = Topic::new(PUBSUB_MSG_STR.to_owned());
+}
+
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
 /// Events emitted by this Service

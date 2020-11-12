@@ -3,6 +3,9 @@
 
 #![recursion_limit = "1024"]
 
+#[macro_use]
+extern crate lazy_static;
+
 mod behaviour;
 pub mod blocksync;
 mod config;

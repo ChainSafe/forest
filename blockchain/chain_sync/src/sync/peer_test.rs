@@ -20,10 +20,11 @@ fn peer_manager_update() {
     let db = Arc::new(MemoryDB::default());
 
     let chain_store = Arc::new(ChainStore::new(db.clone()));
-
+    let (tx, _rx) = channel(10);
     let mpool = task::block_on(MessagePool::new(
         TestApi::default(),
         "test".to_string(),
+        tx,
         Default::default(),
     ))
     .unwrap();

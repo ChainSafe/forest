@@ -25,14 +25,16 @@ futures = "0.3.5"
 libsecp256k1 = "0.3.4"
 blake2b_simd = "0.5.10"
 log = "0.4.8"
-async-std = "1.6.3"
+async-std = { version = "1.6.3", features = ["unstable"] }
+key_management = { path = "../../key_management"}
 state_manager = { path = "../state_manager" }
 async-trait = "0.1"
 interpreter = { path = "../../vm/interpreter/" }
 types = { package = "fil_types", path = "../../types" }
+forest_libp2p = { path = "../../node/forest_libp2p" }
 num-traits = "0.2"
 statrs = "0.13.0"
-
+num-rational = "0.3.2"
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }

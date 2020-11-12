@@ -5,7 +5,9 @@
 pub mod block_prob;
 mod config;
 mod errors;
+mod msg_chain;
 mod msgpool;
+
 pub use self::config::*;
 pub use self::errors::*;
 pub use self::msgpool::*;

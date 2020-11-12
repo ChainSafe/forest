@@ -526,9 +526,11 @@ mod tests {
     ) {
         let chain_store = Arc::new(ChainStore::new(db.clone()));
         let test_provider = TestApi::default();
+        let (tx, _rx) = channel(10);
         let mpool = task::block_on(MessagePool::new(
             test_provider,
             "test".to_string(),
+            tx,
             Default::default(),
         ))
         .unwrap();

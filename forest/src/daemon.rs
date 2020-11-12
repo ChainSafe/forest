@@ -67,6 +67,8 @@ pub(super) async fn start(config: Config) {
     let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
     let state_manager = Arc::new(StateManager::new(Arc::clone(&chain_store)));
 
+    let publisher = chain_store.publisher();
+
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
     let (genesis, network_name) =
@@ -86,24 +88,29 @@ pub(super) async fn start(config: Config) {
         .await
         .unwrap();
 
+    // Libp2p service setup
+    let p2p_service = Libp2pService::new(
+        config.network,
+        Arc::clone(&chain_store),
+        net_keypair,
+        &network_name,
+    );
+    let network_rx = p2p_service.network_receiver();
+    let network_send = p2p_service.network_sender();
+
     // Initialize mpool
-    let publisher = chain_store.publisher();
     let subscriber = publisher.write().await.subscribe();
     let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
     let mpool = Arc::new(
         MessagePool::new(
             provider,
             network_name.clone(),
+            network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
         )
         .await
         .unwrap(),
     );
-
-    // Libp2p service setup
-    let p2p_service = Libp2pService::new(config.network, chain_store, net_keypair, &network_name);
-    let network_rx = p2p_service.network_receiver();
-    let network_send = p2p_service.network_sender();
 
     // Get Drand Coefficients
     let coeff = config.drand_public;
