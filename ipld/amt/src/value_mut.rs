@@ -22,9 +22,8 @@ impl<'a, V> ValueMut<'a, V> {
         self.value_mutated
     }
 
-    /// Marks guard as unchanged. This should only be used when
-    /// the value was updated but it is intended to remove it. Otherwise,
-    /// this function would give unexpected behaviour on flush.
+    /// Marks guard as unchanged. This should only be used when the value was updated but it is
+    /// intended to remove it. Otherwise, this function would give unexpected behaviour on flush.
     #[cfg(feature = "go-interop")]
     pub fn mark_unchanged(&mut self) {
         self.value_mutated = false;

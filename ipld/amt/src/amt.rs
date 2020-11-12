@@ -265,7 +265,6 @@ where
     #[inline]
     pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
         F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
         self.for_each_while(|i, x| {
@@ -278,7 +277,6 @@ where
     /// function keeps returning `true`.
     pub fn for_each_while<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
         F: FnMut(u64, &V) -> Result<bool, Box<dyn StdError>>,
     {
         self.root
@@ -291,7 +289,6 @@ where
     /// each value.
     pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
         F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<(), Box<dyn StdError>>,
     {
         self.for_each_while_mut(|i, x| {
@@ -304,7 +301,6 @@ where
     /// each value, for as long as that function keeps returning `true`.
     pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
         F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
     {
         self.root
