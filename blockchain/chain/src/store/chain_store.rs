@@ -108,7 +108,7 @@ where
         };
 
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
-        let _ = cs.load_heaviest_tipset();
+        let _ = task::block_on(cs.load_heaviest_tipset());
 
         cs
     }

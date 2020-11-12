@@ -14,10 +14,7 @@ pub use self::buffered::BufferedBlockStore;
 #[cfg(feature = "tracking")]
 pub use self::tracking::{BSStats, TrackingBlockStore};
 
-use cid::{
-    multihash::{MultihashDigest, U32},
-    Cid,
-};
+use cid::{Cid, Code};
 use db::{MemoryDB, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use std::error::Error as StdError;
@@ -44,35 +41,30 @@ pub trait BlockStore: Store {
     }
 
     /// Put an object in the block store and return the Cid identifier.
-    fn put<S, T>(&self, obj: &S, hash: T) -> Result<Cid, Box<dyn StdError>>
+    fn put<S>(&self, obj: &S, code: Code) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,
-        T: MultihashDigest<AllocSize = U32>,
     {
         let bytes = to_vec(obj)?;
-        self.put_raw(bytes, hash)
+        self.put_raw(bytes, code)
     }
 
     /// Put raw bytes in the block store and return the Cid identifier.
-    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
-    where
-        T: MultihashDigest<AllocSize = U32>,
-    {
-        let cid = Cid::new_from_cbor(&bytes, hash);
+    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
+        let cid = Cid::new_from_cbor(&bytes, code);
         self.write(cid.to_bytes(), bytes)?;
         Ok(cid)
     }
 
     /// Batch put cbor objects into blockstore and returns vector of Cids
-    fn bulk_put<'a, S, T, V>(&self, values: V, hash: T) -> Result<Vec<Cid>, Box<dyn StdError>>
+    fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> Result<Vec<Cid>, Box<dyn StdError>>
     where
         S: Serialize + 'a,
-        T: MultihashDigest<AllocSize = U32>,
         V: IntoIterator<Item = &'a S>,
     {
         values
             .into_iter()
-            .map(|value| self.put(value, hash))
+            .map(|value| self.put(value, code))
             .collect()
     }
 }
@@ -81,10 +73,9 @@ impl BlockStore for MemoryDB {}
 
 #[cfg(feature = "rocksdb")]
 impl BlockStore for RocksDb {
-    fn bulk_put<'a, S, T, V>(&self, values: V, hash: T) -> Result<Vec<Cid>, Box<dyn StdError>>
+    fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> Result<Vec<Cid>, Box<dyn StdError>>
     where
         S: Serialize + 'a,
-        T: MultihashDigest<AllocSize = U32>,
         V: IntoIterator<Item = &'a S>,
     {
         let mut batch = WriteBatch::default();
@@ -92,7 +83,7 @@ impl BlockStore for RocksDb {
             .into_iter()
             .map(|v| {
                 let bz = to_vec(v)?;
-                let cid = Cid::new_from_cbor(&bz, hash);
+                let cid = Cid::new_from_cbor(&bz, code);
                 batch.put(cid.to_bytes(), bz);
                 Ok(cid)
             })

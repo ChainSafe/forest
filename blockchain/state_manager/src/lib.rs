@@ -908,9 +908,10 @@ where
     pub async fn validate_chain<V: ProofVerifier>(
         self: &Arc<Self>,
         mut ts: Tipset,
+        height: i64,
     ) -> Result<(), Box<dyn StdError>> {
         let mut ts_chain = Vec::<Tipset>::new();
-        while ts.epoch() != 0 {
+        while ts.epoch() != height {
             let next = self.cs.tipset_from_keys(ts.parents())?;
             ts_chain.push(std::mem::replace(&mut ts, next));
         }

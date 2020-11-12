@@ -10,13 +10,12 @@ mod version;
 
 pub use self::codec::Codec;
 pub use self::error::Error;
-pub use self::mh_code::*;
+pub use self::mh_code::{Code, Multihash, POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
 pub use self::prefix::Prefix;
 pub use self::version::Version;
 use integer_encoding::VarIntWriter;
 pub use multihash;
 use multihash::derive::Multihash;
-use multihash::typenum::U32;
 use multihash::MultihashDigest;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
@@ -127,8 +126,8 @@ impl Cid {
     }
 
     /// Constructs a cid with bytes using default version and codec
-    pub fn new_from_cbor<T: MultihashDigest<AllocSize = U32>>(bz: &[u8], hash: T) -> Self {
-        let hash = hash.digest(bz);
+    pub fn new_from_cbor(bz: &[u8], code: Code) -> Self {
+        let hash = code.digest(bz);
         Cid {
             version: Version::V1,
             codec: Codec::DagCBOR,

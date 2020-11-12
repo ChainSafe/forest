@@ -143,6 +143,7 @@ mod tests {
         );
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic(expected = "assertion failed")]
     fn zero_len() {
@@ -150,6 +151,7 @@ mod tests {
         writer.write_len(0);
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic(expected = "assertion failed")]
     fn more_bits_than_indicated() {
@@ -157,6 +159,7 @@ mod tests {
         writer.write(100, 0);
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic(expected = "assertion failed")]
     fn too_many_bits_at_once() {

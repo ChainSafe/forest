@@ -43,7 +43,7 @@ enum ChainSyncState {
     /// Syncing chain with BlockSync protocol.
     Initial,
     /// Following chain with blocks received over gossipsub.
-    _Follow,
+    Follow,
 }
 
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
@@ -200,8 +200,17 @@ where
                             .await
                     }
                     Some(NetworkEvent::PubsubMessage { source, message }) => {
+                        if self.state != ChainSyncState::Follow {
+                            // Ignore gossipsub events if not in following state
+                            continue;
+                        }
+
                         match message {
                             forest_libp2p::PubsubMessage::Block(b) => {
+                                // TODO this handling logic should be done in seperate task.
+                                // When this runs, it slows down the polling thread, which in turn
+                                // makes the events polled from the libp2p thread get dropped.
+
                                 let source = match source.clone() {
                                     Some(source) => source,
                                     None => {
@@ -250,8 +259,8 @@ where
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
-                        if self.inform_new_head(peer.clone(), &new_head).await.is_err() {
-                            warn!("failed to inform new head from peer {}", peer);
+                        if let Err(e) = self.inform_new_head(peer.clone(), &new_head).await {
+                            warn!("failed to inform new head from peer {}: {}", peer, e);
                         }
                     }
                     None => break,
