@@ -903,7 +903,7 @@ where
         return Ok(());
     }
 
-    chains.sort_by(|a, b| a.cmp(b));
+    chains.sort_by(|a, b| a.compare(b));
 
     let mut msgs: Vec<SignedMessage> = vec![];
     let mut gas_limit = types::BLOCK_GAS_LIMIT;
@@ -940,7 +940,7 @@ where
         msg_chain.trim(gas_limit, &base_fee, true);
         let mut j = i;
         while j < chains.len() - 1 {
-            if chains[j].cmp(&chains[j + 1]) == Ordering::Less {
+            if chains[j].compare(&chains[j + 1]) == Ordering::Less {
                 break;
             }
             chains.swap(j, j + 1);

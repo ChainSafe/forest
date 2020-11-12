@@ -134,7 +134,7 @@ impl MsgChain {
 }
 
 impl MsgChain {
-    pub(crate) fn cmp(&self, other: &Self) -> Ordering {
+    pub(crate) fn compare(&self, other: &Self) -> Ordering {
         let self_curr = self.curr();
         let other_curr = other.curr();
         approx_cmp(self_curr.gas_perf, other_curr.gas_perf)
