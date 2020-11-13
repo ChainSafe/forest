@@ -78,4 +78,10 @@ impl MpoolConfig {
             None => Ok(Default::default()),
         }
     }
+    pub fn size_limit_low(&self) -> i64 {
+        self.size_limit_low
+    }
+    pub fn priority_addrs(&self) -> &[Address] {
+        &self.priority_addrs
+    }
 }

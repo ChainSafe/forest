@@ -35,7 +35,7 @@ impl MsgChainNode {
             merged: false,
         }
     }
-    fn set_eff_perf(&mut self, prev: Option<(f64, i64)>) {
+    pub(crate) fn set_eff_perf(&mut self, prev: Option<(f64, i64)>) {
         let mut eff_perf = self.gas_perf * self.bp;
         if let Some(prev) = prev {
             if eff_perf > 0.0 {
@@ -131,6 +131,14 @@ impl MsgChain {
         self.index -= 1;
         self.chain.get(self.index)
     }
+    /// Returns the current index of the current node.
+    pub(crate) fn index(&self) -> usize {
+        self.index
+    }
+    /// Returns the number of nodes in the chain.
+    pub(crate) fn len(&self) -> usize {
+        self.chain.len()
+    }
 }
 
 impl MsgChain {
@@ -188,7 +196,7 @@ impl MsgChain {
         self.set_eff_perf();
     }
     #[allow(dead_code)]
-    fn set_eff_perf(&mut self) {
+    pub(crate) fn set_eff_perf(&mut self) {
         let prev = match self.prev() {
             Some(prev) => Some((prev.eff_perf, prev.gas_limit)),
             None => None,
@@ -218,8 +226,8 @@ impl MsgChain {
             mc.eff_perf = 0.0;
         }
     }
-    #[allow(dead_code)]
-    fn cmp_effective(&self, other: &Self) -> Ordering {
+
+    pub(crate) fn cmp_effective(&self, other: &Self) -> Ordering {
         let mc = self.curr();
         let other = other.curr();
         mc.merged
