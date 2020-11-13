@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ActorDowncast;
+use ahash::AHashMap;
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -72,19 +73,26 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
     pub fn cut(&mut self, to_cut: &BitField) -> Result<(), Box<dyn StdError>> {
         let mut epochs_to_remove = Vec::<u64>::new();
 
+        let mut updated = AHashMap::new();
         self.amt
-            .for_each_mut(|epoch, bitfield| {
+            .for_each(|epoch, bitfield| {
                 let bf = bitfield.cut(to_cut);
 
                 if bf.is_empty() {
                     epochs_to_remove.push(epoch);
                 } else {
-                    **bitfield = bf;
+                    updated.insert(epoch, bf);
                 }
 
                 Ok(())
             })
             .map_err(|e| e.downcast_wrap("failed to cut from bitfield queue"))?;
+
+        for (i, v) in updated.into_iter() {
+            self.amt
+                .set(i, v)
+                .map_err(|e| e.downcast_wrap("failed to update bitfield queue in cut"))?;
+        }
 
         self.amt
             .batch_delete(epochs_to_remove)

@@ -528,7 +528,15 @@ where
                                     sn
                                 } else {
                                     // Only retrieve sub node if not found in cache
-                                    store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                                    #[allow(unused_mut)]
+                                    let mut n: Box<Self> =
+                                        store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?;
+
+                                    #[cfg(feature = "go-interop")]
+                                    return n.for_each_while_mut(store, height - 1, offs, f);
+
+                                    #[cfg(not(feature = "go-interop"))]
+                                    n
                                 };
 
                                 let (keep_going, did_mutate_node) =
@@ -536,6 +544,10 @@ where
 
                                 if did_mutate_node {
                                     *link = Link::Dirty(node);
+                                } else {
+                                    // Replace cache, or else iteration over without modification
+                                    // will consume cache
+                                    let _ = cache.fill(node);
                                 }
 
                                 (keep_going, did_mutate_node)

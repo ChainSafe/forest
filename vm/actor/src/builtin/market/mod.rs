@@ -792,6 +792,8 @@ impl Actor {
                                     "failed to delete pending proposal: does not exist"
                                 )
                             })?;
+
+                        return Ok(());
                     }
                     let mut state = state.unwrap();
 
