@@ -793,7 +793,7 @@ impl Actor {
                                 )
                             })?;
 
-                        return Ok(());
+                        continue;
                     }
                     let mut state = state.unwrap();
 
