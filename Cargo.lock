@@ -2057,7 +2057,7 @@ dependencies = [
  "groupy",
  "hex",
  "humansize",
- "indicatif 0.14.0",
+ "indicatif",
  "itertools 0.9.0",
  "lazy_static",
  "log",
@@ -3053,18 +3053,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7baab56125e25686df467fe470785512329883aab42696d661247aca2a2896e4"
 dependencies = [
  "console",
- "lazy_static",
- "number_prefix",
- "regex",
-]
-
-[[package]]
-name = "indicatif"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7baab56125e25686df467fe470785512329883aab42696d661247aca2a2896e4"
-dependencies = [
- "console 0.12.0",
  "lazy_static",
  "number_prefix",
  "regex",
@@ -4176,9 +4164,9 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "futures 0.3.6",
- "indicatif 0.15.0",
  "isahc",
  "log",
+ "pbr",
  "thiserror",
  "url",
 ]
@@ -4502,12 +4490,14 @@ dependencies = [
  "blake2b_simd",
  "fil_types",
  "futures 0.3.8",
+ "isahc",
  "log",
  "pbr",
  "pin-project-lite",
  "serde",
  "serde_json",
  "surf",
+ "url",
 ]
 
 [[package]]

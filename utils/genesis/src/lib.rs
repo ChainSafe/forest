@@ -124,6 +124,7 @@ where
     Ok(())
 }
 // TODO update
+/// Import a chain from a CAR file
 // async fn import_chain<V: ProofVerifier, DB: BlockStore>(
 //     bs: Arc<DB>,
 //     path: String,
@@ -131,19 +132,16 @@ where
 // ) -> Result<(), Box<dyn std::error::Error>> {
 //     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 
-//     let mut file_path = path;
-//     if is_remote_file {
-//         match download_file(file_path).await {
-//             Ok(file) => file_path = file,
-//             Err(err) => return Err(err),
-//         }
-//     }
-
-//     let file = File::open(&file_path).expect("Snapshot file path not found!");
-//     let reader = BufReader::new(file);
 //     info!("Importing chain from snapshot");
-//     // start import
-//     let cids = load_car(bs.as_ref(), reader)?;
+//     let cids = if is_remote_file {
+//         let reader = make_reader(path)?;
+//         info!("Downloading file...");
+//         load_car(bs.as_ref(), reader)?
+//     } else {
+//         let reader = File::open(&path).expect("Snapshot file path not found!");
+//         load_car(bs.as_ref(), reader)?
+//     };
+
 //     let ts = chain::tipset_from_keys(bs.as_ref(), &TipsetKeys::new(cids))?;
 //     let gb = chain::tipset_by_height(bs.as_ref(), 0, &ts, true)?.unwrap();
 //     let sm = StateManager::new(bs.clone());
@@ -159,8 +157,5 @@ where
 //         gen_cid
 //     );
 
-//     if is_remote_file {
-//         remove_file(file_path).unwrap();
-//     }
 //     Ok(())
 // }

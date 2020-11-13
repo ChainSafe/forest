@@ -3,8 +3,7 @@
 
 use super::cli::{block_until_sigint, Config};
 use actor::EPOCH_DURATION_SECONDS;
-use async_std::sync::RwLock;
-use async_std::task;
+use async_std::{sync::RwLock, task};
 use auth::{generate_priv_key, JWT_IDENTIFIER};
 use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
@@ -17,12 +16,11 @@ use genesis::{import_chain, initialize_genesis};
 use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use net_utils::download_file;
+use net_utils::make_reader;
 use paramfetch::{get_params_default, SectorSizeOpt};
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
-use std::fs::{remove_file, File};
-use std::io::BufReader;
+use std::fs::File;
 use std::sync::Arc;
 use utils::write_to_file;
 use wallet::{KeyStore, PersistentKeyStore};

@@ -6,52 +6,37 @@ use async_std::{
     io::{self, copy, Read as AsyncRead},
 };
 use futures::task::{Context, Poll};
-use indicatif::{ProgressBar, ProgressStyle};
-use isahc::HttpClient;
+use isahc::{Body, HttpClient};
 use log::info;
-use std::{marker::Unpin, path::Path, pin::Pin};
+use pbr::ProgressBar;
+use std::io::{Read, Result as IOResult};
+use std::{io::Stdout, marker::Unpin, path::Path, pin::Pin};
 use thiserror::Error;
 use url::Url;
 
 /// Contains progress bar and reader.
-struct DownloadProgress<S>
-where
-    S: Unpin,
-{
-    inner: S,
-    progress_bar: ProgressBar,
+pub struct DownloadProgress<R> {
+    inner: R,
+    progress_bar: ProgressBar<Stdout>,
 }
 
 #[derive(Debug, Error)]
 enum DownloadError {
     #[error("Cannot read a file header")]
     HeaderError,
-    #[error("Filename encoding error")]
-    EncodingError,
 }
 
-impl<S: AsyncRead + Unpin> AsyncRead for DownloadProgress<S> {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<usize, io::Error>> {
-        match Pin::new(&mut self.inner).poll_read(cx, buf) {
-            Poll::Ready(Ok(size)) => {
-                if size == 0 {
-                    self.progress_bar.finish();
-                } else {
-                    self.progress_bar.inc(size as u64);
-                }
-                Poll::Ready(Ok(size))
-            }
-            rest => rest,
-        }
+impl<R: Read> Read for DownloadProgress<R> {
+    fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
+        self.inner.read(buf).map(|n| {
+            self.progress_bar.add(n as u64);
+            n
+        })
     }
 }
 
-/// Downloads the file and returns the path where it's saved.
-pub async fn download_file(raw_url: String) -> Result<String, Box<dyn std::error::Error>> {
+/// Builds Reader for a provided URL.
+pub fn make_reader(raw_url: String) -> Result<DownloadProgress<Body>, Box<dyn std::error::Error>> {
     let url = Url::parse(raw_url.as_str())?;
 
     let client = HttpClient::new()?;
@@ -68,36 +53,12 @@ pub async fn download_file(raw_url: String) -> Result<String, Box<dyn std::error
         }
     };
 
-    info!("Downloading file...");
-    let mut request = client.get(url.as_str())?;
+    let request = client.get(url.as_str())?;
 
     let pb = ProgressBar::new(total_size);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-        .progress_chars("#>-"));
 
-    let file = Path::new(
-        url.path_segments()
-            .and_then(|segments| segments.last())
-            .unwrap_or("tmp.bin"),
-    );
-
-    let mut source = DownloadProgress {
+    Ok(DownloadProgress {
         progress_bar: pb,
-        inner: request.body_mut(),
-    };
-
-    let mut dest = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&file)
-        .await?;
-
-    let _ = copy(&mut source, &mut dest).await?;
-
-    info!("File has been downloaded");
-    match file.to_str() {
-        Some(st) => Ok(st.to_string()),
-        None => Err(Box::new(DownloadError::EncodingError)),
-    }
+        inner: request.into_body(),
+    })
 }
