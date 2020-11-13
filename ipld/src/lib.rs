@@ -101,7 +101,7 @@ pub enum Ipld {
     /// let cid: Cid = "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap();
     /// let v1 = ipld!(Link(cid.clone()));
     /// let v2 = ipld!(cid);
-    /// //assert_eq!(v1, v2);
+    /// assert_eq!(v1, v2);
     /// ```
     Link(Cid),
 }
