@@ -1,16 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::{
-    fs,
-    io::{self, copy, Read as AsyncRead},
-};
-use futures::task::{Context, Poll};
 use isahc::{Body, HttpClient};
-use log::info;
 use pbr::ProgressBar;
+use std::io::Stdout;
 use std::io::{Read, Result as IOResult};
-use std::{io::Stdout, marker::Unpin, path::Path, pin::Pin};
 use thiserror::Error;
 use url::Url;
 

@@ -2653,6 +2653,7 @@ dependencies = [
  "forest_encoding",
  "ipld_blockstore",
  "log",
+ "net_utils",
  "state_manager",
 ]
 
@@ -3195,6 +3196,7 @@ dependencies = [
  "futures-util",
  "http",
  "log",
+ "mime",
  "once_cell",
  "slab",
  "sluice",
@@ -4162,8 +4164,6 @@ dependencies = [
 name = "net_utils"
 version = "0.1.0"
 dependencies = [
- "async-std",
- "futures 0.3.6",
  "isahc",
  "log",
  "pbr",
@@ -4676,17 +4676,6 @@ dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.7",
  "syn 1.0.48",
-]
-
-[[package]]
-name = "pin-project-internal"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81a4ffa594b66bff340084d4081df649a7dc049ac8d7fc458d8e628bfbbb2f86"
-dependencies = [
- "proc-macro2 1.0.24",
- "quote 1.0.7",
- "syn 1.0.44",
 ]
 
 [[package]]

@@ -5,8 +5,6 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-futures = "0.3.5"
-async-std = { version = "1.6.3" }
 isahc = "0.9.11"
 url = "2.1.1"
 log = "0.4.8"

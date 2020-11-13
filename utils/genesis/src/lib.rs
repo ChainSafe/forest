@@ -9,6 +9,7 @@ use fil_types::verifier::ProofVerifier;
 use forest_car::load_car;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
+use net_utils::make_reader;
 use state_manager::StateManager;
 use std::error::Error as StdError;
 use std::fs::File;
@@ -89,17 +90,26 @@ where
 
 /// Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain
 /// state and instead accept the largest height as genesis.
-pub async fn import_chain<V: ProofVerifier, R: Read, DB>(
+pub async fn import_chain<V: ProofVerifier, DB>(
     sm: &Arc<StateManager<DB>>,
-    reader: R,
+    path: String,
     validate_height: Option<i64>,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
+    let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
+
     info!("Importing chain from snapshot");
     // start import
-    let cids = load_car(sm.blockstore(), reader)?;
+    let cids = if is_remote_file {
+        let reader = make_reader(path)?;
+        info!("Downloading file...");
+        load_car(sm.blockstore(), reader)?
+    } else {
+        let reader = File::open(&path).expect("Snapshot file path not found!");
+        load_car(sm.blockstore(), reader)?
+    };
     let ts = sm
         .chain_store()
         .tipset_from_keys(&TipsetKeys::new(cids))
@@ -109,6 +119,9 @@ where
         .tipset_by_height(0, &ts, true)
         .await?
         .unwrap();
+
+    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
+    let gb = sm.chain_store().tipset_by_height(0, &ts, true)?.unwrap();
     if let Some(height) = validate_height {
         info!("Validating imported chain");
         sm.validate_chain::<V>(ts.clone(), height).await?;
@@ -123,39 +136,3 @@ where
     );
     Ok(())
 }
-// TODO update
-/// Import a chain from a CAR file
-// async fn import_chain<V: ProofVerifier, DB: BlockStore>(
-//     bs: Arc<DB>,
-//     path: String,
-//     snapshot: bool,
-// ) -> Result<(), Box<dyn std::error::Error>> {
-//     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
-
-//     info!("Importing chain from snapshot");
-//     let cids = if is_remote_file {
-//         let reader = make_reader(path)?;
-//         info!("Downloading file...");
-//         load_car(bs.as_ref(), reader)?
-//     } else {
-//         let reader = File::open(&path).expect("Snapshot file path not found!");
-//         load_car(bs.as_ref(), reader)?
-//     };
-
-//     let ts = chain::tipset_from_keys(bs.as_ref(), &TipsetKeys::new(cids))?;
-//     let gb = chain::tipset_by_height(bs.as_ref(), 0, &ts, true)?.unwrap();
-//     let sm = StateManager::new(bs.clone());
-//     if !snapshot {
-//         info!("Validating imported chain");
-//         sm.validate_chain::<V>(ts.clone()).await?;
-//     }
-//     let gen_cid = chain::set_genesis(bs.as_ref(), &gb.blocks()[0])?;
-//     bs.write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
-//     info!(
-//         "Accepting {:?} as new head with genesis {:?}",
-//         ts.cids(),
-//         gen_cid
-//     );
-
-//     Ok(())
-// }
