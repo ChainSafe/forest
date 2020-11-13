@@ -30,7 +30,6 @@ const MULTIBASE_IDENTITY: u8 = 0;
 pub mod json;
 
 pub const DAG_CBOR: u64 = 0x71;
-pub const DAG_PB: u64 = 0x70;
 pub const FIL_COMMITMENT_SEALED: u64 = 0xf102;
 pub const FIL_COMMITMENT_UNSEALED: u64 = 0xf101;
 pub const RAW: u64 = 0x55;

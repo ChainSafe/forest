@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_cid::{Cid, Code, Error, Prefix, Version, DAG_CBOR, DAG_PB};
+use forest_cid::{Cid, Code, Error, Prefix, Version, DAG_CBOR};
 use multihash::{self, MultihashDigest};
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -10,7 +10,7 @@ use std::convert::TryFrom;
 fn basic_marshalling() {
     let h = Code::Blake2b256.digest(b"beep boop");
 
-    let cid = Cid::new_v1(DAG_PB, h);
+    let cid = Cid::new_v1(DAG_CBOR, h);
 
     let data = cid.to_bytes();
     let out = Cid::try_from(data).unwrap();
@@ -59,7 +59,7 @@ fn prefix_roundtrip() {
     let data = b"awesome test content";
     let h = Code::Blake2b256.digest(data);
 
-    let cid = Cid::new_v1(DAG_PB, h);
+    let cid = Cid::new_v1(DAG_CBOR, h);
     let prefix = Prefix::from(cid);
 
     let cid2 = forest_cid::new_from_prefix(&prefix, data).unwrap();
@@ -94,7 +94,7 @@ fn test_hash() {
     let data: Vec<u8> = vec![1, 2, 3];
     let prefix = Prefix {
         version: Version::V1,
-        codec: DAG_PB,
+        codec: DAG_CBOR,
         mh_type: Code::Blake2b256.into(),
         mh_len: 32,
     };
