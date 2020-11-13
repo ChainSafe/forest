@@ -1031,6 +1031,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cid"
+version = "0.5.1"
+source = "git+https://github.com/multiformats/rust-cid#7ab07575beee40eb1928ea0d4f23115c2e7fa491"
+dependencies = [
+ "multibase 0.8.0",
+ "multihash 0.13.0",
+ "unsigned-varint 0.5.1",
+]
+
+[[package]]
 name = "cipher"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2268,6 +2278,7 @@ dependencies = [
 name = "forest_cid"
 version = "0.2.0"
 dependencies = [
+ "cid",
  "cs_serde_cbor",
  "forest_json_utils",
  "generic-array 0.14.4",

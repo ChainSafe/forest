@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use blockstore::BlockStore;
 use chain::{HeadChange, MINIMUM_BASE_FEE};
-use cid::Cid;
 use cid::Code::Blake2b256;
+use cid::{self, Cid};
 use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
@@ -1391,7 +1391,7 @@ pub mod test_provider {
         BlockHeader::builder()
             .weight(BigInt::from(weight))
             .cached_bytes(cached_bytes.to_vec())
-            .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
+            .cached_cid(cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap()
