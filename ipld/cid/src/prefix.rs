@@ -41,7 +41,7 @@ impl Prefix {
 
         // io can't fail on Vec
         res.write_varint(u64::from(self.version)).unwrap();
-        res.write_varint(u64::from(self.codec)).unwrap();
+        res.write_varint(self.codec).unwrap();
         res.write_varint(self.mh_type).unwrap();
         res.write_varint(self.mh_len).unwrap();
 
