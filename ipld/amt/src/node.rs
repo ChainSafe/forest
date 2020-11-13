@@ -524,19 +524,13 @@ where
                             }
                             Link::Cid { cid, cache } => {
                                 let cache_node = std::mem::take(cache);
-                                let mut node = if let Some(sn) = cache_node.into_inner() {
-                                    sn
+
+                                #[warn(unused_variables)]
+                                let (mut node, cached) = if let Some(sn) = cache_node.into_inner() {
+                                    (sn, true)
                                 } else {
                                     // Only retrieve sub node if not found in cache
-                                    #[allow(unused_mut)]
-                                    let mut n: Box<Self> =
-                                        store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?;
-
-                                    #[cfg(feature = "go-interop")]
-                                    return n.for_each_while_mut(store, height - 1, offs, f);
-
-                                    #[cfg(not(feature = "go-interop"))]
-                                    n
+                                    (store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?, false)
                                 };
 
                                 let (keep_going, did_mutate_node) =
@@ -545,8 +539,16 @@ where
                                 if did_mutate_node {
                                     *link = Link::Dirty(node);
                                 } else {
+                                    #[cfg(feature = "go-interop")]
+                                    {
+                                        if cached {
+                                            let _ = cache.fill(node);
+                                        }
+                                    }
+
                                     // Replace cache, or else iteration over without modification
                                     // will consume cache
+                                    #[cfg(not(feature = "go-interop"))]
                                     let _ = cache.fill(node);
                                 }
 

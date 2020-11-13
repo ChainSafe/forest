@@ -3,7 +3,6 @@
 
 use super::{power_for_sector, PowerPair, SectorOnChainInfo, SECTORS_MAX};
 use crate::ActorDowncast;
-use ahash::AHashMap;
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -665,7 +664,6 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         ) -> Result</* keep going */ bool, Box<dyn StdError>>,
     ) -> Result<(), Box<dyn StdError>> {
         let mut epochs_emptied = Vec::<ChainEpoch>::new();
-        let mut epochs_mutated = AHashMap::new();
 
         self.amt.for_each_while_mut(|e, expiration_set| {
             let epoch = e as ChainEpoch;
@@ -675,22 +673,10 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                 // Mark expiration set as unchanged, it will be removed after the iteration.
                 expiration_set.mark_unchanged();
                 epochs_emptied.push(epoch);
-            } else if expiration_set.value_changed() {
-                // ! this is not ideal to clone and mark unchanged here, it is only done
-                // because the go-implementation mutates the Amt as they iterate through it,
-                // which we cannot do because it is memory unsafe (and I'm not certain we don't
-                // have side effects from doing this unsafely)
-                expiration_set.mark_unchanged();
-                epochs_mutated.insert(e, expiration_set.clone());
             }
 
             Ok(keep_going)
         })?;
-
-        // ! Once/if the above point is updated, this should be removed, in place mutation is ideal
-        for (i, v) in epochs_mutated.into_iter() {
-            self.amt.set(i, v)?;
-        }
 
         self.amt
             .batch_delete(epochs_emptied.iter().map(|&i| i as u64))?;

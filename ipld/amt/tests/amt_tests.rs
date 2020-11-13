@@ -401,7 +401,6 @@ fn for_each_mutate() {
     let mut new_amt = Amt::load(&c, &db).unwrap();
     assert_eq!(new_amt.count(), indexes.len() as u64);
 
-    #[cfg(not(feature = "go-interop"))]
     new_amt
         .for_each_mut(|i, v: &mut ipld_amt::ValueMut<'_, String>| {
             if let 1 | 74 = i {
@@ -411,24 +410,6 @@ fn for_each_mutate() {
             Ok(())
         })
         .unwrap();
-
-    #[cfg(feature = "go-interop")]
-    {
-        let mut updated = std::collections::HashMap::new();
-        new_amt
-            .for_each(|i, v: &String| {
-                if let 1 | 74 = i {
-                    // Value it's set to doesn't matter, just cloning for expedience
-                    updated.insert(i, v.clone());
-                }
-                Ok(())
-            })
-            .unwrap();
-
-        for (i, v) in updated.into_iter() {
-            new_amt.set(i, v).unwrap();
-        }
-    }
 
     assert_eq!(
         c.to_string().as_str(),

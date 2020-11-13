@@ -757,7 +757,7 @@ impl Actor {
                             amount_slashed += slashed;
                         }
                         if deal.verified_deal {
-                            timed_out_verified_deals.push(deal.clone());
+                            timed_out_verified_deals.push(deal);
                         }
 
                         // we should not attempt to delete the DealState because it does NOT exist
