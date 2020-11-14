@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 /// Timeout for response from an RPC request
-const RPC_TIMEOUT: u64 = 20;
+const RPC_TIMEOUT: u64 = 5;
 
 /// Context used in chain sync to handle network requests
 pub struct SyncNetworkContext<DB> {
