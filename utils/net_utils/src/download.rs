@@ -1,18 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use async_std::io::BufRead;
+use futures::prelude::*;
 use isahc::{Body, HttpClient};
 use pbr::ProgressBar;
-use std::io::Stdout;
-use std::io::{Read, Result as IOResult};
+use pin_project_lite::pin_project;
+use std::io::{self, Read, Result as IOResult, Stdout, Write};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use thiserror::Error;
 use url::Url;
-
-/// Contains progress bar and reader.
-pub struct DownloadProgress<R> {
-    inner: R,
-    progress_bar: ProgressBar<Stdout>,
-}
 
 #[derive(Debug, Error)]
 enum DownloadError {
@@ -20,7 +18,46 @@ enum DownloadError {
     HeaderError,
 }
 
-impl<R: Read> Read for DownloadProgress<R> {
+pin_project! {
+    pub struct FetchProgress<R, W: Write> {
+        #[pin]
+        pub inner: R,
+        pub progress_bar: ProgressBar<W>,
+    }
+}
+
+impl<R, W: Write> FetchProgress<R, W> {
+    pub fn finish(&mut self) {
+        self.progress_bar.finish();
+    }
+}
+
+impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<usize, io::Error>> {
+        let r = Pin::new(&mut self.inner).poll_read(cx, buf);
+        if let Poll::Ready(Ok(size)) = r {
+            self.progress_bar.add(size as u64);
+        }
+        r
+    }
+}
+
+impl<R: BufRead + Unpin, W: Write> BufRead for FetchProgress<R, W> {
+    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<IOResult<&'_ [u8]>> {
+        let this = self.project();
+        this.inner.poll_fill_buf(cx)
+    }
+
+    fn consume(mut self: Pin<&mut Self>, amt: usize) {
+        Pin::new(&mut self.inner).consume(amt)
+    }
+}
+
+impl<R: Read, W: Write> Read for FetchProgress<R, W> {
     fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
         self.inner.read(buf).map(|n| {
             self.progress_bar.add(n as u64);
@@ -30,7 +67,9 @@ impl<R: Read> Read for DownloadProgress<R> {
 }
 
 /// Builds Reader for a provided URL.
-pub fn make_reader(raw_url: String) -> Result<DownloadProgress<Body>, Box<dyn std::error::Error>> {
+pub fn make_reader(
+    raw_url: String,
+) -> Result<FetchProgress<Body, Stdout>, Box<dyn std::error::Error>> {
     let url = Url::parse(raw_url.as_str())?;
 
     let client = HttpClient::new()?;
@@ -51,7 +90,7 @@ pub fn make_reader(raw_url: String) -> Result<DownloadProgress<Body>, Box<dyn st
 
     let pb = ProgressBar::new(total_size);
 
-    Ok(DownloadProgress {
+    Ok(FetchProgress {
         progress_bar: pb,
         inner: request.into_body(),
     })

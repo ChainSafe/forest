@@ -3,25 +3,22 @@
 
 use async_std::{
     fs::{self, File},
-    io::{copy, BufRead, BufWriter},
+    io::{copy, BufWriter},
     sync::{channel, Arc},
     task,
 };
 use blake2b_simd::{Hash, State as Blake2b};
 use core::time::Duration;
 use fil_types::SectorSize;
-use futures::prelude::*;
 use log::{info, warn};
-use pbr::{MultiBar, ProgressBar, Units};
-use pin_project_lite::pin_project;
+use net_utils::FetchProgress;
+use pbr::{MultiBar, Units};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fs::File as SyncFile;
 use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use surf::Client;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
@@ -147,45 +144,6 @@ async fn fetch_verify_params(
         // TODO remove invalid file
         e.into()
     })
-}
-
-pin_project! {
-    struct FetchProgress<R> {
-        #[pin]
-        inner: R,
-        progress_bar: ProgressBar<pbr::Pipe>,
-    }
-}
-
-impl<R> FetchProgress<R> {
-    fn finish(&mut self) {
-        self.progress_bar.finish();
-    }
-}
-
-impl<R: AsyncRead + Unpin> AsyncRead for FetchProgress<R> {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<usize, io::Error>> {
-        let r = Pin::new(&mut self.inner).poll_read(cx, buf);
-        if let Poll::Ready(Ok(size)) = r {
-            self.progress_bar.add(size as u64);
-        }
-        r
-    }
-}
-
-impl<R: BufRead + Unpin> BufRead for FetchProgress<R> {
-    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&'_ [u8]>> {
-        let this = self.project();
-        this.inner.poll_fill_buf(cx)
-    }
-
-    fn consume(mut self: Pin<&mut Self>, amt: usize) {
-        Pin::new(&mut self.inner).consume(amt)
-    }
 }
 
 async fn fetch_params(

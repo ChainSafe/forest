@@ -4164,9 +4164,12 @@ dependencies = [
 name = "net_utils"
 version = "0.1.0"
 dependencies = [
+ "async-std",
+ "futures 0.3.8",
  "isahc",
  "log",
  "pbr",
+ "pin-project-lite",
  "thiserror",
  "url",
 ]
@@ -4492,6 +4495,7 @@ dependencies = [
  "futures 0.3.8",
  "isahc",
  "log",
+ "net_utils",
  "pbr",
  "pin-project-lite",
  "serde",
