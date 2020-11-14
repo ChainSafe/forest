@@ -10,7 +10,7 @@ use beacon::{DrandBeacon, DrandPublic};
 use db::MemoryDB;
 use fil_types::verifier::FullVerifier;
 use forest_car::load_car;
-use forest_libp2p::{blocksync::make_blocksync_response, NetworkMessage};
+use forest_libp2p::{chain_exchange::make_chain_exchange_response, NetworkMessage};
 use genesis::{initialize_genesis, EXPORT_SR_40};
 use libp2p::core::PeerId;
 use state_manager::StateManager;
@@ -18,12 +18,12 @@ use state_manager::StateManager;
 async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db: ChainStore<DB>) {
     loop {
         match chan.next().await {
-            Some(NetworkMessage::BlockSyncRequest {
+            Some(NetworkMessage::ChainExchangeRequest {
                 request,
                 response_channel,
                 ..
             }) => response_channel
-                .send(make_blocksync_response(&db, &request))
+                .send(make_chain_exchange_response(&db, &request))
                 .unwrap(),
             Some(event) => log::warn!("Other request sent to network: {:?}", event),
             None => break,

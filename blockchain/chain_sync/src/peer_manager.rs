@@ -45,7 +45,7 @@ impl PeerInfo {
     }
 }
 
-/// Thread safe peer manager which handles peer management for the `BlockSync` protocol.
+/// Thread safe peer manager which handles peer management for the `ChainExchange` protocol.
 #[derive(Default)]
 pub struct PeerManager {
     /// Hash set of full peers available
