@@ -630,7 +630,7 @@ where
                 (message_from_address, message_sequence),
             )
             .await
-            .map_err(|e| Err(e))?;
+            .map_err(Err)?;
 
         if let Some(receipt) = r {
             Ok(Some((tipset, receipt)))

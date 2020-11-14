@@ -48,7 +48,6 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 const SINK_CAP: usize = 1000;
 
 const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
-// const DEFAULT_MSG_META_CACHE_SIZE: usize = 2048;
 
 /// Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
@@ -558,6 +557,7 @@ where
 }
 
 /// Returns a tuple of cids for both Unsigned and Signed messages
+// TODO cache these recent meta roots
 pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
     DB: BlockStore,
