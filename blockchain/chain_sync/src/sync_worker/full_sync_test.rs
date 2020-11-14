@@ -15,7 +15,10 @@ use genesis::{initialize_genesis, EXPORT_SR_40};
 use libp2p::core::PeerId;
 use state_manager::StateManager;
 
-async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db: ChainStore<DB>) {
+async fn handle_requests<DB>(mut chan: Receiver<NetworkMessage>, db: ChainStore<DB>)
+where
+    DB: BlockStore + Send + Sync + 'static,
+{
     loop {
         match chan.next().await {
             Some(NetworkMessage::BlockSyncRequest {
