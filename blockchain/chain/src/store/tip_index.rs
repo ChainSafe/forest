@@ -29,9 +29,8 @@ pub struct TipIndex {
     _metadata: RwLock<LruCache<u64, TipsetMetadata>>,
 }
 
-impl TipIndex {
-    /// Creates new TipIndex with empty metadata
-    pub fn new() -> Self {
+impl Default for TipIndex {
+    fn default() -> Self {
         Self {
             _metadata: RwLock::new(LruCache::new(32 << 10)),
         }

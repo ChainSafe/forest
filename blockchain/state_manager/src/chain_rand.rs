@@ -26,7 +26,7 @@ impl<DB> ChainRand<DB> {
 
 impl<DB> Rand for ChainRand<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
 {
     fn get_chain_randomness(
         &self,

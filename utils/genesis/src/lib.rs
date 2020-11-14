@@ -57,7 +57,7 @@ fn process_car<R, BS>(
 ) -> Result<BlockHeader, Box<dyn StdError>>
 where
     R: Read,
-    BS: BlockStore,
+    BS: BlockStore + Send + Sync + 'static,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader)?;

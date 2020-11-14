@@ -18,7 +18,7 @@ pub async fn make_blocksync_response<DB>(
     request: &BlockSyncRequest,
 ) -> BlockSyncResponse
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
 {
     let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
 

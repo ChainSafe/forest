@@ -25,6 +25,7 @@ use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
+use rayon::prelude::*;
 use serde::Serialize;
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -103,13 +104,13 @@ pub struct ChainStore<DB> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
 {
     pub fn new(db: Arc<DB>) -> Self {
         let cs = Self {
             db,
             publisher: RwLock::new(Publisher::new(SINK_CAP)),
-            tip_index: TipIndex::new(),
+            tip_index: TipIndex::default(),
             ts_cache: RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)),
             heaviest: Default::default(),
         };
@@ -214,10 +215,9 @@ where
             return Ok(ts.clone());
         }
 
-        // TODO fetch headers in parallel for speed
         let block_headers: Vec<BlockHeader> = tsk
             .cids()
-            .iter()
+            .par_iter()
             .map(|c| {
                 self.db
                     .get(c)
@@ -451,7 +451,7 @@ where
         // Zip messages with blocks
         let blocks = ts
             .blocks()
-            .into_iter()
+            .iter()
             .cloned()
             .zip(messages)
             .map(|(header, (bls_messages, secp_messages))| Block {
