@@ -158,7 +158,7 @@ pub trait Provider {
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the ChainStore
-    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error>;
+    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
 }
@@ -223,8 +223,8 @@ where
         Ok(self.sm.chain_store().messages_for_tipset(h)?)
     }
 
-    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
-        let ts = self.sm.chain_store().tipset_from_keys(tsk)?;
+    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+        let ts = self.sm.chain_store().tipset_from_keys(tsk).await?;
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
@@ -1150,8 +1150,8 @@ where
     let mut repub = false;
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
-        let pts = api.write().await.load_tipset(ts.parents())?;
-        *cur_tipset.write().await = Arc::new(pts);
+        let pts = api.write().await.load_tipset(ts.parents()).await?;
+        *cur_tipset.write().await = pts;
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
@@ -1373,10 +1373,10 @@ pub mod test_provider {
             Ok(msgs)
         }
 
-        fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Tipset, Errors> {
+        async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Errors> {
             for ts in &self.tipsets {
                 if tsk.cids == ts.cids() {
-                    return Ok(ts.clone());
+                    return Ok(ts.clone().into());
                 }
             }
             Err(Errors::InvalidToAddr)

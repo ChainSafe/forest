@@ -48,7 +48,11 @@ pub(crate) async fn state_miner_sector<
     let mut bitfield_filter = filter.into();
     let address = address.into();
     let state_manager = &data.state_manager;
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     let mut filter = Some(&mut bitfield_filter);
     state_manager
         .get_miner_sector_set::<FullVerifier>(&tipset, &address, &mut filter, filter_out)
@@ -66,9 +70,13 @@ pub(crate) async fn state_call<
     let state_manager = &data.state_manager;
     let (unsigned_msg_json, key) = params;
     let mut message: UnsignedMessage = unsigned_msg_json.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     Ok(state_manager
-        .call::<FullVerifier>(&mut message, Some(Arc::new(tipset)))
+        .call::<FullVerifier>(&mut message, Some(tipset))
         .await?)
 }
 
@@ -83,7 +91,11 @@ pub(crate) async fn state_miner_deadlines<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     state_manager
         .get_miner_deadlines::<FullVerifier>(&tipset, &actor)
         .map_err(|e| e.into())
@@ -100,7 +112,11 @@ pub(crate) async fn state_sector_precommit_info<
     let state_manager = &data.state_manager;
     let (address, sector_number, key) = params;
     let address = address.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     state_manager
         .precommit_info::<FullVerifier>(&address, &sector_number, &tipset)
         .map_err(|e| e.into())
@@ -117,7 +133,11 @@ pub async fn state_miner_info<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     state_manager
         .get_miner_info::<FullVerifier>(&tipset, &actor)
         .map_err(|e| e.into())
@@ -134,7 +154,11 @@ pub async fn state_sector_info<
     let state_manager = &data.state_manager;
     let (address, sector_number, key) = params;
     let address = address.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     state_manager
         .miner_sector_info::<FullVerifier>(&address, &sector_number, &tipset)
         .map_err(|e| e.into())
@@ -152,7 +176,11 @@ pub(crate) async fn state_miner_proving_deadline<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     let miner_actor_state: State =
         state_manager.load_actor_state(&actor, &tipset.parent_state())?;
 
@@ -172,7 +200,11 @@ pub(crate) async fn state_miner_faults<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     state_manager
         .get_miner_faults::<FullVerifier>(&tipset, &actor)
         .map(|s| s.into())
@@ -192,7 +224,7 @@ pub(crate) async fn state_all_miner_faults<
 
     // let state_manager = &data.state_manager;
     // let (look_back, end_tsk) = params;
-    // let tipset = data.state_manager.chain_store().tipset_from_keys( &end_tsk)?;
+    // let tipset = data.state_manager.chain_store().tipset_from_keys( &end_tsk).await?;
     // let cut_off = tipset.epoch() - look_back;
     // let miners = state_manager.list_miner_actors(&tipset)?;
     // let mut all_faults = Vec::new();
@@ -225,7 +257,11 @@ pub(crate) async fn state_miner_recoveries<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     state_manager
         .get_miner_recoveries::<FullVerifier>(&tipset, &actor)
         .map(|s| s.into())
@@ -243,7 +279,11 @@ pub(crate) async fn state_replay<
     let state_manager = &data.state_manager;
     let (cidjson, key) = params;
     let cid = cidjson.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, cid).await?;
 
     Ok(InvocResult {
@@ -264,8 +304,12 @@ pub(crate) async fn state_get_actor<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
-    let state = state_for_ts(&state_manager, tipset)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
+    let state = state_for_ts(&state_manager, tipset).await?;
     state.get_actor(&actor).map_err(|e| e.into())
 }
 
@@ -280,8 +324,12 @@ pub(crate) async fn state_account_key<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
-    let state = state_for_ts(&state_manager, tipset)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
+    let state = state_for_ts(&state_manager, tipset).await?;
     let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
 }
@@ -296,8 +344,12 @@ pub(crate) async fn state_lookup_id<
     let state_manager = &data.state_manager;
     let (address, key) = params;
     let address = address.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
-    let state = state_for_ts(&state_manager, tipset)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
+    let state = state_for_ts(&state_manager, tipset).await?;
     state.lookup_id(&address).map_err(|e| e.into())
 }
 
@@ -330,7 +382,11 @@ pub(crate) async fn state_market_balance<
 ) -> Result<MarketBalance, JsonRpcError> {
     let (address, key) = params;
     let address = address.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     data.state_manager
         .market_balance(&address, &tipset)
         .map_err(|e| e.into())
@@ -347,9 +403,14 @@ pub(crate) async fn state_get_receipt<
     let (cidjson, key) = params;
     let state_manager = &data.state_manager;
     let cid = cidjson.into();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&key)
+        .await?;
     state_manager
         .get_receipt(&tipset, &cid)
+        .await
         .map(|s| s.into())
         .map_err(|e| e.into())
 }
@@ -370,8 +431,7 @@ pub(crate) async fn state_wait_msg<
         .await?;
     let tipset = tipset.ok_or_else(|| "wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or_else(|| "wait for msg returned empty receipt")?;
-    let tipset: &Tipset = &*tipset;
-    let tipset_json: TipsetJson = tipset.clone().into();
+    let tipset_json: TipsetJson = tipset.into();
     Ok(MessageLookup {
         receipt: receipt.into(),
         tipset: tipset_json,
@@ -379,10 +439,10 @@ pub(crate) async fn state_wait_msg<
 }
 
 /// returns a state tree given a tipset
-pub fn state_for_ts<DB>(
+async fn state_for_ts<DB>(
     state_manager: &Arc<StateManager<DB>>,
-    ts: Tipset,
-) -> Result<StateTree<DB>, JsonRpcError>
+    ts: Arc<Tipset>,
+) -> Result<StateTree<'_, DB>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
 {

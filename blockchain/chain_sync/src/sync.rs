@@ -438,7 +438,7 @@ where
         peer_id: PeerId,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
-        let fts = match Self::load_fts(cs, tsk) {
+        let fts = match Self::load_fts(cs, tsk).await {
             Ok(fts) => fts,
             Err(_) => network.blocksync_fts(Some(peer_id), tsk).await?,
         };
@@ -447,10 +447,10 @@ where
     }
 
     /// Returns a reconstructed FullTipset from store if keys exist
-    fn load_fts(cs: &ChainStore<DB>, keys: &TipsetKeys) -> Result<FullTipset, Error> {
+    async fn load_fts(cs: &ChainStore<DB>, keys: &TipsetKeys) -> Result<FullTipset, Error> {
         let mut blocks = Vec::new();
         // retrieve tipset from store based on passed in TipsetKeys
-        let ts = cs.tipset_from_keys(keys)?;
+        let ts = cs.tipset_from_keys(keys).await?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) = chain::block_messages(cs.blockstore(), &header)?;

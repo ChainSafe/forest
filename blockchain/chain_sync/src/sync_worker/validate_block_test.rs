@@ -43,14 +43,14 @@ async fn validate_specific_block() {
 
     let mut ts = chain_store
         .tipset_from_keys(&TipsetKeys::new(cids))
+        .await
         .unwrap();
     while ts.epoch() > TEST_NUM {
-        ts = chain_store.tipset_from_keys(ts.parents()).unwrap();
+        ts = chain_store.tipset_from_keys(ts.parents()).await.unwrap();
     }
 
     let fts = chain_store.fill_tipset(ts).unwrap();
     for block in fts.into_blocks() {
-        println!("new block");
         task::block_on(SyncWorker::<_, _, FullVerifier>::validate_block(
             chain_store.clone(),
             state_manager.clone(),

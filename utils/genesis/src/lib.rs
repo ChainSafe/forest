@@ -100,8 +100,15 @@ where
     info!("Importing chain from snapshot");
     // start import
     let cids = load_car(sm.blockstore(), reader)?;
-    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
-    let gb = sm.chain_store().tipset_by_height(0, &ts, true)?.unwrap();
+    let ts = sm
+        .chain_store()
+        .tipset_from_keys(&TipsetKeys::new(cids))
+        .await?;
+    let gb = sm
+        .chain_store()
+        .tipset_by_height(0, &ts, true)
+        .await?
+        .unwrap();
     if let Some(height) = validate_height {
         info!("Validating imported chain");
         sm.validate_chain::<V>(ts.clone(), height).await?;

@@ -78,7 +78,7 @@ where
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
         count: u64,
-    ) -> Result<Vec<Tipset>, String> {
+    ) -> Result<Vec<Arc<Tipset>>, String> {
         self.handle_blocksync_request(peer_id, tsk, count, BLOCKS)
             .await
     }
