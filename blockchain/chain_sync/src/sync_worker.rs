@@ -188,7 +188,7 @@ where
             }
 
             // TODO tweak request window when socket frame is tested
-            const REQUEST_WINDOW: i64 = 10;
+            const REQUEST_WINDOW: i64 = 200;
             let epoch_diff = cur_ts.epoch() - to_epoch;
             debug!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);

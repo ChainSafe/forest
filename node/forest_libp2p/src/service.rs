@@ -364,8 +364,8 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
         .into_authentic(&local_key)
         .expect("Noise key generation failed");
     let mut yamux_config = yamux::Config::default();
-    yamux_config.set_max_buffer_size(1 << 20);
-    yamux_config.set_receive_window(1 << 20);
+    yamux_config.set_max_buffer_size(16 * 1024 * 1024);
+    yamux_config.set_receive_window(16 * 1024 * 1024);
     transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(noise::NoiseConfig::xx(dh_keys).into_authenticated())
