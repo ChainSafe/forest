@@ -112,10 +112,7 @@ where
             .write()
             .await
             .init(heaviest.clone(), head.clone());
-        let tipsets = match self
-            .sync_headers_reverse(head.as_ref().clone(), &heaviest)
-            .await
-        {
+        let tipsets = match self.sync_headers_reverse(head.clone(), &heaviest).await {
             Ok(ts) => ts,
             Err(e) => {
                 self.state.write().await.error(e.to_string());
@@ -151,7 +148,11 @@ where
     }
 
     /// Syncs chain data and persists it to blockstore
-    async fn sync_headers_reverse(&self, head: Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
+    async fn sync_headers_reverse(
+        &self,
+        head: Arc<Tipset>,
+        to: &Tipset,
+    ) -> Result<Vec<Arc<Tipset>>, Error> {
         info!("Syncing headers from: {:?}", head.key());
         self.state.write().await.set_epoch(to.epoch());
 
@@ -180,7 +181,7 @@ where
             }
 
             // Try to load parent tipset from local storage
-            if let Ok(ts) = self.chain_store().tipset_from_keys(cur_ts.parents()) {
+            if let Ok(ts) = self.chain_store().tipset_from_keys(cur_ts.parents()).await {
                 // Add blocks in tipset to accepted chain and push the tipset to return set
                 accepted_blocks.extend_from_slice(ts.cids());
                 return_set.push(ts);
@@ -269,7 +270,7 @@ where
     }
 
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
-    async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
+    async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
         // TODO move to shared parameter (from actors crate most likely)
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
@@ -280,7 +281,7 @@ where
             .blocksync_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
             .await?;
 
-        let mut ts = self.chain_store().tipset_from_keys(to.parents())?;
+        let mut ts = self.chain_store().tipset_from_keys(to.parents()).await?;
 
         for i in 0..tips.len() {
             while ts.epoch() > tips[i].epoch() {
@@ -289,7 +290,7 @@ where
                         "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));
                 }
-                ts = self.chain_store().tipset_from_keys(ts.parents())?;
+                ts = self.chain_store().tipset_from_keys(ts.parents()).await?;
             }
             if ts == tips[i] {
                 return Ok(tips[0..=i].to_vec());
@@ -302,7 +303,7 @@ where
     }
 
     /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
-    async fn sync_messages_check_state(&self, tipsets: Vec<Tipset>) -> Result<(), Error> {
+    async fn sync_messages_check_state(&self, tipsets: Vec<Arc<Tipset>>) -> Result<(), Error> {
         let mut ts_iter = tipsets.into_iter().rev();
         // Currently syncing 1 height at a time, no reason for us to sync more
         const REQUEST_WINDOW: usize = 1;
@@ -337,7 +338,7 @@ where
                         })?;
 
                         let bundle = TipsetBundle {
-                            blocks: t.into_blocks(),
+                            blocks: t.blocks().to_vec(),
                             messages: Some(messages),
                         };
                         // construct full tipsets from fetched messages
@@ -381,17 +382,16 @@ where
 
         let mut validations = FuturesUnordered::new();
         for b in fts.into_blocks() {
-            let cs = self.chain_store().clone();
             let sm = self.state_manager.clone();
             let bc = self.beacon.clone();
-            let v = task::spawn(async move { Self::validate_block(cs, sm, bc, Arc::new(b)).await });
+            let v = task::spawn(async move { Self::validate_block(sm, bc, Arc::new(b)).await });
             validations.push(v);
         }
 
         while let Some(result) = validations.next().await {
             match result {
-                Ok(b) => {
-                    self.chain_store().set_tipset_tracker(b.header()).await?;
+                Ok(_) => {
+                    // TODO add block to tipset tracker, block was valid
                 }
                 Err((cid, e)) => {
                     // If the error is temporally invalidated, don't add to bad blocks cache.
@@ -410,7 +410,6 @@ where
     /// Returns the validated block if `Ok`.
     /// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
     async fn validate_block(
-        cs: Arc<ChainStore<DB>>,
         sm: Arc<StateManager<DB>>,
         bc: Arc<TBeacon>,
         block: Arc<Block>,
@@ -421,6 +420,7 @@ where
             block.header().weight()
         );
 
+        let cs = sm.chain_store().clone();
         let block_cid = block.cid();
 
         // Check block validation cache in store.
@@ -438,16 +438,16 @@ where
         // Check to ensure all optional values exist
         block_sanity_checks(header).map_err(|e| (*block_cid, e.into()))?;
 
-        let base_ts = Arc::new(
-            cs.tipset_from_keys(header.parents())
-                .map_err(|e| (*block_cid, e.into()))?,
-        );
+        let base_ts = cs
+            .tipset_from_keys(header.parents())
+            .await
+            .map_err(|e| (*block_cid, e.into()))?;
 
         // Retrieve lookback tipset for validation.
         let lbts = cs
             .get_lookback_tipset_for_round(&base_ts, block.header().epoch())
+            .await
             .map_err(|e| (*block_cid, e.into()))?
-            .map(Arc::new)
             .unwrap_or_else(|| Arc::clone(&base_ts));
 
         let (lbst, _) = sm.tipset_state::<V>(&lbts).await.map_err(|e| {
@@ -460,6 +460,7 @@ where
 
         let prev_beacon = cs
             .latest_beacon_entry(base_ts.as_ref())
+            .await
             .map_err(|e| (*block_cid, e.into()))?;
         let prev_beacon = Arc::new(prev_beacon);
 
@@ -1076,8 +1077,7 @@ mod tests {
                 .await;
             assert_eq!(sw.network.peer_manager().len().await, 1);
             // make blocksync request
-            let return_set =
-                task::spawn(async move { sw.sync_headers_reverse((*head).clone(), &to).await });
+            let return_set = task::spawn(async move { sw.sync_headers_reverse(head, &to).await });
             // send blocksync response to channel
             send_blocksync_response(network_receiver);
             assert_eq!(return_set.await.unwrap().len(), 4);

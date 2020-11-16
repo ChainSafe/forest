@@ -7,6 +7,7 @@ use forest_encoding::tuple::*;
 use forest_message::{SignedMessage, UnsignedMessage};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
+use std::sync::Arc;
 
 /// Blocksync request options
 pub const BLOCKS: u64 = 1;
@@ -151,8 +152,16 @@ pub struct TipsetBundle {
 impl TryFrom<TipsetBundle> for Tipset {
     type Error = String;
 
-    fn try_from(tsb: TipsetBundle) -> Result<Tipset, Self::Error> {
+    fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
         Tipset::new(tsb.blocks).map_err(|e| e.to_string())
+    }
+}
+
+impl TryFrom<TipsetBundle> for Arc<Tipset> {
+    type Error = String;
+
+    fn try_from(tsb: TipsetBundle) -> Result<Self, Self::Error> {
+        Tipset::try_from(tsb).map(Arc::new)
     }
 }
 

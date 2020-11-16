@@ -15,7 +15,10 @@ use genesis::{initialize_genesis, EXPORT_SR_40};
 use libp2p::core::PeerId;
 use state_manager::StateManager;
 
-async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db: ChainStore<DB>) {
+async fn handle_requests<DB>(mut chan: Receiver<NetworkMessage>, db: ChainStore<DB>)
+where
+    DB: BlockStore + Send + Sync + 'static,
+{
     loop {
         match chan.next().await {
             Some(NetworkMessage::BlockSyncRequest {
@@ -23,7 +26,7 @@ async fn handle_requests<DB: BlockStore>(mut chan: Receiver<NetworkMessage>, db:
                 response_channel,
                 ..
             }) => response_channel
-                .send(make_blocksync_response(&db, &request))
+                .send(make_blocksync_response(&db, &request).await)
                 .unwrap(),
             Some(event) => log::warn!("Other request sent to network: {:?}", event),
             None => break,
@@ -65,8 +68,10 @@ async fn space_race_full_sync() {
     let provider_db = Arc::new(MemoryDB::default());
     let cids: Vec<Cid> = load_car(provider_db.as_ref(), EXPORT_SR_40.as_ref()).unwrap();
     let prov_cs = ChainStore::new(provider_db);
-    let ts = prov_cs.tipset_from_keys(&TipsetKeys::new(cids)).unwrap();
-    let target = Arc::new(ts);
+    let target = prov_cs
+        .tipset_from_keys(&TipsetKeys::new(cids))
+        .await
+        .unwrap();
 
     let worker = SyncWorker {
         state: Default::default(),

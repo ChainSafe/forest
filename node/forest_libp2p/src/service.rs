@@ -243,8 +243,8 @@ where
                             debug!("Received blocksync request (peerId: {:?})", peer);
                             let db = self.cs.clone();
                             async {
-                                let response = task::spawn_blocking(move || -> BlockSyncResponse {
-                                    make_blocksync_response(db.as_ref(), &request)
+                                let response = task::spawn(async move {
+                                    make_blocksync_response(db.as_ref(), &request).await
                                 }).await;
                                 let _ = channel.send(response).await;
                             }.await;

@@ -13,12 +13,12 @@ use super::{
 };
 
 /// Builds blocksync response out of chain data.
-pub fn make_blocksync_response<DB>(
+pub async fn make_blocksync_response<DB>(
     cs: &ChainStore<DB>,
     request: &BlockSyncRequest,
 ) -> BlockSyncResponse
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
 {
     let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
 
@@ -26,7 +26,10 @@ where
 
     loop {
         let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-        let tipset = match cs.tipset_from_keys(&TipsetKeys::new(curr_tipset_cids)) {
+        let tipset = match cs
+            .tipset_from_keys(&TipsetKeys::new(curr_tipset_cids))
+            .await
+        {
             Ok(tipset) => tipset,
             Err(err) => {
                 debug!("Cannot get tipset from keys: {}", err);
@@ -58,7 +61,9 @@ where
         let tipset_epoch = tipset.epoch();
 
         if request.include_blocks() {
-            tipset_bundle.blocks = tipset.into_blocks();
+            // TODO Cloning blocks isn't ideal, this can maybe be switched to serialize this
+            // data in the function. This may not be possible without overriding rpc in libp2p
+            tipset_bundle.blocks = tipset.blocks().to_vec();
         }
 
         response_chain.push(tipset_bundle);
@@ -145,6 +150,7 @@ where
 mod tests {
     use super::super::BLOCKS_MESSAGES;
     use super::*;
+    use async_std::task;
     use db::MemoryDB;
     use forest_car::load_car;
     use genesis::EXPORT_SR_40;
@@ -163,14 +169,14 @@ mod tests {
     fn compact_messages_test() {
         let (cids, db) = populate_db();
 
-        let response = make_blocksync_response(
+        let response = task::block_on(make_blocksync_response(
             &ChainStore::new(Arc::new(db)),
             &BlockSyncRequest {
                 start: cids,
                 request_len: 2,
                 options: BLOCKS_MESSAGES,
             },
-        );
+        ));
 
         // The response will be loaded with tipsets 39 and 38.
         // See:

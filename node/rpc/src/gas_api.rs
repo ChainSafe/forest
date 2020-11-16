@@ -89,9 +89,7 @@ where
         .chain_store()
         .heaviest_tipset()
         .await
-        .ok_or("cant get heaviest tipset")?
-        .as_ref()
-        .clone();
+        .ok_or("cant get heaviest tipset")?;
 
     for _ in 0..(nblocksincl * 2) {
         if ts.parents().cids().is_empty() {
@@ -100,7 +98,8 @@ where
         let pts = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(ts.parents())?;
+            .tipset_from_keys(ts.parents())
+            .await?;
         blocks += pts.blocks().len();
         let msgs = chain::messages_for_tipset(data.state_manager.blockstore(), &pts)?;
 
