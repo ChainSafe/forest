@@ -246,12 +246,12 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                let param: Option<BigIntDe> = params.deserialize()?;
+                let param: Option<BigIntDe> = rt.deserialize_params(params)?;
                 Self::constructor(rt, param.map(|v| v.0))?;
                 Ok(Serialized::default())
             }
             Some(Method::AwardBlockReward) => {
-                Self::award_block_reward(rt, params.deserialize()?)?;
+                Self::award_block_reward(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ThisEpochReward) => {
@@ -260,7 +260,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::serialize(&res)?)
             }
             Some(Method::UpdateNetworkKPI) => {
-                let param: Option<BigIntDe> = params.deserialize()?;
+                let param: Option<BigIntDe> = rt.deserialize_params(params)?;
                 Self::update_network_kpi(rt, param.map(|v| v.0))?;
                 Ok(Serialized::default())
             }

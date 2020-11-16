@@ -256,7 +256,7 @@ impl Actor {
                 );
             }
 
-            let calculated_hash = compute_proposal_hash(&tx, rt.syscalls()).map_err(|e| {
+            let calculated_hash = compute_proposal_hash(&tx, rt).map_err(|e| {
                 e.downcast_default(
                     ExitCode::ErrIllegalState,
                     format!("failed to compute proposal hash for (tx: {:?})", params.id),
@@ -619,7 +619,7 @@ where
     })?;
 
     if check_hash {
-        let calculated_hash = compute_proposal_hash(&txn, rt.syscalls()).map_err(|e| {
+        let calculated_hash = compute_proposal_hash(&txn, rt).map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
                 format!("failed to compute proposal hash for (tx: {:?})", txn_id),
@@ -684,39 +684,39 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize()?)?;
+                Self::constructor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::Propose) => {
-                let res = Self::propose(rt, params.deserialize()?)?;
+                let res = Self::propose(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::Approve) => {
-                let res = Self::approve(rt, params.deserialize()?)?;
+                let res = Self::approve(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::Cancel) => {
-                Self::cancel(rt, params.deserialize()?)?;
+                Self::cancel(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::AddSigner) => {
-                Self::add_signer(rt, params.deserialize()?)?;
+                Self::add_signer(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::RemoveSigner) => {
-                Self::remove_signer(rt, params.deserialize()?)?;
+                Self::remove_signer(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::SwapSigner) => {
-                Self::swap_signer(rt, params.deserialize()?)?;
+                Self::swap_signer(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ChangeNumApprovalsThreshold) => {
-                Self::change_num_approvals_threshold(rt, params.deserialize()?)?;
+                Self::change_num_approvals_threshold(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::LockBalance) => {
-                Self::lock_balance(rt, params.deserialize()?)?;
+                Self::lock_balance(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),

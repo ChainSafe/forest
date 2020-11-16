@@ -618,9 +618,6 @@ where
             .delete_actor(&receiver)
             .map_err(|e| e.downcast_fatal("failed to delete actor"))
     }
-    fn syscalls(&self) -> &dyn Syscalls {
-        self
-    }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         self.circ_supply_calc
             .get_supply(self.epoch, self.state)

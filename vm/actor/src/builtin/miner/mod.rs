@@ -189,7 +189,7 @@ impl Actor {
                 })?;
 
         let current_epoch = rt.curr_epoch();
-        let blake2b = |b: &[u8]| rt.syscalls().hash_blake2b(b);
+        let blake2b = |b: &[u8]| rt.hash_blake2b(b);
         let offset = assign_proving_period_offset(*rt.message().receiver(), current_epoch, blake2b)
             .map_err(|e| {
                 e.downcast_default(
@@ -2132,7 +2132,6 @@ impl Actor {
         let reporter = *rt.message().caller();
 
         let fault = rt
-            .syscalls()
             .verify_consensus_fault(&params.header1, &params.header2, &params.header_extra)
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalArgument, "fault not verified"))?
             .ok_or_else(|| actor_error!(ErrIllegalArgument, "Invalid fault"))?;
@@ -2910,7 +2909,7 @@ where
     };
 
     // verify the post proof
-    rt.syscalls().verify_post(&pv_info).map_err(|e| {
+    rt.verify_post(&pv_info).map_err(|e| {
         e.downcast_default(
             ExitCode::ErrIllegalArgument,
             format!("invalid PoSt: {:?}", pv_info),
@@ -3386,7 +3385,7 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize()?)?;
+                Self::constructor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ControlAddresses) => {
@@ -3395,76 +3394,76 @@ impl ActorCode for Actor {
                 Ok(Serialized::serialize(&res)?)
             }
             Some(Method::ChangeWorkerAddress) => {
-                Self::change_worker_address(rt, params.deserialize()?)?;
+                Self::change_worker_address(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ChangePeerID) => {
-                Self::change_peer_id(rt, params.deserialize()?)?;
+                Self::change_peer_id(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::SubmitWindowedPoSt) => {
-                Self::submit_windowed_post(rt, params.deserialize()?)?;
+                Self::submit_windowed_post(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::PreCommitSector) => {
-                Self::pre_commit_sector(rt, params.deserialize()?)?;
+                Self::pre_commit_sector(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ProveCommitSector) => {
-                Self::prove_commit_sector(rt, params.deserialize()?)?;
+                Self::prove_commit_sector(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ExtendSectorExpiration) => {
-                Self::extend_sector_expiration(rt, params.deserialize()?)?;
+                Self::extend_sector_expiration(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::TerminateSectors) => {
-                let ret = Self::terminate_sectors(rt, params.deserialize()?)?;
+                let ret = Self::terminate_sectors(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(ret)?)
             }
             Some(Method::DeclareFaults) => {
-                Self::declare_faults(rt, params.deserialize()?)?;
+                Self::declare_faults(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::DeclareFaultsRecovered) => {
-                Self::declare_faults_recovered(rt, params.deserialize()?)?;
+                Self::declare_faults_recovered(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::OnDeferredCronEvent) => {
-                Self::on_deferred_cron_event(rt, params.deserialize()?)?;
+                Self::on_deferred_cron_event(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::CheckSectorProven) => {
-                Self::check_sector_proven(rt, params.deserialize()?)?;
+                Self::check_sector_proven(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::AddLockedFund) => {
-                let BigIntDe(param) = params.deserialize()?;
+                let BigIntDe(param) = rt.deserialize_params(params)?;
                 Self::add_locked_fund(rt, param)?;
                 Ok(Serialized::default())
             }
             Some(Method::ReportConsensusFault) => {
-                Self::report_consensus_fault(rt, params.deserialize()?)?;
+                Self::report_consensus_fault(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::WithdrawBalance) => {
-                Self::withdraw_balance(rt, params.deserialize()?)?;
+                Self::withdraw_balance(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ConfirmSectorProofsValid) => {
-                Self::confirm_sector_proofs_valid(rt, params.deserialize()?)?;
+                Self::confirm_sector_proofs_valid(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ChangeMultiaddrs) => {
-                Self::change_multi_address(rt, params.deserialize()?)?;
+                Self::change_multi_address(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::CompactPartitions) => {
-                Self::compact_partitions(rt, params.deserialize()?)?;
+                Self::compact_partitions(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::CompactSectorNumbers) => {
-                Self::compact_sector_numbers(rt, params.deserialize()?)?;
+                Self::compact_sector_numbers(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),
