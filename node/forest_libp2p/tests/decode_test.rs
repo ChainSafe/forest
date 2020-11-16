@@ -4,8 +4,8 @@
 use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_libp2p::blocksync::{
-    BlockSyncResponse, BlockSyncResponseStatus, CompactedMessages, TipsetBundle,
+use forest_libp2p::chain_exchange::{
+    ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
@@ -42,9 +42,9 @@ fn convert_single_tipset_bundle() {
         }),
     };
 
-    let res = BlockSyncResponse {
+    let res = ChainExchangeResponse {
         chain: vec![bundle],
-        status: BlockSyncResponseStatus::Success,
+        status: ChainExchangeResponseStatus::Success,
         message: "".into(),
     }
     .into_result::<FullTipset>()

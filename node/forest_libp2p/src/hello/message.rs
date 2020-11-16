@@ -7,7 +7,7 @@ use forest_encoding::tuple::*;
 use num_bigint::BigInt;
 
 /// Hello message https://filecoin-project.github.io/specs/#hello-spec
-#[derive(Clone, Debug, PartialEq, Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct HelloRequest {
     pub heaviest_tip_set: Vec<Cid>,
     pub heaviest_tipset_height: ChainEpoch,
@@ -35,7 +35,9 @@ mod tests {
     fn hello_default_ser() {
         let orig_msg = HelloRequest {
             genesis_hash: Cid::new_from_cbor(&[], Identity),
-            ..Default::default()
+            heaviest_tipset_weight: Default::default(),
+            heaviest_tipset_height: Default::default(),
+            heaviest_tip_set: Default::default(),
         };
         let bz = to_vec(&orig_msg).unwrap();
         let msg: HelloRequest = from_slice(&bz).unwrap();
