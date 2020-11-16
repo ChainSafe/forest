@@ -3115,6 +3115,7 @@ dependencies = [
 name = "ipld_amt"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.5.8",
  "criterion",
  "db",
  "forest_cid",

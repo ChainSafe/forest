@@ -330,10 +330,20 @@ fn for_each() {
 
     // Ensure all values were added into the amt
     for i in indexes.iter() {
-        a.set(*i, "value".to_owned()).unwrap();
+        assert_eq!(a.get(*i).unwrap(), Some(&"value".to_owned()));
     }
 
     assert_eq!(a.count(), indexes.len() as u64);
+
+    // Iterate over amt with dirty cache
+    let mut x = 0;
+    a.for_each(|_, _: &String| {
+        x += 1;
+        Ok(())
+    })
+    .unwrap();
+
+    assert_eq!(x, indexes.len());
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
@@ -353,8 +363,10 @@ fn for_each() {
             Ok(())
         })
         .unwrap();
-
     assert_eq!(x, indexes.len());
+
+    // Iteration again will be read diff with go-interop, since they do not cache
+    new_amt.for_each(|_, _: &String| Ok(())).unwrap();
 
     assert_eq!(
         c.to_string().as_str(),
@@ -367,7 +379,50 @@ fn for_each() {
 
     #[rustfmt::skip]
     #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 2016, w: 2016, br: 124875, bw: 124875});
+    assert_eq!(*db.stats.borrow(), BSStats {r:3446, w:2016, br:213384, bw:124875});
+}
+
+#[test]
+fn for_each_mutate() {
+    let mem = db::MemoryDB::default();
+    let db = TrackingBlockStore::new(&mem);
+    let mut a = Amt::new(&db);
+
+    let indexes = [1, 9, 66, 74, 82, 515];
+
+    // Set all indices in the Amt
+    for &i in indexes.iter() {
+        a.set(i, "value".to_owned()).unwrap();
+    }
+
+    // Flush and regenerate amt
+    let c = a.flush().unwrap();
+    drop(a);
+    let mut new_amt = Amt::load(&c, &db).unwrap();
+    assert_eq!(new_amt.count(), indexes.len() as u64);
+
+    new_amt
+        .for_each_mut(|i, v: &mut ipld_amt::ValueMut<'_, String>| {
+            if let 1 | 74 = i {
+                // Value it's set to doesn't matter, just cloning for expedience
+                **v = (*v).clone();
+            }
+            Ok(())
+        })
+        .unwrap();
+
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzacecipze2lcvpcrcqy4nyqs4p2sinbytflyyuytge5lc6uz632bj6fu"
+    );
+
+    #[rustfmt::skip]
+    #[cfg(not(feature = "go-interop"))]
+    assert_eq!(*db.stats.borrow(), BSStats { r: 12, w: 12, br: 572, bw: 572 });
+
+    #[rustfmt::skip]
+    #[cfg(feature = "go-interop")]
+    assert_eq!(*db.stats.borrow(), BSStats {r: 17, w: 12, br: 910, bw: 572});
 }
 
 #[test]

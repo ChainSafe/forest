@@ -265,7 +265,6 @@ where
     #[inline]
     pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
         F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
     {
         self.for_each_while(|i, x| {
@@ -278,7 +277,6 @@ where
     /// function keeps returning `true`.
     pub fn for_each_while<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
         F: FnMut(u64, &V) -> Result<bool, Box<dyn StdError>>,
     {
         self.root
@@ -291,7 +289,7 @@ where
     /// each value.
     pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
+        V: Clone,
         F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<(), Box<dyn StdError>>,
     {
         self.for_each_while_mut(|i, x| {
@@ -304,12 +302,53 @@ where
     /// each value, for as long as that function keeps returning `true`.
     pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
-        V: DeserializeOwned,
+        // TODO remove clone bound when go-interop doesn't require it.
+        // (If needed without, this bound can be removed by duplicating function signatures)
+        V: Clone,
         F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
     {
-        self.root
-            .node
-            .for_each_while_mut(self.block_store, self.height(), 0, &mut f)
-            .map(|_| ())
+        #[cfg(not(feature = "go-interop"))]
+        {
+            self.root
+                .node
+                .for_each_while_mut(self.block_store, self.height(), 0, &mut f)
+                .map(|_| ())
+        }
+
+        // TODO remove requirement for this when/if changed in go-implementation
+        // This is not 100% compatible, because the blockstore reads/writes are not in the same
+        // order. If this is to be achieved, the for_each iteration would have to pause when
+        // a mutation occurs, set, then continue where it left off. This is a much more extensive
+        // change, and since it should not be feasibly triggered, it's left as this for now.
+        #[cfg(feature = "go-interop")]
+        {
+            let mut mutated = ahash::AHashMap::new();
+
+            self.root.node.for_each_while_mut(
+                self.block_store,
+                self.height(),
+                0,
+                &mut |idx, value| {
+                    let keep_going = f(idx, value)?;
+
+                    if value.value_changed() {
+                        // ! this is not ideal to clone and mark unchanged here, it is only done
+                        // because the go-implementation mutates the Amt as they iterate through it,
+                        // which we cannot do because it is memory unsafe (and I'm not certain we
+                        // don't have side effects from doing this unsafely)
+                        value.mark_unchanged();
+                        mutated.insert(idx, value.clone());
+                    }
+
+                    Ok(keep_going)
+                },
+            )?;
+
+            for (i, v) in mutated.into_iter() {
+                self.set(i, v)?;
+            }
+
+            Ok(())
+        }
     }
 }
