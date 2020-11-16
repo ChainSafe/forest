@@ -37,7 +37,7 @@ use vm::{
 
 // This is just used for gas tracing, intentionally 0 and could be removed.
 const ACTOR_EXEC_GAS: GasCharge = GasCharge {
-    name: "on_actor_exec",
+    name: "OnActorExec",
     compute_gas: 0,
     storage_gas: 0,
 };
