@@ -24,7 +24,7 @@ use fil_types::{
     verifier::ProofVerifier, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, BLOCK_GAS_LIMIT,
     TICKET_RANDOMNESS_LOOKBACK, UPGRADE_SMOKE_HEIGHT,
 };
-use forest_libp2p::blocksync::TipsetBundle;
+use forest_libp2p::chain_exchange::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
@@ -40,7 +40,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-/// Worker to handle syncing chain with the blocksync protocol.
+/// Worker to handle syncing chain with the chain_exchange protocol.
 pub(crate) struct SyncWorker<DB, TBeacon, V> {
     /// State of the sync worker.
     pub state: Arc<RwLock<SyncState>>,
@@ -189,16 +189,16 @@ where
             }
 
             // TODO tweak request window when socket frame is tested
-            const REQUEST_WINDOW: i64 = 10;
+            const REQUEST_WINDOW: i64 = 200;
             let epoch_diff = cur_ts.epoch() - to_epoch;
-            debug!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
+            debug!("ChainExchange from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);
 
-            // Load blocks from network using blocksync
+            // Load blocks from network using chain_exchange
             // TODO consider altering window size before returning error for failed sync.
             let tipsets = self
                 .network
-                .blocksync_headers(None, cur_ts.parents(), window as u64)
+                .chain_exchange_headers(None, cur_ts.parents(), window as u64)
                 .await?;
 
             info!(
@@ -278,7 +278,7 @@ where
         // to have to request all fork length headers at once.
         let tips = self
             .network
-            .blocksync_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
+            .chain_exchange_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
             .await?;
 
         let mut ts = self.chain_store().tipset_from_keys(to.parents()).await?;
@@ -302,7 +302,8 @@ where
         ))
     }
 
-    /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
+    /// Syncs messages by first checking state for message existence otherwise fetches messages from
+    /// chain exchange.
     async fn sync_messages_check_state(&self, tipsets: Vec<Arc<Tipset>>) -> Result<(), Error> {
         let mut ts_iter = tipsets.into_iter().rev();
         // Currently syncing 1 height at a time, no reason for us to sync more
@@ -313,11 +314,11 @@ where
             let fts = match self.chain_store().fill_tipset(ts) {
                 Ok(fts) => fts,
                 Err(ts) => {
-                    // no full tipset in storage; request messages via blocksync
+                    // no full tipset in storage; request messages via chain_exchange
 
                     let batch_size = REQUEST_WINDOW;
                     debug!(
-                        "BlockSync message sync tipsets: epoch: {}, len: {}",
+                        "ChainExchange message sync tipsets: epoch: {}, len: {}",
                         ts.epoch(),
                         batch_size
                     );
@@ -325,7 +326,7 @@ where
                     // receive tipset bundle from block sync
                     let compacted_messages = self
                         .network
-                        .blocksync_messages(None, ts.key(), batch_size as u64)
+                        .chain_exchange_messages(None, ts.key(), batch_size as u64)
                         .await?;
 
                     // Chain current tipset with iterator
@@ -354,7 +355,7 @@ where
                             chain::persist_objects(self.state_manager.blockstore(), &m.bls_msgs)?;
                             chain::persist_objects(self.state_manager.blockstore(), &m.secp_msgs)?;
                         } else {
-                            warn!("Blocksync request for messages returned null messages");
+                            warn!("Chain Exchange request for messages returned null messages");
                         }
                     }
 
@@ -1013,7 +1014,7 @@ mod tests {
     use libp2p::PeerId;
     use std::sync::Arc;
     use std::time::Duration;
-    use test_utils::{construct_blocksync_response, construct_dummy_header, construct_tipset};
+    use test_utils::{construct_chain_exchange_response, construct_dummy_header, construct_tipset};
 
     fn sync_worker_setup(
         db: Arc<MemoryDB>,
@@ -1045,12 +1046,12 @@ mod tests {
         )
     }
 
-    fn send_blocksync_response(blocksync_message: Receiver<NetworkMessage>) {
-        let rpc_response = construct_blocksync_response();
+    fn send_chain_exchange_response(chain_exchange_message: Receiver<NetworkMessage>) {
+        let rpc_response = construct_chain_exchange_response();
 
         task::block_on(async {
-            match blocksync_message.recv().await.unwrap() {
-                NetworkMessage::BlockSyncRequest {
+            match chain_exchange_message.recv().await.unwrap() {
+                NetworkMessage::ChainExchangeRequest {
                     response_channel, ..
                 } => {
                     response_channel.send(rpc_response).unwrap();
@@ -1076,10 +1077,10 @@ mod tests {
                 .update_peer_head(source.clone(), Some(head.clone()))
                 .await;
             assert_eq!(sw.network.peer_manager().len().await, 1);
-            // make blocksync request
+            // make chain_exchange request
             let return_set = task::spawn(async move { sw.sync_headers_reverse(head, &to).await });
-            // send blocksync response to channel
-            send_blocksync_response(network_receiver);
+            // send chain_exchange response to channel
+            send_chain_exchange_response(network_receiver);
             assert_eq!(return_set.await.unwrap().len(), 4);
         });
     }

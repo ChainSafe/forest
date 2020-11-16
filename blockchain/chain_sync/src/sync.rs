@@ -40,14 +40,14 @@ type WorkerState = Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>;
 enum ChainSyncState {
     /// Bootstrapping peers before starting sync.
     Bootstrap,
-    /// Syncing chain with BlockSync protocol.
+    /// Syncing chain with ChainExchange protocol.
     Initial,
     /// Following chain with blocks received over gossipsub.
     Follow,
 }
 
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
-/// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
+/// gossipsub messages, Hello protocol requests, as well as sending and receiving ChainExchange
 /// messages to be able to do the initial sync.
 pub struct ChainSyncer<DB, TBeacon, V, M> {
     /// State of general `ChainSync` protocol.
@@ -440,7 +440,7 @@ where
     ) -> Result<FullTipset, String> {
         let fts = match Self::load_fts(cs, tsk).await {
             Ok(fts) => fts,
-            Err(_) => network.blocksync_fts(Some(peer_id), tsk).await?,
+            Err(_) => network.chain_exchange_fts(Some(peer_id), tsk).await?,
         };
 
         Ok(fts)

@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocksync::{
-    BlockSyncCodec, BlockSyncProtocolName, BlockSyncRequest, BlockSyncResponse,
+use crate::chain_exchange::{
+    ChainExchangeCodec, ChainExchangeProtocolName, ChainExchangeRequest, ChainExchangeResponse,
 };
 use crate::config::Libp2pConfig;
 use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
@@ -48,7 +48,7 @@ pub struct ForestBehaviour {
     ping: Ping,
     identify: Identify,
     hello: RequestResponse<HelloCodec>,
-    blocksync: RequestResponse<BlockSyncCodec>,
+    chain_exchange: RequestResponse<ChainExchangeCodec>,
     kademlia: Toggle<Kademlia<MemoryStore>>,
     bitswap: Bitswap,
     #[behaviour(ignore)]
@@ -78,15 +78,15 @@ pub enum ForestBehaviourEvent {
         request_id: RequestId,
         response: HelloResponse,
     },
-    BlockSyncRequest {
+    ChainExchangeRequest {
         peer: PeerId,
-        request: BlockSyncRequest,
-        channel: ResponseChannel<BlockSyncResponse>,
+        request: ChainExchangeRequest,
+        channel: ResponseChannel<ChainExchangeResponse>,
     },
-    BlockSyncResponse {
+    ChainExchangeResponse {
         peer: PeerId,
         request_id: RequestId,
-        response: BlockSyncResponse,
+        response: ChainExchangeResponse,
     },
 }
 
@@ -247,39 +247,46 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
     }
 }
 
-impl NetworkBehaviourEventProcess<RequestResponseEvent<BlockSyncRequest, BlockSyncResponse>>
+impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>>
     for ForestBehaviour
 {
-    fn inject_event(&mut self, event: RequestResponseEvent<BlockSyncRequest, BlockSyncResponse>) {
+    fn inject_event(
+        &mut self,
+        event: RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>,
+    ) {
         match event {
             RequestResponseEvent::Message { peer, message } => match message {
                 RequestResponseMessage::Request { request, channel } => {
-                    self.events.push(ForestBehaviourEvent::BlockSyncRequest {
-                        peer,
-                        request,
-                        channel,
-                    })
+                    self.events
+                        .push(ForestBehaviourEvent::ChainExchangeRequest {
+                            peer,
+                            request,
+                            channel,
+                        })
                 }
                 RequestResponseMessage::Response {
                     request_id,
                     response,
-                } => self.events.push(ForestBehaviourEvent::BlockSyncResponse {
-                    peer,
-                    request_id,
-                    response,
-                }),
+                } => self
+                    .events
+                    .push(ForestBehaviourEvent::ChainExchangeResponse {
+                        peer,
+                        request_id,
+                        response,
+                    }),
             },
             RequestResponseEvent::OutboundFailure {
                 peer,
                 request_id,
                 error,
             } => warn!(
-                "BlockSync outbound error (peer: {:?}) (id: {:?}): {:?}",
+                "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
                 peer, request_id, error
             ),
-            RequestResponseEvent::InboundFailure { peer, error } => {
-                warn!("BlockSync inbound error (peer: {:?}): {:?}", peer, error)
-            }
+            RequestResponseEvent::InboundFailure { peer, error } => warn!(
+                "ChainExchange inbound error (peer: {:?}): {:?}",
+                peer, error
+            ),
         }
     }
 }
@@ -340,7 +347,7 @@ impl ForestBehaviour {
         };
 
         let hp = std::iter::once((HelloProtocolName, ProtocolSupport::Full));
-        let bp = std::iter::once((BlockSyncProtocolName, ProtocolSupport::Full));
+        let cp = std::iter::once((ChainExchangeProtocolName, ProtocolSupport::Full));
 
         let mut req_res_config = RequestResponseConfig::default();
         req_res_config.set_request_timeout(Duration::from_secs(20));
@@ -361,8 +368,8 @@ impl ForestBehaviour {
             ),
             kademlia: kademlia_opt.into(),
             bitswap,
-            hello: RequestResponse::new(HelloCodec, hp, req_res_config.clone()),
-            blocksync: RequestResponse::new(BlockSyncCodec, bp, req_res_config),
+            hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),
+            chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
             events: vec![],
             peers: Default::default(),
         }
@@ -391,7 +398,9 @@ impl ForestBehaviour {
     pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest) -> RequestId {
         match req {
             RPCRequest::Hello(request) => self.hello.send_request(peer_id, request),
-            RPCRequest::BlockSync(request) => self.blocksync.send_request(peer_id, request),
+            RPCRequest::ChainExchange(request) => {
+                self.chain_exchange.send_request(peer_id, request)
+            }
         }
     }
 

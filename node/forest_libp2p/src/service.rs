@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::blocksync::{make_blocksync_response, BlockSyncRequest, BlockSyncResponse};
+use super::chain_exchange::{
+    make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse,
+};
 use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
@@ -57,13 +59,13 @@ pub enum NetworkEvent {
         request_id: RequestId,
         response: HelloResponse,
     },
-    BlockSyncRequest {
-        request: BlockSyncRequest,
-        channel: ResponseChannel<BlockSyncResponse>,
+    ChainExchangeRequest {
+        request: ChainExchangeRequest,
+        channel: ResponseChannel<ChainExchangeResponse>,
     },
-    BlockSyncResponse {
+    ChainExchangeResponse {
         request_id: RequestId,
-        response: BlockSyncResponse,
+        response: ChainExchangeResponse,
     },
     PeerDialed {
         peer_id: PeerId,
@@ -89,10 +91,10 @@ pub enum NetworkMessage {
         topic: Topic,
         message: Vec<u8>,
     },
-    BlockSyncRequest {
+    ChainExchangeRequest {
         peer_id: PeerId,
-        request: BlockSyncRequest,
-        response_channel: OneShotSender<BlockSyncResponse>,
+        request: ChainExchangeRequest,
+        response_channel: OneShotSender<ChainExchangeResponse>,
     },
     HelloRequest {
         peer_id: PeerId,
@@ -107,8 +109,8 @@ pub enum NetworkMessage {
 pub struct Libp2pService<DB> {
     pub swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
-    /// Keeps track of Blocksync requests to responses
-    bs_request_table: HashMap<RequestId, OneShotSender<BlockSyncResponse>>,
+    /// Keeps track of Chain exchange requests to responses
+    cx_request_table: HashMap<RequestId, OneShotSender<ChainExchangeResponse>>,
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: Receiver<NetworkEvent>,
@@ -156,7 +158,7 @@ where
         Libp2pService {
             swarm,
             cs,
-            bs_request_table: HashMap::new(),
+            cx_request_table: HashMap::new(),
             network_receiver_in,
             network_sender_in,
             network_receiver_out,
@@ -239,19 +241,19 @@ where
                                 response,
                             }).await;
                         }
-                        ForestBehaviourEvent::BlockSyncRequest { channel, peer, request } => {
-                            debug!("Received blocksync request (peerId: {:?})", peer);
+                        ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
+                            debug!("Received chain_exchange request (peerId: {:?})", peer);
                             let db = self.cs.clone();
                             async {
                                 let response = task::spawn(async move {
-                                    make_blocksync_response(db.as_ref(), &request).await
+                                    make_chain_exchange_response(db.as_ref(), &request).await
                                 }).await;
                                 let _ = channel.send(response).await;
                             }.await;
                         }
-                        ForestBehaviourEvent::BlockSyncResponse { request_id, response, .. } => {
-                            debug!("Received blocksync response (id: {:?})", request_id);
-                            let tx = self.bs_request_table.remove(&request_id);
+                        ForestBehaviourEvent::ChainExchangeResponse { request_id, response, .. } => {
+                            debug!("Received chain_exchange response (id: {:?})", request_id);
+                            let tx = self.cx_request_table.remove(&request_id);
 
                             if let Some(tx) = tx {
                                 if tx.send(response).is_err() {
@@ -312,10 +314,10 @@ where
                         NetworkMessage::HelloRequest { peer_id, request } => {
                             let _ = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::Hello(request));
                         }
-                        NetworkMessage::BlockSyncRequest { peer_id, request, response_channel } => {
-                            let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::BlockSync(request));
+                        NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
+                            let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::ChainExchange(request));
                             debug!("Sent BS Request with id: {:?}", id);
-                            self.bs_request_table.insert(id, response_channel);
+                            self.cx_request_table.insert(id, response_channel);
                         }
                         NetworkMessage::BitswapRequest { cid, response_channel } => {
                             if let Err(e) = swarm_stream.get_mut().want_block(cid, 1000) {
@@ -364,8 +366,8 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
         .into_authentic(&local_key)
         .expect("Noise key generation failed");
     let mut yamux_config = yamux::Config::default();
-    yamux_config.set_max_buffer_size(1 << 20);
-    yamux_config.set_receive_window(1 << 20);
+    yamux_config.set_max_buffer_size(16 * 1024 * 1024);
+    yamux_config.set_receive_window(16 * 1024 * 1024);
     transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(noise::NoiseConfig::xx(dh_keys).into_authenticated())

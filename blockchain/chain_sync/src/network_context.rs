@@ -8,8 +8,9 @@ use blocks::{FullTipset, Tipset, TipsetKeys};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
 use forest_libp2p::{
-    blocksync::{
-        BlockSyncRequest, BlockSyncResponse, CompactedMessages, TipsetBundle, BLOCKS, MESSAGES,
+    chain_exchange::{
+        ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, BLOCKS,
+        MESSAGES,
     },
     hello::HelloRequest,
     NetworkMessage,
@@ -23,7 +24,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 /// Timeout for response from an RPC request
-const RPC_TIMEOUT: u64 = 20;
+const RPC_TIMEOUT: u64 = 5;
 
 /// Context used in chain sync to handle network requests
 pub struct SyncNetworkContext<DB> {
@@ -71,38 +72,38 @@ where
         self.peer_manager.clone()
     }
 
-    /// Send a blocksync request for only block headers (ignore messages).
+    /// Send a chain_exchange request for only block headers (ignore messages).
     /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
-    pub async fn blocksync_headers(
+    pub async fn chain_exchange_headers(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
         count: u64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_blocksync_request(peer_id, tsk, count, BLOCKS)
+        self.handle_chain_exchange_request(peer_id, tsk, count, BLOCKS)
             .await
     }
-    /// Send a blocksync request for only messages (ignore block headers).
+    /// Send a chain_exchange request for only messages (ignore block headers).
     /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
-    pub async fn blocksync_messages(
+    pub async fn chain_exchange_messages(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
         count: u64,
     ) -> Result<Vec<CompactedMessages>, String> {
-        self.handle_blocksync_request(peer_id, tsk, count, MESSAGES)
+        self.handle_chain_exchange_request(peer_id, tsk, count, MESSAGES)
             .await
     }
 
-    /// Send a blocksync request for a single full tipset (includes messages)
+    /// Send a chain_exchange request for a single full tipset (includes messages)
     /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
-    pub async fn blocksync_fts(
+    pub async fn chain_exchange_fts(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
         let mut fts = self
-            .handle_blocksync_request(peer_id, tsk, 1, BLOCKS | MESSAGES)
+            .handle_chain_exchange_request(peer_id, tsk, 1, BLOCKS | MESSAGES)
             .await?;
 
         if fts.len() != 1 {
@@ -152,7 +153,7 @@ where
 
     /// Helper function to handle the peer retrieval if no peer supplied as well as the logging
     /// and updating of the peer info in the `PeerManager`.
-    async fn handle_blocksync_request<T>(
+    async fn handle_chain_exchange_request<T>(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
@@ -162,7 +163,7 @@ where
     where
         T: TryFrom<TipsetBundle, Error = String>,
     {
-        let request = BlockSyncRequest {
+        let request = ChainExchangeRequest {
             start: tsk.cids().to_vec(),
             request_len,
             options,
@@ -170,30 +171,36 @@ where
 
         let global_pre_time = SystemTime::now();
         let bs_res = match peer_id {
-            Some(id) => self.blocksync_request(id, request).await?.into_result()?,
+            Some(id) => self
+                .chain_exchange_request(id, request)
+                .await?
+                .into_result()?,
             None => {
                 let peers = self.peer_manager.top_peers_shuffled().await;
                 let mut res = None;
                 for p in peers.into_iter() {
-                    match self.blocksync_request(p.clone(), request.clone()).await {
+                    match self
+                        .chain_exchange_request(p.clone(), request.clone())
+                        .await
+                    {
                         Ok(bs_res) => match bs_res.into_result() {
                             Ok(r) => {
                                 res = Some(r);
                                 break;
                             }
                             Err(e) => {
-                                warn!("Failed blocksync response: {}", e);
+                                warn!("Failed chain_exchange response: {}", e);
                                 continue;
                             }
                         },
                         Err(e) => {
-                            warn!("Failed blocksync request to peer {:?}: {}", p, e);
+                            warn!("Failed chain_exchange request to peer {:?}: {}", p, e);
                             continue;
                         }
                     }
                 }
 
-                res.ok_or_else(|| "BlockSync request failed for all top peers".to_string())?
+                res.ok_or_else(|| "ChainExchange request failed for all top peers".to_string())?
             }
         };
 
@@ -205,19 +212,19 @@ where
         Ok(bs_res)
     }
 
-    /// Send a blocksync request to the network and await response.
-    async fn blocksync_request(
+    /// Send a chain_exchange request to the network and await response.
+    async fn chain_exchange_request(
         &self,
         peer_id: PeerId,
-        request: BlockSyncRequest,
-    ) -> Result<BlockSyncResponse, String> {
-        trace!("Sending BlockSync Request {:?}", request);
+        request: ChainExchangeRequest,
+    ) -> Result<ChainExchangeResponse, String> {
+        trace!("Sending ChainExchange Request {:?}", request);
 
         let req_pre_time = SystemTime::now();
 
         let (tx, rx) = oneshot_channel();
         self.network_send
-            .send(NetworkMessage::BlockSyncRequest {
+            .send(NetworkMessage::ChainExchangeRequest {
                 peer_id: peer_id.clone(),
                 request,
                 response_channel: tx,

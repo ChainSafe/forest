@@ -9,14 +9,14 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-/// Blocksync request options
+/// ChainExchange request options
 pub const BLOCKS: u64 = 1;
 pub const MESSAGES: u64 = 2;
 pub const BLOCKS_MESSAGES: u64 = 3;
 
 /// The payload that gets sent to another node to request for blocks and messages. It get DagCBOR serialized before sending over the wire.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct BlockSyncRequest {
+pub struct ChainExchangeRequest {
     /// The tipset to start sync from
     pub start: Vec<Cid>,
     /// The amount of epochs to sync by
@@ -25,7 +25,7 @@ pub struct BlockSyncRequest {
     pub options: u64,
 }
 
-impl BlockSyncRequest {
+impl ChainExchangeRequest {
     /// If a request expects blocks to be included in response.
     pub fn include_blocks(&self) -> bool {
         self.options == BLOCKS || self.options == BLOCKS_MESSAGES
@@ -37,9 +37,9 @@ impl BlockSyncRequest {
     }
 }
 
-/// Status codes of a blocksync response.
+/// Status codes of a chain_exchange response.
 #[derive(Clone, Debug, PartialEq)]
-pub enum BlockSyncResponseStatus {
+pub enum ChainExchangeResponseStatus {
     /// All is well.
     Success,
     /// We could not fetch all blocks requested (but at least we returned
@@ -57,12 +57,12 @@ pub enum BlockSyncResponseStatus {
     Other(i32),
 }
 
-impl Serialize for BlockSyncResponseStatus {
+impl Serialize for ChainExchangeResponseStatus {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        use BlockSyncResponseStatus::*;
+        use ChainExchangeResponseStatus::*;
         let code: i32 = match self {
             Success => 0,
             PartialResponse => 101,
@@ -76,14 +76,14 @@ impl Serialize for BlockSyncResponseStatus {
     }
 }
 
-impl<'de> Deserialize<'de> for BlockSyncResponseStatus {
+impl<'de> Deserialize<'de> for ChainExchangeResponseStatus {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
     where
         D: Deserializer<'de>,
     {
         let code: i32 = Deserialize::deserialize(deserializer)?;
 
-        use BlockSyncResponseStatus::*;
+        use ChainExchangeResponseStatus::*;
         let status = match code {
             0 => Success,
             101 => PartialResponse,
@@ -97,27 +97,27 @@ impl<'de> Deserialize<'de> for BlockSyncResponseStatus {
     }
 }
 
-/// The response to a BlockSync request.
+/// The response to a ChainExchange request.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct BlockSyncResponse {
+pub struct ChainExchangeResponse {
     /// Error code
-    pub status: BlockSyncResponseStatus,
+    pub status: ChainExchangeResponseStatus,
     /// Status message indicating failure reason
     pub message: String,
     /// The tipsets requested
     pub chain: Vec<TipsetBundle>,
 }
 
-impl BlockSyncResponse {
-    /// Converts blocksync response into result.
+impl ChainExchangeResponse {
+    /// Converts chain_exchange response into result.
     /// Returns an error if the response status is not `Ok`.
     /// Tipset bundle is converted into generic return type with `TryFrom` trait impl.
     pub fn into_result<T>(self) -> Result<Vec<T>, String>
     where
         T: TryFrom<TipsetBundle, Error = String>,
     {
-        if self.status != BlockSyncResponseStatus::Success
-            && self.status != BlockSyncResponseStatus::PartialResponse
+        if self.status != ChainExchangeResponseStatus::Success
+            && self.status != ChainExchangeResponseStatus::PartialResponse
         {
             return Err(format!("Status {:?}: {}", self.status, self.message));
         }

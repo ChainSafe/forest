@@ -9,14 +9,15 @@ use log::debug;
 use std::collections::HashMap;
 
 use super::{
-    BlockSyncRequest, BlockSyncResponse, BlockSyncResponseStatus, CompactedMessages, TipsetBundle,
+    ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
+    TipsetBundle,
 };
 
-/// Builds blocksync response out of chain data.
-pub async fn make_blocksync_response<DB>(
+/// Builds chain exchange response out of chain data.
+pub async fn make_chain_exchange_response<DB>(
     cs: &ChainStore<DB>,
-    request: &BlockSyncRequest,
-) -> BlockSyncResponse
+    request: &ChainExchangeRequest,
+) -> ChainExchangeResponse
 where
     DB: BlockStore + Send + Sync + 'static,
 {
@@ -34,9 +35,9 @@ where
             Err(err) => {
                 debug!("Cannot get tipset from keys: {}", err);
 
-                return BlockSyncResponse {
+                return ChainExchangeResponse {
                     chain: vec![],
-                    status: BlockSyncResponseStatus::InternalError,
+                    status: ChainExchangeResponseStatus::InternalError,
                     message: "Tipset was not found in the database".to_owned(),
                 };
             }
@@ -48,9 +49,9 @@ where
                 Err(err) => {
                     debug!("Cannot compact messages for tipset: {}", err);
 
-                    return BlockSyncResponse {
+                    return ChainExchangeResponse {
                         chain: vec![],
-                        status: BlockSyncResponseStatus::InternalError,
+                        status: ChainExchangeResponseStatus::InternalError,
                         message: "Can not fullfil the request".to_owned(),
                     };
                 }
@@ -75,12 +76,12 @@ where
 
     let result_chain_length = response_chain.len() as u64;
 
-    BlockSyncResponse {
+    ChainExchangeResponse {
         chain: response_chain,
         status: if result_chain_length < request.request_len {
-            BlockSyncResponseStatus::PartialResponse
+            ChainExchangeResponseStatus::PartialResponse
         } else {
-            BlockSyncResponseStatus::Success
+            ChainExchangeResponseStatus::Success
         },
         message: "Success".to_owned(),
     }
@@ -169,9 +170,9 @@ mod tests {
     fn compact_messages_test() {
         let (cids, db) = populate_db();
 
-        let response = task::block_on(make_blocksync_response(
+        let response = task::block_on(make_chain_exchange_response(
             &ChainStore::new(Arc::new(db)),
-            &BlockSyncRequest {
+            &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,
                 options: BLOCKS_MESSAGES,
