@@ -306,7 +306,6 @@ where
         if height == ts.epoch() {
             return Ok(None);
         }
-        // TODO get tipset by height using cache instead of reloading tipsets
         let mut ts_temp: Option<Arc<Tipset>> = None;
         loop {
             let pts = if let Some(temp) = &ts_temp {
