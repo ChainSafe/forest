@@ -1078,7 +1078,7 @@ mod tests {
                 .await;
             assert_eq!(sw.network.peer_manager().len().await, 1);
             // make chain_exchange request
-            let return_set = task::spawn(async move { sw.sync_headers_reverse(&head, &to).await });
+            let return_set = task::spawn(async move { sw.sync_headers_reverse(head, &to).await });
             // send chain_exchange response to channel
             send_chain_exchange_response(network_receiver);
             assert_eq!(return_set.await.unwrap().len(), 4);
