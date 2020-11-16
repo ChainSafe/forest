@@ -7,22 +7,6 @@ use vm::TokenAmount;
 
 // Ported test from specs-actors
 #[test]
-fn add_create() {
-    let addr = Address::new_id(100);
-    let store = db::MemoryDB::default();
-    let mut bt = BalanceTable::new(&store);
-
-    assert_eq!(bt.has(&addr).unwrap(), false);
-
-    bt.add_create(&addr, TokenAmount::from(10u8)).unwrap();
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(10u8));
-
-    bt.add_create(&addr, TokenAmount::from(20u8)).unwrap();
-    assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(30u8));
-}
-
-// Ported test from specs-actors
-#[test]
 fn total() {
     let addr1 = Address::new_id(100);
     let addr2 = Address::new_id(101);
@@ -60,7 +44,7 @@ fn total() {
     ];
 
     for t in test_vectors.iter() {
-        bt.add_create(t.addr, TokenAmount::from(t.amount)).unwrap();
+        bt.add(t.addr, &TokenAmount::from(t.amount)).unwrap();
 
         assert_eq!(bt.total().unwrap(), TokenAmount::from(t.total));
     }
@@ -72,7 +56,7 @@ fn balance_subtracts() {
     let store = db::MemoryDB::default();
     let mut bt = BalanceTable::new(&store);
 
-    bt.set(&addr, TokenAmount::from(80u8)).unwrap();
+    bt.add(&addr, &TokenAmount::from(80u8)).unwrap();
     assert_eq!(bt.get(&addr).unwrap(), TokenAmount::from(80u8));
     // Test subtracting past minimum only subtracts correct amount
     assert_eq!(

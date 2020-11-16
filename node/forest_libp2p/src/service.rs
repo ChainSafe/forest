@@ -245,8 +245,8 @@ where
                             debug!("Received chain_exchange request (peerId: {:?})", peer);
                             let db = self.cs.clone();
                             async {
-                                let response = task::spawn_blocking(move || -> ChainExchangeResponse {
-                                    make_chain_exchange_response(db.as_ref(), &request)
+                                let response = task::spawn(async move {
+                                    make_chain_exchange_response(db.as_ref(), &request).await
                                 }).await;
                                 let _ = channel.send(response).await;
                             }.await;

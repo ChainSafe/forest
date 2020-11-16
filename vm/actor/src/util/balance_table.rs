@@ -7,6 +7,7 @@ use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
 use num_bigint::bigint_ser::BigIntDe;
+use num_traits::{Signed, Zero};
 use std::error::Error as StdError;
 use vm::TokenAmount;
 
@@ -27,13 +28,11 @@ where
     }
 
     /// Retrieve root from balance table
-    #[inline]
     pub fn root(&mut self) -> Result<Cid, Error> {
         self.0.flush()
     }
 
     /// Gets token amount for given address in balance table
-    #[inline]
     pub fn get(&self, key: &Address) -> Result<TokenAmount, Box<dyn StdError>> {
         if let Some(v) = self.0.get(&key.to_bytes())? {
             Ok(v.0.clone())
@@ -42,38 +41,18 @@ where
         }
     }
 
-    /// Checks if a balance for an address exists
-    #[inline]
-    pub fn has(&self, key: &Address) -> Result<bool, Error> {
-        match self.0.get(&key.to_bytes())? {
-            Some(_) => Ok(true),
-            None => Ok(false),
-        }
-    }
-
-    /// Sets the balance for the address, overwriting previous value
-    #[inline]
-    pub fn set(&mut self, key: &Address, value: TokenAmount) -> Result<(), Error> {
-        self.0.set(key.to_bytes().into(), BigIntDe(value))
-    }
-
     /// Adds token amount to previously initialized account.
     pub fn add(&mut self, key: &Address, value: &TokenAmount) -> Result<(), Box<dyn StdError>> {
-        let new_value = { self.get(key)? + value };
-        Ok(self.0.set(key.to_bytes().into(), BigIntDe(new_value))?)
-    }
-
-    /// Adds an amount to a balance. Creates entry if not exists
-    pub fn add_create(
-        &mut self,
-        key: &Address,
-        value: TokenAmount,
-    ) -> Result<(), Box<dyn StdError>> {
-        let new_val = match self.0.get(&key.to_bytes())? {
-            Some(v) => &v.0 + value,
-            None => value,
-        };
-        Ok(self.0.set(key.to_bytes().into(), BigIntDe(new_val))?)
+        let prev = self.get(&key)?;
+        let sum = &prev + value;
+        if sum.is_negative() {
+            Err(format!("New balance in table cannot be negative: {}", sum).into())
+        } else if sum.is_zero() && !prev.is_zero() {
+            self.0.delete(&key.to_bytes())?;
+            Ok(())
+        } else {
+            Ok(self.0.set(key.to_bytes().into(), BigIntDe(sum))?)
+        }
     }
 
     /// Subtracts up to the specified amount from a balance, without reducing the balance
@@ -86,20 +65,16 @@ where
         floor: &TokenAmount,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         let prev = self.get(key)?;
-        let res = prev
-            .checked_sub(req)
+        let available = prev
+            .checked_sub(floor)
             .unwrap_or_else(|| TokenAmount::from(0u8));
-        let new_val: &TokenAmount = std::cmp::max(&res, floor);
+        let sub: TokenAmount = std::cmp::min(&available, req).clone();
 
-        if &prev > new_val {
-            // Subtraction needed, set new value and return change
-            self.0
-                .set(key.to_bytes().into(), BigIntDe(new_val.clone()))?;
-            Ok(prev - new_val)
-        } else {
-            // New value is same as previous, no change needed
-            Ok(TokenAmount::default())
+        if sub.is_positive() {
+            self.add(key, &-sub.clone())?;
         }
+
+        Ok(sub)
     }
 
     /// Subtracts value from a balance, and errors if full amount was not substracted.
@@ -108,16 +83,13 @@ where
         key: &Address,
         req: &TokenAmount,
     ) -> Result<(), Box<dyn StdError>> {
-        let sub_amt = self.subtract_with_minimum(key, req, &TokenAmount::from(0u8))?;
-        if &sub_amt != req {
-            return Err(format!(
-                "Couldn't subtract value from address {} (req: {}, available: {})",
-                key, req, sub_amt
-            )
-            .into());
-        }
+        let prev = self.get(key)?;
 
-        Ok(())
+        if req > &prev {
+            Err("couldn't subtract the requested amount".into())
+        } else {
+            self.add(key, &-req)
+        }
     }
 
     /// Returns total balance held by this balance table
