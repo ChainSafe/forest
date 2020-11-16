@@ -52,7 +52,6 @@ async fn validate_specific_block() {
     let fts = chain_store.fill_tipset(ts).unwrap();
     for block in fts.into_blocks() {
         task::block_on(SyncWorker::<_, _, FullVerifier>::validate_block(
-            chain_store.clone(),
             state_manager.clone(),
             beacon.clone(),
             Arc::new(block),
