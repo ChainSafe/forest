@@ -382,17 +382,16 @@ where
 
         let mut validations = FuturesUnordered::new();
         for b in fts.into_blocks() {
-            let cs = self.chain_store().clone();
             let sm = self.state_manager.clone();
             let bc = self.beacon.clone();
-            let v = task::spawn(async move { Self::validate_block(cs, sm, bc, Arc::new(b)).await });
+            let v = task::spawn(async move { Self::validate_block(sm, bc, Arc::new(b)).await });
             validations.push(v);
         }
 
         while let Some(result) = validations.next().await {
             match result {
                 Ok(_) => {
-                    // self.chain_store().set_tipset_tracker(b.header()).await?;
+                    // TODO add block to tipset tracker, block was valid
                 }
                 Err((cid, e)) => {
                     // If the error is temporally invalidated, don't add to bad blocks cache.
@@ -411,7 +410,6 @@ where
     /// Returns the validated block if `Ok`.
     /// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
     async fn validate_block(
-        cs: Arc<ChainStore<DB>>,
         sm: Arc<StateManager<DB>>,
         bc: Arc<TBeacon>,
         block: Arc<Block>,
@@ -422,6 +420,7 @@ where
             block.header().weight()
         );
 
+        let cs = sm.chain_store().clone();
         let block_cid = block.cid();
 
         // Check block validation cache in store.
