@@ -154,7 +154,7 @@ impl PriceList {
     #[inline]
     pub fn on_chain_message(&self, msg_size: usize) -> GasCharge {
         GasCharge::new(
-            "on_chain_message",
+            "OnChainMessage",
             self.on_chain_message_compute_base,
             self.on_chain_message_storage_base
                 + self.on_chain_message_storage_per_byte * msg_size as i64,
@@ -164,7 +164,7 @@ impl PriceList {
     #[inline]
     pub fn on_chain_return_value(&self, data_size: usize) -> GasCharge {
         GasCharge::new(
-            "on_chain_return_value",
+            "OnChainReturnValue",
             0,
             data_size as i64 * self.on_chain_return_value_per_byte,
         )
@@ -182,18 +182,18 @@ impl PriceList {
         if method_num != METHOD_SEND {
             ret += self.send_invoke_method;
         }
-        GasCharge::new("on_method_invocation", ret, 0)
+        GasCharge::new("OnMethodInvocation", ret, 0)
     }
     /// Returns the gas required for storing an object
     #[inline]
     pub fn on_ipld_get(&self) -> GasCharge {
-        GasCharge::new("on_ipld_get", self.ipld_get_base, 0)
+        GasCharge::new("OnIpldGet", self.ipld_get_base, 0)
     }
     /// Returns the gas required for storing an object
     #[inline]
     pub fn on_ipld_put(&self, data_size: usize) -> GasCharge {
         GasCharge::new(
-            "on_ipld_put",
+            "OnIpldPut",
             self.ipld_put_base,
             data_size as i64 * self.ipld_put_per_byte,
         )
@@ -202,7 +202,7 @@ impl PriceList {
     #[inline]
     pub fn on_create_actor(&self) -> GasCharge {
         GasCharge::new(
-            "on_create_actor",
+            "OnCreateActor",
             self.create_actor_compute,
             self.create_actor_storage,
         )
@@ -210,7 +210,7 @@ impl PriceList {
     /// Returns the gas required for deleting an actor
     #[inline]
     pub fn on_delete_actor(&self) -> GasCharge {
-        GasCharge::new("on_delete_actor", 0, self.delete_actor)
+        GasCharge::new("OnDeleteActor", 0, self.delete_actor)
     }
     /// Returns gas required for signature verification
     #[inline]
@@ -219,12 +219,12 @@ impl PriceList {
             SignatureType::BLS => self.bls_sig_cost,
             SignatureType::Secp256k1 => self.secp256k1_sig_cost,
         };
-        GasCharge::new("on_verify_signature", val, 0)
+        GasCharge::new("OnVerifySignature", val, 0)
     }
     /// Returns gas required for hashing data
     #[inline]
     pub fn on_hashing(&self, _: usize) -> GasCharge {
-        GasCharge::new("on_hashing", self.hashing_base, 0)
+        GasCharge::new("OnHashing", self.hashing_base, 0)
     }
     /// Returns gas required for computing unsealed sector Cid
     #[inline]
@@ -234,7 +234,7 @@ impl PriceList {
         _pieces: &[PieceInfo],
     ) -> GasCharge {
         GasCharge::new(
-            "on_compute_unsealed_sector_cid",
+            "OnComputeUnsealedSectorCid",
             self.compute_unsealed_sector_cid_base,
             0,
         )
@@ -242,7 +242,7 @@ impl PriceList {
     /// Returns gas required for seal verification
     #[inline]
     pub fn on_verify_seal(&self, _info: &SealVerifyInfo) -> GasCharge {
-        GasCharge::new("on_verify_seal", self.verify_seal_base, 0)
+        GasCharge::new("OnVerifySeal", self.verify_seal_base, 0)
     }
     /// Returns gas required for PoSt verification
     #[inline]
@@ -261,12 +261,12 @@ impl PriceList {
         let mut gas_used = cost.flat + info.challenged_sectors.len() as i64 * cost.scale;
         gas_used /= 2;
 
-        GasCharge::new("on_verify_post", gas_used, 0)
+        GasCharge::new("OnVerifyPost", gas_used, 0)
     }
     /// Returns gas required for verifying consensus fault
     #[inline]
     pub fn on_verify_consensus_fault(&self) -> GasCharge {
-        GasCharge::new("on_verify_consensus_fault", self.verify_consensus_fault, 0)
+        GasCharge::new("OnVerifyConsensusFault", self.verify_consensus_fault, 0)
     }
 }
 

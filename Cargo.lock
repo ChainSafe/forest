@@ -960,8 +960,10 @@ dependencies = [
  "ipld_blockstore",
  "lazy_static",
  "log",
+ "lru",
  "multihash 0.13.0",
  "num-traits 0.2.14",
+ "rayon",
  "serde",
  "state_tree",
  "test_utils",
@@ -3115,6 +3117,7 @@ dependencies = [
 name = "ipld_amt"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.5.8",
  "criterion",
  "db",
  "forest_cid",

@@ -453,11 +453,18 @@ where
                                         .get(cid)?
                                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
-                                    // Ignore error intentionally, the cache value will always be the same
-                                    let _ = cache.fill(node);
-                                    let cache_node =
-                                        cache.borrow().expect("cache filled on line above");
-                                    cache_node.for_each_while(store, height - 1, offs, f)?
+                                    #[cfg(not(feature = "go-interop"))]
+                                    {
+                                        // Ignore error intentionally, the cache value will always be the same
+                                        let _ = cache.fill(node);
+                                        let cache_node =
+                                            cache.borrow().expect("cache filled on line above");
+
+                                        cache_node.for_each_while(store, height - 1, offs, f)?
+                                    }
+
+                                    #[cfg(feature = "go-interop")]
+                                    node.for_each_while(store, height - 1, offs, f)?
                                 }
                             }
                         };
@@ -517,11 +524,13 @@ where
                             }
                             Link::Cid { cid, cache } => {
                                 let cache_node = std::mem::take(cache);
-                                let mut node = if let Some(sn) = cache_node.into_inner() {
-                                    sn
+
+                                #[warn(unused_variables)]
+                                let (mut node, cached) = if let Some(sn) = cache_node.into_inner() {
+                                    (sn, true)
                                 } else {
                                     // Only retrieve sub node if not found in cache
-                                    store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                                    (store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?, false)
                                 };
 
                                 let (keep_going, did_mutate_node) =
@@ -529,6 +538,18 @@ where
 
                                 if did_mutate_node {
                                     *link = Link::Dirty(node);
+                                } else {
+                                    #[cfg(feature = "go-interop")]
+                                    {
+                                        if cached {
+                                            let _ = cache.fill(node);
+                                        }
+                                    }
+
+                                    // Replace cache, or else iteration over without modification
+                                    // will consume cache
+                                    #[cfg(not(feature = "go-interop"))]
+                                    let _ = cache.fill(node);
                                 }
 
                                 (keep_going, did_mutate_node)

@@ -11,8 +11,8 @@ use chain::TipsetMetadata;
 use cid::{Cid, Code::Blake2b256};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
-use forest_libp2p::blocksync::{
-    BlockSyncResponse, BlockSyncResponseStatus, CompactedMessages, TipsetBundle,
+use forest_libp2p::chain_exchange::{
+    ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
@@ -207,15 +207,15 @@ pub fn construct_dummy_header() -> BlockHeader {
 }
 
 /// Returns a RPCResponse used for testing
-pub fn construct_blocksync_response() -> BlockSyncResponse {
+pub fn construct_chain_exchange_response() -> ChainExchangeResponse {
     // construct block sync response
-    BlockSyncResponse {
+    ChainExchangeResponse {
         chain: vec![
             construct_tipset_bundle(3, 10),
             construct_tipset_bundle(2, 10),
             construct_tipset_bundle(1, 10),
         ],
-        status: BlockSyncResponseStatus::Success,
+        status: ChainExchangeResponseStatus::Success,
         message: "message".to_owned(),
     }
 }
