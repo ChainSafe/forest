@@ -8,7 +8,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-/// Current state of the ChainSyncer using the BlockSync protocol.
+/// Current state of the ChainSyncer using the ChainExchange protocol.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum SyncStage {
     /// Idle state

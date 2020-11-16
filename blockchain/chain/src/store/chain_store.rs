@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, TipIndex, TipsetMetadata};
+use super::{Error, TipIndex};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::RwLock;
@@ -21,9 +21,11 @@ use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use log::{info, warn};
+use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
+use rayon::prelude::*;
 use serde::Serialize;
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -44,6 +46,8 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 1000;
+
+const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
 
 /// Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
@@ -91,19 +95,22 @@ pub struct ChainStore<DB> {
     /// Tipset at the head of the best-known chain.
     heaviest: RwLock<Option<Arc<Tipset>>>,
 
+    ts_cache: RwLock<LruCache<TipsetKeys, Arc<Tipset>>>,
+
     /// tip_index tracks tipsets by epoch/parentset for use by expected consensus.
-    tip_index: RwLock<TipIndex>,
+    tip_index: TipIndex,
 }
 
 impl<DB> ChainStore<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
 {
     pub fn new(db: Arc<DB>) -> Self {
         let cs = Self {
             db,
             publisher: RwLock::new(Publisher::new(SINK_CAP)),
-            tip_index: RwLock::new(TipIndex::new()),
+            tip_index: TipIndex::default(),
+            ts_cache: RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)),
             heaviest: Default::default(),
         };
 
@@ -131,16 +138,8 @@ where
     }
 
     /// Sets tip_index tracker
-    // TODO this is really broken, should not be setting the tipset metadata to a tipset with just
-    // the one header.
-    pub async fn set_tipset_tracker(&self, header: &BlockHeader) -> Result<(), Error> {
-        let ts = Arc::new(Tipset::new(vec![header.clone()])?);
-        let meta = TipsetMetadata {
-            tipset_state_root: *header.state_root(),
-            tipset_receipts_root: *header.message_receipts(),
-            tipset: ts,
-        };
-        self.tip_index.write().await.put(&meta).await;
+    // TODO handle managing tipset in tracker
+    pub async fn set_tipset_tracker(&self, _: &BlockHeader) -> Result<(), Error> {
         Ok(())
     }
 
@@ -162,7 +161,7 @@ where
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
             Some(bz) => {
                 let keys: Vec<Cid> = from_slice(&bz)?;
-                self.tipset_from_keys(&TipsetKeys::new(keys))?
+                self.tipset_from_keys(&TipsetKeys::new(keys)).await?
             }
             None => {
                 warn!("No previous chain state found");
@@ -171,7 +170,7 @@ where
         };
 
         // set as heaviest tipset
-        let heaviest_ts = Arc::new(heaviest_ts);
+        let heaviest_ts = heaviest_ts;
         *self.heaviest.write().await = Some(heaviest_ts.clone());
         self.publisher
             .write()
@@ -191,7 +190,7 @@ where
         self.heaviest.read().await.clone()
     }
 
-    pub fn tip_index(&self) -> &RwLock<TipIndex> {
+    pub fn tip_index(&self) -> &TipIndex {
         &self.tip_index
     }
 
@@ -210,10 +209,14 @@ where
     }
 
     /// Returns Tipset from key-value store from provided cids
-    pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Tipset, Error> {
+    pub async fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+        if let Some(ts) = self.ts_cache.write().await.get(tsk) {
+            return Ok(ts.clone());
+        }
+
         let block_headers: Vec<BlockHeader> = tsk
             .cids()
-            .iter()
+            .par_iter()
             .map(|c| {
                 self.db
                     .get(c)
@@ -223,7 +226,8 @@ where
             .collect::<Result<_, Error>>()?;
 
         // construct new Tipset to return
-        let ts = Tipset::new(block_headers)?;
+        let ts = Arc::new(Tipset::new(block_headers)?);
+        self.ts_cache.write().await.put(tsk.clone(), ts.clone());
         Ok(ts)
     }
 
@@ -263,11 +267,11 @@ where
 
     /// Gets lookback tipset for block validations.
     /// Returns `None` if the tipset is also the lookback tipset.
-    pub fn get_lookback_tipset_for_round(
+    pub async fn get_lookback_tipset_for_round(
         &self,
         ts: &Tipset,
         round: ChainEpoch,
-    ) -> Result<Option<Tipset>, Error> {
+    ) -> Result<Option<Arc<Tipset>>, Error> {
         let lbr = if round > WINNING_POST_SECTOR_SET_LOOKBACK {
             round - WINNING_POST_SECTOR_SET_LOOKBACK
         } else {
@@ -279,7 +283,7 @@ where
         }
 
         // TODO would be better to get tipset with ChainStore cache.
-        self.tipset_by_height(lbr, ts, true)
+        self.tipset_by_height(lbr, ts, true).await
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.
@@ -288,12 +292,12 @@ where
     /// - If `prev` is `false`, the tipset following the null round is returned.
     ///
     /// Returns `None` if the tipset provided was the tipset at the given height.
-    pub fn tipset_by_height(
+    pub async fn tipset_by_height(
         &self,
         height: ChainEpoch,
         ts: &Tipset,
         prev: bool,
-    ) -> Result<Option<Tipset>, Error> {
+    ) -> Result<Option<Arc<Tipset>>, Error> {
         if height > ts.epoch() {
             return Err(Error::Other(
                 "searching for tipset that has a height less than starting point".to_owned(),
@@ -302,13 +306,12 @@ where
         if height == ts.epoch() {
             return Ok(None);
         }
-        // TODO get tipset by height using cache instead of reloading tipsets
-        let mut ts_temp: Option<Tipset> = None;
+        let mut ts_temp: Option<Arc<Tipset>> = None;
         loop {
             let pts = if let Some(temp) = &ts_temp {
-                self.tipset_from_keys(temp.parents())?
+                self.tipset_from_keys(temp.parents()).await?
             } else {
-                self.tipset_from_keys(ts.parents())?
+                self.tipset_from_keys(ts.parents()).await?
             };
             if height > pts.epoch() {
                 if prev {
@@ -325,14 +328,14 @@ where
 
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
     /// Entropy from the ticket chain.
-    pub fn get_chain_randomness(
+    pub async fn get_chain_randomness(
         &self,
         blocks: &TipsetKeys,
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        let ts = self.tipset_from_keys(blocks)?;
+        let ts = self.tipset_from_keys(blocks).await?;
 
         if round > ts.epoch() {
             return Err("cannot draw randomness from the future".into());
@@ -341,7 +344,8 @@ where
         let search_height = if round < 0 { 0 } else { round };
 
         let rand_ts = self
-            .tipset_by_height(search_height, &ts, true)?
+            .tipset_by_height(search_height, &ts, true)
+            .await?
             .unwrap_or(ts);
 
         draw_randomness(
@@ -358,14 +362,14 @@ where
 
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
     /// Entropy from the latest beacon entry.
-    pub fn get_beacon_randomness(
+    pub async fn get_beacon_randomness(
         &self,
         blocks: &TipsetKeys,
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        let ts = self.tipset_from_keys(blocks)?;
+        let ts = self.tipset_from_keys(blocks).await?;
 
         if round > ts.epoch() {
             return Err("cannot draw randomness from the future".into());
@@ -374,16 +378,17 @@ where
         let search_height = if round < 0 { 0 } else { round };
 
         let rand_ts = self
-            .tipset_by_height(search_height, &ts, true)?
+            .tipset_by_height(search_height, &ts, true)
+            .await?
             .unwrap_or(ts);
 
-        let be = self.latest_beacon_entry(&rand_ts)?;
+        let be = self.latest_beacon_entry(&rand_ts).await?;
 
         draw_randomness(be.data(), pers, round, entropy)
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
-    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
+    pub async fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
             let cbe = ts.min_ticket_block().beacon_entries();
             if let Some(entry) = cbe.last() {
@@ -400,10 +405,10 @@ where
         if let Some(entry) = check_for_beacon_entry(ts)? {
             return Ok(entry);
         }
-        let mut cur = self.tipset_from_keys(ts.parents())?;
+        let mut cur = self.tipset_from_keys(ts.parents()).await?;
         for i in 1..20 {
             if i != 1 {
-                cur = self.tipset_from_keys(cur.parents())?;
+                cur = self.tipset_from_keys(cur.parents()).await?;
             }
             if let Some(entry) = check_for_beacon_entry(&cur)? {
                 return Ok(entry);
@@ -423,7 +428,7 @@ where
     }
 
     /// Constructs and returns a full tipset if messages from storage exists - non self version
-    pub fn fill_tipset(&self, ts: Tipset) -> Result<FullTipset, Tipset>
+    pub fn fill_tipset(&self, ts: Arc<Tipset>) -> Result<FullTipset, Arc<Tipset>>
     where
         DB: BlockStore,
     {
@@ -443,8 +448,9 @@ where
 
         // Zip messages with blocks
         let blocks = ts
-            .into_blocks()
-            .into_iter()
+            .blocks()
+            .iter()
+            .cloned()
             .zip(messages)
             .map(|(header, (bls_messages, secp_messages))| Block {
                 header,
@@ -550,6 +556,7 @@ where
 }
 
 /// Returns a tuple of cids for both Unsigned and Signed messages
+// TODO cache these recent meta roots
 pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
     DB: BlockStore,

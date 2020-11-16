@@ -24,7 +24,7 @@ use fil_types::{
     verifier::ProofVerifier, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, BLOCK_GAS_LIMIT,
     TICKET_RANDOMNESS_LOOKBACK, UPGRADE_SMOKE_HEIGHT,
 };
-use forest_libp2p::blocksync::TipsetBundle;
+use forest_libp2p::chain_exchange::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
@@ -40,7 +40,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-/// Worker to handle syncing chain with the blocksync protocol.
+/// Worker to handle syncing chain with the chain_exchange protocol.
 pub(crate) struct SyncWorker<DB, TBeacon, V> {
     /// State of the sync worker.
     pub state: Arc<RwLock<SyncState>>,
@@ -112,10 +112,7 @@ where
             .write()
             .await
             .init(heaviest.clone(), head.clone());
-        let tipsets = match self
-            .sync_headers_reverse(head.as_ref().clone(), &heaviest)
-            .await
-        {
+        let tipsets = match self.sync_headers_reverse(head.clone(), &heaviest).await {
             Ok(ts) => ts,
             Err(e) => {
                 self.state.write().await.error(e.to_string());
@@ -151,7 +148,11 @@ where
     }
 
     /// Syncs chain data and persists it to blockstore
-    async fn sync_headers_reverse(&self, head: Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
+    async fn sync_headers_reverse(
+        &self,
+        head: Arc<Tipset>,
+        to: &Tipset,
+    ) -> Result<Vec<Arc<Tipset>>, Error> {
         info!("Syncing headers from: {:?}", head.key());
         self.state.write().await.set_epoch(to.epoch());
 
@@ -180,7 +181,7 @@ where
             }
 
             // Try to load parent tipset from local storage
-            if let Ok(ts) = self.chain_store().tipset_from_keys(cur_ts.parents()) {
+            if let Ok(ts) = self.chain_store().tipset_from_keys(cur_ts.parents()).await {
                 // Add blocks in tipset to accepted chain and push the tipset to return set
                 accepted_blocks.extend_from_slice(ts.cids());
                 return_set.push(ts);
@@ -188,16 +189,16 @@ where
             }
 
             // TODO tweak request window when socket frame is tested
-            const REQUEST_WINDOW: i64 = 10;
+            const REQUEST_WINDOW: i64 = 200;
             let epoch_diff = cur_ts.epoch() - to_epoch;
-            debug!("BlockSync from: {} to {}", cur_ts.epoch(), to_epoch);
+            debug!("ChainExchange from: {} to {}", cur_ts.epoch(), to_epoch);
             let window = min(epoch_diff, REQUEST_WINDOW);
 
-            // Load blocks from network using blocksync
+            // Load blocks from network using chain_exchange
             // TODO consider altering window size before returning error for failed sync.
             let tipsets = self
                 .network
-                .blocksync_headers(None, cur_ts.parents(), window as u64)
+                .chain_exchange_headers(None, cur_ts.parents(), window as u64)
                 .await?;
 
             info!(
@@ -269,7 +270,7 @@ where
     }
 
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
-    async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Tipset>, Error> {
+    async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
         // TODO move to shared parameter (from actors crate most likely)
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
@@ -277,10 +278,10 @@ where
         // to have to request all fork length headers at once.
         let tips = self
             .network
-            .blocksync_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
+            .chain_exchange_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
             .await?;
 
-        let mut ts = self.chain_store().tipset_from_keys(to.parents())?;
+        let mut ts = self.chain_store().tipset_from_keys(to.parents()).await?;
 
         for i in 0..tips.len() {
             while ts.epoch() > tips[i].epoch() {
@@ -289,7 +290,7 @@ where
                         "Synced chain forked at genesis, refusing to sync".to_string(),
                     ));
                 }
-                ts = self.chain_store().tipset_from_keys(ts.parents())?;
+                ts = self.chain_store().tipset_from_keys(ts.parents()).await?;
             }
             if ts == tips[i] {
                 return Ok(tips[0..=i].to_vec());
@@ -301,8 +302,9 @@ where
         ))
     }
 
-    /// Syncs messages by first checking state for message existence otherwise fetches messages from blocksync
-    async fn sync_messages_check_state(&self, tipsets: Vec<Tipset>) -> Result<(), Error> {
+    /// Syncs messages by first checking state for message existence otherwise fetches messages from
+    /// chain exchange.
+    async fn sync_messages_check_state(&self, tipsets: Vec<Arc<Tipset>>) -> Result<(), Error> {
         let mut ts_iter = tipsets.into_iter().rev();
         // Currently syncing 1 height at a time, no reason for us to sync more
         const REQUEST_WINDOW: usize = 1;
@@ -312,11 +314,11 @@ where
             let fts = match self.chain_store().fill_tipset(ts) {
                 Ok(fts) => fts,
                 Err(ts) => {
-                    // no full tipset in storage; request messages via blocksync
+                    // no full tipset in storage; request messages via chain_exchange
 
                     let batch_size = REQUEST_WINDOW;
                     debug!(
-                        "BlockSync message sync tipsets: epoch: {}, len: {}",
+                        "ChainExchange message sync tipsets: epoch: {}, len: {}",
                         ts.epoch(),
                         batch_size
                     );
@@ -324,7 +326,7 @@ where
                     // receive tipset bundle from block sync
                     let compacted_messages = self
                         .network
-                        .blocksync_messages(None, ts.key(), batch_size as u64)
+                        .chain_exchange_messages(None, ts.key(), batch_size as u64)
                         .await?;
 
                     // Chain current tipset with iterator
@@ -337,7 +339,7 @@ where
                         })?;
 
                         let bundle = TipsetBundle {
-                            blocks: t.into_blocks(),
+                            blocks: t.blocks().to_vec(),
                             messages: Some(messages),
                         };
                         // construct full tipsets from fetched messages
@@ -353,7 +355,7 @@ where
                             chain::persist_objects(self.state_manager.blockstore(), &m.bls_msgs)?;
                             chain::persist_objects(self.state_manager.blockstore(), &m.secp_msgs)?;
                         } else {
-                            warn!("Blocksync request for messages returned null messages");
+                            warn!("Chain Exchange request for messages returned null messages");
                         }
                     }
 
@@ -381,17 +383,16 @@ where
 
         let mut validations = FuturesUnordered::new();
         for b in fts.into_blocks() {
-            let cs = self.chain_store().clone();
             let sm = self.state_manager.clone();
             let bc = self.beacon.clone();
-            let v = task::spawn(async move { Self::validate_block(cs, sm, bc, Arc::new(b)).await });
+            let v = task::spawn(async move { Self::validate_block(sm, bc, Arc::new(b)).await });
             validations.push(v);
         }
 
         while let Some(result) = validations.next().await {
             match result {
-                Ok(b) => {
-                    self.chain_store().set_tipset_tracker(b.header()).await?;
+                Ok(_) => {
+                    // TODO add block to tipset tracker, block was valid
                 }
                 Err((cid, e)) => {
                     // If the error is temporally invalidated, don't add to bad blocks cache.
@@ -410,7 +411,6 @@ where
     /// Returns the validated block if `Ok`.
     /// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
     async fn validate_block(
-        cs: Arc<ChainStore<DB>>,
         sm: Arc<StateManager<DB>>,
         bc: Arc<TBeacon>,
         block: Arc<Block>,
@@ -421,6 +421,7 @@ where
             block.header().weight()
         );
 
+        let cs = sm.chain_store().clone();
         let block_cid = block.cid();
 
         // Check block validation cache in store.
@@ -438,16 +439,16 @@ where
         // Check to ensure all optional values exist
         block_sanity_checks(header).map_err(|e| (*block_cid, e.into()))?;
 
-        let base_ts = Arc::new(
-            cs.tipset_from_keys(header.parents())
-                .map_err(|e| (*block_cid, e.into()))?,
-        );
+        let base_ts = cs
+            .tipset_from_keys(header.parents())
+            .await
+            .map_err(|e| (*block_cid, e.into()))?;
 
         // Retrieve lookback tipset for validation.
         let lbts = cs
             .get_lookback_tipset_for_round(&base_ts, block.header().epoch())
+            .await
             .map_err(|e| (*block_cid, e.into()))?
-            .map(Arc::new)
             .unwrap_or_else(|| Arc::clone(&base_ts));
 
         let (lbst, _) = sm.tipset_state::<V>(&lbts).await.map_err(|e| {
@@ -460,6 +461,7 @@ where
 
         let prev_beacon = cs
             .latest_beacon_entry(base_ts.as_ref())
+            .await
             .map_err(|e| (*block_cid, e.into()))?;
         let prev_beacon = Arc::new(prev_beacon);
 
@@ -1012,7 +1014,7 @@ mod tests {
     use libp2p::PeerId;
     use std::sync::Arc;
     use std::time::Duration;
-    use test_utils::{construct_blocksync_response, construct_dummy_header, construct_tipset};
+    use test_utils::{construct_chain_exchange_response, construct_dummy_header, construct_tipset};
 
     fn sync_worker_setup(
         db: Arc<MemoryDB>,
@@ -1044,12 +1046,12 @@ mod tests {
         )
     }
 
-    fn send_blocksync_response(blocksync_message: Receiver<NetworkMessage>) {
-        let rpc_response = construct_blocksync_response();
+    fn send_chain_exchange_response(chain_exchange_message: Receiver<NetworkMessage>) {
+        let rpc_response = construct_chain_exchange_response();
 
         task::block_on(async {
-            match blocksync_message.recv().await.unwrap() {
-                NetworkMessage::BlockSyncRequest {
+            match chain_exchange_message.recv().await.unwrap() {
+                NetworkMessage::ChainExchangeRequest {
                     response_channel, ..
                 } => {
                     response_channel.send(rpc_response).unwrap();
@@ -1075,11 +1077,10 @@ mod tests {
                 .update_peer_head(source.clone(), Some(head.clone()))
                 .await;
             assert_eq!(sw.network.peer_manager().len().await, 1);
-            // make blocksync request
-            let return_set =
-                task::spawn(async move { sw.sync_headers_reverse((*head).clone(), &to).await });
-            // send blocksync response to channel
-            send_blocksync_response(network_receiver);
+            // make chain_exchange request
+            let return_set = task::spawn(async move { sw.sync_headers_reverse(head, &to).await });
+            // send chain_exchange response to channel
+            send_chain_exchange_response(network_receiver);
             assert_eq!(return_set.await.unwrap().len(), 4);
         });
     }

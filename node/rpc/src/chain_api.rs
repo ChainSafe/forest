@@ -18,6 +18,7 @@ use message::{
 };
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use wallet::KeyStore;
 
 #[derive(Serialize, Deserialize)]
@@ -152,11 +153,16 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (height, tsk) = params;
-    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tsk)
+        .await?;
     let tss = data
         .state_manager
         .chain_store()
-        .tipset_by_height(height, &ts, true)?
+        .tipset_by_height(height, &ts, true)
+        .await?
         .unwrap_or(ts);
     Ok(TipsetJson(tss))
 }
@@ -170,7 +176,7 @@ where
 {
     let genesis =
         chain::genesis(data.state_manager.blockstore())?.ok_or("can't find genesis tipset")?;
-    let gen_ts = Tipset::new(vec![genesis])?;
+    let gen_ts = Arc::new(Tipset::new(vec![genesis])?);
     Ok(Some(TipsetJson(gen_ts)))
 }
 
@@ -187,7 +193,7 @@ where
         .heaviest_tipset()
         .await
         .ok_or("can't find heaviest tipset")?;
-    Ok(TipsetJson(heaviest.as_ref().clone()))
+    Ok(TipsetJson(heaviest))
 }
 
 pub(crate) async fn chain_tipset_weight<DB, KS>(
@@ -199,7 +205,11 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (tsk,) = params;
-    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tsk)
+        .await?;
     Ok(ts.weight().to_str_radix(10))
 }
 
@@ -229,7 +239,11 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (tsk,) = params;
-    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tsk)
+        .await?;
     Ok(TipsetJson(ts))
 }
 
@@ -242,10 +256,14 @@ where
     KS: KeyStore + Send + Sync + 'static,
 {
     let (tsk, pers, epoch, entropy) = params;
-    Ok(data.state_manager.chain_store().get_chain_randomness(
-        &tsk,
-        DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
-        epoch,
-        &entropy,
-    )?)
+    Ok(data
+        .state_manager
+        .chain_store()
+        .get_chain_randomness(
+            &tsk,
+            DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
+            epoch,
+            &entropy,
+        )
+        .await?)
 }

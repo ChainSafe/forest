@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use async_std::task;
 use blockstore::BlockStore;
 use chain::ChainStore;
 use clock::ChainEpoch;
@@ -25,7 +26,7 @@ impl<DB> ChainRand<DB> {
 
 impl<DB> Rand for ChainRand<DB>
 where
-    DB: BlockStore,
+    DB: BlockStore + Send + Sync + 'static,
 {
     fn get_chain_randomness(
         &self,
@@ -33,8 +34,10 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>> {
-        self.cs
-            .get_chain_randomness(&self.blks, pers, round, entropy)
+        task::block_on(
+            self.cs
+                .get_chain_randomness(&self.blks, pers, round, entropy),
+        )
     }
 
     fn get_beacon_randomness(
@@ -43,7 +46,9 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>> {
-        self.cs
-            .get_beacon_randomness(&self.blks, pers, round, entropy)
+        task::block_on(
+            self.cs
+                .get_beacon_randomness(&self.blks, pers, round, entropy),
+        )
     }
 }

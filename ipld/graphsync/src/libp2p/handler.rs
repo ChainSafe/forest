@@ -19,7 +19,7 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 // TODO move this to config option
-const TIMEOUT: u64 = 10;
+const TIMEOUT: u64 = 5;
 
 /// Handler implementation for GraphSync protocol.
 pub struct GraphSyncHandler {
