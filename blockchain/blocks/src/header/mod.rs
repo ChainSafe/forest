@@ -38,9 +38,9 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 /// use crypto::Signature;
 ///
 /// BlockHeader::builder()
-///     .messages(Cid::new_from_cbor(&[], Identity)) // required
-///     .message_receipts(Cid::new_from_cbor(&[], Identity)) // required
-///     .state_root(Cid::new_from_cbor(&[], Identity)) // required
+///     .messages(cid::new_from_cbor(&[], Identity)) // required
+///     .message_receipts(cid::new_from_cbor(&[], Identity)) // required
+///     .state_root(cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0)) // optional
 ///     .beacon_entries(Vec::new()) // optional
 ///     .winning_post_proof(Vec::new()) // optional
@@ -297,7 +297,7 @@ impl BlockHeader {
     /// Updates cache and returns mutable reference of header back
     fn update_cache(&mut self) -> Result<(), String> {
         self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
-        self.cached_cid = Cid::new_from_cbor(&self.cached_bytes, Blake2b256);
+        self.cached_cid = cid::new_from_cbor(&self.cached_bytes, Blake2b256);
         Ok(())
     }
     /// Check to ensure block signature is valid

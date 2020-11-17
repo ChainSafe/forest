@@ -53,7 +53,7 @@ use crate::{
 use address::{Address, Payload, Protocol};
 use bitfield::{BitField, UnvalidatedBitField, Validate};
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
-use cid::{Cid, Code::Blake2b256};
+use cid::{Cid, Code::Blake2b256, Prefix};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
     self, InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,
@@ -671,7 +671,7 @@ impl Actor {
             ));
         }
 
-        if params.sealed_cid.prefix() != SEALED_CID_PREFIX {
+        if Prefix::from(params.sealed_cid) != SEALED_CID_PREFIX {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "sealed CID had wrong prefix"

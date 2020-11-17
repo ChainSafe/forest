@@ -873,9 +873,9 @@ mod tests {
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight((2 as u32).into())
-            .messages(Cid::new_from_cbor(&[], Identity))
-            .message_receipts(Cid::new_from_cbor(&[], Identity))
-            .state_root(Cid::new_from_cbor(&[], Identity))
+            .messages(cid::new_from_cbor(&[], Identity))
+            .message_receipts(cid::new_from_cbor(&[], Identity))
+            .state_root(cid::new_from_cbor(&[], Identity))
             .miner_address(Address::new_id(0))
             .build_and_validate()
             .unwrap();
@@ -891,7 +891,7 @@ mod tests {
 
         let cs = ChainStore::new(Arc::new(db));
 
-        let cid = Cid::new_from_cbor(&[1, 2, 3], Blake2b256);
+        let cid = cid::new_from_cbor(&[1, 2, 3], Blake2b256);
         assert_eq!(cs.is_block_validated(&cid).unwrap(), false);
 
         cs.mark_block_as_validated(&cid).unwrap();

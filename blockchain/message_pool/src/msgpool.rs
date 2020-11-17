@@ -1391,7 +1391,7 @@ pub mod test_provider {
         BlockHeader::builder()
             .weight(BigInt::from(weight))
             .cached_bytes(cached_bytes.to_vec())
-            .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
+            .cached_cid(cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap()

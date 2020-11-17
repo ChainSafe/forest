@@ -51,7 +51,7 @@ pub trait BlockStore: Store {
 
     /// Put raw bytes in the block store and return the Cid identifier.
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
-        let cid = Cid::new_from_cbor(&bytes, code);
+        let cid = cid::new_from_cbor(&bytes, code);
         self.write(cid.to_bytes(), bytes)?;
         Ok(cid)
     }
@@ -83,7 +83,7 @@ impl BlockStore for RocksDb {
             .into_iter()
             .map(|v| {
                 let bz = to_vec(v)?;
-                let cid = Cid::new_from_cbor(&bz, code);
+                let cid = cid::new_from_cbor(&bz, code);
                 batch.put(cid.to_bytes(), bz);
                 Ok(cid)
             })

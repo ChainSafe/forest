@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::BlockStore;
-use cid::{Cid, Codec};
+use cid::{Cid, DAG_CBOR};
 use forest_ipld::Ipld;
 use std::error::Error as StdError;
 
@@ -51,7 +51,7 @@ where
             }
         }
         Ipld::Link(cid) => {
-            if cid.codec == Codec::DagCBOR {
+            if cid.codec() == DAG_CBOR {
                 if let Some(x) = bs.get(cid)? {
                     *ipld = x;
                 }
