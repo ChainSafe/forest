@@ -1204,6 +1204,49 @@ where
     Ok(())
 }
 
+/// Like head_change, except it doesnt change the state of the MessagePool.
+/// It simulates a head change call.
+pub async fn run_head_change<T>(
+    api: &RwLock<T>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
+    from: Vec<Tipset>,
+    to: Vec<Tipset>,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>
+) -> Result<(), Error>
+    where
+        T: Provider + 'static,
+{
+    /// TODO: Need to apply reorg logic here to handle forks to revert and apply
+    /// tipsets on a different fork.
+    let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
+    for ts in from {
+        let mut msgs: Vec<SignedMessage> = Vec::new();
+        for block in ts.blocks() {
+            let (umsg, mut smsgs) = api.read().await.messages_for_block(&block)?;
+            msgs.append(smsgs.as_mut());
+        }
+        for msg in msgs {
+            add(msg, rmsgs.borrow_mut());
+        }
+    }
+
+    for ts in to {
+        for b in ts.blocks() {
+            let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
+
+            for msg in smsgs {
+                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+            }
+            for msg in msgs {
+                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+
+
 /// This is a helper method for head_change. This method will remove a sequence for a from address
 /// from the rmsgs hashmap. Also remove the from address and sequence from the messagepool.
 async fn rm(
@@ -1417,7 +1460,7 @@ pub mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
-    fn create_smsg(
+    pub fn create_smsg(
         to: &Address,
         from: &Address,
         wallet: &mut Wallet<MemKeyStore>,
@@ -1441,7 +1484,7 @@ pub mod tests {
         smsg
     }
 
-    fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
+    pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(1234561);
         let c =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();

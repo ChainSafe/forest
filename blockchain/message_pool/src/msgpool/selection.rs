@@ -1,7 +1,7 @@
 use super::{allow_negative_chains, create_message_chains, MessagePool, Provider};
 use crate::block_prob::block_probabilities;
 use crate::msg_chain::MsgChain;
-use crate::Error;
+use crate::{Error, run_head_change};
 use address::Address;
 use blocks::Tipset;
 use message::SignedMessage;
@@ -58,7 +58,7 @@ where
         }
 
         // 2. Sort the chains
-        chains.sort_by(|a, b| a.compare(&b));
+        chains.sort_by(|a, b| b.compare(&a));
         if !allow_negative_chains(cur_ts.epoch())
             && !chains.is_empty()
             && chains[0].curr().gas_perf < 0.0
@@ -209,7 +209,7 @@ where
         }
 
         // 2. Sort the chains
-        chains.sort_by(|a, b| a.compare(&b));
+        chains.sort_by(|a, b| b.compare(&a));
         if !allow_negative_chains(cur_ts.epoch())
             && !chains.is_empty()
             && chains[0].curr().gas_perf < 0.0
@@ -275,8 +275,33 @@ where
     }
 
     async fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
-        todo!()
+        let mut result: Pending = HashMap::new();
+        let mut in_sync = false;
+        if cur_ts.epoch() == ts.epoch() && cur_ts == ts{
+            in_sync = true;
+        }
+
+        for (a, mset) in self.pending.read().await.iter(){
+            if in_sync {
+                result.insert(*a, mset.msgs.clone());
+            } else {
+                let mut mset_copy = HashMap::new();
+                for (nonce, m) in mset.msgs.iter() {
+                    mset_copy.insert(*nonce, m.clone());
+                }
+                result.insert(*a, mset_copy);
+            }
+        }
+
+        if in_sync {
+            return Ok(result);
+        }
+
+        // Run head change to do reorg detection
+        run_head_change(&self.api, &self.pending, vec![cur_ts.clone()], vec![ts.clone()], &mut result).await.unwrap();
+        Ok(result)
     }
+
     async fn select_priority_messages(
         &self,
         pending: &mut Pending,
@@ -364,8 +389,94 @@ where
     }
 }
 
-#[cfg(tests)]
-mod test {
-    #[test]
-    fn t1() {}
+#[cfg(test)]
+mod test_selection {
+    use super::*;
+
+    use crate::msgpool::test_provider::TestApi;
+    use crate::msgpool::tests::{create_smsg, mock_block};
+    use async_std::sync::channel;
+    use async_std::task;
+    use key_management::{MemKeyStore, Wallet};
+    use message::{SignedMessage, UnsignedMessage};
+    use crate::head_change;
+    use std::sync::Arc;
+    use crypto::{SignatureType, VRFProof};
+    use types::{NetworkParams};
+    use message::Message;
+
+    fn make_test_mpool() -> MessagePool<TestApi> {
+        let keystore = MemKeyStore::new();
+        let mut tma = TestApi::default();
+
+        task::block_on(async move {
+            let (tx, _rx) = channel(50);
+            MessagePool::new(tma, "mptest".to_string(), tx, Default::default()).await
+        })
+        .unwrap()
+    }
+    #[async_std::test]
+    async fn basic_message_selection() {
+        let old_max_nonce_gap  = 4;
+        let max_nonce_gap = 1000;
+
+        let mut mpool = make_test_mpool();
+
+        let mut w1 = Wallet::new(MemKeyStore::new());
+        let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let mut w2 = Wallet::new(MemKeyStore::new());
+        let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let a = mock_block(1, 1);
+        let ts = Tipset::new(vec![a.clone()]).unwrap();
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let republished = mpool.republished.clone();
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger,
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            Vec::new(),
+            vec![Tipset::new(vec![a]).unwrap()],
+        )
+            .await
+            .unwrap();
+
+        let gas_limit = 6955002;
+        api.write().await.set_state_balance_raw(&a1, types::DevnetParams::from_fil(1));
+        api.write().await.set_state_balance_raw(&a2, types::DevnetParams::from_fil(1));
+
+        // we create 10 messages from each actor to another, with the first actor paying higher
+        // gas prices than the second; we expect message selection to order his messages first
+        for i in 0..10 {
+            let m = create_smsg(&a2, &a1, &mut w1, i, gas_limit, 2*i+1);
+            mpool.add(m).await.unwrap();
+        }
+        for i in 0..10 {
+            let m = create_smsg(&a1, &a2, &mut w2, i, gas_limit, i+1);
+            mpool.add(m).await.unwrap();
+        }
+
+        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        assert_eq!(msgs.len(), 20);
+        let mut next_nonce = 0;
+        for i in 0..10 {
+            assert_eq!(*msgs[i].from(), a1, "first 10 returned messages should be from actor a1");
+            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            next_nonce+=1;
+        }
+        next_nonce = 0;
+        for i in 10..20 {
+            assert_eq!(*msgs[i].from(), a2, "first 10 returned messages should be from actor a1");
+            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            next_nonce+=1;
+        }
+    }
 }
