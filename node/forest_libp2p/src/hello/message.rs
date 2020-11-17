@@ -34,7 +34,7 @@ mod tests {
     #[test]
     fn hello_default_ser() {
         let orig_msg = HelloRequest {
-            genesis_hash: Cid::new_from_cbor(&[], Identity),
+            genesis_hash: forest_cid::new_from_cbor(&[], Identity),
             heaviest_tipset_weight: Default::default(),
             heaviest_tipset_height: Default::default(),
             heaviest_tip_set: Default::default(),

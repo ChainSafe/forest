@@ -129,8 +129,9 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: BitswapEvent) {
         match event {
             BitswapEvent::ReceivedBlock(peer_id, cid, data) => {
+                // The `cid` from this event has a different type
                 let cid = cid.to_bytes();
-                match Cid::from_raw_cid(cid.as_slice()) {
+                match Cid::try_from(cid) {
                     Ok(cid) => self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
                         peer_id, cid, data,
                     )),
@@ -138,8 +139,9 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
                 }
             }
             BitswapEvent::ReceivedWant(peer_id, cid, _priority) => {
+                // The `cid` from this event has a different type
                 let cid = cid.to_bytes();
-                match Cid::from_raw_cid(cid.as_slice()) {
+                match Cid::try_from(cid) {
                     Ok(cid) => self
                         .events
                         .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid)),

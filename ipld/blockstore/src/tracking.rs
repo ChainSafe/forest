@@ -57,7 +57,7 @@ where
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
         self.stats.borrow_mut().w += 1;
         self.stats.borrow_mut().bw += bytes.len();
-        let cid = Cid::new_from_cbor(&bytes, code);
+        let cid = cid::new_from_cbor(&bytes, code);
         self.write(cid.to_bytes(), bytes)?;
         Ok(cid)
     }
@@ -129,7 +129,7 @@ mod tests {
         let obj_bytes_len = encoding::to_vec(&object).unwrap().len();
 
         tr_store
-            .get::<u8>(&Cid::new_from_cbor(&[0], Blake2b256))
+            .get::<u8>(&cid::new_from_cbor(&[0], Blake2b256))
             .unwrap();
         assert_eq!(
             *tr_store.stats.borrow(),

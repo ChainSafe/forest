@@ -16,16 +16,16 @@ use fil_types::{
 };
 use filecoin_proofs_api::seal::compute_comm_d;
 use filecoin_proofs_api::{self as proofs};
-use forest_encoding::{blake2b_256, Cbor};
+use forest_encoding::{blake2b_256, de, Cbor};
 use ipld_blockstore::BlockStore;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error as StdError;
-use vm::{ActorError, MethodNum, Serialized, TokenAmount};
+use vm::{ActorError, ExitCode, MethodNum, Serialized, TokenAmount};
 
 /// Runtime is the VM's internal runtime object.
 /// this is everything that is accessible to actors, beyond parameters.
-pub trait Runtime<BS: BlockStore> {
+pub trait Runtime<BS: BlockStore>: Syscalls {
     /// The network protocol version number at the current epoch.
     fn network_version(&self) -> NetworkVersion;
 
@@ -128,9 +128,6 @@ pub trait Runtime<BS: BlockStore> {
     /// May only be called by the actor itself.
     fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError>;
 
-    /// Provides the system call interface.
-    fn syscalls(&self) -> &dyn Syscalls;
-
     /// Returns the total token supply in circulation at the beginning of the current epoch.
     /// The circulating supply is the sum of:
     /// - rewards emitted by the reward actor,
@@ -144,6 +141,24 @@ pub trait Runtime<BS: BlockStore> {
     /// ChargeGas charges specified amount of `gas` for execution.
     /// `name` provides information about gas charging point
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError>;
+
+    /// This function is a workaround for go-implementation's faulty exit code handling of
+    /// parameters before version 7
+    fn deserialize_params<O: de::DeserializeOwned>(
+        &self,
+        params: &Serialized,
+    ) -> Result<O, ActorError> {
+        params.deserialize().map_err(|e| {
+            if self.network_version() < NetworkVersion::V7 {
+                ActorError::new(
+                    ExitCode::SysErrSenderInvalid,
+                    format!("failed to decode parameters: {}", e),
+                )
+            } else {
+                ActorError::from(e).wrap("failed to decode parameters")
+            }
+        })
+    }
 }
 
 /// Message information available to the actor about executing message.
