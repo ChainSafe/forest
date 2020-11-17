@@ -20,7 +20,7 @@ use crate::{
 use address::Address;
 use ahash::AHashMap;
 use byteorder::{BigEndian, ByteOrder};
-use cid::Cid;
+use cid::{Cid, Prefix};
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
@@ -1073,7 +1073,7 @@ where
 
     // TODO we are skipping the check for if Cid is defined, but this shouldn't be possible
 
-    if proposal.piece_cid.prefix() != PIECE_CID_PREFIX {
+    if Prefix::from(proposal.piece_cid) != PIECE_CID_PREFIX {
         return Err(actor_error!(ErrIllegalArgument; "proposal PieceCID undefined"));
     }
 

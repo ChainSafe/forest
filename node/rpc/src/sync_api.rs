@@ -133,7 +133,7 @@ mod tests {
 
             for i in tsk {
                 let bz2 = bz.clone();
-                db.write(i.key(), bz2).unwrap();
+                db.write(i.to_bytes(), bz2).unwrap();
             }
             let provider = MpoolRpcProvider::new(subscriber, state_manager_for_thread.clone());
             MessagePool::new(

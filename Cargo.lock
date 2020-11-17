@@ -961,7 +961,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lru",
- "multihash 0.13.0",
+ "multihash 0.13.1",
  "num-traits 0.2.14",
  "rayon",
  "serde",
@@ -1028,6 +1028,17 @@ dependencies = [
  "num-traits 0.2.14",
  "time 0.1.44",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "cid"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d88f30b1e74e7063df5711496f3ee6e74a9735d62062242d70cddf77717f18e"
+dependencies = [
+ "multibase 0.8.0",
+ "multihash 0.13.1",
+ "unsigned-varint 0.5.1",
 ]
 
 [[package]]
@@ -2268,12 +2279,13 @@ dependencies = [
 name = "forest_cid"
 version = "0.2.0"
 dependencies = [
+ "cid",
  "cs_serde_cbor",
  "forest_json_utils",
  "generic-array 0.14.4",
  "integer-encoding",
  "multibase 0.9.1",
- "multihash 0.13.0",
+ "multihash 0.13.1",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -4018,9 +4030,9 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6f97339ef1e4092fa22e397929fdf9c1a106b925fd11cab90e097bdbfbbe25c"
+checksum = "fb63389ee5fcd4df3f8727600f4a0c3df53c541f0ed4e8b50a9ae51a80fc1efe"
 dependencies = [
  "blake2b_simd",
  "generic-array 0.14.4",

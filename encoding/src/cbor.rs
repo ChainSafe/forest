@@ -20,7 +20,7 @@ pub trait Cbor: Serialize + DeserializeOwned {
     /// Returns the content identifier of the raw block of data
     /// Default is Blake2b256 hash
     fn cid(&self) -> Result<Cid, Error> {
-        Ok(Cid::new_from_cbor(&self.marshal_cbor()?, Blake2b256))
+        Ok(cid::new_from_cbor(&self.marshal_cbor()?, Blake2b256))
     }
 }
 

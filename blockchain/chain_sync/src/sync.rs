@@ -513,6 +513,7 @@ mod tests {
     use forest_libp2p::NetworkEvent;
     use message_pool::{test_provider::TestApi, MessagePool};
     use state_manager::StateManager;
+    use std::convert::TryFrom;
     use std::sync::Arc;
     use std::time::Duration;
     use test_utils::{construct_dummy_header, construct_messages};
@@ -576,7 +577,7 @@ mod tests {
         let (bls, secp) = construct_messages();
 
         let expected_root =
-            Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
+            Cid::try_from("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
         let root = compute_msg_meta(cs.state_manager.blockstore(), &[bls], &[secp]).unwrap();

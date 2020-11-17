@@ -92,14 +92,14 @@ mod tests {
     use super::*;
     use address::Address;
     use blocks::BlockHeader;
-    use cid::{Cid, Code::Blake2b256};
+    use cid::Code::Blake2b256;
     use num_bigint::BigInt;
 
     fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
         let header = BlockHeader::builder()
             .weight(BigInt::from(weight))
             .cached_bytes(cached_bytes.to_vec())
-            .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
+            .cached_cid(cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
