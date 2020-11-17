@@ -446,27 +446,27 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize()?)?;
+                Self::constructor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::AddVerifier) => {
-                Self::add_verifier(rt, params.deserialize()?)?;
+                Self::add_verifier(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::RemoveVerifier) => {
-                Self::remove_verifier(rt, params.deserialize()?)?;
+                Self::remove_verifier(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::AddVerifiedClient) => {
-                Self::add_verified_client(rt, params.deserialize()?)?;
+                Self::add_verified_client(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::UseBytes) => {
-                Self::use_bytes(rt, params.deserialize()?)?;
+                Self::use_bytes(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::RestoreBytes) => {
-                Self::restore_bytes(rt, params.deserialize()?)?;
+                Self::restore_bytes(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),

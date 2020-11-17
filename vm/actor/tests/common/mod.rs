@@ -630,10 +630,6 @@ impl Runtime<MemoryDB> for MockRuntime {
         unimplemented!();
     }
 
-    fn syscalls(&self) -> &dyn Syscalls {
-        self
-    }
-
     fn charge_gas(&mut self, _: &'static str, _: i64) -> Result<(), ActorError> {
         // TODO implement functionality if needed for testing
         Ok(())
