@@ -46,7 +46,7 @@ pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
     Cid::new(prefix.version, prefix.codec, hash)
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug, Default, Hash, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Hash, PartialOrd, Ord)]
 pub struct Cid(CidGeneric<multihash::U32>);
 
 // This is just a wrapper around the rust-cid `Cid` type that is needed in order to make the
@@ -130,5 +130,11 @@ impl<'de> de::Deserialize<'de> for Cid {
 impl fmt::Display for Cid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl fmt::Debug for Cid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Cid(\"{}\")", self)
     }
 }
