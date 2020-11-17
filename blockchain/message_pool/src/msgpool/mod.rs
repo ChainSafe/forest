@@ -1209,17 +1209,31 @@ where
 pub async fn run_head_change<T>(
     api: &RwLock<T>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
-    from: Vec<Tipset>,
-    to: Vec<Tipset>,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>
+    from: Tipset,
+    to: Tipset,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) -> Result<(), Error>
-    where
-        T: Provider + 'static,
+where
+    T: Provider + 'static,
 {
-    /// TODO: Need to apply reorg logic here to handle forks to revert and apply
-    /// tipsets on a different fork.
-    let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
-    for ts in from {
+    // TODO: Need to apply reorg logic here to handle forks to revert and apply
+    // tipsets on a different fork. This logic should probably be implemented in the ChainStore
+    let mut left = Arc::new(from);
+    let mut right = Arc::new(to);
+    let mut left_chain = Vec::new();
+    let mut right_chain = Vec::new();
+    while left != right {
+        if left.epoch() > right.epoch() {
+            left_chain.push(left.as_ref().clone());
+            let par = api.read().await.load_tipset(left.parents()).await?;
+            left = par;
+        } else {
+            right_chain.push(right.as_ref().clone());
+            let par = api.read().await.load_tipset(right.parents()).await?;
+            right = par;
+        }
+    }
+    for ts in left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
             let (umsg, mut smsgs) = api.read().await.messages_for_block(&block)?;
@@ -1230,7 +1244,7 @@ pub async fn run_head_change<T>(
         }
     }
 
-    for ts in to {
+    for ts in right_chain {
         for b in ts.blocks() {
             let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
 
@@ -1244,8 +1258,6 @@ pub async fn run_head_change<T>(
     }
     Ok(())
 }
-
-
 
 /// This is a helper method for head_change. This method will remove a sequence for a from address
 /// from the rmsgs hashmap. Also remove the from address and sequence from the messagepool.
@@ -1329,6 +1341,17 @@ pub mod test_provider {
         /// Set the heaviest tipset for TestApi
         pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
             self.publisher.publish(HeadChange::Apply(ts)).await
+        }
+
+        pub fn next_block(&mut self) -> BlockHeader {
+            let new_block = tests::mock_block_with_parents(
+                self.tipsets
+                    .last()
+                    .unwrap_or(&Tipset::new(vec![tests::mock_block(1, 1)]).unwrap()),
+                1,
+                1,
+            );
+            new_block
         }
     }
 
@@ -1507,8 +1530,36 @@ pub mod tests {
             .build_and_validate()
             .unwrap()
     }
+    pub fn mock_block_with_epoch(epoch: i64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(1234561);
+        let c =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
-    fn mock_block_with_parents(parents: Tipset, weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigInt::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .message_receipts(c.clone())
+            .messages(c.clone())
+            .state_root(c)
+            .weight(weight_inc)
+            .epoch(epoch)
+            .build_and_validate()
+            .unwrap()
+    }
+
+    pub fn mock_block_with_parents(
+        parents: &Tipset,
+        weight: u64,
+        ticket_sequence: u64,
+    ) -> BlockHeader {
         let addr = Address::new_id(1234561);
         let c =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
@@ -1530,7 +1581,7 @@ pub mod tests {
             .parents(parents.key().clone())
             .message_receipts(c.clone())
             .messages(c.clone())
-            .state_root(c)
+            .state_root(*parents.blocks()[0].state_root())
             .weight(weight_inc)
             .epoch(height)
             .build_and_validate()
@@ -1597,7 +1648,7 @@ pub mod tests {
 
         let a = mock_block(1, 1);
         let tipset = Tipset::new(vec![a.clone()]).unwrap();
-        let b = mock_block_with_parents(tipset, 1, 1);
+        let b = mock_block_with_parents(&tipset, 1, 1);
 
         let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
         let target = Address::new_id(1001);
