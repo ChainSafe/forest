@@ -65,8 +65,9 @@ where
 
         let mut cur = rounded.key().clone();
         loop {
-            let lbe = if let Some(cached) = self.skip_cache.write().await.get(&cur) {
-                cached.clone()
+            let entry = self.skip_cache.write().await.get(&cur).cloned();
+            let lbe = if let Some(cached) = entry {
+                cached
             } else {
                 self.fill_cache(std::mem::take(&mut cur)).await?
             };
@@ -105,15 +106,16 @@ where
         let parent = self.load_tipset(tipset.parents()).await?;
         let r_height = self.round_height(tipset.epoch()) - SKIP_LENGTH;
 
+        let parent_epoch = parent.epoch();
         let skip_target = if parent.epoch() < r_height {
-            parent.clone()
+            parent
         } else {
-            self.walk_back(parent.clone(), r_height).await?
+            self.walk_back(parent, r_height).await?
         };
 
         let lbe = Arc::new(LookbackEntry {
             tipset,
-            parent_height: parent.epoch(),
+            parent_height: parent_epoch,
             target_height: skip_target.epoch(),
             target: skip_target.key().clone(),
         });
