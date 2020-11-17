@@ -574,6 +574,7 @@ where
         if !is_builtin_actor(&code_id) {
             return Err(actor_error!(SysErrorIllegalArgument; "Can only create built-in actors."));
         }
+        // TODO should check both actors versions
         if is_singleton_actor(&code_id) {
             return Err(actor_error!(SysErrorIllegalArgument;
                     "Can only have one instance of singleton actors."));
@@ -1029,5 +1030,6 @@ fn new_secp256k1_account_actor() -> ActorState {
 }
 
 fn is_builtin_actor(code: &Cid) -> bool {
+    // TODO Add v2 builtin check
     actor::is_builtin_actor(code)
 }

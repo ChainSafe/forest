@@ -20,7 +20,7 @@ cid = { package = "forest_cid", path = "../../ipld/cid", features = ["cbor"] }
 serde = { version = "1.0", features = ["derive"] }
 lazy_static = "1.4.0"
 ipld_blockstore = { path = "../../ipld/blockstore" }
-ipld_hamt = { path = "../../ipld/hamt", features = ["go-interop"] }
+ipld_hamt = { path = "../../ipld/hamt", features = ["go-interop", "v2"] }
 ipld_amt = { path = "../../ipld/amt", features = ["go-interop"] }
 forest_ipld = { path = "../../ipld" }
 unsigned-varint = "0.5"
