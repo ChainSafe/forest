@@ -6,8 +6,6 @@ edition = "2018"
 
 [dependencies]
 cid = { package = "forest_cid", path = "../cid" }
-#cid = { path = "/home/vmx/src/pl/rust/rust-cid", features = ["serde-codec"] }
-#cid = { path = "/home/vmx/src/pl/rust/rust-cid" }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 forest_ipld = { path = "../", optional = true }
