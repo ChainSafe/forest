@@ -446,10 +446,9 @@ where
 
         // Retrieve lookback tipset for validation.
         let lbts = cs
-            .get_lookback_tipset_for_round(&base_ts, block.header().epoch())
+            .get_lookback_tipset_for_round(base_ts.clone(), block.header().epoch())
             .await
-            .map_err(|e| (*block_cid, e.into()))?
-            .unwrap_or_else(|| Arc::clone(&base_ts));
+            .map_err(|e| (*block_cid, e.into()))?;
 
         let (lbst, _) = sm.tipset_state::<V>(&lbts).await.map_err(|e| {
             (
