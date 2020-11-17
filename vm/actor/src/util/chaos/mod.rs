@@ -209,36 +209,36 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CallerValidation) => {
-                Self::caller_validation(rt, Serialized::deserialize(&params)?)?;
+                Self::caller_validation(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
 
             Some(Method::CreateActor) => {
-                Self::create_actor(rt, Serialized::deserialize(&params)?)?;
+                Self::create_actor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ResolveAddress) => {
-                let res = Self::resolve_address(rt, params.deserialize()?)?;
+                let res = Self::resolve_address(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
 
             Some(Method::Send) => {
-                let res: SendReturn = Self::send(rt, params.deserialize()?)?;
+                let res: SendReturn = Self::send(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
 
             Some(Method::DeleteActor) => {
-                Self::delete_actor(rt, params.deserialize()?)?;
+                Self::delete_actor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
 
             Some(Method::MutateState) => {
-                Self::mutate_state(rt, params.deserialize()?)?;
+                Self::mutate_state(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
 
             Some(Method::AbortWith) => {
-                Self::abort_with(params.deserialize()?)?;
+                Self::abort_with(rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
 
