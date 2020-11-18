@@ -5,7 +5,7 @@
 
 use super::errors::Error;
 use super::Store;
-pub use sled::{Batch, Config, Db};
+pub use sled::{Batch, Config, Db, Mode};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -66,19 +66,6 @@ impl Store for SledDb {
         K: AsRef<[u8]>,
     {
         self.db.remove(key)?;
-        Ok(())
-    }
-
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        let mut batch = Batch::default();
-        for (k, v) in values.iter() {
-            batch.insert(k.as_ref(), v.as_ref());
-        }
-        self.db.apply_batch(batch)?;
         Ok(())
     }
 
