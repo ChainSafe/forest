@@ -6,7 +6,7 @@
 mod db_utils;
 mod subtests;
 
-use db::RocksDb;
+use db::rocks::RocksDb;
 use db_utils::DBPath;
 
 #[test]

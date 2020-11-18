@@ -17,7 +17,7 @@ pub struct RocksDb {
 ///
 /// Usage:
 /// ```no_run
-/// use db::RocksDb;
+/// use db::rocks::RocksDb;
 ///
 /// let mut db = RocksDb::open("test_db").unwrap();
 /// ```

@@ -62,7 +62,7 @@ pub(super) async fn start(config: Config) {
     let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
 
     #[cfg(feature = "rocksdb")]
-    let db = db::RocksDb::open(config.data_dir + "/db").unwrap();
+    let db = db::rocks::RocksDb::open(config.data_dir + "/db").unwrap();
 
     let db = Arc::new(db);
 
