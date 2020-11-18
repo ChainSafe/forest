@@ -525,7 +525,7 @@ where
                             Link::Cid { cid, cache } => {
                                 let cache_node = std::mem::take(cache);
 
-                                #[warn(unused_variables)]
+                                #[allow(unused_variables)]
                                 let (mut node, cached) = if let Some(sn) = cache_node.into_inner() {
                                     (sn, true)
                                 } else {

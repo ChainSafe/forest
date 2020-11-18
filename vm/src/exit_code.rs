@@ -19,8 +19,8 @@ pub enum ExitCode {
     /// Indicates failure to find a method in an actor.
     SysErrInvalidMethod = 3,
 
-    /// Indicates syntactically invalid parameters for a method.
-    SysErrInvalidParameters = 4,
+    /// Used for catching panics currently. (marked as unused/SysErrReserved1 in go impl though)
+    SysErrActorPanic = 4,
 
     /// Indicates a message sender has insufficient funds for a message's execution.
     SysErrInvalidReceiver = 5,
@@ -38,21 +38,17 @@ pub enum ExitCode {
     /// - mutating state outside of a state acquisition block
     /// - failing to invoke caller validation
     /// - aborting with a reserved exit code (including success or a system error).
-    SysErrorIllegalActor = 9,
+    SysErrIllegalActor = 9,
 
     /// Indicates an invalid argument passed to a runtime method.
-    SysErrorIllegalArgument = 10,
-
-    /// Indicates  an object failed to de/serialize for storage.
-    SysErrSerialization = 11,
+    SysErrIllegalArgument = 10,
 
     /// Reserved exit codes, do not use.
-    SysErrorReserved1 = 12,
-    SysErrorReserved2 = 13,
-    SysErrorReserved3 = 14,
-
-    /// Indicates something broken within the VM.
-    SysErrInternal = 15,
+    SysErrReserved2 = 11,
+    SysErrReserved3 = 12,
+    SysErrReserved4 = 13,
+    SysErrReserved5 = 14,
+    SysErrReserved6 = 15,
 
     // -------Actor Error Codes-------
     /// Indicates a method parameter is invalid.
