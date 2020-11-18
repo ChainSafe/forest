@@ -112,10 +112,10 @@ where
                 // does it fit in the block?
                 if chains[i].curr().gas_limit <= gas_limit {
                     gas_limit -= chains[i].curr().gas_limit;
-                    result.append(&mut chains[i].curr().msgs.clone());
+                    result.append(&mut chains[i].curr_mut().msgs);
                     continue;
                 }
-                last += 1;
+                last += i;
                 continue 'tail_loop;
             }
             break;
