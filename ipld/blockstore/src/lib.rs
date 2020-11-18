@@ -5,10 +5,10 @@
 mod buffered;
 #[cfg(feature = "resolve")]
 pub mod resolve;
-#[cfg(feature = "tracking")]
-mod tracking;
 #[cfg(feature = "sled")]
 pub mod sled;
+#[cfg(feature = "tracking")]
+mod tracking;
 
 #[cfg(feature = "buffered")]
 pub use self::buffered::BufferedBlockStore;
@@ -90,7 +90,7 @@ impl BlockStore for RocksDb {
                 Ok(cid)
             })
             .collect::<Result<_, Box<dyn StdError>>>()?;
-        self.db()?.write(batch)?;
+        self.db.write(batch)?;
 
         Ok(cids)
     }
