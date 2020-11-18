@@ -597,7 +597,8 @@ impl Actor {
 
             // Note: We could delay this charge until end of deadline, but that would require more accounting state.
             let total_penalty_target = undeclared_penalty_target + declared_penalty_target;
-            let unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?);
+            let unlocked_balance =
+                state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
             let (vesting_penalty_total, balance_penalty_total) = state
                 .penalize_funds_in_priority_order(
                     rt.store(),
@@ -836,7 +837,8 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to vest funds")
                 })?;
 
-            let available_balance = state.get_available_balance(&rt.current_balance()?);
+            let available_balance =
+                state.get_available_balance(&rt.current_balance()?, rt.network_version())?;
             let duration = params.expiration - rt.curr_epoch();
 
             let sector_weight = qa_power_for_weight(
@@ -864,7 +866,7 @@ impl Actor {
             }
 
             state.add_pre_commit_deposit(&deposit_req);
-            state.assert_balance_invariants(&rt.current_balance()?);
+            state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
 
             let seal_proof = params.seal_proof;
             let sector_number = params.sector_number;
@@ -1224,7 +1226,8 @@ impl Actor {
             // Unlock deposit for successful proofs, make it available for lock-up as initial pledge.
             state.add_pre_commit_deposit(&(-total_pre_commit_deposit));
 
-            let available_balance = state.get_available_balance(&rt.current_balance()?);
+            let available_balance =
+                state.get_available_balance(&rt.current_balance()?, rt.network_version())?;
             if available_balance < total_pledge {
                 return Err(actor_error!(
                     ErrInsufficientFunds,
@@ -1235,7 +1238,7 @@ impl Actor {
             }
 
             state.add_initial_pledge_requirement(&total_pledge);
-            state.assert_balance_invariants(&rt.current_balance()?);
+            state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
 
             Ok((new_power, total_pledge, newly_vested))
         })?;
@@ -2087,7 +2090,8 @@ impl Actor {
             // This may lock up unlocked balance that was covering InitialPledgeRequirements
             // This ensures that the amountToLock is always locked up if the miner account
             // can cover it.
-            let unlocked_balance = st.get_unlocked_balance(&rt.current_balance()?);
+            let unlocked_balance =
+                st.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
             if unlocked_balance < amount_to_lock {
                 return Err(actor_error!(
                     ErrInsufficientFunds,
@@ -2211,7 +2215,7 @@ impl Actor {
 
         let curr_balance = rt.current_balance()?;
         let amount_withdrawn = cmp::min(
-            state.get_available_balance(&curr_balance),
+            state.get_available_balance(&curr_balance, rt.network_version())?,
             params.amount_requested,
         );
         assert!(!amount_withdrawn.is_negative());
@@ -2226,7 +2230,7 @@ impl Actor {
 
         notify_pledge_changed(rt, &newly_vested.neg())?;
 
-        state.assert_balance_invariants(&rt.current_balance()?);
+        state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
         Ok(())
     }
 
@@ -2328,7 +2332,8 @@ where
 
             // Unlock funds for penalties.
             // We're intentionally reducing the penalty paid to what we have.
-            let unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?);
+            let unlocked_balance =
+                state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
             let (penalty_from_vesting, penalty_from_balance) = state
                 .penalize_funds_in_priority_order(
                     store,
@@ -2420,7 +2425,7 @@ where
         }
 
         let deposit_to_burn = state
-            .check_precommit_expiry(rt.store(), &bitfield)
+            .check_precommit_expiry(rt.store(), &bitfield, rt.network_version())
             .map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to save expiry queue")
             })?;
@@ -2451,7 +2456,8 @@ where
             .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_info.index)))?;
 
         let quant = deadline_info.quant_spec();
-        let mut unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?);
+        let mut unlocked_balance =
+            state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
 
         let previously_faulty_power = deadline.faulty_power.qa.clone();
 
@@ -3116,13 +3122,13 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if state.meets_initial_pledge_condition(&rt.current_balance()?) {
+    if state.meets_initial_pledge_condition(&rt.current_balance()?, rt.network_version())? {
         Ok(())
     } else {
         Err(actor_error!(
             ErrInsufficientFunds,
             "unlocked balance does not cover pledge requirements ({} < {})",
-            state.get_unlocked_balance(&rt.current_balance()?),
+            state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?,
             state.initial_pledge_requirement
         ))
     }
