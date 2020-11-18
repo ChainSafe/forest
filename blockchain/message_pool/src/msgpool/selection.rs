@@ -1,6 +1,4 @@
 use super::{allow_negative_chains, create_message_chains, MessagePool, Provider};
-use crate::block_prob::block_probabilities;
-use crate::msg_chain::MsgChain;
 use crate::{run_head_change, Error};
 use address::Address;
 use blocks::Tipset;
@@ -10,172 +8,22 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
-const MAX_BLOCKS: usize = 15;
+
 impl<T> MessagePool<T>
 where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
+    /// Selects messages for including in a block.
     pub async fn select_messages(
         &mut self,
         ts: Tipset,
-        tq: f64,
+        _tq: f64,
     ) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
+        // TODO: Implement a more optimal message selection to pack more msgs into a block
         self.select_messages_greedy(cur_ts.as_ref(), ts).await
     }
 
-    pub async fn select_messages_optimal(
-        &mut self,
-        cur_ts: Tipset,
-        ts: Tipset,
-        tq: f64,
-    ) -> Result<Vec<SignedMessage>, Error> {
-        let base_fee = self.api.read().await.chain_compute_base_fee(&ts)?;
-
-        // 0. Load messages from the target tipset; if it is the same as the current tipset in
-        //    the mpool, then this is just the pending messages
-        let mut pending = self.get_pending_messages(&cur_ts, &ts).await?;
-        if pending.is_empty() {
-            return Ok(Vec::new());
-        }
-        // 0b. Select all priority messages that fit in the block
-        // TODO: Implement guess gas
-        let min_gas = 1298450;
-        let (mut result, mut gas_limit) = self
-            .select_priority_messages(&mut pending, &base_fee, &ts)
-            .await?;
-
-        // check if block has been filled
-        if gas_limit < min_gas {
-            return Ok(result);
-        }
-        // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
-        let mut chains = Vec::new();
-        for (actor, mset) in pending.into_iter() {
-            chains.append(
-                &mut create_message_chains(&self.api, &actor, &mset, &base_fee, &ts).await?,
-            );
-        }
-
-        // 2. Sort the chains
-        chains.sort_by(|a, b| b.compare(&a));
-        if !allow_negative_chains(cur_ts.epoch())
-            && !chains.is_empty()
-            && chains[0].curr().gas_perf < 0.0
-        {
-            return Ok(result);
-        }
-
-        // 3. Parition chains into blocks (without trimming)
-        //    we use the full blockGasLimit (as opposed to the residual gas limit from the
-        //    priority message selection) as we have to account for what other miners are doing
-        let mut next_chain = 0;
-        let mut partitions: Vec<Vec<MsgChain>> = Vec::with_capacity(MAX_BLOCKS);
-        let mut i = 0;
-        while i < MAX_BLOCKS && next_chain < chains.len() {
-            let mut gas_limit = types::BLOCK_GAS_LIMIT;
-            while next_chain < chains.len() {
-                let chain = &chains[next_chain];
-                next_chain += 1;
-                partitions[i].push(chain.clone());
-                gas_limit -= chain.curr().gas_limit;
-                if gas_limit < min_gas {
-                    break;
-                }
-            }
-            i += 1;
-        }
-
-        // 4. Compute effective performance for each chain, based on the partition they fall into
-        //    The effective performance is the gasPerf of the chain * block probability
-        let block_prob = block_probabilities(tq);
-        let mut eff_chains = 0;
-        for i in (0..MAX_BLOCKS) {
-            for chain in (&mut partitions[i]).iter_mut() {
-                chain.set_effective_perf(block_prob[i]);
-            }
-            eff_chains += partitions[i].len();
-        }
-
-        // nullify the effective performance of chains that don't fit in any partition
-        for chain in (&mut chains[eff_chains..]).iter_mut() {
-            chain.set_null_effective_perf();
-        }
-
-        // 5. Resort the chains based on effective performance
-        chains.sort_by(|a, b| a.cmp_effective(&b));
-
-        // 6. Merge the head chains to produce the list of messages selected for inclusion
-        //    subject to the residual gas limit
-        //    When a chain is merged in, all its previous dependent chains *must* also be
-        //    merged in or we'll have a broken block
-        let mut last = chains.len();
-        // for (i, chain) in chains.iter_mut().enumerate() {
-        for i in 0..chains.len() {
-            // did we run out of performing chains?
-            if !allow_negative_chains(cur_ts.epoch()) && chains[i].curr().gas_perf < 0.0 {
-                break;
-            }
-
-            if chains[i].curr().merged {
-                continue;
-            }
-            // compute the dependencies that must be merged and the gas limit including deps
-            let mut chain_gas_limit = chains[i].curr().gas_limit;
-            let mut chain_deps = Vec::new();
-            let mut cur_chain = Some(chains[i].curr());
-            while let Some(curr) = cur_chain {
-                if curr.merged {
-                    break;
-                }
-                chain_gas_limit += curr.gas_limit;
-                chain_deps.push(curr.clone());
-                cur_chain = chains[i].move_backward();
-            }
-
-            // does it all fit in a block?
-            if chain_gas_limit <= gas_limit {
-                // include it with all dependencies
-                for i in (chain_deps.len() - 1)..0 {
-                    let cur_chain = &mut chain_deps[i];
-                    cur_chain.merged = true;
-                    result.append(&mut cur_chain.msgs.clone());
-                }
-                chains[i].curr_mut().merged = true;
-                // adjust the effective perf for all subsequent chains
-                if let Some(next) = chains[i].next_mut() {
-                    if next.eff_perf > 0.0 {
-                        next.eff_perf += next.parent_offset;
-                        chains[i].move_forward();
-                        let mut n = chains[i].next().clone();
-                        while let Some(_) = n {
-                            chains[i].set_eff_perf();
-                            n = chains[i].move_forward();
-                        }
-                    }
-                }
-                result.append(&mut chains[i].curr().msgs.clone());
-                gas_limit -= chain_gas_limit;
-
-                // resort to account for already merged chains and effective performance adjustments
-                // the sort *must* be stable or we end up getting negative gas perfs pushed up.
-                let (l, r) = chains.split_at_mut(i + 1);
-                r.sort_by(|a, b| a.cmp_effective(&b));
-                continue;
-            }
-            // we can't fit this chain and its dependencies because of block gasLimit -- we are
-            // at the edge
-            last = i;
-            break;
-        }
-        // 7. We have reached the edge of what can fit wholesale; if we still hae available
-        //    gasLimit to pack some more chains, then trim the last chain and push it down.
-        //    Trimming invalidaates subsequent dependent chains so that they can't be selected
-        //    as their dependency cannot be (fully) included.
-        //    We do this in a loop because the blocker might have been inordinately large and
-        //    we might have to do it multiple times to satisfy tail packing
-        todo!()
-    }
     async fn select_messages_greedy(
         &mut self,
         cur_ts: &Tipset,
@@ -402,23 +250,20 @@ where
 mod test_selection {
     use super::*;
 
+    use crate::head_change;
     use crate::msgpool::test_provider::TestApi;
-    use crate::msgpool::tests::{create_smsg, mock_block, mock_block_with_epoch};
-    use crate::{head_change, MpoolConfig};
+    use crate::msgpool::tests::{create_smsg, mock_block};
     use async_std::sync::channel;
     use async_std::task;
-    use crypto::{SignatureType, VRFProof};
+    use crypto::SignatureType;
     use db::MemoryDB;
     use key_management::{MemKeyStore, Wallet};
     use message::Message;
-    use message::{SignedMessage, UnsignedMessage};
     use std::sync::Arc;
     use types::NetworkParams;
 
     fn make_test_mpool() -> MessagePool<TestApi> {
-        let keystore = MemKeyStore::new();
-        let mut tma = TestApi::default();
-
+        let tma = TestApi::default();
         task::block_on(async move {
             let (tx, _rx) = channel(50);
             MessagePool::new(tma, "mptest".to_string(), tx, Default::default()).await
@@ -428,9 +273,6 @@ mod test_selection {
 
     #[async_std::test]
     async fn basic_message_selection() {
-        let old_max_nonce_gap = 4;
-        let max_nonce_gap = 1000;
-
         let mut mpool = make_test_mpool();
 
         let mut w1 = Wallet::new(MemKeyStore::new());
@@ -479,7 +321,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let mut msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
         assert_eq!(msgs.len(), 20);
         let mut next_nonce = 0;
         for i in 0..10 {
@@ -550,7 +392,7 @@ mod test_selection {
         // first we need to update the nonce on the api
         mpool.api.write().await.set_state_sequence(&a1, 10);
         mpool.api.write().await.set_state_sequence(&a2, 10);
-        let mut msgs = mpool.select_messages(ts3, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(ts3, 1.0).await.unwrap();
 
         assert_eq!(msgs.len(), 20);
 
@@ -578,9 +420,6 @@ mod test_selection {
 
     #[async_std::test]
     async fn message_selection_trimming() {
-        let old_max_nonce_gap = 4;
-        let max_nonce_gap = 1000;
-
         let mut mpool = make_test_mpool();
 
         let mut w1 = Wallet::new(MemKeyStore::new());
@@ -643,7 +482,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let mut msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
 
         let expected = types::BLOCK_GAS_LIMIT / gas_limit;
         assert_eq!(msgs.len(), expected as usize);
@@ -651,12 +490,11 @@ mod test_selection {
         for m in msgs.iter() {
             m_gas_lim += m.gas_limit();
         }
+        assert!(m_gas_lim <= types::BLOCK_GAS_LIMIT);
     }
 
     #[async_std::test]
     async fn message_selection_priority() {
-        let old_max_nonce_gap = 4;
-        let max_nonce_gap = 1000;
         let db = MemoryDB::default();
 
         let mut mpool = make_test_mpool();
@@ -670,7 +508,7 @@ mod test_selection {
         // set priority addrs to a1
         let mut mpool_cfg = mpool.get_config().clone();
         mpool_cfg.priority_addrs.push(a1);
-        mpool.set_config(&db, mpool_cfg);
+        mpool.set_config(&db, mpool_cfg).unwrap();
 
         let b1 = mock_block(1, 1);
         let ts = Tipset::new(vec![b1.clone()]).unwrap();
@@ -726,7 +564,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let mut msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
 
         assert_eq!(msgs.len(), 20);
 

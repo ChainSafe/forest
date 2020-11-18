@@ -131,14 +131,6 @@ impl MsgChain {
         self.index -= 1;
         self.chain.get(self.index)
     }
-    /// Returns the current index of the current node.
-    pub(crate) fn index(&self) -> usize {
-        self.index
-    }
-    /// Returns the number of nodes in the chain.
-    pub(crate) fn len(&self) -> usize {
-        self.chain.len()
-    }
 }
 
 impl MsgChain {
@@ -226,7 +218,7 @@ impl MsgChain {
             mc.eff_perf = 0.0;
         }
     }
-
+    #[allow(dead_code)]
     pub(crate) fn cmp_effective(&self, other: &Self) -> Ordering {
         let mc = self.curr();
         let other = other.curr();

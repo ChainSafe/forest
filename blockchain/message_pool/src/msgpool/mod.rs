@@ -1216,8 +1216,7 @@ pub async fn run_head_change<T>(
 where
     T: Provider + 'static,
 {
-    // TODO: Need to apply reorg logic here to handle forks to revert and apply
-    // tipsets on a different fork. This logic should probably be implemented in the ChainStore
+    // TODO: This logic should probably be implemented in the ChainStore. It handles reorgs.
     let mut left = Arc::new(from);
     let mut right = Arc::new(to);
     let mut left_chain = Vec::new();
@@ -1236,7 +1235,7 @@ where
     for ts in left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
-            let (umsg, mut smsgs) = api.read().await.messages_for_block(&block)?;
+            let (_, mut smsgs) = api.read().await.messages_for_block(&block)?;
             msgs.append(smsgs.as_mut());
         }
         for msg in msgs {
@@ -1290,6 +1289,7 @@ fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage
     }
 }
 
+#[cfg(test)]
 pub mod test_provider {
     use super::Error as Errors;
     use super::*;
