@@ -5,6 +5,9 @@ mod errors;
 mod memory;
 mod rocks;
 
+#[cfg(feature = "sled")]
+pub mod sled;
+
 pub use errors::Error;
 pub use memory::MemoryDB;
 

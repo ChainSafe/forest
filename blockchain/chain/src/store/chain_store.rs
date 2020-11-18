@@ -170,13 +170,7 @@ where
         };
 
         // set as heaviest tipset
-        let heaviest_ts = heaviest_ts;
-        *self.heaviest.write().await = Some(heaviest_ts.clone());
-        self.publisher
-            .write()
-            .await
-            .publish(HeadChange::Current(heaviest_ts))
-            .await;
+        *self.heaviest.write().await = Some(heaviest_ts);
         Ok(())
     }
 
