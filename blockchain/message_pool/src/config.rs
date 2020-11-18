@@ -17,12 +17,12 @@ const GAS_LIMIT_OVERESTIMATION: f64 = 1.25;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct MpoolConfig {
-    priority_addrs: Vec<Address>,
-    size_limit_high: i64,
-    size_limit_low: i64,
-    replace_by_fee_ratio: f64,
-    prune_cooldown: Duration,
-    gas_limit_overestimation: f64,
+    pub priority_addrs: Vec<Address>,
+    pub size_limit_high: i64,
+    pub size_limit_low: i64,
+    pub replace_by_fee_ratio: f64,
+    pub prune_cooldown: Duration,
+    pub gas_limit_overestimation: f64,
 }
 
 impl Default for MpoolConfig {

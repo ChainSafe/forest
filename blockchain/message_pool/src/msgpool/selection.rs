@@ -335,7 +335,7 @@ where
         }
 
         // 2. Sort the chains
-        chains.sort_by(|a, b| a.compare(&b));
+        chains.sort_by(|a, b| b.compare(&a));
 
         if !allow_negative_chains(ts.epoch())
             && !chains.is_empty()
@@ -402,12 +402,13 @@ where
 mod test_selection {
     use super::*;
 
-    use crate::head_change;
     use crate::msgpool::test_provider::TestApi;
     use crate::msgpool::tests::{create_smsg, mock_block, mock_block_with_epoch};
+    use crate::{head_change, MpoolConfig};
     use async_std::sync::channel;
     use async_std::task;
     use crypto::{SignatureType, VRFProof};
+    use db::MemoryDB;
     use key_management::{MemKeyStore, Wallet};
     use message::Message;
     use message::{SignedMessage, UnsignedMessage};
@@ -495,7 +496,7 @@ mod test_selection {
             assert_eq!(
                 *msgs[i].from(),
                 a2,
-                "first 10 returned messages should be from actor a1"
+                "next 10 returned messages should be from actor a2"
             );
             assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
@@ -568,7 +569,7 @@ mod test_selection {
             assert_eq!(
                 *msgs[i].from(),
                 a2,
-                "first 10 returned messages should be from actor a1"
+                "next 10 returned messages should be from actor a2"
             );
             assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
@@ -576,7 +577,7 @@ mod test_selection {
     }
 
     #[async_std::test]
-    async fn basic_message_selection_trimming() {
+    async fn message_selection_trimming() {
         let old_max_nonce_gap = 4;
         let max_nonce_gap = 1000;
 
@@ -650,6 +651,104 @@ mod test_selection {
         for m in msgs.iter() {
             m_gas_lim += m.gas_limit();
         }
-        assert!(m_gas_lim <= types::BLOCK_GAS_LIMIT);
+    }
+
+    #[async_std::test]
+    async fn message_selection_priority() {
+        let old_max_nonce_gap = 4;
+        let max_nonce_gap = 1000;
+        let db = MemoryDB::default();
+
+        let mut mpool = make_test_mpool();
+
+        let mut w1 = Wallet::new(MemKeyStore::new());
+        let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        let mut w2 = Wallet::new(MemKeyStore::new());
+        let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
+
+        // set priority addrs to a1
+        let mut mpool_cfg = mpool.get_config().clone();
+        mpool_cfg.priority_addrs.push(a1);
+        mpool.set_config(&db, mpool_cfg);
+
+        let b1 = mock_block(1, 1);
+        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let republished = mpool.republished.clone();
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger.clone(),
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            Vec::new(),
+            vec![Tipset::new(vec![b1]).unwrap()],
+        )
+        .await
+        .unwrap();
+
+        let gas_limit = 6955002;
+        api.write()
+            .await
+            .set_state_balance_raw(&a1, types::DevnetParams::from_fil(1));
+        api.write()
+            .await
+            .set_state_balance_raw(&a2, types::DevnetParams::from_fil(1));
+
+        let nmsgs = 10;
+
+        // make many small chains for the two actors
+        for i in 0..nmsgs {
+            let bias = (nmsgs - i) / 3;
+            let m = create_smsg(
+                &a2,
+                &a1,
+                &mut w1,
+                i as u64,
+                gas_limit,
+                (1 + i % 3 + bias) as u64,
+            );
+            mpool.add(m).await.unwrap();
+            let m = create_smsg(
+                &a1,
+                &a2,
+                &mut w2,
+                i as u64,
+                gas_limit,
+                (1 + i % 3 + bias) as u64,
+            );
+            mpool.add(m).await.unwrap();
+        }
+
+        let mut msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+
+        assert_eq!(msgs.len(), 20);
+
+        let mut next_nonce = 0;
+        for i in 0..10 {
+            assert_eq!(
+                *msgs[i].from(),
+                a1,
+                "first 10 returned messages should be from actor a1"
+            );
+            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            next_nonce += 1;
+        }
+        next_nonce = 0;
+        for i in 10..20 {
+            assert_eq!(
+                *msgs[i].from(),
+                a2,
+                "next 10 returned messages should be from actor a2"
+            );
+            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            next_nonce += 1;
+        }
     }
 }
