@@ -73,7 +73,7 @@ pub(super) async fn start(config: Config) {
 
     // Sync from snapshot
     if let Some(path) = &config.snapshot_path {
-        import_chain::<FullVerifier, _>(&state_manager, path.to_string(), Some(0))
+        import_chain::<FullVerifier, _>(&state_manager, path, Some(0))
             .await
             .unwrap();
     }
@@ -193,7 +193,7 @@ mod test {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
         let sm = Arc::new(StateManager::new(cs));
-        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car".to_string(), None)
+        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None)
             .await
             .expect("Failed to import chain");
     }
@@ -202,7 +202,7 @@ mod test {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
         let sm = Arc::new(StateManager::new(cs));
-        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car".to_string(), Some(0))
+        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0))
             .await
             .expect("Failed to import chain");
     }

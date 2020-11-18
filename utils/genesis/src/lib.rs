@@ -9,13 +9,14 @@ use fil_types::verifier::ProofVerifier;
 use forest_car::load_car;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
-use net_utils::make_reader;
+use net_utils::make_http_reader;
 use state_manager::StateManager;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::include_bytes;
 use std::io::{BufReader, Read};
 use std::sync::Arc;
+use url::Url;
 
 #[cfg(feature = "testing")]
 pub const EXPORT_SR_40: &[u8; 1226395] = include_bytes!("mainnet/export40.car");
@@ -92,7 +93,7 @@ where
 /// state and instead accept the largest height as genesis.
 pub async fn import_chain<V: ProofVerifier, DB>(
     sm: &Arc<StateManager<DB>>,
-    path: String,
+    path: &str,
     validate_height: Option<i64>,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
@@ -103,11 +104,13 @@ where
     info!("Importing chain from snapshot");
     // start import
     let cids = if is_remote_file {
-        let reader = make_reader(path)?;
+        let url = Url::parse(path)?;
+        let reader = make_http_reader(url)?;
         info!("Downloading file...");
         load_car(sm.blockstore(), reader)?
     } else {
-        let reader = File::open(&path).expect("Snapshot file path not found!");
+        let file = File::open(&path).expect("Snapshot file path not found!");
+        let reader = BufReader::new(file);
         load_car(sm.blockstore(), reader)?
     };
     let ts = sm
@@ -120,8 +123,6 @@ where
         .await?
         .unwrap();
 
-    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
-    let gb = sm.chain_store().tipset_by_height(0, &ts, true)?.unwrap();
     if let Some(height) = validate_height {
         info!("Validating imported chain");
         sm.validate_chain::<V>(ts.clone(), height).await?;

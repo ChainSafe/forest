@@ -2655,6 +2655,7 @@ dependencies = [
  "log",
  "net_utils",
  "state_manager",
+ "url",
 ]
 
 [[package]]

@@ -67,11 +67,9 @@ impl<R: Read, W: Write> Read for FetchProgress<R, W> {
 }
 
 /// Builds Reader for a provided URL.
-pub fn make_reader(
-    raw_url: String,
+pub fn make_http_reader(
+    url: Url,
 ) -> Result<FetchProgress<Body, Stdout>, Box<dyn std::error::Error>> {
-    let url = Url::parse(raw_url.as_str())?;
-
     let client = HttpClient::new()?;
     let total_size = {
         let resp = client.head(url.as_str())?;
