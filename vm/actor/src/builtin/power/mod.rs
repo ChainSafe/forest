@@ -477,7 +477,6 @@ impl Actor {
         // TODO if verifies is ever Rayon compatible, this won't be needed
         let verif_arr: Vec<(&Address, &Vec<SealVerifyInfo>)> = verifies.iter().collect();
         let res = rt
-            .syscalls()
             .batch_verify_seals(verif_arr.as_slice())
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to batch verify"))?;
 
@@ -643,15 +642,15 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CreateMiner) => {
-                let res = Self::create_miner(rt, params.deserialize()?)?;
+                let res = Self::create_miner(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::UpdateClaimedPower) => {
-                Self::update_claimed_power(rt, params.deserialize()?)?;
+                Self::update_claimed_power(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::EnrollCronEvent) => {
-                Self::enroll_cron_event(rt, params.deserialize()?)?;
+                Self::enroll_cron_event(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::OnEpochTickEnd) => {
@@ -660,17 +659,17 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::UpdatePledgeTotal) => {
-                let BigIntDe(param) = params.deserialize()?;
+                let BigIntDe(param) = rt.deserialize_params(params)?;
                 Self::update_pledge_total(rt, param)?;
                 Ok(Serialized::default())
             }
             Some(Method::OnConsensusFault) => {
-                let BigIntDe(param) = params.deserialize()?;
+                let BigIntDe(param) = rt.deserialize_params(params)?;
                 Self::on_consensus_fault(rt, param)?;
                 Ok(Serialized::default())
             }
             Some(Method::SubmitPoRepForBulkVerify) => {
-                Self::submit_porep_for_bulk_verify(rt, params.deserialize()?)?;
+                Self::submit_porep_for_bulk_verify(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::CurrentTotalPower) => {

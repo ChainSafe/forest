@@ -12,7 +12,7 @@ use ipld_hamt::Hamt;
 use state_tree::*;
 
 fn empty_cid() -> Cid {
-    Cid::new_from_cbor(&[], Identity)
+    cid::new_from_cbor(&[], Identity)
 }
 
 #[test]

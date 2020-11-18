@@ -28,17 +28,15 @@ use walkdir::{DirEntry, WalkDir};
 lazy_static! {
     static ref DEFAULT_BASE_FEE: BigInt = BigInt::from(100);
     static ref SKIP_TESTS: Vec<Regex> = vec![
-        Regex::new(r"test-vectors/corpus/vm_violations/x--").unwrap(),
-        Regex::new(r"test-vectors/corpus/nested/x--").unwrap(),
-        // These tests are marked as invalid as they return wrong exit code on Lotus
-        Regex::new(r"actor_creation/x--params*").unwrap(),
+        // No reason for this, Lotus specific test
+        Regex::new(r"x--actor_abort--negative-exit-code").unwrap(),
+
+        // Our VM doesn't handle panics
+        Regex::new(r"x--actor_abort--no-exit-code").unwrap(),
 
         // These 2 tests ignore test cases for Chaos actor that are checked at compile time
-        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction.json").unwrap(),
-        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly.json").unwrap(),
-
-        // Same as marked tests above -- Go impl has the incorrect behaviour
-        Regex::new(r"fil_1_storageminer-SubmitWindowedPoSt-SysErrSenderInvalid-").unwrap(),
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction").unwrap(),
+        Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly").unwrap(),
     ];
 }
 

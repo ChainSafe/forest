@@ -16,12 +16,13 @@ use forest_libp2p::chain_exchange::{
 };
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
+use std::convert::TryFrom;
 use std::error::Error;
 use std::sync::Arc;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
-    Cid::new_from_cbor(data, Blake2b256)
+    cid::new_from_cbor(data, Blake2b256)
 }
 
 /// Defines a block header used in testing
@@ -70,17 +71,17 @@ pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let cids = construct_keys();
     // setup a deterministic message root within block header
     let meta = TxMeta {
-        bls_message_root: Cid::from_raw_cid(
+        bls_message_root: Cid::try_from(
             "bafy2bzacec4insvxxjqhl4sqdfjioz3gotxjrflb3cdpd3trtvw3zvm75jdzc",
         )
         .unwrap(),
-        secp_message_root: Cid::from_raw_cid(
+        secp_message_root: Cid::try_from(
             "bafy2bzacecbnlmwafpin7d4wmnb6sgtsdo6cfp4dhjbroq2g574eqrzc65e5a",
         )
         .unwrap(),
     };
     let bz = to_vec(&meta).unwrap();
-    let msg_root = Cid::new_from_cbor(&bz, Blake2b256);
+    let msg_root = cid::new_from_cbor(&bz, Blake2b256);
 
     return vec![
         template_header(data0, cids[0], 1, epoch, msg_root, weight),
@@ -199,9 +200,9 @@ pub fn construct_tipset_bundle(epoch: i64, weight: u64) -> TipsetBundle {
 pub fn construct_dummy_header() -> BlockHeader {
     BlockHeader::builder()
         .miner_address(Address::new_id(1000))
-        .messages(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        .message_receipts(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .messages(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .message_receipts(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .state_root(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
         .build_and_validate()
         .unwrap()
 }
