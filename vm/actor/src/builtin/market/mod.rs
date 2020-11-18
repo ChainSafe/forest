@@ -654,7 +654,7 @@ impl Actor {
             .compute_unsealed_sector_cid(params.sector_type, &pieces)
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::SysErrorIllegalArgument,
+                    ExitCode::SysErrIllegalArgument,
                     "failed to compute unsealed sector CID",
                 )
             })?;
