@@ -242,7 +242,7 @@ where
             }
             break;
         }
-        return Ok((result, gas_limit));
+        Ok((result, gas_limit))
     }
 }
 
@@ -251,8 +251,8 @@ mod test_selection {
     use super::*;
 
     use crate::head_change;
-    use crate::msgpool::test_provider::TestApi;
-    use crate::msgpool::tests::{create_smsg, mock_block};
+    use crate::msgpool::test_provider::{mock_block, TestApi};
+    use crate::msgpool::tests::create_smsg;
     use async_std::sync::channel;
     use async_std::task;
     use crypto::SignatureType;

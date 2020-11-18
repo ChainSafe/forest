@@ -1289,15 +1289,16 @@ fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage
     }
 }
 
-#[cfg(test)]
 pub mod test_provider {
     use super::Error as Errors;
     use super::*;
     use address::Address;
-    use blocks::{BlockHeader, Tipset};
+    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use cid::Cid;
+    use crypto::VRFProof;
     use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use message::{SignedMessage, UnsignedMessage};
+    use std::convert::TryFrom;
 
     /// Struct used for creating a provider when writing tests involving message pool
     pub struct TestApi {
@@ -1344,10 +1345,10 @@ pub mod test_provider {
         }
 
         pub fn next_block(&mut self) -> BlockHeader {
-            let new_block = tests::mock_block_with_parents(
+            let new_block = mock_block_with_parents(
                 self.tipsets
                     .last()
-                    .unwrap_or(&Tipset::new(vec![tests::mock_block(1, 1)]).unwrap()),
+                    .unwrap_or(&Tipset::new(vec![mock_block(1, 1)]).unwrap()),
                 1,
                 1,
             );
@@ -1462,50 +1463,6 @@ pub mod test_provider {
             .build()
             .unwrap()
     }
-}
-
-#[cfg(test)]
-pub mod tests {
-    use super::test_provider::*;
-    use super::*;
-    use crate::MessagePool;
-    use address::Address;
-    use async_std::sync::channel;
-    use async_std::task;
-    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use cid::Cid;
-    use crypto::{SignatureType, VRFProof};
-    use key_management::{MemKeyStore, Wallet};
-    use message::{SignedMessage, UnsignedMessage};
-    use num_bigint::BigInt;
-    use std::borrow::BorrowMut;
-    use std::convert::TryFrom;
-    use std::thread::sleep;
-    use std::time::Duration;
-
-    pub fn create_smsg(
-        to: &Address,
-        from: &Address,
-        wallet: &mut Wallet<MemKeyStore>,
-        sequence: u64,
-        gas_limit: i64,
-        gas_price: u64,
-    ) -> SignedMessage {
-        let umsg: UnsignedMessage = UnsignedMessage::builder()
-            .to(to.clone())
-            .from(from.clone())
-            .sequence(sequence)
-            .gas_limit(gas_limit)
-            .gas_fee_cap((gas_price + 100).into())
-            .gas_premium(gas_price.into())
-            .build()
-            .unwrap();
-        let msg_signing_bytes = umsg.to_signing_bytes();
-        let sig = wallet.sign(&from, msg_signing_bytes.as_slice()).unwrap();
-        let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap();
-        smsg.verify().unwrap();
-        smsg
-    }
 
     pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(1234561);
@@ -1530,6 +1487,7 @@ pub mod tests {
             .build_and_validate()
             .unwrap()
     }
+
     pub fn mock_block_with_epoch(epoch: i64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(1234561);
         let c =
@@ -1554,7 +1512,6 @@ pub mod tests {
             .build_and_validate()
             .unwrap()
     }
-
     pub fn mock_block_with_parents(
         parents: &Tipset,
         weight: u64,
@@ -1586,6 +1543,48 @@ pub mod tests {
             .epoch(height)
             .build_and_validate()
             .unwrap()
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::test_provider::*;
+    use super::*;
+    use crate::MessagePool;
+    use address::Address;
+    use async_std::sync::channel;
+    use async_std::task;
+    use blocks::Tipset;
+    use crypto::SignatureType;
+    use key_management::{MemKeyStore, Wallet};
+    use message::{SignedMessage, UnsignedMessage};
+    use num_bigint::BigInt;
+    use std::borrow::BorrowMut;
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    pub fn create_smsg(
+        to: &Address,
+        from: &Address,
+        wallet: &mut Wallet<MemKeyStore>,
+        sequence: u64,
+        gas_limit: i64,
+        gas_price: u64,
+    ) -> SignedMessage {
+        let umsg: UnsignedMessage = UnsignedMessage::builder()
+            .to(to.clone())
+            .from(from.clone())
+            .sequence(sequence)
+            .gas_limit(gas_limit)
+            .gas_fee_cap((gas_price + 100).into())
+            .gas_premium(gas_price.into())
+            .build()
+            .unwrap();
+        let msg_signing_bytes = umsg.to_signing_bytes();
+        let sig = wallet.sign(&from, msg_signing_bytes.as_slice()).unwrap();
+        let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap();
+        smsg.verify().unwrap();
+        smsg
     }
 
     #[test]
