@@ -3,8 +3,7 @@
 
 use super::BlockStore;
 use cid::{Cid, Code};
-use db::sled::{Batch, SledDb};
-use encoding::{ser::Serialize, to_vec};
+use db::sled::SledDb;
 use std::error::Error as StdError;
 
 impl BlockStore for SledDb {
