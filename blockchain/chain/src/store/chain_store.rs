@@ -157,7 +157,7 @@ where
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    pub async fn load_heaviest_tipset(&self) -> Result<(), Error> {
+    async fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
             Some(bz) => {
                 let keys: Vec<Cid> = from_slice(&bz)?;

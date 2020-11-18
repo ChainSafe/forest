@@ -5,7 +5,7 @@
 
 use super::errors::Error;
 use super::Store;
-pub use sled::{Batch, Db};
+pub use sled::{Batch, Config, Db};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -27,13 +27,19 @@ impl SledDb {
     where
         P: AsRef<Path>,
     {
-        let options = sled::Config::default()
+        let options = Config::default()
             .path(path)
+            .mode(sled::Mode::HighThroughput)
             // 4 gb
             .cache_capacity(1024 * 1024 * 1024 * 4);
         Ok(Self {
             db: options.open()?,
         })
+    }
+
+    /// Open a db with custom configuration.
+    pub fn open_with_config(config: Config) -> Result<Self, Error> {
+        Ok(Self { db: config.open()? })
     }
 
     /// Initialize a sled in memory database. This will not persist data.
