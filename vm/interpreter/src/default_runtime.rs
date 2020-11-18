@@ -605,9 +605,7 @@ where
             .state
             .get_actor(&receiver)
             .map_err(|e| e.downcast_fatal(format!("failed to get actor {}", receiver)))?
-            .ok_or_else(
-                || actor_error!(SysErrIllegalActor; "failed to load actor in delete actor"),
-            )
+            .ok_or_else(|| actor_error!(SysErrIllegalActor; "failed to load actor in delete actor"))
             .map(|act| act.balance)?;
         if balance != 0.into() {
             // Transfer the executing actor's balance to the beneficiary
