@@ -325,11 +325,14 @@ workflows:
                 - main
   coverage:
     jobs:
+      - prefetch-crates
       - coverage:
           filters:
             branches:
               only:
                 - main
+            requires:
+              - prefetch-crates
   security:
     jobs:
       - prefetch-crates
