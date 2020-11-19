@@ -1239,7 +1239,7 @@ where
             msgs.append(smsgs.as_mut());
         }
         for msg in msgs {
-            add(msg, rmsgs.borrow_mut());
+            add(msg, rmsgs);
         }
     }
 

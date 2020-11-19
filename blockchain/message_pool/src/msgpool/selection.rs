@@ -21,7 +21,7 @@ where
     ) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
         // TODO: Implement a more optimal message selection to pack more msgs into a block
-        self.select_messages_greedy(cur_ts.as_ref(), ts).await
+        self.select_messages_greedy(&cur_ts, ts).await
     }
 
     async fn select_messages_greedy(
