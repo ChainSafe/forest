@@ -6,7 +6,7 @@ use super::{
     assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, Deadline,
 };
 use super::{types::*, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds};
-use crate::{make_map_with_root, u64_key, ActorDowncast};
+use crate::{actor_assert, make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
 use bitfield::BitField;
@@ -15,7 +15,7 @@ use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
     deadlines::{DeadlineInfo, QuantSpec},
-    RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
+    NetworkVersion, RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
@@ -856,27 +856,62 @@ impl State {
     }
 
     /// Unclaimed funds that are not locked -- includes funds used to cover initial pledge requirement.
-    pub fn get_unlocked_balance(&self, actor_balance: &TokenAmount) -> TokenAmount {
+    pub fn get_unlocked_balance(
+        &self,
+        actor_balance: &TokenAmount,
+        network_version: NetworkVersion,
+    ) -> Result<TokenAmount, ActorError> {
         let unlocked_balance = actor_balance - &self.locked_funds - &self.pre_commit_deposits;
-        assert!(unlocked_balance >= TokenAmount::zero());
-        unlocked_balance
+        actor_assert(
+            unlocked_balance >= TokenAmount::zero(),
+            network_version,
+            "Unlocked balance cannot be less than zero",
+        )?;
+        Ok(unlocked_balance)
     }
 
     /// Unclaimed funds. Actor balance - (locked funds, precommit deposit, ip requirement)
     /// Can go negative if the miner is in IP debt.
-    pub fn get_available_balance(&self, actor_balance: &TokenAmount) -> TokenAmount {
+    pub fn get_available_balance(
+        &self,
+        actor_balance: &TokenAmount,
+        network_version: NetworkVersion,
+    ) -> Result<TokenAmount, ActorError> {
         // (actor_balance - &self.locked_funds) - &self.pre_commit_deposit
-        self.get_unlocked_balance(actor_balance) - &self.initial_pledge_requirement
+        Ok(self.get_unlocked_balance(actor_balance, network_version)?
+            - &self.initial_pledge_requirement)
     }
 
-    pub fn assert_balance_invariants(&self, balance: &TokenAmount) {
-        assert!(self.pre_commit_deposits >= TokenAmount::zero());
-        assert!(self.locked_funds >= TokenAmount::zero());
-        assert!(*balance >= &self.pre_commit_deposits + &self.locked_funds);
+    pub fn assert_balance_invariants(
+        &self,
+        balance: &TokenAmount,
+        network_version: NetworkVersion,
+    ) -> Result<(), ActorError> {
+        actor_assert(
+            self.pre_commit_deposits >= TokenAmount::zero(),
+            network_version,
+            "assert balance invariant, pre commit deposits < 0",
+        )?;
+        actor_assert(
+            self.locked_funds >= TokenAmount::zero(),
+            network_version,
+            "assert balance invariant, locked funds < 0",
+        )?;
+        actor_assert(
+            *balance >= &self.pre_commit_deposits + &self.locked_funds,
+            network_version,
+            "assert balance invariant, balance < pcd + lf",
+        )?;
+
+        Ok(())
     }
 
-    pub fn meets_initial_pledge_condition(&self, balance: &TokenAmount) -> bool {
-        self.get_unlocked_balance(balance) >= self.initial_pledge_requirement
+    pub fn meets_initial_pledge_condition(
+        &self,
+        balance: &TokenAmount,
+        network_version: NetworkVersion,
+    ) -> Result<bool, ActorError> {
+        Ok(self.get_unlocked_balance(balance, network_version)? >= self.initial_pledge_requirement)
     }
 
     /// pre-commit expiry
@@ -909,7 +944,8 @@ impl State {
         &mut self,
         store: &BS,
         sectors: &BitField,
-    ) -> Result<TokenAmount, HamtError> {
+        network_version: NetworkVersion,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
         let mut deposit_to_burn = TokenAmount::zero();
         let mut precommits_to_delete = Vec::new();
 
@@ -935,7 +971,11 @@ impl State {
         }
 
         self.pre_commit_deposits -= &deposit_to_burn;
-        assert!(self.pre_commit_deposits >= TokenAmount::zero());
+        actor_assert(
+            self.pre_commit_deposits >= TokenAmount::zero(),
+            network_version,
+            "check precommit expiry deposits < 0",
+        )?;
 
         Ok(deposit_to_burn)
     }

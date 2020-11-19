@@ -17,12 +17,13 @@ pub use vm::{
 };
 
 use cid::Cid;
-use fil_types::HAMT_BIT_WIDTH;
+use fil_types::{NetworkVersion, HAMT_BIT_WIDTH};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::{BytesKey, Error as HamtError, Hamt};
 use num_bigint::BigInt;
 use runtime::{ActorCode, Runtime};
 use serde::{de::DeserializeOwned, Serialize};
+use std::fmt::Display;
 use unsigned_varint::decode::Error as UVarintError;
 
 /// Map type to be used within actors. The underlying type is a hamt.
@@ -73,6 +74,32 @@ pub fn u64_key(k: u64) -> BytesKey {
 pub fn parse_uint_key(s: &[u8]) -> Result<u64, UVarintError> {
     let (v, _) = unsigned_varint::decode::u64(s)?;
     Ok(v)
+}
+
+/// Function to mimmic go implementation's panic handling. They recover from any panics as an exit
+/// code defined in the call function of Lotus.
+pub(crate) fn actor_assert(
+    assertion: bool,
+    network_version: NetworkVersion,
+    msg: impl Display,
+) -> Result<(), ActorError> {
+    if !assertion {
+        if network_version <= NetworkVersion::V3 {
+            Err(actor_error!(
+                SysErrSenderInvalid,
+                "actors assertion failure: {}",
+                msg
+            ))
+        } else {
+            Err(actor_error!(
+                SysErrActorPanic,
+                "actors assertion failure: {}",
+                msg
+            ))
+        }
+    } else {
+        Ok(())
+    }
 }
 
 pub fn invoke_code<RT, BS>(

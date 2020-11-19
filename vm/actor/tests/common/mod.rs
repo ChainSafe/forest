@@ -156,7 +156,7 @@ impl MockRuntime {
     }
     fn check_argument(&self, predicate: bool, msg: String) -> Result<(), ActorError> {
         if !predicate {
-            return Err(actor_error!(SysErrorIllegalArgument; msg));
+            return Err(actor_error!(SysErrIllegalArgument; msg));
         }
         Ok(())
     }
@@ -507,7 +507,7 @@ impl Runtime<MemoryDB> for MockRuntime {
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
         if self.state.is_some() == true {
-            return Err(actor_error!(SysErrorIllegalActor; "state already constructed"));
+            return Err(actor_error!(SysErrIllegalActor; "state already constructed"));
         }
         self.state = Some(self.store.put(obj, Blake2b256).unwrap());
         Ok(())
@@ -527,7 +527,7 @@ impl Runtime<MemoryDB> for MockRuntime {
         F: FnOnce(&mut C, &mut Self) -> Result<RT, ActorError>,
     {
         if self.in_transaction {
-            return Err(actor_error!(SysErrorIllegalActor; "nested transaction"));
+            return Err(actor_error!(SysErrIllegalActor; "nested transaction"));
         }
         let mut read_only = self.state()?;
         self.in_transaction = true;
@@ -550,7 +550,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     ) -> Result<Serialized, ActorError> {
         self.require_in_call();
         if self.in_transaction {
-            return Err(actor_error!(SysErrorIllegalActor; "side-effect within transaction"));
+            return Err(actor_error!(SysErrIllegalActor; "side-effect within transaction"));
         }
 
         assert!(
@@ -596,7 +596,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
-            return Err(actor_error!(SysErrorIllegalActor; "side-effect within transaction"));
+            return Err(actor_error!(SysErrIllegalActor; "side-effect within transaction"));
         }
         let expect_create_actor = self
             .expect_create_actor
@@ -610,7 +610,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     fn delete_actor(&mut self, addr: &Address) -> Result<(), ActorError> {
         self.require_in_call();
         if self.in_transaction {
-            return Err(actor_error!(SysErrorIllegalActor; "side-effect within transaction"));
+            return Err(actor_error!(SysErrIllegalActor; "side-effect within transaction"));
         }
         let exp_act = self.expect_delete_actor.take();
         if exp_act.is_none() {
