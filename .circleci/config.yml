@@ -331,8 +331,8 @@ workflows:
             branches:
               only:
                 - main
-            requires:
-              - prefetch-crates
+          requires:
+            - prefetch-crates
   security:
     jobs:
       - prefetch-crates
