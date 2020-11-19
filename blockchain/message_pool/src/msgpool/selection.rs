@@ -68,14 +68,14 @@ where
         // 3. Merge the head chains to produce the list of messages selected for inclusion, subject to
         //    the block gas limit.
         let mut last = chains.len();
-        for i in 0..chains.len() {
-            if !allow_negative_chains(cur_ts.epoch()) && chains[i].curr().gas_perf < 0.0 {
+        for (i, chain) in chains.iter().enumerate() {
+            if !allow_negative_chains(cur_ts.epoch()) && chain.curr().gas_perf < 0.0 {
                 break;
             }
 
-            if chains[i].curr().gas_limit <= gas_limit {
-                gas_limit -= chains[i].curr().gas_limit;
-                result.append(&mut chains[i].curr().msgs.clone());
+            if chain.curr().gas_limit <= gas_limit {
+                gas_limit -= chain.curr().gas_limit;
+                result.append(&mut chain.curr().msgs.clone());
                 continue;
             }
             last = i;
@@ -99,20 +99,20 @@ where
             }
 
             // select the next (valid and fitting) chain for inclusion
-            for i in last..chains.len() {
-                if !chains[i].curr().valid {
+            for (i, chain) in chains.iter_mut().enumerate().skip(last) {
+                if !chain.curr().valid {
                     continue;
                 }
 
                 // if gas_perf < 0 then we have no more profitable chains
-                if !allow_negative_chains(cur_ts.epoch()) && chains[i].curr().gas_perf < 0.0 {
+                if !allow_negative_chains(cur_ts.epoch()) && chain.curr().gas_perf < 0.0 {
                     break 'tail_loop;
                 }
 
                 // does it fit in the block?
-                if chains[i].curr().gas_limit <= gas_limit {
-                    gas_limit -= chains[i].curr().gas_limit;
-                    result.append(&mut chains[i].curr_mut().msgs);
+                if chain.curr().gas_limit <= gas_limit {
+                    gas_limit -= chain.curr().gas_limit;
+                    result.append(&mut chain.curr_mut().msgs);
                     continue;
                 }
                 last += i;
@@ -194,13 +194,13 @@ where
 
         // 3. Merge chains until the block limit, as long as they have non-negative gas performance
         let mut last = chains.len();
-        for i in 0..chains.len() {
-            if !allow_negative_chains(ts.epoch()) && chains[i].curr().gas_perf < 0.0 {
+        for (i, chain) in chains.iter().enumerate() {
+            if !allow_negative_chains(ts.epoch()) && chain.curr().gas_perf < 0.0 {
                 break;
             }
-            if chains[i].curr().gas_limit <= gas_limit {
+            if chain.curr().gas_limit <= gas_limit {
                 gas_limit -= chains[i].curr().gas_limit;
-                result.append(&mut chains[i].curr().msgs.clone());
+                result.append(&mut chain.curr().msgs.clone());
                 continue;
             }
             last = i;
@@ -221,23 +221,23 @@ where
             }
 
             // select the next (valid and fitting) chain for inclusion
-            for i in last..chains.len() {
-                if !chains[i].curr().valid {
+            for (i, chain) in chains.iter_mut().enumerate().skip(last) {
+                if !chain.curr().valid {
                     continue;
                 }
 
                 // if gas_perf < 0 then we have no more profitable chains
-                if !allow_negative_chains(ts.epoch()) && chains[i].curr().gas_perf < 0.0 {
+                if !allow_negative_chains(ts.epoch()) && chain.curr().gas_perf < 0.0 {
                     break 'tail_loop;
                 }
 
                 // does it fit in the block?
-                if chains[i].curr().gas_limit <= gas_limit {
-                    gas_limit -= chains[i].curr().gas_limit;
-                    result.append(&mut chains[i].curr().msgs.clone());
+                if chain.curr().gas_limit <= gas_limit {
+                    gas_limit -= chain.curr().gas_limit;
+                    result.append(&mut chain.curr_mut().msgs);
                     continue;
                 }
-                last += 1;
+                last += i;
                 continue 'tail_loop;
             }
             break;
