@@ -52,9 +52,7 @@ where
         // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
         let mut chains = Vec::new();
         for (actor, mset) in pending.into_iter() {
-            chains.append(
-                &mut create_message_chains(&self.api, &actor, &mset, &base_fee, &ts).await?,
-            );
+            chains.extend(create_message_chains(&self.api, &actor, &mset, &base_fee, &ts).await?);
         }
 
         // 2. Sort the chains
@@ -75,7 +73,7 @@ where
 
             if chain.curr().gas_limit <= gas_limit {
                 gas_limit -= chain.curr().gas_limit;
-                result.append(&mut chain.curr().msgs.clone());
+                result.extend(chain.curr().msgs.clone());
                 continue;
             }
             last = i;
@@ -174,8 +172,8 @@ where
         let priority = self.config.priority_addrs();
         for actor in priority.iter() {
             if let Some(mset) = pending.remove(actor) {
-                let mut next = create_message_chains(&self.api, actor, &mset, base_fee, ts).await?;
-                chains.append(&mut next);
+                let next = create_message_chains(&self.api, actor, &mset, base_fee, ts).await?;
+                chains.extend(next);
             }
         }
         if chains.is_empty() {
@@ -200,7 +198,7 @@ where
             }
             if chain.curr().gas_limit <= gas_limit {
                 gas_limit -= chains[i].curr().gas_limit;
-                result.append(&mut chain.curr().msgs.clone());
+                result.extend(chain.curr().msgs.clone());
                 continue;
             }
             last = i;

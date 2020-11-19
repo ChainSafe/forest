@@ -1235,8 +1235,8 @@ where
     for ts in left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
-            let (_, mut smsgs) = api.read().await.messages_for_block(&block)?;
-            msgs.append(smsgs.as_mut());
+            let (_, smsgs) = api.read().await.messages_for_block(&block)?;
+            msgs.extend(smsgs);
         }
         for msg in msgs {
             add(msg, rmsgs);
