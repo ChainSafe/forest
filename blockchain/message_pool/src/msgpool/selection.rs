@@ -97,7 +97,7 @@ where
             }
 
             // select the next (valid and fitting) chain for inclusion
-            for (i, chain) in chains.iter_mut().enumerate().skip(last) {
+            for (i, chain) in chains.iter_mut().skip(last).enumerate() {
                 if !chain.curr().valid {
                     continue;
                 }
@@ -219,7 +219,7 @@ where
             }
 
             // select the next (valid and fitting) chain for inclusion
-            for (i, chain) in chains.iter_mut().enumerate().skip(last) {
+            for (i, chain) in chains.iter_mut().skip(last).enumerate() {
                 if !chain.curr().valid {
                     continue;
                 }
