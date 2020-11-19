@@ -7,7 +7,6 @@ use address::Address;
 use blocks::{
     Block, BlockHeader, EPostProof, EPostTicket, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta,
 };
-use chain::TipsetMetadata;
 use cid::{Cid, Code::Blake2b256};
 use crypto::{Signature, Signer, VRFProof};
 use encoding::{from_slice, to_vec};
@@ -18,7 +17,6 @@ use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use std::convert::TryFrom;
 use std::error::Error;
-use std::sync::Arc;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
@@ -145,18 +143,6 @@ pub fn construct_full_tipset() -> FullTipset {
     });
 
     FullTipset::new(blocks).unwrap()
-}
-
-/// Returns TipsetMetadata used for testing
-pub fn construct_tipset_metadata() -> TipsetMetadata {
-    const EPOCH: i64 = 1;
-    const WEIGHT: u64 = 10;
-    let tip_set = construct_tipset(EPOCH, WEIGHT);
-    TipsetMetadata {
-        tipset_state_root: *tip_set.blocks()[0].state_root(),
-        tipset_receipts_root: *tip_set.blocks()[0].message_receipts(),
-        tipset: Arc::new(tip_set),
-    }
 }
 
 const DUMMY_SIG: [u8; 1] = [0u8];
