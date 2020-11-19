@@ -11,3 +11,11 @@ coverage:
     project: true
     patch: true
     changes: false
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      macro: no
