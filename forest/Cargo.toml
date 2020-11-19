@@ -38,6 +38,7 @@ wallet = { package = "key_management", path = "../key_management" }
 jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2", features = ["easy-errors", "macros"], default-features = false }
 uuid = { version = "0.8.1", features = ["v4"] }
 auth = { path = "../utils/auth"}
+net_utils = { path = "../utils/net_utils" }
 actor = { path = "../vm/actor/" }
 genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }

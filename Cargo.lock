@@ -2199,6 +2199,7 @@ dependencies = [
  "libp2p",
  "log",
  "message_pool",
+ "net_utils",
  "paramfetch",
  "pretty_env_logger",
  "rpc",
@@ -2652,7 +2653,9 @@ dependencies = [
  "forest_encoding",
  "ipld_blockstore",
  "log",
+ "net_utils",
  "state_manager",
+ "url",
 ]
 
 [[package]]
@@ -3188,11 +3191,13 @@ dependencies = [
  "crossbeam-utils 0.8.0",
  "curl",
  "curl-sys",
+ "encoding_rs",
  "futures-channel",
  "futures-io",
  "futures-util",
  "http",
  "log",
+ "mime",
  "once_cell",
  "slab",
  "sluice",
@@ -4157,6 +4162,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "net_utils"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "futures 0.3.8",
+ "isahc",
+ "log",
+ "pbr",
+ "pin-project-lite",
+ "thiserror",
+ "url",
+]
+
+[[package]]
 name = "nix"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4475,12 +4494,15 @@ dependencies = [
  "blake2b_simd",
  "fil_types",
  "futures 0.3.8",
+ "isahc",
  "log",
+ "net_utils",
  "pbr",
  "pin-project-lite",
  "serde",
  "serde_json",
  "surf",
+ "url",
 ]
 
 [[package]]

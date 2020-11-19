@@ -72,9 +72,9 @@ pub struct DaemonOpts {
     pub kademlia: Option<bool>,
     #[structopt(short, long, help = "Allow MDNS (default = true)")]
     pub mdns: Option<bool>,
-    #[structopt(long, help = "Import a snapshot from a CAR file")]
+    #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
     pub import_snapshot: Option<String>,
-    #[structopt(long, help = "Import a chain from CAR file")]
+    #[structopt(long, help = "Import a chain from a local CAR file or url")]
     pub import_chain: Option<String>,
 }
 
