@@ -221,32 +221,32 @@ jobs:
           condition:
             equal: [main, << pipeline.git.branch >>]
           steps:
-          - run:
-              name: Set rustc version
-              command: |
-                rustup default nightly
-                rustup update nightly
-          - run:
-              name: Install grcov
-              command: |
-                cargo install --force grcov
-          - run:
-              name: Avoid hosts unknown for github
-              command: echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
-          - run:
-              name: Run test suite
-              command: |
-                export RUSTFLAGS="-g -Zprofile -Ccodegen-units=1 -Coverflow-checks=off"
-                export CARGO_INCREMENTAL=0
-                cargo clean
-                cargo build --release
-                sudo make test-all
-          - run:
-              name: Upload to codecov
-              command: |
-                grcov ./target/release -s . -t lcov --llvm --branch --ignore-not-existing --ignore="tests/*" --ignore="target/release/build/*" --ignore="**/tests/*" -o lcov.info;
-                bash <(curl -s https://codecov.io/bash) -f lcov.info;
-                rm -f lcov.info
+            - run:
+                name: Set rustc version
+                command: |
+                  rustup default nightly
+                  rustup update nightly
+            - run:
+                name: Install grcov
+                command: |
+                  cargo install --force grcov
+            - run:
+                name: Avoid hosts unknown for github
+                command: echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+            - run:
+                name: Run test suite
+                command: |
+                  export RUSTFLAGS="-g -Zprofile -Ccodegen-units=1 -Coverflow-checks=off"
+                  export CARGO_INCREMENTAL=0
+                  cargo clean
+                  cargo build --release
+                  sudo make test-all
+            - run:
+                name: Upload to codecov
+                command: |
+                  grcov ./target/release -s . -t lcov --llvm --branch --ignore-not-existing --ignore="tests/*" --ignore="target/release/build/*" --ignore="**/tests/*" -o lcov.info;
+                  bash <(curl -s https://codecov.io/bash) -f lcov.info;
+                  rm -f lcov.info
   publish-docs:
     executor: test-executor
     description: Publish documentation to GitHub pages
