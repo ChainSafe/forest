@@ -1,4 +1,5 @@
 use super::{allow_negative_chains, create_message_chains, MessagePool, Provider};
+use crate::msg_chain::MsgChain;
 use crate::{run_head_change, Error};
 use address::Address;
 use blocks::Tipset;
@@ -41,7 +42,7 @@ where
         // 0b. Select all priority messages that fit in the block
         // TODO: Implement guess gas
         let min_gas = 1298450;
-        let (mut result, mut gas_limit) = self
+        let (result, gas_limit) = self
             .select_priority_messages(&mut pending, &base_fee, &ts)
             .await?;
 
@@ -55,70 +56,8 @@ where
             chains.extend(create_message_chains(&self.api, &actor, &mset, &base_fee, &ts).await?);
         }
 
-        // 2. Sort the chains
-        chains.sort_by(|a, b| b.compare(&a));
-        if !allow_negative_chains(cur_ts.epoch())
-            && !chains.is_empty()
-            && chains[0].curr().gas_perf < 0.0
-        {
-            return Ok(result);
-        }
-        // 3. Merge the head chains to produce the list of messages selected for inclusion, subject to
-        //    the block gas limit.
-        let mut last = chains.len();
-        for (i, chain) in chains.iter().enumerate() {
-            if !allow_negative_chains(cur_ts.epoch()) && chain.curr().gas_perf < 0.0 {
-                break;
-            }
-
-            if chain.curr().gas_limit <= gas_limit {
-                gas_limit -= chain.curr().gas_limit;
-                result.extend(chain.curr().msgs.clone());
-                continue;
-            }
-            last = i;
-            break;
-        }
-        // 4. We have reached the edge of what we can fit wholesale; if we still have available gasLimit
-        // to pack some more chains, then trim the last chain and push it down.
-        // Trimming invalidates subsequent dependent chains so that they can't be selected as their
-        // dependency cannot be (fully) included.
-        // We do this in a loop because the blocker might have been inordinately large and we might
-        // have to do it multiple times to satisfy tail packing.
-        'tail_loop: while gas_limit >= min_gas && last < chains.len() {
-            chains[last].trim(gas_limit, &base_fee, allow_negative_chains(cur_ts.epoch()));
-            if chains[last].curr().valid {
-                for i in last..(chains.len() - 1) {
-                    if chains[i].compare(&chains[i + 1]) == Ordering::Greater {
-                        break;
-                    }
-                    chains.swap(i, i + 1);
-                }
-            }
-
-            // select the next (valid and fitting) chain for inclusion
-            for (i, chain) in chains.iter_mut().skip(last).enumerate() {
-                if !chain.curr().valid {
-                    continue;
-                }
-
-                // if gas_perf < 0 then we have no more profitable chains
-                if !allow_negative_chains(cur_ts.epoch()) && chain.curr().gas_perf < 0.0 {
-                    break 'tail_loop;
-                }
-
-                // does it fit in the block?
-                if chain.curr().gas_limit <= gas_limit {
-                    gas_limit -= chain.curr().gas_limit;
-                    result.append(&mut chain.curr_mut().msgs);
-                    continue;
-                }
-                last += i;
-                continue 'tail_loop;
-            }
-            break;
-        }
-        Ok(result)
+        let (msgs, _) = merge_and_trim(chains, result, &base_fee, &cur_ts, gas_limit, min_gas)?;
+        Ok(msgs)
     }
 
     async fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
@@ -163,8 +102,8 @@ where
         base_fee: &BigInt,
         ts: &Tipset,
     ) -> Result<(Vec<SignedMessage>, i64), Error> {
-        let mut result = Vec::with_capacity(self.config.size_limit_low() as usize);
-        let mut gas_limit = types::BLOCK_GAS_LIMIT;
+        let result = Vec::with_capacity(self.config.size_limit_low() as usize);
+        let gas_limit = types::BLOCK_GAS_LIMIT;
         let min_gas = 1298450;
 
         // 1. Get priority actor chains
@@ -180,68 +119,79 @@ where
             return Ok((Vec::new(), gas_limit));
         }
 
-        // 2. Sort the chains
-        chains.sort_by(|a, b| b.compare(&a));
+        merge_and_trim(chains, result, base_fee, ts, gas_limit, min_gas)
+    }
+}
+/// Returns merged and trimmed messages with the gas limit
+fn merge_and_trim(
+    chains: Vec<MsgChain>,
+    result: Vec<SignedMessage>,
+    base_fee: &BigInt,
+    ts: &Tipset,
+    gas_limit: i64,
+    min_gas: i64,
+) -> Result<(Vec<SignedMessage>, i64), Error> {
+    let mut chains = chains;
+    let mut result = result;
+    let mut gas_limit = gas_limit;
+    // 2. Sort the chains
+    chains.sort_by(|a, b| b.compare(&a));
 
-        if !allow_negative_chains(ts.epoch())
-            && !chains.is_empty()
-            && chains[0].curr().gas_perf < 0.0
-        {
-            return Ok((Vec::new(), gas_limit));
+    if !allow_negative_chains(ts.epoch()) && !chains.is_empty() && chains[0].curr().gas_perf < 0.0 {
+        return Ok((Vec::new(), gas_limit));
+    }
+
+    // 3. Merge chains until the block limit, as long as they have non-negative gas performance
+    let mut last = chains.len();
+    for (i, chain) in chains.iter().enumerate() {
+        if !allow_negative_chains(ts.epoch()) && chain.curr().gas_perf < 0.0 {
+            break;
+        }
+        if chain.curr().gas_limit <= gas_limit {
+            gas_limit -= chains[i].curr().gas_limit;
+            result.extend(chain.curr().msgs.clone());
+            continue;
+        }
+        last = i;
+        break;
+    }
+    'tail_loop: while gas_limit >= min_gas && last < chains.len() {
+        //trim, discard negative performing messages
+        chains[last].trim(gas_limit, base_fee, allow_negative_chains(ts.epoch()));
+
+        // push down if it hasn't been invalidated
+        if chains[last].curr().valid {
+            for i in last..chains.len() - 1 {
+                if chains[i].compare(&chains[i + 1]) == Ordering::Greater {
+                    break;
+                }
+                chains.swap(i, i + 1);
+            }
         }
 
-        // 3. Merge chains until the block limit, as long as they have non-negative gas performance
-        let mut last = chains.len();
-        for (i, chain) in chains.iter().enumerate() {
-            if !allow_negative_chains(ts.epoch()) && chain.curr().gas_perf < 0.0 {
-                break;
-            }
-            if chain.curr().gas_limit <= gas_limit {
-                gas_limit -= chains[i].curr().gas_limit;
-                result.extend(chain.curr().msgs.clone());
+        // select the next (valid and fitting) chain for inclusion
+        for (i, chain) in chains.iter_mut().skip(last).enumerate() {
+            if !chain.curr().valid {
                 continue;
             }
-            last = i;
-            break;
-        }
-        'tail_loop: while gas_limit >= min_gas && last < chains.len() {
-            //trim, discard negative performing messages
-            chains[last].trim(gas_limit, base_fee, allow_negative_chains(ts.epoch()));
 
-            // push down if it hasn't been invalidated
-            if chains[last].curr().valid {
-                for i in last..chains.len() - 1 {
-                    if chains[i].compare(&chains[i + 1]) == Ordering::Greater {
-                        break;
-                    }
-                    chains.swap(i, i + 1);
-                }
+            // if gas_perf < 0 then we have no more profitable chains
+            if !allow_negative_chains(ts.epoch()) && chain.curr().gas_perf < 0.0 {
+                break 'tail_loop;
             }
 
-            // select the next (valid and fitting) chain for inclusion
-            for (i, chain) in chains.iter_mut().skip(last).enumerate() {
-                if !chain.curr().valid {
-                    continue;
-                }
-
-                // if gas_perf < 0 then we have no more profitable chains
-                if !allow_negative_chains(ts.epoch()) && chain.curr().gas_perf < 0.0 {
-                    break 'tail_loop;
-                }
-
-                // does it fit in the block?
-                if chain.curr().gas_limit <= gas_limit {
-                    gas_limit -= chain.curr().gas_limit;
-                    result.append(&mut chain.curr_mut().msgs);
-                    continue;
-                }
-                last += i;
-                continue 'tail_loop;
+            // does it fit in the block?
+            if chain.curr().gas_limit <= gas_limit {
+                gas_limit -= chain.curr().gas_limit;
+                result.append(&mut chain.curr_mut().msgs);
+                continue;
             }
-            break;
+            last += i;
+            continue 'tail_loop;
         }
-        Ok((result, gas_limit))
+        break;
     }
+    Ok((result, gas_limit))
 }
 
 #[cfg(test)]
