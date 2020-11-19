@@ -613,7 +613,7 @@ where
             out.append(
                 self.pending_for(&addr)
                     .await
-                    .ok_or_else(|| Error::InvalidFromAddr)?
+                    .ok_or(Error::InvalidFromAddr)?
                     .as_mut(),
             )
         }
@@ -1318,7 +1318,7 @@ pub mod test_provider {
             }
             let balance = match self.balances.get(addr) {
                 Some(b) => b.clone(),
-                None => (10_000_000_000 as u64).into(),
+                None => (10_000_000_000_u64).into(),
             };
 
             msgs.sort_by_key(|m| m.sequence());

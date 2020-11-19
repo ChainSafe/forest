@@ -207,9 +207,7 @@ where
                             *sn
                         } else {
                             // Only retrieve sub node if not found in cache
-                            self.block_store
-                                .get(&cid)?
-                                .ok_or_else(|| Error::RootNotFound)?
+                            self.block_store.get(&cid)?.ok_or(Error::RootNotFound)?
                         }
                     }
                     _ => unreachable!("Link index should match bitmap"),
