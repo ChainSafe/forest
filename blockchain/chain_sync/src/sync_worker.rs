@@ -818,7 +818,7 @@ where
                 Some(sequence) => *sequence,
                 // Sequence does not exist in map, get actor from state
                 None => {
-                    let act = tree.get_actor(msg.from())?.ok_or_else(|| {
+                    let act = tree.get_actor(msg.from())?.ok_or({
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     })?;
 
