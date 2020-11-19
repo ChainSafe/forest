@@ -18,3 +18,5 @@ blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 chain = { path = "../../blockchain/chain" }
 fil_types = { path = "../../types" }
 encoding = { path = "../../encoding", package = "forest_encoding" }
+net_utils = { path = "../net_utils" }
+url = "2.1.1"
