@@ -5896,7 +5896,6 @@ dependencies = [
  "forest_vm",
  "ipld_blockstore",
  "ipld_hamt",
- "parking_lot 0.11.1",
 ]
 
 [[package]]

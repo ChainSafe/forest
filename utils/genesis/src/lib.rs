@@ -121,9 +121,8 @@ where
         .await?;
     let gb = sm
         .chain_store()
-        .tipset_by_height(0, &ts, true)
-        .await?
-        .unwrap();
+        .tipset_by_height(0, ts.clone(), true)
+        .await?;
 
     if let Some(height) = validate_height {
         info!("Validating imported chain");

@@ -7,12 +7,13 @@ use cid::{Cid, Code::Blake2b256};
 use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
-use parking_lot::RwLock;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use vm::ActorState;
 
-/// State tree implementation using hamt
+/// State tree implementation using hamt. This structure is not threadsafe and should only be used
+/// in sync contexts.
 pub struct StateTree<'db, S> {
     hamt: Hamt<'db, S, ActorState>,
 
@@ -26,32 +27,22 @@ struct StateSnapshots {
 }
 
 /// State snap shot layer
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct StateSnapLayer {
-    actors: RwLock<HashMap<Address, Option<ActorState>>>,
-    resolve_cache: RwLock<HashMap<Address, Address>>,
-}
-
-impl StateSnapLayer {
-    /// Snapshot layer constructor
-    fn new() -> Self {
-        Self {
-            actors: RwLock::new(HashMap::default()),
-            resolve_cache: RwLock::new(HashMap::default()),
-        }
-    }
+    actors: RefCell<HashMap<Address, Option<ActorState>>>,
+    resolve_cache: RefCell<HashMap<Address, Address>>,
 }
 
 impl StateSnapshots {
     /// State snapshot constructor
     fn new() -> Self {
         Self {
-            layers: vec![StateSnapLayer::new()],
+            layers: vec![StateSnapLayer::default()],
         }
     }
 
     fn add_layer(&mut self) {
-        self.layers.push(StateSnapLayer::new())
+        self.layers.push(StateSnapLayer::default())
     }
 
     fn drop_layer(&mut self) -> Result<(), String> {
@@ -75,8 +66,13 @@ impl StateSnapshots {
                 )
             })?
             .actors
-            .write()
-            .extend(self.layers[&self.layers.len() - 1].actors.write().drain());
+            .borrow_mut()
+            .extend(
+                self.layers[&self.layers.len() - 1]
+                    .actors
+                    .borrow_mut()
+                    .drain(),
+            );
 
         self.layers
             .get(&self.layers.len() - 2)
@@ -87,11 +83,11 @@ impl StateSnapshots {
                 )
             })?
             .resolve_cache
-            .write()
+            .borrow_mut()
             .extend(
                 self.layers[&self.layers.len() - 1]
                     .resolve_cache
-                    .write()
+                    .borrow_mut()
                     .drain(),
             );
 
@@ -100,7 +96,7 @@ impl StateSnapshots {
 
     fn resolve_address(&self, addr: &Address) -> Option<Address> {
         for layer in self.layers.iter().rev() {
-            if let Some(res_addr) = layer.resolve_cache.read().get(addr).cloned() {
+            if let Some(res_addr) = layer.resolve_cache.borrow().get(addr).cloned() {
                 return Some(res_addr);
             }
         }
@@ -122,7 +118,7 @@ impl StateSnapshots {
                 )
             })?
             .resolve_cache
-            .write()
+            .borrow_mut()
             .insert(addr, resolve_addr);
 
         Ok(())
@@ -130,7 +126,7 @@ impl StateSnapshots {
 
     fn get_actor(&self, addr: &Address) -> Option<ActorState> {
         for layer in self.layers.iter().rev() {
-            if let Some(state) = layer.actors.read().get(addr) {
+            if let Some(state) = layer.actors.borrow().get(addr) {
                 return state.clone();
             }
         }
@@ -148,7 +144,7 @@ impl StateSnapshots {
                 )
             })?
             .actors
-            .write()
+            .borrow_mut()
             .insert(addr, Some(actor));
         Ok(())
     }
@@ -163,7 +159,7 @@ impl StateSnapshots {
                 )
             })?
             .actors
-            .write()
+            .borrow_mut()
             .insert(addr, None);
 
         Ok(())
@@ -345,7 +341,7 @@ where
             .into());
         }
 
-        for (addr, sto) in self.snaps.layers[0].actors.read().iter() {
+        for (addr, sto) in self.snaps.layers[0].actors.borrow().iter() {
             match sto {
                 None => {
                     self.hamt.delete(&addr.to_bytes())?;
