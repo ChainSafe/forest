@@ -365,7 +365,7 @@ pub(crate) async fn state_network_name<
         .chain_store()
         .heaviest_tipset()
         .await
-        .ok_or_else(|| "Heaviest Tipset not found in state_network_name")?;
+        .ok_or("Heaviest Tipset not found in state_network_name")?;
 
     state_manager
         .get_network_name(heaviest_tipset.parent_state())
@@ -429,8 +429,8 @@ pub(crate) async fn state_wait_msg<
     let (tipset, receipt) = state_manager
         .wait_for_message(state_manager.get_subscriber(), &cid, confidence)
         .await?;
-    let tipset = tipset.ok_or_else(|| "wait for msg returned empty tuple")?;
-    let receipt = receipt.ok_or_else(|| "wait for msg returned empty receipt")?;
+    let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
+    let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
     let tipset_json: TipsetJson = tipset.into();
     Ok(MessageLookup {
         receipt: receipt.into(),

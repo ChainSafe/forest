@@ -96,7 +96,7 @@ where
 
     for (i, e) in (0..).zip(r_arr.iter_mut()) {
         if bmap.get_bit(i) {
-            let value = v_iter.next().ok_or_else(|| Error::InvalidVecLength)?;
+            let value = v_iter.next().ok_or(Error::InvalidVecLength)?;
             *e = Some(<T>::from(value));
         }
     }
@@ -275,7 +275,7 @@ where
                         sn
                     } else {
                         // Only retrieve sub node if not found in cache
-                        bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                        bs.get(&cid)?.ok_or(Error::RootNotFound)?
                     };
 
                     Some(Link::Dirty(sub_node))
@@ -381,7 +381,7 @@ where
                                 sn
                             } else {
                                 // Only retrieve sub node if not found in cache
-                                bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                                bs.get(&cid)?.ok_or(Error::RootNotFound)?
                             };
                             if !sub_node.delete(bs, height - 1, i % nodes_for_height(height))? {
                                 // Replace cache, no node deleted.
@@ -530,7 +530,7 @@ where
                                     (sn, true)
                                 } else {
                                     // Only retrieve sub node if not found in cache
-                                    (store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?, false)
+                                    (store.get(&cid)?.ok_or(Error::RootNotFound)?, false)
                                 };
 
                                 let (keep_going, did_mutate_node) =

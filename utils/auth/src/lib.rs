@@ -4,7 +4,7 @@
 use crypto::SignatureType;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonwebtoken::errors::Result as JWTResult;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -61,8 +61,10 @@ pub fn create_token(perms: Vec<String>, key: &[u8]) -> JWTResult<String> {
 
 /// Verify JWT Token and return the allowed permissions from token
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
-    let mut validation = Validation::default();
-    validation.validate_exp = false;
+    let validation = jsonwebtoken::Validation {
+        validate_exp: false,
+        ..Default::default()
+    };
     let token = decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
     Ok(token.claims.allow)
 }

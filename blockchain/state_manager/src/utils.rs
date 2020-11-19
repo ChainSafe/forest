@@ -325,7 +325,7 @@ where
         Ok(out)
     }
 
-    pub fn list_miner_actors<'a, V>(&self, tipset: &'a Tipset) -> Result<Vec<Address>, Error>
+    pub fn list_miner_actors<V>(&self, tipset: &Tipset) -> Result<Vec<Address>, Error>
     where
         V: ProofVerifier,
     {
