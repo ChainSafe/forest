@@ -193,10 +193,7 @@ async fn fetch_params(
     Ok(())
 }
 
-async fn check_file(
-    path: Arc<std::path::PathBuf>,
-    info: Arc<ParameterData>,
-) -> Result<(), io::Error> {
+async fn check_file(path: Arc<PathBuf>, info: Arc<ParameterData>) -> Result<(), io::Error> {
     if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
         warn!("Assuming parameter files are okay. DO NOT USE IN PRODUCTION");
         return Ok(());
