@@ -70,7 +70,7 @@ where
         // Remove entry from table
         self.0
             .delete(key)?
-            .ok_or_else(|| "failed to delete from multimap")?;
+            .ok_or("failed to delete from multimap")?;
 
         Ok(())
     }

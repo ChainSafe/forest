@@ -50,8 +50,7 @@ pub trait Store {
     {
         values
             .iter()
-            .map(|(key, value)| self.write(key, value))
-            .collect()
+            .try_for_each(|(key, value)| self.write(key, value))
     }
 
     /// Bulk delete keys from the data store.
@@ -59,6 +58,6 @@ pub trait Store {
     where
         K: AsRef<[u8]>,
     {
-        keys.iter().map(|key| self.delete(key)).collect()
+        keys.iter().try_for_each(|key| self.delete(key))
     }
 }

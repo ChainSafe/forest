@@ -15,9 +15,7 @@ pub fn resolve_cids_recursive<BS>(
 where
     BS: BlockStore,
 {
-    let mut ipld = bs
-        .get(cid)?
-        .ok_or_else(|| "Cid does not exist in blockstore")?;
+    let mut ipld = bs.get(cid)?.ok_or("Cid does not exist in blockstore")?;
 
     resolve_ipld(bs, &mut ipld, depth)?;
 
