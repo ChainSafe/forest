@@ -53,6 +53,7 @@ commands:
             echo 'export CARGO_INCREMENTAL=0' >> $BASH_ENV
             echo 'export CI_TIMEOUT="timeout 40m"' >> $BASH_ENV
             echo 'export CC=gcc' >> $BASH_ENV
+            echo 'export FIL_PROOFS_PARAMETER_CACHE=$HOME/.proof-params' >> $BASH_ENV
   install_deps:
     steps:
       - run:
@@ -188,6 +189,9 @@ jobs:
       - build_setup
       - restore_cargo_package_cache
       - run:
+          name: Check license
+          command: make license
+      - run:
           name: cargo clippy
           command: cargo clippy -- -D warnings
       - run:
@@ -235,12 +239,13 @@ jobs:
                 command: echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
             - run:
                 name: Run test suite
+                no_output_timeout: 40m
                 command: |
                   export RUSTFLAGS="-g -Zprofile -Ccodegen-units=1 -Coverflow-checks=off"
                   export CARGO_INCREMENTAL=0
                   cargo clean
                   cargo build --release
-                  sudo make test-all
+                  make test-all
             - run:
                 name: Upload to codecov
                 command: |
