@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, TipIndex};
+use super::{ChainIndex, Error};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::RwLock;
@@ -95,10 +95,11 @@ pub struct ChainStore<DB> {
     /// Tipset at the head of the best-known chain.
     heaviest: RwLock<Option<Arc<Tipset>>>,
 
-    ts_cache: RwLock<LruCache<TipsetKeys, Arc<Tipset>>>,
+    /// Caches loaded tipsets for fast retrieval.
+    ts_cache: Arc<TipsetCache>,
 
-    /// tip_index tracks tipsets by epoch/parentset for use by expected consensus.
-    tip_index: TipIndex,
+    /// Used as a cache for tipset lookbacks.
+    chain_index: ChainIndex<DB>,
 }
 
 impl<DB> ChainStore<DB>
@@ -106,11 +107,12 @@ where
     DB: BlockStore + Send + Sync + 'static,
 {
     pub fn new(db: Arc<DB>) -> Self {
+        let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
-            db,
             publisher: RwLock::new(Publisher::new(SINK_CAP)),
-            tip_index: TipIndex::default(),
-            ts_cache: RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)),
+            chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
+            db,
+            ts_cache,
             heaviest: Default::default(),
         };
 
@@ -159,10 +161,7 @@ where
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
     pub async fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
-            Some(bz) => {
-                let keys: Vec<Cid> = from_slice(&bz)?;
-                self.tipset_from_keys(&TipsetKeys::new(keys)).await?
-            }
+            Some(bz) => self.tipset_from_keys(&from_slice(&bz)?).await?,
             None => {
                 warn!("No previous chain state found");
                 return Err(Error::Other("No chain state found".to_owned()));
@@ -190,10 +189,6 @@ where
         self.heaviest.read().await.clone()
     }
 
-    pub fn tip_index(&self) -> &TipIndex {
-        &self.tip_index
-    }
-
     pub fn publisher(&self) -> &RwLock<Publisher<HeadChange>> {
         &self.publisher
     }
@@ -210,33 +205,22 @@ where
 
     /// Returns Tipset from key-value store from provided cids
     pub async fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        if let Some(ts) = self.ts_cache.write().await.get(tsk) {
-            return Ok(ts.clone());
-        }
-
-        let block_headers: Vec<BlockHeader> = tsk
-            .cids()
-            .par_iter()
-            .map(|c| {
-                self.db
-                    .get(c)
-                    .map_err(|e| Error::Other(e.to_string()))?
-                    .ok_or(Error::NotFound("Key for header"))
-            })
-            .collect::<Result<_, Error>>()?;
-
-        // construct new Tipset to return
-        let ts = Arc::new(Tipset::new(block_headers)?);
-        self.ts_cache.write().await.put(tsk.clone(), ts.clone());
-        Ok(ts)
+        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk).await
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
     async fn update_heaviest(&self, ts: &Tipset) -> Result<(), Error> {
-        match self.heaviest.read().await.as_ref() {
+        // Calculate heaviest weight before matching to avoid deadlock with mutex
+        let heaviest_weight = self
+            .heaviest
+            .read()
+            .await
+            .as_ref()
+            .map(|ts| weight(self.db.as_ref(), ts.as_ref()));
+        match heaviest_weight {
             Some(heaviest) => {
                 let new_weight = weight(self.blockstore(), ts)?;
-                let curr_weight = weight(self.blockstore(), &heaviest)?;
+                let curr_weight = heaviest?;
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset");
@@ -269,9 +253,9 @@ where
     /// Returns `None` if the tipset is also the lookback tipset.
     pub async fn get_lookback_tipset_for_round(
         &self,
-        ts: &Tipset,
+        ts: Arc<Tipset>,
         round: ChainEpoch,
-    ) -> Result<Option<Arc<Tipset>>, Error> {
+    ) -> Result<Arc<Tipset>, Error> {
         let lbr = if round > WINNING_POST_SECTOR_SET_LOOKBACK {
             round - WINNING_POST_SECTOR_SET_LOOKBACK
         } else {
@@ -279,10 +263,9 @@ where
         };
 
         if lbr > ts.epoch() {
-            return Ok(None);
+            return Ok(ts);
         }
 
-        // TODO would be better to get tipset with ChainStore cache.
         self.tipset_by_height(lbr, ts, true).await
     }
 
@@ -295,34 +278,38 @@ where
     pub async fn tipset_by_height(
         &self,
         height: ChainEpoch,
-        ts: &Tipset,
+        ts: Arc<Tipset>,
         prev: bool,
-    ) -> Result<Option<Arc<Tipset>>, Error> {
+    ) -> Result<Arc<Tipset>, Error> {
         if height > ts.epoch() {
             return Err(Error::Other(
                 "searching for tipset that has a height less than starting point".to_owned(),
             ));
         }
         if height == ts.epoch() {
-            return Ok(None);
+            return Ok(ts.clone());
         }
-        let mut ts_temp: Option<Arc<Tipset>> = None;
-        loop {
-            let pts = if let Some(temp) = &ts_temp {
-                self.tipset_from_keys(temp.parents()).await?
-            } else {
-                self.tipset_from_keys(ts.parents()).await?
-            };
-            if height > pts.epoch() {
-                if prev {
-                    return Ok(Some(pts));
-                }
-                return Ok(ts_temp);
-            }
-            if height == pts.epoch() {
-                return Ok(Some(pts));
-            }
-            ts_temp = Some(pts);
+
+        let mut lbts = self
+            .chain_index
+            .get_tipset_by_height(ts.clone(), height)
+            .await?;
+
+        if lbts.epoch() < height {
+            log::warn!(
+                "chain index returned the wrong tipset at height {}, using slow retrieval",
+                height
+            );
+            lbts = self
+                .chain_index
+                .get_tipset_by_height_without_cache(ts, height)
+                .await?;
+        }
+
+        if lbts.epoch() == height || !prev {
+            Ok(lbts)
+        } else {
+            self.tipset_from_keys(lbts.parents()).await
         }
     }
 
@@ -343,10 +330,7 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let rand_ts = self
-            .tipset_by_height(search_height, &ts, true)
-            .await?
-            .unwrap_or(ts);
+        let rand_ts = self.tipset_by_height(search_height, ts, true).await?;
 
         draw_randomness(
             rand_ts
@@ -377,10 +361,7 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let rand_ts = self
-            .tipset_by_height(search_height, &ts, true)
-            .await?
-            .unwrap_or(ts);
+        let rand_ts = self.tipset_by_height(search_height, ts, true).await?;
 
         let be = self.latest_beacon_entry(&rand_ts).await?;
 
@@ -513,6 +494,37 @@ where
         let bmsgs = self.block_msgs_for_tipset(ts)?;
         Ok(bmsgs.into_iter().map(|bm| bm.messages).flatten().collect())
     }
+}
+
+pub(crate) type TipsetCache = RwLock<LruCache<TipsetKeys, Arc<Tipset>>>;
+
+pub(crate) async fn tipset_from_keys<BS>(
+    cache: &TipsetCache,
+    store: &BS,
+    tsk: &TipsetKeys,
+) -> Result<Arc<Tipset>, Error>
+where
+    BS: BlockStore + Send + Sync + 'static,
+{
+    if let Some(ts) = cache.write().await.get(tsk) {
+        return Ok(ts.clone());
+    }
+
+    let block_headers: Vec<BlockHeader> = tsk
+        .cids()
+        .par_iter()
+        .map(|c| {
+            store
+                .get(c)
+                .map_err(|e| Error::Other(e.to_string()))?
+                .ok_or(Error::NotFound("Key for header"))
+        })
+        .collect::<Result<_, Error>>()?;
+
+    // construct new Tipset to return
+    let ts = Arc::new(Tipset::new(block_headers)?);
+    cache.write().await.put(tsk.clone(), ts.clone());
+    Ok(ts)
 }
 
 /// Helper to ensure consistent Cid -> db key translation.

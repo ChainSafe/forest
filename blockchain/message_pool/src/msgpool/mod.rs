@@ -389,9 +389,8 @@ where
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
-        let publish = self
-            .add_tipset(msg.clone(), &self.cur_tipset.read().await.clone(), true)
-            .await?;
+        let cur_ts = self.cur_tipset.read().await.clone();
+        let publish = self.add_tipset(msg.clone(), &cur_ts, true).await?;
         let msg_ser = msg.marshal_cbor()?;
         self.add_local(msg).await?;
         if publish {
@@ -485,13 +484,13 @@ where
     /// and push it to the pending hashmap
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
+        let cur_ts = self.cur_tipset.read().await.clone();
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
             msg,
-            self.get_state_sequence(&from, &self.cur_tipset.read().await.clone())
-                .await?,
+            self.get_state_sequence(&from, &cur_ts).await?,
         )
         .await
     }
