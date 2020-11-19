@@ -6,7 +6,9 @@ use futures::prelude::*;
 use isahc::{Body, HttpClient};
 use pbr::ProgressBar;
 use pin_project_lite::pin_project;
-use std::io::{self, Read, Result as IOResult, Stdout, Write};
+use std::convert::TryFrom;
+use std::fs::File;
+use std::io::{self, BufReader, Read, Result as IOResult, Stdout, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
@@ -19,6 +21,7 @@ enum DownloadError {
 }
 
 pin_project! {
+    /// Holds a Reader, tracks read progress and draw a progress bar.
     pub struct FetchProgress<R, W: Write> {
         #[pin]
         pub inner: R,
@@ -66,30 +69,46 @@ impl<R: Read, W: Write> Read for FetchProgress<R, W> {
     }
 }
 
-/// Builds Reader for a provided URL.
-pub fn make_http_reader(
-    url: Url,
-) -> Result<FetchProgress<Body, Stdout>, Box<dyn std::error::Error>> {
-    let client = HttpClient::new()?;
-    let total_size = {
-        let resp = client.head(url.as_str())?;
-        if resp.status().is_success() {
-            resp.headers()
-                .get("content-length")
-                .and_then(|ct_len| ct_len.to_str().ok())
-                .and_then(|ct_len| ct_len.parse().ok())
-                .unwrap_or(0)
-        } else {
-            return Err(Box::new(DownloadError::HeaderError));
-        }
-    };
+impl TryFrom<Url> for FetchProgress<Body, Stdout> {
+    type Error = Box<dyn std::error::Error>;
 
-    let request = client.get(url.as_str())?;
+    fn try_from(url: Url) -> Result<Self, Self::Error> {
+        let client = HttpClient::new()?;
+        let total_size = {
+            let resp = client.head(url.as_str())?;
+            if resp.status().is_success() {
+                resp.headers()
+                    .get("content-length")
+                    .and_then(|ct_len| ct_len.to_str().ok())
+                    .and_then(|ct_len| ct_len.parse().ok())
+                    .unwrap_or(0)
+            } else {
+                return Err(Box::new(DownloadError::HeaderError));
+            }
+        };
 
-    let pb = ProgressBar::new(total_size);
+        let request = client.get(url.as_str())?;
 
-    Ok(FetchProgress {
-        progress_bar: pb,
-        inner: request.into_body(),
-    })
+        let pb = ProgressBar::new(total_size);
+
+        Ok(FetchProgress {
+            progress_bar: pb,
+            inner: request.into_body(),
+        })
+    }
+}
+
+impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
+    type Error = Box<dyn std::error::Error>;
+
+    fn try_from(file: File) -> Result<Self, Self::Error> {
+        let total_size = file.metadata()?.len();
+
+        let pb = ProgressBar::new(total_size);
+
+        Ok(FetchProgress {
+            progress_bar: pb,
+            inner: BufReader::new(file),
+        })
+    }
 }

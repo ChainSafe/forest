@@ -9,8 +9,9 @@ use fil_types::verifier::ProofVerifier;
 use forest_car::load_car;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
-use net_utils::make_http_reader;
+use net_utils::FetchProgress;
 use state_manager::StateManager;
+use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::include_bytes;
@@ -104,13 +105,14 @@ where
     info!("Importing chain from snapshot");
     // start import
     let cids = if is_remote_file {
-        let url = Url::parse(path)?;
-        let reader = make_http_reader(url)?;
+        let url = Url::parse(path).expect("URL is invalid");
         info!("Downloading file...");
+        let reader = FetchProgress::try_from(url)?;
         load_car(sm.blockstore(), reader)?
     } else {
         let file = File::open(&path).expect("Snapshot file path not found!");
-        let reader = BufReader::new(file);
+        info!("Reading file...");
+        let reader = FetchProgress::try_from(file)?;
         load_car(sm.blockstore(), reader)?
     };
     let ts = sm
