@@ -35,7 +35,7 @@ impl MsgChainNode {
             merged: false,
         }
     }
-    fn set_eff_perf(&mut self, prev: Option<(f64, i64)>) {
+    pub(crate) fn set_eff_perf(&mut self, prev: Option<(f64, i64)>) {
         let mut eff_perf = self.gas_perf * self.bp;
         if let Some(prev) = prev {
             if eff_perf > 0.0 {
@@ -188,7 +188,7 @@ impl MsgChain {
         self.set_eff_perf();
     }
     #[allow(dead_code)]
-    fn set_eff_perf(&mut self) {
+    pub(crate) fn set_eff_perf(&mut self) {
         let prev = match self.prev() {
             Some(prev) => Some((prev.eff_perf, prev.gas_limit)),
             None => None,
@@ -219,7 +219,7 @@ impl MsgChain {
         }
     }
     #[allow(dead_code)]
-    fn cmp_effective(&self, other: &Self) -> Ordering {
+    pub(crate) fn cmp_effective(&self, other: &Self) -> Ordering {
         let mc = self.curr();
         let other = other.curr();
         mc.merged
