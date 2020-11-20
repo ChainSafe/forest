@@ -161,9 +161,8 @@ where
     let tss = data
         .state_manager
         .chain_store()
-        .tipset_by_height(height, &ts, true)
-        .await?
-        .unwrap_or(ts);
+        .tipset_by_height(height, ts, true)
+        .await?;
     Ok(TipsetJson(tss))
 }
 

@@ -590,7 +590,7 @@ where
                 None
             })
             .next()
-            .unwrap_or_else(|| Ok(None))
+            .unwrap_or(Ok(None))
     }
 
     async fn check_search(

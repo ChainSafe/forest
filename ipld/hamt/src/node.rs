@@ -303,10 +303,7 @@ where
 
                 // Otherwise insert the element into the array in order.
                 let max = vals.len();
-                let idx = vals
-                    .iter()
-                    .position(|c| c.key() > &key)
-                    .unwrap_or_else(|| max);
+                let idx = vals.iter().position(|c| c.key() > &key).unwrap_or(max);
 
                 let np = KeyValuePair::new(key, value);
                 vals.insert(idx, np);

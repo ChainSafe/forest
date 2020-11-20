@@ -127,7 +127,7 @@ async fn fetch_verify_params(
 ) -> Result<(), Box<dyn StdError>> {
     let mut path: PathBuf = param_dir().into();
     path.push(name);
-    let path = Arc::new(path);
+    let path: Arc<Path> = Arc::from(path.as_path());
 
     match check_file(path.clone(), info.clone()).await {
         Ok(()) => return Ok(()),
@@ -193,7 +193,7 @@ async fn fetch_params(
     Ok(())
 }
 
-async fn check_file(path: Arc<PathBuf>, info: Arc<ParameterData>) -> Result<(), io::Error> {
+async fn check_file(path: Arc<Path>, info: Arc<ParameterData>) -> Result<(), io::Error> {
     if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
         warn!("Assuming parameter files are okay. DO NOT USE IN PRODUCTION");
         return Ok(());

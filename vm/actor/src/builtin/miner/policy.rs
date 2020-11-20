@@ -217,16 +217,16 @@ pub fn reward_for_consensus_slash_report(
     // slasher_amount = min(NUM/DENOM, collateral)
     let consensus_fault_reporter_share_growth_rate = BigFrac {
         // PARAM_FINISH
-        numerator: BigInt::from(101_251 as u64),
-        denominator: BigInt::from(100_000 as u64),
+        numerator: BigInt::from(101_251_u64),
+        denominator: BigInt::from(100_000_u64),
     };
     let consensus_fault_reporter_initial_share = BigFrac {
         // PARAM_FINISH
-        numerator: BigInt::from(1 as u64),
-        denominator: BigInt::from(1000 as u64),
+        numerator: BigInt::from(1_u64),
+        denominator: BigInt::from(1000_u64),
     };
-    let max_reporter_share_num = BigInt::from(1 as u64);
-    let max_reporter_share_den = BigInt::from(2 as u64);
+    let max_reporter_share_num = BigInt::from(1_u64);
+    let max_reporter_share_den = BigInt::from(2_u64);
     let elapsed = BigUint::from(elapsed_epoch as u64);
     let slasher_share_numerator = consensus_fault_reporter_share_growth_rate
         .numerator
