@@ -12,7 +12,7 @@ type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 
 impl<T> MessagePool<T>
 where
-    T: Provider + std::marker::Send + std::marker::Sync + 'static,
+    T: Provider + Send + Sync + 'static,
 {
     /// Selects messages for including in a block.
     pub async fn select_messages(
