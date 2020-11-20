@@ -1205,7 +1205,7 @@ where
 
 /// Like head_change, except it doesnt change the state of the MessagePool.
 /// It simulates a head change call.
-async fn run_head_change<T>(
+pub(crate) async fn run_head_change<T>(
     api: &RwLock<T>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     from: Tipset,
