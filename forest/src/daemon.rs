@@ -8,7 +8,6 @@ use auth::{generate_priv_key, JWT_IDENTIFIER};
 use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
-use db::RocksDb;
 use fil_types::verifier::FullVerifier;
 use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
@@ -55,9 +54,13 @@ pub(super) async fn start(config: Config) {
     }
     let keystore = Arc::new(RwLock::new(ks));
 
-    // Initialize database
-    let mut db = RocksDb::new(config.data_dir + "/db");
-    db.open().unwrap();
+    // Initialize database (RocksDb will be default if both features enabled)
+    #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
+    let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
+
+    #[cfg(feature = "rocksdb")]
+    let db = db::rocks::RocksDb::open(config.data_dir + "/db").unwrap();
+
     let db = Arc::new(db);
 
     // Initialize StateManager

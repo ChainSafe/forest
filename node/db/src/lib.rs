@@ -3,13 +3,15 @@
 
 mod errors;
 mod memory;
-mod rocks;
+
+#[cfg(feature = "rocksdb")]
+pub mod rocks;
+
+#[cfg(feature = "sled")]
+pub mod sled;
 
 pub use errors::Error;
 pub use memory::MemoryDB;
-
-#[cfg(feature = "rocksdb")]
-pub use rocks::{RocksDb, WriteBatch};
 
 /// Store interface used as a KV store implementation
 pub trait Store {

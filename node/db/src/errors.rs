@@ -14,6 +14,9 @@ pub enum Error {
     #[cfg(feature = "rocksdb")]
     #[error(transparent)]
     Database(#[from] rocksdb::Error),
+    #[cfg(feature = "sled")]
+    #[error(transparent)]
+    Sled(#[from] sled::Error),
     #[error(transparent)]
     Encoding(#[from] CborError),
     #[error("{0}")]
@@ -29,6 +32,8 @@ impl PartialEq for Error {
             (&Unopened, &Unopened) => true,
             #[cfg(feature = "rocksdb")]
             (&Database(_), &Database(_)) => true,
+            #[cfg(feature = "sled")]
+            (&Sled(_), &Sled(_)) => true,
             (&Encoding(_), &Encoding(_)) => true,
             (&Other(ref a), &Other(ref b)) => a == b,
             _ => false,

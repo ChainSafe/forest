@@ -159,7 +159,7 @@ where
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
-    pub async fn load_heaviest_tipset(&self) -> Result<(), Error> {
+    async fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
             Some(bz) => self.tipset_from_keys(&from_slice(&bz)?).await?,
             None => {
@@ -169,13 +169,7 @@ where
         };
 
         // set as heaviest tipset
-        let heaviest_ts = heaviest_ts;
-        *self.heaviest.write().await = Some(heaviest_ts.clone());
-        self.publisher
-            .write()
-            .await
-            .publish(HeadChange::Current(heaviest_ts))
-            .await;
+        *self.heaviest.write().await = Some(heaviest_ts);
         Ok(())
     }
 

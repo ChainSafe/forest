@@ -5,6 +5,8 @@
 mod buffered;
 #[cfg(feature = "resolve")]
 pub mod resolve;
+#[cfg(feature = "sled")]
+mod sled;
 #[cfg(feature = "tracking")]
 mod tracking;
 
@@ -20,7 +22,7 @@ use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use std::error::Error as StdError;
 
 #[cfg(feature = "rocksdb")]
-use db::{RocksDb, WriteBatch};
+use db::rocks::{RocksDb, WriteBatch};
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
@@ -88,7 +90,7 @@ impl BlockStore for RocksDb {
                 Ok(cid)
             })
             .collect::<Result<_, Box<dyn StdError>>>()?;
-        self.db()?.write(batch)?;
+        self.db.write(batch)?;
 
         Ok(cids)
     }
