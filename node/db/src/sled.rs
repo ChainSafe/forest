@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "sled")]
-
 use super::errors::Error;
 use super::Store;
 pub use sled::{Batch, Config, Db, Mode};
