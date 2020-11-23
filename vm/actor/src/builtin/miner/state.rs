@@ -1057,38 +1057,31 @@ pub mod json {
     #[derive(Serialize)]
     #[serde(rename_all = "PascalCase")]
     pub struct MinerInfoJson {
-        pub owner: AddressJson,
+        owner: AddressJson,
 
-        pub worker: AddressJson,
+        worker: AddressJson,
 
         #[serde(with = "address::json::opt")]
-        pub new_worker: Option<Address>,
+        new_worker: Option<Address>,
 
-        #[serde(with = "address::json::opt_vec")]
-        pub control_addresses: Option<Vec<Address>>, // Must all be ID addresses.
+        #[serde(with = "address::json::vec")]
+        control_addresses: Vec<Address>, 
 
-        pub worker_change_epoch: ChainEpoch,
+        worker_change_epoch: ChainEpoch,
 
-        /// Optional worker key to update at an epoch
-        pub pending_worker_key: Option<WorkerKeyChange>,
+        pending_worker_key: Option<WorkerKeyChange>,
 
-        /// Libp2p identity that should be used when connecting to this miner
-        pub peer_id: String,
+        peer_id: String,
 
-        /// Vector of byte arrays representing Libp2p multi-addresses used for establishing a connection with this miner.
-        pub multi_address: Option<Vec<BytesDe>>,
+        multi_address: Vec<BytesDe>,
 
-        /// The proof type used by this miner for sealing sectors.
-        pub seal_proof_type: RegisteredSealProof,
+        seal_proof_type: RegisteredSealProof,
 
-        /// Amount of space in each sector committed to the network by this miner
-        pub sector_size: SectorSize,
+        sector_size: SectorSize,
 
-        /// The number of sectors in each Window PoSt partition (proof).
-        /// This is computed from the proof type and represented here redundantly.
-        pub window_post_partition_sectors: u64,
+        window_post_partition_sectors: u64,
 
-        pub consensus_fault_elapsed: ChainEpoch,
+        consensus_fault_elapsed: ChainEpoch,
     }
 
     impl From<MinerInfo> for MinerInfoJson {
@@ -1097,19 +1090,11 @@ pub mod json {
                 owner: info.owner.into(),
                 worker: info.worker.into(),
                 new_worker: None,
-                control_addresses: if info.control_addresses.is_empty() {
-                    None
-                } else {
-                    Some(info.control_addresses)
-                },
+                control_addresses: info.control_addresses,
                 worker_change_epoch: EPOCH_UNDEFINED,
                 pending_worker_key: info.pending_worker_key,
                 peer_id: PeerId::from_bytes(info.peer_id).unwrap().to_string(),
-                multi_address: if info.multi_address.is_empty() {
-                    None
-                } else {
-                    Some(info.multi_address)
-                },
+                multi_address: info.multi_address,
                 seal_proof_type: info.seal_proof_type,
                 sector_size: info.sector_size,
                 window_post_partition_sectors: info.window_post_partition_sectors,
@@ -1141,22 +1126,5 @@ mod tests {
         println!("miner info {:?}", &info);
         let bz = to_vec(&info).unwrap();
         assert_eq!(from_slice::<MinerInfo>(&bz).unwrap(), info);
-    }
-
-    #[test]
-    fn miner_info_serde_json() {
-        let info = MinerInfo {
-            owner: Address::new_id(2),
-            worker: Address::new_id(3),
-            control_addresses: vec![Address::new_id(4), Address::new_id(5)],
-            pending_worker_key: None,
-            peer_id: PeerId::random().into_bytes(),
-            multi_address: vec![BytesDe(PeerId::random().into_bytes())],
-            sector_size: SectorSize::_2KiB,
-            seal_proof_type: RegisteredSealProof::from(1),
-            window_post_partition_sectors: 0,
-        };
-        let val = serde_json::to_string(&info);
-        println!("miner info {:?}", val);
     }
 }

@@ -207,15 +207,11 @@ where
 {
     let state_manager = &data.state_manager;
     let (addr, msg_string) = params;
-    println!("wallet sign");
     let address = addr.0;
-    println!("address");
     let heaviest_tipset = chain::get_heaviest_tipset(state_manager.blockstore())?.ok_or_else(||format!("Could not get heaviest tipset"))?;
     let key_addr = state_manager.resolve_to_key_addr::<FullVerifier>(&address,&heaviest_tipset).await?;
     let msg = Vec::from(msg_string);
-    println!("msg");
     let mut keystore = &mut * data.keystore.write().await;
-    println!("keystore");
     let key = match wallet::find_key(&key_addr, keystore)
     {
         Ok(key) => key,
