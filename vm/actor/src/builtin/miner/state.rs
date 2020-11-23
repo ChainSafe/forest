@@ -3,15 +3,14 @@
 
 use super::{
     assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, types::*,
-    Deadline,DeadlineSectorMap, PowerPair, Sectors, TerminationResult,
-    VestingFunds,Deadlines,
+    Deadline, DeadlineSectorMap, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds,
 };
-use crate::{actor_assert,miner::SectorInfo,make_map_with_root, u64_key, ActorDowncast};
+use crate::{actor_assert, make_map_with_root, miner::SectorInfo, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
 use beacon::{json::BeaconEntryJson, BeaconEntry};
 use bitfield::BitField;
-use cid::{Code::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
@@ -1106,7 +1105,7 @@ pub mod json {
         new_worker: Option<Address>,
 
         #[serde(with = "address::json::vec")]
-        control_addresses: Vec<Address>, 
+        control_addresses: Vec<Address>,
 
         worker_change_epoch: ChainEpoch,
 

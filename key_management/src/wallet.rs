@@ -78,8 +78,6 @@ where
         Ok(new_key)
     }
 
-
-
     /// Return the resultant Signature after signing a given message
     pub fn sign(&mut self, addr: &Address, msg: &[u8]) -> Result<Signature, Error> {
         // this will return an error if the key cannot be found in either the keys hashmap or it
@@ -178,25 +176,20 @@ pub fn find_key<T: KeyStore>(addr: &Address, keystore: &T) -> Result<Key, Error>
     Ok(new_key)
 }
 
-pub fn try_find<T: KeyStore>(addr: &Address,keystore: &mut T) -> Result<KeyInfo, Error> 
-    {
-        let key_string = format!("wallet-{}", addr.to_string());
-        match keystore.get(&key_string)
-        {
-            Ok(k) => Ok(k),
-            Err(_) =>
-            {
-                let mut new_addr = addr.to_string();
-                new_addr.replace_range(0..1,"t");
-                let key_string = format!("wallet-{}", new_addr);
-                let key_info = keystore.get(&key_string)?;
-                keystore.put(addr.to_string(), key_info.clone())?;
-                Ok(key_info)
-            }
+pub fn try_find<T: KeyStore>(addr: &Address, keystore: &mut T) -> Result<KeyInfo, Error> {
+    let key_string = format!("wallet-{}", addr.to_string());
+    match keystore.get(&key_string) {
+        Ok(k) => Ok(k),
+        Err(_) => {
+            let mut new_addr = addr.to_string();
+            new_addr.replace_range(0..1, "t");
+            let key_string = format!("wallet-{}", new_addr);
+            let key_info = keystore.get(&key_string)?;
+            keystore.put(addr.to_string(), key_info.clone())?;
+            Ok(key_info)
         }
     }
-
-
+}
 
 /// Return keyInfo for given Address in KeyStore
 pub fn export_key_info<T: KeyStore>(addr: &Address, keystore: &T) -> Result<KeyInfo, Error> {

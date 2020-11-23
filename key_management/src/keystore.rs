@@ -53,7 +53,7 @@ pub mod json {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-    #[derive(Clone,Deserialize, Serialize)]
+    #[derive(Clone, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
 
@@ -62,10 +62,8 @@ pub mod json {
     #[serde(transparent)]
     pub struct KeyInfoJsonRef<'a>(#[serde(with = "self")] pub &'a KeyInfo);
 
-    impl From<KeyInfoJson> for KeyInfo
-    {
-        fn from(key : KeyInfoJson) -> KeyInfo
-        {
+    impl From<KeyInfoJson> for KeyInfo {
+        fn from(key: KeyInfoJson) -> KeyInfo {
             key.0
         }
     }
@@ -115,7 +113,6 @@ pub trait KeyStore {
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
     fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
-    
 }
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]

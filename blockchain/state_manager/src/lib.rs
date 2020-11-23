@@ -519,7 +519,10 @@ where
             return Ok((Arc::new(tipset.clone()), st));
         }
         let arc_tipset = Arc::new(tipset.clone());
-        let next_ts = self.cs.tipset_by_height(lbr, arc_tipset, false).await
+        let next_ts = self
+            .cs
+            .tipset_by_height(lbr, arc_tipset, false)
+            .await
             .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?;
         if lbr == next_ts.epoch() {
             return Err(Error::Other(format!(
@@ -530,7 +533,10 @@ where
                 next_ts.epoch()
             )));
         }
-        let lbts = self.cs.tipset_from_keys(tipset.parents()).await
+        let lbts = self
+            .cs
+            .tipset_from_keys(tipset.parents())
+            .await
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {:?}", e)))?;
         Ok((lbts, *next_ts.parent_state()))
     }

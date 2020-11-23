@@ -8,6 +8,7 @@ use beacon::Beacon;
 use blockstore::BlockStore;
 use crypto::{signature::json::SignatureJson, SignatureType};
 use encoding::Cbor;
+use fil_types::verifier::FullVerifier;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
@@ -18,7 +19,6 @@ use state_tree::StateTree;
 use std::convert::TryFrom;
 use std::str::FromStr;
 use wallet::{json::KeyInfoJson, Key, KeyStore};
-use fil_types::verifier::FullVerifier;
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, KS, B>(
@@ -119,7 +119,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     println!("before key_info");
-    let key_info : wallet::KeyInfo = params.first().cloned().unwrap().into();
+    let key_info: wallet::KeyInfo = params.first().cloned().unwrap().into();
     println!("before key");
     let key = Key::try_from(key_info)?;
 
@@ -208,18 +208,23 @@ where
     let state_manager = &data.state_manager;
     let (addr, msg_string) = params;
     let address = addr.0;
-    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset().await.ok_or_else(||"Could not get heaviest tipset".to_string())?;
-    let key_addr = state_manager.resolve_to_key_addr::<FullVerifier>(&address,&heaviest_tipset).await?;
+    let heaviest_tipset = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
+        .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
+    let key_addr = state_manager
+        .resolve_to_key_addr::<FullVerifier>(&address, &heaviest_tipset)
+        .await?;
     let msg = Vec::from(msg_string);
-    let keystore = &mut * data.keystore.write().await;
-    let key = match wallet::find_key(&key_addr, keystore)
-    {
+    let keystore = &mut *data.keystore.write().await;
+    let key = match wallet::find_key(&key_addr, keystore) {
         Ok(key) => key,
-        Err(_) =>
-        {
-            let key_info = wallet::try_find(&key_addr,keystore)?;
+        Err(_) => {
+            let key_info = wallet::try_find(&key_addr, keystore)?;
             Key::try_from(key_info)?
-        } 
+        }
     };
 
     let sig = wallet::sign(

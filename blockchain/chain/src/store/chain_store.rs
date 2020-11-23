@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{ChainIndex,Error};
-use actor::{power::State as PowerState,miner, STORAGE_POWER_ACTOR_ADDR};
+use super::{ChainIndex, Error};
+use actor::{miner, power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::RwLock;
 use async_std::task;
@@ -482,11 +482,10 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk<'a>(&self, key: &TipsetKeys) -> Result<StateTree<'_, DB>, Error>
-    {
+    async fn parent_state_tsk<'a>(&self, key: &TipsetKeys) -> Result<StateTree<'_, DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(&*self.db, ts.parent_state())
-            .map_err(|e| Error::Other(format!("Could not get actor state {:?}",e)))
+            .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
     }
 
     /// Retrieves ordered valid messages from a `Tipset`. This will only include messages that will
@@ -496,21 +495,20 @@ where
         Ok(bmsgs.into_iter().map(|bm| bm.messages).flatten().collect())
     }
 
-
     /// get miner state given address and tipsetkeys
     pub async fn miner_load_actor_tsk(
         &self,
         address: &Address,
         tsk: &TipsetKeys,
-    ) -> Result<miner::State, Error>
-    {
+    ) -> Result<miner::State, Error> {
         let state = self.parent_state_tsk(tsk).await?;
         let actor = state
             .get_actor(address)
             .map_err(|_| Error::Other("Failure getting actor".to_string()))?
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
-        let act: miner::State = self.db
+        let act: miner::State = self
+            .db
             .get(&actor.state)
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::Other("Could not get actor state".to_string()))?;
@@ -593,10 +591,6 @@ where
     Ok(bls_msgs)
 }
 
-
-
-
-
 /// Returns a tuple of UnsignedMessage and SignedMessages from their Cid
 pub fn block_messages_from_cids<DB>(
     db: &DB,
@@ -673,8 +667,6 @@ pub fn draw_randomness(
     ret.clone_from_slice(state.finalize().as_bytes());
     Ok(ret)
 }
-
-
 
 /// Returns a vector of cids from provided root cid
 fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>

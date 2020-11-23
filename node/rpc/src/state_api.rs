@@ -6,16 +6,13 @@ use actor::miner::{
     json::{MinerBaseInfoJson, MinerInfoJson},
     ChainSectorInfo, Deadlines, Fault, SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
 };
-use blocks::tipset_keys_json::TipsetKeysJson;
 use address::{json::AddressJson, Address};
 use async_std::task;
 use beacon::json::BeaconEntryJson;
 use beacon::Beacon;
 use bitfield::json::BitFieldJson;
-use blocks::{
-    tipset_json::TipsetJson,
-    Tipset,
-};
+use blocks::tipset_keys_json::TipsetKeysJson;
+use blocks::{tipset_json::TipsetJson, Tipset};
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
@@ -65,7 +62,8 @@ pub(crate) async fn state_miner_sector<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     let mut filter = Some(&mut bitfield_filter);
     state_manager
         .get_miner_sector_set::<FullVerifier>(&tipset, &address, &mut filter, filter_out)
@@ -87,7 +85,8 @@ pub(crate) async fn state_call<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     Ok(state_manager
         .call::<FullVerifier>(&mut message, Some(tipset))
         .await?)
@@ -108,7 +107,8 @@ pub(crate) async fn state_miner_deadlines<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     state_manager
         .get_miner_deadlines::<FullVerifier>(&tipset, &actor)
         .map_err(|e| e.into())
@@ -129,7 +129,8 @@ pub(crate) async fn state_sector_precommit_info<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     state_manager
         .precommit_info::<FullVerifier>(&address, &sector_number, &tipset)
         .map_err(|e| e.into())
@@ -147,7 +148,11 @@ pub async fn state_miner_info<
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
-    let miner_state = data.state_manager.chain_store().miner_load_actor_tsk(&actor, &key.into()).await
+    let miner_state = data
+        .state_manager
+        .chain_store()
+        .miner_load_actor_tsk(&actor, &key.into())
+        .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
     let miner_info = miner_state
         .get_info(state_manager.blockstore())
@@ -170,7 +175,8 @@ pub async fn state_sector_info<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     state_manager
         .miner_sector_info::<FullVerifier>(&address, &sector_number, &tipset)
         .map_err(|e| e.into())
@@ -192,7 +198,8 @@ pub(crate) async fn state_miner_proving_deadline<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     let miner_actor_state: State =
         state_manager.load_actor_state(&actor, &tipset.parent_state())?;
 
@@ -216,7 +223,8 @@ pub(crate) async fn state_miner_faults<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     state_manager
         .get_miner_faults::<FullVerifier>(&tipset, &actor)
         .map(|s| s.into())
@@ -274,7 +282,8 @@ pub(crate) async fn state_miner_recoveries<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     state_manager
         .get_miner_recoveries::<FullVerifier>(&tipset, &actor)
         .map(|s| s.into())
@@ -296,7 +305,8 @@ pub(crate) async fn state_replay<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, cid).await?;
 
     Ok(InvocResult {
@@ -339,7 +349,8 @@ pub(crate) async fn state_get_actor<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     let state = state_for_ts(&state_manager, tipset).await?;
     state.get_actor(&actor).map_err(|e| e.into())
 }
@@ -395,7 +406,8 @@ pub(crate) async fn state_account_key<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     let state = state_for_ts(&state_manager, tipset).await?;
     let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
@@ -415,7 +427,8 @@ pub(crate) async fn state_lookup_id<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     let state = state_for_ts(&state_manager, tipset).await?;
     state.lookup_id(&address).map_err(|e| e.into())
 }
@@ -454,7 +467,8 @@ pub(crate) async fn state_market_balance<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     data.state_manager
         .market_balance(&address, &tipset)
         .map_err(|e| e.into())
@@ -475,7 +489,8 @@ pub(crate) async fn state_get_receipt<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into()).await?;
+        .tipset_from_keys(&key.into())
+        .await?;
     state_manager
         .get_receipt(&tipset, &cid)
         .await
