@@ -18,6 +18,7 @@ use state_tree::StateTree;
 use std::convert::TryFrom;
 use std::str::FromStr;
 use wallet::{json::KeyInfoJson, Key, KeyStore};
+use fil_types::verifier::FullVerifier;
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, KS, B>(
@@ -110,23 +111,27 @@ where
 /// Import Keyinfo to the Wallet, return the Address that corresponds to it
 pub(crate) async fn wallet_import<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(KeyInfoJson,)>,
+    Params(params): Params<Vec<KeyInfoJson>>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (KeyInfoJson(key_info),) = params;
-
+    println!("before key_info");
+    let key_info : wallet::KeyInfo = params.first().cloned().unwrap().into();
+    println!("before key");
     let key = Key::try_from(key_info)?;
 
+    println!("before addr");
     let addr = format!("wallet-{}", key.address.to_string());
 
+    println!("before keystore");
     let mut keystore = data.keystore.write().await;
-
+    println!("before keystore put");
     keystore.put(addr, key.key_info)?;
 
+    println!("before ok");
     Ok(key.address.to_string())
 }
 
@@ -200,21 +205,33 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
+    let state_manager = &data.state_manager;
     let (addr, msg_string) = params;
-
-    let address = addr.into();
+    println!("wallet sign");
+    let address = addr.0;
+    println!("address");
+    let heaviest_tipset = chain::get_heaviest_tipset(state_manager.blockstore())?.ok_or_else(||format!("Could not get heaviest tipset"))?;
+    let key_addr = state_manager.resolve_to_key_addr::<FullVerifier>(&address,&heaviest_tipset).await?;
     let msg = Vec::from(msg_string);
-
-    let keystore = data.keystore.write().await;
-
-    let key = wallet::find_key(&address, &*keystore)?;
+    println!("msg");
+    let mut keystore = &mut * data.keystore.write().await;
+    println!("keystore");
+    let key = match wallet::find_key(&key_addr, keystore)
+    {
+        Ok(key) => key,
+        Err(_) =>
+        {
+            let key_info = wallet::try_find(&key_addr,keystore)?;
+            Key::try_from(key_info)?
+        } 
+    };
 
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         msg.as_slice(),
     )?;
-
+    println!("sig");
     Ok(SignatureJson(sig))
 }
 

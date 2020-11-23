@@ -348,6 +348,7 @@ async fn handle_connection_and_log(
                 match message_result {
                     Ok(message) => {
                         let request_text = message.into_text().unwrap();
+                        info!("request senty {:?}", request_text.clone());
                         match serde_json::from_str(&request_text)
                             as Result<RequestObject, serde_json::Error>
                         {

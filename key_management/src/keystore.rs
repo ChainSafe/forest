@@ -49,10 +49,11 @@ impl KeyInfo {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use crypto::signature::json::signature_type::SignatureTypeJson;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-    #[derive(Deserialize, Serialize)]
+    #[derive(Clone,Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
 
@@ -61,10 +62,17 @@ pub mod json {
     #[serde(transparent)]
     pub struct KeyInfoJsonRef<'a>(#[serde(with = "self")] pub &'a KeyInfo);
 
+    impl From<KeyInfoJson> for KeyInfo
+    {
+        fn from(key : KeyInfoJson) -> KeyInfo
+        {
+            key.0
+        }
+    }
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "Type")]
-        sig_type: SignatureType,
+        sig_type: SignatureTypeJson,
         #[serde(rename = "PrivateKey")]
         private_key: String,
     }
@@ -74,7 +82,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            sig_type: k.key_type,
+            sig_type: SignatureTypeJson(k.key_type),
             private_key: base64::encode(&k.private_key),
         }
         .serialize(serializer)
@@ -84,13 +92,15 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
+        println!("deserialize json helper");
         let JsonHelper {
             sig_type,
             private_key,
         } = Deserialize::deserialize(deserializer)?;
+        println!("deserialize key info");
         Ok(KeyInfo {
-            key_type: sig_type,
-            private_key: base64::decode(private_key).map_err(de::Error::custom)?,
+            key_type: sig_type.0,
+            private_key: base64::decode(private_key).unwrap(),
         })
     }
 }
@@ -105,6 +115,7 @@ pub trait KeyStore {
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
     fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
+    
 }
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
