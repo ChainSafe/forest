@@ -4,7 +4,7 @@
 #![cfg(feature = "buffered")]
 
 use super::BlockStore;
-use cid::{multihash::MultihashDigest, Cid, Codec};
+use cid::{Cid, Code, DAG_CBOR};
 use db::{Error, Store};
 use encoding::from_slice;
 use forest_ipld::Ipld;
@@ -51,7 +51,7 @@ where
     BS: BlockStore,
 {
     // Skip identity and Filecoin commitment Cids
-    if cid.codec != Codec::DagCBOR {
+    if cid.codec() != DAG_CBOR {
         return Ok(());
     }
 
@@ -113,12 +113,9 @@ where
         self.base.get_bytes(cid)
     }
 
-    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
-    where
-        T: MultihashDigest,
-    {
-        let cid = Cid::new_from_cbor(&bytes, hash);
-        self.write.borrow_mut().insert(cid.clone(), bytes);
+    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
+        let cid = cid::new_from_cbor(&bytes, code);
+        self.write.borrow_mut().insert(cid, bytes);
         Ok(cid)
     }
 }
@@ -176,10 +173,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::{Blake2b256, Identity};
-    use cid::Codec;
+    use cid::{multihash::MultihashDigest, Code, RAW};
     use commcid::commitment_to_cid;
-    use commcid::{POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
     use forest_ipld::{ipld, Ipld};
 
     #[test]
@@ -187,7 +182,7 @@ mod tests {
         let mem = db::MemoryDB::default();
         let mut buf_store = BufferedBlockStore::new(&mem);
 
-        let cid = buf_store.put(&8, Blake2b256).unwrap();
+        let cid = buf_store.put(&8, Code::Blake2b256).unwrap();
         assert_eq!(mem.get::<u8>(&cid).unwrap(), None);
         assert_eq!(buf_store.get::<u8>(&cid).unwrap(), Some(8));
 
@@ -203,19 +198,19 @@ mod tests {
         let mut buf_store = BufferedBlockStore::new(&mem);
         let str_val = "value";
         let value = 8u8;
-        let arr_cid = buf_store.put(&(str_val, value), Blake2b256).unwrap();
-        let identity_cid = Cid::new_v1(Codec::Raw, Identity::digest(&[0u8]));
+        let arr_cid = buf_store.put(&(str_val, value), Code::Blake2b256).unwrap();
+        let identity_cid = Cid::new_v1(RAW, Code::Identity.digest(&[0u8]));
 
         // Create map to insert into store
         let sealed_comm_cid = commitment_to_cid(
-            Codec::FilCommitmentSealed,
-            POSEIDON_BLS12_381_A1_FC1,
+            cid::FIL_COMMITMENT_SEALED,
+            cid::POSEIDON_BLS12_381_A1_FC1,
             &[7u8; 32],
         )
         .unwrap();
         let unsealed_comm_cid = commitment_to_cid(
-            Codec::FilCommitmentUnsealed,
-            SHA2_256_TRUNC254_PADDED,
+            cid::FIL_COMMITMENT_UNSEALED,
+            cid::SHA2_256_TRUNC254_PADDED,
             &[5u8; 32],
         )
         .unwrap();
@@ -226,12 +221,14 @@ mod tests {
             "identity": Link(identity_cid.clone()),
             "value": str_val,
         });
-        let map_cid = buf_store.put(&map, Blake2b256).unwrap();
+        let map_cid = buf_store.put(&map, Code::Blake2b256).unwrap();
 
-        let root_cid = buf_store.put(&(map_cid.clone(), 1u8), Blake2b256).unwrap();
+        let root_cid = buf_store
+            .put(&(map_cid.clone(), 1u8), Code::Blake2b256)
+            .unwrap();
 
         // Make sure a block not connected to the root does not get written
-        let unconnected = buf_store.put(&27u8, Blake2b256).unwrap();
+        let unconnected = buf_store.put(&27u8, Code::Blake2b256).unwrap();
 
         assert_eq!(mem.get::<Ipld>(&map_cid).unwrap(), None);
         assert_eq!(mem.get::<Ipld>(&root_cid).unwrap(), None);

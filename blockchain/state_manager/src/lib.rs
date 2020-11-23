@@ -289,7 +289,7 @@ where
             if let Some(ref entry) = *entry_lock {
                 // Entry had successfully populated state, return Cid and drop lock
                 trace!("hit cache for tipset {:?}", tipset.cids());
-                return Ok(entry.clone());
+                return Ok(*entry);
             }
 
             // Entry does not have state computed yet, this task will fill entry if successful.
@@ -305,10 +305,7 @@ where
                     .first()
                     .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
 
-                (
-                    tipset.parent_state().clone(),
-                    message_receipts.message_receipts().clone(),
-                )
+                (*tipset.parent_state(), *message_receipts.message_receipts())
             } else {
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
@@ -316,7 +313,7 @@ where
             };
 
             // Fill entry with calculated cid pair
-            *entry_lock = Some(cid_pair.clone());
+            *entry_lock = Some(cid_pair);
             Ok(cid_pair)
         })
     }
@@ -493,7 +490,7 @@ where
         self: &Arc<Self>,
         tipset: &Tipset,
         round: ChainEpoch,
-    ) -> Result<(Tipset, Cid), Error>
+    ) -> Result<(Arc<Tipset>, Cid), Error>
     where
         V: ProofVerifier,
     {
@@ -519,13 +516,11 @@ where
                 .tipset_state::<V>(&tipset)
                 .await
                 .map_err(|e| Error::Other(format!("Could execute tipset_state {:?}", e)))?;
-            return Ok((tipset.clone(), st));
+            return Ok((Arc::new(tipset.clone()), st));
         }
-
-        let next_ts = chain::tipset_by_height(self.blockstore(), lbr, &tipset, false)
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?
-            .ok_or_else(|| Error::Other("could not get tipset by height".to_string()))?;
-
+        let arc_tipset = Arc::new(tipset.clone());
+        let next_ts = self.cs.tipset_by_height(lbr, arc_tipset, false).await
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?;
         if lbr == next_ts.epoch() {
             return Err(Error::Other(format!(
                 "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
@@ -535,10 +530,9 @@ where
                 next_ts.epoch()
             )));
         }
-
-        let lbts = chain::tipset_from_keys(self.blockstore(), tipset.parents())
+        let lbts = self.cs.tipset_from_keys(tipset.parents()).await
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {:?}", e)))?;
-        Ok((lbts, next_ts.parent_state().clone()))
+        Ok((lbts, *next_ts.parent_state()))
     }
 
     fn elligable_to_mine<V: ProofVerifier>(
@@ -629,8 +623,8 @@ where
         round: ChainEpoch,
         address: Address,
     ) -> Result<Option<MinerBaseInfo>, Box<dyn StdError>> {
-        let tipset = chain::tipset_from_keys(self.blockstore(), key)?;
-        let prev = match self.cs.latest_beacon_entry(&tipset) {
+        let tipset = self.cs.tipset_from_keys(key).await?;
+        let prev = match self.cs.latest_beacon_entry(&tipset).await {
             Ok(prev) => prev,
             Err(err) => {
                 if std::env::var("LOTUS_IGNORE_DRAND")
@@ -747,7 +741,7 @@ where
                 .map_err(|e| Error::Other(e.to_string()))?;
 
             let sm = self.clone();
-            let sr = first_block.state_root().clone();
+            let sr = *first_block.state_root();
             let epoch = first_block.epoch();
             task::spawn_blocking(move || {
                 sm.apply_blocks::<_, V, _>(
@@ -765,7 +759,7 @@ where
         })
     }
 
-    fn tipset_executed_message(
+    async fn tipset_executed_message(
         &self,
         tipset: &Tipset,
         cid: &Cid,
@@ -777,6 +771,7 @@ where
         let tipset = self
             .cs
             .tipset_from_keys(tipset.parents())
+            .await
             .map_err(|err| Error::Other(err.to_string()))?;
         let messages = chain::messages_for_tipset(self.blockstore(), &tipset)
             .map_err(|err| Error::Other(err.to_string()))?;
@@ -809,54 +804,81 @@ where
                 None
             })
             .next()
-            .unwrap_or_else(|| Ok(None))
+            .unwrap_or(Ok(None))
     }
-    fn search_back_for_message(
+
+    async fn check_search(
         &self,
         current: &Tipset,
         (message_from_address, message_cid, message_sequence): (&Address, &Cid, &u64),
-    ) -> Result<Option<(Tipset, MessageReceipt)>, Error> {
+    ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Result<Arc<Tipset>, Error>> {
         if current.epoch() == 0 {
             return Ok(None);
         }
         let state = StateTree::new_from_root(self.blockstore(), current.parent_state())
-            .map_err(|e| Error::State(e.to_string()))?;
+            .map_err(|e| Err(Error::State(e.to_string())))?;
 
         if let Some(actor_state) = state
             .get_actor(message_from_address)
-            .map_err(|e| Error::State(e.to_string()))?
+            .map_err(|e| Err(Error::State(e.to_string())))?
         {
             if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
                 return Ok(None);
             }
         }
 
-        let tipset = self.cs.tipset_from_keys(current.parents()).map_err(|err| {
-            Error::Other(format!(
-                "failed to load tipset during msg wait searchback: {:}",
-                err
-            ))
-        })?;
-        let r = self.tipset_executed_message(
-            &tipset,
-            message_cid,
-            (message_from_address, message_sequence),
-        )?;
+        let tipset = self
+            .cs
+            .tipset_from_keys(current.parents())
+            .await
+            .map_err(|err| {
+                Err(Error::Other(format!(
+                    "failed to load tipset during msg wait searchback: {:}",
+                    err
+                )))
+            })?;
+        let r = self
+            .tipset_executed_message(
+                &tipset,
+                message_cid,
+                (message_from_address, message_sequence),
+            )
+            .await
+            .map_err(Err)?;
 
         if let Some(receipt) = r {
-            return Ok(Some((tipset, receipt)));
+            Ok(Some((tipset, receipt)))
+        } else {
+            Err(Ok(tipset))
         }
-        self.search_back_for_message(
-            &tipset,
-            (message_from_address, message_cid, message_sequence),
-        )
+    }
+
+    async fn search_back_for_message(
+        &self,
+        current: &Tipset,
+        params: (&Address, &Cid, &u64),
+    ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Error> {
+        let mut ts: Arc<Tipset> = match self.check_search(current, params).await {
+            Ok(res) => return Ok(res),
+            Err(e) => e?,
+        };
+
+        // Loops until message is found, genesis is hit, or an error is encountered
+        loop {
+            ts = match self.check_search(&ts, params).await {
+                Ok(res) => return Ok(res),
+                Err(e) => e?,
+            };
+        }
     }
     /// returns a message receipt from a given tipset and message cid
-    pub fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
+    pub async fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
         let m = chain::get_chain_message(self.blockstore(), msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_var = (m.from(), &m.sequence());
-        let message_receipt = self.tipset_executed_message(tipset, msg, message_var)?;
+        let message_receipt = self
+            .tipset_executed_message(tipset, msg, message_var)
+            .await?;
 
         if let Some(receipt) = message_receipt {
             return Ok(receipt);
@@ -865,7 +887,7 @@ where
             .cid()
             .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
         let message_var = (m.from(), &cid, &m.sequence());
-        let maybe_tuple = self.search_back_for_message(tipset, message_var)?;
+        let maybe_tuple = self.search_back_for_message(tipset, message_var).await?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -908,7 +930,9 @@ where
             }
         };
         let message_var = (message.from(), &message.sequence());
-        let maybe_message_reciept = self.tipset_executed_message(&tipset, cid, message_var)?;
+        let maybe_message_reciept = self
+            .tipset_executed_message(&tipset, cid, message_var)
+            .await?;
         if let Some(r) = maybe_message_reciept {
             return Ok((Some(tipset.clone()), Some(r)));
         }
@@ -921,7 +945,7 @@ where
             .cid()
             .map_err(|e| Error::Other(format!("Could not get cid from message {:?}", e)))?;
 
-        let cid_for_task = cid.clone();
+        let cid_for_task = cid;
         let address_for_task = *message.from();
         let sequence_for_task = message.sequence();
         let height_of_head = tipset.epoch();
@@ -930,7 +954,8 @@ where
                 .search_back_for_message(
                     &tipset,
                     (&address_for_task, &cid_for_task, &sequence_for_task),
-                )?
+                )
+                .await?
                 .ok_or_else(|| {
                     Error::Other("State manager not subscribed to back search wait".to_string())
                 })?;
@@ -980,8 +1005,9 @@ where
                         }
 
                         let message_var = (message.from(), &message.sequence());
-                        let maybe_receipt =
-                            sm_cloned.tipset_executed_message(&tipset, &cid, message_var)?;
+                        let maybe_receipt = sm_cloned
+                            .tipset_executed_message(&tipset, &cid, message_var)
+                            .await?;
                         if let Some(receipt) = maybe_receipt {
                             if confidence == 0 {
                                 return Ok((Some(tipset), Some(receipt)));
@@ -1007,7 +1033,7 @@ where
                 .unwrap_or(&false);
             let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
             if !should_revert && larger_height_of_head {
-                return Ok((Some(Arc::new(back_tipset)), Some(back_receipt)));
+                return Ok((Some(back_tipset), Some(back_receipt)));
             }
 
             Ok((None, None))
@@ -1127,19 +1153,18 @@ where
 
     pub async fn validate_chain<V: ProofVerifier>(
         self: &Arc<Self>,
-        mut ts: Tipset,
+        mut ts: Arc<Tipset>,
+        height: i64,
     ) -> Result<(), Box<dyn StdError>> {
-        let mut ts_chain = Vec::<Tipset>::new();
-        while ts.epoch() != 0 {
-            let next = self.cs.tipset_from_keys(ts.parents())?;
+        let mut ts_chain = Vec::<Arc<Tipset>>::new();
+        while ts.epoch() != height {
+            let next = self.cs.tipset_from_keys(ts.parents()).await?;
             ts_chain.push(std::mem::replace(&mut ts, next));
         }
         ts_chain.push(ts);
 
-        let mut last_state = ts_chain.last().unwrap().parent_state().clone();
-        let mut last_receipt = ts_chain.last().unwrap().blocks()[0]
-            .message_receipts()
-            .clone();
+        let mut last_state = *ts_chain.last().unwrap().parent_state();
+        let mut last_receipt = *ts_chain.last().unwrap().blocks()[0].message_receipts();
         for ts in ts_chain.iter().rev() {
             if ts.parent_state() != &last_state {
                 return Err(format!(

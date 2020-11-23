@@ -83,7 +83,7 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize()?)?;
+                Self::constructor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::EpochTick) => {

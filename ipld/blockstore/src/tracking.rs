@@ -4,7 +4,7 @@
 #![cfg(feature = "tracking")]
 
 use super::BlockStore;
-use cid::{multihash::MultihashDigest, Cid};
+use cid::{Cid, Code};
 use db::{Error, Store};
 use std::cell::RefCell;
 use std::error::Error as StdError;
@@ -54,13 +54,10 @@ where
         Ok(bytes)
     }
 
-    fn put_raw<T>(&self, bytes: Vec<u8>, hash: T) -> Result<Cid, Box<dyn StdError>>
-    where
-        T: MultihashDigest,
-    {
+    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
         self.stats.borrow_mut().w += 1;
         self.stats.borrow_mut().bw += bytes.len();
-        let cid = Cid::new_from_cbor(&bytes, hash);
+        let cid = cid::new_from_cbor(&bytes, code);
         self.write(cid.to_bytes(), bytes)?;
         Ok(cid)
     }
@@ -119,7 +116,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::Blake2b256;
+    use cid::Code::Blake2b256;
 
     #[test]
     fn basic_tracking_store() {
@@ -132,7 +129,7 @@ mod tests {
         let obj_bytes_len = encoding::to_vec(&object).unwrap().len();
 
         tr_store
-            .get::<u8>(&Cid::new_from_cbor(&[0], Blake2b256))
+            .get::<u8>(&cid::new_from_cbor(&[0], Blake2b256))
             .unwrap();
         assert_eq!(
             *tr_store.stats.borrow(),

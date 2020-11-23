@@ -2,7 +2,7 @@
 name = "forest_encoding"
 description = "Filecoin encoding and decoding utilities for use in Forest"
 license = "MIT OR Apache-2.0"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
@@ -12,8 +12,10 @@ blake2b_simd = "0.5.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.3"
 # TODO remove fork in future (allowing non utf8 strings to be cbor deserialized)
-serde_cbor = { git = "https://github.com/ChainSafe/cbor", rev = "3e7bf81f57e9010762dbc12292bd6f927fdfe83a", features = ["tags"] }
+serde_cbor = { package = "cs_serde_cbor", version = "0.12", features = [
+    "tags"
+] }
 serde_tuple = "0.5"
 serde_repr = "0.1"
-cid = { package = "forest_cid", path = "../ipld/cid", version = "0.1" }
+cid = { package = "forest_cid", path = "../ipld/cid", version = "0.2" }
 thiserror = "1.0"

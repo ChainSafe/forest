@@ -71,6 +71,8 @@ pub enum NetworkVersion {
     V5 = 5,
     // kumquat   (specs-actors v2.2.0)
     V6 = 6,
+    /// upcoming
+    V7,
 }
 
 /// this function helps us check if we shoudl be getting the newest network
@@ -78,7 +80,6 @@ pub fn use_newest_network() -> bool {
     if UPGRADE_BREEZE_HEIGHT <= 0 && UPGRADE_SMOKE_HEIGHT <= 0 {
         return true;
     }
-
     false
 }
 

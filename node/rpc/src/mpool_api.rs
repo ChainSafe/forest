@@ -65,7 +65,11 @@ where
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
-    let mut ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let mut ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tsk)
+        .await?;
 
     let (mut pending, mpts) = data.mpool.pending().await?;
 
@@ -80,7 +84,7 @@ where
 
     loop {
         if mpts.epoch() == ts.epoch() {
-            if mpts.as_ref() == &ts {
+            if mpts == ts {
                 return Ok(pending);
             }
 
@@ -110,7 +114,8 @@ where
         ts = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(ts.parents())?;
+            .tipset_from_keys(ts.parents())
+            .await?;
     }
 }
 

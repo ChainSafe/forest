@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{nodes_for_height, BitMap, Error, WIDTH};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use encoding::{
     de::{self, Deserialize, DeserializeOwned},
     ser::{self, Serialize},
@@ -96,7 +96,7 @@ where
 
     for (i, e) in (0..).zip(r_arr.iter_mut()) {
         if bmap.get_bit(i) {
-            let value = v_iter.next().ok_or_else(|| Error::InvalidVecLength)?;
+            let value = v_iter.next().ok_or(Error::InvalidVecLength)?;
             *e = Some(<T>::from(value));
         }
     }
@@ -275,7 +275,7 @@ where
                         sn
                     } else {
                         // Only retrieve sub node if not found in cache
-                        bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                        bs.get(&cid)?.ok_or(Error::RootNotFound)?
                     };
 
                     Some(Link::Dirty(sub_node))
@@ -381,7 +381,7 @@ where
                                 sn
                             } else {
                                 // Only retrieve sub node if not found in cache
-                                bs.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                                bs.get(&cid)?.ok_or(Error::RootNotFound)?
                             };
                             if !sub_node.delete(bs, height - 1, i % nodes_for_height(height))? {
                                 // Replace cache, no node deleted.
@@ -453,11 +453,18 @@ where
                                         .get(cid)?
                                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
-                                    // Ignore error intentionally, the cache value will always be the same
-                                    let _ = cache.fill(node);
-                                    let cache_node =
-                                        cache.borrow().expect("cache filled on line above");
-                                    cache_node.for_each_while(store, height - 1, offs, f)?
+                                    #[cfg(not(feature = "go-interop"))]
+                                    {
+                                        // Ignore error intentionally, the cache value will always be the same
+                                        let _ = cache.fill(node);
+                                        let cache_node =
+                                            cache.borrow().expect("cache filled on line above");
+
+                                        cache_node.for_each_while(store, height - 1, offs, f)?
+                                    }
+
+                                    #[cfg(feature = "go-interop")]
+                                    node.for_each_while(store, height - 1, offs, f)?
                                 }
                             }
                         };
@@ -517,11 +524,13 @@ where
                             }
                             Link::Cid { cid, cache } => {
                                 let cache_node = std::mem::take(cache);
-                                let mut node = if let Some(sn) = cache_node.into_inner() {
-                                    sn
+
+                                #[allow(unused_variables)]
+                                let (mut node, cached) = if let Some(sn) = cache_node.into_inner() {
+                                    (sn, true)
                                 } else {
                                     // Only retrieve sub node if not found in cache
-                                    store.get(&cid)?.ok_or_else(|| Error::RootNotFound)?
+                                    (store.get(&cid)?.ok_or(Error::RootNotFound)?, false)
                                 };
 
                                 let (keep_going, did_mutate_node) =
@@ -529,6 +538,18 @@ where
 
                                 if did_mutate_node {
                                     *link = Link::Dirty(node);
+                                } else {
+                                    #[cfg(feature = "go-interop")]
+                                    {
+                                        if cached {
+                                            let _ = cache.fill(node);
+                                        }
+                                    }
+
+                                    // Replace cache, or else iteration over without modification
+                                    // will consume cache
+                                    #[cfg(not(feature = "go-interop"))]
+                                    let _ = cache.fill(node);
                                 }
 
                                 (keep_going, did_mutate_node)

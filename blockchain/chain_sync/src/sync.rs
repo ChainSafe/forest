@@ -15,7 +15,7 @@ use async_std::task::{self, JoinHandle};
 use beacon::Beacon;
 use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
@@ -40,14 +40,14 @@ type WorkerState = Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>;
 enum ChainSyncState {
     /// Bootstrapping peers before starting sync.
     Bootstrap,
-    /// Syncing chain with BlockSync protocol.
+    /// Syncing chain with ChainExchange protocol.
     Initial,
     /// Following chain with blocks received over gossipsub.
-    _Follow,
+    Follow,
 }
 
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
-/// gossipsub messages, Hello protocol requests, as well as sending and receiving BlockSync
+/// gossipsub messages, Hello protocol requests, as well as sending and receiving ChainExchange
 /// messages to be able to do the initial sync.
 pub struct ChainSyncer<DB, TBeacon, V, M> {
     /// State of general `ChainSync` protocol.
@@ -194,14 +194,23 @@ where
                                     heaviest_tip_set: heaviest.cids().to_vec(),
                                     heaviest_tipset_height: heaviest.epoch(),
                                     heaviest_tipset_weight: heaviest.weight().clone(),
-                                    genesis_hash: self.genesis.blocks()[0].cid().clone(),
+                                    genesis_hash: *self.genesis.blocks()[0].cid(),
                                 },
                             )
                             .await
                     }
                     Some(NetworkEvent::PubsubMessage { source, message }) => {
+                        if self.state != ChainSyncState::Follow {
+                            // Ignore gossipsub events if not in following state
+                            continue;
+                        }
+
                         match message {
                             forest_libp2p::PubsubMessage::Block(b) => {
+                                // TODO this handling logic should be done in seperate task.
+                                // When this runs, it slows down the polling thread, which in turn
+                                // makes the events polled from the libp2p thread get dropped.
+
                                 let source = match source.clone() {
                                     Some(source) => source,
                                     None => {
@@ -231,7 +240,7 @@ where
                                     secp_messages: smsgs.unwrap(),
                                 };
                                 let ts = FullTipset::new(vec![block]).unwrap();
-                                if let Err(e) = self.inform_new_head(source.clone(), &ts).await {
+                                if self.inform_new_head(source.clone(), &ts).await.is_err() {
                                     warn!("failed to inform new head from peer {}", source);
                                 }
                             }
@@ -244,14 +253,14 @@ where
                             }
                         }
                     }
+                    None => break,
                     // All other network events are being ignored currently
                     _ => (),
-                    None => break,
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
                         if let Err(e) = self.inform_new_head(peer.clone(), &new_head).await {
-                            warn!("failed to inform new head from peer {}", peer);
+                            warn!("failed to inform new head from peer {}: {}", peer, e);
                         }
                     }
                     None => break,
@@ -429,19 +438,19 @@ where
         peer_id: PeerId,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
-        let fts = match Self::load_fts(cs, tsk) {
+        let fts = match Self::load_fts(cs, tsk).await {
             Ok(fts) => fts,
-            Err(_) => network.blocksync_fts(Some(peer_id), tsk).await?,
+            Err(_) => network.chain_exchange_fts(Some(peer_id), tsk).await?,
         };
 
         Ok(fts)
     }
 
     /// Returns a reconstructed FullTipset from store if keys exist
-    fn load_fts(cs: &ChainStore<DB>, keys: &TipsetKeys) -> Result<FullTipset, Error> {
+    async fn load_fts(cs: &ChainStore<DB>, keys: &TipsetKeys) -> Result<FullTipset, Error> {
         let mut blocks = Vec::new();
         // retrieve tipset from store based on passed in TipsetKeys
-        let ts = cs.tipset_from_keys(keys)?;
+        let ts = cs.tipset_from_keys(keys).await?;
         for header in ts.blocks() {
             // retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) = chain::block_messages(cs.blockstore(), &header)?;
@@ -504,6 +513,7 @@ mod tests {
     use forest_libp2p::NetworkEvent;
     use message_pool::{test_provider::TestApi, MessagePool};
     use state_manager::StateManager;
+    use std::convert::TryFrom;
     use std::sync::Arc;
     use std::time::Duration;
     use test_utils::{construct_dummy_header, construct_messages};
@@ -517,9 +527,11 @@ mod tests {
     ) {
         let chain_store = Arc::new(ChainStore::new(db.clone()));
         let test_provider = TestApi::default();
+        let (tx, _rx) = channel(10);
         let mpool = task::block_on(MessagePool::new(
             test_provider,
             "test".to_string(),
+            tx,
             Default::default(),
         ))
         .unwrap();
@@ -565,7 +577,7 @@ mod tests {
         let (bls, secp) = construct_messages();
 
         let expected_root =
-            Cid::from_raw_cid("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
+            Cid::try_from("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
         let root = compute_msg_meta(cs.state_manager.blockstore(), &[bls], &[secp]).unwrap();

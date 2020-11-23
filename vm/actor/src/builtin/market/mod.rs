@@ -20,7 +20,7 @@ use crate::{
 use address::Address;
 use ahash::AHashMap;
 use byteorder::{BigEndian, ByteOrder};
-use cid::Cid;
+use cid::{Cid, Prefix};
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
@@ -645,17 +645,16 @@ impl Actor {
                 .ok_or_else(|| actor_error!(ErrNotFound; "proposal doesn't exist ({})", deal_id))?;
 
             pieces.push(PieceInfo {
-                cid: deal.piece_cid.clone(),
+                cid: deal.piece_cid,
                 size: deal.piece_size,
             });
         }
 
         let commd = rt
-            .syscalls()
             .compute_unsealed_sector_cid(params.sector_type, &pieces)
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::SysErrorIllegalArgument,
+                    ExitCode::SysErrIllegalArgument,
                     "failed to compute unsealed sector CID",
                 )
             })?;
@@ -757,7 +756,7 @@ impl Actor {
                             amount_slashed += slashed;
                         }
                         if deal.verified_deal {
-                            timed_out_verified_deals.push(deal.clone());
+                            timed_out_verified_deals.push(deal);
                         }
 
                         // we should not attempt to delete the DealState because it does NOT exist
@@ -792,6 +791,8 @@ impl Actor {
                                     "failed to delete pending proposal: does not exist"
                                 )
                             })?;
+
+                        continue;
                     }
                     let mut state = state.unwrap();
 
@@ -1071,7 +1072,7 @@ where
 
     // TODO we are skipping the check for if Cid is defined, but this shouldn't be possible
 
-    if proposal.piece_cid.prefix() != PIECE_CID_PREFIX {
+    if Prefix::from(proposal.piece_cid) != PIECE_CID_PREFIX {
         return Err(actor_error!(ErrIllegalArgument; "proposal PieceCID undefined"));
     }
 
@@ -1139,13 +1140,12 @@ where
     let sv_bz = to_vec(&proposal.proposal)
         .map_err(|_| actor_error!(ErrIllegalArgument; "failed to serialize DealProposal"))?;
 
-    rt.syscalls()
-        .verify_signature(
-            &proposal.client_signature,
-            &proposal.proposal.client,
-            &sv_bz,
-        )
-        .map_err(|e| actor_error!(ErrIllegalArgument, "signature proposal invalid: {}", e))?;
+    rt.verify_signature(
+        &proposal.client_signature,
+        &proposal.proposal.client,
+        &sv_bz,
+    )
+    .map_err(|e| actor_error!(ErrIllegalArgument, "signature proposal invalid: {}", e))?;
 
     Ok(())
 }
@@ -1230,31 +1230,31 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::AddBalance) => {
-                Self::add_balance(rt, params.deserialize()?)?;
+                Self::add_balance(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::WithdrawBalance) => {
-                Self::withdraw_balance(rt, params.deserialize()?)?;
+                Self::withdraw_balance(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::PublishStorageDeals) => {
-                let res = Self::publish_storage_deals(rt, params.deserialize()?)?;
+                let res = Self::publish_storage_deals(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::VerifyDealsForActivation) => {
-                let res = Self::verify_deals_for_activation(rt, params.deserialize()?)?;
+                let res = Self::verify_deals_for_activation(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::ActivateDeals) => {
-                Self::activate_deals(rt, params.deserialize()?)?;
+                Self::activate_deals(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::OnMinerSectorsTerminate) => {
-                Self::on_miner_sectors_terminate(rt, params.deserialize()?)?;
+                Self::on_miner_sectors_terminate(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ComputeDataCommitment) => {
-                let res = Self::compute_data_commitment(rt, params.deserialize()?)?;
+                let res = Self::compute_data_commitment(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::CronTick) => {

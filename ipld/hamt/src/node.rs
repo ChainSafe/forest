@@ -5,7 +5,7 @@ use super::bitfield::Bitfield;
 use super::hash_bits::HashBits;
 use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
-use cid::multihash::Blake2b256;
+use cid::Code::Blake2b256;
 use ipld_blockstore::BlockStore;
 use lazycell::LazyCell;
 use serde::de::DeserializeOwned;
@@ -303,10 +303,7 @@ where
 
                 // Otherwise insert the element into the array in order.
                 let max = vals.len();
-                let idx = vals
-                    .iter()
-                    .position(|c| c.key() > &key)
-                    .unwrap_or_else(|| max);
+                let idx = vals.iter().position(|c| c.key() > &key).unwrap_or(max);
 
                 let np = KeyValuePair::new(key, value);
                 vals.insert(idx, np);

@@ -208,10 +208,10 @@ where
     let state_manager = &data.state_manager;
     let (addr, msg_string) = params;
     let address = addr.0;
-    let heaviest_tipset = chain::get_heaviest_tipset(state_manager.blockstore())?.ok_or_else(||format!("Could not get heaviest tipset"))?;
+    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset().await.ok_or_else(||"Could not get heaviest tipset".to_string())?;
     let key_addr = state_manager.resolve_to_key_addr::<FullVerifier>(&address,&heaviest_tipset).await?;
     let msg = Vec::from(msg_string);
-    let mut keystore = &mut * data.keystore.write().await;
+    let keystore = &mut * data.keystore.write().await;
     let key = match wallet::find_key(&key_addr, keystore)
     {
         Ok(key) => key,

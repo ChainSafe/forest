@@ -22,7 +22,7 @@ pub use self::token::*;
 
 #[macro_use]
 extern crate lazy_static;
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use encoding::to_vec;
 
 lazy_static! {
@@ -30,7 +30,7 @@ lazy_static! {
     pub static ref EMPTY_ARR_BYTES: Vec<u8> = to_vec::<[(); 0]>(&[]).unwrap();
 
     /// Cid of the empty array Cbor bytes (`EMPTY_ARR_BYTES`).
-    pub static ref EMPTY_ARR_CID: Cid = Cid::new_from_cbor(&EMPTY_ARR_BYTES, Blake2b256);
+    pub static ref EMPTY_ARR_CID: Cid = cid::new_from_cbor(&EMPTY_ARR_BYTES, Blake2b256);
 }
 
 #[cfg(test)]

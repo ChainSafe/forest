@@ -114,11 +114,9 @@ impl Actor {
             .map_err(|e| ActorError::from(e).wrap("failed to serialized SignedVoucher"))?;
 
         // Validate signature
-        rt.syscalls()
-            .verify_signature(&sig, &signer, &sv_bz)
-            .map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalArgument, "voucher signature invalid")
-            })?;
+        rt.verify_signature(&sig, &signer, &sv_bz).map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalArgument, "voucher signature invalid")
+        })?;
 
         let pch_addr = rt.message().receiver();
         if pch_addr != &sv.channel_addr {
@@ -142,7 +140,6 @@ impl Actor {
 
         if !sv.secret_pre_image.is_empty() {
             let hashed_secret: &[u8] = &rt
-                .syscalls()
                 .hash_blake2b(&params.secret)
                 .map_err(|e| e.downcast_fatal("unexpected error from blake2b hash"))?;
             if hashed_secret != sv.secret_pre_image.as_slice() {
@@ -338,11 +335,11 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize()?)?;
+                Self::constructor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::UpdateChannelState) => {
-                Self::update_channel_state(rt, params.deserialize()?)?;
+                Self::update_channel_state(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::Settle) => {

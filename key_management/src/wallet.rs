@@ -188,7 +188,7 @@ pub fn try_find<T: KeyStore>(addr: &Address,keystore: &mut T) -> Result<KeyInfo,
             {
                 let mut new_addr = addr.to_string();
                 new_addr.replace_range(0..1,"t");
-                let key_string = format!("wallet-{}", new_addr.to_string());
+                let key_string = format!("wallet-{}", new_addr);
                 let key_info = keystore.get(&key_string)?;
                 keystore.put(addr.to_string(), key_info.clone())?;
                 Ok(key_info)

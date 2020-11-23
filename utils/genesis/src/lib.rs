@@ -1,18 +1,23 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::{BlockHeader, Tipset};
+use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
 use cid::Cid;
+use encoding::Cbor;
+use fil_types::verifier::ProofVerifier;
 use forest_car::load_car;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
+use net_utils::FetchProgress;
 use state_manager::StateManager;
+use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::include_bytes;
 use std::io::{BufReader, Read};
 use std::sync::Arc;
+use url::Url;
 
 #[cfg(feature = "testing")]
 pub const EXPORT_SR_40: &[u8; 1226395] = include_bytes!("mainnet/export40.car");
@@ -55,7 +60,7 @@ fn process_car<R, BS>(
 ) -> Result<BlockHeader, Box<dyn StdError>>
 where
     R: Read,
-    BS: BlockStore,
+    BS: BlockStore + Send + Sync + 'static,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader)?;
@@ -83,4 +88,53 @@ where
         )?;
         Ok(genesis_block)
     }
+}
+
+/// Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain
+/// state and instead accept the largest height as genesis.
+pub async fn import_chain<V: ProofVerifier, DB>(
+    sm: &Arc<StateManager<DB>>,
+    path: &str,
+    validate_height: Option<i64>,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    DB: BlockStore + Send + Sync + 'static,
+{
+    let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
+
+    info!("Importing chain from snapshot");
+    // start import
+    let cids = if is_remote_file {
+        let url = Url::parse(path).expect("URL is invalid");
+        info!("Downloading file...");
+        let reader = FetchProgress::try_from(url)?;
+        load_car(sm.blockstore(), reader)?
+    } else {
+        let file = File::open(&path).expect("Snapshot file path not found!");
+        info!("Reading file...");
+        let reader = FetchProgress::try_from(file)?;
+        load_car(sm.blockstore(), reader)?
+    };
+    let ts = sm
+        .chain_store()
+        .tipset_from_keys(&TipsetKeys::new(cids))
+        .await?;
+    let gb = sm
+        .chain_store()
+        .tipset_by_height(0, ts.clone(), true)
+        .await?;
+
+    if let Some(height) = validate_height {
+        info!("Validating imported chain");
+        sm.validate_chain::<V>(ts.clone(), height).await?;
+    }
+    let gen_cid = sm.chain_store().set_genesis(&gb.blocks()[0])?;
+    sm.blockstore()
+        .write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
+    info!(
+        "Accepting {:?} as new head with genesis {:?}",
+        ts.cids(),
+        gen_cid
+    );
+    Ok(())
 }

@@ -3,7 +3,7 @@
 
 use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
-use cid::multihash::{Blake2b256, Identity};
+use cid::Code::{Blake2b256, Identity};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use db::MemoryDB;

@@ -19,7 +19,7 @@ pub type SectorNumber = u64;
 
 /// The maximum assignable sector number.
 /// Raising this would require modifying our AMT implementation.
-pub const MAX_SECTOR_NUMBER: SectorNumber = ipld_amt::MAX_INDEX;
+pub const MAX_SECTOR_NUMBER: SectorNumber = i64::MAX as u64;
 
 /// Unit of storage power (measured in bytes)
 pub type StoragePower = BigInt;

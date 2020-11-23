@@ -3,19 +3,15 @@
 
 mod errors;
 mod memory;
-mod rocks;
+
+#[cfg(feature = "rocksdb")]
+pub mod rocks;
+
+#[cfg(feature = "sled")]
+pub mod sled;
 
 pub use errors::Error;
 pub use memory::MemoryDB;
-
-#[cfg(feature = "rocksdb")]
-pub use rocks::{RocksDb, WriteBatch};
-
-pub trait DatabaseService {
-    fn open(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-}
 
 /// Store interface used as a KV store implementation
 pub trait Store {
@@ -56,8 +52,7 @@ pub trait Store {
     {
         values
             .iter()
-            .map(|(key, value)| self.write(key, value))
-            .collect()
+            .try_for_each(|(key, value)| self.write(key, value))
     }
 
     /// Bulk delete keys from the data store.
@@ -65,6 +60,6 @@ pub trait Store {
     where
         K: AsRef<[u8]>,
     {
-        keys.iter().map(|key| self.delete(key)).collect()
+        keys.iter().try_for_each(|key| self.delete(key))
     }
 }

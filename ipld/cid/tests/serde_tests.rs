@@ -3,16 +3,15 @@
 
 #![cfg(feature = "cbor")]
 
-use forest_cid::Cid;
-use multihash::Blake2b256;
+use forest_cid::{Cid, Code::Blake2b256};
 use serde_cbor::{from_slice, to_vec};
 
 #[test]
 fn vector_cid_serialize_round() {
     let cids = vec![
-        Cid::new_from_cbor(&[0, 1], Blake2b256),
-        Cid::new_from_cbor(&[1, 2], Blake2b256),
-        Cid::new_from_cbor(&[3, 2], Blake2b256),
+        forest_cid::new_from_cbor(&[0, 1], Blake2b256),
+        forest_cid::new_from_cbor(&[1, 2], Blake2b256),
+        forest_cid::new_from_cbor(&[3, 2], Blake2b256),
     ];
 
     // Serialize cids with cbor

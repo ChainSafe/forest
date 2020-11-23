@@ -5,16 +5,17 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-cid = { package = "forest_cid", path = "../cid" }
+cid = { package = "forest_cid", path = "../cid", features = ["cbor"] }
 db = { path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding" }
 serde = { version = "1.0", features = ["derive"] }
 ipld_blockstore = { path = "../blockstore" }
 thiserror = "1.0"
 lazycell = "1.2.1"
+ahash = { version = "0.5", optional = true }
 
 [features]
-go-interop = []
+go-interop = ["ahash"]
 
 [dev-dependencies]
 criterion = "0.3.1"

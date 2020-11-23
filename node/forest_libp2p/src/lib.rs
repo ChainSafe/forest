@@ -3,14 +3,17 @@
 
 #![recursion_limit = "1024"]
 
+#[macro_use]
+extern crate lazy_static;
+
 mod behaviour;
-pub mod blocksync;
+pub mod chain_exchange;
 mod config;
 pub mod hello;
 pub mod rpc;
 mod service;
 
 pub use self::behaviour::*;
-pub use self::blocksync::{BlockSyncRequest, MESSAGES};
+pub use self::chain_exchange::{ChainExchangeRequest, MESSAGES};
 pub use self::config::*;
 pub use self::service::*;

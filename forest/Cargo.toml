@@ -8,7 +8,7 @@ edition = "2018"
 address = { package = "forest_address", path = "../vm/address" }
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
-db = { path = "../node/db", features = ["rocksdb"] }
+db = { path = "../node/db" }
 libp2p = { version = "0.24", default-features = false, features = ["identify"] }
 futures = "0.3.5"
 log = "0.4.8"
@@ -24,7 +24,7 @@ forest_car = { path = "../ipld/car" }
 flo_stream = "0.4.0"
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
-ipld_blockstore = { path = "../ipld/blockstore", features = ["rocksdb"] }
+ipld_blockstore = { path = "../ipld/blockstore" }
 chain = { path = "../blockchain/chain" }
 structopt = { version = "0.3" }
 beacon = { path = "../blockchain/beacon" }
@@ -38,7 +38,13 @@ wallet = { package = "key_management", path = "../key_management" }
 jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2", features = ["easy-errors", "macros"], default-features = false }
 uuid = { version = "0.8.1", features = ["v4"] }
 auth = { path = "../utils/auth"}
+net_utils = { path = "../utils/net_utils" }
 actor = { path = "../vm/actor/" }
 genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
 encoding = { package = "forest_encoding", path = "../encoding" }
+
+[features]
+default = ["rocksdb"]
+rocksdb = ["db/rocksdb", "ipld_blockstore/rocksdb"]
+sled = ["db/sled", "ipld_blockstore/sled"]

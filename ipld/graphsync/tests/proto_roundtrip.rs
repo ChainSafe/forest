@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Code::Blake2b256, Cid};
 use forest_ipld::selector::Selector;
 use graphsync::{proto, GraphSyncMessage, GraphSyncRequest, GraphSyncResponse, ResponseStatusCode};
 use protobuf::{parse_from_bytes, Message};

@@ -20,10 +20,11 @@ fn peer_manager_update() {
     let db = Arc::new(MemoryDB::default());
 
     let chain_store = Arc::new(ChainStore::new(db.clone()));
-
+    let (tx, _rx) = channel(10);
     let mpool = task::block_on(MessagePool::new(
         TestApi::default(),
         "test".to_string(),
+        tx,
         Default::default(),
     ))
     .unwrap();
@@ -37,8 +38,8 @@ fn peer_manager_update() {
     let dummy_header = BlockHeader::builder()
         .miner_address(Address::new_id(1000))
         .messages(msg_root)
-        .message_receipts(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        .state_root(Cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .message_receipts(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .state_root(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
         .build_and_validate()
         .unwrap();
     let gen_hash = chain_store.set_genesis(&dummy_header).unwrap();

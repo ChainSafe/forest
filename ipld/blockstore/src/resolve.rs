@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::BlockStore;
-use cid::{Cid, Codec};
+use cid::{Cid, DAG_CBOR};
 use forest_ipld::Ipld;
 use std::error::Error as StdError;
 
@@ -15,9 +15,7 @@ pub fn resolve_cids_recursive<BS>(
 where
     BS: BlockStore,
 {
-    let mut ipld = bs
-        .get(cid)?
-        .ok_or_else(|| "Cid does not exist in blockstore")?;
+    let mut ipld = bs.get(cid)?.ok_or("Cid does not exist in blockstore")?;
 
     resolve_ipld(bs, &mut ipld, depth)?;
 
@@ -51,7 +49,7 @@ where
             }
         }
         Ipld::Link(cid) => {
-            if cid.codec == Codec::DagCBOR {
+            if cid.codec() == DAG_CBOR {
                 if let Some(x) = bs.get(cid)? {
                     *ipld = x;
                 }

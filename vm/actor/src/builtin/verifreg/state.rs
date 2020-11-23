@@ -16,7 +16,7 @@ impl State {
     pub fn new(empty_map: Cid, root_key: Address) -> State {
         State {
             root_key,
-            verifiers: empty_map.clone(),
+            verifiers: empty_map,
             verified_clients: empty_map,
         }
     }

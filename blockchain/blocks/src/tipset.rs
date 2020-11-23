@@ -245,7 +245,23 @@ where
 #[cfg(feature = "json")]
 pub mod tipset_keys_json {
     use super::*;
-    use serde::{Deserializer, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct TipsetKeysJson(#[serde(with = "self")] pub TipsetKeys);
+
+    impl From<TipsetKeysJson> for TipsetKeys {
+        fn from(wrapper: TipsetKeysJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    impl From<TipsetKeys> for TipsetKeysJson {
+        fn from(wrapper: TipsetKeys) -> Self {
+            TipsetKeysJson(wrapper)
+        }
+    }
 
     pub fn serialize<S>(m: &TipsetKeys, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -267,39 +283,27 @@ pub mod tipset_keys_json {
 #[cfg(feature = "json")]
 pub mod tipset_json {
     use super::*;
-    use cid::json::vec::CidJsonVec;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use std::sync::Arc;
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
-    pub struct TipsetJson(#[serde(with = "self")] pub Tipset);
+    pub struct TipsetJson(#[serde(with = "self")] pub Arc<Tipset>);
 
     /// Wrapper for serializing a SignedMessage reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
 
-    #[derive(Serialize, Deserialize)]
-    #[serde(transparent)]
-    pub struct TipsetKeysJson {
-        pub cids: CidJsonVec,
-    }
-
-    impl From<TipsetKeysJson> for TipsetKeys {
-        fn from(s: TipsetKeysJson) -> Self {
-            Self { cids: s.cids.0 }
-        }
-    }
-
-    impl From<TipsetJson> for Tipset {
+    impl From<TipsetJson> for Arc<Tipset> {
         fn from(wrapper: TipsetJson) -> Self {
             wrapper.0
         }
     }
 
-    impl From<Tipset> for TipsetJson {
-        fn from(wrapper: Tipset) -> Self {
+    impl From<Arc<Tipset>> for TipsetJson {
+        fn from(wrapper: Arc<Tipset>) -> Self {
             TipsetJson(wrapper)
         }
     }
@@ -331,7 +335,7 @@ pub mod tipset_json {
         .serialize(serializer)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Tipset, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Arc<Tipset>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -345,6 +349,6 @@ pub mod tipset_json {
             height: ChainEpoch,
         }
         let TipsetDe { blocks, .. } = Deserialize::deserialize(deserializer)?;
-        Tipset::new(blocks).map_err(de::Error::custom)
+        Tipset::new(blocks).map(Arc::new).map_err(de::Error::custom)
     }
 }

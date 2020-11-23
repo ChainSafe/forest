@@ -8,7 +8,7 @@ use actor::*;
 use address::{Address, Protocol};
 use blocks::BlockHeader;
 use byteorder::{BigEndian, WriteBytesExt};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{verifier::ProofVerifier, DevnetParams, NetworkParams, NetworkVersion, Randomness};
@@ -37,7 +37,7 @@ use vm::{
 
 // This is just used for gas tracing, intentionally 0 and could be removed.
 const ACTOR_EXEC_GAS: GasCharge = GasCharge {
-    name: "on_actor_exec",
+    name: "OnActorExec",
     compute_gas: 0,
     storage_gas: 0,
 };
@@ -203,7 +203,7 @@ where
 
     fn abort_if_already_validated(&mut self) -> Result<(), ActorError> {
         if self.caller_validated {
-            Err(actor_error!(SysErrorIllegalActor;
+            Err(actor_error!(SysErrIllegalActor;
                     "Method must validate caller identity exactly once"))
         } else {
             self.caller_validated = true;
@@ -465,12 +465,12 @@ where
             .get_actor(self.message().receiver())
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::SysErrorIllegalArgument,
+                    ExitCode::SysErrIllegalArgument,
                     "failed to get actor for Readonly state",
                 )
             })?
             .ok_or_else(
-                || actor_error!(SysErrorIllegalArgument; "Actor readonly state does not exist"),
+                || actor_error!(SysErrIllegalArgument; "Actor readonly state does not exist"),
             )?;
 
         // TODO revisit as the go impl doesn't handle not exists and nil cases
@@ -493,12 +493,12 @@ where
             .get_actor(self.message().receiver())
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::SysErrorIllegalActor,
+                    ExitCode::SysErrIllegalActor,
                     "failed to get actor for transaction",
                 )
             })?
             .ok_or_else(|| {
-                actor_error!(SysErrorIllegalActor;
+                actor_error!(SysErrIllegalActor;
                 "actor state for transaction doesn't exist")
             })?;
 
@@ -534,7 +534,7 @@ where
         value: TokenAmount,
     ) -> Result<Serialized, ActorError> {
         if !self.allow_internal {
-            return Err(actor_error!(SysErrorIllegalActor; "runtime.send() is not allowed"));
+            return Err(actor_error!(SysErrIllegalActor; "runtime.send() is not allowed"));
         }
 
         let ret = self
@@ -550,7 +550,9 @@ where
         Ok(ret)
     }
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
-        let oa = resolve_to_key_addr(self.state, self.store.store, &self.origin)?;
+        // ! Go implementation doesn't handle the error for some reason here and will panic
+        let oa = resolve_to_key_addr(self.state, self.store.store, &self.origin)
+            .map_err(|e| e.downcast_fatal("failed to resolve key addr"))?;
         let mut b = to_vec(&oa).map_err(|e| {
             actor_error!(fatal(
                 "Could not serialize address in new_actor_address: {}",
@@ -572,22 +574,22 @@ where
     }
     fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
         if !is_builtin_actor(&code_id) {
-            return Err(actor_error!(SysErrorIllegalArgument; "Can only create built-in actors."));
+            return Err(actor_error!(SysErrIllegalArgument; "Can only create built-in actors."));
         }
         if is_singleton_actor(&code_id) {
-            return Err(actor_error!(SysErrorIllegalArgument;
+            return Err(actor_error!(SysErrIllegalArgument;
                     "Can only have one instance of singleton actors."));
         }
 
         if let Ok(Some(_)) = self.state.get_actor(address) {
-            return Err(actor_error!(SysErrorIllegalArgument; "Actor address already exists"));
+            return Err(actor_error!(SysErrIllegalArgument; "Actor address already exists"));
         }
 
         self.charge_gas(self.price_list.on_create_actor())?;
         self.state
             .set_actor(
                 &address,
-                ActorState::new(code_id, EMPTY_ARR_CID.clone(), 0.into(), 0),
+                ActorState::new(code_id, *EMPTY_ARR_CID, 0.into(), 0),
             )
             .map_err(|e| e.downcast_fatal("creating actor entry"))
     }
@@ -603,9 +605,7 @@ where
             .state
             .get_actor(&receiver)
             .map_err(|e| e.downcast_fatal(format!("failed to get actor {}", receiver)))?
-            .ok_or_else(
-                || actor_error!(SysErrorIllegalActor; "failed to load actor in delete actor"),
-            )
+            .ok_or_else(|| actor_error!(SysErrIllegalActor; "failed to load actor in delete actor"))
             .map(|act| act.balance)?;
         if balance != 0.into() {
             // Transfer the executing actor's balance to the beneficiary
@@ -617,9 +617,6 @@ where
         self.state
             .delete_actor(&receiver)
             .map_err(|e| e.downcast_fatal("failed to delete actor"))
-    }
-    fn syscalls(&self) -> &dyn Syscalls {
-        self
     }
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         self.circ_supply_calc
@@ -947,14 +944,14 @@ where
         chaos::Actor::invoke_method(rt, method_num, params)
     } else {
         Err(actor_error!(
-            SysErrorIllegalActor,
+            SysErrIllegalActor,
             "no code for actor at address {}",
             to
         ))
     }?;
 
     if !rt.caller_validated {
-        Err(actor_error!(SysErrorIllegalActor; "Caller must be validated during method execution"))
+        Err(actor_error!(SysErrIllegalActor; "Caller must be validated during method execution"))
     } else {
         Ok(ret)
     }
@@ -966,7 +963,7 @@ pub fn resolve_to_key_addr<'st, 'bs, BS, S>(
     st: &'st StateTree<'bs, S>,
     store: &'bs BS,
     addr: &Address,
-) -> Result<Address, ActorError>
+) -> Result<Address, Box<dyn StdError>>
 where
     BS: BlockStore,
     S: BlockStore,
@@ -977,24 +974,17 @@ where
 
     let act = st
         .get_actor(&addr)
-        .map_err(|e| e.downcast_default(ExitCode::SysErrInternal, "Failed to get actor"))?
-        .ok_or_else(|| actor_error!(SysErrInternal; "Failed to retrieve actor: {}", addr))?;
+        .map_err(|e| e.downcast_wrap("Failed to get actor"))?
+        .ok_or_else(|| format!("Failed to retrieve actor: {}", addr))?;
 
+    // TODO this will need to handle multiple actor versions
     if act.code != *ACCOUNT_ACTOR_CODE_ID {
-        return Err(actor_error!(fatal(
-            "Address was not found for an account actor: {}",
-            addr
-        )));
+        return Err(format!("Address was not found for an account actor: {}", addr).into());
     }
     let acc_st: account::State = store
         .get(&act.state)
-        .map_err(|e| e.downcast_fatal(format!("Failed to get account actor state for: {}", addr)))?
-        .ok_or_else(|| {
-            actor_error!(fatal(
-                "Address was not found for an account actor: {}",
-                addr
-            ))
-        })?;
+        .map_err(|e| e.downcast_wrap(format!("Failed to get account actor state for: {}", addr)))?
+        .ok_or_else(|| format!("Address was not found for an account actor: {}", addr))?;
 
     Ok(acc_st.address)
 }
@@ -1012,18 +1002,18 @@ fn make_actor(addr: &Address) -> Result<ActorState, ActorError> {
 
 fn new_bls_account_actor() -> ActorState {
     ActorState {
-        code: ACCOUNT_ACTOR_CODE_ID.clone(),
+        code: *ACCOUNT_ACTOR_CODE_ID,
         balance: TokenAmount::from(0),
-        state: EMPTY_ARR_CID.clone(),
+        state: *EMPTY_ARR_CID,
         sequence: 0,
     }
 }
 
 fn new_secp256k1_account_actor() -> ActorState {
     ActorState {
-        code: ACCOUNT_ACTOR_CODE_ID.clone(),
+        code: *ACCOUNT_ACTOR_CODE_ID,
         balance: TokenAmount::from(0),
-        state: EMPTY_ARR_CID.clone(),
+        state: *EMPTY_ARR_CID,
         sequence: 0,
     }
 }

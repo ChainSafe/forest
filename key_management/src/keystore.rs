@@ -50,7 +50,7 @@ impl KeyInfo {
 pub mod json {
     use super::*;
     use crypto::signature::json::signature_type::SignatureTypeJson;
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Clone,Deserialize, Serialize)]

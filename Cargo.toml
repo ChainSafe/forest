@@ -36,6 +36,7 @@ members = [
     "utils/commcid",
     "utils/json_utils",
     "utils/genesis",
+    "utils/net_utils",
     "utils/statediff",
     "types",
     "key_management",

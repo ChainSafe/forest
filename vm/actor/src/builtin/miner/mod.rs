@@ -53,7 +53,7 @@ use crate::{
 use address::{Address, Payload, Protocol};
 use bitfield::{BitField, UnvalidatedBitField, Validate};
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
-use cid::{multihash::Blake2b256, Cid};
+use cid::{Cid, Code::Blake2b256, Prefix};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
     self, InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,
@@ -160,7 +160,7 @@ impl Actor {
 
         let empty_deadline_cid = rt
             .store()
-            .put(&Deadline::new(empty_array.clone()), Blake2b256)
+            .put(&Deadline::new(empty_array), Blake2b256)
             .map_err(|e| {
                 e.downcast_default(
                     ExitCode::ErrIllegalState,
@@ -189,7 +189,7 @@ impl Actor {
                 })?;
 
         let current_epoch = rt.curr_epoch();
-        let blake2b = |b: &[u8]| rt.syscalls().hash_blake2b(b);
+        let blake2b = |b: &[u8]| rt.hash_blake2b(b);
         let offset = assign_proving_period_offset(*rt.message().receiver(), current_epoch, blake2b)
             .map_err(|e| {
                 e.downcast_default(
@@ -597,7 +597,8 @@ impl Actor {
 
             // Note: We could delay this charge until end of deadline, but that would require more accounting state.
             let total_penalty_target = undeclared_penalty_target + declared_penalty_target;
-            let unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?);
+            let unlocked_balance =
+                state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
             let (vesting_penalty_total, balance_penalty_total) = state
                 .penalize_funds_in_priority_order(
                     rt.store(),
@@ -671,7 +672,7 @@ impl Actor {
             ));
         }
 
-        if params.sealed_cid.prefix() != SEALED_CID_PREFIX {
+        if Prefix::from(params.sealed_cid) != SEALED_CID_PREFIX {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "sealed CID had wrong prefix"
@@ -836,7 +837,8 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to vest funds")
                 })?;
 
-            let available_balance = state.get_available_balance(&rt.current_balance()?);
+            let available_balance =
+                state.get_available_balance(&rt.current_balance()?, rt.network_version())?;
             let duration = params.expiration - rt.curr_epoch();
 
             let sector_weight = qa_power_for_weight(
@@ -864,7 +866,7 @@ impl Actor {
             }
 
             state.add_pre_commit_deposit(&deposit_req);
-            state.assert_balance_invariants(&rt.current_balance()?);
+            state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
 
             let seal_proof = params.seal_proof;
             let sector_number = params.sector_number;
@@ -973,7 +975,7 @@ impl Actor {
         let svi = get_verify_info(
             rt,
             SealVerifyParams {
-                sealed_cid: precommit.info.sealed_cid.clone(),
+                sealed_cid: precommit.info.sealed_cid,
                 interactive_epoch: precommit.pre_commit_epoch + PRE_COMMIT_CHALLENGE_DELAY,
                 seal_rand_epoch: precommit.info.seal_rand_epoch,
                 proof: params.proof,
@@ -1224,7 +1226,8 @@ impl Actor {
             // Unlock deposit for successful proofs, make it available for lock-up as initial pledge.
             state.add_pre_commit_deposit(&(-total_pre_commit_deposit));
 
-            let available_balance = state.get_available_balance(&rt.current_balance()?);
+            let available_balance =
+                state.get_available_balance(&rt.current_balance()?, rt.network_version())?;
             if available_balance < total_pledge {
                 return Err(actor_error!(
                     ErrInsufficientFunds,
@@ -1235,7 +1238,7 @@ impl Actor {
             }
 
             state.add_initial_pledge_requirement(&total_pledge);
-            state.assert_balance_invariants(&rt.current_balance()?);
+            state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
 
             Ok((new_power, total_pledge, newly_vested))
         })?;
@@ -2087,7 +2090,8 @@ impl Actor {
             // This may lock up unlocked balance that was covering InitialPledgeRequirements
             // This ensures that the amountToLock is always locked up if the miner account
             // can cover it.
-            let unlocked_balance = st.get_unlocked_balance(&rt.current_balance()?);
+            let unlocked_balance =
+                st.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
             if unlocked_balance < amount_to_lock {
                 return Err(actor_error!(
                     ErrInsufficientFunds,
@@ -2132,7 +2136,6 @@ impl Actor {
         let reporter = *rt.message().caller();
 
         let fault = rt
-            .syscalls()
             .verify_consensus_fault(&params.header1, &params.header2, &params.header_extra)
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalArgument, "fault not verified"))?
             .ok_or_else(|| actor_error!(ErrIllegalArgument, "Invalid fault"))?;
@@ -2212,7 +2215,7 @@ impl Actor {
 
         let curr_balance = rt.current_balance()?;
         let amount_withdrawn = cmp::min(
-            state.get_available_balance(&curr_balance),
+            state.get_available_balance(&curr_balance, rt.network_version())?,
             params.amount_requested,
         );
         assert!(!amount_withdrawn.is_negative());
@@ -2227,7 +2230,7 @@ impl Actor {
 
         notify_pledge_changed(rt, &newly_vested.neg())?;
 
-        state.assert_balance_invariants(&rt.current_balance()?);
+        state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
         Ok(())
     }
 
@@ -2329,7 +2332,8 @@ where
 
             // Unlock funds for penalties.
             // We're intentionally reducing the penalty paid to what we have.
-            let unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?);
+            let unlocked_balance =
+                state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
             let (penalty_from_vesting, penalty_from_balance) = state
                 .penalize_funds_in_priority_order(
                     store,
@@ -2421,7 +2425,7 @@ where
         }
 
         let deposit_to_burn = state
-            .check_precommit_expiry(rt.store(), &bitfield)
+            .check_precommit_expiry(rt.store(), &bitfield, rt.network_version())
             .map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to save expiry queue")
             })?;
@@ -2452,7 +2456,8 @@ where
             .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_info.index)))?;
 
         let quant = deadline_info.quant_spec();
-        let mut unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?);
+        let mut unlocked_balance =
+            state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
 
         let previously_faulty_power = deadline.faulty_power.qa.clone();
 
@@ -2897,7 +2902,7 @@ where
         .map(|s| SectorInfo {
             proof: s.seal_proof,
             sector_number: s.sector_number,
-            sealed_cid: s.sealed_cid.clone(),
+            sealed_cid: s.sealed_cid,
         })
         .collect();
 
@@ -2910,7 +2915,7 @@ where
     };
 
     // verify the post proof
-    rt.syscalls().verify_post(&pv_info).map_err(|e| {
+    rt.verify_post(&pv_info).map_err(|e| {
         e.downcast_default(
             ExitCode::ErrIllegalArgument,
             format!("invalid PoSt: {:?}", pv_info),
@@ -3117,13 +3122,13 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if state.meets_initial_pledge_condition(&rt.current_balance()?) {
+    if state.meets_initial_pledge_condition(&rt.current_balance()?, rt.network_version())? {
         Ok(())
     } else {
         Err(actor_error!(
             ErrInsufficientFunds,
             "unlocked balance does not cover pledge requirements ({} < {})",
-            state.get_unlocked_balance(&rt.current_balance()?),
+            state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?,
             state.initial_pledge_requirement
         ))
     }
@@ -3386,7 +3391,7 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize()?)?;
+                Self::constructor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ControlAddresses) => {
@@ -3395,76 +3400,76 @@ impl ActorCode for Actor {
                 Ok(Serialized::serialize(&res)?)
             }
             Some(Method::ChangeWorkerAddress) => {
-                Self::change_worker_address(rt, params.deserialize()?)?;
+                Self::change_worker_address(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ChangePeerID) => {
-                Self::change_peer_id(rt, params.deserialize()?)?;
+                Self::change_peer_id(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::SubmitWindowedPoSt) => {
-                Self::submit_windowed_post(rt, params.deserialize()?)?;
+                Self::submit_windowed_post(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::PreCommitSector) => {
-                Self::pre_commit_sector(rt, params.deserialize()?)?;
+                Self::pre_commit_sector(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ProveCommitSector) => {
-                Self::prove_commit_sector(rt, params.deserialize()?)?;
+                Self::prove_commit_sector(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ExtendSectorExpiration) => {
-                Self::extend_sector_expiration(rt, params.deserialize()?)?;
+                Self::extend_sector_expiration(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::TerminateSectors) => {
-                let ret = Self::terminate_sectors(rt, params.deserialize()?)?;
+                let ret = Self::terminate_sectors(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(ret)?)
             }
             Some(Method::DeclareFaults) => {
-                Self::declare_faults(rt, params.deserialize()?)?;
+                Self::declare_faults(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::DeclareFaultsRecovered) => {
-                Self::declare_faults_recovered(rt, params.deserialize()?)?;
+                Self::declare_faults_recovered(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::OnDeferredCronEvent) => {
-                Self::on_deferred_cron_event(rt, params.deserialize()?)?;
+                Self::on_deferred_cron_event(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::CheckSectorProven) => {
-                Self::check_sector_proven(rt, params.deserialize()?)?;
+                Self::check_sector_proven(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::AddLockedFund) => {
-                let BigIntDe(param) = params.deserialize()?;
+                let BigIntDe(param) = rt.deserialize_params(params)?;
                 Self::add_locked_fund(rt, param)?;
                 Ok(Serialized::default())
             }
             Some(Method::ReportConsensusFault) => {
-                Self::report_consensus_fault(rt, params.deserialize()?)?;
+                Self::report_consensus_fault(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::WithdrawBalance) => {
-                Self::withdraw_balance(rt, params.deserialize()?)?;
+                Self::withdraw_balance(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ConfirmSectorProofsValid) => {
-                Self::confirm_sector_proofs_valid(rt, params.deserialize()?)?;
+                Self::confirm_sector_proofs_valid(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::ChangeMultiaddrs) => {
-                Self::change_multi_address(rt, params.deserialize()?)?;
+                Self::change_multi_address(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::CompactPartitions) => {
-                Self::compact_partitions(rt, params.deserialize()?)?;
+                Self::compact_partitions(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::CompactSectorNumbers) => {
-                Self::compact_sector_numbers(rt, params.deserialize()?)?;
+                Self::compact_sector_numbers(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),
