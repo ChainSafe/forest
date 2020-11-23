@@ -10,6 +10,10 @@ pub enum Error {
     ParsingError(String),
     #[error("Invalid CAR file: {0}")]
     InvalidFile(String),
+    #[error("Io error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Cbor encoding error: {0}")]
+    Cbor(#[from] forest_encoding::error::Error),
     #[error("CAR error: {0}")]
     Other(String),
 }

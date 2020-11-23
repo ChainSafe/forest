@@ -3,6 +3,8 @@
 
 use super::error::Error;
 use cid::Cid;
+use futures::{AsyncWrite, AsyncWriteExt};
+use integer_encoding::VarIntAsyncWriter;
 use std::io::Read;
 use unsigned_varint::io::ReadError;
 
@@ -24,6 +26,15 @@ pub(crate) fn ld_read<R: Read>(mut reader: &mut R) -> Result<Option<Vec<u8>>, Er
         .read_to_end(&mut buf)
         .map_err(|e| Error::Other(e.to_string()))?;
     Ok(Some(buf))
+}
+
+pub(crate) async fn ld_write<'a, W>(writer: &mut W, bytes: &[u8]) -> Result<(), Error>
+where
+    W: AsyncWrite + Send + Unpin,
+{
+    writer.write_varint_async(bytes.len()).await?;
+    writer.write_all(bytes).await?;
+    Ok(())
 }
 
 pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<u8>)>, Error> {

@@ -7,10 +7,11 @@ mod util;
 use blockstore::BlockStore;
 use cid::Cid;
 use error::*;
-use forest_encoding::from_slice;
+use forest_encoding::{from_slice, to_vec};
+use futures::{AsyncWrite, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
-use util::{ld_read, read_node};
+use util::{ld_read, ld_write, read_node};
 
 /// CAR file header
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -23,6 +24,34 @@ impl CarHeader {
     /// Creates a new CAR file header
     pub fn new(roots: Vec<Cid>, version: u64) -> Self {
         Self { roots, version }
+    }
+
+    /// Writes header and stream of data to writer in Car format.
+    pub async fn write_stream_async<W, S>(
+        &self,
+        writer: &mut W,
+        stream: &mut S,
+    ) -> Result<(), Error>
+    where
+        W: AsyncWrite + Send + Unpin,
+        S: Stream<Item = (Cid, Vec<u8>)> + Unpin,
+    {
+        // Write header bytes
+        let header_bytes = to_vec(self)?;
+        ld_write(writer, &header_bytes).await?;
+
+        // Write all key values from the stream
+        while let Some((cid, bytes)) = stream.next().await {
+            ld_write(writer, &[cid.to_bytes(), bytes].concat()).await?;
+        }
+
+        Ok(())
+    }
+}
+
+impl From<Vec<Cid>> for CarHeader {
+    fn from(roots: Vec<Cid>) -> Self {
+        Self { roots, version: 1 }
     }
 }
 

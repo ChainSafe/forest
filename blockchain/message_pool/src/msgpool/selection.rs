@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::{allow_negative_chains, create_message_chains, MessagePool, Provider};
 use crate::msg_chain::MsgChain;
 use crate::{run_head_change, Error};
