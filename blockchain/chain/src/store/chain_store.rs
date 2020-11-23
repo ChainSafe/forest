@@ -534,58 +534,6 @@ where
     Ok((bls_msgs, secp_msgs))
 }
 
-/// Returns a vector of all chain messages, these messages contain all bls messages followed
-/// by all secp messages.
-// TODO try to group functionality with block_messages
-pub fn chain_messages<DB>(db: &DB, bh: &BlockHeader) -> Result<Vec<ChainMessage>, Error>
-where
-    DB: BlockStore,
-{
-    let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
-
-    let mut bls_msgs: Vec<ChainMessage> = messages_from_cids(db, &bls_cids)?;
-    let mut secp_msgs: Vec<ChainMessage> = messages_from_cids(db, &secpk_cids)?;
-
-    // Append the secp messages to the back of the messages vector.
-    bls_msgs.append(&mut secp_msgs);
-
-    Ok(bls_msgs)
-}
-
-/// Constructs and returns a full tipset if messages from storage exists - non self version
-pub fn fill_tipset<DB>(db: &DB, ts: Tipset) -> Result<FullTipset, Tipset>
-where
-    DB: BlockStore,
-{
-    // Collect all messages before moving tipset.
-    let messages: Vec<(Vec<_>, Vec<_>)> = match ts
-        .blocks()
-        .iter()
-        .map(|h| block_messages(db, h))
-        .collect::<Result<_, Error>>()
-    {
-        Ok(m) => m,
-        Err(e) => {
-            log::trace!("failed to fill tipset: {}", e);
-            return Err(ts);
-        }
-    };
-
-    // Zip messages with blocks
-    let blocks = ts
-        .into_blocks()
-        .into_iter()
-        .zip(messages)
-        .map(|(header, (bls_messages, secp_messages))| Block {
-            header,
-            bls_messages,
-            secp_messages,
-        })
-        .collect();
-
-    // the given tipset has already been verified, so this cannot fail
-    Ok(FullTipset::new(blocks).unwrap())
-}
 
 /// get miner state given address and tipsetkeys
 pub fn miner_load_actor_tsk<DB>(
