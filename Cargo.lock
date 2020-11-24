@@ -2281,6 +2281,7 @@ dependencies = [
 name = "forest_car"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "db",
  "forest_cid",
  "forest_encoding",
@@ -2289,7 +2290,6 @@ dependencies = [
  "ipld_blockstore",
  "serde",
  "thiserror",
- "unsigned-varint 0.5.1",
 ]
 
 [[package]]
@@ -6705,10 +6705,6 @@ name = "unsigned-varint"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fdeedbf205afadfe39ae559b75c3240f24e257d0ca27e85f85cb82aa19ac35"
-dependencies = [
- "futures-io",
- "futures-util",
-]
 
 [[package]]
 name = "untrusted"

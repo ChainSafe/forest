@@ -14,7 +14,7 @@ use std::io::Read;
 use util::{ld_read, ld_write, read_node};
 
 /// CAR file header
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct CarHeader {
     pub roots: Vec<Cid>,
     pub version: u64,
@@ -111,4 +111,60 @@ pub fn load_car<R: Read, B: BlockStore>(s: &B, reader: R) -> Result<Vec<Cid>, Er
     s.bulk_write(&buf)
         .map_err(|e| Error::Other(e.to_string()))?;
     Ok(car_reader.header.roots)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_std::sync::{channel, RwLock};
+    use db::Store;
+    use std::io::Cursor;
+    use std::sync::Arc;
+
+    #[test]
+    fn symmetric_header() {
+        let cid = cid::new_from_cbor(b"test", cid::Code::Blake2b256);
+
+        let header = CarHeader {
+            roots: vec![cid],
+            version: 1,
+        };
+
+        let bytes = to_vec(&header).unwrap();
+        assert_eq!(from_slice::<CarHeader>(&bytes).unwrap(), header);
+    }
+
+    #[async_std::test]
+    async fn car_write_read() {
+        let buffer: Arc<RwLock<Vec<u8>>> = Default::default();
+        let cid = cid::new_from_cbor(b"test", cid::Code::Blake2b256);
+
+        let header = CarHeader {
+            roots: vec![cid],
+            version: 1,
+        };
+        assert_eq!(to_vec(&header).unwrap().len(), 60);
+
+        let (tx, mut rx) = channel(10);
+
+        let buffer_cloned = buffer.clone();
+        let write_task = async_std::task::spawn(async move {
+            header
+                .write_stream_async(&mut *buffer_cloned.write().await, &mut rx)
+                .await
+                .unwrap()
+        });
+
+        tx.send((cid, b"test".to_vec())).await;
+        drop(tx);
+        write_task.await;
+
+        let buffer: Vec<_> = buffer.read().await.clone();
+        let reader = Cursor::new(&buffer);
+
+        let db = db::MemoryDB::default();
+        load_car(&db, reader).unwrap();
+
+        assert_eq!(db.read(&cid.to_bytes()).unwrap(), Some(b"test".to_vec()));
+    }
 }

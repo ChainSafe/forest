@@ -5,7 +5,6 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-unsigned-varint = { version = "0.5", features = ["futures"] }
 cid = { package = "forest_cid", path = "../cid", features = ["cbor"] }
 forest_encoding = { path = "../../encoding" }
 blockstore = { package = "ipld_blockstore", path = "../blockstore" }
@@ -16,3 +15,4 @@ integer-encoding = { version = "2.1", features = ["futures_async"] }
 
 [dev-dependencies]
 db = { path = "../../node/db" }
+async-std = { version = "1.6.3", features = ["unstable", "attributes"] }

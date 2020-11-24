@@ -503,12 +503,16 @@ where
     where
         W: AsyncWrite + Send + Unpin + 'static,
     {
-        let (tx, mut rx) = channel(100);
+        // Channel cap is equal to buffered write size
+        const CHANNEL_CAP: usize = 1000;
+        let (tx, mut rx) = channel(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
         let write_task =
             task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
 
-        self.walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
+        // TODO add timer for export
+        info!("chain export started");
+        Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
                 .blockstore()
                 .get_bytes(&cid)?
@@ -520,15 +524,19 @@ where
         })
         .await?;
 
+        // Drop sender, to close the channel to write task, which will end when finished writing
+        drop(tx);
+
         // Await on values being written.
         write_task
             .await
             .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))?;
+        info!("export finished");
+
         Ok(())
     }
 
-    pub async fn walk_snapshot<F>(
-        &self,
+    async fn walk_snapshot<F>(
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         skip_old_msgs: bool,
@@ -542,10 +550,8 @@ where
         let mut current_min_height = tipset.epoch();
         let incl_roots_epoch = tipset.epoch() - recent_roots;
 
-        // TODO add timer for export
-        info!("chain export started");
         while let Some(next) = blocks_to_walk.pop_front() {
-            if seen.contains(&next) {
+            if !seen.insert(next) {
                 continue;
             }
 
@@ -575,31 +581,37 @@ where
                 recurse_links(&mut seen, *h.state_root(), &mut cb)?;
             }
         }
-        info!("export finished");
         Ok(())
     }
 }
 
-fn traverse_ipld_links<F>(cb: &mut F, ipld: &Ipld) -> Result<(), Box<dyn StdError>>
+fn traverse_ipld_links<F>(
+    walked: &mut HashSet<Cid>,
+    cb: &mut F,
+    ipld: &Ipld,
+) -> Result<(), Box<dyn StdError>>
 where
     F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
 {
     match ipld {
         Ipld::Map(m) => {
             for (_, v) in m.iter() {
-                traverse_ipld_links(cb, v)?;
+                traverse_ipld_links(walked, cb, v)?;
             }
         }
         Ipld::List(list) => {
             for v in list.iter() {
-                traverse_ipld_links(cb, v)?;
+                traverse_ipld_links(walked, cb, v)?;
             }
         }
         Ipld::Link(cid) => {
             if cid.codec() == cid::DAG_CBOR {
+                if !walked.insert(*cid) {
+                    return Ok(());
+                }
                 let bytes = cb(*cid)?;
                 let ipld = Ipld::unmarshal_cbor(&bytes)?;
-                traverse_ipld_links(cb, &ipld)?;
+                traverse_ipld_links(walked, cb, &ipld)?;
             }
         }
         _ => (),
@@ -622,7 +634,7 @@ where
     let bytes = cb(root)?;
     let ipld = Ipld::unmarshal_cbor(&bytes)?;
 
-    traverse_ipld_links(cb, &ipld)?;
+    traverse_ipld_links(walked, cb, &ipld)?;
 
     Ok(())
 }
