@@ -950,9 +950,11 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
+ "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
+ "forest_ipld",
  "forest_message",
  "futures 0.3.8",
  "interpreter",
@@ -1166,6 +1168,7 @@ dependencies = [
  "forest_encoding",
  "forest_message",
  "forest_vm",
+ "futures 0.3.8",
  "interpreter",
  "ipld_blockstore",
  "lazy_static",
@@ -2279,13 +2282,15 @@ dependencies = [
 name = "forest_car"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "db",
  "forest_cid",
  "forest_encoding",
+ "futures 0.3.8",
+ "integer-encoding",
  "ipld_blockstore",
  "serde",
  "thiserror",
- "unsigned-varint 0.5.1",
 ]
 
 [[package]]
@@ -2663,6 +2668,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_encoding",
+ "futures 0.3.8",
  "ipld_blockstore",
  "log",
  "net_utils",
@@ -3101,6 +3107,10 @@ name = "integer-encoding"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ddae3dfefb8ba2cb7c2bab20594847cea19f0cd0f28d57a4e79a12ddcfa9940"
+dependencies = [
+ "async-trait",
+ "futures-util",
+]
 
 [[package]]
 name = "interpreter"
@@ -6697,10 +6707,6 @@ name = "unsigned-varint"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fdeedbf205afadfe39ae559b75c3240f24e257d0ca27e85f85cb82aa19ac35"
-dependencies = [
- "bytes",
- "futures_codec",
-]
 
 [[package]]
 name = "untrusted"

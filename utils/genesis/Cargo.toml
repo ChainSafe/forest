@@ -20,3 +20,4 @@ fil_types = { path = "../../types" }
 encoding = { path = "../../encoding", package = "forest_encoding" }
 net_utils = { path = "../net_utils" }
 url = "2.1.1"
+futures = "0.3.5"

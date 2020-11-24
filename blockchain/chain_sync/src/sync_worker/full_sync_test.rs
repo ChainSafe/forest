@@ -48,7 +48,7 @@ async fn space_race_full_sync() {
     let (network_send, network_recv) = channel(20);
 
     // Initialize genesis using default (currently space-race) genesis
-    let (genesis, _) = initialize_genesis(None, &state_manager).unwrap();
+    let (genesis, _) = initialize_genesis(None, &state_manager).await.unwrap();
     let genesis = Arc::new(genesis);
 
     let beacon = Arc::new(DrandBeacon::new(
@@ -66,7 +66,9 @@ async fn space_race_full_sync() {
     let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager), db);
 
     let provider_db = Arc::new(MemoryDB::default());
-    let cids: Vec<Cid> = load_car(provider_db.as_ref(), EXPORT_SR_40.as_ref()).unwrap();
+    let cids: Vec<Cid> = load_car(provider_db.as_ref(), EXPORT_SR_40.as_ref())
+        .await
+        .unwrap();
     let prov_cs = ChainStore::new(provider_db);
     let target = prov_cs
         .tipset_from_keys(&TipsetKeys::new(cids))

@@ -4,7 +4,7 @@
 use super::{ChainIndex, Error};
 use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
-use async_std::sync::RwLock;
+use async_std::sync::{channel, RwLock};
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
@@ -16,7 +16,9 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use flo_stream::{MessagePublisher, Publisher, Subscriber};
-use futures::{future, StreamExt};
+use forest_car::CarHeader;
+use forest_ipld::Ipld;
+use futures::{future, AsyncWrite, StreamExt};
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -28,7 +30,8 @@ use num_traits::Zero;
 use rayon::prelude::*;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::error::Error as StdError;
 use std::io::Write;
 use std::sync::Arc;
 use types::WINNING_POST_SECTOR_SET_LOOKBACK;
@@ -488,6 +491,152 @@ where
         let bmsgs = self.block_msgs_for_tipset(ts)?;
         Ok(bmsgs.into_iter().map(|bm| bm.messages).flatten().collect())
     }
+
+    /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
+    pub async fn export<W>(
+        &self,
+        tipset: &Tipset,
+        recent_roots: ChainEpoch,
+        skip_old_msgs: bool,
+        mut writer: W,
+    ) -> Result<(), Error>
+    where
+        W: AsyncWrite + Send + Unpin + 'static,
+    {
+        // Channel cap is equal to buffered write size
+        const CHANNEL_CAP: usize = 1000;
+        let (tx, mut rx) = channel(CHANNEL_CAP);
+        let header = CarHeader::from(tipset.key().cids().to_vec());
+        let write_task =
+            task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
+
+        // TODO add timer for export
+        info!("chain export started");
+        Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
+            let block = self
+                .blockstore()
+                .get_bytes(&cid)?
+                .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
+
+            // * If cb can return a generic type, deserializing would remove need to clone.
+            task::block_on(tx.send((cid, block.clone())));
+            Ok(block)
+        })
+        .await?;
+
+        // Drop sender, to close the channel to write task, which will end when finished writing
+        drop(tx);
+
+        // Await on values being written.
+        write_task
+            .await
+            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))?;
+        info!("export finished");
+
+        Ok(())
+    }
+
+    async fn walk_snapshot<F>(
+        tipset: &Tipset,
+        recent_roots: ChainEpoch,
+        skip_old_msgs: bool,
+        mut load_block: F,
+    ) -> Result<(), Error>
+    where
+        F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+    {
+        let mut seen = HashSet::<Cid>::new();
+        let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
+        let mut current_min_height = tipset.epoch();
+        let incl_roots_epoch = tipset.epoch() - recent_roots;
+
+        while let Some(next) = blocks_to_walk.pop_front() {
+            if !seen.insert(next) {
+                continue;
+            }
+
+            let data = load_block(next)?;
+
+            let h = BlockHeader::unmarshal_cbor(&data)?;
+
+            if current_min_height > h.epoch() {
+                current_min_height = h.epoch();
+            }
+
+            if !skip_old_msgs || h.epoch() > incl_roots_epoch {
+                recurse_links(&mut seen, *h.messages(), &mut load_block)?;
+            }
+
+            if h.epoch() > 0 {
+                for p in h.parents().cids() {
+                    blocks_to_walk.push_back(*p);
+                }
+            } else {
+                for p in h.parents().cids() {
+                    load_block(*p)?;
+                }
+            }
+
+            if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
+                recurse_links(&mut seen, *h.state_root(), &mut load_block)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+fn traverse_ipld_links<F>(
+    walked: &mut HashSet<Cid>,
+    load_block: &mut F,
+    ipld: &Ipld,
+) -> Result<(), Box<dyn StdError>>
+where
+    F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+{
+    match ipld {
+        Ipld::Map(m) => {
+            for (_, v) in m.iter() {
+                traverse_ipld_links(walked, load_block, v)?;
+            }
+        }
+        Ipld::List(list) => {
+            for v in list.iter() {
+                traverse_ipld_links(walked, load_block, v)?;
+            }
+        }
+        Ipld::Link(cid) => {
+            if cid.codec() == cid::DAG_CBOR {
+                if !walked.insert(*cid) {
+                    return Ok(());
+                }
+                let bytes = load_block(*cid)?;
+                let ipld = Ipld::unmarshal_cbor(&bytes)?;
+                traverse_ipld_links(walked, load_block, &ipld)?;
+            }
+        }
+        _ => (),
+    }
+    Ok(())
+}
+
+fn recurse_links<F>(walked: &mut HashSet<Cid>, root: Cid, load_block: &mut F) -> Result<(), Error>
+where
+    F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+{
+    if !walked.insert(root) {
+        // Cid has already been traversed
+        return Ok(());
+    }
+    if root.codec() != cid::DAG_CBOR {
+        return Ok(());
+    }
+
+    let bytes = load_block(root)?;
+    let ipld = Ipld::unmarshal_cbor(&bytes)?;
+
+    traverse_ipld_links(walked, load_block, &ipld)?;
+
+    Ok(())
 }
 
 pub(crate) type TipsetCache = RwLock<LruCache<TipsetKeys, Arc<Tipset>>>;
@@ -575,7 +724,10 @@ where
         let secpk_cids = read_amt_cids(db, &roots.secp_message_root)?;
         Ok((bls_cids, secpk_cids))
     } else {
-        Err(Error::UndefinedKey("no msgs with that key".to_string()))
+        Err(Error::UndefinedKey(format!(
+            "no msg root with cid {}",
+            msg_cid
+        )))
     }
 }
 

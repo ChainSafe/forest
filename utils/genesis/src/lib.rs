@@ -1,21 +1,22 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use async_std::fs::File;
+use async_std::io::BufReader;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
 use cid::Cid;
 use encoding::Cbor;
 use fil_types::verifier::ProofVerifier;
 use forest_car::load_car;
+use futures::AsyncRead;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
 use net_utils::FetchProgress;
 use state_manager::StateManager;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
-use std::fs::File;
 use std::include_bytes;
-use std::io::{BufReader, Read};
 use std::sync::Arc;
 use url::Url;
 
@@ -24,7 +25,7 @@ pub const EXPORT_SR_40: &[u8; 1226395] = include_bytes!("mainnet/export40.car");
 
 /// Uses an optional file path or the default genesis to parse the genesis and determine if
 /// chain store has existing data for the given genesis.
-pub fn initialize_genesis<BS>(
+pub async fn initialize_genesis<BS>(
     genesis_fp: Option<&String>,
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), Box<dyn StdError>>
@@ -33,15 +34,15 @@ where
 {
     let genesis = match genesis_fp {
         Some(path) => {
-            let file = File::open(path)?;
+            let file = File::open(path).await?;
             let reader = BufReader::new(file);
-            process_car(reader, state_manager.chain_store())?
+            process_car(reader, state_manager.chain_store()).await?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let bz = include_bytes!("mainnet/genesis.car");
             let reader = BufReader::<&[u8]>::new(bz.as_ref());
-            process_car(reader, state_manager.chain_store())?
+            process_car(reader, state_manager.chain_store()).await?
         }
     };
 
@@ -54,16 +55,16 @@ where
     Ok((Tipset::new(vec![genesis])?, network_name))
 }
 
-fn process_car<R, BS>(
+async fn process_car<R, BS>(
     reader: R,
     chain_store: &ChainStore<BS>,
 ) -> Result<BlockHeader, Box<dyn StdError>>
 where
-    R: Read,
+    R: AsyncRead + Send + Unpin,
     BS: BlockStore + Send + Sync + 'static,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader)?;
+    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader).await?;
     if genesis_cids.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
@@ -108,12 +109,14 @@ where
         let url = Url::parse(path).expect("URL is invalid");
         info!("Downloading file...");
         let reader = FetchProgress::try_from(url)?;
-        load_car(sm.blockstore(), reader)?
+        load_car(sm.blockstore(), reader).await?
     } else {
-        let file = File::open(&path).expect("Snapshot file path not found!");
+        let file = File::open(&path)
+            .await
+            .expect("Snapshot file path not found!");
         info!("Reading file...");
         let reader = FetchProgress::try_from(file)?;
-        load_car(sm.blockstore(), reader)?
+        load_car(sm.blockstore(), reader).await?
     };
     let ts = sm
         .chain_store()

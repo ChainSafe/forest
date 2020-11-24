@@ -71,8 +71,9 @@ pub(super) async fn start(config: Config) {
 
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
-    let (genesis, network_name) =
-        initialize_genesis(config.genesis_file.as_ref(), &state_manager).unwrap();
+    let (genesis, network_name) = initialize_genesis(config.genesis_file.as_ref(), &state_manager)
+        .await
+        .unwrap();
 
     // Sync from snapshot
     if let Some(path) = &config.snapshot_path {
