@@ -1168,6 +1168,7 @@ dependencies = [
  "forest_encoding",
  "forest_message",
  "forest_vm",
+ "futures 0.3.8",
  "interpreter",
  "ipld_blockstore",
  "lazy_static",

@@ -6,7 +6,6 @@
 #[macro_use]
 extern crate lazy_static;
 
-use async_std::task;
 use cid::Cid;
 use clock::ChainEpoch;
 use conformance_tests::*;
@@ -14,6 +13,7 @@ use encoding::Cbor;
 use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
+use futures::AsyncRead;
 use interpreter::ApplyRet;
 use num_bigint::{BigInt, ToBigInt};
 use paramfetch::{get_params_default, SectorSizeOpt};
@@ -23,7 +23,9 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::fs::File;
 use std::io::BufReader;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use walkdir::{DirEntry, WalkDir};
 
 lazy_static! {
@@ -60,11 +62,23 @@ fn is_valid_file(entry: &DirEntry) -> bool {
     file_name.ends_with(".json")
 }
 
+struct GzipDecoder<R>(GzDecoder<R>);
+
+impl<R: std::io::Read + Unpin> AsyncRead for GzipDecoder<R> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<usize, std::io::Error>> {
+        Poll::Ready(std::io::Read::read(&mut self.0, buf))
+    }
+}
+
 async fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
     let bs = db::MemoryDB::default();
 
     // Decode gzip bytes
-    let d = GzDecoder::new(gzip_bz);
+    let d = GzipDecoder(GzDecoder::new(gzip_bz));
 
     // Load car file with bytes
     forest_car::load_car(&bs, d).await?;
