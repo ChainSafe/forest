@@ -540,7 +540,7 @@ where
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         skip_old_msgs: bool,
-        mut cb: F,
+        mut load_block: F,
     ) -> Result<(), Error>
     where
         F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
@@ -555,7 +555,7 @@ where
                 continue;
             }
 
-            let data = cb(next)?;
+            let data = load_block(next)?;
 
             let h = BlockHeader::unmarshal_cbor(&data)?;
 
@@ -563,8 +563,8 @@ where
                 current_min_height = h.epoch();
             }
 
-            if (!skip_old_msgs || h.epoch() > incl_roots_epoch) && seen.insert(*h.messages()) {
-                recurse_links(&mut seen, *h.messages(), &mut cb)?;
+            if !skip_old_msgs || h.epoch() > incl_roots_epoch {
+                recurse_links(&mut seen, *h.messages(), &mut load_block)?;
             }
 
             if h.epoch() > 0 {
@@ -573,12 +573,12 @@ where
                 }
             } else {
                 for p in h.parents().cids() {
-                    cb(*p)?;
+                    load_block(*p)?;
                 }
             }
 
-            if (h.epoch() == 0 || h.epoch() > incl_roots_epoch) && seen.insert(*h.state_root()) {
-                recurse_links(&mut seen, *h.state_root(), &mut cb)?;
+            if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
+                recurse_links(&mut seen, *h.state_root(), &mut load_block)?;
             }
         }
         Ok(())
@@ -587,7 +587,7 @@ where
 
 fn traverse_ipld_links<F>(
     walked: &mut HashSet<Cid>,
-    cb: &mut F,
+    load_block: &mut F,
     ipld: &Ipld,
 ) -> Result<(), Box<dyn StdError>>
 where
@@ -596,12 +596,12 @@ where
     match ipld {
         Ipld::Map(m) => {
             for (_, v) in m.iter() {
-                traverse_ipld_links(walked, cb, v)?;
+                traverse_ipld_links(walked, load_block, v)?;
             }
         }
         Ipld::List(list) => {
             for v in list.iter() {
-                traverse_ipld_links(walked, cb, v)?;
+                traverse_ipld_links(walked, load_block, v)?;
             }
         }
         Ipld::Link(cid) => {
@@ -609,9 +609,9 @@ where
                 if !walked.insert(*cid) {
                     return Ok(());
                 }
-                let bytes = cb(*cid)?;
+                let bytes = load_block(*cid)?;
                 let ipld = Ipld::unmarshal_cbor(&bytes)?;
-                traverse_ipld_links(walked, cb, &ipld)?;
+                traverse_ipld_links(walked, load_block, &ipld)?;
             }
         }
         _ => (),
@@ -619,7 +619,7 @@ where
     Ok(())
 }
 
-fn recurse_links<F>(walked: &mut HashSet<Cid>, root: Cid, cb: &mut F) -> Result<(), Error>
+fn recurse_links<F>(walked: &mut HashSet<Cid>, root: Cid, load_block: &mut F) -> Result<(), Error>
 where
     F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
 {
@@ -631,10 +631,10 @@ where
         return Ok(());
     }
 
-    let bytes = cb(root)?;
+    let bytes = load_block(root)?;
     let ipld = Ipld::unmarshal_cbor(&bytes)?;
 
-    traverse_ipld_links(walked, cb, &ipld)?;
+    traverse_ipld_links(walked, load_block, &ipld)?;
 
     Ok(())
 }
@@ -724,7 +724,10 @@ where
         let secpk_cids = read_amt_cids(db, &roots.secp_message_root)?;
         Ok((bls_cids, secpk_cids))
     } else {
-        Err(Error::UndefinedKey("no msgs with that key".to_string()))
+        Err(Error::UndefinedKey(format!(
+            "no msg root with cid {}",
+            msg_cid
+        )))
     }
 }
 
