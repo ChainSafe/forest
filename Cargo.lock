@@ -2667,6 +2667,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_encoding",
+ "futures 0.3.8",
  "ipld_blockstore",
  "log",
  "net_utils",

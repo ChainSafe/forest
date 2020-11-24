@@ -3,12 +3,14 @@
 
 use super::error::Error;
 use cid::Cid;
-use futures::{AsyncWrite, AsyncWriteExt};
-use integer_encoding::{VarIntAsyncWriter, VarIntReader};
-use std::io::Read;
+use futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use integer_encoding::{VarIntAsyncReader, VarIntAsyncWriter};
 
-pub(crate) fn ld_read<R: Read>(mut reader: &mut R) -> Result<Option<Vec<u8>>, Error> {
-    let l: usize = match VarIntReader::read_varint(&mut reader) {
+pub(crate) async fn ld_read<R>(mut reader: &mut R) -> Result<Option<Vec<u8>>, Error>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    let l: usize = match VarIntAsyncReader::read_varint_async(&mut reader).await {
         Ok(len) => len,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::UnexpectedEof {
@@ -21,6 +23,7 @@ pub(crate) fn ld_read<R: Read>(mut reader: &mut R) -> Result<Option<Vec<u8>>, Er
     reader
         .take(l as u64)
         .read_to_end(&mut buf)
+        .await
         .map_err(|e| Error::Other(e.to_string()))?;
     Ok(Some(buf))
 }
@@ -35,8 +38,11 @@ where
     Ok(())
 }
 
-pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<u8>)>, Error> {
-    match ld_read(buf_reader)? {
+pub(crate) async fn read_node<R>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<u8>)>, Error>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    match ld_read(buf_reader).await? {
         Some(buf) => {
             let cid = Cid::read_bytes(&*buf)?;
             let len = cid.to_bytes().len();
@@ -49,14 +55,14 @@ pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
+    use async_std::io::Cursor;
 
     #[async_std::test]
     async fn ld_read_write() {
         let mut buffer = Vec::<u8>::new();
         ld_write(&mut buffer, b"test bytes").await.unwrap();
         let mut reader = Cursor::new(&buffer);
-        let read = ld_read(&mut reader).unwrap();
+        let read = ld_read(&mut reader).await.unwrap();
         assert_eq!(read, Some(b"test bytes".to_vec()));
     }
 }

@@ -8,9 +8,8 @@ use blockstore::BlockStore;
 use cid::Cid;
 use error::*;
 use forest_encoding::{from_slice, to_vec};
-use futures::{AsyncWrite, Stream, StreamExt};
+use futures::{AsyncRead, AsyncWrite, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::io::Read;
 use util::{ld_read, ld_write, read_node};
 
 /// CAR file header
@@ -63,11 +62,12 @@ pub struct CarReader<R> {
 
 impl<R> CarReader<R>
 where
-    R: Read,
+    R: AsyncRead + Send + Unpin,
 {
     /// Creates a new CarReader and parses the CarHeader
-    pub fn new(mut reader: R) -> Result<Self, Error> {
-        let buf = ld_read(&mut reader)?
+    pub async fn new(mut reader: R) -> Result<Self, Error> {
+        let buf = ld_read(&mut reader)
+            .await?
             .ok_or_else(|| Error::ParsingError("failed to parse uvarint for header".to_string()))?;
         let header: CarHeader = from_slice(&buf).map_err(|e| Error::ParsingError(e.to_string()))?;
         if header.roots.is_empty() {
@@ -80,9 +80,11 @@ where
     }
 
     /// Returns the next IPLD Block in the buffer
-    pub fn next_block(&mut self) -> Result<Option<Block>, Error> {
+    pub async fn next_block(&mut self) -> Result<Option<Block>, Error> {
         // Read node -> cid, bytes
-        let block = read_node(&mut self.reader)?.map(|(cid, data)| Block { cid, data });
+        let block = read_node(&mut self.reader)
+            .await?
+            .map(|(cid, data)| Block { cid, data });
         Ok(block)
     }
 }
@@ -95,12 +97,15 @@ pub struct Block {
 }
 
 /// Loads a CAR buffer into a BlockStore
-pub fn load_car<R: Read, B: BlockStore>(s: &B, reader: R) -> Result<Vec<Cid>, Error> {
-    let mut car_reader = CarReader::new(reader)?;
+pub async fn load_car<R, B: BlockStore>(s: &B, reader: R) -> Result<Vec<Cid>, Error>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    let mut car_reader = CarReader::new(reader).await?;
 
     // Batch write key value pairs from car file
     let mut buf: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(100);
-    while let Some(block) = car_reader.next_block()? {
+    while let Some(block) = car_reader.next_block().await? {
         buf.push((block.cid.to_bytes(), block.data));
         if buf.len() > 1000 {
             s.bulk_write(&buf)
@@ -116,9 +121,9 @@ pub fn load_car<R: Read, B: BlockStore>(s: &B, reader: R) -> Result<Vec<Cid>, Er
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std::io::Cursor;
     use async_std::sync::{channel, RwLock};
     use db::Store;
-    use std::io::Cursor;
     use std::sync::Arc;
 
     #[test]
@@ -163,7 +168,7 @@ mod tests {
         let reader = Cursor::new(&buffer);
 
         let db = db::MemoryDB::default();
-        load_car(&db, reader).unwrap();
+        load_car(&db, reader).await.unwrap();
 
         assert_eq!(db.read(&cid.to_bytes()).unwrap(), Some(b"test".to_vec()));
     }

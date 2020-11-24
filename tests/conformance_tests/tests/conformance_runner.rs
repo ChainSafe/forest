@@ -6,6 +6,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+use async_std::task;
 use cid::Cid;
 use clock::ChainEpoch;
 use conformance_tests::*;
@@ -59,14 +60,14 @@ fn is_valid_file(entry: &DirEntry) -> bool {
     file_name.ends_with(".json")
 }
 
-fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
+async fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
     let bs = db::MemoryDB::default();
 
     // Decode gzip bytes
     let d = GzDecoder::new(gzip_bz);
 
     // Load car file with bytes
-    forest_car::load_car(&bs, d)?;
+    forest_car::load_car(&bs, d).await?;
     Ok(bs)
 }
 
@@ -127,7 +128,7 @@ fn compare_state_roots(bs: &db::MemoryDB, root: &Cid, expected_root: &Cid) -> Re
     Ok(())
 }
 
-fn execute_message_vector(
+async fn execute_message_vector(
     selector: &Option<Selector>,
     car: &[u8],
     root_cid: Cid,
@@ -138,7 +139,7 @@ fn execute_message_vector(
     randomness: &Randomness,
     variant: &Variant,
 ) -> Result<(), Box<dyn StdError>> {
-    let bs = load_car(car)?;
+    let bs = load_car(car).await?;
 
     let mut base_epoch: ChainEpoch = variant.epoch;
     let mut root = root_cid;
@@ -177,7 +178,7 @@ fn execute_message_vector(
     Ok(())
 }
 
-fn execute_tipset_vector(
+async fn execute_tipset_vector(
     _selector: &Option<Selector>,
     car: &[u8],
     root_cid: Cid,
@@ -185,7 +186,8 @@ fn execute_tipset_vector(
     postconditions: &PostConditions,
     variant: &Variant,
 ) -> Result<(), Box<dyn StdError>> {
-    let bs = Arc::new(load_car(car)?);
+    let bs = load_car(car).await?;
+    let bs = Arc::new(bs);
 
     let base_epoch = variant.epoch;
     let mut root = root_cid;
@@ -229,12 +231,14 @@ fn execute_tipset_vector(
     Ok(())
 }
 
-#[test]
-fn conformance_test_runner() {
+#[async_std::test]
+async fn conformance_test_runner() {
     pretty_env_logger::init();
 
     // Retrieve verification params
-    async_std::task::block_on(get_params_default(SectorSizeOpt::Keys, false)).unwrap();
+    get_params_default(SectorSizeOpt::Keys, false)
+        .await
+        .unwrap();
 
     let walker = WalkDir::new("test-vectors/corpus").into_iter();
     let mut failed = Vec::new();
@@ -270,7 +274,9 @@ fn conformance_test_runner() {
                         &postconditions,
                         &randomness,
                         &variant,
-                    ) {
+                    )
+                    .await
+                    {
                         failed.push((
                             format!("{} variant {}", test_name, variant.id),
                             meta.clone(),
@@ -302,7 +308,9 @@ fn conformance_test_runner() {
                         &apply_tipsets,
                         &postconditions,
                         &variant,
-                    ) {
+                    )
+                    .await
+                    {
                         failed.push((
                             format!("{} variant {}", test_name, variant.id),
                             meta.clone(),
