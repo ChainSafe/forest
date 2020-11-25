@@ -1163,7 +1163,6 @@ mod tests {
             seal_proof_type: RegisteredSealProof::from(1),
             window_post_partition_sectors: 0,
         };
-        println!("miner info {:?}", &info);
         let bz = to_vec(&info).unwrap();
         assert_eq!(from_slice::<MinerInfo>(&bz).unwrap(), info);
     }
