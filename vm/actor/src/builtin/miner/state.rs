@@ -234,9 +234,12 @@ impl State {
 
         allocated_sectors |= sector_numbers;
 
-        self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(
-            |e| actor_error!(ErrIllegalArgument; "failed to mask allocated sectors bitfield: {:?}", e),
-        )?;
+        self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(|e| {
+            e.downcast_default(
+                ExitCode::ErrIllegalArgument,
+                "failed to mask allocated sectors bitfield",
+            )
+        })?;
 
         Ok(())
     }
