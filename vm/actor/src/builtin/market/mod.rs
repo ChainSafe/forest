@@ -1138,14 +1138,14 @@ where
     }
     // Generate unsigned bytes
     let sv_bz = to_vec(&proposal.proposal)
-        .map_err(|_| actor_error!(ErrIllegalArgument; "failed to serialize DealProposal"))?;
+        .map_err(|e| ActorError::from(e).wrap("failed to serialize DealProposal"))?;
 
     rt.verify_signature(
         &proposal.client_signature,
         &proposal.proposal.client,
         &sv_bz,
     )
-    .map_err(|e| actor_error!(ErrIllegalArgument, "signature proposal invalid: {}", e))?;
+    .map_err(|e| e.downcast_default(ExitCode::ErrIllegalArgument, "signature proposal invalid"))?;
 
     Ok(())
 }
