@@ -445,8 +445,8 @@ where
             .map_err(|e| (*block_cid, e.into()))?;
 
         // Retrieve lookback tipset for validation.
-        let lbts = cs
-            .get_lookback_tipset_for_round(base_ts.clone(), block.header().epoch())
+        let (lbts, _) = sm
+            .get_lookback_tipset_for_round::<V>(base_ts.clone(), block.header().epoch())
             .await
             .map_err(|e| (*block_cid, e.into()))?;
 

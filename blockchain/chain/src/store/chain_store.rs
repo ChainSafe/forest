@@ -246,26 +246,6 @@ where
         Ok(self.db.write(key, &[])?)
     }
 
-    /// Gets lookback tipset for block validations.
-    /// Returns `None` if the tipset is also the lookback tipset.
-    pub async fn get_lookback_tipset_for_round(
-        &self,
-        ts: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<Arc<Tipset>, Error> {
-        let lbr = if round > WINNING_POST_SECTOR_SET_LOOKBACK {
-            round - WINNING_POST_SECTOR_SET_LOOKBACK
-        } else {
-            0
-        };
-
-        if lbr > ts.epoch() {
-            return Ok(ts);
-        }
-
-        self.tipset_by_height(lbr, ts, true).await
-    }
-
     /// Returns the tipset behind `tsk` at a given `height`.
     /// If the given height is a null round:
     /// - If `prev` is `true`, the tipset before the null round is returned.

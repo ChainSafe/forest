@@ -486,9 +486,9 @@ where
         Ok((out_mes, out_ret))
     }
 
-    async fn get_lookback_tipset_for_round<V>(
+    pub async fn get_lookback_tipset_for_round<V>(
         self: &Arc<Self>,
-        tipset: &Tipset,
+        tipset: Arc<Tipset>,
         round: ChainEpoch,
     ) -> Result<(Arc<Tipset>, Cid), Error>
     where
@@ -516,12 +516,11 @@ where
                 .tipset_state::<V>(&tipset)
                 .await
                 .map_err(|e| Error::Other(format!("Could execute tipset_state {:?}", e)))?;
-            return Ok((Arc::new(tipset.clone()), st));
+            return Ok((tipset, st));
         }
-        let arc_tipset = Arc::new(tipset.clone());
         let next_ts = self
             .cs
-            .tipset_by_height(lbr, arc_tipset, false)
+            .tipset_by_height(lbr, tipset.clone(), false)
             .await
             .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?;
         if lbr == next_ts.epoch() {
@@ -618,7 +617,7 @@ where
         let entries = beacon::beacon_entries_for_block(beacon, round, &prev).await?;
         let rbase = entries.iter().last().unwrap_or(&prev);
         let (lbts, lbst) = self
-            .get_lookback_tipset_for_round::<V>(&tipset, round)
+            .get_lookback_tipset_for_round::<V>(tipset.clone(), round)
             .await?;
         let state: miner::State = self.load_actor_state(&address, &lbst)?;
 
@@ -646,7 +645,7 @@ where
 
         let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker)?;
 
-        let elligable = self.eligible_to_mine::<V>(&address, &tipset, &lbts)?;
+        let elligable = self.eligible_to_mine::<V>(&address, &tipset.as_ref(), &lbts)?;
 
         Ok(Some(MinerBaseInfo {
             miner_power: Some(mpow.quality_adj_power),
