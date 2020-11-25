@@ -426,25 +426,4 @@ pub mod json {
         }
     }
 
-    pub mod opt_vec {
-        use super::*;
-        use crate::json::AddressJsonRef;
-        use serde::ser::SerializeSeq;
-        use serde::{self, Serializer};
-
-        pub fn serialize<S>(v: &Option<Vec<Address>>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            if let Some(unwrapped_addresses) = v.as_ref() {
-                let mut seq = serializer.serialize_seq(Some(unwrapped_addresses.len()))?;
-                for e in unwrapped_addresses {
-                    seq.serialize_element(&AddressJsonRef(e))?;
-                }
-                seq.end()
-            } else {
-                serializer.serialize_none()
-            }
-        }
-    }
 }
