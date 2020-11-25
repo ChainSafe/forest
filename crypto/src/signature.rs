@@ -374,10 +374,8 @@ pub mod json {
         where
             D: Deserializer<'de>,
         {
-            println!("deserializer");
             let json_enum: JsonHelperEnum = Deserialize::deserialize(deserializer)?;
 
-            println!("deserializer json {:?}", &json_enum);
             let signature_type = match json_enum {
                 JsonHelperEnum::Bls => SignatureType::BLS,
                 JsonHelperEnum::Secp256k1 => SignatureType::Secp256k1,
