@@ -6,7 +6,7 @@ extern crate serde_json;
 use super::errors::Error;
 use crypto::SignatureType;
 use log::{error, warn};
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, ErrorKind};
@@ -90,15 +90,13 @@ pub mod json {
     where
         D: Deserializer<'de>,
     {
-        println!("deserialize json helper");
         let JsonHelper {
             sig_type,
             private_key,
         } = Deserialize::deserialize(deserializer)?;
-        println!("deserialize key info");
         Ok(KeyInfo {
             key_type: sig_type.0,
-            private_key: base64::decode(private_key).unwrap(),
+            private_key: base64::decode(private_key).map_err(de::Error::custom)?,
         })
     }
 }
