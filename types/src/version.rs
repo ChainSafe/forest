@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use clock::ChainEpoch;
-use serde::Serialize;
+use encoding::repr::Serialize_repr;
 
 /// V1 network upgrade
 pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = 41280;
@@ -54,7 +54,7 @@ const MAINNET_SCHEDULE: [Upgrade; 6] = [
 ];
 
 /// Specifies the network version
-#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize)]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr)]
 #[repr(u32)]
 pub enum NetworkVersion {
     /// genesis (specs-actors v0.9.3)
