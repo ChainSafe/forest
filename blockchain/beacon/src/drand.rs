@@ -35,9 +35,7 @@ impl DrandPublic {
     }
 }
 
-pub struct Schedule<T>(pub Vec<BeaconPoint<T>>)
-where
-    T: Beacon;
+pub struct Schedule<T>(pub Vec<BeaconPoint<T>>);
 
 impl<T> Schedule<T>
 where
@@ -61,10 +59,7 @@ where
     }
 }
 
-pub struct BeaconPoint<T>
-where
-    T: Beacon,
-{
+pub struct BeaconPoint<T> {
     pub start: ChainEpoch,
     pub beacon: Arc<T>,
 }
