@@ -118,20 +118,14 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    println!("before key_info");
     let key_info: wallet::KeyInfo = params.first().cloned().unwrap().into();
-    println!("before key");
     let key = Key::try_from(key_info)?;
 
-    println!("before addr");
     let addr = format!("wallet-{}", key.address.to_string());
 
-    println!("before keystore");
     let mut keystore = data.keystore.write().await;
-    println!("before keystore put");
     keystore.put(addr, key.key_info)?;
 
-    println!("before ok");
     Ok(key.address.to_string())
 }
 
@@ -232,7 +226,6 @@ where
         key.key_info.private_key(),
         msg.as_slice(),
     )?;
-    println!("sig");
     Ok(SignatureJson(sig))
 }
 
