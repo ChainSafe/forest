@@ -1462,11 +1462,9 @@ impl Actor {
                     pledge_delta += partition_pledge_delta; // expected to be zero, see note below.
 
                     partitions.set(decl.partition, partition).map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to save partition {:?}: {:?}",
-                            key,
-                            e
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to save partition {:?}", key,),
                         )
                     })?;
                 }
