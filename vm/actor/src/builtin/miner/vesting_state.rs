@@ -7,7 +7,7 @@ use encoding::tuple::*;
 use fil_types::deadlines::QuantSpec;
 use num_bigint::{bigint_ser, Integer};
 use num_traits::Zero;
-use std::{cmp::Ordering, collections::HashMap};
+use std::collections::HashMap;
 use vm::TokenAmount;
 
 // Represents miner funds that will vest at the given epoch.
@@ -107,50 +107,32 @@ impl VestingFunds {
         current_epoch: ChainEpoch,
         target: &TokenAmount,
     ) -> TokenAmount {
-        // retain funds that should have vested
-        // TODO: this could also benefit from binary search
-        let start = self
-            .funds
-            .iter()
-            .position(|fund| fund.epoch >= current_epoch)
-            .unwrap_or(self.funds.len());
+        let mut amount_unlocked = TokenAmount::from(0);
+        let mut last = None;
+        let mut start = 0;
+        for (i, vf) in self.funds.iter_mut().enumerate() {
+            if &amount_unlocked >= target {
+                break;
+            }
 
-        // we keep track of the remaining funds and error out with the upper bound of the unlocked
-        // funds when the target is reached
-        // note: `try_fold` continues iteration when `Ok` is returned and stops when `Err` is returned
-        let remaining_or_end = self.funds.iter_mut().enumerate().skip(start).try_fold(
-            target.clone(),
-            |remaining, (i, fund)| {
-                match fund.amount.cmp(&remaining) {
-                    Ordering::Less => {
-                        // this fund is unlocked
-                        Ok(remaining - &fund.amount)
-                    }
-                    Ordering::Equal => {
-                        // this fund is the last one to be unlocked
-                        Err(i + 1)
-                    }
-                    Ordering::Greater => {
-                        // the amount of this fund is decreased, the previous fund was the last one to be fully unlocked
-                        fund.amount -= remaining;
-                        Err(i)
-                    }
+            if vf.epoch >= current_epoch {
+                let unlock_amount = std::cmp::min(target - &amount_unlocked, vf.amount.clone());
+                amount_unlocked += &unlock_amount;
+                let new_amount = &vf.amount - &unlock_amount;
+
+                if new_amount.is_zero() {
+                    last = Some(i);
+                } else {
+                    vf.amount = new_amount;
                 }
-            },
-        );
+            } else {
+                start = i + 1;
+            }
+        }
 
-        let amount_unlocked = match remaining_or_end {
-            Ok(remaining) => {
-                // the target wasn't reached, all unvested funds are unlocked
-                self.funds.drain(start..);
-                target - remaining
-            }
-            Err(end) => {
-                // the target was reached so it is exactly the unlocked amount
-                self.funds.drain(start..end);
-                target.clone()
-            }
-        };
+        if let Some(end) = last {
+            self.funds.drain(start..=end);
+        }
 
         amount_unlocked
     }
