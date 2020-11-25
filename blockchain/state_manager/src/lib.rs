@@ -486,6 +486,7 @@ where
         Ok((out_mes, out_ret))
     }
 
+    /// Gets lookback tipset for block validations.
     pub async fn get_lookback_tipset_for_round<V>(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
