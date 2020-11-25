@@ -34,7 +34,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error as StdError;
 use std::io::Write;
 use std::sync::Arc;
-use types::WINNING_POST_SECTOR_SET_LOOKBACK;
 
 const GENESIS_KEY: &str = "gen_block";
 pub const HEAD_KEY: &str = "head";
