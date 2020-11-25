@@ -41,6 +41,8 @@ const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
 
+const UNDEF_ADDR_STRING: &str = "<empty>";
+
 // TODO pull network from config (probably)
 const NETWORK_DEFAULT: Network = Network::Testnet;
 
@@ -408,7 +410,7 @@ pub mod json {
             if let Some(unwrapped_address) = v.as_ref() {
                 serializer.serialize_str(&encode(unwrapped_address))
             } else {
-                serializer.serialize_str("\u{003c}\u{0065}\u{006d}\u{0070}\u{0074}\u{0079}\u{003e}")
+                serializer.serialize_str(UNDEF_ADDR_STRING)
             }
         }
 
@@ -417,7 +419,7 @@ pub mod json {
             D: Deserializer<'de>,
         {
             let address_as_string: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-            if address_as_string == "\u{003c}\u{0065}\u{006d}\u{0070}\u{0074}\u{0079}\u{003e}" {
+            if address_as_string == UNDEF_ADDR_STRING {
                 return Ok(None);
             }
             Ok(Some(
