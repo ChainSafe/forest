@@ -16,7 +16,7 @@ use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
-use beacon::{Beacon, Schedule};
+use beacon::{Beacon, Schedule, IGNORE_DRAND_VAR};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use chain::{draw_randomness, ChainStore, HeadChange};
@@ -501,7 +501,7 @@ where
             .find(|s| round == s.at_or_below)
             .map(|s| s.network_version)
             .unwrap_or(self.latest_version);
-        let lb = if version as u8 <= 3 {
+        let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
             CHAIN_FINALITY
@@ -633,8 +633,8 @@ where
         let prev = match self.cs.latest_beacon_entry(&tipset).await {
             Ok(prev) => prev,
             Err(err) => {
-                if std::env::var("LOTUS_IGNORE_DRAND")
-                    .map(|e| e == "_yes_")
+                if std::env::var(IGNORE_DRAND_VAR)
+                    .map(|e| e == "1")
                     .unwrap_or_default()
                 {
                     return Err(Box::from(format!(
