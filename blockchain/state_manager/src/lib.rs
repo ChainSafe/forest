@@ -10,7 +10,7 @@ pub mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
-use crate::{miner::CHAIN_FINALITY, power::Claim};
+use crate::miner::CHAIN_FINALITY;
 use actor::miner::MinerBaseInfo;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
@@ -541,7 +541,7 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 
-    fn elligable_to_mine<V: ProofVerifier>(
+    fn eligible_to_mine<V: ProofVerifier>(
         self: &Arc<Self>,
         address: &Address,
         base_tipset: &Tipset,
@@ -590,37 +590,6 @@ where
         Ok(true)
     }
 
-    fn get_power_raw(
-        &self,
-        st: &Cid,
-        address: Option<&Address>,
-    ) -> Result<(Option<Claim>, Option<Claim>, bool), Error> {
-        let power_state: power::State = self.load_actor_state(&STORAGE_POWER_ACTOR_ADDR, &st)?;
-        let (raw_byte_power, quality_adj_power) = power_state.current_total_power();
-        let tpow = Claim {
-            raw_byte_power,
-            quality_adj_power,
-        };
-
-        if let Some(address) = address {
-            let mpow = power_state
-                .miner_power(self.blockstore(), address)
-                .map_err(|e| {
-                    Error::Other(format!(
-                        "Could not execute miner_power func for get_power_raw {:?}",
-                        e
-                    ))
-                })?
-                .ok_or_else(|| {
-                    Error::Other("Could not find miner power for get_power_raw".to_string())
-                })?;
-            let min_pow = power_state.miner_nominal_power_meets_consensus_minimum(self.blockstore(),address).map_err(|e|Error::Other(format!("Could not execute miner_nominal_power_meets_consensus_minimum func for get_power_raw {:?}",e)))?;
-            Ok((Some(tpow), Some(mpow), min_pow))
-        } else {
-            Ok((Some(tpow), None, false))
-        }
-    }
-
     /// gets associated miner base info based
     pub async fn miner_get_base_info<V: ProofVerifier, B: Beacon>(
         self: &Arc<Self>,
@@ -667,7 +636,7 @@ where
             return Ok(None);
         }
 
-        let (mpow, tpow, _) = self.get_power_raw(&lbst, Some(&address))?;
+        let (mpow, tpow) = self.get_power(&lbst, &address)?;
 
         let info = state.get_info(self.blockstore())?;
 
@@ -677,11 +646,11 @@ where
 
         let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker)?;
 
-        let elligable = self.elligable_to_mine::<V>(&address, &tipset, &lbts)?;
+        let elligable = self.eligible_to_mine::<V>(&address, &tipset, &lbts)?;
 
         Ok(Some(MinerBaseInfo {
-            miner_power: mpow.map(|s| s.quality_adj_power),
-            network_power: tpow.map(|s| s.quality_adj_power),
+            miner_power: Some(mpow.quality_adj_power),
+            network_power: Some(tpow.quality_adj_power),
             sectors,
             worker_key,
             sector_size: info.sector_size,
