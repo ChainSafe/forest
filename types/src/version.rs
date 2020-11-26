@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use clock::ChainEpoch;
+use encoding::repr::Serialize_repr;
 
 /// V1 network upgrade
 pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = 41280;
@@ -13,15 +14,19 @@ pub const UPGRADE_IGNITION_HEIGHT: ChainEpoch = 94000;
 pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = 138720;
 /// V5 network upgrade
 pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = 140760;
+/// v6 network upgrade
+pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = 170000;
 
 pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
+
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V6;
 
 struct Upgrade {
     height: ChainEpoch,
     network: NetworkVersion,
 }
 
-const MAINNET_SCHEDULE: [Upgrade; 5] = [
+const MAINNET_SCHEDULE: [Upgrade; 6] = [
     Upgrade {
         height: UPGRADE_BREEZE_HEIGHT,
         network: NetworkVersion::V1,
@@ -42,10 +47,14 @@ const MAINNET_SCHEDULE: [Upgrade; 5] = [
         height: UPGRADE_TAPE_HEIGHT,
         network: NetworkVersion::V5,
     },
+    Upgrade {
+        height: UPGRADE_KUMQUAT_HEIGHT,
+        network: NetworkVersion::V6,
+    },
 ];
 
 /// Specifies the network version
-#[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr)]
 #[repr(u32)]
 pub enum NetworkVersion {
     /// genesis (specs-actors v0.9.3)
@@ -60,10 +69,18 @@ pub enum NetworkVersion {
     V4,
     /// tape (increases max prove commit size by 10x)
     V5,
-    /// kumquat (specs-actors v2.2.0)
+    // kumquat   (specs-actors v2.2.0)
     V6,
     /// upcoming
     V7,
+}
+
+/// this function helps us check if we shoudl be getting the newest network
+pub fn use_newest_network() -> bool {
+    if UPGRADE_BREEZE_HEIGHT <= 0 && UPGRADE_SMOKE_HEIGHT <= 0 {
+        return true;
+    }
+    false
 }
 
 /// Gets network version from epoch using default Mainnet schedule

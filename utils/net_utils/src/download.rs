@@ -1,14 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::io::BufRead;
+use async_std::fs::File;
+use async_std::io::BufReader;
 use futures::prelude::*;
 use isahc::{Body, HttpClient};
 use pbr::ProgressBar;
 use pin_project_lite::pin_project;
 use std::convert::TryFrom;
-use std::fs::File;
-use std::io::{self, BufReader, Read, Result as IOResult, Stdout, Write};
+use std::io::{self, Stdout, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
@@ -49,26 +49,6 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
     }
 }
 
-impl<R: BufRead + Unpin, W: Write> BufRead for FetchProgress<R, W> {
-    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<IOResult<&'_ [u8]>> {
-        let this = self.project();
-        this.inner.poll_fill_buf(cx)
-    }
-
-    fn consume(mut self: Pin<&mut Self>, amt: usize) {
-        Pin::new(&mut self.inner).consume(amt)
-    }
-}
-
-impl<R: Read, W: Write> Read for FetchProgress<R, W> {
-    fn read(&mut self, buf: &mut [u8]) -> IOResult<usize> {
-        self.inner.read(buf).map(|n| {
-            self.progress_bar.add(n as u64);
-            n
-        })
-    }
-}
-
 impl TryFrom<Url> for FetchProgress<Body, Stdout> {
     type Error = Box<dyn std::error::Error>;
 
@@ -102,7 +82,7 @@ impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(file: File) -> Result<Self, Self::Error> {
-        let total_size = file.metadata()?.len();
+        let total_size = async_std::task::block_on(file.metadata())?.len();
 
         let pb = ProgressBar::new(total_size);
 

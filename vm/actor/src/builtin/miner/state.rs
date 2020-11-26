@@ -1,11 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::DeadlineSectorMap;
 use super::{
-    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, Deadline,
+    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, types::*,
+    Deadline, DeadlineSectorMap, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds,
 };
-use super::{types::*, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds};
 use crate::{actor_assert, make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
@@ -234,9 +233,12 @@ impl State {
 
         allocated_sectors |= sector_numbers;
 
-        self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(
-            |e| actor_error!(ErrIllegalArgument; "failed to mask allocated sectors bitfield: {:?}", e),
-        )?;
+        self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(|e| {
+            e.downcast_default(
+                ExitCode::ErrIllegalArgument,
+                "failed to mask allocated sectors bitfield",
+            )
+        })?;
 
         Ok(())
     }

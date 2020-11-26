@@ -445,17 +445,11 @@ where
             .map_err(|e| (*block_cid, e.into()))?;
 
         // Retrieve lookback tipset for validation.
-        let lbts = cs
-            .get_lookback_tipset_for_round(base_ts.clone(), block.header().epoch())
+        let (lbts, lbst) = sm
+            .get_lookback_tipset_for_round::<V>(base_ts.clone(), block.header().epoch())
             .await
             .map_err(|e| (*block_cid, e.into()))?;
 
-        let (lbst, _) = sm.tipset_state::<V>(&lbts).await.map_err(|e| {
-            (
-                *block_cid,
-                Error::Validation(format!("Could not update state: {}", e.to_string())),
-            )
-        })?;
         let lbst = Arc::new(lbst);
 
         let prev_beacon = cs

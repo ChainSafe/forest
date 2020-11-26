@@ -14,6 +14,7 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
 blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", features = ["buffered"] }
 forest_blocks = { path = "../../blockchain/blocks" }
+beacon = { path = "../../blockchain/beacon" }
 thiserror = "1.0"
 interpreter = { path = "../../vm/interpreter/" }
 ipld_amt = { path = "../../ipld/amt/" }

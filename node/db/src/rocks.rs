@@ -1,69 +1,34 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "rocksdb")]
-
 use super::errors::Error;
 use super::Store;
 pub use rocksdb::{Options, WriteBatch, DB};
-use std::env::temp_dir;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Debug)]
-enum DbStatus {
-    Unopened(PathBuf),
-    Open(DB),
-}
-
-impl Default for DbStatus {
-    fn default() -> Self {
-        Self::Unopened(Path::new(&temp_dir()).to_path_buf())
-    }
-}
-
-#[derive(Debug, Default)]
 pub struct RocksDb {
-    status: DbStatus,
+    pub db: DB,
 }
 
 /// RocksDb is used as the KV store for Forest
 ///
 /// Usage:
 /// ```no_run
-/// use db::RocksDb;
+/// use db::rocks::RocksDb;
 ///
-/// let mut db = RocksDb::new("test_db");
-/// db.open();
+/// let mut db = RocksDb::open("test_db").unwrap();
 /// ```
 impl RocksDb {
-    pub fn new<P>(path: P) -> Self
+    pub fn open<P>(path: P) -> Result<Self, Error>
     where
         P: AsRef<Path>,
     {
-        Self {
-            status: DbStatus::Unopened(path.as_ref().to_path_buf()),
-        }
-    }
-
-    /// Initializes the database if uninitialized, does nothing if db is already opened
-    pub fn open(&mut self) -> Result<(), Error> {
-        match &self.status {
-            DbStatus::Unopened(path) => {
-                let mut db_opts = Options::default();
-                db_opts.create_if_missing(true);
-                self.status = DbStatus::Open(DB::open(&db_opts, path)?);
-                Ok(())
-            }
-            DbStatus::Open(_) => Ok(()),
-        }
-    }
-
-    /// Returns reference to db as long as it is initialized
-    pub fn db(&self) -> Result<&DB, Error> {
-        match &self.status {
-            DbStatus::Unopened(_) => Err(Error::Unopened),
-            DbStatus::Open(db) => Ok(db),
-        }
+        let mut db_opts = Options::default();
+        db_opts.create_if_missing(true);
+        Ok(Self {
+            db: DB::open(&db_opts, path)?,
+        })
     }
 }
 
@@ -73,14 +38,14 @@ impl Store for RocksDb {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        Ok(self.db()?.put(key, value)?)
+        Ok(self.db.put(key, value)?)
     }
 
     fn delete<K>(&self, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
     {
-        Ok(self.db()?.delete(key)?)
+        Ok(self.db.delete(key)?)
     }
 
     fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
@@ -92,21 +57,21 @@ impl Store for RocksDb {
         for (k, v) in values {
             batch.put(k, v);
         }
-        Ok(self.db()?.write(batch)?)
+        Ok(self.db.write(batch)?)
     }
 
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
     {
-        self.db()?.get(key).map_err(Error::from)
+        self.db.get(key).map_err(Error::from)
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>,
     {
-        self.db()?
+        self.db
             .get_pinned(key)
             .map(|v| v.is_some())
             .map_err(Error::from)

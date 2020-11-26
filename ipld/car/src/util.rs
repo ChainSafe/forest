@@ -3,36 +3,66 @@
 
 use super::error::Error;
 use cid::Cid;
-use std::io::Read;
-use unsigned_varint::io::ReadError;
+use futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use integer_encoding::{VarIntAsyncReader, VarIntAsyncWriter};
 
-pub(crate) fn ld_read<R: Read>(mut reader: &mut R) -> Result<Option<Vec<u8>>, Error> {
-    let l = match unsigned_varint::io::read_u64(&mut reader) {
+pub(crate) async fn ld_read<R>(mut reader: &mut R) -> Result<Option<Vec<u8>>, Error>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    let l: usize = match VarIntAsyncReader::read_varint_async(&mut reader).await {
         Ok(len) => len,
         Err(e) => {
-            if let ReadError::Io(ioe) = &e {
-                if ioe.kind() == std::io::ErrorKind::UnexpectedEof {
-                    return Ok(None);
-                }
+            if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                return Ok(None);
             }
             return Err(Error::Other(e.to_string()));
         }
     };
     let mut buf = Vec::with_capacity(l as usize);
     reader
-        .take(l)
+        .take(l as u64)
         .read_to_end(&mut buf)
+        .await
         .map_err(|e| Error::Other(e.to_string()))?;
     Ok(Some(buf))
 }
 
-pub(crate) fn read_node<R: Read>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<u8>)>, Error> {
-    match ld_read(buf_reader)? {
+pub(crate) async fn ld_write<'a, W>(writer: &mut W, bytes: &[u8]) -> Result<(), Error>
+where
+    W: AsyncWrite + Send + Unpin,
+{
+    writer.write_varint_async(bytes.len()).await?;
+    writer.write_all(bytes).await?;
+    writer.flush().await?;
+    Ok(())
+}
+
+pub(crate) async fn read_node<R>(buf_reader: &mut R) -> Result<Option<(Cid, Vec<u8>)>, Error>
+where
+    R: AsyncRead + Send + Unpin,
+{
+    match ld_read(buf_reader).await? {
         Some(buf) => {
             let cid = Cid::read_bytes(&*buf)?;
             let len = cid.to_bytes().len();
             Ok(Some((cid, buf[(len as usize)..].to_owned())))
         }
         None => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_std::io::Cursor;
+
+    #[async_std::test]
+    async fn ld_read_write() {
+        let mut buffer = Vec::<u8>::new();
+        ld_write(&mut buffer, b"test bytes").await.unwrap();
+        let mut reader = Cursor::new(&buffer);
+        let read = ld_read(&mut reader).await.unwrap();
+        assert_eq!(read, Some(b"test bytes".to_vec()));
     }
 }
