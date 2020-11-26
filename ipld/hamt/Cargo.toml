@@ -12,7 +12,7 @@ cid = { package = "forest_cid", path = "../cid" }
 db = { path = "../../node/db" }
 ipld_blockstore = { path = "../blockstore" }
 forest_ipld = { path = "../" }
-serde_bytes = "0.11.3"
+serde_bytes = { git = "https://github.com/ChainSafe/serde-bytes", rev = "118fa7e1cd0a09f329a86deb3f4e9e27a7319f8e" }
 thiserror = "1.0"
 sha2 = "0.9.1"
 lazycell = "1.2.1"
