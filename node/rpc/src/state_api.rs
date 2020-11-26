@@ -2,36 +2,41 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::RpcState;
+use actor::miner::MinerInfo;
 use actor::miner::{
-    json::{MinerBaseInfoJson, MinerInfoJson},
     ChainSectorInfo, Deadlines, Fault, SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
+    WorkerKeyChange,
 };
 use address::{json::AddressJson, Address};
 use async_std::task;
-use beacon::json::BeaconEntryJson;
-use beacon::Beacon;
+use beacon::{json::BeaconEntryJson, Beacon, BeaconEntry};
 use bitfield::json::BitFieldJson;
 use blocks::tipset_keys_json::TipsetKeysJson;
 use blocks::{tipset_json::TipsetJson, Tipset};
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
-use clock::ChainEpoch;
+use clock::{ChainEpoch, EPOCH_UNDEFINED};
+use encoding::BytesDe;
+use fil_types::json::SectorInfoJson;
 use fil_types::{
     deadlines::DeadlineInfo,
-    json::SectorInfoJson,
     use_newest_network,
     verifier::{FullVerifier, ProofVerifier},
-    NetworkVersion, SectorNumber, NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT,
-    UPGRADE_SMOKE_HEIGHT,
+    NetworkVersion, RegisteredSealProof, SectorNumber, SectorSize, NEWEST_NETWORK_VERSION,
+    UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT,
 };
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use libp2p::core::PeerId;
 use message::{
     message_receipt::json::MessageReceiptJson,
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
+use num_bigint::{bigint_ser, BigInt};
 use serde::Serialize;
+use state_manager::MiningBaseInfo;
 use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use wallet::KeyStore;
 
@@ -157,7 +162,7 @@ pub async fn state_miner_info<
     let miner_info = miner_state
         .get_info(state_manager.blockstore())
         .map_err(|e| format!("Could not get info {:?}", e))?;
-    Ok(miner_info.into())
+    Ok(miner_info.try_into()?)
 }
 
 /// returns the on-chain info for the specified miner's sector
@@ -364,30 +369,13 @@ pub(crate) async fn state_miner_get_base_info<
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, ChainEpoch, TipsetKeysJson)>,
-) -> Result<Option<MinerBaseInfoJson>, JsonRpcError> {
+) -> Result<Option<MiningBaseInfoJson>, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (actor, round, key) = params;
     let info = state_manager
         .miner_get_base_info::<V, B>(&data.beacon, &key.into(), round, actor.into())
         .await?
-        .map(|s| MinerBaseInfoJson {
-            miner_power: s.miner_power,
-            network_power: s.network_power,
-            sectors: s
-                .sectors
-                .into_iter()
-                .map(|s| s.into())
-                .collect::<Vec<SectorInfoJson>>(),
-            worker_key: s.worker_key,
-            sector_size: s.sector_size,
-            prev_beacon_entry: s.prev_beacon_entry,
-            beacon_entries: s
-                .beacon_entries
-                .into_iter()
-                .map(BeaconEntryJson)
-                .collect::<Vec<BeaconEntryJson>>(),
-            eligible_for_mining: s.elligable_for_minning,
-        });
+        .map(MiningBaseInfoJson::from);
 
     Ok(info)
 }
@@ -534,4 +522,85 @@ where
     let (st, _) = task::block_on(state_manager.tipset_state::<FullVerifier>(&ts))?;
     let state_tree = StateTree::new_from_root(block_store, &st)?;
     Ok(state_tree)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MiningBaseInfoJson {
+    #[serde(with = "bigint_ser::json::opt")]
+    pub miner_power: Option<BigInt>,
+    #[serde(with = "bigint_ser::json::opt")]
+    pub network_power: Option<BigInt>,
+    pub sectors: Vec<SectorInfoJson>,
+    #[serde(with = "address::json")]
+    pub worker_key: Address,
+    pub sector_size: SectorSize,
+    #[serde(with = "beacon::json")]
+    pub prev_beacon_entry: BeaconEntry,
+    pub beacon_entries: Vec<BeaconEntryJson>,
+    pub eligible_for_mining: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MinerInfoJson {
+    owner: AddressJson,
+    worker: AddressJson,
+    #[serde(with = "address::json::opt")]
+    new_worker: Option<Address>,
+    #[serde(with = "address::json::vec")]
+    control_addresses: Vec<Address>,
+    worker_change_epoch: ChainEpoch,
+    pending_worker_key: Option<WorkerKeyChange>,
+    peer_id: String,
+    multi_address: Vec<BytesDe>,
+    seal_proof_type: RegisteredSealProof,
+    sector_size: SectorSize,
+    window_post_partition_sectors: u64,
+    consensus_fault_elapsed: ChainEpoch,
+}
+
+impl TryFrom<MinerInfo> for MinerInfoJson {
+    type Error = String;
+
+    fn try_from(info: MinerInfo) -> Result<Self, Self::Error> {
+        Ok(Self {
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            new_worker: None,
+            control_addresses: info.control_addresses,
+            worker_change_epoch: EPOCH_UNDEFINED,
+            pending_worker_key: info.pending_worker_key,
+            peer_id: PeerId::from_bytes(info.peer_id)
+                .map_err(|e| format!("Could not convert bytes {:?} into PeerId", e))?
+                .to_string(),
+            multi_address: info.multi_address,
+            seal_proof_type: info.seal_proof_type,
+            sector_size: info.sector_size,
+            window_post_partition_sectors: info.window_post_partition_sectors,
+            consensus_fault_elapsed: EPOCH_UNDEFINED,
+        })
+    }
+}
+impl From<MiningBaseInfo> for MiningBaseInfoJson {
+    fn from(info: MiningBaseInfo) -> Self {
+        Self {
+            miner_power: info.miner_power,
+            network_power: info.network_power,
+            sectors: info
+                .sectors
+                .into_iter()
+                .map(From::from)
+                .collect::<Vec<SectorInfoJson>>(),
+            worker_key: info.worker_key,
+            sector_size: info.sector_size,
+            prev_beacon_entry: info.prev_beacon_entry,
+            beacon_entries: info
+                .beacon_entries
+                .into_iter()
+                .map(BeaconEntryJson)
+                .collect::<Vec<BeaconEntryJson>>(),
+            eligible_for_mining: info.elligable_for_minning,
+        }
+    }
 }

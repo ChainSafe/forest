@@ -16,7 +16,6 @@ version = "0.1.0"
 dependencies = [
  "ahash 0.5.8",
  "base64 0.13.0",
- "beacon",
  "bitfield",
  "byteorder 1.3.4",
  "commcid",
@@ -38,7 +37,6 @@ dependencies = [
  "ipld_blockstore",
  "ipld_hamt",
  "lazy_static",
- "libp2p",
  "log",
  "num-derive",
  "num-traits 0.2.14",
@@ -5258,6 +5256,7 @@ dependencies = [
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
+ "libp2p",
  "log",
  "message_pool",
  "num-traits 0.2.14",

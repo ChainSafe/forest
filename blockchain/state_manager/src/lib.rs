@@ -11,11 +11,11 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use crate::miner::CHAIN_FINALITY;
-use actor::miner::MinerBaseInfo;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
+use beacon::BeaconEntry;
 use beacon::{Beacon, Schedule, IGNORE_DRAND_VAR};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
@@ -26,6 +26,7 @@ use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
 use fil_types::{get_network_version_default, verifier::ProofVerifier, NetworkVersion, Randomness};
+use fil_types::{SectorInfo, SectorSize};
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
@@ -597,7 +598,7 @@ where
         key: &TipsetKeys,
         round: ChainEpoch,
         address: Address,
-    ) -> Result<Option<MinerBaseInfo>, Box<dyn StdError>> {
+    ) -> Result<Option<MiningBaseInfo>, Box<dyn StdError>> {
         let tipset = self.cs.tipset_from_keys(key).await?;
         let prev = match self.cs.latest_beacon_entry(&tipset).await {
             Ok(prev) => prev,
@@ -648,7 +649,7 @@ where
 
         let elligable = self.eligible_to_mine::<V>(&address, &tipset.as_ref(), &lbts)?;
 
-        Ok(Some(MinerBaseInfo {
+        Ok(Some(MiningBaseInfo {
             miner_power: Some(mpow.quality_adj_power),
             network_power: Some(tpow.quality_adj_power),
             sectors,
@@ -1168,4 +1169,15 @@ where
         }
         Ok(())
     }
+}
+
+pub struct MiningBaseInfo {
+    pub miner_power: Option<TokenAmount>,
+    pub network_power: Option<TokenAmount>,
+    pub sectors: Vec<SectorInfo>,
+    pub worker_key: Address,
+    pub sector_size: SectorSize,
+    pub prev_beacon_entry: BeaconEntry,
+    pub beacon_entries: Vec<BeaconEntry>,
+    pub elligable_for_minning: bool,
 }

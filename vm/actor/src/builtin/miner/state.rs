@@ -5,13 +5,12 @@ use super::{
     assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, types::*,
     Deadline, DeadlineSectorMap, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds,
 };
-use crate::{actor_assert, make_map_with_root, miner::SectorInfo, u64_key, ActorDowncast};
+use crate::{actor_assert, make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;
-use beacon::{json::BeaconEntryJson, BeaconEntry};
 use bitfield::BitField;
 use cid::{Cid, Code::Blake2b256};
-use clock::{ChainEpoch, EPOCH_UNDEFINED};
+use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
     deadlines::{DeadlineInfo, QuantSpec},
@@ -20,12 +19,11 @@ use fil_types::{
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error as HamtError;
-use libp2p::PeerId;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
-use serde::Serialize;
 use std::{cmp, error::Error as StdError};
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
+
 /// Balance of Miner Actor should be greater than or equal to
 /// the sum of PreCommitDeposits and LockedFunds.
 /// It is possible for balance to fall below the sum of PCD, LF and
@@ -1023,24 +1021,6 @@ pub struct MinerInfo {
     pub window_post_partition_sectors: u64,
 }
 
-pub struct MinerBaseInfo {
-    pub miner_power: Option<TokenAmount>,
-
-    pub network_power: Option<TokenAmount>,
-
-    pub sectors: Vec<SectorInfo>,
-
-    pub worker_key: Address,
-
-    pub sector_size: SectorSize,
-
-    pub prev_beacon_entry: BeaconEntry,
-
-    pub beacon_entries: Vec<BeaconEntry>,
-
-    pub elligable_for_minning: bool,
-}
-
 impl MinerInfo {
     pub fn new(
         owner: Address,
@@ -1064,86 +1044,6 @@ impl MinerInfo {
             sector_size,
             window_post_partition_sectors,
         })
-    }
-}
-
-#[cfg(feature = "json")]
-pub mod json {
-    use super::*;
-    use address::json::AddressJson;
-    use fil_types::json::SectorInfoJson;
-
-    #[derive(Serialize)]
-    #[serde(rename_all = "PascalCase")]
-    pub struct MinerBaseInfoJson {
-        #[serde(with = "bigint_ser::json::opt")]
-        pub miner_power: Option<TokenAmount>,
-
-        #[serde(with = "bigint_ser::json::opt")]
-        pub network_power: Option<TokenAmount>,
-
-        pub sectors: Vec<SectorInfoJson>,
-
-        #[serde(with = "address::json")]
-        pub worker_key: Address,
-
-        pub sector_size: SectorSize,
-
-        #[serde(with = "beacon::json")]
-        pub prev_beacon_entry: BeaconEntry,
-
-        pub beacon_entries: Vec<BeaconEntryJson>,
-
-        pub eligible_for_mining: bool,
-    }
-
-    #[derive(Serialize)]
-    #[serde(rename_all = "PascalCase")]
-    pub struct MinerInfoJson {
-        owner: AddressJson,
-
-        worker: AddressJson,
-
-        #[serde(with = "address::json::opt")]
-        new_worker: Option<Address>,
-
-        #[serde(with = "address::json::vec")]
-        control_addresses: Vec<Address>,
-
-        worker_change_epoch: ChainEpoch,
-
-        pending_worker_key: Option<WorkerKeyChange>,
-
-        peer_id: String,
-
-        multi_address: Vec<BytesDe>,
-
-        seal_proof_type: RegisteredSealProof,
-
-        sector_size: SectorSize,
-
-        window_post_partition_sectors: u64,
-
-        consensus_fault_elapsed: ChainEpoch,
-    }
-
-    impl From<MinerInfo> for MinerInfoJson {
-        fn from(info: MinerInfo) -> Self {
-            Self {
-                owner: info.owner.into(),
-                worker: info.worker.into(),
-                new_worker: None,
-                control_addresses: info.control_addresses,
-                worker_change_epoch: EPOCH_UNDEFINED,
-                pending_worker_key: info.pending_worker_key,
-                peer_id: PeerId::from_bytes(info.peer_id).unwrap().to_string(),
-                multi_address: info.multi_address,
-                seal_proof_type: info.seal_proof_type,
-                sector_size: info.sector_size,
-                window_post_partition_sectors: info.window_post_partition_sectors,
-                consensus_fault_elapsed: EPOCH_UNDEFINED,
-            }
-        }
     }
 }
 
