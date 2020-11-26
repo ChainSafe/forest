@@ -58,19 +58,19 @@ const MAINNET_SCHEDULE: [Upgrade; 6] = [
 #[repr(u32)]
 pub enum NetworkVersion {
     /// genesis (specs-actors v0.9.3)
-    V0 = 0,
+    V0,
     /// breeze (specs-actors v0.9.7)
-    V1 = 1,
+    V1,
     /// smoke (specs-actors v0.9.8)
-    V2 = 2,
+    V2,
     /// ignition (specs-actors v0.9.11)
-    V3 = 3,
+    V3,
     /// actors v2 (specs-actors v2.0.x)
-    V4 = 4,
+    V4,
     /// tape (increases max prove commit size by 10x)
-    V5 = 5,
+    V5,
     // kumquat   (specs-actors v2.2.0)
-    V6 = 6,
+    V6,
     /// upcoming
     V7,
 }
