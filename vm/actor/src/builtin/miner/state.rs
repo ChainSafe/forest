@@ -1,11 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::DeadlineSectorMap;
 use super::{
-    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, Deadline,
+    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, types::*,
+    Deadline, DeadlineSectorMap, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds,
 };
-use super::{types::*, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds};
 use crate::{actor_assert, make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use ahash::AHashSet;

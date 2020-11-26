@@ -10,21 +10,26 @@ pub mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
+use crate::miner::CHAIN_FINALITY;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
+use beacon::BeaconEntry;
+use beacon::{Beacon, Schedule, IGNORE_DRAND_VAR};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
-use chain::{ChainStore, HeadChange};
+use chain::{draw_randomness, ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::de::DeserializeOwned;
 use encoding::Cbor;
-use fil_types::{get_network_version_default, verifier::ProofVerifier};
+use fil_types::{get_network_version_default, verifier::ProofVerifier, NetworkVersion, Randomness};
+use fil_types::{SectorInfo, SectorSize};
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
+use forest_crypto::DomainSeparationTag;
 use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
@@ -34,6 +39,7 @@ use log::{debug, info, trace, warn};
 use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use num_bigint::{bigint_ser, BigInt};
+use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -55,6 +61,10 @@ pub struct InvocResult {
     pub error: Option<String>,
 }
 
+struct VersionSpec {
+    network_version: NetworkVersion,
+    at_or_below: ChainEpoch,
+}
 // An alias Result that represents an InvocResult and an Error
 pub type StateCallResult = Result<InvocResult, Error>;
 
@@ -75,6 +85,8 @@ pub struct StateManager<DB> {
     /// of the state/receipt root.
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     subscriber: Option<Subscriber<HeadChange>>,
+    network_versions: Vec<VersionSpec>,
+    latest_version: NetworkVersion,
     genesis_info: GenesisInfoPair,
 }
 
@@ -87,6 +99,8 @@ where
             cs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
+            network_versions: Vec::new(),
+            latest_version: NetworkVersion::V0,
             genesis_info: GenesisInfoPair::default(),
         }
     }
@@ -100,6 +114,8 @@ where
             cs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
+            network_versions: Vec::new(),
+            latest_version: NetworkVersion::V0,
             genesis_info: GenesisInfoPair::default(),
         }
     }
@@ -469,6 +485,180 @@ where
             .into_inner()
             .ok_or_else(|| Error::Other("message did not have a return".to_string()))?;
         Ok((out_mes, out_ret))
+    }
+
+    /// Gets lookback tipset for block validations.
+    pub async fn get_lookback_tipset_for_round<V>(
+        self: &Arc<Self>,
+        tipset: Arc<Tipset>,
+        round: ChainEpoch,
+    ) -> Result<(Arc<Tipset>, Cid), Error>
+    where
+        V: ProofVerifier,
+    {
+        let mut lbr: ChainEpoch = ChainEpoch::from(0);
+        let version = self
+            .network_versions
+            .iter()
+            .find(|s| round == s.at_or_below)
+            .map(|s| s.network_version)
+            .unwrap_or(self.latest_version);
+        let lb = if version <= NetworkVersion::V3 {
+            ChainEpoch::from(10)
+        } else {
+            CHAIN_FINALITY
+        };
+
+        if round > lb {
+            lbr = round - lb
+        }
+
+        if lbr >= tipset.epoch() {
+            let (st, _) = self
+                .tipset_state::<V>(&tipset)
+                .await
+                .map_err(|e| Error::Other(format!("Could execute tipset_state {:?}", e)))?;
+            return Ok((tipset, st));
+        }
+        let next_ts = self
+            .cs
+            .tipset_by_height(lbr, tipset.clone(), false)
+            .await
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?;
+        if lbr == next_ts.epoch() {
+            return Err(Error::Other(format!(
+                "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
+                tipset.key(),
+                tipset.epoch(),
+                next_ts.key(),
+                next_ts.epoch()
+            )));
+        }
+        let lbts = self
+            .cs
+            .tipset_from_keys(tipset.parents())
+            .await
+            .map_err(|e| Error::Other(format!("Could not get tipset from keys {:?}", e)))?;
+        Ok((lbts, *next_ts.parent_state()))
+    }
+
+    fn eligible_to_mine<V: ProofVerifier>(
+        self: &Arc<Self>,
+        address: &Address,
+        base_tipset: &Tipset,
+        lookback_tipset: &Tipset,
+    ) -> Result<bool, Error> {
+        let hmp_result = self.miner_has_min_power(address, lookback_tipset);
+        let version = self
+            .network_versions
+            .iter()
+            .find(|s| base_tipset.epoch() == s.at_or_below)
+            .map(|s| s.network_version)
+            .unwrap_or(self.latest_version);
+
+        if version as u8 <= 3 {
+            if let Ok(hmp) = hmp_result {
+                return Ok(hmp);
+            }
+        }
+
+        let hmp = hmp_result?;
+
+        if !hmp {
+            return Ok(false);
+        }
+
+        let power_state: power::State =
+            self.load_actor_state(&STORAGE_POWER_ACTOR_ADDR, &base_tipset.parent_state())?;
+
+        let claim = power_state
+            .miner_power(self.blockstore(), &address)
+            .map_err(|e| {
+                Error::Other(format!(
+                    "Could not execute miner_power func for elligable to mine func : {:?}",
+                    e
+                ))
+            })?
+            .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
+        if claim.quality_adj_power <= BigInt::zero() {
+            return Ok(false);
+        }
+
+        if base_tipset.epoch() <= clock::EPOCH_UNDEFINED {
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+
+    /// gets associated miner base info based
+    pub async fn miner_get_base_info<V: ProofVerifier, B: Beacon>(
+        self: &Arc<Self>,
+        schedule: &Schedule<B>,
+        key: &TipsetKeys,
+        round: ChainEpoch,
+        address: Address,
+    ) -> Result<Option<MiningBaseInfo>, Box<dyn StdError>> {
+        let tipset = self.cs.tipset_from_keys(key).await?;
+        let prev = match self.cs.latest_beacon_entry(&tipset).await {
+            Ok(prev) => prev,
+            Err(err) => {
+                if std::env::var(IGNORE_DRAND_VAR)
+                    .map(|e| e == "1")
+                    .unwrap_or_default()
+                {
+                    return Err(Box::from(format!(
+                        "failed to get latest beacon entry: {:?}",
+                        err
+                    )));
+                }
+                beacon::BeaconEntry::default()
+            }
+        };
+        let beacon = schedule.beacon_for_epoch(round)?;
+        let entries = beacon::beacon_entries_for_block(beacon, round, &prev).await?;
+        let rbase = entries.iter().last().unwrap_or(&prev);
+        let (lbts, lbst) = self
+            .get_lookback_tipset_for_round::<V>(tipset.clone(), round)
+            .await?;
+        let state: miner::State = self.load_actor_state(&address, &lbst)?;
+
+        let buf = address.marshal_cbor()?;
+        let prand = draw_randomness(
+            rbase.data(),
+            DomainSeparationTag::WinningPoStChallengeSeed,
+            round,
+            &buf,
+        )?;
+
+        let sectors = self.get_sectors_for_winning_post::<V>(&lbst, &address, Randomness(prand))?;
+
+        if sectors.is_empty() {
+            return Ok(None);
+        }
+
+        let (mpow, tpow) = self.get_power(&lbst, &address)?;
+
+        let info = state.get_info(self.blockstore())?;
+
+        let (st, _) = self.tipset_state::<V>(&lbts).await?;
+        let state = StateTree::new_from_root(self.blockstore(), &st)
+            .map_err(|e| Error::State(e.to_string()))?;
+
+        let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker)?;
+
+        let elligable = self.eligible_to_mine::<V>(&address, &tipset.as_ref(), &lbts)?;
+
+        Ok(Some(MiningBaseInfo {
+            miner_power: Some(mpow.quality_adj_power),
+            network_power: Some(tpow.quality_adj_power),
+            sectors,
+            worker_key,
+            sector_size: info.sector_size,
+            prev_beacon_entry: prev,
+            beacon_entries: entries,
+            elligable_for_minning: elligable,
+        }))
     }
 
     pub async fn compute_tipset_state<V, CB: 'static>(
@@ -979,4 +1169,15 @@ where
         }
         Ok(())
     }
+}
+
+pub struct MiningBaseInfo {
+    pub miner_power: Option<TokenAmount>,
+    pub network_power: Option<TokenAmount>,
+    pub sectors: Vec<SectorInfo>,
+    pub worker_key: Address,
+    pub sector_size: SectorSize,
+    pub prev_beacon_entry: BeaconEntry,
+    pub beacon_entries: Vec<BeaconEntry>,
+    pub elligable_for_minning: bool,
 }

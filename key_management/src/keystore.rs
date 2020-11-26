@@ -6,7 +6,7 @@ extern crate serde_json;
 use super::errors::Error;
 use crypto::SignatureType;
 use log::{error, warn};
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, ErrorKind};
@@ -49,10 +49,11 @@ impl KeyInfo {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use crypto::signature::json::signature_type::SignatureTypeJson;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-    #[derive(Deserialize, Serialize)]
+    #[derive(Clone, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
 
@@ -61,10 +62,15 @@ pub mod json {
     #[serde(transparent)]
     pub struct KeyInfoJsonRef<'a>(#[serde(with = "self")] pub &'a KeyInfo);
 
+    impl From<KeyInfoJson> for KeyInfo {
+        fn from(key: KeyInfoJson) -> KeyInfo {
+            key.0
+        }
+    }
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "Type")]
-        sig_type: SignatureType,
+        sig_type: SignatureTypeJson,
         #[serde(rename = "PrivateKey")]
         private_key: String,
     }
@@ -74,7 +80,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            sig_type: k.key_type,
+            sig_type: SignatureTypeJson(k.key_type),
             private_key: base64::encode(&k.private_key),
         }
         .serialize(serializer)
@@ -89,7 +95,7 @@ pub mod json {
             private_key,
         } = Deserialize::deserialize(deserializer)?;
         Ok(KeyInfo {
-            key_type: sig_type,
+            key_type: sig_type.0,
             private_key: base64::decode(private_key).map_err(de::Error::custom)?,
         })
     }

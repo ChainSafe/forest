@@ -1121,7 +1121,6 @@ name = "commcid"
 version = "0.1.0"
 dependencies = [
  "forest_cid",
- "num-traits 0.2.14",
  "rand 0.7.3",
 ]
 
@@ -2234,6 +2233,7 @@ dependencies = [
  "data-encoding",
  "data-encoding-macro",
  "forest_encoding",
+ "forest_json_utils",
  "leb128",
  "num-derive",
  "num-traits 0.2.14",
@@ -2307,7 +2307,6 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "thiserror",
 ]
 
 [[package]]
@@ -5232,6 +5231,7 @@ dependencies = [
  "async-std",
  "async-tungstenite",
  "auth",
+ "beacon",
  "bitfield",
  "chain",
  "chain_sync",
@@ -5254,6 +5254,7 @@ dependencies = [
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
+ "libp2p",
  "log",
  "message_pool",
  "num-traits 0.2.14",
@@ -5878,6 +5879,7 @@ dependencies = [
  "actor",
  "async-log",
  "async-std",
+ "beacon",
  "bitfield",
  "chain",
  "db",

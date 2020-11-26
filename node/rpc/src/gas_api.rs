@@ -3,10 +3,11 @@
 
 use crate::RpcState;
 use address::Address;
+use beacon::Beacon;
 use blocks::TipsetKeys;
 use blockstore::BlockStore;
 use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use fil_types::{verifier::FullVerifier, BLOCK_GAS_LIMIT};
+use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::unsigned_message::json::UnsignedMessageJson;
 use message::{ChainMessage, Message};
@@ -18,13 +19,14 @@ const MIN_GAS_PREMIUM: f64 = 100000.0;
 const MAX_SPEND_ON_FEE_DENOM: i64 = 100;
 
 /// Estimate the fee cap
-pub(crate) async fn gas_estimate_fee_cap<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn gas_estimate_fee_cap<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(UnsignedMessageJson, i64, TipsetKeys)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let (UnsignedMessageJson(msg), max_queue_blks, _tsk) = params;
 
@@ -62,13 +64,14 @@ where
 }
 
 /// Estimate the fee cap
-pub(crate) async fn gas_estimate_gas_premium<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn gas_estimate_gas_premium<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(u64, Address, i64, TipsetKeys)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let (mut nblocksincl, _sender, _gas_limit, _) = params;
 
@@ -157,13 +160,15 @@ where
 }
 
 /// Estimate the gas limit
-pub(crate) async fn gas_estimate_gas_limit<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn gas_estimate_gas_limit<DB, KS, B, V>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(UnsignedMessageJson, TipsetKeys)>,
 ) -> Result<i64, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
 {
     let (UnsignedMessageJson(mut msg), _) = params;
     msg.set_gas_limit(BLOCK_GAS_LIMIT);
@@ -178,7 +183,7 @@ where
         .ok_or("cant find the current heaviest tipset")?;
     let from_a = data
         .state_manager
-        .resolve_to_key_addr::<FullVerifier>(msg.from(), &curr_ts)
+        .resolve_to_key_addr::<V>(msg.from(), &curr_ts)
         .await?;
 
     let pending = data.mpool.pending_for(&from_a).await;
@@ -187,7 +192,7 @@ where
         .unwrap_or_default();
     let res = data
         .state_manager
-        .call_with_gas::<FullVerifier>(
+        .call_with_gas::<V>(
             &mut ChainMessage::Unsigned(msg),
             &prior_messages,
             Some(data.mpool.cur_tipset.as_ref().read().await.clone()),

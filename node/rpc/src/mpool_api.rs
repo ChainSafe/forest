@@ -4,6 +4,7 @@
 use crate::RpcState;
 
 use address::Address;
+use beacon::Beacon;
 use blocks::TipsetKeys;
 use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
@@ -19,13 +20,14 @@ use std::str::FromStr;
 use wallet::KeyStore;
 
 /// Estimate the gas price for an Address
-pub(crate) async fn estimate_gas_premium<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn estimate_gas_premium<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(u64, String, u64, TipsetKeys)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let (nblocks, sender_str, gas_limit, tsk) = params;
     let sender = Address::from_str(&sender_str)?;
@@ -36,13 +38,14 @@ where
 }
 
 /// get the sequence of given address in mpool
-pub(crate) async fn mpool_get_sequence<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn mpool_get_sequence<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(String,)>,
 ) -> Result<u64, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
@@ -51,13 +54,14 @@ where
 }
 
 /// Return Vec of pending messages in mpool
-pub(crate) async fn mpool_pending<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn mpool_pending<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(CidJsonVec,)>,
 ) -> Result<Vec<SignedMessage>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
@@ -116,13 +120,14 @@ where
 }
 
 /// Add SignedMessage to mpool, return msg CID
-pub(crate) async fn mpool_push<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn mpool_push<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(SignedMessageJson,)>,
 ) -> Result<CidJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     let (SignedMessageJson(smsg),) = params;
 
@@ -132,13 +137,14 @@ where
 }
 
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
-pub(crate) async fn mpool_push_message<DB, KS>(
-    data: Data<RpcState<DB, KS>>,
+pub(crate) async fn mpool_push_message<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(UnsignedMessageJson,)>,
 ) -> Result<SignedMessageJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
 {
     // TODO handle defaults for sequence, gas limit and gas price
     let (UnsignedMessageJson(umsg),) = params;

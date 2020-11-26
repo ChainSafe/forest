@@ -245,7 +245,23 @@ where
 #[cfg(feature = "json")]
 pub mod tipset_keys_json {
     use super::*;
-    use serde::{Deserializer, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Deserialize, Serialize)]
+    #[serde(transparent)]
+    pub struct TipsetKeysJson(#[serde(with = "self")] pub TipsetKeys);
+
+    impl From<TipsetKeysJson> for TipsetKeys {
+        fn from(wrapper: TipsetKeysJson) -> Self {
+            wrapper.0
+        }
+    }
+
+    impl From<TipsetKeys> for TipsetKeysJson {
+        fn from(wrapper: TipsetKeys) -> Self {
+            TipsetKeysJson(wrapper)
+        }
+    }
 
     pub fn serialize<S>(m: &TipsetKeys, serializer: S) -> Result<S::Ok, S::Error>
     where

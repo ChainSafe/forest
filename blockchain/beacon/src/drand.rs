@@ -13,6 +13,7 @@ use sha2::Digest;
 use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::error;
+use std::sync::Arc;
 
 /// Default endpoint for the drand beacon node.
 // TODO this URL is only valid until smoke fork, should setup schedule for drand upgrade
@@ -32,6 +33,35 @@ impl DrandPublic {
     pub fn key(&self) -> PublicKey {
         PublicKey::from_bytes(&self.coefficient).unwrap()
     }
+}
+
+pub struct Schedule<T>(pub Vec<BeaconPoint<T>>);
+
+impl<T> Schedule<T>
+where
+    T: Beacon,
+{
+    pub fn beacon_for_epoch(&self, e: ChainEpoch) -> Result<&T, Box<dyn error::Error>> {
+        if let Some(beacon_point) = self
+            .0
+            .iter()
+            .rev()
+            .find(|beacon| beacon.start == e)
+            .map(|s| &s.beacon)
+        {
+            Ok(&*beacon_point)
+        } else {
+            self.0
+                .first()
+                .map(|s| &*s.beacon)
+                .ok_or_else(|| Box::from("Could not get first_value of beacon in beacon_for_epoch"))
+        }
+    }
+}
+
+pub struct BeaconPoint<T> {
+    pub start: ChainEpoch,
+    pub beacon: Arc<T>,
 }
 
 #[async_trait]

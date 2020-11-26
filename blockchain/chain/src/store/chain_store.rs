@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ChainIndex, Error};
-use actor::{power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
+use actor::{miner, power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::{channel, RwLock};
 use async_std::task;
@@ -34,7 +34,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error as StdError;
 use std::io::Write;
 use std::sync::Arc;
-use types::WINNING_POST_SECTOR_SET_LOOKBACK;
 
 const GENESIS_KEY: &str = "gen_block";
 pub const HEAD_KEY: &str = "head";
@@ -244,26 +243,6 @@ where
         let key = block_validation_key(cid);
 
         Ok(self.db.write(key, &[])?)
-    }
-
-    /// Gets lookback tipset for block validations.
-    /// Returns `None` if the tipset is also the lookback tipset.
-    pub async fn get_lookback_tipset_for_round(
-        &self,
-        ts: Arc<Tipset>,
-        round: ChainEpoch,
-    ) -> Result<Arc<Tipset>, Error> {
-        let lbr = if round > WINNING_POST_SECTOR_SET_LOOKBACK {
-            round - WINNING_POST_SECTOR_SET_LOOKBACK
-        } else {
-            0
-        };
-
-        if lbr > ts.epoch() {
-            return Ok(ts);
-        }
-
-        self.tipset_by_height(lbr, ts, true).await
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.
@@ -485,11 +464,38 @@ where
             .collect()
     }
 
+    async fn parent_state_tsk<'a>(&self, key: &TipsetKeys) -> Result<StateTree<'_, DB>, Error> {
+        let ts = self.tipset_from_keys(key).await?;
+        StateTree::new_from_root(&*self.db, ts.parent_state())
+            .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
+    }
+
     /// Retrieves ordered valid messages from a `Tipset`. This will only include messages that will
     /// be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
         let bmsgs = self.block_msgs_for_tipset(ts)?;
         Ok(bmsgs.into_iter().map(|bm| bm.messages).flatten().collect())
+    }
+
+    /// get miner state given address and tipsetkeys
+    pub async fn miner_load_actor_tsk(
+        &self,
+        address: &Address,
+        tsk: &TipsetKeys,
+    ) -> Result<miner::State, Error> {
+        let state = self.parent_state_tsk(tsk).await?;
+        let actor = state
+            .get_actor(address)
+            .map_err(|_| Error::Other("Failure getting actor".to_string()))?
+            .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
+
+        let act: miner::State = self
+            .db
+            .get(&actor.state)
+            .map_err(|e| Error::State(e.to_string()))?
+            .ok_or_else(|| Error::Other("Could not get actor state".to_string()))?;
+
+        Ok(act)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
