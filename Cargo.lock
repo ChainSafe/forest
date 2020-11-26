@@ -1121,7 +1121,6 @@ name = "commcid"
 version = "0.1.0"
 dependencies = [
  "forest_cid",
- "num-traits 0.2.14",
  "rand 0.7.3",
 ]
 
@@ -2308,7 +2307,6 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "thiserror",
 ]
 
 [[package]]

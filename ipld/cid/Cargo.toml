@@ -21,7 +21,6 @@ serde_cbor = { package = "cs_serde_cbor", version = "0.12", features = [
     "tags"
 ], optional = true }
 serde_bytes = { version = "0.11.3", optional = true }
-thiserror = "1.0"
 forest_json_utils = { path = "../../utils/json_utils", optional = true, version = "0.1" }
 generic-array = "0.14.4"
 
