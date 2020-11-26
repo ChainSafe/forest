@@ -37,12 +37,12 @@ dependencies = [
  "ipld_blockstore",
  "ipld_hamt",
  "lazy_static",
+ "libp2p",
  "log",
  "num-derive",
  "num-traits 0.2.14",
  "runtime",
  "serde",
- "serde_json",
  "unsigned-varint 0.5.1",
 ]
 
