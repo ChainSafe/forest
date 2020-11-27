@@ -272,7 +272,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
         assert_eq!(msgs.len(), 20);
         let mut next_nonce = 0;
         for i in 0..10 {
@@ -343,7 +343,7 @@ mod test_selection {
         // first we need to update the nonce on the api
         mpool.api.write().await.set_state_sequence(&a1, 10);
         mpool.api.write().await.set_state_sequence(&a2, 10);
-        let msgs = mpool.select_messages(ts3, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts3, 1.0).await.unwrap();
 
         assert_eq!(msgs.len(), 20);
 
@@ -433,7 +433,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
 
         let expected = types::BLOCK_GAS_LIMIT / gas_limit;
         assert_eq!(msgs.len(), expected as usize);
@@ -515,7 +515,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
 
         assert_eq!(msgs.len(), 20);
 
