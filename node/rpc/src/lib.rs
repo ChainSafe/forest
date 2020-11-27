@@ -87,6 +87,7 @@ where
     use sync_api::*;
     use wallet_api::*;
     let events_pubsub = state.events_pubsub.clone();
+    let ks = state.keystore.clone();
     let rpc = Server::new()
         .with_data(Data::new(state))
         // Auth API
@@ -314,6 +315,7 @@ where
         let subscriber = events_pubsub.write().await.subscribe();
         task::spawn(handle_connection_and_log(
             rpc_state.clone(),
+            ks.clone(),
             stream,
             addr,
             events_pubsub.clone(),
@@ -324,8 +326,9 @@ where
     info!("Stopped accepting websocket connections");
 }
 
-async fn handle_connection_and_log(
+async fn handle_connection_and_log<KS: KeyStore>(
     state: Arc<Server<MapRouter>>,
+    ks: Arc<RwLock<KS>>,
     tcp_stream: TcpStream,
     addr: std::net::SocketAddr,
     events_out: Arc<RwLock<Publisher<EventsPayload>>>,
@@ -372,7 +375,7 @@ async fn handle_connection_and_log(
                                 } else {
                                     call
                                 };
-                                let response = handle_rpc(&state, call, &authorization_header)
+                                let response = handle_rpc(&state, &ks, call, &authorization_header)
                                     .await
                                     .unwrap_or_else(|e| {
                                         ResponseObjects::One(ResponseObject::Error {
@@ -484,15 +487,16 @@ async fn handle_connection_and_log(
     })
 }
 
-async fn handle_rpc(
+async fn handle_rpc<KS: KeyStore>(
     state: &Arc<Server<MapRouter>>,
+    ks: &Arc<RwLock<KS>>,
     call: RequestObject,
     authorization_header: &Option<String>,
 ) -> Result<ResponseObjects, Error> {
     if WRITE_ACCESS.contains(&&*call.method) {
         if let Some(header) = authorization_header {
-            let keystore = PersistentKeyStore::new(get_home_dir() + "/.forest")?;
-            let ki = keystore
+            // let keystore = PersistentKeyStore::new(get_home_dir() + "/.forest")?;
+            let ki = ks.read().await
                 .get(JWT_IDENTIFIER)
                 .map_err(|_| AuthError::Other("No JWT private key found".to_owned()))?;
             let key = ki.private_key();
