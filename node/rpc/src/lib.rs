@@ -206,7 +206,7 @@ where
             false,
         )
         .with_method(
-            "Filecoin.StateSectorInfo",
+            "Filecoin.StateSectorGetInfo",
             state_sector_info::<DB, KS, B>,
             false,
         )
@@ -233,6 +233,11 @@ where
         .with_method(
             "Filecoin.StateMinerRecoveries",
             state_miner_recoveries::<DB, KS, B>,
+            false,
+        )
+        .with_method(
+            "Filecoin.StateMinerPartitions",
+            state_miner_partitions::<DB, KS, B>,
             false,
         )
         .with_method("Filecoin.StateReplay", state_replay::<DB, KS, B>, false)
@@ -263,7 +268,7 @@ where
         )
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS, B>, false)
         .with_method(
-            "Filecoin.NetworkName",
+            "Filecoin.StateNetworkName",
             state_network_name::<DB, KS, B>,
             false,
         )
