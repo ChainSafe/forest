@@ -19,8 +19,8 @@ where
 {
     /// Selects messages for including in a block.
     pub async fn select_messages(
-        &mut self,
-        ts: Tipset,
+        &self,
+        ts: &Tipset,
         _tq: f64,
     ) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
@@ -29,9 +29,9 @@ where
     }
 
     async fn select_messages_greedy(
-        &mut self,
+        &self,
         cur_ts: &Tipset,
-        ts: Tipset,
+        ts: &Tipset,
     ) -> Result<Vec<SignedMessage>, Error> {
         let base_fee = self.api.read().await.chain_compute_base_fee(&ts)?;
 

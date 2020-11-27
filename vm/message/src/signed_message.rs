@@ -146,6 +146,12 @@ pub mod json {
         }
     }
 
+    impl From<SignedMessage> for SignedMessageJson {
+        fn from(msg: SignedMessage) -> Self {
+            SignedMessageJson(msg)
+        }
+    }
+
     pub fn serialize<S>(m: &SignedMessage, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

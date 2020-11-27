@@ -4,8 +4,7 @@
 use crate::RpcState;
 use actor::miner::MinerInfo;
 use actor::miner::{
-    ChainSectorInfo, Fault, SectorOnChainInfo, SectorPreCommitOnChainInfo, State,
-    WorkerKeyChange,
+    ChainSectorInfo, Fault, SectorOnChainInfo, SectorPreCommitOnChainInfo, State, WorkerKeyChange,
 };
 use actor::{DealID, DealWeight, TokenAmount};
 use address::{json::AddressJson, Address};
@@ -48,6 +47,16 @@ use wallet::KeyStore;
 pub struct MessageLookup {
     pub receipt: MessageReceiptJson,
     pub tipset: TipsetJson,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub(crate) struct Partition {
+    all_sectors: BitFieldJson,
+    faulty_sectors: BitFieldJson,
+    recovering_sectors: BitFieldJson,
+    live_sectors: BitFieldJson,
+    active_sectors: BitFieldJson,
 }
 
 /// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
@@ -312,16 +321,6 @@ pub(crate) async fn state_miner_recoveries<
         .get_miner_recoveries::<FullVerifier>(&tipset, &actor)
         .map(|s| s.into())
         .map_err(|e| e.into())
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub(crate) struct Partition {
-    all_sectors: BitFieldJson,
-    faulty_sectors: BitFieldJson,
-    recovering_sectors: BitFieldJson,
-    live_sectors: BitFieldJson,
-    active_sectors: BitFieldJson,
 }
 
 /// returns a bitfield indicating the recovering sectors of the given miner

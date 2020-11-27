@@ -155,6 +155,7 @@ where
             mpool_push_message::<DB, KS, B>,
             false,
         )
+        .with_method("Filecoin.MpoolSelect", mpool_select::<DB, KS, B>, false)
         // Sync API
         .with_method("Filecoin.SyncCheckBad", sync_check_bad::<DB, KS, B>, false)
         .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB, KS, B>, false)
@@ -353,7 +354,7 @@ async fn handle_connection_and_log(
                 match message_result {
                     Ok(message) => {
                         let request_text = message.into_text().unwrap();
-                        info!("request senty {:?}", request_text.clone());
+                        info!("RPC Request Received: {:?}", request_text.clone());
                         match serde_json::from_str(&request_text)
                             as Result<RequestObject, serde_json::Error>
                         {
