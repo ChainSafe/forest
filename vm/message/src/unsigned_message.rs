@@ -254,8 +254,8 @@ pub mod json {
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
-        #[serde(rename = "CID", with = "cid::json")]
-        cid: Cid,
+        #[serde(default, rename = "CID", with = "cid::json::opt")]
+        cid: Option<Cid>,
     }
 
     pub fn serialize<S>(m: &UnsignedMessage, serializer: S) -> Result<S::Ok, S::Error>
@@ -273,7 +273,7 @@ pub mod json {
             gas_premium: m.gas_premium.to_string(),
             method_num: m.method_num,
             params: Some(base64::encode(m.params.bytes())),
-            cid: m.cid().map_err(ser::Error::custom)?,
+            cid: Some(m.cid().map_err(ser::Error::custom)?),
         }
         .serialize(serializer)
     }

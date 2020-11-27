@@ -87,8 +87,7 @@ fn message_json_annotations() {
                 "GasFeeCap": "10",
                 "GasLimit": 8,
                 "Method": 7,
-                "Params": "",
-                "CID": { "/": "bafy2bzaced25ah2r4gcerysjyrjqpqw72jvdy5ziwxk53ldxibktwmgkfgc22" }
+                "Params": ""
             },
             "signed": {
                 "Message": {
@@ -101,14 +100,12 @@ fn message_json_annotations() {
                     "GasFeeCap": "10",
                     "GasLimit": 8,
                     "Method": 7,
-                    "Params": "",
-                    "CID": { "/": "bafy2bzaced25ah2r4gcerysjyrjqpqw72jvdy5ziwxk53ldxibktwmgkfgc22" }
+                    "Params": ""
                 },
                 "Signature": {
                     "Type": 2,
                     "Data": "AAE="
-                },
-                "CID": { "/": "bafy2bzaced25ah2r4gcerysjyrjqpqw72jvdy5ziwxk53ldxibktwmgkfgc22" }
+                }
             }
         }
         "#;

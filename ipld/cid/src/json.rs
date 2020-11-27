@@ -75,3 +75,23 @@ pub mod vec {
         deserializer.deserialize_any(GoVecVisitor::<Cid, CidJson>::new())
     }
 }
+
+pub mod opt {
+    use super::{Cid, CidJson, CidJsonRef};
+    use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(v: &Option<Cid>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        v.as_ref().map(|s| CidJsonRef(s)).serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Cid>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: Option<CidJson> = Deserialize::deserialize(deserializer)?;
+        Ok(s.map(|v| v.0))
+    }
+}

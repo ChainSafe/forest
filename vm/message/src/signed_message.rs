@@ -158,13 +158,13 @@ pub mod json {
             message: &'a UnsignedMessage,
             #[serde(with = "signature::json")]
             signature: &'a Signature,
-            #[serde(rename = "CID", with = "cid::json")]
-            cid: Cid,
+            #[serde(default, rename = "CID", with = "cid::json::opt")]
+            cid: Option<Cid>,
         }
         SignedMessageSer {
             message: &m.message,
             signature: &m.signature,
-            cid: m.cid().map_err(ser::Error::custom)?,
+            cid: Some(m.cid().map_err(ser::Error::custom)?),
         }
         .serialize(serializer)
     }
