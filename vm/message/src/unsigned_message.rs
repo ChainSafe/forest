@@ -214,7 +214,8 @@ impl Cbor for UnsignedMessage {}
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::de;
+    use cid::Cid;
+    use serde::{de, ser};
 
     /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
     #[derive(Deserialize, Serialize, Debug)]
@@ -253,6 +254,8 @@ pub mod json {
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
+        #[serde(rename = "CID", with = "cid::json")]
+        cid: Cid,
     }
 
     pub fn serialize<S>(m: &UnsignedMessage, serializer: S) -> Result<S::Ok, S::Error>
@@ -270,6 +273,7 @@ pub mod json {
             gas_premium: m.gas_premium.to_string(),
             method_num: m.method_num,
             params: Some(base64::encode(m.params.bytes())),
+            cid: m.cid().map_err(ser::Error::custom)?,
         }
         .serialize(serializer)
     }

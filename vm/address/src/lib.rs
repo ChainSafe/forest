@@ -41,6 +41,7 @@ const MAX_ADDRESS_LEN: usize = 84 + 2;
 const MAINNET_PREFIX: &str = "f";
 const TESTNET_PREFIX: &str = "t";
 
+#[cfg(feature = "json")]
 const UNDEF_ADDR_STRING: &str = "<empty>";
 
 // TODO pull network from config (probably)

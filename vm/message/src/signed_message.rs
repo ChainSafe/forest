@@ -127,8 +127,9 @@ impl Cbor for SignedMessage {
 pub mod json {
     use super::*;
     use crate::unsigned_message;
+    use cid::Cid;
     use crypto::signature;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Deserialize, Serialize)]
@@ -157,10 +158,13 @@ pub mod json {
             message: &'a UnsignedMessage,
             #[serde(with = "signature::json")]
             signature: &'a Signature,
+            #[serde(rename = "CID", with = "cid::json")]
+            cid: Cid,
         }
         SignedMessageSer {
             message: &m.message,
             signature: &m.signature,
+            cid: m.cid().map_err(ser::Error::custom)?,
         }
         .serialize(serializer)
     }
