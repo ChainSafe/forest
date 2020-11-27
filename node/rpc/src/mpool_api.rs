@@ -3,6 +3,7 @@
 
 use crate::RpcState;
 
+use actor::TokenAmount;
 use address::Address;
 use beacon::Beacon;
 use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
@@ -15,7 +16,9 @@ use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
+use num_bigint::bigint_ser;
 use num_bigint::BigInt;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
 use wallet::KeyStore;
@@ -137,10 +140,17 @@ where
     Ok(CidJson(cid))
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub(crate) struct MessageSendSpec {
+    #[serde(with = "bigint_ser::json")]
+    max_fee: TokenAmount,
+}
+
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
 pub(crate) async fn mpool_push_message<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(UnsignedMessageJson, Option<String>)>,
+    Params(params): Params<(UnsignedMessageJson, Option<MessageSendSpec>)>,
 ) -> Result<SignedMessageJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -148,11 +158,8 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     // TODO handle defaults for sequence, gas limit and gas price
-    let (UnsignedMessageJson(umsg), spec) = params;
-    let _spec = spec.map(|s| {
-        BigInt::from_str(&s)
-            .map_err(|e| format!("Failed to parse spec in mpool push rpc: {}", e.to_string()))
-    });
+    let (UnsignedMessageJson(umsg), _spec) = params;
+
     let from = umsg.from();
 
     let keystore = data.keystore.as_ref().write().await;

@@ -215,8 +215,8 @@ impl Cbor for UnsignedMessage {}
 pub mod json {
     use super::*;
     use address::json::AddressJson;
-    use num_bigint::bigint_ser;
     use cid::Cid;
+    use num_bigint::bigint_ser;
     use serde::{de, ser};
 
     /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.

@@ -161,9 +161,7 @@ pub(super) async fn start(config: Config) {
                     network_send,
                     network_name,
                     events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
-                    beacon: Schedule {
-                        0: vec![BeaconPoint { start: 0, beacon }],
-                    },
+                    beacon: Schedule(vec![BeaconPoint { start: 0, beacon }]),
                     chain_store,
                 },
                 &rpc_listen,
