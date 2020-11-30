@@ -10,6 +10,7 @@ use super::Error;
 /// Tracks blocks by their height for the purpose of forming tipsets.
 #[derive(Default)]
 pub struct TipsetTracker<DB> {
+    // TODO: consider using the `dashmap` crate here
     entries: HashMap<ChainEpoch, Vec<Cid>>,
     db: Arc<DB>,
 }
@@ -32,6 +33,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
                 return;
             }
 
+            // TODO: maybe cache the miner address to avoid having to do a blockstore lookup here
             if let Ok(Some(block)) = self.db.get::<BlockHeader>(cid) {
                 if header.miner_address() == block.miner_address() {
                     log::warn!(
@@ -60,6 +62,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
                     continue;
                 }
 
+                // TODO: maybe cache the parents tipset keys to avoid having to do a blockstore lookup here
                 let h = self
                     .db
                     .get::<BlockHeader>(&cid)
