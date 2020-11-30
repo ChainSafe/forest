@@ -50,12 +50,13 @@ impl<DB: BlockStore> TipsetTracker<DB> {
 
     /// Expands the given block header into the largest possible tipset by
     /// combining it with known blocks at the same height with the same parents.
-    pub fn expand(&self, header: &BlockHeader) -> Result<Tipset, Error> {
-        let mut headers = vec![header.clone()];
+    pub fn expand(&self, header: BlockHeader) -> Result<Tipset, Error> {
+        let epoch = header.epoch();
+        let mut headers = vec![header];
 
-        if let Some(entries) = self.entries.get(&header.epoch()) {
+        if let Some(entries) = self.entries.get(&epoch) {
             for cid in entries {
-                if cid == header.cid() {
+                if cid == headers[0].cid() {
                     continue;
                 }
 
@@ -71,7 +72,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
                         ))
                     })?;
 
-                if h.parents() == header.parents() {
+                if h.parents() == headers[0].parents() {
                     headers.push(h);
                 }
             }

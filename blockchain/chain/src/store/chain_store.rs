@@ -163,12 +163,12 @@ where
     /// Writes tipset block headers to data store and updates heaviest tipset
     pub async fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         persist_objects(self.blockstore(), ts.blocks())?;
-        let expanded = self.expand_tipset(ts.min_ticket_block()).await?;
+        let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
         self.update_heaviest(&expanded).await?;
         Ok(())
     }
 
-    async fn expand_tipset(&self, header: &BlockHeader) -> Result<Tipset, Error> {
+    async fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
         self.tipset_tracker.read().await.expand(header)
     }
 
