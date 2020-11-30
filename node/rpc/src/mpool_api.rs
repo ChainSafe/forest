@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::gas_api::estimate_message_gas;
 use crate::RpcState;
-
 use actor::TokenAmount;
 use address::{Address, Protocol};
 use beacon::Beacon;
@@ -10,7 +10,7 @@ use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
-use fil_types::verifier::FullVerifier;
+use fil_types::verifier::{FullVerifier, ProofVerifier};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{
@@ -149,7 +149,7 @@ pub(crate) struct MessageSendSpec {
 }
 
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
-pub(crate) async fn mpool_push_message<DB, KS, B>(
+pub(crate) async fn mpool_push_message<DB, KS, B, V>(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(UnsignedMessageJson, Option<MessageSendSpec>)>,
 ) -> Result<SignedMessageJson, JsonRpcError>
@@ -157,9 +157,10 @@ where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
 {
     // TODO handle defaults for sequence, gas limit and gas price
-    let (UnsignedMessageJson(mut umsg), _spec) = params;
+    let (UnsignedMessageJson(umsg), spec) = params;
 
     let from = *umsg.from();
 
@@ -179,6 +180,11 @@ where
         return Err(
             "Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into(),
         );
+    }
+    let mut umsg =
+        estimate_message_gas::<DB, KS, B, V>(&data, umsg, spec, Default::default()).await?;
+    if umsg.gas_premium() > umsg.gas_fee_cap() {
+        return Err("After estimation, gas premium is greater than gas fee cap".into());
     }
 
     if from.protocol() == Protocol::ID {

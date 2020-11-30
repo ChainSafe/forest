@@ -153,7 +153,7 @@ where
         .with_method("Filecoin.MpoolPush", mpool_push::<DB, KS, B>, false)
         .with_method(
             "Filecoin.MpoolPushMessage",
-            mpool_push_message::<DB, KS, B>,
+            mpool_push_message::<DB, KS, B, V>,
             false,
         )
         .with_method("Filecoin.MpoolSelect", mpool_select::<DB, KS, B>, false)
