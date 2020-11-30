@@ -2,7 +2,7 @@
 [package]
 name = "ipld_amt-fuzz"
 version = "0.0.0"
-authors = ["Automatically generated"]
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
 publish = false
 edition = "2018"
 
