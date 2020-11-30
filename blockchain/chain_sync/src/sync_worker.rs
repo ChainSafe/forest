@@ -594,10 +594,10 @@ where
                 ));
             }
 
-            let hp = sm_c.miner_has_min_power(h.miner_address(), &lbts)?;
+            let hp = sm_c.eligible_to_mine(h.miner_address(), &base_ts_clone, &lbts)?;
             if !hp {
                 return Err(Error::Validation(
-                    "Block's miner does not meet minimum power threshold".to_string(),
+                    "Block's miner is ineligible to mine".to_string(),
                 ));
             }
 
