@@ -4,7 +4,7 @@
 use crate::RpcState;
 
 use actor::TokenAmount;
-use address::Address;
+use address::{Address, Protocol};
 use beacon::Beacon;
 use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;
@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
 use wallet::KeyStore;
+use fil_types::verifier::FullVerifier;
 
 /// Estimate the gas price for an Address
 pub(crate) async fn estimate_gas_premium<DB, KS, B>(
@@ -158,12 +159,32 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     // TODO handle defaults for sequence, gas limit and gas price
-    let (UnsignedMessageJson(umsg), _spec) = params;
+    let (UnsignedMessageJson(mut umsg), _spec) = params;
 
-    let from = umsg.from();
+    let from = *umsg.from();
 
     let keystore = data.keystore.as_ref().write().await;
-    let key = wallet::find_key(&from, &*keystore)?;
+    let heaviest_tipset = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
+        .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
+    let key_addr = data.state_manager
+        .resolve_to_key_addr::<FullVerifier>(&from, &heaviest_tipset)
+        .await?;
+
+    if umsg.sequence() != 0 {
+        return Err("Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into());
+    }
+
+
+
+    if from.protocol() == Protocol::ID {
+        umsg.from = key_addr;
+    }
+    println!("Key addr: {}, addr {}", key_addr, from);
+    let key = wallet::find_key(&key_addr, &*keystore)?;
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
