@@ -189,7 +189,6 @@ where
     if from.protocol() == Protocol::ID {
         umsg.from = key_addr;
     }
-    println!("Key addr: {}, addr {}", key_addr, from);
     let key = wallet::find_key(&key_addr, &*keystore)?;
     let sig = wallet::sign(
         *key.key_info.key_type(),

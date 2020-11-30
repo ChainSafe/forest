@@ -211,7 +211,6 @@ where
     let key_addr = state_manager
         .resolve_to_key_addr::<FullVerifier>(&address, &heaviest_tipset)
         .await?;
-    println!("Key addr: {}, addr {}", key_addr, address);
     let msg = Vec::from(msg_string);
     let keystore = &mut *data.keystore.write().await;
     let key = match wallet::find_key(&key_addr, keystore) {
