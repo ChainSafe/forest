@@ -10,6 +10,7 @@ use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
+use fil_types::verifier::FullVerifier;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{
@@ -22,7 +23,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
 use wallet::KeyStore;
-use fil_types::verifier::FullVerifier;
 
 /// Estimate the gas price for an Address
 pub(crate) async fn estimate_gas_premium<DB, KS, B>(
@@ -170,15 +170,16 @@ where
         .heaviest_tipset()
         .await
         .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
-    let key_addr = data.state_manager
+    let key_addr = data
+        .state_manager
         .resolve_to_key_addr::<FullVerifier>(&from, &heaviest_tipset)
         .await?;
 
     if umsg.sequence() != 0 {
-        return Err("Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into());
+        return Err(
+            "Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into(),
+        );
     }
-
-
 
     if from.protocol() == Protocol::ID {
         umsg.from = key_addr;

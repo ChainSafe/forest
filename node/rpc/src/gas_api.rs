@@ -1,16 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RpcState;
 use super::mpool_api::MessageSendSpec;
-use address::json::AddressJson;
+use crate::RpcState;
+use address::{json::AddressJson, Address};
 use beacon::Beacon;
-use blocks::tipset_keys_json::TipsetKeysJson;
+use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;
 use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use message::unsigned_message::json::UnsignedMessageJson;
+use message::{unsigned_message::json::UnsignedMessageJson, UnsignedMessage};
 use message::{ChainMessage, Message};
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, Zero};
@@ -29,8 +29,22 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (UnsignedMessageJson(msg), max_queue_blks, _tsk) = params;
+    let (UnsignedMessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
+    estimate_fee_cap::<DB, KS, B>(&data, msg, max_queue_blks, tsk).await
+}
+
+async fn estimate_fee_cap<DB, KS, B>(
+    data: &Data<RpcState<DB, KS, B>>,
+    msg: UnsignedMessage,
+    max_queue_blks: i64,
+    _tsk: TipsetKeys,
+) -> Result<String, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
     let ts = data
         .state_manager
         .chain_store()
@@ -74,8 +88,21 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (mut nblocksincl, _sender, _gas_limit, _) = params;
-
+    let (mut nblocksincl, AddressJson(sender), gas_limit, TipsetKeysJson(tsk)) = params;
+    estimate_gas_premium::<DB, KS, B>(&data, nblocksincl, sender, gas_limit, tsk).await
+}
+async fn estimate_gas_premium<DB, KS, B>(
+    data: &Data<RpcState<DB, KS, B>>,
+    mut nblocksincl: u64,
+    _sender: Address,
+    _gas_limit: i64,
+    _tsk: TipsetKeys,
+) -> Result<String, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
     if nblocksincl == 0 {
         nblocksincl = 1;
     }
@@ -171,7 +198,22 @@ where
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
-    let (UnsignedMessageJson(mut msg), _) = params;
+    let (UnsignedMessageJson(mut msg), TipsetKeysJson(tsk)) = params;
+    estimate_gas_limit::<DB, KS, B, V>(&data, msg, tsk).await
+}
+
+async fn estimate_gas_limit<DB, KS, B, V>(
+    data: &Data<RpcState<DB, KS, B>>,
+    msg: UnsignedMessage,
+    _: TipsetKeys,
+) -> Result<i64, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
+{
+    let mut msg = msg;
     msg.set_gas_limit(BLOCK_GAS_LIMIT);
     msg.set_gas_fee_cap(MINIMUM_BASE_FEE.clone() + 1);
     msg.set_gas_premium(1.into());
@@ -214,11 +256,11 @@ pub(crate) async fn gas_estimate_message_gas<DB, KS, B, V>(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(UnsignedMessageJson, MessageSendSpec, TipsetKeysJson)>,
 ) -> Result<UnsignedMessageJson, JsonRpcError>
-    where
-        DB: BlockStore + Send + Sync + 'static,
-        KS: KeyStore + Send + Sync + 'static,
-        B: Beacon + Send + Sync + 'static,
-        V: ProofVerifier + Send + Sync + 'static,
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
 {
     todo!();
 }

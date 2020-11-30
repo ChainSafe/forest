@@ -496,7 +496,9 @@ async fn handle_rpc<KS: KeyStore>(
     if WRITE_ACCESS.contains(&&*call.method) {
         if let Some(header) = authorization_header {
             // let keystore = PersistentKeyStore::new(get_home_dir() + "/.forest")?;
-            let ki = ks.read().await
+            let ki = ks
+                .read()
+                .await
                 .get(JWT_IDENTIFIER)
                 .map_err(|_| AuthError::Other("No JWT private key found".to_owned()))?;
             let key = ki.private_key();

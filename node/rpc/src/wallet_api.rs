@@ -6,7 +6,7 @@ use crate::RpcState;
 use address::{json::AddressJson, Address};
 use beacon::Beacon;
 use blockstore::BlockStore;
-use crypto::signature::json::{SignatureJson, signature_type::SignatureTypeJson};
+use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -139,7 +139,10 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let keystore = data.keystore.read().await;
-    Ok(wallet::list_addrs(&*keystore)?.into_iter().map(AddressJson::from).collect())
+    Ok(wallet::list_addrs(&*keystore)?
+        .into_iter()
+        .map(AddressJson::from)
+        .collect())
 }
 
 /// Generate a new Address that is stored in the Wallet
