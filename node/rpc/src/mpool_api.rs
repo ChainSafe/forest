@@ -158,7 +158,6 @@ where
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
-    // TODO handle defaults for sequence, gas limit and gas price
     let (UnsignedMessageJson(umsg), spec) = params;
 
     let from = *umsg.from();
