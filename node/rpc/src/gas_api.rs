@@ -90,7 +90,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (mut nblocksincl, AddressJson(sender), gas_limit, TipsetKeysJson(tsk)) = params;
+    let (nblocksincl, AddressJson(sender), gas_limit, TipsetKeysJson(tsk)) = params;
     estimate_gas_premium::<DB, KS, B>(&data, nblocksincl, sender, gas_limit, tsk)
         .await
         .map(|n| BigInt::to_string(&n))
@@ -202,7 +202,7 @@ where
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
-    let (UnsignedMessageJson(mut msg), TipsetKeysJson(tsk)) = params;
+    let (UnsignedMessageJson(msg), TipsetKeysJson(tsk)) = params;
     estimate_gas_limit::<DB, KS, B, V>(&data, msg, tsk).await
 }
 
@@ -267,7 +267,7 @@ where
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
-    let (UnsignedMessageJson(mut msg), spec, TipsetKeysJson(tsk)) = params;
+    let (UnsignedMessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
     estimate_message_gas::<DB, KS, B, V>(&data, msg, spec, tsk)
         .await
         .map(UnsignedMessageJson::from)

@@ -18,7 +18,6 @@ use message::{
     SignedMessage,
 };
 use num_bigint::bigint_ser;
-use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;

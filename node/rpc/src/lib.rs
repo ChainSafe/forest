@@ -40,9 +40,7 @@ use log::{debug, error, info, warn};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::Serialize;
 use state_manager::StateManager;
-use utils::get_home_dir;
 use wallet::KeyStore;
-use wallet::PersistentKeyStore;
 
 type WsSink = SplitSink<WebSocketStream<TcpStream>, async_tungstenite::tungstenite::Message>;
 
@@ -294,6 +292,11 @@ where
         .with_method(
             "Filecoin.GasEstimateFeeCap",
             gas_estimate_fee_cap::<DB, KS, B>,
+            false,
+        )
+        .with_method(
+            "Filecoin.GasEstimateMessageGas",
+            gas_estimate_message_gas::<DB, KS, B, V>,
             false,
         )
         // Common
