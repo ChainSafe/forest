@@ -397,7 +397,7 @@ where
     }
 
     /// Constructs and returns a full tipset if messages from storage exists - non self version
-    pub fn fill_tipset(&self, ts: Arc<Tipset>) -> Result<FullTipset, Arc<Tipset>>
+    pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
     where
         DB: BlockStore,
     {
@@ -411,7 +411,7 @@ where
             Ok(m) => m,
             Err(e) => {
                 log::trace!("failed to fill tipset: {}", e);
-                return Err(ts);
+                return None;
             }
         };
 
@@ -429,7 +429,7 @@ where
             .collect();
 
         // the given tipset has already been verified, so this cannot fail
-        Ok(FullTipset::new(blocks).unwrap())
+        Some(FullTipset::new(blocks).unwrap())
     }
 
     /// Retrieves block messages to be passed through the VM.

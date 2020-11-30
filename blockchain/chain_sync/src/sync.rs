@@ -358,7 +358,7 @@ where
 
         for block in ts.blocks() {
             if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
-                warn!("Bad block detected, cid: {:?}", bad);
+                warn!("Bad block detected, cid: {}", bad);
                 return Err(Error::Other("Block marked as bad".to_string()));
             }
         }

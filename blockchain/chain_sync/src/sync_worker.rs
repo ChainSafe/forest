@@ -32,13 +32,12 @@ use log::{debug, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
 use state_manager::StateManager;
 use state_tree::StateTree;
-use std::cmp::min;
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{cmp::min, convert::TryFrom};
 
 /// Worker to handle syncing chain with the chain_exchange protocol.
 pub(crate) struct SyncWorker<DB, TBeacon, V> {
@@ -122,7 +121,7 @@ where
 
         // Persist header chain pulled from network
         self.set_stage(SyncStage::PersistHeaders).await;
-        let headers: Vec<&BlockHeader> = tipsets.iter().map(|t| t.blocks()).flatten().collect();
+        let headers: Vec<&BlockHeader> = tipsets.iter().flat_map(|t| t.blocks()).collect();
         if let Err(e) = persist_objects(self.chain_store().blockstore(), &headers) {
             self.state.write().await.error(e.to_string());
             return Err(e.into());
@@ -136,7 +135,7 @@ where
         self.set_stage(SyncStage::Complete).await;
 
         // At this point the head is synced and the head can be set as the heaviest.
-        self.chain_store().put_tipset(head.as_ref()).await?;
+        self.chain_store().put_tipset(&head).await?;
 
         Ok(())
     }
@@ -164,18 +163,20 @@ where
                 "Target tipset must be after heaviest".to_string(),
             ));
         }
-        let mut return_set = Vec::with_capacity(sync_len as usize);
+
+        // invariant: never empty, only appended to
+        let mut return_set = Vec::with_capacity(sync_len as usize + 1);
         return_set.push(head);
 
-        let to_epoch = to.blocks().get(0).expect("Tipset cannot be empty").epoch();
+        // Loop until most recent tipset height is less than or equal to tipset height
+        'sync: loop {
+            let cur_ts = return_set.last().unwrap();
 
-        // Loop until most recent tipset height is less than to tipset height
-        'sync: while let Some(cur_ts) = return_set.last() {
             // Check if parent cids exist in bad block caches
             self.validate_tipset_against_cache(cur_ts.parents(), &accepted_blocks)
                 .await?;
 
-            if cur_ts.epoch() <= to_epoch {
+            if cur_ts.epoch() <= to.epoch() {
                 // Current tipset is less than epoch of tipset syncing toward
                 break;
             }
@@ -190,8 +191,8 @@ where
 
             // TODO tweak request window when socket frame is tested
             const REQUEST_WINDOW: i64 = 200;
-            let epoch_diff = cur_ts.epoch() - to_epoch;
-            debug!("ChainExchange from: {} to {}", cur_ts.epoch(), to_epoch);
+            let epoch_diff = cur_ts.epoch() - to.epoch();
+            debug!("ChainExchange from: {} to {}", cur_ts.epoch(), to.epoch());
             let window = min(epoch_diff, REQUEST_WINDOW);
 
             // Load blocks from network using chain_exchange
@@ -209,7 +210,7 @@ where
 
             // Loop through each tipset received from network
             for ts in tipsets {
-                if ts.epoch() < to_epoch {
+                if ts.epoch() < to.epoch() {
                     // Break out of sync loop if epoch lower than to tipset
                     // This should not be hit if response from server is correct
                     break 'sync;
@@ -225,9 +226,7 @@ where
             }
         }
 
-        let last_ts = return_set
-            .last()
-            .ok_or_else(|| Error::Other("Return set should contain a tipset".to_owned()))?;
+        let last_ts = return_set.last().unwrap();
 
         // Check if local chain was fork
         if last_ts.key() != to.key() {
@@ -283,8 +282,8 @@ where
 
         let mut ts = self.chain_store().tipset_from_keys(to.parents()).await?;
 
-        for i in 0..tips.len() {
-            while ts.epoch() > tips[i].epoch() {
+        for (i, tip) in tips.iter().enumerate() {
+            while ts.epoch() > tip.epoch() {
                 if ts.epoch() == 0 {
                     return Err(Error::Other(
                         "Synced chain forked at genesis, refusing to sync".to_string(),
@@ -292,8 +291,10 @@ where
                 }
                 ts = self.chain_store().tipset_from_keys(ts.parents()).await?;
             }
-            if ts == tips[i] {
-                return Ok(tips[0..=i].to_vec());
+            if ts == *tip {
+                let mut tips = tips;
+                tips.drain((i + 1)..);
+                return Ok(tips);
             }
         }
 
@@ -311,9 +312,14 @@ where
 
         while let Some(ts) = ts_iter.next() {
             // check storage first to see if we have full tipset
-            let fts = match self.chain_store().fill_tipset(ts) {
-                Ok(fts) => fts,
-                Err(ts) => {
+            match self.chain_store().fill_tipset(&ts) {
+                Some(fts) => {
+                    // full tipset found in storage; validate and continue
+                    let curr_epoch = fts.epoch();
+                    self.validate_tipset(fts).await?;
+                    self.state.write().await.set_epoch(curr_epoch);
+                }
+                None => {
                     // no full tipset in storage; request messages via chain_exchange
 
                     let batch_size = REQUEST_WINDOW;
@@ -333,7 +339,7 @@ where
                     let mut bs_iter = std::iter::once(ts).chain(&mut ts_iter);
 
                     // since the bundle only has messages, we have to put the headers in them
-                    for messages in compacted_messages.into_iter() {
+                    for messages in compacted_messages {
                         let t = bs_iter.next().ok_or_else(|| {
                             Error::Other("Messages returned exceeded tipsets in chain".to_string())
                         })?;
@@ -343,7 +349,7 @@ where
                             messages: Some(messages),
                         };
                         // construct full tipsets from fetched messages
-                        let fts: FullTipset = (&bundle).try_into().map_err(Error::Other)?;
+                        let fts = FullTipset::try_from(&bundle).map_err(Error::Other)?;
 
                         // validate tipset and messages
                         let curr_epoch = fts.epoch();
@@ -352,21 +358,15 @@ where
 
                         // store messages
                         if let Some(m) = bundle.messages {
-                            chain::persist_objects(self.state_manager.blockstore(), &m.bls_msgs)?;
-                            chain::persist_objects(self.state_manager.blockstore(), &m.secp_msgs)?;
+                            let bs = self.state_manager.blockstore();
+                            chain::persist_objects(bs, &m.bls_msgs)?;
+                            chain::persist_objects(bs, &m.secp_msgs)?;
                         } else {
                             warn!("Chain Exchange request for messages returned null messages");
                         }
                     }
-
-                    continue;
                 }
-            };
-            // full tipset found in storage; validate and continue
-            let curr_epoch = fts.epoch();
-            self.validate_tipset(fts).await?;
-            self.state.write().await.set_epoch(curr_epoch);
-            continue;
+            }
         }
 
         Ok(())
@@ -391,8 +391,10 @@ where
 
         while let Some(result) = validations.next().await {
             match result {
-                Ok(_) => {
-                    // TODO add block to tipset tracker, block was valid
+                Ok(block) => {
+                    self.chain_store()
+                        .add_to_tipset_tracker(block.header())
+                        .await;
                 }
                 Err((cid, e)) => {
                     // If the error is temporally invalidated, don't add to bad blocks cache.
@@ -453,7 +455,7 @@ where
         let lbst = Arc::new(lbst);
 
         let prev_beacon = cs
-            .latest_beacon_entry(base_ts.as_ref())
+            .latest_beacon_entry(&base_ts)
             .await
             .map_err(|e| (*block_cid, e.into()))?;
         let prev_beacon = Arc::new(prev_beacon);
@@ -507,11 +509,7 @@ where
         let base_ts_clone = Arc::clone(&base_ts);
         validations.push(task::spawn_blocking(move || {
             let h = b_cloned.header();
-            Self::validate_miner(
-                sm_c.as_ref(),
-                h.miner_address(),
-                base_ts_clone.parent_state(),
-            )
+            Self::validate_miner(&sm_c, h.miner_address(), base_ts_clone.parent_state())
         }));
 
         // * base fee check
@@ -557,7 +555,7 @@ where
         validations.push(task::spawn(async move {
             let h = b_cloned.header();
             let (state_root, rec_root) = sm_cloned
-                .tipset_state::<V>(base_ts_clone.as_ref())
+                .tipset_state::<V>(&base_ts_clone)
                 .await
                 .map_err(|e| Error::Other(format!("Failed to calculate state: {}", e)))?;
             if &state_root != h.state_root() {
@@ -658,7 +656,7 @@ where
             validations.push(task::spawn(async move {
                 block_cloned
                     .header()
-                    .validate_block_drand(bc.as_ref(), p_beacon.as_ref())
+                    .validate_block_drand(bc.as_ref(), &p_beacon)
                     .await
                     .map_err(|e| {
                         Error::Validation(format!(
@@ -679,7 +677,6 @@ where
             if h.epoch() > UPGRADE_SMOKE_HEIGHT {
                 let vrf_proof = base_ts
                     .min_ticket()
-                    .as_ref()
                     .ok_or("Base tipset did not have ticket to verify")?
                     .vrfproof
                     .as_bytes();
@@ -710,13 +707,8 @@ where
         // * Winning PoSt proof validation
         let b_clone = block.clone();
         validations.push(task::spawn_blocking(move || {
-            Self::verify_winning_post_proof(
-                sm.as_ref(),
-                b_clone.header(),
-                prev_beacon.as_ref(),
-                &lbst,
-            )
-            .map_err(|e| format!("Verify winning PoSt failed: {}", e))?;
+            Self::verify_winning_post_proof(&sm, b_clone.header(), &prev_beacon, &lbst)
+                .map_err(|e| format!("Verify winning PoSt failed: {}", e))?;
 
             Ok(())
         }));
