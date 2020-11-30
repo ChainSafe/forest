@@ -224,7 +224,7 @@ mod test_selection {
 
     #[async_std::test]
     async fn basic_message_selection() {
-        let mut mpool = make_test_mpool();
+        let mpool = make_test_mpool();
 
         let mut w1 = Wallet::new(MemKeyStore::new());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -371,7 +371,7 @@ mod test_selection {
 
     #[async_std::test]
     async fn message_selection_trimming() {
-        let mut mpool = make_test_mpool();
+        let mpool = make_test_mpool();
 
         let mut w1 = Wallet::new(MemKeyStore::new());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
