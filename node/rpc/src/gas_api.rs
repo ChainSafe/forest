@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::RpcState;
-use address::Address;
+use super::mpool_api::MessageSendSpec;
+use address::json::AddressJson;
 use beacon::Beacon;
-use blocks::TipsetKeys;
+use blocks::tipset_keys_json::TipsetKeysJson;
 use blockstore::BlockStore;
 use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
@@ -21,7 +22,7 @@ const MAX_SPEND_ON_FEE_DENOM: i64 = 100;
 /// Estimate the fee cap
 pub(crate) async fn gas_estimate_fee_cap<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(UnsignedMessageJson, i64, TipsetKeys)>,
+    Params(params): Params<(UnsignedMessageJson, i64, TipsetKeysJson)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -66,7 +67,7 @@ where
 /// Estimate the fee cap
 pub(crate) async fn gas_estimate_gas_premium<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(u64, Address, i64, TipsetKeys)>,
+    Params(params): Params<(u64, AddressJson, i64, TipsetKeysJson)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -162,7 +163,7 @@ where
 /// Estimate the gas limit
 pub(crate) async fn gas_estimate_gas_limit<DB, KS, B, V>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(UnsignedMessageJson, TipsetKeys)>,
+    Params(params): Params<(UnsignedMessageJson, TipsetKeysJson)>,
 ) -> Result<i64, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -207,4 +208,17 @@ where
         }
         None => Ok(-1),
     }
+}
+
+pub(crate) async fn gas_estimate_message_gas<DB, KS, B, V>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(UnsignedMessageJson, MessageSendSpec, TipsetKeysJson)>,
+) -> Result<UnsignedMessageJson, JsonRpcError>
+    where
+        DB: BlockStore + Send + Sync + 'static,
+        KS: KeyStore + Send + Sync + 'static,
+        B: Beacon + Send + Sync + 'static,
+        V: ProofVerifier + Send + Sync + 'static,
+{
+    todo!();
 }
