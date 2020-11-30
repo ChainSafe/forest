@@ -32,7 +32,9 @@ impl<DB: BlockStore> TipsetTracker<DB> {
                 log::debug!("tried to add block to tipset tracker that was already there");
                 return;
             }
+        }
 
+        for cid in entries.iter() {
             // TODO: maybe cache the miner address to avoid having to do a blockstore lookup here
             if let Ok(Some(block)) = self.db.get::<BlockHeader>(cid) {
                 if header.miner_address() == block.miner_address() {
