@@ -182,6 +182,7 @@ where
 
     /// Returns the currently tracked heaviest tipset
     pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+        // TODO: Figure out how to remove optional and return something everytime.
         self.heaviest.read().await.clone()
     }
 

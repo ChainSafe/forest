@@ -38,7 +38,6 @@ pub struct DeadlineInfo {
     w_post_challenge_window: ChainEpoch,
     #[serde(rename = "WPoStChallengeLookback")]
     w_post_challenge_lookback: ChainEpoch,
-    #[serde(rename = "FaultDeclarationCutoff")]
     fault_declaration_cutoff: ChainEpoch,
 }
 
