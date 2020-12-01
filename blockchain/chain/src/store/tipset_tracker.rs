@@ -56,7 +56,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
             }
         }
 
-        cids.push(header.cid().clone());
+        cids.push(*header.cid());
     }
 
     /// Expands the given block header into the largest possible tipset by
