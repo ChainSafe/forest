@@ -1,20 +1,24 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::gas_api::estimate_message_gas;
 use crate::RpcState;
-
-use address::Address;
+use actor::TokenAmount;
+use address::{Address, Protocol};
 use beacon::Beacon;
-use blocks::TipsetKeys;
+use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
+use fil_types::verifier::{FullVerifier, ProofVerifier};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
+use num_bigint::bigint_ser;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
 use wallet::KeyStore;
@@ -136,23 +140,55 @@ where
     Ok(CidJson(cid))
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub(crate) struct MessageSendSpec {
+    #[serde(with = "bigint_ser::json")]
+    max_fee: TokenAmount,
+}
+
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
-pub(crate) async fn mpool_push_message<DB, KS, B>(
+pub(crate) async fn mpool_push_message<DB, KS, B, V>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(UnsignedMessageJson,)>,
+    Params(params): Params<(UnsignedMessageJson, Option<MessageSendSpec>)>,
 ) -> Result<SignedMessageJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
 {
-    // TODO handle defaults for sequence, gas limit and gas price
-    let (UnsignedMessageJson(umsg),) = params;
+    let (UnsignedMessageJson(umsg), spec) = params;
 
-    let from = umsg.from();
+    let from = *umsg.from();
 
     let keystore = data.keystore.as_ref().write().await;
-    let key = wallet::find_key(&from, &*keystore)?;
+    let heaviest_tipset = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
+        .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
+    let key_addr = data
+        .state_manager
+        .resolve_to_key_addr::<FullVerifier>(&from, &heaviest_tipset)
+        .await?;
+
+    if umsg.sequence() != 0 {
+        return Err(
+            "Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into(),
+        );
+    }
+    let mut umsg =
+        estimate_message_gas::<DB, KS, B, V>(&data, umsg, spec, Default::default()).await?;
+    if umsg.gas_premium() > umsg.gas_fee_cap() {
+        return Err("After estimation, gas premium is greater than gas fee cap".into());
+    }
+
+    if from.protocol() == Protocol::ID {
+        umsg.from = key_addr;
+    }
+    let key = wallet::find_key(&key_addr, &*keystore)?;
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
@@ -164,4 +200,26 @@ where
     data.mpool.as_ref().push(smsg.clone()).await?;
 
     Ok(SignedMessageJson(smsg))
+}
+
+pub(crate) async fn mpool_select<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(TipsetKeysJson, f64)>,
+) -> Result<Vec<SignedMessageJson>, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    let (tsk, q) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk.into()).await?;
+
+    Ok(data
+        .mpool
+        .select_messages(ts.as_ref(), q)
+        .await
+        .map_err(|e| format!("Failed to select messages: {:?}", e))?
+        .into_iter()
+        .map(|e| e.into())
+        .collect())
 }

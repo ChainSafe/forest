@@ -1,0 +1,29 @@
+
+[package]
+name = "ipld_hamt-fuzz"
+version = "0.0.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.3"
+arbitrary = { version = "0.4", features = ["derive"] }
+ahash = "0.5"
+db = { path = "../../../node/db" }
+
+[dependencies.ipld_hamt]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "hamt_fuzz"
+path = "fuzz_targets/hamt_fuzz.rs"
+test = false
+doc = false

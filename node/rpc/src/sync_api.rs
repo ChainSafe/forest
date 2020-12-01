@@ -167,9 +167,7 @@ mod tests {
             network_name: TEST_NET_NAME.to_owned(),
             events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
             chain_store: cs_for_chain,
-            beacon: Schedule {
-                0: vec![BeaconPoint { start: 0, beacon }],
-            },
+            beacon: Schedule(vec![BeaconPoint { start: 0, beacon }]),
         });
         (state, network_rx)
     }
