@@ -40,9 +40,7 @@ use log::{debug, error, info, warn};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::Serialize;
 use state_manager::StateManager;
-use utils::get_home_dir;
 use wallet::KeyStore;
-use wallet::PersistentKeyStore;
 
 type WsSink = SplitSink<WebSocketStream<TcpStream>, async_tungstenite::tungstenite::Message>;
 
@@ -87,6 +85,7 @@ where
     use sync_api::*;
     use wallet_api::*;
     let events_pubsub = state.events_pubsub.clone();
+    let ks = state.keystore.clone();
     let rpc = Server::new()
         .with_data(Data::new(state))
         // Auth API
@@ -152,9 +151,10 @@ where
         .with_method("Filecoin.MpoolPush", mpool_push::<DB, KS, B>, false)
         .with_method(
             "Filecoin.MpoolPushMessage",
-            mpool_push_message::<DB, KS, B>,
+            mpool_push_message::<DB, KS, B, V>,
             false,
         )
+        .with_method("Filecoin.MpoolSelect", mpool_select::<DB, KS, B>, false)
         // Sync API
         .with_method("Filecoin.SyncCheckBad", sync_check_bad::<DB, KS, B>, false)
         .with_method("Filecoin.SyncMarkBad", sync_mark_bad::<DB, KS, B>, false)
@@ -206,7 +206,7 @@ where
             false,
         )
         .with_method(
-            "Filecoin.StateSectorInfo",
+            "Filecoin.StateSectorGetInfo",
             state_sector_info::<DB, KS, B>,
             false,
         )
@@ -233,6 +233,11 @@ where
         .with_method(
             "Filecoin.StateMinerRecoveries",
             state_miner_recoveries::<DB, KS, B>,
+            false,
+        )
+        .with_method(
+            "Filecoin.StateMinerPartitions",
+            state_miner_partitions::<DB, KS, B>,
             false,
         )
         .with_method("Filecoin.StateReplay", state_replay::<DB, KS, B>, false)
@@ -263,7 +268,7 @@ where
         )
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS, B>, false)
         .with_method(
-            "Filecoin.NetworkName",
+            "Filecoin.StateNetworkName",
             state_network_name::<DB, KS, B>,
             false,
         )
@@ -289,6 +294,11 @@ where
             gas_estimate_fee_cap::<DB, KS, B>,
             false,
         )
+        .with_method(
+            "Filecoin.GasEstimateMessageGas",
+            gas_estimate_message_gas::<DB, KS, B, V>,
+            false,
+        )
         // Common
         .with_method("Filecoin.Version", version, false)
         //beacon
@@ -308,6 +318,7 @@ where
         let subscriber = events_pubsub.write().await.subscribe();
         task::spawn(handle_connection_and_log(
             rpc_state.clone(),
+            ks.clone(),
             stream,
             addr,
             events_pubsub.clone(),
@@ -318,8 +329,9 @@ where
     info!("Stopped accepting websocket connections");
 }
 
-async fn handle_connection_and_log(
+async fn handle_connection_and_log<KS: KeyStore>(
     state: Arc<Server<MapRouter>>,
+    ks: Arc<RwLock<KS>>,
     tcp_stream: TcpStream,
     addr: std::net::SocketAddr,
     events_out: Arc<RwLock<Publisher<EventsPayload>>>,
@@ -348,7 +360,7 @@ async fn handle_connection_and_log(
                 match message_result {
                     Ok(message) => {
                         let request_text = message.into_text().unwrap();
-                        info!("request senty {:?}", request_text.clone());
+                        info!("RPC Request Received: {:?}", request_text.clone());
                         match serde_json::from_str(&request_text)
                             as Result<RequestObject, serde_json::Error>
                         {
@@ -366,7 +378,7 @@ async fn handle_connection_and_log(
                                 } else {
                                     call
                                 };
-                                let response = handle_rpc(&state, call, &authorization_header)
+                                let response = handle_rpc(&state, &ks, call, &authorization_header)
                                     .await
                                     .unwrap_or_else(|e| {
                                         ResponseObjects::One(ResponseObject::Error {
@@ -478,15 +490,18 @@ async fn handle_connection_and_log(
     })
 }
 
-async fn handle_rpc(
+async fn handle_rpc<KS: KeyStore>(
     state: &Arc<Server<MapRouter>>,
+    ks: &Arc<RwLock<KS>>,
     call: RequestObject,
     authorization_header: &Option<String>,
 ) -> Result<ResponseObjects, Error> {
     if WRITE_ACCESS.contains(&&*call.method) {
         if let Some(header) = authorization_header {
-            let keystore = PersistentKeyStore::new(get_home_dir() + "/.forest")?;
-            let ki = keystore
+            // let keystore = PersistentKeyStore::new(get_home_dir() + "/.forest")?;
+            let ki = ks
+                .read()
+                .await
                 .get(JWT_IDENTIFIER)
                 .map_err(|_| AuthError::Other("No JWT private key found".to_owned()))?;
             let key = ki.private_key();

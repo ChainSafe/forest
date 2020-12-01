@@ -19,8 +19,8 @@ where
 {
     /// Selects messages for including in a block.
     pub async fn select_messages(
-        &mut self,
-        ts: Tipset,
+        &self,
+        ts: &Tipset,
         _tq: f64,
     ) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
@@ -29,9 +29,9 @@ where
     }
 
     async fn select_messages_greedy(
-        &mut self,
+        &self,
         cur_ts: &Tipset,
-        ts: Tipset,
+        ts: &Tipset,
     ) -> Result<Vec<SignedMessage>, Error> {
         let base_fee = self.api.read().await.chain_compute_base_fee(&ts)?;
 
@@ -224,7 +224,7 @@ mod test_selection {
 
     #[async_std::test]
     async fn basic_message_selection() {
-        let mut mpool = make_test_mpool();
+        let mpool = make_test_mpool();
 
         let mut w1 = Wallet::new(MemKeyStore::new());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -272,7 +272,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
         assert_eq!(msgs.len(), 20);
         let mut next_nonce = 0;
         for i in 0..10 {
@@ -343,7 +343,7 @@ mod test_selection {
         // first we need to update the nonce on the api
         mpool.api.write().await.set_state_sequence(&a1, 10);
         mpool.api.write().await.set_state_sequence(&a2, 10);
-        let msgs = mpool.select_messages(ts3, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts3, 1.0).await.unwrap();
 
         assert_eq!(msgs.len(), 20);
 
@@ -371,7 +371,7 @@ mod test_selection {
 
     #[async_std::test]
     async fn message_selection_trimming() {
-        let mut mpool = make_test_mpool();
+        let mpool = make_test_mpool();
 
         let mut w1 = Wallet::new(MemKeyStore::new());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -433,7 +433,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
 
         let expected = types::BLOCK_GAS_LIMIT / gas_limit;
         assert_eq!(msgs.len(), expected as usize);
@@ -515,7 +515,7 @@ mod test_selection {
             mpool.add(m).await.unwrap();
         }
 
-        let msgs = mpool.select_messages(ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
 
         assert_eq!(msgs.len(), 20);
 

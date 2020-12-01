@@ -6,7 +6,7 @@ use crate::RpcState;
 use address::{json::AddressJson, Address};
 use beacon::Beacon;
 use blockstore::BlockStore;
-use crypto::{signature::json::SignatureJson, SignatureType};
+use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -132,22 +132,23 @@ where
 /// List all Addresses in the Wallet
 pub(crate) async fn wallet_list<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-) -> Result<Vec<String>, JsonRpcError>
+) -> Result<Vec<AddressJson>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let keystore = data.keystore.read().await;
-    let addr_vec = wallet::list_addrs(&*keystore)?;
-    let ret = addr_vec.into_iter().map(|a| a.to_string()).collect();
-    Ok(ret)
+    Ok(wallet::list_addrs(&*keystore)?
+        .into_iter()
+        .map(AddressJson::from)
+        .collect())
 }
 
 /// Generate a new Address that is stored in the Wallet
 pub(crate) async fn wallet_new<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(u8,)>,
+    Params(params): Params<(SignatureTypeJson,)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -155,9 +156,8 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (sig_raw,) = params;
-    let sig_type: SignatureType = serde_json::from_str(&sig_raw.to_string())?;
     let mut keystore = data.keystore.write().await;
-    let key = wallet::generate_key(sig_type)?;
+    let key = wallet::generate_key(sig_raw.0)?;
 
     let addr = format!("wallet-{}", key.address.to_string());
     keystore.put(addr, key.key_info.clone())?;
@@ -172,7 +172,7 @@ where
 /// Set the default Address for the Wallet
 pub(crate) async fn wallet_set_default<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(String,)>,
+    Params(params): Params<(AddressJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -182,7 +182,7 @@ where
     let (address,) = params;
     let mut keystore = data.keystore.write().await;
 
-    let addr_string = format!("wallet-{}", address);
+    let addr_string = format!("wallet-{}", address.0);
     let key_info = keystore.get(&addr_string)?;
     keystore.remove("default".to_string())?; // This line should unregister current default key then continue
     keystore.put("default".to_string(), key_info)?;

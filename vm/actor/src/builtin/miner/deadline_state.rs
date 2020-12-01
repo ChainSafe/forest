@@ -828,6 +828,14 @@ impl Deadline {
         self.post_submissions = BitField::new();
         Ok((new_faulty_power, failed_recovery_power))
     }
+    pub fn for_each<BS: BlockStore>(
+        &self,
+        store: &BS,
+        f: impl FnMut(u64, &Partition) -> Result<(), Box<dyn StdError>>,
+    ) -> Result<(), Box<dyn StdError>> {
+        let parts = self.partitions_amt(store)?;
+        parts.for_each(f)
+    }
 }
 
 pub struct PoStResult {

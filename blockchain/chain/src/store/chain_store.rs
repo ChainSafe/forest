@@ -180,8 +180,9 @@ where
         genesis(self.blockstore())
     }
 
-    /// Returns heaviest tipset from blockstore
+    /// Returns the currently tracked heaviest tipset
     pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+        // TODO: Figure out how to remove optional and return something everytime.
         self.heaviest.read().await.clone()
     }
 
@@ -201,6 +202,9 @@ where
 
     /// Returns Tipset from key-value store from provided cids
     pub async fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+        if tsk.cids().is_empty() {
+            return Ok(self.heaviest_tipset().await.unwrap());
+        }
         tipset_from_keys(&self.ts_cache, self.blockstore(), tsk).await
     }
 
