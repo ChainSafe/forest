@@ -49,7 +49,7 @@ async fn validate_specific_block() {
         ts = chain_store.tipset_from_keys(ts.parents()).await.unwrap();
     }
 
-    let fts = chain_store.fill_tipset(ts).unwrap();
+    let fts = chain_store.fill_tipset(&ts).unwrap();
     for block in fts.into_blocks() {
         task::block_on(SyncWorker::<_, _, FullVerifier>::validate_block(
             state_manager.clone(),

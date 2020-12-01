@@ -137,6 +137,137 @@ where
         self.worker_state.clone()
     }
 
+    async fn handle_network_event(
+        &mut self,
+        network_event: NetworkEvent,
+        new_ts_tx: &Sender<(PeerId, FullTipset)>,
+    ) {
+        match network_event {
+            NetworkEvent::HelloRequest { request, channel } => {
+                let source = channel.peer.clone();
+                self.network
+                    .peer_manager()
+                    .update_peer_head(source.clone(), None)
+                    .await;
+                debug!(
+                    "Message inbound, heaviest tipset cid: {:?}",
+                    request.heaviest_tip_set
+                );
+                let new_ts_tx_cloned = new_ts_tx.clone();
+                let cs_cloned = self.state_manager.chain_store().clone();
+                let net_cloned = self.network.clone();
+                // TODO determine if tasks started to fetch and load tipsets should be
+                // limited. Currently no cap on this.
+                task::spawn(async {
+                    Self::fetch_and_inform_tipset(
+                        cs_cloned,
+                        net_cloned,
+                        source,
+                        TipsetKeys::new(request.heaviest_tip_set),
+                        new_ts_tx_cloned,
+                    )
+                    .await;
+                });
+            }
+            NetworkEvent::PeerDialed { peer_id } => {
+                let heaviest = self
+                    .state_manager
+                    .chain_store()
+                    .heaviest_tipset()
+                    .await
+                    .unwrap();
+                self.network
+                    .hello_request(
+                        peer_id,
+                        HelloRequest {
+                            heaviest_tip_set: heaviest.cids().to_vec(),
+                            heaviest_tipset_height: heaviest.epoch(),
+                            heaviest_tipset_weight: heaviest.weight().clone(),
+                            genesis_hash: *self.genesis.blocks()[0].cid(),
+                        },
+                    )
+                    .await
+            }
+            NetworkEvent::PubsubMessage { source, message } => {
+                if self.state != ChainSyncState::Follow {
+                    // Ignore gossipsub events if not in following state
+                    return;
+                }
+
+                match message {
+                    forest_libp2p::PubsubMessage::Block(b) => {
+                        // TODO this handling logic should be done in seperate task.
+                        // When this runs, it slows down the polling thread, which in turn
+                        // makes the events polled from the libp2p thread get dropped.
+
+                        let source = match source.clone() {
+                            Some(source) => source,
+                            None => {
+                                warn!("Got a GossipBlock with no Source sender. This should not happen based on Filecoin's GossipSub options");
+                                return;
+                            }
+                        };
+                        info!(
+                            "Received block over GossipSub: {} from {}",
+                            b.header.epoch(),
+                            source
+                        );
+
+                        // Get bls_messages in the store or over Bitswap
+                        let bls_messages: Vec<_> = b
+                            .bls_messages
+                            .into_iter()
+                            .map(|m| self.network.bitswap_get::<UnsignedMessage>(m))
+                            .collect();
+
+                        let bls_messages = match try_join_all(bls_messages).await {
+                            Ok(msgs) => msgs,
+                            Err(e) => {
+                                warn!("Failed to get UnsignedMessage: {}", e);
+                                return;
+                            }
+                        };
+
+                        // Get secp_messages in the store or over Bitswap
+                        let secp_messages: Vec<_> = b
+                            .secpk_messages
+                            .into_iter()
+                            .map(|m| self.network.bitswap_get::<SignedMessage>(m))
+                            .collect();
+
+                        let secp_messages = match try_join_all(secp_messages).await {
+                            Ok(msgs) => msgs,
+                            Err(e) => {
+                                warn!("Failed to get SignedMessage: {}", e);
+                                return;
+                            }
+                        };
+
+                        // Form block
+                        let block = Block {
+                            header: b.header,
+                            bls_messages,
+                            secp_messages,
+                        };
+                        let ts = FullTipset::new(vec![block]).unwrap();
+                        if self.inform_new_head(source.clone(), &ts).await.is_err() {
+                            warn!("failed to inform new head from peer {}", source);
+                        }
+                    }
+                    forest_libp2p::PubsubMessage::Message(m) => {
+                        // add message to message pool
+                        // TODO handle adding message to mempool in seperate task.
+                        if let Err(e) = self.mpool.add(m).await {
+                            trace!("Gossip Message failed to be added to Message pool: {}", e);
+                        }
+                    }
+                }
+            }
+            // All other network events are being ignored currently
+            _ => {}
+        }
+    }
+
     /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self, num_workers: usize) {
         let (worker_tx, worker_rx) = channel(5);
@@ -162,100 +293,8 @@ where
             }
             select! {
                 network_event = fused_handler.next() => match network_event {
-                    Some(NetworkEvent::HelloRequest { request, channel }) => {
-                        let source = channel.peer.clone();
-                        self.network.peer_manager().update_peer_head(source.clone(), None).await;
-                        debug!(
-                            "Message inbound, heaviest tipset cid: {:?}",
-                            request.heaviest_tip_set
-                        );
-                        let new_ts_tx_cloned = new_ts_tx.clone();
-                        let cs_cloned = self.state_manager.chain_store().clone();
-                        let net_cloned = self.network.clone();
-                        // TODO determine if tasks started to fetch and load tipsets should be
-                        // limited. Currently no cap on this.
-                        task::spawn(async {
-                            Self::fetch_and_inform_tipset(
-                                cs_cloned,
-                                net_cloned,
-                                source,
-                                TipsetKeys::new(request.heaviest_tip_set),
-                                new_ts_tx_cloned,
-                            )
-                            .await;
-                        });
-                    }
-                    Some(NetworkEvent::PeerDialed { peer_id }) => {
-                        let heaviest = self.state_manager.chain_store().heaviest_tipset().await.unwrap();
-                        self.network
-                            .hello_request(
-                                peer_id,
-                                HelloRequest {
-                                    heaviest_tip_set: heaviest.cids().to_vec(),
-                                    heaviest_tipset_height: heaviest.epoch(),
-                                    heaviest_tipset_weight: heaviest.weight().clone(),
-                                    genesis_hash: *self.genesis.blocks()[0].cid(),
-                                },
-                            )
-                            .await
-                    }
-                    Some(NetworkEvent::PubsubMessage { source, message }) => {
-                        if self.state != ChainSyncState::Follow {
-                            // Ignore gossipsub events if not in following state
-                            continue;
-                        }
-
-                        match message {
-                            forest_libp2p::PubsubMessage::Block(b) => {
-                                // TODO this handling logic should be done in seperate task.
-                                // When this runs, it slows down the polling thread, which in turn
-                                // makes the events polled from the libp2p thread get dropped.
-
-                                let source = match source.clone() {
-                                    Some(source) => source,
-                                    None => {
-                                        warn!("Got a GossipBlock with no Source sender. This should not happen based on Filecoin's GossipSub options");
-                                        continue;
-                                    }
-                                };
-                                info!("Received block over GossipSub: {} from {}", b.header.epoch(), source);
-                                // Get bls_messages in the store or over Bitswap
-                                let bmsgs: Vec<_> = b.bls_messages.into_iter().map(|m| self.network.bitswap_get::<UnsignedMessage>(m)).collect();
-                                let bmsgs = try_join_all(bmsgs).await;
-                                if let Err(e) = &bmsgs {
-                                    warn!("Failed to get UnsignedMessage: {}", e);
-                                    continue;
-                                }
-                                // Get secp_messages in the store or over Bitswap
-                                let smsgs: Vec<_> = b.secpk_messages.into_iter().map(|m| self.network.bitswap_get::<SignedMessage>(m)).collect();
-                                let smsgs = try_join_all(smsgs).await;
-                                if let Err(e) = &smsgs {
-                                    warn!("Failed to get SignedMessage: {}", e);
-                                    continue;
-                                }
-                                // Form block
-                                let block = Block {
-                                    header: b.header,
-                                    bls_messages: bmsgs.unwrap(),
-                                    secp_messages: smsgs.unwrap(),
-                                };
-                                let ts = FullTipset::new(vec![block]).unwrap();
-                                if self.inform_new_head(source.clone(), &ts).await.is_err() {
-                                    warn!("failed to inform new head from peer {}", source);
-                                }
-                            }
-                            forest_libp2p::PubsubMessage::Message(m) => {
-                                // add message to message pool
-                                // TODO handle adding message to mempool in seperate task.
-                                if let Err(e) = self.mpool.add(m).await {
-                                    trace!("Gossip Message failed to be added to Message pool: {}", e);
-                                }
-                            }
-                        }
-                    }
+                    Some(event) => self.handle_network_event(event, &new_ts_tx).await,
                     None => break,
-                    // All other network events are being ignored currently
-                    _ => (),
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
@@ -319,7 +358,7 @@ where
 
         for block in ts.blocks() {
             if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
-                warn!("Bad block detected, cid: {:?}", bad);
+                warn!("Bad block detected, cid: {}", bad);
                 return Err(Error::Other("Block marked as bad".to_string()));
             }
         }

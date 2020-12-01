@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{ChainIndex, Error};
+use super::{tipset_tracker::TipsetTracker, ChainIndex, Error};
 use actor::{miner, power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
 use address::Address;
 use async_std::sync::{channel, RwLock};
@@ -102,6 +102,9 @@ pub struct ChainStore<DB> {
 
     /// Used as a cache for tipset lookbacks.
     chain_index: ChainIndex<DB>,
+
+    /// Tracks blocks for the purpose of forming tipsets.
+    tipset_tracker: TipsetTracker<DB>,
 }
 
 impl<DB> ChainStore<DB>
@@ -113,6 +116,7 @@ where
         let cs = Self {
             publisher: RwLock::new(Publisher::new(SINK_CAP)),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
+            tipset_tracker: TipsetTracker::new(db.clone()),
             db,
             ts_cache,
             heaviest: Default::default(),
@@ -152,12 +156,23 @@ where
         set_genesis(self.blockstore(), header)
     }
 
+    pub async fn add_to_tipset_tracker(&self, header: &BlockHeader) {
+        self.tipset_tracker.add(header).await;
+    }
+
     /// Writes tipset block headers to data store and updates heaviest tipset
     pub async fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
+        // TODO: we could add the blocks of `ts` to the tipset tracker from here,
+        // making `add_to_tipset_tracker` redundant and decreasing the number of
+        // blockstore reads
         persist_objects(self.blockstore(), ts.blocks())?;
-        // TODO determine if expanded tipset is required; see https://github.com/filecoin-project/lotus/blob/testnet/3/chain/store/store.go#L236
-        self.update_heaviest(ts).await?;
+        let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
+        self.update_heaviest(&expanded).await?;
         Ok(())
+    }
+
+    async fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
+        self.tipset_tracker.expand(header).await
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
@@ -389,7 +404,7 @@ where
     }
 
     /// Constructs and returns a full tipset if messages from storage exists - non self version
-    pub fn fill_tipset(&self, ts: Arc<Tipset>) -> Result<FullTipset, Arc<Tipset>>
+    pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
     where
         DB: BlockStore,
     {
@@ -403,7 +418,7 @@ where
             Ok(m) => m,
             Err(e) => {
                 log::trace!("failed to fill tipset: {}", e);
-                return Err(ts);
+                return None;
             }
         };
 
@@ -421,7 +436,7 @@ where
             .collect();
 
         // the given tipset has already been verified, so this cannot fail
-        Ok(FullTipset::new(blocks).unwrap())
+        Some(FullTipset::new(blocks).unwrap())
     }
 
     /// Retrieves block messages to be passed through the VM.
