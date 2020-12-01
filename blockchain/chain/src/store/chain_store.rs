@@ -104,7 +104,7 @@ pub struct ChainStore<DB> {
     chain_index: ChainIndex<DB>,
 
     /// Tracks blocks for the purpose of forming tipsets.
-    tipset_tracker: RwLock<TipsetTracker<DB>>,
+    tipset_tracker: TipsetTracker<DB>,
 }
 
 impl<DB> ChainStore<DB>
@@ -116,7 +116,7 @@ where
         let cs = Self {
             publisher: RwLock::new(Publisher::new(SINK_CAP)),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
-            tipset_tracker: RwLock::new(TipsetTracker::new(db.clone())),
+            tipset_tracker: TipsetTracker::new(db.clone()),
             db,
             ts_cache,
             heaviest: Default::default(),
@@ -157,7 +157,7 @@ where
     }
 
     pub async fn add_to_tipset_tracker(&self, header: &BlockHeader) {
-        self.tipset_tracker.write().await.add(header);
+        self.tipset_tracker.add(header).await;
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset
@@ -172,7 +172,7 @@ where
     }
 
     async fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
-        self.tipset_tracker.read().await.expand(header)
+        self.tipset_tracker.expand(header).await
     }
 
     /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
