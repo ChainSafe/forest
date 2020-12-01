@@ -61,10 +61,6 @@ pub struct InvocResult {
     pub error: Option<String>,
 }
 
-struct VersionSpec {
-    network_version: NetworkVersion,
-    at_or_below: ChainEpoch,
-}
 // An alias Result that represents an InvocResult and an Error
 pub type StateCallResult = Result<InvocResult, Error>;
 
@@ -85,8 +81,6 @@ pub struct StateManager<DB> {
     /// of the state/receipt root.
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     subscriber: Option<Subscriber<HeadChange>>,
-    network_versions: Vec<VersionSpec>,
-    latest_version: NetworkVersion,
     genesis_info: GenesisInfoPair,
 }
 
@@ -99,8 +93,6 @@ where
             cs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
-            network_versions: Vec::new(),
-            latest_version: NetworkVersion::V0,
             genesis_info: GenesisInfoPair::default(),
         }
     }
@@ -114,8 +106,6 @@ where
             cs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
-            network_versions: Vec::new(),
-            latest_version: NetworkVersion::V0,
             genesis_info: GenesisInfoPair::default(),
         }
     }
@@ -497,12 +487,7 @@ where
         V: ProofVerifier,
     {
         let mut lbr: ChainEpoch = ChainEpoch::from(0);
-        let version = self
-            .network_versions
-            .iter()
-            .find(|s| round == s.at_or_below)
-            .map(|s| s.network_version)
-            .unwrap_or(self.latest_version);
+        let version = get_network_version_default(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
@@ -513,6 +498,7 @@ where
             lbr = round - lb
         }
 
+        // More null blocks than lookback
         if lbr >= tipset.epoch() {
             let (st, _) = self
                 .tipset_state::<V>(&tipset)
@@ -520,12 +506,13 @@ where
                 .map_err(|e| Error::Other(format!("Could execute tipset_state {:?}", e)))?;
             return Ok((tipset, st));
         }
+
         let next_ts = self
             .cs
-            .tipset_by_height(lbr, tipset.clone(), false)
+            .tipset_by_height(lbr + 1, tipset.clone(), false)
             .await
             .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?;
-        if lbr == next_ts.epoch() {
+        if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
                 "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
                 tipset.key(),
@@ -536,33 +523,24 @@ where
         }
         let lbts = self
             .cs
-            .tipset_from_keys(tipset.parents())
+            .tipset_from_keys(next_ts.parents())
             .await
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {:?}", e)))?;
         Ok((lbts, *next_ts.parent_state()))
     }
 
-    fn eligible_to_mine<V: ProofVerifier>(
+    pub fn eligible_to_mine(
         self: &Arc<Self>,
         address: &Address,
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
     ) -> Result<bool, Error> {
-        let hmp_result = self.miner_has_min_power(address, lookback_tipset);
-        let version = self
-            .network_versions
-            .iter()
-            .find(|s| base_tipset.epoch() == s.at_or_below)
-            .map(|s| s.network_version)
-            .unwrap_or(self.latest_version);
+        let hmp = self.miner_has_min_power(address, lookback_tipset)?;
+        let version = get_network_version_default(base_tipset.epoch());
 
-        if version as u8 <= 3 {
-            if let Ok(hmp) = hmp_result {
-                return Ok(hmp);
-            }
+        if version <= NetworkVersion::V3 {
+            return Ok(hmp);
         }
-
-        let hmp = hmp_result?;
 
         if !hmp {
             return Ok(false);
@@ -647,7 +625,7 @@ where
 
         let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker)?;
 
-        let elligable = self.eligible_to_mine::<V>(&address, &tipset.as_ref(), &lbts)?;
+        let elligable = self.eligible_to_mine(&address, &tipset.as_ref(), &lbts)?;
 
         Ok(Some(MiningBaseInfo {
             miner_power: Some(mpow.quality_adj_power),
