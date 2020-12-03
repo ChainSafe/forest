@@ -20,4 +20,4 @@ log = "0.4.8"
 
 [dev-dependencies]
 interpreter = { path = "../interpreter/" }
-db = { path = "../../node/db/" }
+db = { package = "forest_db", path = "../../node/db" }

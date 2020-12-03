@@ -37,7 +37,7 @@ cid = { package = "forest_cid", path = "../../ipld/cid", features = [
 ], optional = true }
 actor = { path = "../../vm/actor", optional = true }
 clock = { package = "fil_clock", path = "../../node/clock", optional = true }
-db = { path = "../../node/db/", optional = true }
+db = { package = "forest_db", path = "../../node/db", optional = true }
 address = { package = "forest_address", path = "../../vm/address", features = [
     "json"
 ], optional = true }

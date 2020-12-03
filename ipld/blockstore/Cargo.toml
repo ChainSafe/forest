@@ -1,13 +1,16 @@
 [package]
 name = "ipld_blockstore"
+description = "Filecoin storage interface"
 version = "0.1.0"
+license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-cid = { package = "forest_cid", path = "../cid" }
-db = { path = "../../node/db" }
-encoding = { package = "forest_encoding", path = "../../encoding" }
+cid = { package = "forest_cid", path = "../cid", version = "0.2" }
+db = { package = "forest_db", path = "../../node/db" }
+encoding = { package = "forest_encoding", path = "../../encoding", version = "0.2" }
 forest_ipld = { path = "../", optional = true }
 
 [dev-dependencies]

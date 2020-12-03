@@ -8,7 +8,7 @@ edition = "2018"
 address = { package = "forest_address", path = "../../vm/address/" }
 actor = { path = "../../vm/actor/" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-db = { path = "../../node/db/" }
+db = { package = "forest_db", path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }

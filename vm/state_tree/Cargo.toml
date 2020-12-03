@@ -12,7 +12,7 @@ cid = { package = "forest_cid", path = "../../ipld/cid" }
 ipld_hamt = { path = "../../ipld/hamt" }
 forest_ipld = { path = "../../ipld" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
-db = { path = "../../node/db" }
+db = { package = "forest_db", path = "../../node/db" }
 fil_types = { path = "../../types" }
 
 [dev-dependencies]

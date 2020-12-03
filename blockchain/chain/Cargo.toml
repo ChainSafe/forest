@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 blocks = { package = "forest_blocks", path = "../blocks" }
-db = { path = "../../node/db" }
+db = { package = "forest_db", path = "../../node/db" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 clock = { package = "fil_clock", path = "../../node/clock" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
