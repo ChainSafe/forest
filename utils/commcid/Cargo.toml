@@ -8,7 +8,6 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-num-traits = "0.2"
 cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.2" }
 
 [dev-dependencies]

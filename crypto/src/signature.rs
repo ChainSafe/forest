@@ -343,4 +343,44 @@ pub mod json {
             Ok(s.map(|v| v.0))
         }
     }
+
+    pub mod signature_type {
+        use super::*;
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+        #[derive(Debug, Deserialize, Serialize)]
+        #[serde(rename_all = "lowercase")]
+        enum JsonHelperEnum {
+            Bls,
+            Secp256k1,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        #[serde(transparent)]
+        pub struct SignatureTypeJson(#[serde(with = "self")] pub SignatureType);
+
+        pub fn serialize<S>(m: &SignatureType, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let json = match m {
+                SignatureType::BLS => JsonHelperEnum::Bls,
+                SignatureType::Secp256k1 => JsonHelperEnum::Secp256k1,
+            };
+            json.serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<SignatureType, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let json_enum: JsonHelperEnum = Deserialize::deserialize(deserializer)?;
+
+            let signature_type = match json_enum {
+                JsonHelperEnum::Bls => SignatureType::BLS,
+                JsonHelperEnum::Secp256k1 => SignatureType::Secp256k1,
+            };
+            Ok(signature_type)
+        }
+    }
 }

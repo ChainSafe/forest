@@ -48,3 +48,4 @@ forest_address = { path = "../../vm/address" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 genesis = { path = "../../utils/genesis", features = ["testing"] }
+async-std = { version = "1.6.3", features = ["attributes"] }

@@ -13,6 +13,7 @@ use sha2::Digest;
 use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::error;
+use std::sync::Arc;
 
 /// Default endpoint for the drand beacon node.
 // TODO this URL is only valid until smoke fork, should setup schedule for drand upgrade
@@ -32,6 +33,35 @@ impl DrandPublic {
     pub fn key(&self) -> PublicKey {
         PublicKey::from_bytes(&self.coefficient).unwrap()
     }
+}
+
+pub struct Schedule<T>(pub Vec<BeaconPoint<T>>);
+
+impl<T> Schedule<T>
+where
+    T: Beacon,
+{
+    pub fn beacon_for_epoch(&self, e: ChainEpoch) -> Result<&T, Box<dyn error::Error>> {
+        if let Some(beacon_point) = self
+            .0
+            .iter()
+            .rev()
+            .find(|beacon| beacon.start == e)
+            .map(|s| &s.beacon)
+        {
+            Ok(&*beacon_point)
+        } else {
+            self.0
+                .first()
+                .map(|s| &*s.beacon)
+                .ok_or_else(|| Box::from("Could not get first_value of beacon in beacon_for_epoch"))
+        }
+    }
+}
+
+pub struct BeaconPoint<T> {
+    pub start: ChainEpoch,
+    pub beacon: Arc<T>,
 }
 
 #[async_trait]
@@ -143,7 +173,8 @@ impl Beacon for DrandBeacon {
         let sig_match = bls_signatures::verify(&sig, &[digest], &[self.pub_key.key()]);
 
         // Cache the result
-        if sig_match && !self.local_cache.read().await.contains_key(&curr.round()) {
+        let contains_curr = self.local_cache.read().await.contains_key(&curr.round());
+        if sig_match && !contains_curr {
             self.local_cache
                 .write()
                 .await
@@ -153,8 +184,9 @@ impl Beacon for DrandBeacon {
     }
 
     async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>> {
-        match self.local_cache.read().await.get(&round) {
-            Some(cached_entry) => Ok(cached_entry.clone()),
+        let cached: Option<BeaconEntry> = self.local_cache.read().await.get(&round).cloned();
+        match cached {
+            Some(cached_entry) => Ok(cached_entry),
             None => {
                 let url = format!("{}/public/{}", self.url, round);
                 let resp: BeaconEntryJson = surf::get(&url).recv_json().await?;

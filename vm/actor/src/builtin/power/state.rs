@@ -110,6 +110,15 @@ impl State {
         }
     }
 
+    pub fn miner_power<'a, BS: BlockStore>(
+        &self,
+        s: &'a BS,
+        miner: &Address,
+    ) -> Result<Option<Claim>, Box<dyn StdError>> {
+        let claims = make_map_with_root(&self.claims, s)?;
+        get_claim(&claims, miner).map(|s| s.cloned())
+    }
+
     pub(super) fn add_to_claim<BS: BlockStore>(
         &mut self,
         claims: &mut Map<BS, Claim>,
@@ -196,7 +205,7 @@ impl State {
         Ok(())
     }
 
-    pub(super) fn current_total_power(&self) -> (StoragePower, StoragePower) {
+    pub fn current_total_power(&self) -> (StoragePower, StoragePower) {
         if self.miner_above_min_power_count < CONSENSUS_MINER_MIN_MINERS {
             (
                 self.total_bytes_committed.clone(),

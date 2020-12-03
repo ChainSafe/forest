@@ -50,7 +50,7 @@ pub const CHAIN_FINALITY: ChainEpoch = 900;
 
 pub const SEALED_CID_PREFIX: cid::Prefix = cid::Prefix {
     version: cid::Version::V1,
-    codec: cid::Codec::FilCommitmentSealed,
+    codec: cid::FIL_COMMITMENT_SEALED,
     mh_type: cid::POSEIDON_BLS12_381_A1_FC1,
     mh_len: 32,
 };
@@ -181,13 +181,6 @@ pub struct VestSpec {
     pub quantization: ChainEpoch, // Maximum precision of vesting table (limits cardinality of table).
 }
 
-pub const PLEDGE_VESTING_SPEC: VestSpec = VestSpec {
-    initial_delay: 180 * EPOCHS_IN_DAY, // PARAM_FINISH
-    vest_period: 180 * EPOCHS_IN_DAY,   // PARAM_FINISH
-    step_duration: EPOCHS_IN_DAY,       // PARAM_FINISH
-    quantization: 12 * EPOCHS_IN_HOUR,  // PARAM_FINISH
-};
-
 pub const REWARD_VESTING_SPEC_V0: VestSpec = VestSpec {
     initial_delay: 20 * EPOCHS_IN_DAY, // PARAM_FINISH
     vest_period: 180 * EPOCHS_IN_DAY,  // PARAM_FINISH
@@ -217,16 +210,16 @@ pub fn reward_for_consensus_slash_report(
     // slasher_amount = min(NUM/DENOM, collateral)
     let consensus_fault_reporter_share_growth_rate = BigFrac {
         // PARAM_FINISH
-        numerator: BigInt::from(101_251 as u64),
-        denominator: BigInt::from(100_000 as u64),
+        numerator: BigInt::from(101_251_u64),
+        denominator: BigInt::from(100_000_u64),
     };
     let consensus_fault_reporter_initial_share = BigFrac {
         // PARAM_FINISH
-        numerator: BigInt::from(1 as u64),
-        denominator: BigInt::from(1000 as u64),
+        numerator: BigInt::from(1_u64),
+        denominator: BigInt::from(1000_u64),
     };
-    let max_reporter_share_num = BigInt::from(1 as u64);
-    let max_reporter_share_den = BigInt::from(2 as u64);
+    let max_reporter_share_num = BigInt::from(1_u64);
+    let max_reporter_share_den = BigInt::from(2_u64);
     let elapsed = BigUint::from(elapsed_epoch as u64);
     let slasher_share_numerator = consensus_fault_reporter_share_growth_rate
         .numerator

@@ -5,6 +5,8 @@
 mod buffered;
 #[cfg(feature = "resolve")]
 pub mod resolve;
+#[cfg(feature = "sled")]
+mod sled;
 #[cfg(feature = "tracking")]
 mod tracking;
 
@@ -20,7 +22,7 @@ use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use std::error::Error as StdError;
 
 #[cfg(feature = "rocksdb")]
-use db::{RocksDb, WriteBatch};
+use db::rocks::{RocksDb, WriteBatch};
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
@@ -51,7 +53,7 @@ pub trait BlockStore: Store {
 
     /// Put raw bytes in the block store and return the Cid identifier.
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
-        let cid = Cid::new_from_cbor(&bytes, code);
+        let cid = cid::new_from_cbor(&bytes, code);
         self.write(cid.to_bytes(), bytes)?;
         Ok(cid)
     }
@@ -83,12 +85,12 @@ impl BlockStore for RocksDb {
             .into_iter()
             .map(|v| {
                 let bz = to_vec(v)?;
-                let cid = Cid::new_from_cbor(&bz, code);
+                let cid = cid::new_from_cbor(&bz, code);
                 batch.put(cid.to_bytes(), bz);
                 Ok(cid)
             })
             .collect::<Result<_, Box<dyn StdError>>>()?;
-        self.db()?.write(batch)?;
+        self.db.write(batch)?;
 
         Ok(cids)
     }

@@ -3,7 +3,7 @@
 
 use crate::DealWeight;
 use address::Address;
-use cid::{Cid, Codec, Prefix, Version};
+use cid::{Cid, Prefix, Version};
 use clock::ChainEpoch;
 use crypto::Signature;
 use encoding::tuple::*;
@@ -15,7 +15,7 @@ use vm::TokenAmount;
 /// Cid prefix for piece Cids
 pub const PIECE_CID_PREFIX: Prefix = Prefix {
     version: Version::V1,
-    codec: Codec::FilCommitmentUnsealed,
+    codec: cid::FIL_COMMITMENT_UNSEALED,
     mh_type: cid::SHA2_256_TRUNC254_PADDED,
     mh_len: 32,
 };

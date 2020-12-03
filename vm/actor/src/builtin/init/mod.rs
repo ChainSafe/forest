@@ -112,11 +112,11 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                Self::constructor(rt, params.deserialize()?)?;
+                Self::constructor(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             Some(Method::Exec) => {
-                let res = Self::exec(rt, params.deserialize()?)?;
+                let res = Self::exec(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::serialize(res)?)
             }
             None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),

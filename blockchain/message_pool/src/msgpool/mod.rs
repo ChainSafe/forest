@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod selection;
 use super::config::MpoolConfig;
 use super::errors::Error;
 use crate::msg_chain::{MsgChain, MsgChainNode};
@@ -389,9 +390,8 @@ where
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
-        let publish = self
-            .add_tipset(msg.clone(), &self.cur_tipset.read().await.clone(), true)
-            .await?;
+        let cur_ts = self.cur_tipset.read().await.clone();
+        let publish = self.add_tipset(msg.clone(), &cur_ts, true).await?;
         let msg_ser = msg.marshal_cbor()?;
         self.add_local(msg).await?;
         if publish {
@@ -485,13 +485,13 @@ where
     /// and push it to the pending hashmap
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
+        let cur_ts = self.cur_tipset.read().await.clone();
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
             msg,
-            self.get_state_sequence(&from, &self.cur_tipset.read().await.clone())
-                .await?,
+            self.get_state_sequence(&from, &cur_ts).await?,
         )
         .await
     }
@@ -613,7 +613,7 @@ where
             out.append(
                 self.pending_for(&addr)
                     .await
-                    .ok_or_else(|| Error::InvalidFromAddr)?
+                    .ok_or(Error::InvalidFromAddr)?
                     .as_mut(),
             )
         }
@@ -1204,6 +1204,60 @@ where
     Ok(())
 }
 
+/// Like head_change, except it doesnt change the state of the MessagePool.
+/// It simulates a head change call.
+pub(crate) async fn run_head_change<T>(
+    api: &RwLock<T>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
+    from: Tipset,
+    to: Tipset,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+) -> Result<(), Error>
+where
+    T: Provider + 'static,
+{
+    // TODO: This logic should probably be implemented in the ChainStore. It handles reorgs.
+    let mut left = Arc::new(from);
+    let mut right = Arc::new(to);
+    let mut left_chain = Vec::new();
+    let mut right_chain = Vec::new();
+    while left != right {
+        if left.epoch() > right.epoch() {
+            left_chain.push(left.as_ref().clone());
+            let par = api.read().await.load_tipset(left.parents()).await?;
+            left = par;
+        } else {
+            right_chain.push(right.as_ref().clone());
+            let par = api.read().await.load_tipset(right.parents()).await?;
+            right = par;
+        }
+    }
+    for ts in left_chain {
+        let mut msgs: Vec<SignedMessage> = Vec::new();
+        for block in ts.blocks() {
+            let (_, smsgs) = api.read().await.messages_for_block(&block)?;
+            msgs.extend(smsgs);
+        }
+        for msg in msgs {
+            add(msg, rmsgs);
+        }
+    }
+
+    for ts in right_chain {
+        for b in ts.blocks() {
+            let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
+
+            for msg in smsgs {
+                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+            }
+            for msg in msgs {
+                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// This is a helper method for head_change. This method will remove a sequence for a from address
 /// from the rmsgs hashmap. Also remove the from address and sequence from the messagepool.
 async fn rm(
@@ -1239,10 +1293,12 @@ pub mod test_provider {
     use super::Error as Errors;
     use super::*;
     use address::Address;
-    use blocks::{BlockHeader, Tipset};
+    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use cid::Cid;
+    use crypto::VRFProof;
     use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use message::{SignedMessage, UnsignedMessage};
+    use std::convert::TryFrom;
 
     /// Struct used for creating a provider when writing tests involving message pool
     pub struct TestApi {
@@ -1287,6 +1343,17 @@ pub mod test_provider {
         pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
             self.publisher.publish(HeadChange::Apply(ts)).await
         }
+
+        pub fn next_block(&mut self) -> BlockHeader {
+            let new_block = mock_block_with_parents(
+                self.tipsets
+                    .last()
+                    .unwrap_or(&Tipset::new(vec![mock_block(1, 1)]).unwrap()),
+                1,
+                1,
+            );
+            new_block
+        }
     }
 
     #[async_trait]
@@ -1318,7 +1385,7 @@ pub mod test_provider {
             }
             let balance = match self.balances.get(addr) {
                 Some(b) => b.clone(),
-                None => (10_000_000_000 as u64).into(),
+                None => (10_000_000_000_u64).into(),
             };
 
             msgs.sort_by_key(|m| m.sequence());
@@ -1391,9 +1458,90 @@ pub mod test_provider {
         BlockHeader::builder()
             .weight(BigInt::from(weight))
             .cached_bytes(cached_bytes.to_vec())
-            .cached_cid(Cid::new_from_cbor(parent_bz, Blake2b256))
+            .cached_cid(cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
+            .unwrap()
+    }
+
+    pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(1234561);
+        let c =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigInt::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .message_receipts(c)
+            .messages(c)
+            .state_root(c)
+            .weight(weight_inc)
+            .build_and_validate()
+            .unwrap()
+    }
+
+    pub fn mock_block_with_epoch(epoch: i64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(1234561);
+        let c =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigInt::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .message_receipts(c)
+            .messages(c)
+            .state_root(c)
+            .weight(weight_inc)
+            .epoch(epoch)
+            .build_and_validate()
+            .unwrap()
+    }
+    pub fn mock_block_with_parents(
+        parents: &Tipset,
+        weight: u64,
+        ticket_sequence: u64,
+    ) -> BlockHeader {
+        let addr = Address::new_id(1234561);
+        let c =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let height = parents.epoch() + 1;
+
+        let mut weight_inc = BigInt::from(weight);
+        weight_inc = parents.blocks()[0].weight() + weight_inc;
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .parents(parents.key().clone())
+            .message_receipts(c)
+            .messages(c)
+            .state_root(*parents.blocks()[0].state_root())
+            .weight(weight_inc)
+            .epoch(height)
+            .build_and_validate()
             .unwrap()
     }
 }
@@ -1406,18 +1554,16 @@ pub mod tests {
     use address::Address;
     use async_std::sync::channel;
     use async_std::task;
-    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use cid::Cid;
-    use crypto::{SignatureType, VRFProof};
+    use blocks::Tipset;
+    use crypto::SignatureType;
     use key_management::{MemKeyStore, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigInt;
     use std::borrow::BorrowMut;
-    use std::convert::TryFrom;
     use std::thread::sleep;
     use std::time::Duration;
 
-    fn create_smsg(
+    pub fn create_smsg(
         to: &Address,
         from: &Address,
         wallet: &mut Wallet<MemKeyStore>,
@@ -1439,59 +1585,6 @@ pub mod tests {
         let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap();
         smsg.verify().unwrap();
         smsg
-    }
-
-    fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
-        let addr = Address::new_id(1234561);
-        let c =
-            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
-
-        let fmt_str = format!("===={}=====", ticket_sequence);
-        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
-        let election_proof = ElectionProof {
-            win_count: 0,
-            vrfproof: VRFProof::new(fmt_str.into_bytes()),
-        };
-        let weight_inc = BigInt::from(weight);
-        BlockHeader::builder()
-            .miner_address(addr)
-            .election_proof(Some(election_proof))
-            .ticket(Some(ticket))
-            .message_receipts(c.clone())
-            .messages(c.clone())
-            .state_root(c)
-            .weight(weight_inc)
-            .build_and_validate()
-            .unwrap()
-    }
-
-    fn mock_block_with_parents(parents: Tipset, weight: u64, ticket_sequence: u64) -> BlockHeader {
-        let addr = Address::new_id(1234561);
-        let c =
-            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
-
-        let height = parents.epoch() + 1;
-
-        let mut weight_inc = BigInt::from(weight);
-        weight_inc = parents.blocks()[0].weight() + weight_inc;
-        let fmt_str = format!("===={}=====", ticket_sequence);
-        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
-        let election_proof = ElectionProof {
-            win_count: 0,
-            vrfproof: VRFProof::new(fmt_str.into_bytes()),
-        };
-        BlockHeader::builder()
-            .miner_address(addr)
-            .election_proof(Some(election_proof))
-            .ticket(Some(ticket))
-            .parents(parents.key().clone())
-            .message_receipts(c.clone())
-            .messages(c.clone())
-            .state_root(c)
-            .weight(weight_inc)
-            .epoch(height)
-            .build_and_validate()
-            .unwrap()
     }
 
     #[test]
@@ -1554,7 +1647,7 @@ pub mod tests {
 
         let a = mock_block(1, 1);
         let tipset = Tipset::new(vec![a.clone()]).unwrap();
-        let b = mock_block_with_parents(tipset, 1, 1);
+        let b = mock_block_with_parents(&tipset, 1, 1);
 
         let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
         let target = Address::new_id(1001);

@@ -151,33 +151,33 @@ where
 mod tests {
     use super::super::BLOCKS_MESSAGES;
     use super::*;
-    use async_std::task;
+    use async_std::io::BufReader;
     use db::MemoryDB;
     use forest_car::load_car;
     use genesis::EXPORT_SR_40;
-    use std::io::BufReader;
     use std::sync::Arc;
 
-    fn populate_db() -> (Vec<Cid>, MemoryDB) {
+    async fn populate_db() -> (Vec<Cid>, MemoryDB) {
         let db = MemoryDB::default();
         let reader = BufReader::<&[u8]>::new(EXPORT_SR_40.as_ref());
         // The cids are the tipset cids of the most recent tipset (39th)
-        let cids: Vec<Cid> = load_car(&db, reader).unwrap();
+        let cids: Vec<Cid> = load_car(&db, reader).await.unwrap();
         return (cids, db);
     }
 
-    #[test]
-    fn compact_messages_test() {
-        let (cids, db) = populate_db();
+    #[async_std::test]
+    async fn compact_messages_test() {
+        let (cids, db) = populate_db().await;
 
-        let response = task::block_on(make_chain_exchange_response(
+        let response = make_chain_exchange_response(
             &ChainStore::new(Arc::new(db)),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,
                 options: BLOCKS_MESSAGES,
             },
-        ));
+        )
+        .await;
 
         // The response will be loaded with tipsets 39 and 38.
         // See:

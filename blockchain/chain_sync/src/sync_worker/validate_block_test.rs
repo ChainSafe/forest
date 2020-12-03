@@ -23,13 +23,13 @@ async fn validate_specific_block() {
 
     let db = Arc::new(MemoryDB::default());
 
-    let cids = load_car(db.as_ref(), EXPORT_SR_40.as_ref()).unwrap();
+    let cids = load_car(db.as_ref(), EXPORT_SR_40.as_ref()).await.unwrap();
 
     let chain_store = Arc::new(ChainStore::new(db.clone()));
     let state_manager = Arc::new(StateManager::new(chain_store.clone()));
 
     // Initialize genesis using default (currently space-race) genesis
-    let (genesis, _) = initialize_genesis(None, &state_manager).unwrap();
+    let (genesis, _) = initialize_genesis(None, &state_manager).await.unwrap();
     let genesis = Arc::new(genesis);
 
     let beacon = Arc::new(DrandBeacon::new(
@@ -49,7 +49,7 @@ async fn validate_specific_block() {
         ts = chain_store.tipset_from_keys(ts.parents()).await.unwrap();
     }
 
-    let fts = chain_store.fill_tipset(ts).unwrap();
+    let fts = chain_store.fill_tipset(&ts).unwrap();
     for block in fts.into_blocks() {
         task::block_on(SyncWorker::<_, _, FullVerifier>::validate_block(
             state_manager.clone(),

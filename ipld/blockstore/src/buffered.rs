@@ -4,7 +4,7 @@
 #![cfg(feature = "buffered")]
 
 use super::BlockStore;
-use cid::{Cid, Code, Codec};
+use cid::{Cid, Code, DAG_CBOR};
 use db::{Error, Store};
 use encoding::from_slice;
 use forest_ipld::Ipld;
@@ -51,7 +51,7 @@ where
     BS: BlockStore,
 {
     // Skip identity and Filecoin commitment Cids
-    if cid.codec != Codec::DagCBOR {
+    if cid.codec() != DAG_CBOR {
         return Ok(());
     }
 
@@ -114,7 +114,7 @@ where
     }
 
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
-        let cid = Cid::new_from_cbor(&bytes, code);
+        let cid = cid::new_from_cbor(&bytes, code);
         self.write.borrow_mut().insert(cid, bytes);
         Ok(cid)
     }
@@ -173,7 +173,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::{multihash::MultihashDigest, Code, Codec};
+    use cid::{multihash::MultihashDigest, Code, RAW};
     use commcid::commitment_to_cid;
     use forest_ipld::{ipld, Ipld};
 
@@ -199,17 +199,17 @@ mod tests {
         let str_val = "value";
         let value = 8u8;
         let arr_cid = buf_store.put(&(str_val, value), Code::Blake2b256).unwrap();
-        let identity_cid = Cid::new_v1(Codec::Raw, Code::Identity.digest(&[0u8]));
+        let identity_cid = Cid::new_v1(RAW, Code::Identity.digest(&[0u8]));
 
         // Create map to insert into store
         let sealed_comm_cid = commitment_to_cid(
-            Codec::FilCommitmentSealed,
+            cid::FIL_COMMITMENT_SEALED,
             cid::POSEIDON_BLS12_381_A1_FC1,
             &[7u8; 32],
         )
         .unwrap();
         let unsealed_comm_cid = commitment_to_cid(
-            Codec::FilCommitmentUnsealed,
+            cid::FIL_COMMITMENT_UNSEALED,
             cid::SHA2_256_TRUNC254_PADDED,
             &[5u8; 32],
         )

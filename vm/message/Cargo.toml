@@ -28,6 +28,6 @@ fil_types = { path = "../../types", optional = true, version = "0.1" }
 serde_json = "1.0"
 
 [features]
-json = ["base64", "crypto/json", "forest_json_utils"]
+json = ["base64", "crypto/json", "forest_json_utils", "cid/json"]
 # TODO try to prune out this dependency before releasing
 proofs = ["fil_types"]

@@ -13,7 +13,6 @@ ipld_hamt = { path = "../../ipld/hamt" }
 forest_ipld = { path = "../../ipld" }
 ipld_blockstore = { path = "../../ipld/blockstore" }
 db = { path = "../../node/db" }
-parking_lot = "0.11"
 fil_types = { path = "../../types" }
 
 [dev-dependencies]

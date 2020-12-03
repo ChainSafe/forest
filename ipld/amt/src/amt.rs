@@ -72,12 +72,12 @@ where
         Ok(Self { root, block_store })
     }
 
-    // Getter for height
+    /// Gets the height of the `Amt`.
     pub fn height(&self) -> u64 {
         self.root.height
     }
 
-    // Getter for count
+    /// Gets count of elements added in the `Amt`.
     pub fn count(&self) -> u64 {
         self.root.count
     }
@@ -207,9 +207,7 @@ where
                             *sn
                         } else {
                             // Only retrieve sub node if not found in cache
-                            self.block_store
-                                .get(&cid)?
-                                .ok_or_else(|| Error::RootNotFound)?
+                            self.block_store.get(&cid)?.ok_or(Error::RootNotFound)?
                         }
                     }
                     _ => unreachable!("Link index should match bitmap"),

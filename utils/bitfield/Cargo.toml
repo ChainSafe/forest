@@ -10,7 +10,7 @@ edition = "2018"
 [dependencies]
 unsigned-varint = "0.5"
 serde = { version = "1.0", features = ["derive"] }
-serde_bytes = "0.11.3"
+serde_bytes = { git = "https://github.com/ChainSafe/serde-bytes", rev = "118fa7e1cd0a09f329a86deb3f4e9e27a7319f8e" }
 ahash = "0.5"
 encoding = { package = "forest_encoding", path = "../../encoding" }
 

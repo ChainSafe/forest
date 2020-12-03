@@ -33,6 +33,8 @@ lazy_static = "1.4"
 interpreter = { path = "../../vm/interpreter/" }
 lru = "0.6"
 rayon = "1.3"
+forest_car = { path = "../../ipld/car" }
+forest_ipld = { path = "../../ipld" }
 
 [features]
 json = []
