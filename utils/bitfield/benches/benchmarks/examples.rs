@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use bitfield::BitField;
+use forest_bitfield::BitField;
 
 /// An example bit field.
 pub fn example1() -> BitField {

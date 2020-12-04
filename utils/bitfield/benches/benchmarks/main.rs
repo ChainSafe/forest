@@ -3,8 +3,8 @@
 
 mod examples;
 
-use bitfield::BitField;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use forest_bitfield::BitField;
 
 use examples::{example1, example2};
 

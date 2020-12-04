@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::AHashSet;
-use bitfield::{bitfield, BitField};
+use forest_bitfield::{bitfield, BitField};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use std::iter::FromIterator;

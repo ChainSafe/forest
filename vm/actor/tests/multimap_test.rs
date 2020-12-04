@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::Multimap;
 use address::Address;
+use forest_actor::Multimap;
 use ipld_amt::Amt;
 
 #[test]
