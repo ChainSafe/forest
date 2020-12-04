@@ -190,7 +190,6 @@ where
     Ok(premium)
 }
 
-
 /// Estimate the gas limit
 pub(crate) async fn gas_estimate_gas_limit<DB, KS, B, V>(
     data: Data<RpcState<DB, KS, B>>,

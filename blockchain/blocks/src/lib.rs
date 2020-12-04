@@ -8,11 +8,11 @@ extern crate serde;
 extern crate lazy_static;
 
 mod block;
-mod election_proof;
+pub mod election_proof;
 mod errors;
 pub mod gossip_block;
 pub mod header;
-mod ticket;
+pub mod ticket;
 pub mod tipset;
 
 pub use block::*;

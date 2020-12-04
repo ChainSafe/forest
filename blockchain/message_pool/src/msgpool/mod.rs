@@ -143,7 +143,7 @@ pub trait Provider {
     /// Get the heaviest Tipset in the provider
     async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>>;
     /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
-    fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error>;
+    fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
     /// at. Return ActorState or Error depending on whether or not ActorState is found
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
@@ -195,7 +195,7 @@ where
         self.sm.chain_store().heaviest_tipset().await
     }
 
-    fn put_message(&self, msg: &SignedMessage) -> Result<Cid, Error> {
+    fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error> {
         let cid = self
             .sm
             .blockstore()
@@ -826,7 +826,12 @@ where
         ));
     }
 
-    api.read().await.put_message(&msg)?;
+    api.read()
+        .await
+        .put_message(&ChainMessage::Signed(msg.clone()))?;
+    api.read()
+        .await
+        .put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write().await;
     let msett = pending.get_mut(msg.message().from());
@@ -1368,7 +1373,7 @@ pub mod test_provider {
                 .map(Arc::new)
         }
 
-        fn put_message(&self, _msg: &SignedMessage) -> Result<Cid, Errors> {
+        fn put_message(&self, _msg: &ChainMessage) -> Result<Cid, Errors> {
             Ok(Cid::default())
         }
 

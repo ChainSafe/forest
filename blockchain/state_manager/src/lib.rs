@@ -31,7 +31,9 @@ use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::channel::oneshot;
+use futures::select;
 use futures::stream::{FuturesUnordered, StreamExt};
+use futures::FutureExt;
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
 use ipld_amt::Amt;
 use lazycell::AtomicLazyCell;
@@ -716,7 +718,7 @@ where
     async fn tipset_executed_message(
         &self,
         tipset: &Tipset,
-        cid: &Cid,
+        msg_cid: &Cid,
         (message_from_address, message_sequence): (&Address, &u64),
     ) -> Result<Option<MessageReceipt>, Error> {
         if tipset.epoch() == 0 {
@@ -736,7 +738,7 @@ where
             .filter(|(_, s)| s.from() == message_from_address)
             .filter_map(|(index,s)| {
                 if s.sequence() == *message_sequence {
-                    if s.cid().map(|s| &s == cid).unwrap_or_default() {
+                    if s.cid().map(|s| &s == msg_cid).unwrap_or_default() {
                         return Some(
                             chain::get_parent_reciept(
                                 self.blockstore(),
@@ -748,7 +750,7 @@ where
                             }),
                         );
                     }
-                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", cid, message_sequence, s.sequence());
+                    let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", msg_cid, message_sequence, s.sequence());
                     return Some(Err(Error::Other(error_msg)))
                 }
                 if s.sequence() < *message_sequence {
@@ -856,7 +858,7 @@ where
     pub async fn wait_for_message(
         self: &Arc<Self>,
         subscriber: Option<Subscriber<HeadChange>>,
-        cid: &Cid,
+        msg_cid: &Cid,
         confidence: i64,
     ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>
     where
@@ -866,7 +868,7 @@ where
             Error::Other("State Manager not subscribed to tipset head changes".to_string())
         })?;
         let (sender, mut receiver) = oneshot::channel::<()>();
-        let message = chain::get_chain_message(self.blockstore(), cid)
+        let message = chain::get_chain_message(self.blockstore(), msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
         let maybe_subscriber: Option<HeadChange> = subscribers.next().await;
@@ -885,7 +887,7 @@ where
         };
         let message_var = (message.from(), &message.sequence());
         let maybe_message_reciept = self
-            .tipset_executed_message(&tipset, cid, message_var)
+            .tipset_executed_message(&tipset, msg_cid, message_var)
             .await?;
         if let Some(r) = maybe_message_reciept {
             return Ok((Some(tipset.clone()), Some(r)));
@@ -904,16 +906,16 @@ where
         let sequence_for_task = message.sequence();
         let height_of_head = tipset.epoch();
         let task = task::spawn(async move {
-            let (back_t, back_r) = sm_cloned
+            let (back_tuple) = sm_cloned
                 .search_back_for_message(
                     &tipset,
                     (&address_for_task, &cid_for_task, &sequence_for_task),
                 )
-                .await?
-                .ok_or_else(|| {
-                    Error::Other("State manager not subscribed to back search wait".to_string())
-                })?;
-            let back_tuple = (back_t, back_r);
+                .await?;
+            // .ok_or_else(|| {
+            //     Error::Other("State manager not subscribed to back search wait".to_string())
+            // })?;
+            // let back_tuple = (back_t, back_r);
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
@@ -923,8 +925,11 @@ where
         let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
         let sm_cloned = self.clone();
-        let mut futures = FuturesUnordered::new();
-        let subscriber_poll = task::spawn(async move {
+        // let mut futures = FuturesUnordered::new();
+        let mut subscriber_poll = task::spawn::<
+            _,
+            Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
+        >(async move {
             while let Some(subscriber) = subscriber
                 .clone()
                 .ok_or_else(|| {
@@ -975,26 +980,46 @@ where
             }
 
             Ok((None, None))
-        });
+        })
+        .fuse();
 
-        futures.push(subscriber_poll);
-        let search_back_poll = task::spawn(async move {
-            let (back_tipset, back_receipt) = task.await?;
-            let should_revert = *reverts
-                .read()
-                .await
-                .get(back_tipset.key())
-                .unwrap_or(&false);
-            let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
-            if !should_revert && larger_height_of_head {
-                return Ok((Some(back_tipset), Some(back_receipt)));
+        // futures.push(subscriber_poll);
+        let mut search_back_poll = task::spawn::<
+            _,
+            Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
+        >(async move {
+            let back_tuple = task.await?;
+            if let Some((back_tipset, back_receipt)) = back_tuple {
+                let should_revert = *reverts
+                    .read()
+                    .await
+                    .get(back_tipset.key())
+                    .unwrap_or(&false);
+                let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
+                if !should_revert && larger_height_of_head {
+                    return Ok((Some(back_tipset), Some(back_receipt)));
+                }
+
+                return Ok((None, None));
             }
+            return Ok((None, None));
+        })
+        .fuse();
+        // futures.push(search_back_poll);
+        loop {
+            select! {
+                res = search_back_poll => {
+                   return res;
+                }
+                res = subscriber_poll => {
+                    if let Ok((Some(ts), Some(rct))) = res {
+                        return Ok((Some(ts), Some(rct)));
+                    }
+                }
+            }
+        }
 
-            Ok((None, None))
-        });
-        futures.push(search_back_poll);
-
-        futures.next().await.ok_or_else(|| Error::Other("wait_for_message could not be completed due to failure of subscriber poll or search_back functionality".to_string()))?
+        // futures.next().await.ok_or_else(|| Error::Other("wait_for_message could not be completed due to failure of subscriber poll or search_back functionality".to_string()))?
     }
 
     /// Returns a bls public key from provided address
