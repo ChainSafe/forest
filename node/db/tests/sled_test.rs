@@ -5,7 +5,7 @@
 
 mod subtests;
 
-use db::sled::SledDb;
+use forest_db::sled::SledDb;
 
 #[test]
 fn sled_db_write() {
