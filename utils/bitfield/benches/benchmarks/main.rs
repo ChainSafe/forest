@@ -33,7 +33,7 @@ fn decode_encode(c: &mut Criterion) {
 
 fn from_ranges(c: &mut Criterion) {
     let vec: Vec<_> = example1().ranges().collect();
-    let ranges = || bitfield::iter::Ranges::new(vec.iter().cloned());
+    let ranges = || forest_bitfield::iter::Ranges::new(vec.iter().cloned());
     c.bench_function("from_ranges", |b| {
         b.iter(|| BitField::from_ranges(ranges()))
     });
