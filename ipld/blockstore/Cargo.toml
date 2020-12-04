@@ -1,6 +1,6 @@
 [package]
 name = "ipld_blockstore"
-description = "Filecoin storage interface"
+description = "IPLD storage interface"
 version = "0.1.1"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]

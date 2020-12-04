@@ -1,6 +1,6 @@
 [package]
 name = "ipld_amt"
-description = "Sharded Ipld Array implementation."
+description = "Sharded IPLD Array implementation."
 version = "0.2.0"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]

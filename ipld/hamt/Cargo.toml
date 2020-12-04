@@ -1,6 +1,6 @@
 [package]
 name = "ipld_hamt"
-description = "Sharded Ipld HashMap implementation."
+description = "Sharded IPLD HashMap implementation."
 version = "0.2.0"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
