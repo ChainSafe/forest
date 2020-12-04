@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-actor = { path = "../../vm/actor/" }
+actor = { package = "forest_actor", path = "../../vm/actor/" }
 async-std = { version = "1.6.3", features = ["attributes"] }
 serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 serde_json = "1.0.48"
@@ -36,7 +36,7 @@ rand_distr = "0.3"
 rand = "0.7"
 interpreter = { path = "../../vm/interpreter/" }
 fil_types = { path = "../../types" }
-bitfield = { path = "../../utils/bitfield",features = ["json"] }
+bitfield = { package = "forest_bitfield", path = "../../utils/bitfield",features = ["json"] }
 futures = "0.3.5"
 async-tungstenite = "0.9.1"
 async-log = "2.0.0"
@@ -45,7 +45,7 @@ flo_stream = "0.4.0"
 libp2p = { version = "0.24", default-features = false }
 
 [dev-dependencies]
-db = { path = "../db" }
+db = { package = "forest_db", path = "../db" }
 futures = "0.3.5"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
 hex = "0.4.2"

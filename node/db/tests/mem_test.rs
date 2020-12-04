@@ -3,7 +3,7 @@
 
 mod subtests;
 
-use db::MemoryDB;
+use forest_db::MemoryDB;
 
 #[test]
 fn mem_db_write() {

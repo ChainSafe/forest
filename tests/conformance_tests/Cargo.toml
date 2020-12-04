@@ -35,14 +35,14 @@ cid = { package = "forest_cid", path = "../../ipld/cid", features = [
     "cbor",
     "json"
 ], optional = true }
-actor = { path = "../../vm/actor", optional = true }
+actor = { package = "forest_actor", path = "../../vm/actor", optional = true }
 clock = { package = "fil_clock", path = "../../node/clock", optional = true }
-db = { path = "../../node/db/", optional = true }
+db = { package = "forest_db", path = "../../node/db", optional = true }
 address = { package = "forest_address", path = "../../vm/address", features = [
     "json"
 ], optional = true }
 base64 = { version = "0.13", optional = true }
-runtime = { path = "../../vm/runtime/", optional = true }
+runtime = { package = "forest_runtime", path = "../../vm/runtime/", optional = true }
 state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }

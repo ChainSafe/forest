@@ -19,7 +19,7 @@ crypto = { package = "forest_crypto", path = "../../crypto" }
 chain = { path = "../chain" }
 state_tree = { path = "../../vm/state_tree/" }
 serde = { version = "1.0", features = ["derive"] }
-db = { path = "../../node/db" }
+db = { package = "forest_db", path = "../../node/db" }
 flo_stream = "0.4.0"
 futures = "0.3.5"
 libsecp256k1 = "0.3.4"
