@@ -1,15 +1,18 @@
 [package]
 name = "ipld_amt"
-version = "0.1.0"
+description = "Sharded IPLD Array implementation."
+version = "0.2.0"
+license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-cid = { package = "forest_cid", path = "../cid", features = ["cbor"] }
-db = { path = "../../node/db" }
-encoding = { package = "forest_encoding", path = "../../encoding" }
+cid = { package = "forest_cid", path = "../cid", features = ["cbor"], version = "0.3" }
+db = { package = "forest_db", path = "../../node/db", version = "0.1" }
+encoding = { package = "forest_encoding", path = "../../encoding", version = "0.2" }
 serde = { version = "1.0", features = ["derive"] }
-ipld_blockstore = { path = "../blockstore" }
+ipld_blockstore = { path = "../blockstore", version = "0.1" }
 thiserror = "1.0"
 lazycell = "1.2.1"
 ahash = { version = "0.5", optional = true }

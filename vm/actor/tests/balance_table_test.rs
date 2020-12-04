@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::BalanceTable;
 use address::Address;
+use forest_actor::BalanceTable;
 use vm::TokenAmount;
 
 // Ported test from specs-actors

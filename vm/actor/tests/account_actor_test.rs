@@ -3,9 +3,11 @@
 
 mod common;
 
-use actor::{account::State, ACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID};
 use address::Address;
 use common::*;
+use forest_actor::{
+    account::State, ACCOUNT_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
+};
 use vm::{ExitCode, Serialized};
 
 macro_rules! account_tests {

@@ -6,8 +6,8 @@
 mod db_utils;
 mod subtests;
 
-use db::rocks::RocksDb;
 use db_utils::DBPath;
+use forest_db::rocks::RocksDb;
 
 #[test]
 fn rocks_db_write() {

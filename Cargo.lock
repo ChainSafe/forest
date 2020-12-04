@@ -11,42 +11,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actor"
-version = "0.1.0"
-dependencies = [
- "ahash 0.5.8",
- "base64 0.13.0",
- "bitfield",
- "byteorder 1.3.4",
- "commcid",
- "db",
- "derive_builder",
- "fil_clock",
- "fil_types",
- "forest_address",
- "forest_bigint",
- "forest_cid",
- "forest_crypto",
- "forest_encoding",
- "forest_ipld",
- "forest_vm",
- "hex",
- "indexmap",
- "integer-encoding",
- "ipld_amt",
- "ipld_blockstore",
- "ipld_hamt",
- "lazy_static",
- "libp2p",
- "log",
- "num-derive",
- "num-traits 0.2.14",
- "runtime",
- "serde",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -615,21 +579,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f0dc55f2d8a1a85650ac47858bb001b4c0dd73d79e3c455a842925e68d29cd3"
 
 [[package]]
-name = "bitfield"
-version = "0.1.0"
-dependencies = [
- "ahash 0.5.8",
- "criterion",
- "forest_encoding",
- "rand 0.7.3",
- "rand_xorshift",
- "serde",
- "serde_bytes",
- "serde_json",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
 name = "bitflags"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -938,21 +887,21 @@ dependencies = [
 name = "chain"
 version = "0.1.0"
 dependencies = [
- "actor",
  "async-std",
  "beacon",
  "blake2b_simd",
  "byteorder 1.3.4",
- "db",
  "fil_clock",
  "fil_types",
  "flo_stream",
+ "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
  "forest_car",
  "forest_cid",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_ipld",
  "forest_message",
@@ -976,22 +925,22 @@ dependencies = [
 name = "chain_sync"
 version = "0.1.0"
 dependencies = [
- "actor",
  "async-std",
  "base64 0.13.0",
  "beacon",
  "chain",
  "commcid",
- "db",
  "fil_clock",
  "fil_types",
  "flo_stream",
+ "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
  "forest_car",
  "forest_cid",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
@@ -1118,7 +1067,7 @@ dependencies = [
 
 [[package]]
 name = "commcid"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "forest_cid",
  "rand 0.7.3",
@@ -1149,23 +1098,24 @@ dependencies = [
 name = "conformance_tests"
 version = "0.1.0"
 dependencies = [
- "actor",
  "async-std",
  "base64 0.13.0",
  "chain",
  "chain_sync",
- "db",
  "fil_clock",
  "fil_types",
  "flate2",
+ "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
  "forest_car",
  "forest_cid",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_message",
+ "forest_runtime",
  "forest_vm",
  "futures 0.3.8",
  "interpreter",
@@ -1175,7 +1125,6 @@ dependencies = [
  "paramfetch",
  "pretty_env_logger",
  "regex",
- "runtime",
  "serde",
  "serde_json",
  "state_manager",
@@ -1476,6 +1425,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cs_serde_bytes"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebca5e1e931005a5d90cc90831a22619c94fdeb645435c22eae52956dee29675"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "cs_serde_cbor"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1652,17 +1610,6 @@ checksum = "f0f83e699727abca3c56e187945f303389590305ab2f0185ea445aa66e8d5f2a"
 dependencies = [
  "data-encoding",
  "syn 1.0.48",
-]
-
-[[package]]
-name = "db"
-version = "0.1.0"
-dependencies = [
- "forest_encoding",
- "parking_lot 0.11.1",
- "rocksdb",
- "sled",
- "thiserror",
 ]
 
 [[package]]
@@ -2014,7 +1961,7 @@ dependencies = [
 
 [[package]]
 name = "fil_types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "async-std",
  "base64 0.13.0",
@@ -2186,7 +2133,6 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 name = "forest"
 version = "0.1.0"
 dependencies = [
- "actor",
  "async-log",
  "async-std",
  "auth",
@@ -2194,14 +2140,15 @@ dependencies = [
  "chain",
  "chain_sync",
  "ctrlc",
- "db",
  "fil_types",
  "flo_stream",
+ "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
  "forest_car",
  "forest_cid",
+ "forest_db",
  "forest_encoding",
  "forest_libp2p",
  "futures 0.3.8",
@@ -2227,6 +2174,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "forest_actor"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.5.8",
+ "base64 0.13.0",
+ "byteorder 1.3.4",
+ "commcid",
+ "derive_builder",
+ "fil_clock",
+ "fil_types",
+ "forest_address",
+ "forest_bigint",
+ "forest_bitfield",
+ "forest_cid",
+ "forest_crypto",
+ "forest_db",
+ "forest_encoding",
+ "forest_ipld",
+ "forest_runtime",
+ "forest_vm",
+ "hex",
+ "indexmap",
+ "integer-encoding",
+ "ipld_amt",
+ "ipld_blockstore",
+ "ipld_hamt",
+ "lazy_static",
+ "libp2p",
+ "log",
+ "num-derive",
+ "num-traits 0.2.14",
+ "serde",
+ "unsigned-varint 0.5.1",
+]
+
+[[package]]
 name = "forest_address"
 version = "0.3.0"
 dependencies = [
@@ -2243,12 +2226,27 @@ dependencies = [
 
 [[package]]
 name = "forest_bigint"
-version = "0.1.2"
+version = "0.1.1"
 dependencies = [
+ "cs_serde_bytes",
  "num-bigint 0.3.1",
  "num-integer",
  "serde",
- "serde_bytes",
+]
+
+[[package]]
+name = "forest_bitfield"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.5.8",
+ "criterion",
+ "cs_serde_bytes",
+ "forest_encoding",
+ "rand 0.7.3",
+ "rand_xorshift",
+ "serde",
+ "serde_json",
+ "unsigned-varint 0.5.1",
 ]
 
 [[package]]
@@ -2283,8 +2281,8 @@ name = "forest_car"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "db",
  "forest_cid",
+ "forest_db",
  "forest_encoding",
  "futures 0.3.8",
  "integer-encoding",
@@ -2295,9 +2293,10 @@ dependencies = [
 
 [[package]]
 name = "forest_cid"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "cid",
+ "cs_serde_bytes",
  "cs_serde_cbor",
  "forest_json_utils",
  "generic-array 0.14.4",
@@ -2305,7 +2304,6 @@ dependencies = [
  "multibase 0.9.1",
  "multihash 0.13.1",
  "serde",
- "serde_bytes",
  "serde_json",
 ]
 
@@ -2327,14 +2325,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "forest_db"
+version = "0.1.0"
+dependencies = [
+ "forest_encoding",
+ "parking_lot 0.11.1",
+ "rocksdb",
+ "sled",
+ "thiserror",
+]
+
+[[package]]
 name = "forest_encoding"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "blake2b_simd",
+ "cs_serde_bytes",
  "cs_serde_cbor",
  "forest_cid",
  "serde",
- "serde_bytes",
  "serde_repr",
  "serde_tuple",
  "thiserror",
@@ -2347,8 +2356,8 @@ dependencies = [
  "async-recursion",
  "async-std",
  "async-trait",
- "db",
  "forest_cid",
+ "forest_db",
  "forest_encoding",
  "indexmap",
  "ipld_blockstore",
@@ -2374,7 +2383,6 @@ dependencies = [
  "async-trait",
  "bytes",
  "chain",
- "db",
  "fil_clock",
  "fnv",
  "forest_address",
@@ -2383,6 +2391,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_message",
  "futures 0.3.8",
@@ -2421,8 +2430,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "forest_runtime"
+version = "0.1.0"
+dependencies = [
+ "base64 0.13.0",
+ "commcid",
+ "fil_clock",
+ "fil_types",
+ "filecoin-proofs-api",
+ "forest_address",
+ "forest_cid",
+ "forest_crypto",
+ "forest_db",
+ "forest_encoding",
+ "forest_vm",
+ "interpreter",
+ "ipld_blockstore",
+ "log",
+]
+
+[[package]]
 name = "forest_vm"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "forest_address",
  "forest_bigint",
@@ -3115,19 +3144,20 @@ dependencies = [
 name = "interpreter"
 version = "0.1.0"
 dependencies = [
- "actor",
  "ahash 0.5.8",
  "byteorder 1.3.4",
- "db",
  "fil_clock",
  "fil_types",
+ "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_message",
+ "forest_runtime",
  "forest_vm",
  "interpreter",
  "ipld_blockstore",
@@ -3136,7 +3166,6 @@ dependencies = [
  "log",
  "num-traits 0.2.14",
  "rayon",
- "runtime",
  "state_tree",
 ]
 
@@ -3151,12 +3180,12 @@ dependencies = [
 
 [[package]]
 name = "ipld_amt"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ahash 0.5.8",
  "criterion",
- "db",
  "forest_cid",
+ "forest_db",
  "forest_encoding",
  "ipld_blockstore",
  "lazycell",
@@ -3166,30 +3195,30 @@ dependencies = [
 
 [[package]]
 name = "ipld_blockstore"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "commcid",
- "db",
  "forest_cid",
+ "forest_db",
  "forest_encoding",
  "forest_ipld",
 ]
 
 [[package]]
 name = "ipld_hamt"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "byteorder 1.3.4",
  "criterion",
- "db",
+ "cs_serde_bytes",
  "forest_cid",
+ "forest_db",
  "forest_encoding",
  "forest_ipld",
  "hex",
  "ipld_blockstore",
  "lazycell",
  "serde",
- "serde_bytes",
  "sha2 0.9.2",
  "thiserror",
  "unsigned-varint 0.5.1",
@@ -3931,7 +3960,6 @@ dependencies = [
  "async-trait",
  "blake2b_simd",
  "chain",
- "db",
  "fil_types",
  "flo_stream",
  "forest_address",
@@ -3939,6 +3967,7 @@ dependencies = [
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
@@ -5226,24 +5255,24 @@ dependencies = [
 name = "rpc"
 version = "0.1.0"
 dependencies = [
- "actor",
  "async-log",
  "async-std",
  "async-tungstenite",
  "auth",
  "beacon",
- "bitfield",
  "chain",
  "chain_sync",
- "db",
  "fil_clock",
  "fil_types",
  "flo_stream",
+ "forest_actor",
  "forest_address",
  "forest_bigint",
+ "forest_bitfield",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
@@ -5283,26 +5312,6 @@ dependencies = [
  "key_management",
  "log",
  "serde_json",
-]
-
-[[package]]
-name = "runtime"
-version = "0.1.0"
-dependencies = [
- "base64 0.13.0",
- "commcid",
- "db",
- "fil_clock",
- "fil_types",
- "filecoin-proofs-api",
- "forest_address",
- "forest_cid",
- "forest_crypto",
- "forest_encoding",
- "forest_vm",
- "interpreter",
- "ipld_blockstore",
- "log",
 ]
 
 [[package]]
@@ -5502,14 +5511,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b88fa983de7720629c9387e9f517353ed404164b1e482c970a90c1a4aaf7dc1a"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde_bytes"
-version = "0.11.5"
-source = "git+https://github.com/ChainSafe/serde-bytes?rev=118fa7e1cd0a09f329a86deb3f4e9e27a7319f8e#118fa7e1cd0a09f329a86deb3f4e9e27a7319f8e"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -5876,24 +5877,25 @@ dependencies = [
 name = "state_manager"
 version = "0.1.0"
 dependencies = [
- "actor",
  "async-log",
  "async-std",
  "beacon",
- "bitfield",
  "chain",
- "db",
  "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
  "flo_stream",
+ "forest_actor",
  "forest_address",
  "forest_bigint",
+ "forest_bitfield",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_message",
+ "forest_runtime",
  "forest_vm",
  "futures 0.3.8",
  "interpreter",
@@ -5904,7 +5906,6 @@ dependencies = [
  "lazycell",
  "log",
  "num-traits 0.2.14",
- "runtime",
  "serde",
  "state_tree",
  "thiserror",
@@ -5914,12 +5915,12 @@ dependencies = [
 name = "state_tree"
 version = "0.1.0"
 dependencies = [
- "actor",
- "db",
  "fil_types",
+ "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_cid",
+ "forest_db",
  "forest_ipld",
  "forest_vm",
  "ipld_blockstore",

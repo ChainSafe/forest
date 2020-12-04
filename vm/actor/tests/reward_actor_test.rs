@@ -6,7 +6,11 @@ extern crate lazy_static;
 
 mod common;
 
-use actor::{
+use address::Address;
+use clock::ChainEpoch;
+use common::*;
+use fil_types::StoragePower;
+use forest_actor::{
     miner::Method as MinerMethod,
     reward::{
         AwardBlockRewardParams, Method, State, ThisEpochRewardReturn, BASELINE_INITIAL_VALUE_V0,
@@ -14,10 +18,6 @@ use actor::{
     BURNT_FUNDS_ACTOR_ADDR, POWER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, REWARD_ACTOR_CODE_ID,
     STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
-use address::Address;
-use clock::ChainEpoch;
-use common::*;
-use fil_types::StoragePower;
 use num_bigint::bigint_ser::BigIntSer;
 use num_traits::FromPrimitive;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};

@@ -13,7 +13,7 @@ features = ["json"]
 [dependencies]
 vm = { package = "forest_vm", path = "../../vm", version = "0.3" }
 address = { package = "forest_address", path = "../address", version = "0.3" }
-cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.2" }
+cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.3" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1.1" }
 encoding = { package = "forest_encoding", path = "../../encoding", version = "0.2" }
 crypto = { package = "forest_crypto", path = "../../crypto", version = "0.4" }

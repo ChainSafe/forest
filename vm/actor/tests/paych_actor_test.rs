@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod common;
-use actor::{
+use address::Address;
+use cid::Cid;
+use clock::ChainEpoch;
+use common::*;
+use crypto::Signature;
+use derive_builder::Builder;
+use forest_actor::{
     paych::{
         ConstructorParams, LaneState, Merge, Method, ModVerifyParams, PaymentVerifyParams,
         SignedVoucher, State as PState, UpdateChannelStateParams, MAX_LANE, SETTLE_DELAY,
@@ -10,12 +16,6 @@ use actor::{
     ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
     PAYCH_ACTOR_CODE_ID,
 };
-use address::Address;
-use cid::Cid;
-use clock::ChainEpoch;
-use common::*;
-use crypto::Signature;
-use derive_builder::Builder;
 use ipld_amt::Amt;
 use num_bigint::BigInt;
 use std::collections::HashMap;

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod common;
-use actor::{
+use address::Address;
+use common::*;
+use forest_actor::{
     cron::{ConstructorParams, Entry, State},
     CRON_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
-use address::Address;
-use common::*;
 use vm::{ExitCode, Serialized};
 
 fn construct_runtime() -> MockRuntime {
