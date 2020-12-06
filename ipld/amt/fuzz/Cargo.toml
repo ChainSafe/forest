@@ -13,7 +13,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.3"
 arbitrary = { version = "0.4", features = ["derive"] }
 ahash = "0.5"
-db = { package = "forest_db", path = "../../../node/db" }
+db = { package = "forest_db", version = "0.1" }
 
 [dependencies.ipld_amt]
 path = ".."

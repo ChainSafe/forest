@@ -8,7 +8,7 @@ edition = "2018"
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "forest_actor", path = "../../vm/actor/" }
 cid = { package = "forest_cid", version = "0.3" }
-db = { package = "forest_db", path = "../../node/db" }
+db = { package = "forest_db", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
@@ -25,7 +25,7 @@ async-log = "2.0.0"
 log = "0.4.8"
 fil_types = { path = "../../types" }
 message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
-vm = { package = "forest_vm", path = "../../vm" }
+vm = { package = "forest_vm", version = "0.3.1" }
 bitfield = { package = "forest_bitfield", path = "../../utils/bitfield" }
 serde = { version = "1.0", features = ["derive"] }
 ipld_hamt = { path = "../../ipld/hamt" }

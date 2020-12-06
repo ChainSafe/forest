@@ -21,7 +21,7 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 sha2 = { version = "0.9", default-features = false }
 thiserror = "1.0"
-vm = { package = "forest_vm", path = "../../vm" }
+vm = { package = "forest_vm", version = "0.3.1" }
 fil_types = { path = "../../types" }
 base64 = { version = "0.13", optional = true }
 forest_json_utils = { path = "../../utils/json_utils", optional = true }

@@ -1,6 +1,9 @@
 mod builtin;
 
 pub use self::builtin::*;
+pub use actorv0;
+pub use actorv2;
+
 use fil_types::NetworkVersion;
 
 pub enum ActorVersion {

@@ -37,7 +37,7 @@ cid = { package = "forest_cid", version = "0.3", features = [
 ], optional = true }
 actor = { package = "forest_actor", path = "../../vm/actor", optional = true }
 clock = { package = "fil_clock", path = "../../node/clock", optional = true }
-db = { package = "forest_db", path = "../../node/db", optional = true }
+db = { package = "forest_db", version = "0.1", optional = true }
 address = { package = "forest_address", version = "0.3", features = [
     "json"
 ], optional = true }
@@ -46,7 +46,7 @@ runtime = { package = "forest_runtime", path = "../../vm/runtime/", optional = t
 state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }
-vm = { package = "forest_vm", path = "../../vm", optional = true }
+vm = { package = "forest_vm", version = "0.3.1", optional = true }
 blockstore = { package = "ipld_blockstore", version = "0.1", features = ["resolve"], optional = true }
 crypto = { package = "forest_crypto", path = "../../crypto", optional = true }
 encoding = { package = "forest_encoding", version = "0.2.1", optional = true }

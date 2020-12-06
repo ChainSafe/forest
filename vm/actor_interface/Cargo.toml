@@ -8,6 +8,7 @@ edition = "2018"
 actorv0 = { package = "forest_actor", version = "0.1" }
 actorv2 = { package = "forest_actor", path = "../actor" }
 fil_types = { path = "../../types" }
-vm = { package = "forest_vm", path = "../" }
+vm = { package = "forest_vm", version = "0.3.1" }
 ipld_blockstore = "0.1"
 address = { package = "forest_address", version = "0.3" }
+serde = { version = "1.0", features = ["derive"] }

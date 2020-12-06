@@ -8,7 +8,7 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-vm = { package = "forest_vm", path = "../../vm", version = "0.3" }
+vm = { package = "forest_vm", version = "0.3" }
 crypto = { package = "forest_crypto", path = "../../crypto", version = "0.4" }
 address = { package = "forest_address", version = "0.3" }
 cid = { package = "forest_cid", version = "0.3" }
@@ -23,4 +23,4 @@ log = "0.4.8"
 
 [dev-dependencies]
 interpreter = { path = "../interpreter/" }
-db = { package = "forest_db", path = "../../node/db" }
+db = { package = "forest_db", version = "0.1" }

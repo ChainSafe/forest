@@ -11,7 +11,7 @@ repository = "https://github.com/ChainSafe/forest"
 features = ["json"]
 
 [dependencies]
-vm = { package = "forest_vm", path = "../../vm", version = "0.3" }
+vm = { package = "forest_vm", version = "0.3" }
 address = { package = "forest_address", version = "0.3" }
 cid = { package = "forest_cid", version = "0.3" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1.1" }
