@@ -1,0 +1,13 @@
+[package]
+name = "actor_interface"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+actorv0 = { package = "forest_actor", version = "0.1" }
+actorv2 = { package = "forest_actor", path = "../actor" }
+fil_types = { path = "../../types" }
+vm = { package = "forest_vm", path = "../" }
+ipld_blockstore = "0.1"
+address = { package = "forest_address", version = "0.3" }

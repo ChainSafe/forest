@@ -5,17 +5,17 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-address = { package = "forest_address", path = "../address" }
+address = { package = "forest_address", version = "0.3" }
 actor = { package = "forest_actor", path = "../actor" }
 message = { package = "forest_message", path = "../message" }
 runtime = { package = "forest_runtime", path = "../runtime" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 clock = { package = "fil_clock", path = "../../node/clock" }
 vm = { package = "forest_vm", path = "../" }
-ipld_blockstore = { path = "../../ipld/blockstore" }
+ipld_blockstore = "0.1"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-forest_encoding = { path = "../../encoding" }
-cid = { package = "forest_cid", path = "../../ipld/cid" }
+forest_encoding = "0.2.1"
+cid = { package = "forest_cid", version = "0.3" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
 num-traits = "0.2.11"
 byteorder = "1.3.4"

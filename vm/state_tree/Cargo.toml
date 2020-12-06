@@ -5,13 +5,14 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-actor = { package = "forest_actor", path = "../actor" }
-address = { package = "forest_address", path = "../address" }
+actorv2 = { package = "forest_actor", path = "../actor" }
+actorv1 = { package = "forest_actor", version = "0.1.0" }
+address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", path = "../../vm" }
-cid = { package = "forest_cid", path = "../../ipld/cid" }
+cid = { package = "forest_cid", version = "0.3" }
 ipld_hamt = { path = "../../ipld/hamt" }
-forest_ipld = { path = "../../ipld" }
-ipld_blockstore = { path = "../../ipld/blockstore" }
+forest_ipld = "0.1.1"
+ipld_blockstore = "0.1"
 db = { package = "forest_db", path = "../../node/db" }
 fil_types = { path = "../../types" }
 

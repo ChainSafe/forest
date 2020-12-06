@@ -5,14 +5,14 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-address = { package = "forest_address", path = "../../vm/address/" }
+address = { package = "forest_address", version = "0.3" }
 actor = { package = "forest_actor", path = "../../vm/actor/" }
-cid = { package = "forest_cid", path = "../../ipld/cid" }
+cid = { package = "forest_cid", version = "0.3" }
 db = { package = "forest_db", path = "../../node/db" }
-encoding = { package = "forest_encoding", path = "../../encoding/" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", features = ["buffered"] }
+blockstore = { package = "ipld_blockstore", version = "0.1", features = ["buffered"] }
 forest_blocks = { path = "../../blockchain/blocks" }
 beacon = { path = "../../blockchain/beacon" }
 thiserror = "1.0"

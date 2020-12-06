@@ -10,11 +10,11 @@ repository = "https://github.com/ChainSafe/forest"
 [dependencies]
 vm = { package = "forest_vm", path = "../../vm", version = "0.3" }
 crypto = { package = "forest_crypto", path = "../../crypto", version = "0.4" }
-address = { package = "forest_address", path = "../address", version = "0.3" }
-cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.3" }
-ipld_blockstore = { path = "../../ipld/blockstore", version = "0.1" }
+address = { package = "forest_address", version = "0.3" }
+cid = { package = "forest_cid", version = "0.3" }
+ipld_blockstore = "0.1"
 clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
-forest_encoding = { path = "../../encoding", version = "0.2" }
+forest_encoding = "0.2.1"
 commcid = { path = "../../utils/commcid", version = "0.1.1" }
 filecoin-proofs-api = { version = "5.3", features = ["blst"], default_features = false }
 base64 = "0.13"

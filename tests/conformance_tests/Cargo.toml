@@ -31,14 +31,14 @@ submodule_tests = [
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true }
-cid = { package = "forest_cid", path = "../../ipld/cid", features = [
+cid = { package = "forest_cid", version = "0.3", features = [
     "cbor",
     "json"
 ], optional = true }
 actor = { package = "forest_actor", path = "../../vm/actor", optional = true }
 clock = { package = "fil_clock", path = "../../node/clock", optional = true }
 db = { package = "forest_db", path = "../../node/db", optional = true }
-address = { package = "forest_address", path = "../../vm/address", features = [
+address = { package = "forest_address", version = "0.3", features = [
     "json"
 ], optional = true }
 base64 = { version = "0.13", optional = true }
@@ -47,9 +47,9 @@ state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }
 vm = { package = "forest_vm", path = "../../vm", optional = true }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", features = ["resolve"], optional = true }
+blockstore = { package = "ipld_blockstore", version = "0.1", features = ["resolve"], optional = true }
 crypto = { package = "forest_crypto", path = "../../crypto", optional = true }
-encoding = { package = "forest_encoding", path = "../../encoding", optional = true }
+encoding = { package = "forest_encoding", version = "0.2.1", optional = true }
 fil_types = { path = "../../types", optional = true }
 forest_message = { path = "../../vm/message", features = ["json"], optional = true }
 state_tree = { path = "../../vm/state_tree/", optional = true }

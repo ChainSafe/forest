@@ -11,8 +11,8 @@ serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 serde_json = "1.0.48"
 chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore" }
-cid = { package = "forest_cid", path = "../../ipld/cid", features = ["json"] }
+blockstore = { package = "ipld_blockstore", version = "0.1" }
+cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
 clock = { package = "fil_clock", path = "../clock" }
@@ -23,8 +23,8 @@ crypto = { package = "forest_crypto", path = "../../crypto", features = ["json"]
 num-traits = "0.2.11"
 wallet = {package = "key_management", path = "../../key_management", features = ["json"] }
 state_manager = {package = "state_manager", path = "../../blockchain/state_manager" }
-address = { package = "forest_address", path = "../../vm/address", features = ["json"] }
-encoding = { package = "forest_encoding",  path = "../../encoding/"}
+address = { package = "forest_address", version = "0.3", features = ["json"] }
+encoding = { package = "forest_encoding", version = "0.2.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 thiserror = "1.0"
 state_tree = { path = "../../vm/state_tree" }

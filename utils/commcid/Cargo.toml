@@ -8,7 +8,7 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.3" }
+cid = { package = "forest_cid", version = "0.3" }
 
 [dev-dependencies]
 rand = "0.7.3"
