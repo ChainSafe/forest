@@ -8,7 +8,7 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
-features = ["json"]
+features = ["json", "proofs"]
 
 [dependencies]
 vm = { package = "forest_vm", path = "../../vm", version = "0.3" }
