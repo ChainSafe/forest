@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use std::error::Error;

@@ -58,7 +58,7 @@ pub fn execute_message(
         params.basefee,
         get_network_version_default,
         &circ_supply,
-        &lb
+        &lb,
     )?;
 
     if let Some(s) = &selector {

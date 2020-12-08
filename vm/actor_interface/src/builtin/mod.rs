@@ -1,7 +1,10 @@
-pub mod init;
-pub mod system;
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 pub mod account;
+pub mod init;
 pub mod miner;
+pub mod system;
 
 use cid::Cid;
 

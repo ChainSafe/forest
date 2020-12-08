@@ -153,7 +153,11 @@ pub trait Provider {
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
     /// Resolves to the key address
-    async fn state_account_key<V>(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error>
+    async fn state_account_key<V>(
+        &self,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<Address, Error>
     where
         V: ProofVerifier;
     /// Return all messages for a tipset
