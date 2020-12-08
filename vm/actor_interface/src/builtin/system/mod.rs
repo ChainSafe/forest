@@ -1,0 +1,33 @@
+use ipld_blockstore::BlockStore;
+use serde::Serialize;
+use std::error::Error;
+use vm::ActorState;
+
+/// System actor address.
+pub static ADDRESS: &actorv2::SYSTEM_ACTOR_ADDR = &actorv2::SYSTEM_ACTOR_ADDR;
+
+/// System actor method.
+pub type Method = actorv2::system::Method;
+
+/// System actor state.
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum State {
+    V0(actorv0::system::State),
+    V2(actorv2::system::State),
+}
+
+impl State {
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<Option<State>, Box<dyn Error>>
+    where
+        BS: BlockStore,
+    {
+        if actor.code == *actorv0::SYSTEM_ACTOR_CODE_ID {
+            Ok(store.get(&actor.state)?.map(State::V0))
+        } else if actor.code == *actorv2::SYSTEM_ACTOR_CODE_ID {
+            Ok(store.get(&actor.state)?.map(State::V2))
+        } else {
+            Err(format!("Unknown actor code {}", actor.code).into())
+        }
+    }
+}

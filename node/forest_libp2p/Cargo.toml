@@ -26,7 +26,7 @@ log = "0.4.8"
 async-std = { version = "1.6.3", features = ["unstable"] }
 serde = { version = "1.0", features = ["derive"] }
 forest_blocks = { path = "../../blockchain/blocks" }
-forest_message = { path = "../../vm/message" }
+forest_message = "0.6"
 forest_encoding = "0.2.1"
 forest_cid = { version = "0.3" }
 bytes = "0.5.2"
@@ -46,6 +46,6 @@ lazy_static = "1.4"
 [dev-dependencies]
 forest_address = "0.3"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-crypto = { package = "forest_crypto", path = "../../crypto" }
+crypto = { package = "forest_crypto", version = "0.4" }
 genesis = { path = "../../utils/genesis", features = ["testing"] }
 async-std = { version = "1.6.3", features = ["attributes"] }

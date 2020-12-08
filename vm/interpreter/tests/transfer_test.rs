@@ -1,7 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
+// TODO handle ambi
+use actor::actorv2::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
 use address::Address;
 use cid::Code::{Blake2b256, Identity};
 use clock::ChainEpoch;
@@ -80,7 +81,7 @@ fn transfer_test() {
     let actor_state_cid_1 = state
         .store()
         .put(
-            &actor::account::State {
+            &actor::actorv2::account::State {
                 address: actor_addr_1.clone(),
             },
             Identity,
@@ -91,7 +92,7 @@ fn transfer_test() {
     let actor_state_cid_2 = state
         .store()
         .put(
-            &actor::account::State {
+            &actor::actorv2::account::State {
                 address: actor_addr_2.clone(),
             },
             Identity,

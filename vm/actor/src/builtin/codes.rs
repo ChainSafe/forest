@@ -15,7 +15,7 @@ lazy_static! {
     pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/multisig");
     pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/reward");
     pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/verifiedregistry");
-    pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/chaos");
+    pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/chaos");
 
     /// Set of actor code types that can represent external signing parties.
     pub static ref CALLER_TYPES_SIGNABLE: [Cid; 2] =

@@ -7,8 +7,12 @@ edition = "2018"
 [dependencies]
 actorv0 = { package = "forest_actor", version = "0.1" }
 actorv2 = { package = "forest_actor", path = "../actor" }
-fil_types = { path = "../../types" }
+fil_types = "0.1"
 vm = { package = "forest_vm", version = "0.3.1" }
 ipld_blockstore = "0.1"
 address = { package = "forest_address", version = "0.3" }
 serde = { version = "1.0", features = ["derive"] }
+cid = { package = "forest_cid", version = "0.3" }
+clock = { package = "fil_clock", version = "0.1" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
+libp2p = { version = "0.24", default-features = false }

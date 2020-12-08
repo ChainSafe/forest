@@ -5,9 +5,9 @@ use super::{
     gas_tracker::{price_list_by_epoch, GasCharge},
     vm_send, DefaultRuntime, Rand,
 };
-use actor::{
-    cron, reward, ACCOUNT_ACTOR_CODE_ID, BURNT_FUNDS_ACTOR_ADDR, CRON_ACTOR_ADDR,
-    REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+// TODO handle these ambiguous (if needed)
+use actor::actorv2::{
+    cron, reward, BURNT_FUNDS_ACTOR_ADDR, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -309,7 +309,7 @@ where
             }
         };
 
-        if from_act.code != *ACCOUNT_ACTOR_CODE_ID {
+        if !actor::is_account_actor(&from_act.code) {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
                     return_data: Serialized::default(),

@@ -1,5 +1,3 @@
-mod v0;
-
 use address::Address;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
@@ -8,6 +6,9 @@ use vm::ActorState;
 
 /// Init actor address.
 pub static ADDRESS: &actorv2::INIT_ACTOR_ADDR = &actorv2::INIT_ACTOR_ADDR;
+
+/// Init actor method.
+pub type Method = actorv2::init::Method;
 
 /// Init actor state.
 #[derive(Serialize)]

@@ -4,7 +4,11 @@
 use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
 use super::{CircSupplyCalc, Rand};
-use actor::*;
+use actor::{
+    account, actorv0,
+    actorv2::{self, ActorDowncast},
+    ActorVersion,
+};
 use address::{Address, Protocol};
 use blocks::BlockHeader;
 use byteorder::{BigEndian, WriteBytesExt};
@@ -304,7 +308,8 @@ where
             .register_new_address(addr)
             .map_err(|e| e.downcast_fatal("failed to register new address"))?;
 
-        let act = make_actor(addr)?;
+        let version = ActorVersion::from(self.network_version());
+        let act = make_actor(addr, version)?;
 
         self.state
             .set_actor(&addr_id, act)
@@ -318,7 +323,7 @@ where
         })?;
 
         self.internal_send(
-            *SYSTEM_ACTOR_ADDR,
+            **actor::system::ADDRESS,
             addr_id,
             account::Method::Constructor as u64,
             TokenAmount::from(0),
@@ -336,20 +341,40 @@ where
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> Result<(), Box<dyn StdError>> {
+        let worker_addr = self.worker_key_at_lookback(bh.epoch(), bh.miner_address())?;
+
+        bh.check_block_signature(&worker_addr)?;
+        Ok(())
+    }
+
+    fn worker_key_at_lookback(
+        &self,
+        height: ChainEpoch,
+        address: &Address,
+    ) -> Result<Address, Box<dyn StdError>> {
+        if self.network_version() >= NetworkVersion::V7
+            && height < self.epoch - actor::CHAIN_FINALITY
+        {
+            return Err(format!(
+                "cannot get worker key (current epoch: {}, height: {})",
+                self.epoch, height
+            )
+            .into());
+        }
+
+        // TODO this should be using lookback state, not current
+        // Also, Lotus uses
         let actor = self
             .state
-            .get_actor(bh.miner_address())?
-            .ok_or_else(|| format!("actor not found {:?}", bh.miner_address()))?;
+            .get_actor(address)?
+            .ok_or_else(|| format!("actor not found {:?}", address))?;
 
-        let ms: miner::State = self
-            .store
-            .get(&actor.state)?
+        let ms = actor::miner::State::load(self.store(), &actor)?
             .ok_or_else(|| format!("actor state not found {:?}", actor.state.to_string()))?;
 
-        let info = ms.get_info(&self.store)?;
-        let work_address = resolve_to_key_addr(&self.state, &self.store, &info.worker)?;
-        bh.check_block_signature(&work_address)?;
-        Ok(())
+        let info = ms.info(&self.store)?;
+
+        resolve_to_key_addr(&self.state, &self.store, &info.worker)
     }
 }
 
@@ -573,11 +598,11 @@ where
         Ok(addr)
     }
     fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
-        if !is_builtin_actor(&code_id) {
+        if !actor::is_builtin_actor(&code_id) {
             return Err(actor_error!(SysErrIllegalArgument; "Can only create built-in actors."));
         }
         // TODO should check both actors versions
-        if is_singleton_actor(&code_id) {
+        if actor::is_singleton_actor(&code_id) {
             return Err(actor_error!(SysErrIllegalArgument;
                     "Can only have one instance of singleton actors."));
         }
@@ -939,10 +964,15 @@ where
     R: Rand,
     C: CircSupplyCalc,
 {
-    let ret = if let Some(ret) = actor::invoke_code(&code, rt, method_num, params) {
+    let ret = if let Some(ret) = {
+        match actor::ActorVersion::from(rt.network_version()) {
+            ActorVersion::V0 => actorv0::invoke_code(&code, rt, method_num, params),
+            ActorVersion::V2 => actorv2::invoke_code(&code, rt, method_num, params),
+        }
+    } {
         ret
-    } else if code == *CHAOS_ACTOR_CODE_ID && rt.registered_actors.contains(&code) {
-        chaos::Actor::invoke_method(rt, method_num, params)
+    } else if code == *actorv2::CHAOS_ACTOR_CODE_ID && rt.registered_actors.contains(&code) {
+        actorv2::chaos::Actor::invoke_method(rt, method_num, params)
     } else {
         Err(actor_error!(
             SysErrIllegalActor,
@@ -978,22 +1008,15 @@ where
         .map_err(|e| e.downcast_wrap("Failed to get actor"))?
         .ok_or_else(|| format!("Failed to retrieve actor: {}", addr))?;
 
-    // TODO this will need to handle multiple actor versions
-    if act.code != *ACCOUNT_ACTOR_CODE_ID {
-        return Err(format!("Address was not found for an account actor: {}", addr).into());
-    }
-    let acc_st: account::State = store
-        .get(&act.state)
-        .map_err(|e| e.downcast_wrap(format!("Failed to get account actor state for: {}", addr)))?
+    let acc_st = account::State::load(store, &act)?
         .ok_or_else(|| format!("Address was not found for an account actor: {}", addr))?;
 
-    Ok(acc_st.address)
+    Ok(acc_st.pubkey_address())
 }
 
-fn make_actor(addr: &Address) -> Result<ActorState, ActorError> {
+fn make_actor(addr: &Address, version: ActorVersion) -> Result<ActorState, ActorError> {
     match addr.protocol() {
-        Protocol::BLS => Ok(new_bls_account_actor()),
-        Protocol::Secp256k1 => Ok(new_secp256k1_account_actor()),
+        Protocol::BLS | Protocol::Secp256k1 => Ok(new_account_actor(version)),
         Protocol::ID => {
             Err(actor_error!(SysErrInvalidReceiver; "no actor with given id: {}", addr))
         }
@@ -1001,25 +1024,14 @@ fn make_actor(addr: &Address) -> Result<ActorState, ActorError> {
     }
 }
 
-fn new_bls_account_actor() -> ActorState {
+fn new_account_actor(version: ActorVersion) -> ActorState {
     ActorState {
-        code: *ACCOUNT_ACTOR_CODE_ID,
+        code: match version {
+            ActorVersion::V0 => *actorv0::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V2 => *actorv2::ACCOUNT_ACTOR_CODE_ID,
+        },
         balance: TokenAmount::from(0),
         state: *EMPTY_ARR_CID,
         sequence: 0,
     }
-}
-
-fn new_secp256k1_account_actor() -> ActorState {
-    ActorState {
-        code: *ACCOUNT_ACTOR_CODE_ID,
-        balance: TokenAmount::from(0),
-        state: *EMPTY_ARR_CID,
-        sequence: 0,
-    }
-}
-
-fn is_builtin_actor(code: &Cid) -> bool {
-    // TODO Add v2 builtin check
-    actor::is_builtin_actor(code)
 }

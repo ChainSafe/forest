@@ -16,16 +16,16 @@ cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
 clock = { package = "fil_clock", path = "../clock" }
-message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
+message = { package = "forest_message", version = "0.6", features = ["json"] }
 jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2", features = ["easy-errors", "macros"], default-features = false }
 message_pool = { path = "../../blockchain/message_pool" }
-crypto = { package = "forest_crypto", path = "../../crypto", features = ["json"] }
+crypto = { package = "forest_crypto", version = "0.4", features = ["json"] }
 num-traits = "0.2.11"
 wallet = {package = "key_management", path = "../../key_management", features = ["json"] }
 state_manager = {package = "state_manager", path = "../../blockchain/state_manager" }
 address = { package = "forest_address", version = "0.3", features = ["json"] }
 encoding = { package = "forest_encoding", version = "0.2.1" }
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+num-bigint = { version = "0.1.1", package = "forest_bigint" }
 thiserror = "1.0"
 state_tree = { path = "../../vm/state_tree" }
 forest_libp2p = { path = "../forest_libp2p" }
@@ -35,7 +35,7 @@ utils = { path = "../../node/utils" }
 rand_distr = "0.3"
 rand = "0.7"
 interpreter = { path = "../../vm/interpreter/" }
-fil_types = { path = "../../types" }
+fil_types = "0.1"
 bitfield = { package = "forest_bitfield", path = "../../utils/bitfield",features = ["json"] }
 futures = "0.3.5"
 async-tungstenite = "0.9.1"
