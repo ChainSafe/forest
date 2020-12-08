@@ -26,7 +26,8 @@ submodule_tests = [
     "state_tree",
     "forest_message",
     "futures",
-    "crypto"
+    "crypto",
+    "forest_blocks"
 ]
 
 [dependencies]
@@ -55,6 +56,7 @@ forest_message = { version = "0.6", features = ["json"], optional = true }
 state_tree = { path = "../../vm/state_tree/", optional = true }
 chain = { path = "../../blockchain/chain", optional = true }
 futures = { version = "0.3.5", optional = true }
+forest_blocks = { path = "../../blockchain/blocks", optional = true }
 
 [dev-dependencies]
 regex = { version = "1.0" }
@@ -67,7 +69,6 @@ pretty_env_logger = "0.4.0"
 log = "0.4"
 paramfetch = { path = "../../utils/paramfetch" }
 async-std = { version = "1.6", features = ["attributes"] }
-forest_blocks = { path = "../../blockchain/blocks" }
 chain_sync = { path = "../../blockchain/chain_sync" }
 statediff = { path = "../../utils/statediff" }
 

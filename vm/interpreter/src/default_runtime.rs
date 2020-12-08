@@ -3,7 +3,7 @@
 
 use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
-use super::{CircSupplyCalc, Rand};
+use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
     account, actorv0,
     actorv2::{self, ActorDowncast},
@@ -66,7 +66,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'vm, BS, R, C, V, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DevnetParams> {
     version: NetworkVersion,
     state: &'vm mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
@@ -82,17 +82,19 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, C, V, P = DevnetParams> {
     allow_internal: bool,
     registered_actors: &'vm HashSet<Cid>,
     circ_supply_calc: &'vm C,
+    lb_state: &'vm LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'vm, BS, R, C, V, P> DefaultRuntime<'db, 'vm, BS, R, C, V, P>
+impl<'db, 'vm, BS, R, C, LB, V, P> DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
     C: CircSupplyCalc,
+    LB: LookbackStateGetter<'db, BS>,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
@@ -109,6 +111,7 @@ where
         rand: &'vm R,
         registered_actors: &'vm HashSet<Cid>,
         circ_supply_calc: &'vm C,
+        lb_state: &'vm LB,
     ) -> Result<Self, ActorError> {
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
@@ -145,6 +148,7 @@ where
             rand,
             registered_actors,
             circ_supply_calc,
+            lb_state,
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
@@ -279,7 +283,7 @@ where
         };
         self.caller_validated = false;
 
-        let send_res = vm_send::<BS, R, C, V, P>(self, &msg, None);
+        let send_res = vm_send::<BS, R, C, LB, V, P>(self, &msg, None);
 
         // Reset values back to their values before the call
         self.vm_msg = prev_msg;
@@ -362,11 +366,10 @@ where
             .into());
         }
 
-        // TODO this should be using lookback state, not current
-        // Also, Lotus uses
-        let actor = self
-            .state
-            .get_actor(address)?
+        let lb_state = self.lb_state.state_lookback(height)?;
+        let actor = lb_state
+            // * @austinabell: Yes, this is intentional (should be updated with v3 actors though)
+            .get_actor(self.vm_msg.receiver())?
             .ok_or_else(|| format!("actor not found {:?}", address))?;
 
         let ms = actor::miner::State::load(self.store(), &actor)?
@@ -378,14 +381,15 @@ where
     }
 }
 
-impl<'bs, BS, R, CS, V, P> Runtime<GasBlockStore<'bs, BS>>
-    for DefaultRuntime<'bs, '_, BS, R, CS, V, P>
+impl<'bs, BS, R, CS, LB, V, P> Runtime<GasBlockStore<'bs, BS>>
+    for DefaultRuntime<'bs, '_, BS, R, CS, LB, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
     CS: CircSupplyCalc,
+    LB: LookbackStateGetter<'bs, BS>,
 {
     fn network_version(&self) -> NetworkVersion {
         self.version
@@ -601,7 +605,7 @@ where
         if !actor::is_builtin_actor(&code_id) {
             return Err(actor_error!(SysErrIllegalArgument; "Can only create built-in actors."));
         }
-        // TODO should check both actors versions
+
         if actor::is_singleton_actor(&code_id) {
             return Err(actor_error!(SysErrIllegalArgument;
                     "Can only have one instance of singleton actors."));
@@ -654,13 +658,14 @@ where
     }
 }
 
-impl<'bs, BS, R, C, V, P> Syscalls for DefaultRuntime<'bs, '_, BS, R, C, V, P>
+impl<'bs, BS, R, C, LB, V, P> Syscalls for DefaultRuntime<'bs, '_, BS, R, C, LB, V, P>
 where
     BS: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
     C: CircSupplyCalc,
+    LB: LookbackStateGetter<'bs, BS>,
 {
     fn verify_signature(
         &self,
@@ -841,8 +846,8 @@ where
 
 /// Shared logic between the DefaultRuntime and the Interpreter.
 /// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'vm, BS, R, C, V, P>(
-    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, V, P>,
+pub fn vm_send<'db, 'vm, BS, R, C, LB, V, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P>,
     msg: &UnsignedMessage,
     gas_cost: Option<GasCharge>,
 ) -> Result<Serialized, ActorError>
@@ -852,6 +857,7 @@ where
     P: NetworkParams,
     R: Rand,
     C: CircSupplyCalc,
+    LB: LookbackStateGetter<'db, BS>,
 {
     if let Some(cost) = gas_cost {
         rt.charge_gas(cost)?;
@@ -950,8 +956,8 @@ fn transfer<BS: BlockStore>(
 }
 
 /// Calls actor code with method and parameters.
-fn invoke<'db, 'vm, BS, R, C, V, P>(
-    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, V, P>,
+fn invoke<'db, 'vm, BS, R, C, LB, V, P>(
+    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P>,
     code: Cid,
     method_num: MethodNum,
     params: &Serialized,
@@ -963,6 +969,7 @@ where
     P: NetworkParams,
     R: Rand,
     C: CircSupplyCalc,
+    LB: LookbackStateGetter<'db, BS>,
 {
     let ret = if let Some(ret) = {
         match actor::ActorVersion::from(rt.network_version()) {

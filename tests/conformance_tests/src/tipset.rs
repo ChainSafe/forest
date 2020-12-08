@@ -4,6 +4,7 @@
 use super::*;
 use chain::ChainStore;
 use fil_types::verifier::FullVerifier;
+use forest_blocks::{BlockHeader, Tipset};
 use num_bigint::ToBigInt;
 use state_manager::StateManager;
 use std::sync::Arc;
@@ -77,7 +78,7 @@ pub fn execute_tipset(
     tipset: &TipsetVector,
     exec_epoch: ChainEpoch,
 ) -> Result<ExecuteTipsetResult, Box<dyn StdError>> {
-    let sm = StateManager::new(Arc::new(ChainStore::new(bs)));
+    let sm = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs))));
     let mut _applied_messages = Vec::new();
     let mut applied_results = Vec::new();
     let (post_state_root, receipts_root) = sm.apply_blocks::<_, FullVerifier, _>(
@@ -92,6 +93,15 @@ pub fn execute_tipset(
             applied_results.push(ret.clone());
             Ok(())
         }),
+        // TODO Lotus runner has a nil tipset here, if any vectors fail, check here first.
+        // It technically shouldn't fail unless they update because they would get a nil deref
+        &Arc::new(
+            Tipset::new(vec![BlockHeader::builder()
+                .miner_address(Address::new_id(1000))
+                .build()
+                .unwrap()])
+            .unwrap(),
+        ),
     )?;
     Ok(ExecuteTipsetResult {
         receipts_root,

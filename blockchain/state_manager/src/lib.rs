@@ -32,6 +32,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::channel::oneshot;
 use futures::stream::{FuturesUnordered, StreamExt};
+use interpreter::LookbackStateGetter;
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
 use ipld_amt::Amt;
 use lazycell::AtomicLazyCell;
@@ -44,6 +45,7 @@ use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use vm_circ_supply::GenesisInfoPair;
 
@@ -207,7 +209,7 @@ where
     /// This function returns the state root and receipt root of the transition.
     #[allow(clippy::too_many_arguments)]
     pub fn apply_blocks<R, V, CB>(
-        &self,
+        self: &Arc<Self>,
         parent_epoch: ChainEpoch,
         p_state: &Cid,
         messages: &[BlockMessages],
@@ -215,6 +217,7 @@ where
         rand: &R,
         base_fee: BigInt,
         callback: Option<CB>,
+        tipset: &Arc<Tipset>,
     ) -> Result<CidPair, Box<dyn StdError>>
     where
         R: Rand,
@@ -222,8 +225,14 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
     {
         let mut buf_store = BufferedBlockStore::new(self.blockstore());
+        let lb_wrapper = SMLookbackWrapper {
+            sm: self,
+            store: &buf_store,
+            tipset,
+            verifier: PhantomData::<V>::default(),
+        };
         // TODO change from statically using devnet params when needed
-        let mut vm = VM::<_, _, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, _, V>::new(
             p_state,
             &buf_store,
             epoch,
@@ -231,6 +240,7 @@ where
             base_fee,
             get_network_version_default,
             &self.genesis_info,
+            &lb_wrapper,
         )?;
 
         // Apply tipset messages
@@ -250,7 +260,7 @@ where
     /// Returns the pair of (parent state root, message receipt root)
     pub async fn tipset_state<V>(
         self: &Arc<Self>,
-        tipset: &Tipset,
+        tipset: &Arc<Tipset>,
     ) -> Result<CidPair, Box<dyn StdError>>
     where
         V: ProofVerifier,
@@ -310,26 +320,35 @@ where
     }
 
     fn call_raw<V>(
-        &self,
+        self: &Arc<Self>,
         msg: &mut UnsignedMessage,
-        bstate: &Cid,
         rand: &ChainRand<DB>,
-        bheight: &ChainEpoch,
+        tipset: &Arc<Tipset>,
     ) -> StateCallResult
     where
         V: ProofVerifier,
     {
         span!("state_call_raw", {
+            let bstate = tipset.parent_state();
+            let bheight = tipset.epoch();
             let block_store = self.blockstore();
+
             let buf_store = BufferedBlockStore::new(block_store);
-            let mut vm = VM::<_, _, _, _, V>::new(
+            let lb_wrapper = SMLookbackWrapper {
+                sm: self,
+                store: &buf_store,
+                tipset,
+                verifier: PhantomData::<V>::default(),
+            };
+            let mut vm = VM::<_, _, _, _, _, V>::new(
                 bstate,
                 &buf_store,
-                *bheight,
+                bheight,
                 rand,
                 0.into(),
                 get_network_version_default,
                 &self.genesis_info,
+                &lb_wrapper,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -361,7 +380,7 @@ where
 
     /// runs the given message and returns its result without any persisted changes.
     pub async fn call<V>(
-        &self,
+        self: &Arc<Self>,
         message: &mut UnsignedMessage,
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult
@@ -376,9 +395,8 @@ where
                 .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
-        let state = ts.parent_state();
         let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone());
-        self.call_raw::<V>(message, state, &chain_rand, &ts.epoch())
+        self.call_raw::<V>(message, &chain_rand, &ts)
     }
 
     pub async fn call_with_gas<V>(
@@ -404,7 +422,15 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone());
 
-        let mut vm = VM::<_, _, _, _, V>::new(
+        // TODO investigate: this doesn't use a buffered store in any way, and can lead to
+        // state bloat potentially?
+        let lb_wrapper = SMLookbackWrapper {
+            sm: self,
+            store: self.blockstore(),
+            tipset: &ts,
+            verifier: PhantomData::<V>::default(),
+        };
+        let mut vm = VM::<_, _, _, _, _, V>::new(
             &st,
             self.blockstore(),
             ts.epoch() + 1,
@@ -412,6 +438,7 @@ where
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
             &self.genesis_info,
+            &lb_wrapper,
         )?;
 
         for msg in prior_messages {
@@ -436,7 +463,7 @@ where
     /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
     pub async fn replay<V>(
         self: &Arc<Self>,
-        ts: &Tipset,
+        ts: &Arc<Tipset>,
         mcid: Cid,
     ) -> Result<(UnsignedMessage, ApplyRet), Error>
     where
@@ -641,7 +668,7 @@ where
 
     pub async fn compute_tipset_state<V, CB: 'static>(
         self: &Arc<Self>,
-        tipset: &Tipset,
+        tipset: &Arc<Tipset>,
         callback: Option<CB>,
     ) -> Result<CidPair, Error>
     where
@@ -697,6 +724,7 @@ where
             let sm = self.clone();
             let sr = *first_block.state_root();
             let epoch = first_block.epoch();
+            let ts_cloned = tipset.clone();
             task::spawn_blocking(move || {
                 sm.apply_blocks::<_, V, _>(
                     parent_epoch,
@@ -706,6 +734,7 @@ where
                     &chain_rand,
                     base_fee,
                     callback,
+                    &ts_cloned,
                 )
                 .map_err(|e| Error::Other(e.to_string()))
             })
@@ -1071,7 +1100,7 @@ where
     pub async fn resolve_to_key_addr<V>(
         self: &Arc<Self>,
         addr: &Address,
-        ts: &Tipset,
+        ts: &Arc<Tipset>,
     ) -> Result<Address, Box<dyn StdError>>
     where
         V: ProofVerifier,
@@ -1085,7 +1114,7 @@ where
             }
             _ => {}
         };
-        let (st, _) = self.tipset_state::<V>(&ts).await?;
+        let (st, _) = self.tipset_state::<V>(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)
             .map_err(|e| Error::State(e.to_string()))?;
 
@@ -1158,4 +1187,28 @@ pub struct MiningBaseInfo {
     pub prev_beacon_entry: BeaconEntry,
     pub beacon_entries: Vec<BeaconEntry>,
     pub elligable_for_minning: bool,
+}
+
+struct SMLookbackWrapper<'sm, 'ts, DB, BS, V> {
+    sm: &'sm Arc<StateManager<DB>>,
+    store: &'sm BS,
+    tipset: &'ts Arc<Tipset>,
+    verifier: PhantomData<V>,
+}
+
+impl<'sm, 'ts, DB, BS, V> LookbackStateGetter<'sm, BS> for SMLookbackWrapper<'sm, 'ts, DB, BS, V>
+where
+    // Yes, both are needed, because the VM should only use the buffered store
+    DB: BlockStore + Send + Sync + 'static,
+    BS: BlockStore,
+    V: ProofVerifier,
+{
+    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, Box<dyn StdError>> {
+        let (_, st) = task::block_on(
+            self.sm
+                .get_lookback_tipset_for_round::<V>(self.tipset.clone(), round),
+        )?;
+
+        StateTree::new_from_root(self.store, &st)
+    }
 }

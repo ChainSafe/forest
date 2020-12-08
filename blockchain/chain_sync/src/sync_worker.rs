@@ -743,7 +743,7 @@ where
     fn check_block_msgs(
         state_manager: Arc<StateManager<DB>>,
         block: &Block,
-        base_ts: &Tipset,
+        base_ts: &Arc<Tipset>,
     ) -> Result<(), Box<dyn StdError>> {
         // do the initial loop here
         // Check Block Message and Signatures in them
