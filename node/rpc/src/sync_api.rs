@@ -12,7 +12,7 @@ use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use message::{UnsignedMessage, SignedMessage};
+use message::{SignedMessage, UnsignedMessage};
 use serde::Serialize;
 use std::sync::Arc;
 use wallet::KeyStore;
@@ -87,8 +87,10 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let bls_msgs: Vec<UnsignedMessage> = chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
-    let secp_msgs: Vec<SignedMessage> = chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
+    let bls_msgs: Vec<UnsignedMessage> =
+        chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
+    let secp_msgs: Vec<SignedMessage> =
+        chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
     let sm_root =
         chain_sync::compute_msg_meta(data.state_manager.blockstore(), &bls_msgs, &secp_msgs)?;
     if blk.header.messages() != &sm_root {
@@ -96,7 +98,8 @@ where
             "Block message root does not match the computed: Actual: {}, Computed: {}",
             blk.header.messages(),
             sm_root,
-        ).into());
+        )
+        .into());
     }
 
     chain::persist_objects(data.state_manager.blockstore(), &bls_msgs)?;

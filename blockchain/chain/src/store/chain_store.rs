@@ -139,7 +139,11 @@ where
     // subscribing returns a future sink that we can essentially iterate over using future streams
     pub async fn subscribe(&self) -> Subscriber<HeadChange> {
         let sub = self.publisher.write().await.subscribe();
-        self.publisher.write().await.publish(HeadChange::Current(self.heaviest_tipset().await.unwrap())).await;
+        self.publisher
+            .write()
+            .await
+            .publish(HeadChange::Current(self.heaviest_tipset().await.unwrap()))
+            .await;
         sub
     }
 

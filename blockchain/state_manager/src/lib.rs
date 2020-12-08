@@ -729,7 +729,9 @@ where
             .tipset_from_keys(tipset.parents())
             .await
             .map_err(|err| Error::Other(err.to_string()))?;
-        let messages = self.cs.messages_for_tipset( &pts)
+        let messages = self
+            .cs
+            .messages_for_tipset(&pts)
             .map_err(|err| Error::Other(err.to_string()))?;
         info!("Tipset executed messages len: {}", messages.len());
         messages
@@ -942,10 +944,7 @@ where
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
         >(async move {
             info!("Start subscriber_poll");
-            while let Some(subscriber) = subscribers
-                .next()
-                .await
-            {
+            while let Some(subscriber) = subscribers.next().await {
                 info!("HEAD CHANGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
                 match subscriber {
                     HeadChange::Revert(_tipset) => {
@@ -957,11 +956,19 @@ where
                     }
                     HeadChange::Apply(tipset) => {
                         info!("Apply tipset: {:?}", tipset.key());
-                        info!("Candidate Tipset: {:?}", candidate_tipset.clone().map(|e| e.key().clone()));
+                        info!(
+                            "Candidate Tipset: {:?}",
+                            candidate_tipset.clone().map(|e| e.key().clone())
+                        );
                         if candidate_tipset
                             .as_ref()
                             .map(|s| {
-                                info!("Some inequality {} >= {} + {}", tipset.epoch(), s.epoch(), confidence);
+                                info!(
+                                    "Some inequality {} >= {} + {}",
+                                    tipset.epoch(),
+                                    s.epoch(),
+                                    confidence
+                                );
                                 tipset.epoch() >= s.epoch() + confidence
                             })
                             .unwrap_or_default()

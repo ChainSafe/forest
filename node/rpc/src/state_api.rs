@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::RpcState;
+use actor::market::{DealProposal, DealState};
 use actor::miner::MinerInfo;
 use actor::miner::{
     ChainSectorInfo, Fault, SectorOnChainInfo, SectorPreCommitOnChainInfo, State, WorkerKeyChange,
 };
-use actor::{DealID, DealWeight, TokenAmount, market, STORAGE_MARKET_ACTOR_ADDR};
+use actor::{market, DealID, DealWeight, TokenAmount, STORAGE_MARKET_ACTOR_ADDR};
 use address::{json::AddressJson, Address};
 use async_std::task;
 use beacon::{json::BeaconEntryJson, Beacon, BeaconEntry};
@@ -27,9 +28,15 @@ use crypto::SignatureType;
 use encoding::BytesDe;
 use fil_types::json::SectorInfoJson;
 use fil_types::sector::post::json::PoStProofJson;
-use fil_types::{deadlines::DeadlineInfo, use_newest_network, verifier::{FullVerifier, ProofVerifier}, NetworkVersion, PoStProof, RegisteredSealProof, SectorNumber, SectorSize, NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT, PaddedPieceSize};
+use fil_types::{
+    deadlines::DeadlineInfo,
+    use_newest_network,
+    verifier::{FullVerifier, ProofVerifier},
+    NetworkVersion, PaddedPieceSize, PoStProof, RegisteredSealProof, SectorNumber, SectorSize,
+    NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT,
+};
+use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
-use ipld::{Ipld, json::IpldJson};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libp2p::core::PeerId;
 use message::{
@@ -42,11 +49,10 @@ use serde::{Deserialize, Serialize};
 use state_manager::MiningBaseInfo;
 use state_manager::{InvocResult, MarketBalance, StateManager};
 use state_tree::StateTree;
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use wallet::KeyStore;
-use std::collections::HashMap;
-use actor::market::{DealProposal, DealState};
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
@@ -674,10 +680,7 @@ pub(crate) async fn miner_create_block<
     )?;
 
     let calculated_bls_agg = if bls_sigs.is_empty() {
-      Some(
-          crypto::Signature::new_bls(
-              vec![]
-          ))
+        Some(crypto::Signature::new_bls(vec![]))
     } else {
         Some(crypto::Signature::new_bls(
             bls_signatures::aggregate(
@@ -687,8 +690,8 @@ pub(crate) async fn miner_create_block<
                     .map(bls_signatures::Signature::from_bytes)
                     .collect::<Result<Vec<_>, _>>()?,
             )
-                .unwrap()
-                .as_bytes(),
+            .unwrap()
+            .as_bytes(),
         ))
     };
     let pweight = chain::weight(data.chain_store.blockstore(), &pts.as_ref())?;
@@ -743,22 +746,26 @@ pub(crate) async fn state_market_deals<
 ) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
     let (TipsetKeysJson(tsk),) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let market_state: market::State =
-        data.state_manager.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
-    let da = market::DealArray::load( &market_state.proposals,data.chain_store.blockstore())?;
+    let market_state: market::State = data
+        .state_manager
+        .load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
+    let da = market::DealArray::load(&market_state.proposals, data.chain_store.blockstore())?;
     let sa = market::DealMetaArray::load(&market_state.states, data.chain_store.blockstore())?;
 
     let mut out = HashMap::new();
-    da.for_each(|deal_id, d|{
-        let  s = sa.get(deal_id)?.unwrap_or(&market::DealState {
+    da.for_each(|deal_id, d| {
+        let s = sa.get(deal_id)?.unwrap_or(&market::DealState {
             sector_start_epoch: -1,
             last_updated_epoch: -1,
             slash_epoch: -1,
         });
-        out.insert(deal_id.to_string(), MarketDeal {
-            proposal: d.clone().into(),
-            state: s.clone().into(),
-        });
+        out.insert(
+            deal_id.to_string(),
+            MarketDeal {
+                proposal: d.clone().into(),
+                state: s.clone().into(),
+            },
+        );
         Ok(())
     })?;
     Ok(out)
@@ -914,7 +921,7 @@ struct DealStateJson {
     pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated
     pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
 }
-impl From<DealState> for DealStateJson{
+impl From<DealState> for DealStateJson {
     fn from(d: DealState) -> Self {
         Self {
             sector_start_epoch: d.sector_start_epoch,
@@ -944,7 +951,7 @@ struct DealProposalJson {
     #[serde(with = "bigint_ser::json")]
     pub client_collateral: TokenAmount,
 }
-impl From<DealProposal> for DealProposalJson{
+impl From<DealProposal> for DealProposalJson {
     fn from(d: DealProposal) -> Self {
         Self {
             piece_cid: CidJson(d.piece_cid),

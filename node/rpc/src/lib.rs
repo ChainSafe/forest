@@ -264,9 +264,9 @@ where
             false,
         )
         .with_method(
-        "Filecoin.StateMarketDeals",
-        state_market_deals::<DB, KS, B>,
-        false,
+            "Filecoin.StateMarketDeals",
+            state_market_deals::<DB, KS, B>,
+            false,
         )
         .with_method(
             "Filecoin.StateGetReceipt",
