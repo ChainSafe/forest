@@ -259,9 +259,14 @@ where
             false,
         )
         .with_method(
-            "Filecoin.StateMartketBalance",
+            "Filecoin.StateMarketBalance",
             state_market_balance::<DB, KS, B>,
             false,
+        )
+        .with_method(
+        "Filecoin.StateMarketDeals",
+        state_market_deals::<DB, KS, B>,
+        false,
         )
         .with_method(
             "Filecoin.StateGetReceipt",

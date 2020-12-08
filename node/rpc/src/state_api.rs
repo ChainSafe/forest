@@ -6,7 +6,7 @@ use actor::miner::MinerInfo;
 use actor::miner::{
     ChainSectorInfo, Fault, SectorOnChainInfo, SectorPreCommitOnChainInfo, State, WorkerKeyChange,
 };
-use actor::{DealID, DealWeight, TokenAmount};
+use actor::{DealID, DealWeight, TokenAmount, market, STORAGE_MARKET_ACTOR_ADDR};
 use address::{json::AddressJson, Address};
 use async_std::task;
 use beacon::{json::BeaconEntryJson, Beacon, BeaconEntry};
@@ -27,13 +27,7 @@ use crypto::SignatureType;
 use encoding::BytesDe;
 use fil_types::json::SectorInfoJson;
 use fil_types::sector::post::json::PoStProofJson;
-use fil_types::{
-    deadlines::DeadlineInfo,
-    use_newest_network,
-    verifier::{FullVerifier, ProofVerifier},
-    NetworkVersion, PoStProof, RegisteredSealProof, SectorNumber, SectorSize,
-    NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT,
-};
+use fil_types::{deadlines::DeadlineInfo, use_newest_network, verifier::{FullVerifier, ProofVerifier}, NetworkVersion, PoStProof, RegisteredSealProof, SectorNumber, SectorSize, NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT, PaddedPieceSize};
 use ipld_amt::Amt;
 use ipld::{Ipld, json::IpldJson};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -51,6 +45,8 @@ use state_tree::StateTree;
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use wallet::KeyStore;
+use std::collections::HashMap;
+use actor::market::{DealProposal, DealState};
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
@@ -731,6 +727,43 @@ pub(crate) async fn miner_create_block<
     }))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub(crate) struct MarketDeal {
+    proposal: DealProposalJson,
+    state: DealStateJson,
+}
+pub(crate) async fn state_market_deals<
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(TipsetKeysJson,)>,
+) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
+    let (TipsetKeysJson(tsk),) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
+    let market_state: market::State =
+        data.state_manager.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
+    let da = market::DealArray::load( &market_state.proposals,data.chain_store.blockstore())?;
+    let sa = market::DealMetaArray::load(&market_state.states, data.chain_store.blockstore())?;
+
+    let mut out = HashMap::new();
+    da.for_each(|deal_id, d|{
+        let  s = sa.get(deal_id)?.unwrap_or(&market::DealState {
+            sector_start_epoch: -1,
+            last_updated_epoch: -1,
+            slash_epoch: -1,
+        });
+        out.insert(deal_id.to_string(), MarketDeal {
+            proposal: d.clone().into(),
+            state: s.clone().into(),
+        });
+        Ok(())
+    })?;
+    Ok(out)
+}
+
 /// returns a state tree given a tipset
 async fn state_for_ts<DB>(
     state_manager: &Arc<StateManager<DB>>,
@@ -870,6 +903,61 @@ impl From<MiningBaseInfo> for MiningBaseInfoJson {
                 .map(BeaconEntryJson)
                 .collect::<Vec<BeaconEntryJson>>(),
             eligible_for_mining: info.elligable_for_minning,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct DealStateJson {
+    pub sector_start_epoch: ChainEpoch, // -1 if not yet included in proven sector
+    pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated
+    pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
+}
+impl From<DealState> for DealStateJson{
+    fn from(d: DealState) -> Self {
+        Self {
+            sector_start_epoch: d.sector_start_epoch,
+            last_updated_epoch: d.last_updated_epoch,
+            slash_epoch: d.slash_epoch,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct DealProposalJson {
+    #[serde(rename = "PieceCID")]
+    pub piece_cid: CidJson,
+    pub piece_size: PaddedPieceSize,
+    pub verified_deal: bool,
+    pub client: AddressJson,
+    pub provider: AddressJson,
+    // ! This is the field that requires unsafe unchecked utf8 deserialization
+    pub label: String,
+    pub start_epoch: ChainEpoch,
+    pub end_epoch: ChainEpoch,
+    #[serde(with = "bigint_ser::json")]
+    pub storage_price_per_epoch: TokenAmount,
+    #[serde(with = "bigint_ser::json")]
+    pub provider_collateral: TokenAmount,
+    #[serde(with = "bigint_ser::json")]
+    pub client_collateral: TokenAmount,
+}
+impl From<DealProposal> for DealProposalJson{
+    fn from(d: DealProposal) -> Self {
+        Self {
+            piece_cid: CidJson(d.piece_cid),
+            piece_size: d.piece_size,
+            verified_deal: d.verified_deal,
+            client: d.client.into(),
+            provider: d.client.into(),
+            label: d.label,
+            start_epoch: d.start_epoch,
+            end_epoch: d.end_epoch,
+            storage_price_per_epoch: d.storage_price_per_epoch,
+            provider_collateral: d.provider_collateral,
+            client_collateral: d.client_collateral,
         }
     }
 }

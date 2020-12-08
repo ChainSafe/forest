@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-actor = { path = "../../vm/actor/" }
+actor = { path = "../../vm/actor/"}
 ipld_amt = { path = "../../ipld/amt/" }
 bls-signatures = "0.6.1"
 async-std = { version = "1.6.3", features = ["attributes"] }
