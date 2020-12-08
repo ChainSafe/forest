@@ -92,15 +92,15 @@ where
         // Bootstrap peers before syncing
         // TODO increase bootstrap peer count before syncing
         const MIN_PEERS: usize = 1;
-        loop {
-            let peer_count = self.network.peer_manager().len().await;
-            if peer_count < MIN_PEERS {
-                debug!("bootstrapping peers, have {}", peer_count);
-                task::sleep(Duration::from_secs(2)).await;
-            } else {
-                break;
-            }
-        }
+        // loop {
+        //     let peer_count = self.network.peer_manager().len().await;
+        //     if peer_count < MIN_PEERS {
+        //         debug!("bootstrapping peers, have {}", peer_count);
+        //         task::sleep(Duration::from_secs(2)).await;
+        //     } else {
+        //         break;
+        //     }
+        // }
 
         // Get heaviest tipset from storage to sync toward
         let heaviest = self.chain_store().heaviest_tipset().await.unwrap();

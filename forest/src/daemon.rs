@@ -3,7 +3,10 @@
 
 use super::cli::{block_until_sigint, Config};
 use actor::EPOCH_DURATION_SECONDS;
-use async_std::{sync::RwLock, task};
+use async_std::{
+    sync::{channel, RwLock},
+    task,
+};
 use auth::{generate_priv_key, JWT_IDENTIFIER};
 use beacon::{BeaconPoint, Schedule};
 use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
@@ -66,9 +69,8 @@ pub(super) async fn start(config: Config) {
 
     // Initialize StateManager
     let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
-    let state_manager = Arc::new(StateManager::new_with_subscribers(
+    let state_manager = Arc::new(StateManager::new(
         Arc::clone(&chain_store),
-        chain_store.subscribe().await,
     ));
 
     let publisher = chain_store.publisher();
@@ -141,8 +143,12 @@ pub(super) async fn start(config: Config) {
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
+    let (worker_tx, worker_rx) = channel(20);
+    let worker_tx_clone = worker_tx.clone();
     let sync_task = task::spawn(async {
-        chain_syncer.start(WORKER_TASKS).await;
+        chain_syncer
+            .start(worker_tx_clone, worker_rx, WORKER_TASKS)
+            .await;
     });
 
     // Start services
@@ -166,6 +172,7 @@ pub(super) async fn start(config: Config) {
                     events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
                     beacon: Schedule(vec![BeaconPoint { start: 0, beacon }]),
                     chain_store,
+                    new_mined_block_tx: worker_tx,
                 },
                 &rpc_listen,
             )

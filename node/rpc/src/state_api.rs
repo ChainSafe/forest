@@ -35,6 +35,7 @@ use fil_types::{
     NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT,
 };
 use ipld_amt::Amt;
+use ipld::{Ipld, json::IpldJson};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libp2p::core::PeerId;
 use message::{
@@ -57,7 +58,11 @@ use wallet::KeyStore;
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
     pub receipt: MessageReceiptJson,
-    pub tipset: TipsetJson,
+    #[serde(rename = "TipSet")]
+    pub tipset: TipsetKeysJson,
+    pub height: i64,
+    pub message: CidJson,
+    pub return_dec: IpldJson,
 }
 
 #[derive(Serialize)]
@@ -575,14 +580,21 @@ pub(crate) async fn state_wait_msg<
     let state_manager = &data.state_manager;
     let cid: Cid = cidjson.into();
     let (tipset, receipt) = state_manager
-        .wait_for_message(state_manager.get_subscriber(), &cid, confidence)
+        .wait_for_message(state_manager.get_subscriber(), cid, confidence)
         .await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
-    let tipset_json: TipsetJson = tipset.into();
+    let ipld: Ipld = if receipt.return_data.bytes().is_empty() {
+        Ipld::Null
+    } else {
+        receipt.return_data.deserialize()?
+    };
     Ok(MessageLookup {
         receipt: receipt.into(),
-        tipset: tipset_json,
+        tipset: tipset.key().clone().into(),
+        height: tipset.epoch(),
+        message: CidJson(cid),
+        return_dec: IpldJson(ipld),
     })
 }
 #[derive(Deserialize)]
@@ -660,28 +672,35 @@ pub(crate) async fn miner_create_block<
     let mmcid = data.chain_store.blockstore().put(
         &TxMeta {
             bls_message_root: bls_msg_root,
-            secp_message_root: bls_msg_root,
+            secp_message_root: secp_msg_root,
         },
         Blake2b256,
     )?;
 
-    let calculated_bls_agg = crypto::Signature::new_bls(
-        bls_signatures::aggregate(
-            &bls_sigs
-                .iter()
-                .map(|s| s.bytes())
-                .map(bls_signatures::Signature::from_bytes)
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-        .unwrap()
-        .as_bytes(),
-    );
+    let calculated_bls_agg = if bls_sigs.is_empty() {
+      Some(
+          crypto::Signature::new_bls(
+              vec![]
+          ))
+    } else {
+        Some(crypto::Signature::new_bls(
+            bls_signatures::aggregate(
+                &bls_sigs
+                    .iter()
+                    .map(|s| s.bytes())
+                    .map(bls_signatures::Signature::from_bytes)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+                .unwrap()
+                .as_bytes(),
+        ))
+    };
     let pweight = chain::weight(data.chain_store.blockstore(), &pts.as_ref())?;
     let base_fee = chain::compute_base_fee(data.chain_store.blockstore(), &pts.as_ref())?;
 
     let mut next = BlockHeader::builder()
         .messages(mmcid)
-        .bls_aggregate(Some(calculated_bls_agg))
+        .bls_aggregate(calculated_bls_agg)
         .miner_address(miner)
         .weight(pweight)
         .parent_base_fee(base_fee)

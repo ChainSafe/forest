@@ -21,6 +21,7 @@ use async_tungstenite::{
 };
 use auth::{has_perms, Error as AuthError, JWT_IDENTIFIER, WRITE_ACCESS};
 use beacon::{Beacon, Schedule};
+use blocks::Tipset;
 use blockstore::BlockStore;
 use chain::ChainStore;
 use chain::{headchange_json::HeadChangeJson, EventsPayload};
@@ -66,6 +67,7 @@ where
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
     pub network_send: Sender<NetworkMessage>,
+    pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub network_name: String,
     pub chain_store: Arc<ChainStore<DB>>,
     pub beacon: Schedule<B>,
@@ -115,7 +117,7 @@ where
             false,
         )
         .with_method(
-            "Filecoin.ChainTipsetWeight",
+            "Filecoin.ChainTipSetWeight",
             chain_tipset_weight::<DB, KS, B>,
             false,
         )

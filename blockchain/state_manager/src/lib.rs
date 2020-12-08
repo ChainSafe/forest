@@ -32,7 +32,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::channel::oneshot;
 use futures::select;
-use futures::stream::{FuturesUnordered, StreamExt};
+use futures::stream::StreamExt;
 use futures::FutureExt;
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
 use ipld_amt::Amt;
@@ -724,30 +724,40 @@ where
         if tipset.epoch() == 0 {
             return Ok(None);
         }
-        let tipset = self
+        let pts = self
             .cs
             .tipset_from_keys(tipset.parents())
             .await
             .map_err(|err| Error::Other(err.to_string()))?;
-        let messages = chain::messages_for_tipset(self.blockstore(), &tipset)
+        let messages = self.cs.messages_for_tipset( &pts)
             .map_err(|err| Error::Other(err.to_string()))?;
+        info!("Tipset executed messages len: {}", messages.len());
         messages
             .iter()
             .enumerate()
             .rev()
-            .filter(|(_, s)| s.from() == message_from_address)
+            .filter(|(_, s)| {
+                info!("Message from who: {} {}", s.from(), message_from_address);
+                s.from() == message_from_address
+            })
             .filter_map(|(index,s)| {
+                info!("Message:::: {:?}", s);
                 if s.sequence() == *message_sequence {
-                    if s.cid().map(|s| &s == msg_cid).unwrap_or_default() {
-                        return Some(
-                            chain::get_parent_reciept(
-                                self.blockstore(),
-                                tipset.blocks().first().unwrap(),
-                                index as u64,
-                            )
+                    if s.cid().map(|s| {
+                        info!("CIDSS: Found: {}    Expected: {}", s, msg_cid);
+                        &s == msg_cid
+                    }).unwrap_or_default() {
+                        let rct = chain::get_parent_reciept(
+                            self.blockstore(),
+                            tipset.blocks().first().unwrap(),
+                            index as u64,
+                        )
                             .map_err(|err| {
                                 Error::Other(err.to_string())
-                            }),
+                            });
+                        println!("INDEX: {}, RCTTTT: {:?}", index, rct);
+                        return Some(
+                           rct
                         );
                     }
                     let error_msg = format!("found message with equal nonce as the one we are looking for (F:{:} n {:}, TS: `Error Converting message to Cid` n{:})", msg_cid, message_sequence, s.sequence());
@@ -858,17 +868,18 @@ where
     pub async fn wait_for_message(
         self: &Arc<Self>,
         subscriber: Option<Subscriber<HeadChange>>,
-        msg_cid: &Cid,
+        msg_cid: Cid,
         confidence: i64,
     ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>
     where
         DB: BlockStore + Send + Sync + 'static,
     {
-        let mut subscribers = subscriber.clone().ok_or_else(|| {
-            Error::Other("State Manager not subscribed to tipset head changes".to_string())
-        })?;
+        // let mut subscribers = subscriber.clone().ok_or_else(|| {
+        //     Error::Other("State Manager not subscribed to tipset head changes".to_string())
+        // })?;
+        let mut subscribers = self.cs.subscribe().await;
         let (sender, mut receiver) = oneshot::channel::<()>();
-        let message = chain::get_chain_message(self.blockstore(), msg_cid)
+        let message = chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
         let maybe_subscriber: Option<HeadChange> = subscribers.next().await;
@@ -887,7 +898,7 @@ where
         };
         let message_var = (message.from(), &message.sequence());
         let maybe_message_reciept = self
-            .tipset_executed_message(&tipset, msg_cid, message_var)
+            .tipset_executed_message(&tipset, &msg_cid, message_var)
             .await?;
         if let Some(r) = maybe_message_reciept {
             return Ok((Some(tipset.clone()), Some(r)));
@@ -930,33 +941,36 @@ where
             _,
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
         >(async move {
-            while let Some(subscriber) = subscriber
-                .clone()
-                .ok_or_else(|| {
-                    Error::Other("State Manager not subscribed to tipset head changes".to_string())
-                })?
+            info!("Start subscriber_poll");
+            while let Some(subscriber) = subscribers
                 .next()
                 .await
             {
+                info!("HEAD CHANGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
                 match subscriber {
                     HeadChange::Revert(_tipset) => {
+                        info!("Revert tipset: {:?}", _tipset);
                         if candidate_tipset.is_some() {
                             candidate_tipset = None;
                             candidate_receipt = None;
                         }
                     }
                     HeadChange::Apply(tipset) => {
+                        info!("Apply tipset: {:?}", tipset.key());
+                        info!("Candidate Tipset: {:?}", candidate_tipset.clone().map(|e| e.key().clone()));
                         if candidate_tipset
                             .as_ref()
-                            .map(|s| s.epoch() >= s.epoch() + tipset.epoch())
+                            .map(|s| {
+                                info!("Some inequality {} >= {} + {}", tipset.epoch(), s.epoch(), confidence);
+                                tipset.epoch() >= s.epoch() + confidence
+                            })
                             .unwrap_or_default()
                         {
                             return Ok((candidate_tipset, candidate_receipt));
                         }
-                        let poll_receiver = receiver.try_recv().map_err(|e| {
-                            Error::Other(format!("Could not receieve from channel {:?}", e))
-                        })?;
-                        if poll_receiver.is_some() {
+                        let poll_receiver = receiver.try_recv();
+                        if let Ok(Some(_)) = poll_receiver {
+                            info!("Poll receiver is some");
                             block_revert
                                 .write()
                                 .await
@@ -965,9 +979,10 @@ where
 
                         let message_var = (message.from(), &message.sequence());
                         let maybe_receipt = sm_cloned
-                            .tipset_executed_message(&tipset, &cid, message_var)
+                            .tipset_executed_message(&tipset, &msg_cid, message_var)
                             .await?;
                         if let Some(receipt) = maybe_receipt {
+                            info!("My confidence is: {}", confidence);
                             if confidence == 0 {
                                 return Ok((Some(tipset), Some(receipt)));
                             }
@@ -978,6 +993,7 @@ where
                     _ => (),
                 }
             }
+            info!("This should probably never happen");
 
             Ok((None, None))
         })
@@ -990,28 +1006,33 @@ where
         >(async move {
             let back_tuple = task.await?;
             if let Some((back_tipset, back_receipt)) = back_tuple {
-                let should_revert = *reverts
-                    .read()
-                    .await
-                    .get(back_tipset.key())
-                    .unwrap_or(&false);
+                // let should_revert = *reverts
+                //     .read()
+                //     .await
+                //     .get(back_tipset.key())
+                //     .unwrap_or(&false);
                 let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
-                if !should_revert && larger_height_of_head {
+                // if !should_revert && larger_height_of_head {
+                if larger_height_of_head {
+                    info!("Search back poll is Some");
                     return Ok((Some(back_tipset), Some(back_receipt)));
                 }
-
+                info!("Search back poll is NONE1");
                 return Ok((None, None));
             }
+            info!("Search back poll is NONE2");
             return Ok((None, None));
         })
         .fuse();
         // futures.push(search_back_poll);
         loop {
             select! {
-                res = search_back_poll => {
+                res = subscriber_poll => {
+                    info!("Subscriber poll: {:?}", res);
                    return res;
                 }
-                res = subscriber_poll => {
+                res = search_back_poll => {
+                   info!("Search back poll: {:?}", res);
                     if let Ok((Some(ts), Some(rct))) = res {
                         return Ok((Some(ts), Some(rct)));
                     }

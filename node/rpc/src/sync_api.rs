@@ -5,12 +5,14 @@ use crate::RpcState;
 use async_std::sync::RwLock;
 use beacon::Beacon;
 use blocks::gossip_block::json::GossipBlockJson;
+use blocks::Tipset;
 use blockstore::BlockStore;
 use chain_sync::SyncState;
 use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use message::{UnsignedMessage, SignedMessage};
 use serde::Serialize;
 use std::sync::Arc;
 use wallet::KeyStore;
@@ -85,6 +87,23 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
+    let bls_msgs: Vec<UnsignedMessage> = chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
+    let secp_msgs: Vec<SignedMessage> = chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
+    let sm_root =
+        chain_sync::compute_msg_meta(data.state_manager.blockstore(), &bls_msgs, &secp_msgs)?;
+    if blk.header.messages() != &sm_root {
+        return Err(format!(
+            "Block message root does not match the computed: Actual: {}, Computed: {}",
+            blk.header.messages(),
+            sm_root,
+        ).into());
+    }
+
+    chain::persist_objects(data.state_manager.blockstore(), &bls_msgs)?;
+    chain::persist_objects(data.state_manager.blockstore(), &secp_msgs)?;
+
+    let ts = Arc::new(Tipset::new(vec![blk.header.clone()])?);
+    data.new_mined_block_tx.send(ts).await;
     // TODO validate by constructing full block and validate (cids of messages could be invalid)
     // Also, we may want to indicate to chain sync process specifically about this block
     data.network_send

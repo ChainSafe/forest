@@ -131,14 +131,16 @@ where
         self.publisher
             .write()
             .await
-            .publish(HeadChange::Current(ts))
+            .publish(HeadChange::Apply(ts))
             .await;
         Ok(())
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
     pub async fn subscribe(&self) -> Subscriber<HeadChange> {
-        self.publisher.write().await.subscribe()
+        let sub = self.publisher.write().await.subscribe();
+        self.publisher.write().await.publish(HeadChange::Current(self.heaviest_tipset().await.unwrap())).await;
+        sub
     }
 
     /// Sets tip_index tracker
@@ -882,7 +884,7 @@ where
 }
 
 /// Returns messages from key-value store
-fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
+pub fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
     DB: BlockStore,
     T: DeserializeOwned,
@@ -906,6 +908,7 @@ where
     DB: BlockStore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
+    info!("Loaded receipt AMT. It has count: {}", amt.count());
     let receipts = amt.get(i)?;
     Ok(receipts.cloned())
 }
