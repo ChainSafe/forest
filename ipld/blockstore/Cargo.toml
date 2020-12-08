@@ -1,14 +1,17 @@
 [package]
 name = "ipld_blockstore"
-version = "0.1.0"
+description = "IPLD storage interface"
+version = "0.1.1"
+license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-cid = { package = "forest_cid", path = "../cid" }
-db = { path = "../../node/db" }
-encoding = { package = "forest_encoding", path = "../../encoding" }
-forest_ipld = { path = "../", optional = true }
+cid = { package = "forest_cid", path = "../cid", features = ["cbor"], version = "0.3" }
+db = { package = "forest_db", path = "../../node/db", version = "0.1" }
+encoding = { package = "forest_encoding", path = "../../encoding", version = "0.2" }
+forest_ipld = { path = "../", optional = true, version = "0.1" }
 
 [dev-dependencies]
 commcid = { path = "../../utils/commcid" }

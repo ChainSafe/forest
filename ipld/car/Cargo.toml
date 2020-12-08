@@ -14,5 +14,5 @@ futures = "0.3.5"
 integer-encoding = { version = "2.1", features = ["futures_async"] }
 
 [dev-dependencies]
-db = { path = "../../node/db" }
+db = { package = "forest_db", path = "../../node/db" }
 async-std = { version = "1.6.3", features = ["unstable", "attributes"] }

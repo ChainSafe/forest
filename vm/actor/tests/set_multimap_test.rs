@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{u64_key, SetMultimap};
 use clock::ChainEpoch;
+use forest_actor::{u64_key, SetMultimap};
 
 #[test]
 fn put_remove() {

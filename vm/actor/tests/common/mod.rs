@@ -237,7 +237,7 @@ impl MockRuntime {
     ) -> Result<Serialized, ActorError> {
         self.in_call = true;
         let prev_state = self.state.clone();
-        let res = actor::invoke_code(to_code, self, method_num, params)
+        let res = forest_actor::invoke_code(to_code, self, method_num, params)
             .unwrap_or_else(|| Err(actor_error!(SysErrForbidden, "invalid method id")));
 
         if res.is_err() {

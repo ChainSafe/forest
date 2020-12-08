@@ -6,9 +6,9 @@ edition = "2018"
 
 [dependencies]
 address = { package = "forest_address", path = "../address" }
-actor = { path = "../actor" }
+actor = { package = "forest_actor", path = "../actor" }
 message = { package = "forest_message", path = "../message" }
-runtime = { path = "../runtime" }
+runtime = { package = "forest_runtime", path = "../runtime" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 clock = { package = "fil_clock", path = "../../node/clock" }
 vm = { package = "forest_vm", path = "../" }
@@ -21,7 +21,7 @@ num-traits = "0.2.11"
 byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }
 log = "0.4.8"
-db = { path = "../../node/db" }
+db = { package = "forest_db", path = "../../node/db" }
 fil_types = { path = "../../types" }
 ahash = "0.5"
 lazy_static = "1.4"

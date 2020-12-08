@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 blocks = { package = "forest_blocks", path = "../blocks" }
-db = { path = "../../node/db" }
+db = { package = "forest_db", path = "../../node/db" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
 clock = { package = "fil_clock", path = "../../node/clock" }
 crypto = { package = "forest_crypto", path = "../../crypto" }
@@ -20,7 +20,7 @@ ipld_amt = { path = "../../ipld/amt/" }
 thiserror = "1.0"
 log = "0.4.8"
 state_tree = { path = "../../vm/state_tree/" }
-actor = { path = "../../vm/actor/" }
+actor = { package = "forest_actor", path = "../../vm/actor/" }
 blake2b_simd = "0.5.9"
 byteorder = "1.3.4"
 beacon = { path = "../beacon" }

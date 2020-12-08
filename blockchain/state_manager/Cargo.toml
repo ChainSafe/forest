@@ -6,9 +6,9 @@ edition = "2018"
 
 [dependencies]
 address = { package = "forest_address", path = "../../vm/address/" }
-actor = { path = "../../vm/actor/" }
+actor = { package = "forest_actor", path = "../../vm/actor/" }
 cid = { package = "forest_cid", path = "../../ipld/cid" }
-db = { path = "../../node/db/" }
+db = { package = "forest_db", path = "../../node/db" }
 encoding = { package = "forest_encoding", path = "../../encoding/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
@@ -26,14 +26,14 @@ log = "0.4.8"
 fil_types = { path = "../../types" }
 message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
 vm = { package = "forest_vm", path = "../../vm" }
-bitfield = { path = "../../utils/bitfield" }
+bitfield = { package = "forest_bitfield", path = "../../utils/bitfield" }
 serde = { version = "1.0", features = ["derive"] }
 ipld_hamt = { path = "../../ipld/hamt" }
 num-traits = "0.2.11"
 flo_stream = "0.4.0"
 filecoin-proofs-api = { version = "5.3", features = ["blst"], default_features = false }
 futures = "0.3.5"
-runtime = { path = "../../vm/runtime/" }
+runtime = { package = "forest_runtime", path = "../../vm/runtime/" }
 lazy_static = "1.4"
 lazycell = "1.2.1"
 forest_crypto = { path = "../../crypto" }
