@@ -372,8 +372,7 @@ where
             .get_actor(self.vm_msg.receiver())?
             .ok_or_else(|| format!("actor not found {:?}", address))?;
 
-        let ms = actor::miner::State::load(self.store(), &actor)?
-            .ok_or_else(|| format!("actor state not found {:?}", actor.state.to_string()))?;
+        let ms = actor::miner::State::load(self.store(), &actor)?;
 
         let info = ms.info(&self.store)?;
 
@@ -1015,8 +1014,7 @@ where
         .map_err(|e| e.downcast_wrap("Failed to get actor"))?
         .ok_or_else(|| format!("Failed to retrieve actor: {}", addr))?;
 
-    let acc_st = account::State::load(store, &act)?
-        .ok_or_else(|| format!("Address was not found for an account actor: {}", addr))?;
+    let acc_st = account::State::load(store, &act)?;
 
     Ok(acc_st.pubkey_address())
 }

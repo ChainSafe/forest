@@ -508,8 +508,7 @@ where
             .map_err(|_| Error::Other("Failure getting actor".to_string()))?
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
-        miner::State::load(self.blockstore(), &actor)?
-            .ok_or_else(|| Error::Other("Could not get actor state".to_string()))
+        Ok(miner::State::load(self.blockstore(), &actor)?)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
@@ -932,9 +931,7 @@ where
         .map_err(|e| e.to_string())?
         .ok_or("Failed to load power actor for calculating weight")?;
 
-    let state = power::State::load(db, &act)
-        .map_err(|e| e.to_string())?
-        .ok_or("Failed to load power actor for calculating weight")?;
+    let state = power::State::load(db, &act).map_err(|e| e.to_string())?;
 
     let tpow = state.into_total_quality_adj_power();
 

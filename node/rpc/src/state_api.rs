@@ -61,11 +61,9 @@ pub(crate) async fn state_miner_sectors<
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(AddressJson, BitFieldJson, bool, TipsetKeysJson)>,
-    // TODO update on sm
-) -> Result<Vec<actor::actorv2::miner::SectorOnChainInfo>, JsonRpcError> {
-    let (address, filter, filter_out, key) = params;
-    let mut bitfield_filter = filter.into();
+    Params(params): Params<(AddressJson, BitFieldJson, TipsetKeysJson)>,
+) -> Result<Vec<miner::SectorOnChainInfo>, JsonRpcError> {
+    let (address, filter, key) = params;
     let address = address.into();
     let state_manager = &data.state_manager;
     let tipset = data
@@ -73,9 +71,9 @@ pub(crate) async fn state_miner_sectors<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let mut filter = Some(&mut bitfield_filter);
+    let filter = Some(&filter.0);
     state_manager
-        .get_miner_sector_set::<FullVerifier>(&tipset, &address, &mut filter, filter_out)
+        .get_miner_sector_set::<FullVerifier>(&tipset, &address, filter)
         .map_err(|e| e.into())
 }
 
@@ -146,8 +144,7 @@ pub(crate) async fn state_sector_precommit_info<
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, SectorNumber, TipsetKeysJson)>,
-    // TODO yeah fix
-) -> Result<actor::actorv2::miner::SectorPreCommitOnChainInfo, JsonRpcError> {
+) -> Result<miner::SectorPreCommitOnChainInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (address, sector_number, key) = params;
     let address = address.into();
@@ -203,7 +200,7 @@ pub async fn state_sector_info<
         .tipset_from_keys(&key.into())
         .await?;
     state_manager
-        .miner_sector_info::<FullVerifier>(&address, &sector_number, &tipset)
+        .miner_sector_info::<FullVerifier>(&address, sector_number, &tipset)
         .map_err(|e| e.into())
         .map(|e| e.map(SectorOnChainInfo::from))
 }
@@ -230,8 +227,7 @@ pub(crate) async fn state_miner_proving_deadline<
         .get_actor(&addr, &tipset.parent_state())?
         .ok_or_else(|| format!("Address {} not found", addr))?;
 
-    let mas = miner::State::load(state_manager.blockstore(), &actor)?
-        .ok_or("Failed to load miner state")?;
+    let mas = miner::State::load(state_manager.blockstore(), &actor)?;
 
     Ok(mas.deadline_info(tipset.epoch()).next_not_elapsed())
 }

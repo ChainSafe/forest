@@ -1,21 +1,20 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use std::error::Error;
 use vm::ActorState;
 
-/// Account actor method.
-pub type Method = actorv2::account::Method;
+/// Multisig actor method.
+pub type Method = actorv2::multisig::Method;
 
-/// Account actor state.
+/// Multisig actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V0(actorv0::account::State),
-    V2(actorv2::account::State),
+    V0(actorv0::multisig::State),
+    V2(actorv2::multisig::State),
 }
 
 impl State {
@@ -23,25 +22,18 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::ACCOUNT_ACTOR_CODE_ID {
+        if actor.code == *actorv0::MULTISIG_ACTOR_CODE_ID {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V0)
                 .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::ACCOUNT_ACTOR_CODE_ID {
+        } else if actor.code == *actorv2::MULTISIG_ACTOR_CODE_ID {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V2)
                 .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
-        }
-    }
-
-    pub fn pubkey_address(&self) -> Address {
-        match self {
-            State::V0(st) => st.address,
-            State::V2(st) => st.address,
         }
     }
 }

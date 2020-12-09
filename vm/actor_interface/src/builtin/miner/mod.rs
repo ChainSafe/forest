@@ -27,14 +27,20 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<Option<State>, Box<dyn Error>>
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
     where
         BS: BlockStore,
     {
         if actor.code == *actorv0::MINER_ACTOR_CODE_ID {
-            Ok(store.get(&actor.state)?.map(State::V0))
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V0)
+                .ok_or("Actor state doesn't exist in store")?)
         } else if actor.code == *actorv2::MINER_ACTOR_CODE_ID {
-            Ok(store.get(&actor.state)?.map(State::V2))
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V2)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
         }
@@ -126,11 +132,100 @@ impl State {
         }
     }
 
+    /// Loads sectors corresponding to the bitfield. If no bitfield is passed in, return all.
+    pub fn load_sectors<BS: BlockStore>(
+        &self,
+        store: &BS,
+        sectors: Option<&BitField>,
+    ) -> Result<Vec<SectorOnChainInfo>, Box<dyn Error>> {
+        match self {
+            State::V0(st) => {
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(store, sectors)?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = actorv0::miner::Sectors::load(store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(SectorOnChainInfo::from(info.clone()));
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
+            State::V2(st) => {
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(store, sectors)?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = actorv2::miner::Sectors::load(store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(SectorOnChainInfo::from(info.clone()));
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
+        }
+    }
+
+    /// Gets pre committed on chain info
+    pub fn get_precommitted_sector<BS: BlockStore>(
+        &self,
+        store: &BS,
+        sector_num: SectorNumber,
+    ) -> Result<Option<SectorPreCommitOnChainInfo>, Box<dyn Error>> {
+        match self {
+            State::V0(st) => Ok(st
+                .get_precommitted_sector(store, sector_num)?
+                .map(From::from)),
+            State::V2(st) => Ok(st
+                .get_precommitted_sector(store, sector_num)?
+                .map(From::from)),
+        }
+    }
+
+    /// Loads a specific sector number
+    pub fn get_sector<BS: BlockStore>(
+        &self,
+        store: &BS,
+        sector_num: u64,
+    ) -> Result<Option<SectorOnChainInfo>, Box<dyn Error>> {
+        match self {
+            State::V0(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
+            State::V2(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
+        }
+    }
+
     /// Loads deadline at index for a miner's state
     pub fn deadline_info(&self, epoch: ChainEpoch) -> DeadlineInfo {
         match self {
             State::V0(st) => st.deadline_info(epoch),
             State::V2(st) => st.deadline_info(epoch),
+        }
+    }
+
+    /// Gets fee debt of miner state
+    pub fn fee_debt(&self) -> TokenAmount {
+        match self {
+            State::V0(_) => TokenAmount::from(0),
+            // TODO update on V2 actor impl
+            State::V2(_) => TokenAmount::from(0),
+        }
+    }
+
+    /// Number of post period deadlines.
+    pub fn num_deadlines(&self) -> u64 {
+        match self {
+            State::V0(_) => actorv0::miner::WPOST_PERIOD_DEADLINES,
+            State::V2(_) => actorv2::miner::WPOST_PERIOD_DEADLINES,
         }
     }
 }
@@ -301,6 +396,98 @@ impl From<actorv2::miner::SectorOnChainInfo> for SectorOnChainInfo {
             initial_pledge: info.initial_pledge,
             expected_day_reward: info.expected_day_reward,
             expected_storage_pledge: info.expected_storage_pledge,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorPreCommitOnChainInfo {
+    pub info: SectorPreCommitInfo,
+    #[serde(with = "bigint_ser::json")]
+    pub pre_commit_deposit: TokenAmount,
+    pub pre_commit_epoch: ChainEpoch,
+    /// Integral of active deals over sector lifetime, 0 if CommittedCapacity sector
+    #[serde(with = "bigint_ser::json")]
+    pub deal_weight: BigInt,
+    /// Integral of active verified deals over sector lifetime
+    #[serde(with = "bigint_ser::json")]
+    pub verified_deal_weight: BigInt,
+}
+
+impl From<actorv0::miner::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
+    fn from(spc: actorv0::miner::SectorPreCommitOnChainInfo) -> Self {
+        Self {
+            info: spc.info.into(),
+            pre_commit_deposit: spc.pre_commit_deposit,
+            pre_commit_epoch: spc.pre_commit_epoch,
+            deal_weight: spc.deal_weight,
+            verified_deal_weight: spc.verified_deal_weight,
+        }
+    }
+}
+
+impl From<actorv2::miner::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
+    fn from(spc: actorv2::miner::SectorPreCommitOnChainInfo) -> Self {
+        Self {
+            info: spc.info.into(),
+            pre_commit_deposit: spc.pre_commit_deposit,
+            pre_commit_epoch: spc.pre_commit_epoch,
+            deal_weight: spc.deal_weight,
+            verified_deal_weight: spc.verified_deal_weight,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorPreCommitInfo {
+    pub seal_proof: RegisteredSealProof,
+    pub sector_number: SectorNumber,
+    /// CommR
+    #[serde(with = "cid::json")]
+    pub sealed_cid: Cid,
+    pub seal_rand_epoch: ChainEpoch,
+    pub deal_ids: Vec<DealID>,
+    pub expiration: ChainEpoch,
+    /// Whether to replace a "committed capacity" no-deal sector (requires non-empty DealIDs)
+    pub replace_capacity: bool,
+    /// The committed capacity sector to replace, and its deadline/partition location
+    pub replace_sector_deadline: u64,
+    pub replace_sector_partition: u64,
+    pub replace_sector_number: SectorNumber,
+}
+
+impl From<actorv0::miner::SectorPreCommitInfo> for SectorPreCommitInfo {
+    fn from(spc: actorv0::miner::SectorPreCommitInfo) -> Self {
+        Self {
+            seal_proof: spc.seal_proof,
+            sector_number: spc.sector_number,
+            sealed_cid: spc.sealed_cid,
+            seal_rand_epoch: spc.seal_rand_epoch,
+            deal_ids: spc.deal_ids,
+            expiration: spc.expiration,
+            replace_capacity: spc.replace_capacity,
+            replace_sector_deadline: spc.replace_sector_deadline,
+            replace_sector_partition: spc.replace_sector_partition,
+            replace_sector_number: spc.replace_sector_number,
+        }
+    }
+}
+
+impl From<actorv2::miner::SectorPreCommitInfo> for SectorPreCommitInfo {
+    fn from(spc: actorv2::miner::SectorPreCommitInfo) -> Self {
+        Self {
+            seal_proof: spc.seal_proof,
+            sector_number: spc.sector_number,
+            sealed_cid: spc.sealed_cid,
+            seal_rand_epoch: spc.seal_rand_epoch,
+            deal_ids: spc.deal_ids,
+            expiration: spc.expiration,
+            replace_capacity: spc.replace_capacity,
+            replace_sector_deadline: spc.replace_sector_deadline,
+            replace_sector_partition: spc.replace_sector_partition,
+            replace_sector_number: spc.replace_sector_number,
         }
     }
 }

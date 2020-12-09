@@ -39,7 +39,7 @@ jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2
 uuid = { version = "0.8.1", features = ["v4"] }
 auth = { path = "../utils/auth"}
 net_utils = { path = "../utils/net_utils" }
-actor = { package = "forest_actor", path = "../vm/actor/" }
+actor = { package = "actor_interface", path = "../vm/actor_interface" }
 genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
 encoding = { package = "forest_encoding", version = "0.2.1" }

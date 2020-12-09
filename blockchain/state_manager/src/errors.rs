@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use db::Error as DbErr;
+use std::error::Error as StdError;
 use thiserror::Error;
 
 /// State manager error
@@ -30,5 +31,11 @@ pub enum Error {
 impl From<String> for Error {
     fn from(e: String) -> Self {
         Error::Other(e)
+    }
+}
+
+impl From<Box<dyn StdError>> for Error {
+    fn from(e: Box<dyn StdError>) -> Self {
+        Error::Other(e.to_string())
     }
 }

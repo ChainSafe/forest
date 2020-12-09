@@ -945,6 +945,7 @@ dependencies = [
 name = "chain_sync"
 version = "0.1.0"
 dependencies = [
+ "actor_interface",
  "async-std",
  "base64 0.13.0",
  "beacon",
@@ -953,7 +954,6 @@ dependencies = [
  "fil_clock 0.1.0",
  "fil_types 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "flo_stream",
- "forest_actor 0.1.0",
  "forest_address 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_bigint 0.1.3",
  "forest_blocks",
@@ -2190,6 +2190,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 name = "forest"
 version = "0.1.0"
 dependencies = [
+ "actor_interface",
  "async-log",
  "async-std",
  "auth",
@@ -2199,7 +2200,6 @@ dependencies = [
  "ctrlc",
  "fil_types 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "flo_stream",
- "forest_actor 0.1.0",
  "forest_address 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_bigint 0.1.3",
  "forest_blocks",
@@ -6201,6 +6201,7 @@ dependencies = [
 name = "state_manager"
 version = "0.1.0"
 dependencies = [
+ "actor_interface",
  "async-log",
  "async-std",
  "beacon",
@@ -6209,7 +6210,6 @@ dependencies = [
  "fil_types 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "filecoin-proofs-api",
  "flo_stream",
- "forest_actor 0.1.0",
  "forest_address 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_bigint 0.1.3",
  "forest_bitfield 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

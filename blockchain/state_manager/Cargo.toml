@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
-actor = { package = "forest_actor", path = "../../vm/actor/" }
+actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 cid = { package = "forest_cid", version = "0.3" }
 db = { package = "forest_db", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }

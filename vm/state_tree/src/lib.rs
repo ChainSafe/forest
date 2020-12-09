@@ -242,8 +242,7 @@ where
             .get_actor(actor::init::ADDRESS)?
             .ok_or("Init actor address could not be resolved")?;
 
-        let state = init::State::load(self.hamt.store(), &init_act)?
-            .ok_or("Could not resolve init actor state")?;
+        let state = init::State::load(self.hamt.store(), &init_act)?;
 
         let a: Address = match state
             .resolve_address(self.store(), addr)
@@ -292,8 +291,7 @@ where
             .get_actor(init::ADDRESS)?
             .ok_or("Could not retrieve init actor")?;
 
-        let mut ias = init::State::load(self.store(), &actor)?
-            .ok_or("Failed to retrieve init actor state")?;
+        let mut ias = init::State::load(self.store(), &actor)?;
 
         let new_addr = ias.map_address_to_new_id(self.store(), addr)?;
 

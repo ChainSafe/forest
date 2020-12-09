@@ -37,7 +37,7 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 flo_stream = "0.4.0"
 rand = "0.7.3"
 smallvec = "1.1.0"
-actor = { package = "forest_actor", path = "../../vm/actor" }
+actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 interpreter = { path = "../../vm/interpreter/" }
 message_pool = { path = "../message_pool" }
 

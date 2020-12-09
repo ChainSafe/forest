@@ -5,9 +5,8 @@ use super::{
     gas_tracker::{price_list_by_epoch, GasCharge},
     vm_send, DefaultRuntime, Rand,
 };
-// TODO handle these ambiguous (if needed)
-use actor::actorv2::{
-    cron, reward, BURNT_FUNDS_ACTOR_ADDR, CRON_ACTOR_ADDR, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+use actor::{
+    actorv0::reward::AwardBlockRewardParams, cron, reward, system, BURNT_FUNDS_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -140,8 +139,8 @@ where
         callback: Option<&mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<(), Box<dyn StdError>> {
         let cron_msg = UnsignedMessage {
-            from: *SYSTEM_ACTOR_ADDR,
-            to: *CRON_ACTOR_ADDR,
+            from: **system::ADDRESS,
+            to: **cron::ADDRESS,
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -214,7 +213,7 @@ where
             }
 
             // Generate reward transaction for the miner of the block
-            let params = Serialized::serialize(reward::AwardBlockRewardParams {
+            let params = Serialized::serialize(AwardBlockRewardParams {
                 miner: block.miner,
                 penalty,
                 gas_reward,
@@ -222,8 +221,8 @@ where
             })?;
 
             let rew_msg = UnsignedMessage {
-                from: *SYSTEM_ACTOR_ADDR,
-                to: *REWARD_ACTOR_ADDR,
+                from: **system::ADDRESS,
+                to: **reward::ADDRESS,
                 method_num: reward::Method::AwardBlockReward as u64,
                 params,
                 // Epoch as sequence is intentional
@@ -465,7 +464,7 @@ where
 
         transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
 
-        transfer_to_actor(&*REWARD_ACTOR_ADDR, &miner_tip)?;
+        transfer_to_actor(&**reward::ADDRESS, &miner_tip)?;
 
         transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
 
