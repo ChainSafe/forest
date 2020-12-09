@@ -581,9 +581,7 @@ pub(crate) async fn state_wait_msg<
     let (cidjson, confidence) = params;
     let state_manager = &data.state_manager;
     let cid: Cid = cidjson.into();
-    let (tipset, receipt) = state_manager
-        .wait_for_message(state_manager.get_subscriber(), cid, confidence)
-        .await?;
+    let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
     let ipld: Ipld = if receipt.return_data.bytes().is_empty() {

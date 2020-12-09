@@ -733,20 +733,16 @@ where
             .cs
             .messages_for_tipset(&pts)
             .map_err(|err| Error::Other(err.to_string()))?;
-        info!("Tipset executed messages len: {}", messages.len());
         messages
             .iter()
             .enumerate()
             .rev()
             .filter(|(_, s)| {
-                info!("Message from who: {} {}", s.from(), message_from_address);
                 s.from() == message_from_address
             })
             .filter_map(|(index,s)| {
-                info!("Message:::: {:?}", s);
                 if s.sequence() == *message_sequence {
                     if s.cid().map(|s| {
-                        info!("CIDSS: Found: {}    Expected: {}", s, msg_cid);
                         &s == msg_cid
                     }).unwrap_or_default() {
                         let rct = chain::get_parent_reciept(
@@ -757,7 +753,6 @@ where
                             .map_err(|err| {
                                 Error::Other(err.to_string())
                             });
-                        println!("INDEX: {}, RCTTTT: {:?}", index, rct);
                         return Some(
                            rct
                         );
@@ -869,16 +864,12 @@ where
     /// before returning.
     pub async fn wait_for_message(
         self: &Arc<Self>,
-        subscriber: Option<Subscriber<HeadChange>>,
         msg_cid: Cid,
         confidence: i64,
     ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>
     where
         DB: BlockStore + Send + Sync + 'static,
     {
-        // let mut subscribers = subscriber.clone().ok_or_else(|| {
-        //     Error::Other("State Manager not subscribed to tipset head changes".to_string())
-        // })?;
         let mut subscribers = self.cs.subscribe().await;
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = chain::get_chain_message(self.blockstore(), &msg_cid)
@@ -925,10 +916,6 @@ where
                     (&address_for_task, &cid_for_task, &sequence_for_task),
                 )
                 .await?;
-            // .ok_or_else(|| {
-            //     Error::Other("State manager not subscribed to back search wait".to_string())
-            // })?;
-            // let back_tuple = (back_t, back_r);
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
@@ -943,41 +930,24 @@ where
             _,
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
         >(async move {
-            info!("Start subscriber_poll");
             while let Some(subscriber) = subscribers.next().await {
-                info!("HEAD CHANGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
                 match subscriber {
                     HeadChange::Revert(_tipset) => {
-                        info!("Revert tipset: {:?}", _tipset);
                         if candidate_tipset.is_some() {
                             candidate_tipset = None;
                             candidate_receipt = None;
                         }
                     }
                     HeadChange::Apply(tipset) => {
-                        info!("Apply tipset: {:?}", tipset.key());
-                        info!(
-                            "Candidate Tipset: {:?}",
-                            candidate_tipset.clone().map(|e| e.key().clone())
-                        );
                         if candidate_tipset
                             .as_ref()
-                            .map(|s| {
-                                info!(
-                                    "Some inequality {} >= {} + {}",
-                                    tipset.epoch(),
-                                    s.epoch(),
-                                    confidence
-                                );
-                                tipset.epoch() >= s.epoch() + confidence
-                            })
+                            .map(|s| tipset.epoch() >= s.epoch() + confidence)
                             .unwrap_or_default()
                         {
                             return Ok((candidate_tipset, candidate_receipt));
                         }
                         let poll_receiver = receiver.try_recv();
                         if let Ok(Some(_)) = poll_receiver {
-                            info!("Poll receiver is some");
                             block_revert
                                 .write()
                                 .await
@@ -989,7 +959,6 @@ where
                             .tipset_executed_message(&tipset, &msg_cid, message_var)
                             .await?;
                         if let Some(receipt) = maybe_receipt {
-                            info!("My confidence is: {}", confidence);
                             if confidence == 0 {
                                 return Ok((Some(tipset), Some(receipt)));
                             }
@@ -1000,13 +969,10 @@ where
                     _ => (),
                 }
             }
-            info!("This should probably never happen");
-
             Ok((None, None))
         })
         .fuse();
 
-        // futures.push(subscriber_poll);
         let mut search_back_poll = task::spawn::<
             _,
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
@@ -1021,17 +987,14 @@ where
                 let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
                 // if !should_revert && larger_height_of_head {
                 if larger_height_of_head {
-                    info!("Search back poll is Some");
                     return Ok((Some(back_tipset), Some(back_receipt)));
                 }
-                info!("Search back poll is NONE1");
                 return Ok((None, None));
             }
-            info!("Search back poll is NONE2");
             return Ok((None, None));
         })
         .fuse();
-        // futures.push(search_back_poll);
+
         loop {
             select! {
                 res = subscriber_poll => {
@@ -1046,8 +1009,6 @@ where
                 }
             }
         }
-
-        // futures.next().await.ok_or_else(|| Error::Other("wait_for_message could not be completed due to failure of subscriber poll or search_back functionality".to_string()))?
     }
 
     /// Returns a bls public key from provided address

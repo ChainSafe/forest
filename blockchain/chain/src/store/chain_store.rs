@@ -927,7 +927,6 @@ where
     DB: BlockStore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
-    info!("Loaded receipt AMT. It has count: {}", amt.count());
     let receipts = amt.get(i)?;
     Ok(receipts.cloned())
 }
