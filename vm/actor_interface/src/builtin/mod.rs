@@ -4,6 +4,7 @@
 pub mod account;
 pub mod init;
 pub mod miner;
+pub mod power;
 pub mod system;
 
 use cid::Cid;

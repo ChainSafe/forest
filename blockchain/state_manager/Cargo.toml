@@ -26,7 +26,7 @@ log = "0.4.8"
 fil_types = "0.1"
 message = { package = "forest_message", version = "0.6", features = ["json"] }
 vm = { package = "forest_vm", version = "0.3.1" }
-bitfield = { package = "forest_bitfield", path = "../../utils/bitfield" }
+bitfield = { package = "forest_bitfield", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
 ipld_hamt = { path = "../../ipld/hamt" }
 num-traits = "0.2.11"

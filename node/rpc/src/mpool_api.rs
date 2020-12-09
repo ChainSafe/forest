@@ -3,7 +3,6 @@
 
 use super::gas_api::estimate_message_gas;
 use crate::RpcState;
-use actor::TokenAmount;
 use address::{Address, Protocol};
 use beacon::Beacon;
 use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
@@ -11,6 +10,7 @@ use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
+use vm::TokenAmount;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{

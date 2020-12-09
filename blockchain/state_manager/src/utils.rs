@@ -5,7 +5,7 @@ use crate::errors::*;
 use crate::StateManager;
 use actor::miner::{self, Partition};
 use actor::{
-    miner::{ChainSectorInfo, Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo},
+    miner::{Deadlines, MinerInfo, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
 };
 use address::Address;
@@ -110,7 +110,7 @@ where
         address: &Address,
         filter: &mut Option<&mut BitField>,
         filter_out: bool,
-    ) -> Result<Vec<ChainSectorInfo>, Error>
+    ) -> Result<Vec<SectorOnChainInfo>, Error>
     where
         V: ProofVerifier,
     {
@@ -135,13 +135,13 @@ where
         ssc: &Cid,
         filter: &mut Option<&mut BitField>,
         _filter_out: bool,
-    ) -> Result<Vec<ChainSectorInfo>, Error>
+    ) -> Result<Vec<SectorOnChainInfo>, Error>
     where
         V: ProofVerifier,
     {
         let amt = Amt::load(ssc, block_store).map_err(|err| Error::Other(err.to_string()))?;
 
-        let mut sset: Vec<ChainSectorInfo> = Vec::new();
+        let mut sset: Vec<SectorOnChainInfo> = Vec::new();
         let for_each = |i: u64, sector_chain: &miner::SectorOnChainInfo| {
             if let Some(ref mut s) = filter {
                 let i = i
@@ -151,10 +151,7 @@ where
                     return Ok(());
                 }
             }
-            sset.push(ChainSectorInfo {
-                info: sector_chain.clone(),
-                id: i,
-            });
+            sset.push(sector_chain.clone());
             Ok(())
         };
         amt.for_each(for_each)
