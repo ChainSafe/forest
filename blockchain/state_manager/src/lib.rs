@@ -742,9 +742,9 @@ where
             })
             .filter_map(|(index,s)| {
                 if s.sequence() == *message_sequence {
-                    if s.cid().map(|s| {
+                    if s.cid().map(|s|
                         &s == msg_cid
-                    }).unwrap_or_default() {
+                    ).unwrap_or_default() {
                         let rct = chain::get_parent_reciept(
                             self.blockstore(),
                             tipset.blocks().first().unwrap(),
@@ -910,7 +910,7 @@ where
         let sequence_for_task = message.sequence();
         let height_of_head = tipset.epoch();
         let task = task::spawn(async move {
-            let (back_tuple) = sm_cloned
+            let back_tuple = sm_cloned
                 .search_back_for_message(
                     &tipset,
                     (&address_for_task, &cid_for_task, &sequence_for_task),
@@ -986,12 +986,11 @@ where
                     .unwrap_or(&false);
                 let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
                 if !should_revert && larger_height_of_head {
-                // if larger_height_of_head {
                     return Ok((Some(back_tipset), Some(back_receipt)));
                 }
                 return Ok((None, None));
             }
-            return Ok((None, None));
+            Ok((None, None))
         })
         .fuse();
 

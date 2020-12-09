@@ -17,8 +17,8 @@ use blocks::{
     tipset_keys_json::TipsetKeysJson,
 };
 use blocks::{
-    gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_json::TipsetJson, BlockHeader,
-    GossipBlock as BlockMsg, Tipset, TxMeta,
+    gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
+    Tipset, TxMeta,
 };
 use blockstore::BlockStore;
 use bls_signatures::Serialize as SerializeBls;

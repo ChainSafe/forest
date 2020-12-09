@@ -381,10 +381,10 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                     match message_result {
                         Ok(message) => {
                             let request_text = message.into_text().unwrap();
-                            info!("RPC Request Received: {:?}", request_text.clone());
                             if request_text == "" {
-                                return ();
+                                return;
                             }
+                            info!("RPC Request Received: {:?}", request_text.clone());
                             match serde_json::from_str(&request_text)
                                 as Result<RequestObject, serde_json::Error>
                             {
