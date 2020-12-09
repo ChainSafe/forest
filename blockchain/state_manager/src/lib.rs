@@ -979,14 +979,14 @@ where
         >(async move {
             let back_tuple = task.await?;
             if let Some((back_tipset, back_receipt)) = back_tuple {
-                // let should_revert = *reverts
-                //     .read()
-                //     .await
-                //     .get(back_tipset.key())
-                //     .unwrap_or(&false);
+                let should_revert = *reverts
+                    .read()
+                    .await
+                    .get(back_tipset.key())
+                    .unwrap_or(&false);
                 let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
-                // if !should_revert && larger_height_of_head {
-                if larger_height_of_head {
+                if !should_revert && larger_height_of_head {
+                // if larger_height_of_head {
                     return Ok((Some(back_tipset), Some(back_receipt)));
                 }
                 return Ok((None, None));
