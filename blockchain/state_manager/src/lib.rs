@@ -112,7 +112,7 @@ where
             genesis_info: GenesisInfoPair::default(),
         }
     }
-    
+
     /// Returns network version for the given epoch
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         get_network_version_default(epoch)

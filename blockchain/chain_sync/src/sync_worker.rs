@@ -625,9 +625,7 @@ where
 
             let (mpow, tpow) = sm_c
                 .get_power(&lbst_clone, Some(h.miner_address()))?
-                .ok_or(Error::Other(
-                    "Should have loaded power for address".to_string(),
-                ))?;
+                .ok_or_else(|| Error::Other("Should have loaded power for address".to_string()))?;
 
             let j =
                 election_proof.compute_win_count(&mpow.quality_adj_power, &tpow.quality_adj_power);
