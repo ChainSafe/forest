@@ -108,7 +108,6 @@ where
     let ts = Arc::new(Tipset::new(vec![blk.header.clone()])?);
     data.new_mined_block_tx.send(ts).await;
     // TODO validate by constructing full block and validate (cids of messages could be invalid)
-    // Also, we may want to indicate to chain sync process specifically about this block
     data.network_send
         .send(NetworkMessage::PubsubMessage {
             topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, data.network_name)),

@@ -998,11 +998,9 @@ where
         loop {
             select! {
                 res = subscriber_poll => {
-                    info!("Subscriber poll: {:?}", res);
                    return res;
                 }
                 res = search_back_poll => {
-                   info!("Search back poll: {:?}", res);
                     if let Ok((Some(ts), Some(rct))) = res {
                         return Ok((Some(ts), Some(rct)));
                     }
