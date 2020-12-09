@@ -10,7 +10,6 @@ use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
-use vm::TokenAmount;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{
@@ -21,6 +20,7 @@ use num_bigint::bigint_ser;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
+use vm::TokenAmount;
 use wallet::KeyStore;
 
 /// Estimate the gas price for an Address
