@@ -129,7 +129,6 @@ mod tests {
     use db::{MemoryDB, Store};
     use flo_stream::Publisher;
     use forest_libp2p::NetworkMessage;
-    use futures::StreamExt;
     use message_pool::{MessagePool, MpoolRpcProvider};
     use serde_json::from_str;
     use state_manager::StateManager;
