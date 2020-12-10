@@ -973,10 +973,7 @@ where
         })
         .fuse();
 
-        let mut search_back_poll = task::spawn::<
-            _,
-            Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
-        >(async move {
+        let mut search_back_poll = task::spawn::<_, Result<_, Error>>(async move {
             let back_tuple = task.await?;
             if let Some((back_tipset, back_receipt)) = back_tuple {
                 let should_revert = *reverts

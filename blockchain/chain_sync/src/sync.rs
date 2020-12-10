@@ -275,7 +275,6 @@ where
         worker_rx: Receiver<Arc<Tipset>>,
         num_workers: usize,
     ) {
-        // let (worker_tx, worker_rx) = channel(20);
         for _ in 0..num_workers {
             self.spawn_worker(worker_rx.clone()).await;
         }
