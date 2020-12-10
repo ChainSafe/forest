@@ -3,7 +3,8 @@
 
 use crate::RpcState;
 use blocks::{
-    header::json::BlockHeaderJson, tipset_json::TipsetJson, BlockHeader, Tipset, TipsetKeys,
+    header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
+    BlockHeader, Tipset, TipsetKeys,
 };
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
@@ -68,7 +69,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let data_subscribe = data.state_manager.chain_store().subscribe().await;
+    let (data_subscribe, _) = data.state_manager.chain_store().subscribe().await;
     let index = chain::sub_head_changes(
         data_subscribe,
         &data.state_manager.chain_store().heaviest_tipset().await,
@@ -206,7 +207,7 @@ where
 
 pub(crate) async fn chain_tipset_weight<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(TipsetKeys,)>,
+    Params(params): Params<(TipsetKeysJson,)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -217,7 +218,7 @@ where
     let ts = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&tsk)
+        .tipset_from_keys(&tsk.into())
         .await?;
     Ok(ts.weight().to_str_radix(10))
 }

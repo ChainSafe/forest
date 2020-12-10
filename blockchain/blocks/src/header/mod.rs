@@ -105,7 +105,7 @@ pub struct BlockHeader {
     fork_signal: u64,
 
     #[builder(default)]
-    signature: Option<Signature>,
+    pub signature: Option<Signature>,
 
     #[builder(default)]
     election_proof: Option<ElectionProof>,

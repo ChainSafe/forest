@@ -3,7 +3,7 @@
 
 use super::mpool_api::MessageSendSpec;
 use crate::RpcState;
-use address::{json::AddressJson, Address};
+use address::json::AddressJson;
 use beacon::Beacon;
 use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;
@@ -90,17 +90,15 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (nblocksincl, AddressJson(sender), gas_limit, TipsetKeysJson(tsk)) = params;
-    estimate_gas_premium::<DB, KS, B>(&data, nblocksincl, sender, gas_limit, tsk)
+    let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
+    estimate_gas_premium::<DB, KS, B>(&data, nblocksincl)
         .await
         .map(|n| BigInt::to_string(&n))
 }
+
 async fn estimate_gas_premium<DB, KS, B>(
     data: &Data<RpcState<DB, KS, B>>,
     mut nblocksincl: u64,
-    _sender: Address,
-    _gas_limit: i64,
-    _tsk: TipsetKeys,
 ) -> Result<BigInt, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -127,7 +125,7 @@ where
         .ok_or("cant get heaviest tipset")?;
 
     for _ in 0..(nblocksincl * 2) {
-        if ts.parents().cids().is_empty() {
+        if ts.epoch() == 0 {
             break;
         }
         let pts = data
@@ -184,6 +182,7 @@ where
     let noise: f64 = Normal::new(1.0, 0.005)
         .unwrap()
         .sample(&mut rand::thread_rng());
+
     premium *= BigInt::from_f64(noise * (1 << precision) as f64)
         .ok_or("failed to converrt gas premium f64 to bigint")?;
     premium /= 1 << precision;
@@ -237,6 +236,7 @@ where
     let prior_messages: Vec<ChainMessage> = pending
         .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
         .unwrap_or_default();
+
     let res = data
         .state_manager
         .call_with_gas::<V>(
@@ -250,7 +250,8 @@ where
             if rct.exit_code as u64 != 0 {
                 return Ok(-1);
             }
-            Ok(rct.gas_used)
+            // TODO: Figure out why we always under estimate the gas calculation so we dont need to add 200000
+            Ok(rct.gas_used + 200000)
         }
         None => Ok(-1),
     }
@@ -291,7 +292,7 @@ where
         msg.gas_limit = gl;
     }
     if msg.gas_premium().is_zero() {
-        let gp = estimate_gas_premium(&data, 10, *msg.from(), msg.gas_limit(), tsk.clone()).await?;
+        let gp = estimate_gas_premium(&data, 10).await?;
         msg.gas_premium = gp;
     }
     if msg.gas_fee_cap().is_zero() {
