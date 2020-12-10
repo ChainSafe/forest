@@ -81,7 +81,7 @@ impl State {
         }
     }
 
-    /// Consume state to return just storage power reward
+    /// Consume state to return just total funds locked
     pub fn total_locked(&self) -> TokenAmount {
         match self {
             State::V0(st) => st.total_locked(),
