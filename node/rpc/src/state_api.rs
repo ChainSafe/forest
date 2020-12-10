@@ -123,8 +123,7 @@ pub(crate) async fn state_miner_deadlines<
         .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
 
-    // TODO could have capacity based on deadlines length (should be static)
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(mas.num_deadlines() as usize);
     mas.for_each_deadline(data.state_manager.blockstore(), |_, dl| {
         let ps = dl.into_post_submissions();
         out.push(Deadline {
