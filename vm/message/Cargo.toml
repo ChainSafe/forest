@@ -2,13 +2,13 @@
 name = "forest_message"
 description = "Filecoin message types"
 license = "MIT OR Apache-2.0"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
-features = ["json"]
+features = ["json", "proofs"]
 
 [dependencies]
 vm = { package = "forest_vm", path = "../../vm", version = "0.3" }
@@ -28,6 +28,6 @@ fil_types = { path = "../../types", optional = true, version = "0.1" }
 serde_json = "1.0"
 
 [features]
-json = ["base64", "crypto/json", "forest_json_utils", "cid/json"]
+json = ["base64", "crypto/json", "forest_json_utils", "cid/json", "num-bigint/json"]
 # TODO try to prune out this dependency before releasing
 proofs = ["fil_types"]
