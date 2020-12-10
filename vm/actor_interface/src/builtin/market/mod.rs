@@ -26,12 +26,12 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::SYSTEM_ACTOR_CODE_ID {
+        if actor.code == *actorv0::MARKET_ACTOR_CODE_ID {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V0)
                 .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::SYSTEM_ACTOR_CODE_ID {
+        } else if actor.code == *actorv2::MARKET_ACTOR_CODE_ID {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V2)
