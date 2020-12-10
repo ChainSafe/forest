@@ -234,7 +234,9 @@ impl State {
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerInfo {
+    #[serde(with = "address::json")]
     pub owner: Address,
+    #[serde(with = "address::json")]
     pub worker: Address,
     #[serde(with = "address::json::opt")]
     pub new_worker: Option<Address>,
