@@ -810,7 +810,6 @@ where
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     })?;
 
-                    // TODO switch to check both actors versions
                     if !is_account_actor(&act.code) {
                         return Err("Sender must be an account actor".into());
                     }
