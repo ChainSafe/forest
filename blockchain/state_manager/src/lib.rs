@@ -870,25 +870,11 @@ where
     where
         DB: BlockStore + Send + Sync + 'static,
     {
-        let mut subscribers = self.cs.subscribe().await;
+        let (mut subscribers, tipset) = self.cs.subscribe().await;
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
-        let maybe_subscriber: Option<HeadChange> = subscribers.next().await;
-        let first_subscriber = maybe_subscriber.ok_or_else(|| {
-            Error::Other("SubHeadChanges first entry should have been one item".to_string())
-        })?;
-
-        let tipset = match first_subscriber {
-            HeadChange::Current(tipset) => tipset,
-            _ => {
-                return Err(Error::Other(format!(
-                    "expected current head on SHC stream (got {:?})",
-                    first_subscriber
-                )))
-            }
-        };
         let message_var = (message.from(), &message.sequence());
         let maybe_message_reciept = self
             .tipset_executed_message(&tipset, &msg_cid, message_var)
