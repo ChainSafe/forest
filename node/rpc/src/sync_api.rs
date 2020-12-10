@@ -160,12 +160,13 @@ mod tests {
             let db = cs_for_test.blockstore();
             let tsk = ts.key().cids.clone();
             cs_for_test.set_heaviest_tipset(Arc::new(ts)).await.unwrap();
-            let subscriber = cs_subsciber.subscribe().await;
+            let (subscriber, _) = cs_subsciber.subscribe().await;
 
             for i in tsk {
                 let bz2 = bz.clone();
                 db.write(i.to_bytes(), bz2).unwrap();
             }
+
             let provider =
                 MpoolRpcProvider::new(subscriber.clone(), state_manager_for_thread.clone());
             MessagePool::new(
