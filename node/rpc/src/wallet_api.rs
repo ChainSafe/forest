@@ -211,7 +211,6 @@ where
     let key_addr = state_manager
         .resolve_to_key_addr::<FullVerifier>(&address, &heaviest_tipset)
         .await?;
-    let msg = Vec::from(msg_string);
     let keystore = &mut *data.keystore.write().await;
     let key = match wallet::find_key(&key_addr, keystore) {
         Ok(key) => key,
@@ -224,7 +223,7 @@ where
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        msg.as_slice(),
+        &base64::decode(msg_string)?,
     )?;
     Ok(SignatureJson(sig))
 }

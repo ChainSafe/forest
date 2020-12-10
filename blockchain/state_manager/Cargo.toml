@@ -28,7 +28,6 @@ message = { package = "forest_message", version = "0.6", features = ["json"] }
 vm = { package = "forest_vm", version = "0.3.1" }
 bitfield = { package = "forest_bitfield", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
-ipld_hamt = { path = "../../ipld/hamt" }
 num-traits = "0.2.11"
 flo_stream = "0.4.0"
 filecoin-proofs-api = { version = "5.3", features = ["blst"], default_features = false }

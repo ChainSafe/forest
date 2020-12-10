@@ -17,7 +17,7 @@ dependencies = [
  "fil_clock 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fil_types 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_actor 0.1.0",
- "forest_actor 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "forest_actor 0.1.1",
  "forest_address 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_bigint 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_bitfield 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2268,9 +2268,9 @@ dependencies = [
 
 [[package]]
 name = "forest_actor"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fc9ca6eeb9c0a1b70f0cc4053d28d267ec4eec07bd7b3483113a75874856d55"
+checksum = "3b9b7dfa6be70718b6013bb0fa5927f1cd587a185071db60358bccbe5442e607"
 dependencies = [
  "ahash 0.5.9",
  "base64 0.13.0",
@@ -5589,7 +5589,9 @@ dependencies = [
  "async-std",
  "async-tungstenite",
  "auth",
+ "base64 0.13.0",
  "beacon",
+ "bls-signatures",
  "chain",
  "chain_sync",
  "fil_clock 0.1.0",
@@ -5603,12 +5605,14 @@ dependencies = [
  "forest_crypto 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_db",
  "forest_encoding 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "forest_ipld 0.1.1",
  "forest_libp2p",
  "forest_message 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_vm 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.3.8",
  "hex",
  "interpreter",
+ "ipld_amt 0.2.0",
  "ipld_blockstore 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-v2",
  "jsonwebtoken",
@@ -6225,7 +6229,6 @@ dependencies = [
  "interpreter",
  "ipld_amt 0.2.0",
  "ipld_blockstore 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "ipld_hamt 0.2.0",
  "lazy_static",
  "lazycell",
  "log",

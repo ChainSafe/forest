@@ -5,7 +5,9 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+ipld_amt = { path = "../../ipld/amt/" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
+bls-signatures = "0.6.1"
 async-std = { version = "1.6.3", features = ["attributes"] }
 serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 serde_json = "1.0.48"
@@ -44,6 +46,8 @@ log ="0.4.8"
 flo_stream = "0.4.0"
 libp2p = { version = "0.24", default-features = false }
 vm = { package = "forest_vm", version = "0.3.1" }
+base64 = "0.13"
+ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
 
 [dev-dependencies]
 db = { package = "forest_db", version = "0.1" }

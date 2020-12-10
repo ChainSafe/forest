@@ -2,33 +2,49 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::RpcState;
-use actor::miner::{self, MinerInfo, SectorOnChainInfo};
+use actor::{
+    market::{self, DealProposal, DealState},
+    miner::{self, MinerInfo, SectorOnChainInfo},
+};
 use address::{json::AddressJson, Address};
 use async_std::task;
 use beacon::{json::BeaconEntryJson, Beacon, BeaconEntry};
 use bitfield::json::BitFieldJson;
-use blocks::tipset_keys_json::TipsetKeysJson;
-use blocks::{tipset_json::TipsetJson, Tipset};
+use blocks::{
+    election_proof::json::ElectionProofJson, ticket::json::TicketJson,
+    tipset_keys_json::TipsetKeysJson,
+};
+use blocks::{
+    gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
+    Tipset, TxMeta,
+};
 use blockstore::BlockStore;
-use cid::{json::CidJson, Cid};
+use bls_signatures::Serialize as SerializeBls;
+use cid::{json::CidJson, Cid, Code::Blake2b256};
 use clock::ChainEpoch;
+use crypto::SignatureType;
 use fil_types::json::SectorInfoJson;
+use fil_types::sector::post::json::PoStProofJson;
 use fil_types::{
     deadlines::DeadlineInfo,
     use_newest_network,
     verifier::{FullVerifier, ProofVerifier},
-    NetworkVersion, SectorNumber, SectorSize, NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT,
-    UPGRADE_SMOKE_HEIGHT,
+    NetworkVersion, PoStProof, SectorNumber, SectorSize, NEWEST_NETWORK_VERSION,
+    UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT,
 };
+use ipld::{json::IpldJson, Ipld};
+use ipld_amt::Amt;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     message_receipt::json::MessageReceiptJson,
+    signed_message::{json::SignedMessageJson, SignedMessage},
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
 use num_bigint::{bigint_ser, BigInt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use state_manager::{InvocResult, MarketBalance, MiningBaseInfo, StateManager};
 use state_tree::StateTree;
+use std::collections::HashMap;
 use std::sync::Arc;
 use vm::ActorState;
 use wallet::KeyStore;
@@ -39,7 +55,11 @@ use wallet::KeyStore;
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
     pub receipt: MessageReceiptJson,
-    pub tipset: TipsetJson,
+    #[serde(rename = "TipSet")]
+    pub tipset: TipsetKeysJson,
+    pub height: i64,
+    pub message: CidJson,
+    pub return_dec: IpldJson,
 }
 
 #[derive(Serialize)]
@@ -557,16 +577,196 @@ pub(crate) async fn state_wait_msg<
     let (cidjson, confidence) = params;
     let state_manager = &data.state_manager;
     let cid: Cid = cidjson.into();
-    let (tipset, receipt) = state_manager
-        .wait_for_message(state_manager.get_subscriber(), &cid, confidence)
-        .await?;
+    let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
-    let tipset_json: TipsetJson = tipset.into();
+    let ipld: Ipld = if receipt.return_data.bytes().is_empty() {
+        Ipld::Null
+    } else {
+        receipt.return_data.deserialize()?
+    };
     Ok(MessageLookup {
         receipt: receipt.into(),
-        tipset: tipset_json,
+        tipset: tipset.key().clone().into(),
+        height: tipset.epoch(),
+        message: CidJson(cid),
+        return_dec: IpldJson(ipld),
     })
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub(crate) struct BlockTemplate {
+    miner: AddressJson,
+    parents: TipsetKeysJson,
+    ticket: TicketJson,
+    eproof: ElectionProofJson,
+    beacon_values: Vec<BeaconEntryJson>,
+    messages: Vec<SignedMessageJson>,
+    epoch: i64,
+    timestamp: u64,
+    #[serde(rename = "WinningPoStProof")]
+    winning_post_proof: Vec<PoStProofJson>,
+}
+
+pub(crate) async fn miner_create_block<
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
+>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(BlockTemplate,)>,
+) -> Result<BlockMsgJson, JsonRpcError> {
+    let params = params.0;
+    let AddressJson(miner) = params.miner;
+    let TipsetKeysJson(parents) = params.parents;
+    let TicketJson(ticket) = params.ticket;
+    let ElectionProofJson(eproof) = params.eproof;
+    let beacon_values: Vec<BeaconEntry> = params.beacon_values.into_iter().map(|b| b.0).collect();
+    let messages: Vec<SignedMessage> = params.messages.into_iter().map(|m| m.0).collect();
+    let epoch = params.epoch;
+    let timestamp = params.timestamp;
+    let winning_post_proof: Vec<PoStProof> = params
+        .winning_post_proof
+        .into_iter()
+        .map(|wpp| wpp.0)
+        .collect();
+
+    let pts = data.chain_store.tipset_from_keys(&parents).await?;
+    let (st, recpts) = data.state_manager.tipset_state::<V>(&pts).await?;
+    let (_, lbst) = data
+        .state_manager
+        .get_lookback_tipset_for_round::<V>(pts.clone(), epoch)
+        .await?;
+    let worker = data.state_manager.get_miner_worker_raw(&lbst, &miner)?;
+
+    let mut bls_msgs = Vec::new();
+    let mut secp_msgs = Vec::new();
+    let mut bls_cids = Vec::new();
+    let mut secp_cids = Vec::new();
+
+    let mut bls_sigs = Vec::new();
+    for msg in messages {
+        if msg.signature().signature_type() == SignatureType::BLS {
+            let c = data
+                .chain_store
+                .blockstore()
+                .put(&msg.message, Blake2b256)?;
+            bls_sigs.push(msg.signature);
+            bls_msgs.push(msg.message);
+            bls_cids.push(c);
+        } else {
+            let c = data.chain_store.blockstore().put(&msg, Blake2b256)?;
+            secp_cids.push(c);
+            secp_msgs.push(msg);
+        }
+    }
+
+    let bls_msg_root = Amt::new_from_slice(data.chain_store.blockstore(), &bls_cids)?;
+    let secp_msg_root = Amt::new_from_slice(data.chain_store.blockstore(), &secp_cids)?;
+
+    let mmcid = data.chain_store.blockstore().put(
+        &TxMeta {
+            bls_message_root: bls_msg_root,
+            secp_message_root: secp_msg_root,
+        },
+        Blake2b256,
+    )?;
+
+    let calculated_bls_agg = if bls_sigs.is_empty() {
+        Some(crypto::Signature::new_bls(vec![]))
+    } else {
+        Some(crypto::Signature::new_bls(
+            bls_signatures::aggregate(
+                &bls_sigs
+                    .iter()
+                    .map(|s| s.bytes())
+                    .map(bls_signatures::Signature::from_bytes)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+            .unwrap()
+            .as_bytes(),
+        ))
+    };
+    let pweight = chain::weight(data.chain_store.blockstore(), &pts.as_ref())?;
+    let base_fee = chain::compute_base_fee(data.chain_store.blockstore(), &pts.as_ref())?;
+
+    let mut next = BlockHeader::builder()
+        .messages(mmcid)
+        .bls_aggregate(calculated_bls_agg)
+        .miner_address(miner)
+        .weight(pweight)
+        .parent_base_fee(base_fee)
+        .parents(parents)
+        .ticket(Some(ticket))
+        .election_proof(Some(eproof))
+        .beacon_entries(beacon_values)
+        .epoch(epoch)
+        .timestamp(timestamp)
+        .winning_post_proof(winning_post_proof)
+        .state_root(st)
+        .message_receipts(recpts)
+        .signature(None)
+        .build_and_validate()?;
+
+    let key = wallet::find_key(&worker, &*data.keystore.as_ref().write().await)?;
+    let sig = wallet::sign(
+        *key.key_info.key_type(),
+        key.key_info.private_key(),
+        &next.to_signing_bytes()?,
+    )?;
+    next.signature = Some(sig);
+
+    Ok(BlockMsgJson(BlockMsg {
+        header: next,
+        bls_messages: bls_cids,
+        secpk_messages: secp_cids,
+    }))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub(crate) struct MarketDeal {
+    proposal: DealProposal,
+    state: DealState,
+}
+
+pub(crate) async fn state_market_deals<
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(TipsetKeysJson,)>,
+) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
+    let (TipsetKeysJson(tsk),) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
+    let actor = data
+        .state_manager
+        .get_actor(market::ADDRESS, ts.parent_state())?
+        .ok_or_else(|| "Power actor address could not be resolved")?;
+    let market_state = market::State::load(data.state_manager.blockstore(), &actor)?;
+
+    let da = market_state.proposals(data.state_manager.blockstore())?;
+    let sa = market_state.states(data.state_manager.blockstore())?;
+
+    let mut out = HashMap::new();
+    da.for_each(|deal_id, d| {
+        let s = sa.get(deal_id)?.unwrap_or(market::DealState {
+            sector_start_epoch: -1,
+            last_updated_epoch: -1,
+            slash_epoch: -1,
+        });
+        out.insert(
+            deal_id.to_string(),
+            MarketDeal {
+                proposal: d,
+                state: s,
+            },
+        );
+        Ok(())
+    })?;
+    Ok(out)
 }
 
 /// returns a state tree given a tipset

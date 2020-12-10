@@ -21,6 +21,7 @@ use async_tungstenite::{
 };
 use auth::{has_perms, Error as AuthError, JWT_IDENTIFIER, WRITE_ACCESS};
 use beacon::{Beacon, Schedule};
+use blocks::Tipset;
 use blockstore::BlockStore;
 use chain::ChainStore;
 use chain::{headchange_json::HeadChangeJson, EventsPayload};
@@ -66,6 +67,7 @@ where
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
     pub network_send: Sender<NetworkMessage>,
+    pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub network_name: String,
     pub chain_store: Arc<ChainStore<DB>>,
     pub beacon: Schedule<B>,
@@ -115,7 +117,7 @@ where
             false,
         )
         .with_method(
-            "Filecoin.ChainTipsetWeight",
+            "Filecoin.ChainTipSetWeight",
             chain_tipset_weight::<DB, KS, B>,
             false,
         )
@@ -257,8 +259,13 @@ where
             false,
         )
         .with_method(
-            "Filecoin.StateMartketBalance",
+            "Filecoin.StateMarketBalance",
             state_market_balance::<DB, KS, B>,
+            false,
+        )
+        .with_method(
+            "Filecoin.StateMarketDeals",
+            state_market_deals::<DB, KS, B>,
             false,
         )
         .with_method(
@@ -275,6 +282,11 @@ where
         .with_method(
             "Filecoin.MinerGetBaseInfo",
             state_miner_get_base_info::<DB, KS, B, V>,
+            false,
+        )
+        .with_method(
+            "Filecoin.MinerCreateBlock",
+            miner_create_block::<DB, KS, B, V>,
             false,
         )
         .with_method("Filecoin.NetworkVersion", state_get_network_version, false)
@@ -329,7 +341,7 @@ where
     info!("Stopped accepting websocket connections");
 }
 
-async fn handle_connection_and_log<KS: KeyStore>(
+async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
     state: Arc<Server<MapRouter>>,
     ks: Arc<RwLock<KS>>,
     tcp_stream: TcpStream,
@@ -338,15 +350,17 @@ async fn handle_connection_and_log<KS: KeyStore>(
     events_in: Subscriber<EventsPayload>,
 ) {
     span!("handle_connection_and_log", {
-        let mut authorization_header: Option<String> = None;
+        let mut authorization_header: Arc<Option<String>> = Arc::new(None);
         if let Ok(ws_stream) =
             async_tungstenite::accept_hdr_async(tcp_stream, |request: &Request, response| {
                 if let Some(authorization) = request.headers().get("Authorization") {
                     // not all methods require authorization
-                    authorization_header = authorization
-                        .to_str()
-                        .map(|s| Some(s.to_string()))
-                        .unwrap_or_default();
+                    authorization_header = Arc::new(
+                        authorization
+                            .to_str()
+                            .map(|s| Some(s.to_string()))
+                            .unwrap_or_default(),
+                    );
                 }
                 Ok(response)
             })
@@ -357,28 +371,45 @@ async fn handle_connection_and_log<KS: KeyStore>(
             let ws_sender = Arc::new(RwLock::new(ws_sender));
             let mut chain_notify_count: usize = 0;
             while let Some(message_result) = ws_receiver.next().await {
-                match message_result {
-                    Ok(message) => {
-                        let request_text = message.into_text().unwrap();
-                        info!("RPC Request Received: {:?}", request_text.clone());
-                        match serde_json::from_str(&request_text)
-                            as Result<RequestObject, serde_json::Error>
-                        {
-                            Ok(call) => {
-                                // hacky but due to the limitations of jsonrpc_v2 impl
-                                // if this expands, better to implement some sort of middleware
+                let s = state.clone();
+                let ws_sender_clone = ws_sender.clone();
+                let ks_clone = ks.clone();
+                let auth_header_clone = authorization_header.clone();
+                let events_out_clone = events_out.clone();
+                let events_in_clone = events_in.clone();
+                task::spawn(async move {
+                    match message_result {
+                        Ok(message) => {
+                            let request_text = message.into_text().unwrap();
+                            if request_text == "" {
+                                return;
+                            }
+                            info!("RPC Request Received: {:?}", request_text.clone());
+                            match serde_json::from_str(&request_text)
+                                as Result<RequestObject, serde_json::Error>
+                            {
+                                Ok(call) => {
+                                    // hacky but due to the limitations of jsonrpc_v2 impl
+                                    // if this expands, better to implement some sort of middleware
 
-                                let call = if &*call.method == CHAIN_NOTIFY_METHOD_NAME {
-                                    chain_notify_count += 1;
-                                    RequestBuilder::default()
-                                        .with_id(call.id.unwrap_or_default().unwrap_or_default())
-                                        .with_params(chain_notify_count)
-                                        .with_method(CHAIN_NOTIFY_METHOD_NAME)
-                                        .finish()
-                                } else {
-                                    call
-                                };
-                                let response = handle_rpc(&state, &ks, call, &authorization_header)
+                                    let call = if &*call.method == CHAIN_NOTIFY_METHOD_NAME {
+                                        chain_notify_count += 1;
+                                        RequestBuilder::default()
+                                            .with_id(
+                                                call.id.unwrap_or_default().unwrap_or_default(),
+                                            )
+                                            .with_params(chain_notify_count)
+                                            .with_method(CHAIN_NOTIFY_METHOD_NAME)
+                                            .finish()
+                                    } else {
+                                        call
+                                    };
+                                    let response = handle_rpc(
+                                        &s.clone(),
+                                        &ks_clone,
+                                        call,
+                                        &auth_header_clone.as_ref(),
+                                    )
                                     .await
                                     .unwrap_or_else(|e| {
                                         ResponseObjects::One(ResponseObject::Error {
@@ -391,98 +422,107 @@ async fn handle_connection_and_log<KS: KeyStore>(
                                             id: Id::Null,
                                         })
                                     });
-                                let error_send = ws_sender.clone();
+                                    let error_send = ws_sender_clone.clone();
 
-                                // initiate response and streaming if applicable
-                                let join_handle = streaming_payload(
-                                    ws_sender.clone(),
-                                    response,
-                                    chain_notify_count,
-                                    events_out.clone(),
-                                    events_in.clone(),
-                                )
-                                .map_err(|e| async move {
-                                    send_error(
-                                        3,
-                                        &error_send,
-                                        format!(
-                                            "channel id {:}, error {:?}",
-                                            chain_notify_count,
-                                            e.message()
-                                        ),
+                                    // initiate response and streaming if applicable
+                                    let join_handle = streaming_payload(
+                                        ws_sender_clone.clone(),
+                                        response,
+                                        chain_notify_count,
+                                        events_out_clone.clone(),
+                                        events_in_clone.clone(),
                                     )
+                                    .map_err(|e| async move {
+                                        send_error(
+                                            3,
+                                            &error_send,
+                                            format!(
+                                                "channel id {:}, error {:?}",
+                                                chain_notify_count,
+                                                e.message()
+                                            ),
+                                        )
+                                        .await
+                                        .unwrap_or_else(
+                                            |e| {
+                                                error!(
+                                                    "error {:?} on socket {:?}",
+                                                    e.message(),
+                                                    addr
+                                                )
+                                            },
+                                        );
+                                    })
+                                    .await
+                                    .unwrap_or_else(|_| {
+                                        error!("error sending on socket {:?}", addr);
+                                        None
+                                    });
+
+                                    // wait for join handle to complete if there is error and send it over the network and cancel streaming
+                                    let error_join_send = ws_sender_clone.clone();
+                                    let handle_events_out = events_out_clone.clone();
+                                    task::spawn(async move {
+                                        if let Some(handle) = join_handle {
+                                            handle
+                                                .map_err(|e| async move {
+                                                    send_error(
+                                                        3,
+                                                        &error_join_send,
+                                                        format!(
+                                                            "channel id {:}, error {:?}",
+                                                            chain_notify_count,
+                                                            e.message()
+                                                        ),
+                                                    )
+                                                    .await
+                                                    .unwrap_or_else(|e| {
+                                                        error!(
+                                                            "error {:?} on socket {:?}",
+                                                            e.message(),
+                                                            addr
+                                                        )
+                                                    });
+                                                })
+                                                .await
+                                                .unwrap_or_else(|_| {
+                                                    error!("error sending on socket {:?}", addr)
+                                                });
+
+                                            handle_events_out
+                                                .write()
+                                                .await
+                                                .publish(EventsPayload::TaskCancel(
+                                                    chain_notify_count,
+                                                    (),
+                                                ))
+                                                .await;
+                                        } else {
+                                            handle_events_out
+                                                .write()
+                                                .await
+                                                .publish(EventsPayload::TaskCancel(
+                                                    chain_notify_count,
+                                                    (),
+                                                ))
+                                                .await
+                                        }
+                                    });
+                                }
+                                Err(e) => send_error(1, &ws_sender_clone, e.to_string())
                                     .await
                                     .unwrap_or_else(|e| {
                                         error!("error {:?} on socket {:?}", e.message(), addr)
-                                    });
-                                })
-                                .await
-                                .unwrap_or_else(|_| {
-                                    error!("error sending on socket {:?}", addr);
-                                    None
-                                });
-
-                                // wait for join handle to complete if there is error and send it over the network and cancel streaming
-                                let error_join_send = ws_sender.clone();
-                                let handle_events_out = events_out.clone();
-                                task::spawn(async move {
-                                    if let Some(handle) = join_handle {
-                                        handle
-                                            .map_err(|e| async move {
-                                                send_error(
-                                                    3,
-                                                    &error_join_send,
-                                                    format!(
-                                                        "channel id {:}, error {:?}",
-                                                        chain_notify_count,
-                                                        e.message()
-                                                    ),
-                                                )
-                                                .await
-                                                .unwrap_or_else(|e| {
-                                                    error!(
-                                                        "error {:?} on socket {:?}",
-                                                        e.message(),
-                                                        addr
-                                                    )
-                                                });
-                                            })
-                                            .await
-                                            .unwrap_or_else(|_| {
-                                                error!("error sending on socket {:?}", addr)
-                                            });
-
-                                        handle_events_out
-                                            .write()
-                                            .await
-                                            .publish(EventsPayload::TaskCancel(
-                                                chain_notify_count,
-                                                (),
-                                            ))
-                                            .await;
-                                    } else {
-                                        handle_events_out
-                                            .write()
-                                            .await
-                                            .publish(EventsPayload::TaskCancel(
-                                                chain_notify_count,
-                                                (),
-                                            ))
-                                            .await
-                                    }
-                                });
+                                    }),
                             }
-                            Err(e) => send_error(1, &ws_sender, e.to_string())
-                                .await
-                                .unwrap_or_else(|e| {
-                                    error!("error {:?} on socket {:?}", e.message(), addr)
-                                }),
                         }
-                    }
-                    Err(e) => send_error(2, &ws_sender, e.to_string())
-                        .await
-                        .unwrap_or_else(|e| error!("error {:?} on socket {:?}", e.message(), addr)),
-                };
+                        Err(e) => send_error(2, &ws_sender_clone, e.to_string())
+                            .await
+                            .unwrap_or_else(|e| {
+                                error!("error {:?} on socket {:?}", e.message(), addr)
+                            }),
+                    };
+                });
             }
         } else {
             warn!("web socket connection failed at {:}", addr)

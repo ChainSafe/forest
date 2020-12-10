@@ -59,8 +59,9 @@ fn peer_manager_update() {
 
     let peer_manager = Arc::clone(&cs.network.peer_manager_cloned());
 
+    let (worker_tx, worker_rx) = channel(10);
     task::spawn(async {
-        cs.start(0).await;
+        cs.start(worker_tx, worker_rx, 0).await;
     });
 
     let source = PeerId::random();

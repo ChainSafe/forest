@@ -15,6 +15,8 @@ pub use self::util::*;
 pub use vm::{
     actor_error, ActorError, ActorState, DealID, ExitCode, MethodNum, Serialized, TokenAmount,
 };
+pub use ipld_hamt;
+pub use ipld_amt;
 
 use cid::Cid;
 use fil_types::{NetworkVersion, HAMT_BIT_WIDTH};

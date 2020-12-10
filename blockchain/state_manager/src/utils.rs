@@ -16,7 +16,9 @@ use fil_types::{
     SectorNumber,
 };
 use forest_blocks::Tipset;
+use interpreter::resolve_to_key_addr;
 use serde::Serialize;
+use state_tree::StateTree;
 use std::error::Error as StdError;
 
 impl<DB> StateManager<DB>
@@ -282,6 +284,30 @@ where
         let power_actor_state = power::State::load(self.blockstore(), &actor)?;
 
         Ok(power_actor_state.list_all_miners(self.blockstore())?)
+    }
+
+    pub fn get_miner_worker_raw(
+        &self,
+        state: &Cid,
+        miner_addr: &Address,
+    ) -> Result<Address, Error> {
+        let st = StateTree::new_from_root(self.blockstore(), state)?;
+        let actor = st
+            .get_actor(miner_addr)?
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+        let mas = miner::State::load(self.blockstore(), &actor)?;
+        let info = mas.info(self.blockstore()).map_err(|err| {
+            Error::State(format!(
+                "(get miner worker raw) failed to load miner actor get info: {:}",
+                err
+            ))
+        })?;
+        resolve_to_key_addr(&st, self.blockstore(), &info.worker).map_err(|e| {
+            Error::State(format!(
+                "(get miner worker raw) failed to resolve key addr: {}",
+                e
+            ))
+        })
     }
 }
 
