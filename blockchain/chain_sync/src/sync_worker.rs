@@ -36,7 +36,7 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{cmp::min, convert::TryFrom};
 
 /// Worker to handle syncing chain with the chain_exchange protocol.
@@ -90,7 +90,8 @@ where
     pub async fn sync(&self, head: Arc<Tipset>) -> Result<(), Error> {
         // Bootstrap peers before syncing
         // TODO increase bootstrap peer count before syncing
-        const MIN_PEERS: usize = 1;
+        // TODO: Commented this out to allow for a 1 node devnet when testing miner interop. Needs to be looked into how to best handle this.
+        // const MIN_PEERS: usize = 1;
         // loop {
         //     let peer_count = self.network.peer_manager().len().await;
         //     if peer_count < MIN_PEERS {
