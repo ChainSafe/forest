@@ -17,3 +17,7 @@ pub use self::behaviour::*;
 pub use self::chain_exchange::{ChainExchangeRequest, MESSAGES};
 pub use self::config::*;
 pub use self::service::*;
+
+// Re-export some libp2p types
+pub use libp2p::core::PeerId;
+pub use libp2p::multiaddr::Multiaddr;

@@ -142,7 +142,8 @@ jobs:
           command: |
             rustup run nightly rustc --version --verbose
             rustup run nightly cargo --version --verbose
-            rustup run nightly cargo build
+            cargo +nightly check -p forest
+            cargo +nightly check
   macos-build-check:
     executor: mac-executor
     description: Check macos build
@@ -168,7 +169,8 @@ jobs:
           command: |
             rustup run stable rustc --version --verbose
             rustup run stable cargo --version --verbose
-            rustup run stable cargo build
+            cargo +stable check -p forest
+            cargo +stable check
   install:
     executor: test-executor
     description: Install forest binary
