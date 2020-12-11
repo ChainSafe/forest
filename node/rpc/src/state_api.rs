@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::RpcState;
-use actor::market::{DealProposal, DealState};
-use actor::miner::MinerInfo;
-use actor::miner::{
-    ChainSectorInfo, Fault, SectorOnChainInfo, SectorPreCommitOnChainInfo, State, WorkerKeyChange,
+use actor::{
+    market::{self, DealProposal, DealState},
+    miner::{self, MinerInfo, SectorOnChainInfo},
 };
-use actor::{market, DealID, DealWeight, TokenAmount, STORAGE_MARKET_ACTOR_ADDR};
 use address::{json::AddressJson, Address};
 use async_std::task;
 use beacon::{json::BeaconEntryJson, Beacon, BeaconEntry};
@@ -23,22 +21,20 @@ use blocks::{
 use blockstore::BlockStore;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{json::CidJson, Cid, Code::Blake2b256};
-use clock::{ChainEpoch, EPOCH_UNDEFINED};
+use clock::ChainEpoch;
 use crypto::SignatureType;
-use encoding::BytesDe;
 use fil_types::json::SectorInfoJson;
 use fil_types::sector::post::json::PoStProofJson;
 use fil_types::{
     deadlines::DeadlineInfo,
     use_newest_network,
     verifier::{FullVerifier, ProofVerifier},
-    NetworkVersion, PaddedPieceSize, PoStProof, RegisteredSealProof, SectorNumber, SectorSize,
-    NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT,
+    NetworkVersion, PoStProof, SectorNumber, SectorSize, NEWEST_NETWORK_VERSION,
+    UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT,
 };
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use libp2p::core::PeerId;
 use message::{
     message_receipt::json::MessageReceiptJson,
     signed_message::{json::SignedMessageJson, SignedMessage},
@@ -46,12 +42,11 @@ use message::{
 };
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
-use state_manager::MiningBaseInfo;
-use state_manager::{InvocResult, MarketBalance, StateManager};
+use state_manager::{InvocResult, MarketBalance, MiningBaseInfo, StateManager};
 use state_tree::StateTree;
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
+use vm::ActorState;
 use wallet::KeyStore;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
@@ -80,16 +75,15 @@ pub(crate) struct Partition {
 /// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
 /// If the filterOut boolean is set to true, any sectors in the filter are excluded.
 /// If false, only those sectors in the filter are included.
-pub(crate) async fn state_miner_sector<
+pub(crate) async fn state_miner_sectors<
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(AddressJson, BitFieldJson, bool, TipsetKeysJson)>,
-) -> Result<Vec<ChainSectorInfo>, JsonRpcError> {
-    let (address, filter, filter_out, key) = params;
-    let mut bitfield_filter = filter.into();
+    Params(params): Params<(AddressJson, BitFieldJson, TipsetKeysJson)>,
+) -> Result<Vec<miner::SectorOnChainInfo>, JsonRpcError> {
+    let (address, filter, key) = params;
     let address = address.into();
     let state_manager = &data.state_manager;
     let tipset = data
@@ -97,9 +91,9 @@ pub(crate) async fn state_miner_sector<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let mut filter = Some(&mut bitfield_filter);
+    let filter = Some(&filter.0);
     state_manager
-        .get_miner_sector_set::<FullVerifier>(&tipset, &address, &mut filter, filter_out)
+        .get_miner_sector_set::<FullVerifier>(&tipset, &address, filter)
         .map_err(|e| e.into())
 }
 
@@ -148,19 +142,16 @@ pub(crate) async fn state_miner_deadlines<
         .miner_load_actor_tsk(&actor, &key.into())
         .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
-    let deadlines = mas
-        .load_deadlines(data.state_manager.chain_store().db.as_ref())
-        .map_err(|e| format!("Could not load deadlines {:?}", e))?;
-    let mut out = Vec::with_capacity(deadlines.due.len());
-    deadlines
-        .for_each(data.state_manager.chain_store().db.as_ref(), |_, dl| {
-            let ps = dl.post_submissions;
-            out.push(Deadline {
-                post_submissions: BitFieldJson(ps),
-            });
-            Ok(())
-        })
-        .map_err(|e| format!("Looping over deadlines failed: {}", e.to_string()))?;
+
+    let mut out = Vec::with_capacity(mas.num_deadlines() as usize);
+    mas.for_each_deadline(data.state_manager.blockstore(), |_, dl| {
+        let ps = dl.into_post_submissions();
+        out.push(Deadline {
+            post_submissions: BitFieldJson(ps),
+        });
+        Ok(())
+    })?;
+
     Ok(out)
 }
 
@@ -172,14 +163,14 @@ pub(crate) async fn state_sector_precommit_info<
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, SectorNumber, TipsetKeysJson)>,
-) -> Result<SectorPreCommitOnChainInfo, JsonRpcError> {
+) -> Result<miner::SectorPreCommitOnChainInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (address, sector_number, key) = params;
     let address = address.into();
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into())
+        .tipset_from_keys(&key.0)
         .await?;
     state_manager
         .precommit_info::<FullVerifier>(&address, &sector_number, &tipset)
@@ -194,7 +185,7 @@ pub async fn state_miner_info<
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
-) -> Result<MinerInfoJson, JsonRpcError> {
+) -> Result<MinerInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
@@ -205,9 +196,9 @@ pub async fn state_miner_info<
         .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
     let miner_info = miner_state
-        .get_info(state_manager.blockstore())
+        .info(state_manager.blockstore())
         .map_err(|e| format!("Could not get info {:?}", e))?;
-    Ok(miner_info.try_into()?)
+    Ok(miner_info)
 }
 
 /// returns the on-chain info for the specified miner's sector
@@ -218,7 +209,7 @@ pub async fn state_sector_info<
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, SectorNumber, TipsetKeysJson)>,
-) -> Result<Option<SectorOnChainInfoJson>, JsonRpcError> {
+) -> Result<Option<SectorOnChainInfo>, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (address, sector_number, key) = params;
     let address = address.into();
@@ -228,9 +219,9 @@ pub async fn state_sector_info<
         .tipset_from_keys(&key.into())
         .await?;
     state_manager
-        .miner_sector_info::<FullVerifier>(&address, &sector_number, &tipset)
+        .miner_sector_info::<FullVerifier>(&address, sector_number, &tipset)
         .map_err(|e| e.into())
-        .map(|e| e.map(SectorOnChainInfoJson::from))
+        .map(|e| e.map(SectorOnChainInfo::from))
 }
 
 /// calculates the deadline at some epoch for a proving period
@@ -244,19 +235,20 @@ pub(crate) async fn state_miner_proving_deadline<
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<DeadlineInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (actor, key) = params;
-    let actor = actor.into();
+    let (AddressJson(addr), key) = params;
     let tipset = data
         .state_manager
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let miner_actor_state: State =
-        state_manager.load_actor_state(&actor, &tipset.parent_state())?;
 
-    Ok(miner_actor_state
-        .deadline_info(tipset.epoch())
-        .next_not_elapsed())
+    let actor = state_manager
+        .get_actor(&addr, &tipset.parent_state())?
+        .ok_or_else(|| format!("Address {} not found", addr))?;
+
+    let mas = miner::State::load(state_manager.blockstore(), &actor)?;
+
+    Ok(mas.deadline_info(tipset.epoch()).next_not_elapsed())
 }
 
 /// returns a single non-expired Faults that occur within lookback epochs of the given tipset
@@ -280,6 +272,12 @@ pub(crate) async fn state_miner_faults<
         .get_miner_faults::<FullVerifier>(&tipset, &actor)
         .map(|s| s.into())
         .map_err(|e| e.into())
+}
+
+#[derive(Serialize)]
+pub struct Fault {
+    pub miner: Address,
+    pub epoch: ChainEpoch,
 }
 
 /// returns all non-expired Faults that occur within lookback epochs of the given tipset
@@ -318,6 +316,7 @@ pub(crate) async fn state_all_miner_faults<
     // }
     // Ok(all_faults)
 }
+
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
     DB: BlockStore + Send + Sync + 'static,
@@ -359,22 +358,19 @@ pub(crate) async fn state_miner_partitions<
         .miner_load_actor_tsk(&actor, &key.into())
         .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
-    let dl = mas
-        .load_deadlines(db)
-        .map_err(|e| format!("Failed to load deadlines: {:?}", e))?
-        .load_deadline(db, dl_idx)
-        .map_err(|e| format!("Failed to load sector {}: {:?}", dl_idx, e))?;
+    let dl = mas.load_deadline(db, dl_idx)?;
     let mut out = Vec::new();
     dl.for_each(db, |_, part| {
         out.push(Partition {
-            all_sectors: part.sectors.clone().into(),
-            faulty_sectors: part.faults.clone().into(),
-            recovering_sectors: part.recoveries.clone().into(),
+            all_sectors: part.all_sectors().clone().into(),
+            faulty_sectors: part.faulty_sectors().clone().into(),
+            recovering_sectors: part.recovering_sectors().clone().into(),
             live_sectors: part.live_sectors().into(),
             active_sectors: part.active_sectors().into(),
         });
         Ok(())
     })?;
+
     Ok(out)
 }
 
@@ -430,7 +426,7 @@ pub(crate) async fn state_get_actor<
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
-) -> Result<Option<actor::ActorState>, JsonRpcError> {
+) -> Result<Option<ActorStateJson>, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (actor, key) = params;
     let actor = actor.into();
@@ -440,7 +436,7 @@ pub(crate) async fn state_get_actor<
         .tipset_from_keys(&key.into())
         .await?;
     let state = state_for_ts(&state_manager, tipset).await?;
-    state.get_actor(&actor).map_err(|e| e.into())
+    Ok(state.get_actor(&actor)?.map(ActorStateJson::from))
 }
 
 /// returns the indicated actor's nonce and balance.
@@ -637,12 +633,12 @@ pub(crate) async fn miner_create_block<
         .collect();
 
     let pts = data.chain_store.tipset_from_keys(&parents).await?;
-    let (st, recpts) = data.state_manager.tipset_state::<V>(&pts.as_ref()).await?;
+    let (st, recpts) = data.state_manager.tipset_state::<V>(&pts).await?;
     let (_, lbst) = data
         .state_manager
         .get_lookback_tipset_for_round::<V>(pts.clone(), epoch)
         .await?;
-    let worker = data.state_manager.get_miner_worker_raw(lbst, miner)?;
+    let worker = data.state_manager.get_miner_worker_raw(&lbst, &miner)?;
 
     let mut bls_msgs = Vec::new();
     let mut secp_msgs = Vec::new();
@@ -731,9 +727,10 @@ pub(crate) async fn miner_create_block<
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct MarketDeal {
-    proposal: DealProposalJson,
-    state: DealStateJson,
+    proposal: DealProposal,
+    state: DealState,
 }
+
 pub(crate) async fn state_market_deals<
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
@@ -744,15 +741,18 @@ pub(crate) async fn state_market_deals<
 ) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
     let (TipsetKeysJson(tsk),) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let market_state: market::State = data
+    let actor = data
         .state_manager
-        .load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
-    let da = market::DealArray::load(&market_state.proposals, data.chain_store.blockstore())?;
-    let sa = market::DealMetaArray::load(&market_state.states, data.chain_store.blockstore())?;
+        .get_actor(market::ADDRESS, ts.parent_state())?
+        .ok_or("Power actor address could not be resolved")?;
+    let market_state = market::State::load(data.state_manager.blockstore(), &actor)?;
+
+    let da = market_state.proposals(data.state_manager.blockstore())?;
+    let sa = market_state.states(data.state_manager.blockstore())?;
 
     let mut out = HashMap::new();
     da.for_each(|deal_id, d| {
-        let s = sa.get(deal_id)?.unwrap_or(&market::DealState {
+        let s = sa.get(deal_id)?.unwrap_or(market::DealState {
             sector_start_epoch: -1,
             last_updated_epoch: -1,
             slash_epoch: -1,
@@ -760,8 +760,8 @@ pub(crate) async fn state_market_deals<
         out.insert(
             deal_id.to_string(),
             MarketDeal {
-                proposal: d.clone().into(),
-                state: s.clone().into(),
+                proposal: d,
+                state: s,
             },
         );
         Ok(())
@@ -785,48 +785,23 @@ where
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct SectorOnChainInfoJson {
-    pub sector_number: SectorNumber,
-    /// The seal proof type implies the PoSt proofs
-    pub seal_proof: RegisteredSealProof,
-    /// CommR
-    pub sealed_cid: CidJson,
-    pub deal_ids: Vec<DealID>,
-    /// Epoch during which the sector proof was accepted
-    pub activation: ChainEpoch,
-    /// Epoch during which the sector expires
-    pub expiration: ChainEpoch,
-    /// Integral of active deals over sector lifetime
+pub struct ActorStateJson {
+    #[serde(with = "cid::json")]
+    code: Cid,
+    #[serde(with = "cid::json")]
+    head: Cid,
+    nonce: u64,
     #[serde(with = "bigint_ser::json")]
-    pub deal_weight: DealWeight,
-    /// Integral of active verified deals over sector lifetime
-    #[serde(with = "bigint_ser::json")]
-    pub verified_deal_weight: DealWeight,
-    /// Pledge collected to commit this sector
-    #[serde(with = "bigint_ser::json")]
-    pub initial_pledge: TokenAmount,
-    /// Expected one day projection of reward for sector computed at activation time
-    #[serde(with = "bigint_ser::json")]
-    pub expected_day_reward: TokenAmount,
-    /// Expected twenty day projection of reward for sector computed at activation time
-    #[serde(with = "bigint_ser::json")]
-    pub expected_storage_pledge: TokenAmount,
+    balance: BigInt,
 }
 
-impl From<SectorOnChainInfo> for SectorOnChainInfoJson {
-    fn from(info: SectorOnChainInfo) -> Self {
+impl From<ActorState> for ActorStateJson {
+    fn from(a: ActorState) -> Self {
         Self {
-            sector_number: info.sector_number,
-            seal_proof: info.seal_proof,
-            sealed_cid: CidJson(info.sealed_cid),
-            deal_ids: info.deal_ids,
-            activation: info.activation,
-            expiration: info.expiration,
-            deal_weight: info.deal_weight,
-            verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            code: a.code,
+            head: a.state,
+            nonce: a.sequence,
+            balance: a.balance,
         }
     }
 }
@@ -848,47 +823,6 @@ pub struct MiningBaseInfoJson {
     pub eligible_for_mining: bool,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct MinerInfoJson {
-    owner: AddressJson,
-    worker: AddressJson,
-    #[serde(with = "address::json::opt")]
-    new_worker: Option<Address>,
-    #[serde(with = "address::json::vec")]
-    control_addresses: Vec<Address>,
-    worker_change_epoch: ChainEpoch,
-    pending_worker_key: Option<WorkerKeyChange>,
-    peer_id: String,
-    multi_address: Vec<BytesDe>,
-    seal_proof_type: RegisteredSealProof,
-    sector_size: SectorSize,
-    window_post_partition_sectors: u64,
-    consensus_fault_elapsed: ChainEpoch,
-}
-
-impl TryFrom<MinerInfo> for MinerInfoJson {
-    type Error = String;
-
-    fn try_from(info: MinerInfo) -> Result<Self, Self::Error> {
-        Ok(Self {
-            owner: info.owner.into(),
-            worker: info.worker.into(),
-            new_worker: None,
-            control_addresses: info.control_addresses,
-            worker_change_epoch: EPOCH_UNDEFINED,
-            pending_worker_key: info.pending_worker_key,
-            peer_id: PeerId::from_bytes(info.peer_id)
-                .map_err(|e| format!("Could not convert bytes {:?} into PeerId", e))?
-                .to_string(),
-            multi_address: info.multi_address,
-            seal_proof_type: info.seal_proof_type,
-            sector_size: info.sector_size,
-            window_post_partition_sectors: info.window_post_partition_sectors,
-            consensus_fault_elapsed: EPOCH_UNDEFINED,
-        })
-    }
-}
 impl From<MiningBaseInfo> for MiningBaseInfoJson {
     fn from(info: MiningBaseInfo) -> Self {
         Self {
@@ -908,61 +842,6 @@ impl From<MiningBaseInfo> for MiningBaseInfoJson {
                 .map(BeaconEntryJson)
                 .collect::<Vec<BeaconEntryJson>>(),
             eligible_for_mining: info.elligable_for_minning,
-        }
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct DealStateJson {
-    pub sector_start_epoch: ChainEpoch, // -1 if not yet included in proven sector
-    pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated
-    pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
-}
-impl From<DealState> for DealStateJson {
-    fn from(d: DealState) -> Self {
-        Self {
-            sector_start_epoch: d.sector_start_epoch,
-            last_updated_epoch: d.last_updated_epoch,
-            slash_epoch: d.slash_epoch,
-        }
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct DealProposalJson {
-    #[serde(rename = "PieceCID")]
-    pub piece_cid: CidJson,
-    pub piece_size: PaddedPieceSize,
-    pub verified_deal: bool,
-    pub client: AddressJson,
-    pub provider: AddressJson,
-    // ! This is the field that requires unsafe unchecked utf8 deserialization
-    pub label: String,
-    pub start_epoch: ChainEpoch,
-    pub end_epoch: ChainEpoch,
-    #[serde(with = "bigint_ser::json")]
-    pub storage_price_per_epoch: TokenAmount,
-    #[serde(with = "bigint_ser::json")]
-    pub provider_collateral: TokenAmount,
-    #[serde(with = "bigint_ser::json")]
-    pub client_collateral: TokenAmount,
-}
-impl From<DealProposal> for DealProposalJson {
-    fn from(d: DealProposal) -> Self {
-        Self {
-            piece_cid: CidJson(d.piece_cid),
-            piece_size: d.piece_size,
-            verified_deal: d.verified_deal,
-            client: d.client.into(),
-            provider: d.client.into(),
-            label: d.label,
-            start_epoch: d.start_epoch,
-            end_epoch: d.end_epoch,
-            storage_price_per_epoch: d.storage_price_per_epoch,
-            provider_collateral: d.provider_collateral,
-            client_collateral: d.client_collateral,
         }
     }
 }

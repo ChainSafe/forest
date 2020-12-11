@@ -3,7 +3,6 @@
 
 use super::gas_api::estimate_message_gas;
 use crate::RpcState;
-use actor::TokenAmount;
 use address::{Address, Protocol};
 use beacon::Beacon;
 use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
@@ -21,6 +20,7 @@ use num_bigint::bigint_ser;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::str::FromStr;
+use vm::TokenAmount;
 use wallet::KeyStore;
 
 /// Estimate the gas price for an Address

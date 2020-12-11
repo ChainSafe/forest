@@ -192,8 +192,8 @@ where
         .with_method("Filecoin.WalletVerify", wallet_verify::<DB, KS, B>, false)
         // State API
         .with_method(
-            "Filecoin.StateMinerSector",
-            state_miner_sector::<DB, KS, B>,
+            "Filecoin.StateMinerSectors",
+            state_miner_sectors::<DB, KS, B>,
             false,
         )
         .with_method("Filecoin.StateCall", state_call::<DB, KS, B>, false)

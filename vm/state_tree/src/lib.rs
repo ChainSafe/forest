@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{init, INIT_ACTOR_ADDR};
+use actor::init;
 use address::{Address, Protocol};
 use cid::{Cid, Code::Blake2b256};
 use fil_types::HAMT_BIT_WIDTH;
@@ -239,14 +239,10 @@ where
         }
 
         let init_act = self
-            .get_actor(&INIT_ACTOR_ADDR)?
+            .get_actor(actor::init::ADDRESS)?
             .ok_or("Init actor address could not be resolved")?;
 
-        let state: init::State = self
-            .hamt
-            .store()
-            .get(&init_act.state)?
-            .ok_or("Could not resolve init actor state")?;
+        let state = init::State::load(self.hamt.store(), &init_act)?;
 
         let a: Address = match state
             .resolve_address(self.store(), addr)
@@ -291,24 +287,18 @@ where
 
     /// Register a new address through the init actor.
     pub fn register_new_address(&mut self, addr: &Address) -> Result<Address, Box<dyn StdError>> {
-        let mut init_act: ActorState = self
-            .get_actor(&INIT_ACTOR_ADDR)?
+        let mut actor: ActorState = self
+            .get_actor(init::ADDRESS)?
             .ok_or("Could not retrieve init actor")?;
 
-        // Get init actor state from store
-        let mut ias: init::State = self
-            .hamt
-            .store()
-            .get(&init_act.state)?
-            .ok_or("Failed to retrieve init actor state")?;
+        let mut ias = init::State::load(self.store(), &actor)?;
 
-        // Create new address with init actor state
         let new_addr = ias.map_address_to_new_id(self.store(), addr)?;
 
         // Set state for init actor in store and update root Cid
-        init_act.state = self.store().put(&ias, Blake2b256)?;
+        actor.state = self.store().put(&ias, Blake2b256)?;
 
-        self.set_actor(&INIT_ACTOR_ADDR, init_act)?;
+        self.set_actor(init::ADDRESS, actor)?;
 
         Ok(new_addr)
     }

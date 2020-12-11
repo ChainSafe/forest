@@ -6,20 +6,15 @@ edition = "2018"
 
 [dependencies]
 serde_json = "1.0"
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", features = [
+blockstore = { package = "ipld_blockstore", version = "0.1", features = [
     "resolve"
 ] }
-cid = { package = "forest_cid", path = "../../ipld/cid", features = [
-    "cbor",
-    "json"
-] }
+cid = { package = "forest_cid", version = "0.3", features = ["cbor", "json"] }
 difference = "2.0"
 colored = "2.0"
 ipld_hamt = { path = "../../ipld/hamt", features = ["ignore-dead-links"] }
-address = { package = "forest_address", path = "../../vm/address", features = [
-    "json"
-] }
+address = { package = "forest_address", version = "0.3", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
-ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
-vm = { package = "forest_vm", path = "../../vm" }
-fil_types = { path = "../../types" }
+ipld = { version = "0.1.1", package = "forest_ipld", features = ["json"] }
+vm = { package = "forest_vm", version = "0.3.1" }
+fil_types = "0.1"

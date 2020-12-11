@@ -6,8 +6,7 @@ use super::{
     vm_send, DefaultRuntime, Rand,
 };
 use actor::{
-    cron, reward, ACCOUNT_ACTOR_CODE_ID, BURNT_FUNDS_ACTOR_ADDR, CRON_ACTOR_ADDR,
-    REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    actorv0::reward::AwardBlockRewardParams, cron, reward, system, BURNT_FUNDS_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -39,7 +38,10 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
+/// Allows generation of the current circulating supply
+/// given some context.
 pub trait CircSupplyCalc {
+    /// Retrieves total circulating supply on the network.
     fn get_supply<DB: BlockStore>(
         &self,
         height: ChainEpoch,
@@ -47,9 +49,15 @@ pub trait CircSupplyCalc {
     ) -> Result<TokenAmount, Box<dyn StdError>>;
 }
 
+/// Trait to allow VM to retrieve state at an old epoch.
+pub trait LookbackStateGetter<'db, DB> {
+    /// Returns a state tree from the given epoch.
+    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, Box<dyn StdError>>;
+}
+
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, R, N, C, V = FullVerifier, P = DevnetParams> {
+pub struct VM<'db, 'r, DB, R, N, C, LB, V = FullVerifier, P = DevnetParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
@@ -58,11 +66,12 @@ pub struct VM<'db, 'r, DB, R, N, C, V = FullVerifier, P = DevnetParams> {
     registered_actors: HashSet<Cid>,
     network_version_getter: N,
     circ_supply_calc: &'r C,
+    lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, R, N, C, V, P> VM<'db, 'r, DB, R, N, C, V, P>
+impl<'db, 'r, DB, R, N, C, LB, V, P> VM<'db, 'r, DB, R, N, C, LB, V, P>
 where
     DB: BlockStore,
     V: ProofVerifier,
@@ -70,6 +79,7 @@ where
     R: Rand,
     N: Fn(ChainEpoch) -> NetworkVersion,
     C: CircSupplyCalc,
+    LB: LookbackStateGetter<'db, DB>,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -80,6 +90,7 @@ where
         base_fee: BigInt,
         network_version_getter: N,
         circ_supply_calc: &'r C,
+        lb_state: &'r LB,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -92,6 +103,7 @@ where
             base_fee,
             registered_actors,
             circ_supply_calc,
+            lb_state,
             verifier: PhantomData,
             params: PhantomData,
         })
@@ -127,8 +139,8 @@ where
         callback: Option<&mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<(), Box<dyn StdError>> {
         let cron_msg = UnsignedMessage {
-            from: *SYSTEM_ACTOR_ADDR,
-            to: *CRON_ACTOR_ADDR,
+            from: **system::ADDRESS,
+            to: **cron::ADDRESS,
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -201,7 +213,7 @@ where
             }
 
             // Generate reward transaction for the miner of the block
-            let params = Serialized::serialize(reward::AwardBlockRewardParams {
+            let params = Serialized::serialize(AwardBlockRewardParams {
                 miner: block.miner,
                 penalty,
                 gas_reward,
@@ -209,8 +221,8 @@ where
             })?;
 
             let rew_msg = UnsignedMessage {
-                from: *SYSTEM_ACTOR_ADDR,
-                to: *REWARD_ACTOR_ADDR,
+                from: **system::ADDRESS,
+                to: **reward::ADDRESS,
                 method_num: reward::Method::AwardBlockReward as u64,
                 params,
                 // Epoch as sequence is intentional
@@ -309,7 +321,7 @@ where
             }
         };
 
-        if from_act.code != *ACCOUNT_ACTOR_CODE_ID {
+        if !actor::is_account_actor(&from_act.code) {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
                     return_data: Serialized::default(),
@@ -452,7 +464,7 @@ where
 
         transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
 
-        transfer_to_actor(&*REWARD_ACTOR_ADDR, &miner_tip)?;
+        transfer_to_actor(&**reward::ADDRESS, &miner_tip)?;
 
         transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
 
@@ -484,7 +496,7 @@ where
         gas_cost: Option<GasCharge>,
     ) -> (
         Serialized,
-        Option<DefaultRuntime<'db, '_, DB, R, C, V, P>>,
+        Option<DefaultRuntime<'db, '_, DB, R, C, LB, V, P>>,
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
@@ -500,6 +512,7 @@ where
             self.rand,
             &self.registered_actors,
             self.circ_supply_calc,
+            self.lb_state,
         );
 
         match res {

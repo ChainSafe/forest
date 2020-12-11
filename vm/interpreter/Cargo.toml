@@ -5,24 +5,24 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-address = { package = "forest_address", path = "../address" }
-actor = { package = "forest_actor", path = "../actor" }
-message = { package = "forest_message", path = "../message" }
-runtime = { package = "forest_runtime", path = "../runtime" }
+address = { package = "forest_address", version = "0.3" }
+actor = { package = "actor_interface", path = "../actor_interface" }
+message = { package = "forest_message", version = "0.6" }
+runtime = { package = "forest_runtime", version = "0.1" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 clock = { package = "fil_clock", path = "../../node/clock" }
-vm = { package = "forest_vm", path = "../" }
-ipld_blockstore = { path = "../../ipld/blockstore" }
+vm = { package = "forest_vm", version = "0.3.1" }
+ipld_blockstore = "0.1"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-forest_encoding = { path = "../../encoding" }
-cid = { package = "forest_cid", path = "../../ipld/cid" }
-crypto = { package = "forest_crypto", path = "../../crypto" }
+forest_encoding = "0.2.1"
+cid = { package = "forest_cid", version = "0.3" }
+crypto = { package = "forest_crypto", version = "0.4" }
 num-traits = "0.2.11"
 byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }
 log = "0.4.8"
-db = { package = "forest_db", path = "../../node/db" }
-fil_types = { path = "../../types" }
+db = { package = "forest_db", version = "0.1" }
+fil_types = "0.1"
 ahash = "0.5"
 lazy_static = "1.4"
 rayon = "1.3"

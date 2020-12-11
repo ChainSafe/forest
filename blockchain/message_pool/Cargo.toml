@@ -5,21 +5,21 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-address = { package = "forest_address", path = "../../vm/address" }
-vm = { package = "forest_vm", path = "../../vm" }
+address = { package = "forest_address", version = "0.3" }
+vm = { package = "forest_vm", version = "0.3.1" }
 blocks = { package = "forest_blocks", path = "../blocks" }
-message = { package = "forest_message", path = "../../vm/message", features = ["proofs"] }
+message = { package = "forest_message", version = "0.6", features = ["proofs", "json"] }
 thiserror = "1.0"
-cid = { package = "forest_cid", path = "../../ipld/cid" }
-encoding = { package = "forest_encoding", path = "../../encoding" }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/" }
+cid = { package = "forest_cid", version = "0.3" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
+blockstore = { package = "ipld_blockstore", version = "0.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 lru = "0.6"
-crypto = { package = "forest_crypto", path = "../../crypto" }
+crypto = { package = "forest_crypto", version = "0.4" }
 chain = { path = "../chain" }
 state_tree = { path = "../../vm/state_tree/" }
 serde = { version = "1.0", features = ["derive"] }
-db = { package = "forest_db", path = "../../node/db" }
+db = { package = "forest_db", version = "0.1" }
 flo_stream = "0.4.0"
 futures = "0.3.5"
 libsecp256k1 = "0.3.4"
@@ -29,7 +29,7 @@ async-std = { version = "1.6.3", features = ["unstable"] }
 state_manager = { path = "../state_manager" }
 async-trait = "0.1"
 interpreter = { path = "../../vm/interpreter/" }
-types = { package = "fil_types", path = "../../types" }
+types = { package = "fil_types", version = "0.1" }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 num-traits = "0.2"
 statrs = "0.13.0"

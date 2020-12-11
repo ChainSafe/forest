@@ -9,7 +9,7 @@ mod validate_block_test;
 use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
 use super::{Error, SyncNetworkContext};
-use actor::{is_account_actor, make_map_with_root, power, STORAGE_POWER_ACTOR_ADDR};
+use actor::{is_account_actor, power};
 use address::Address;
 use amt::Amt;
 use async_std::sync::{Receiver, RwLock};
@@ -21,8 +21,8 @@ use cid::{Cid, Code::Blake2b256};
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
-    verifier::ProofVerifier, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS, BLOCK_GAS_LIMIT,
-    TICKET_RANDOMNESS_LOOKBACK, UPGRADE_SMOKE_HEIGHT,
+    verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS,
+    BLOCK_GAS_LIMIT, TICKET_RANDOMNESS_LOOKBACK, UPGRADE_SMOKE_HEIGHT,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -446,6 +446,7 @@ where
             .tipset_from_keys(header.parents())
             .await
             .map_err(|e| (*block_cid, e.into()))?;
+        let win_p_nv = sm.get_network_version(base_ts.epoch());
 
         // Retrieve lookback tipset for validation.
         let (lbts, lbst) = sm
@@ -623,7 +624,9 @@ where
                 ));
             }
 
-            let (mpow, tpow) = sm_c.get_power(&lbst_clone, h.miner_address())?;
+            let (mpow, tpow) = sm_c
+                .get_power(&lbst_clone, Some(h.miner_address()))?
+                .ok_or_else(|| Error::Other("Should have loaded power for address".to_string()))?;
 
             let j =
                 election_proof.compute_win_count(&mpow.quality_adj_power, &tpow.quality_adj_power);
@@ -708,7 +711,7 @@ where
         // * Winning PoSt proof validation
         let b_clone = block.clone();
         validations.push(task::spawn_blocking(move || {
-            Self::verify_winning_post_proof(&sm, b_clone.header(), &prev_beacon, &lbst)
+            Self::verify_winning_post_proof(&sm, win_p_nv, b_clone.header(), &prev_beacon, &lbst)
                 .map_err(|e| format!("Verify winning PoSt failed: {}", e))?;
 
             Ok(())
@@ -744,7 +747,7 @@ where
     fn check_block_msgs(
         state_manager: Arc<StateManager<DB>>,
         block: &Block,
-        base_ts: &Tipset,
+        base_ts: &Arc<Tipset>,
     ) -> Result<(), Box<dyn StdError>> {
         // do the initial loop here
         // Check Block Message and Signatures in them
@@ -872,6 +875,7 @@ where
 
     fn verify_winning_post_proof(
         sm: &StateManager<DB>,
+        nv: NetworkVersion,
         header: &BlockHeader,
         prev_entry: &BeaconEntry,
         lbst: &Cid,
@@ -907,7 +911,7 @@ where
         })?;
 
         let sectors = sm
-            .get_sectors_for_winning_post::<V>(&lbst, &header.miner_address(), Randomness(rand))
+            .get_sectors_for_winning_post::<V>(&lbst, nv, &header.miner_address(), Randomness(rand))
             .map_err(|e| {
                 Error::Validation(format!("Failed to get sectors for post: {}", e.to_string()))
             })?;
@@ -918,19 +922,17 @@ where
     }
 
     fn validate_miner(sm: &StateManager<DB>, maddr: &Address, ts_state: &Cid) -> Result<(), Error> {
-        let spast: power::State = sm
-            .load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts_state)
-            .map_err(|e| format!("Could not load power state: {}", e))?;
+        let act = sm
+            .get_actor(power::ADDRESS, ts_state)?
+            .ok_or("Failed to load power actor for calculating weight")?;
+        let state = power::State::load(sm.blockstore(), &act).map_err(|e| e.to_string())?;
 
-        let cm = make_map_with_root::<_, power::Claim>(&spast.claims, sm.blockstore())?;
+        state
+            .miner_power(sm.blockstore(), maddr)
+            .map_err(|e| e.to_string())?
+            .ok_or("miner isn't valid: doesn't exist")?;
 
-        if cm.contains_key(&maddr.to_bytes())? {
-            Ok(())
-        } else {
-            Err(Error::Validation(
-                "Miner isn't valid from power state".to_string(),
-            ))
-        }
+        Ok(())
     }
 }
 

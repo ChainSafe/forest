@@ -110,9 +110,9 @@ impl State {
         }
     }
 
-    pub fn miner_power<'a, BS: BlockStore>(
+    pub fn miner_power<BS: BlockStore>(
         &self,
-        s: &'a BS,
+        s: &BS,
         miner: &Address,
     ) -> Result<Option<Claim>, Box<dyn StdError>> {
         let claims = make_map_with_root(&self.claims, s)?;

@@ -4,20 +4,20 @@
 use cid::{multihash::MultihashDigest, Cid, Code::Identity, RAW};
 
 lazy_static! {
-    pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/system");
-    pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/init");
-    pub static ref CRON_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/cron");
-    pub static ref ACCOUNT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/account");
-    pub static ref POWER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/storagepower");
-    pub static ref MINER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/storageminer");
-    pub static ref MARKET_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/storagemarket");
-    pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/paymentchannel");
-    pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/multisig");
-    pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/reward");
-    pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/verifiedregistry");
+    pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/system");
+    pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/init");
+    pub static ref CRON_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/cron");
+    pub static ref ACCOUNT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/account");
+    pub static ref POWER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/storagepower");
+    pub static ref MINER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/storageminer");
+    pub static ref MARKET_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/storagemarket");
+    pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/paymentchannel");
+    pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/multisig");
+    pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/reward");
+    pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/2/verifiedregistry");
     pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/1/chaos");
 
-    // Set of actor code types that can represent external signing parties.
+    /// Set of actor code types that can represent external signing parties.
     pub static ref CALLER_TYPES_SIGNABLE: [Cid; 2] =
         [*ACCOUNT_ACTOR_CODE_ID, *MULTISIG_ACTOR_CODE_ID];
 }
@@ -57,8 +57,7 @@ pub fn is_account_actor(code: &Cid) -> bool {
     code == &*ACCOUNT_ACTOR_CODE_ID
 }
 
-// Tests whether a code CID represents an actor that can be an external principal: i.e. an account or multisig.
-// We could do something more sophisticated here: https://github.com/filecoin-project/specs-actors/issues/178
+/// Tests whether a code CID represents an actor that can be an external principal: i.e. an account or multisig.
 pub fn is_principal(code: &Cid) -> bool {
     CALLER_TYPES_SIGNABLE.iter().any(|c| c == code)
 }
