@@ -1,7 +1,7 @@
 use crate::RpcState;
 use beacon::Beacon;
 use blockstore::BlockStore;
-use forest_libp2p::{Multiaddr, NetRPCMethods, NetRPCResponse, NetworkMessage, PeerId};
+use forest_libp2p::{Multiaddr, NetRPCMethods, NetRPCResponse, NetworkMessage};
 use futures::channel::oneshot;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
 use serde::Serialize;

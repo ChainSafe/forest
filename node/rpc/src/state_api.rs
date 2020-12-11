@@ -782,7 +782,7 @@ pub(crate) async fn state_miner_sector_allocated<
     let mas: miner::State = data
         .state_manager
         .load_actor_state(&maddr, ts.parent_state())?;
-    let mut allocated_sectors: bitfield::BitField = data
+    let allocated_sectors: bitfield::BitField = data
         .chain_store
         .db
         .get(&mas.allocated_sectors)?
