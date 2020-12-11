@@ -7,6 +7,7 @@ mod chain_api;
 mod common_api;
 mod gas_api;
 mod mpool_api;
+mod net_api;
 mod state_api;
 mod sync_api;
 mod wallet_api;
@@ -122,7 +123,7 @@ where
             false,
         )
         .with_method(
-            "Filecoin.ChainGetTipset",
+            "Filecoin.ChainGetTipSet",
             chain_get_tipset::<DB, KS, B>,
             false,
         )
@@ -275,6 +276,11 @@ where
         )
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS, B>, false)
         .with_method(
+            "Filecoin.StateMinerSectorAllocated",
+            state_miner_sector_allocated::<DB, KS, B>,
+            false,
+        )
+        .with_method(
             "Filecoin.StateNetworkName",
             state_network_name::<DB, KS, B>,
             false,
@@ -317,6 +323,12 @@ where
         .with_method(
             "Filecoin.BeaconGetEntry",
             beacon_get_entry::<DB, KS, B>,
+            false,
+        )
+        // Net
+        .with_method(
+            "Filecoin.NetAddrsListen",
+            net_api::net_addrs_listen::<DB, KS, B>,
             false,
         )
         .finish_unwrapped();
