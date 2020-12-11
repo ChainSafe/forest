@@ -243,14 +243,14 @@ where
 
 pub(crate) async fn chain_get_tipset<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(TipsetKeys,)>,
+    Params(params): Params<(TipsetKeysJson,)>,
 ) -> Result<TipsetJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (tsk,) = params;
+    let (TipsetKeysJson(tsk),) = params;
     let ts = data
         .state_manager
         .chain_store()

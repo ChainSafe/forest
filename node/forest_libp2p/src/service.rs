@@ -18,6 +18,7 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
+use libp2p::core::Multiaddr;
 pub use libp2p::gossipsub::Topic;
 use libp2p::{
     core,
@@ -104,6 +105,13 @@ pub enum NetworkMessage {
         cid: Cid,
         response_channel: OneShotSender<()>,
     },
+    JSONRPCRequest {
+        method: NetRPCMethods,
+    },
+}
+#[derive(Debug)]
+pub enum NetRPCMethods {
+    NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService<DB> {
@@ -324,9 +332,20 @@ where
                                 warn!("Failed to send a bitswap want_block: {}", e.to_string());
                             } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
                                     chans.push(response_channel);
-                                } else {
-                                    self.bitswap_response_channels.insert(cid, vec![response_channel]);
+                            } else {
+                                self.bitswap_response_channels.insert(cid, vec![response_channel]);
+                            }
+                        }
+                        NetworkMessage::JSONRPCRequest { method } => {
+                            match method {
+                                NetRPCMethods::NetAddrsListen(response_channel) => {
+                                let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
+                                let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
+                                    if response_channel.send((peer_id.clone(), listeners)).is_err() {
+                                        warn!("Failed to get Libp2p listeners");
+                                    }
                                 }
+                            }
                         }
                     }
                     None => { break; }

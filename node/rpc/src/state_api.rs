@@ -769,6 +769,39 @@ pub(crate) async fn state_market_deals<
     Ok(out)
 }
 
+pub(crate) async fn state_miner_sector_allocated<
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(AddressJson, u64, TipsetKeysJson)>,
+) -> Result<bool, JsonRpcError> {
+    let (AddressJson(maddr), sector_num, TipsetKeysJson(tsk)) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
+
+    let actor = data
+        .state_manager
+        .get_actor(&maddr, ts.parent_state())?
+        .ok_or(format!("Miner actor {} could not be resolved", maddr))?;
+    let allocated_sectors = match miner::State::load(data.state_manager.blockstore(), &actor)? {
+        miner::State::V0(m) => data
+            .chain_store
+            .db
+            .get::<bitfield::BitField>(&m.allocated_sectors)?
+            .ok_or("allocated sectors bitfield not found")?
+            .get(sector_num as usize),
+        miner::State::V2(m) => data
+            .chain_store
+            .db
+            .get::<bitfield::BitField>(&m.allocated_sectors)?
+            .ok_or("allocated sectors bitfield not found")?
+            .get(sector_num as usize),
+    };
+
+    Ok(allocated_sectors)
+}
+
 /// returns a state tree given a tipset
 async fn state_for_ts<DB>(
     state_manager: &Arc<StateManager<DB>>,
