@@ -85,7 +85,7 @@ impl State {
         for (tx_id, mut txn) in txn_ids_to_purge {
             txn.approved.retain(|approver| approver != addr);
 
-            if txn.approved.len() > 0 {
+            if !txn.approved.is_empty() {
                 txns.set(tx_id.into(), txn)?;
             } else {
                 txns.delete(&tx_id)?;
