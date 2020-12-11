@@ -135,14 +135,16 @@ where
         self.publisher
             .write()
             .await
-            .publish(HeadChange::Current(ts))
+            .publish(HeadChange::Apply(ts))
             .await;
         Ok(())
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub async fn subscribe(&self) -> Subscriber<HeadChange> {
-        self.publisher.write().await.subscribe()
+    pub async fn subscribe(&self) -> (Subscriber<HeadChange>, Arc<Tipset>) {
+        let sub = self.publisher.write().await.subscribe();
+        let ts = self.heaviest_tipset().await.unwrap();
+        (sub, ts)
     }
 
     /// Sets tip_index tracker
@@ -897,7 +899,7 @@ where
 }
 
 /// Returns messages from key-value store
-fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
+pub fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
     DB: BlockStore,
     T: DeserializeOwned,

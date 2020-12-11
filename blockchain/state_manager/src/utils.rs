@@ -18,8 +18,10 @@ use fil_types::{
     HAMT_BIT_WIDTH,
 };
 use forest_blocks::Tipset;
+use interpreter::resolve_to_key_addr;
 use ipld_amt::Amt;
 use ipld_hamt::Hamt;
+use state_tree::StateTree;
 use std::convert::TryInto;
 use std::error::Error as StdError;
 
@@ -352,5 +354,33 @@ where
         })
         .map_err(|e| Error::Other(e.to_string()))?;
         Ok(miners)
+    }
+
+    pub fn get_miner_worker_raw(&self, state: Cid, miner_addr: Address) -> Result<Address, Error> {
+        let st = StateTree::new_from_root(self.blockstore(), &state).map_err(|err| {
+            Error::State(format!(
+                "(get miner worker raw) failed to load state_tree: {:}",
+                err
+            ))
+        })?;
+        let actor_state: miner::State =
+            self.load_actor_state(&miner_addr, &state).map_err(|err| {
+                Error::State(format!(
+                    "(get miner worker raw) failed to load miner actor state: {:}",
+                    err
+                ))
+            })?;
+        let info = actor_state.get_info(self.blockstore()).map_err(|err| {
+            Error::State(format!(
+                "(get miner worker raw) failed to load miner actor get info: {:}",
+                err
+            ))
+        })?;
+        resolve_to_key_addr(&st, self.blockstore(), &info.worker).map_err(|e| {
+            Error::State(format!(
+                "(get miner worker raw) failed to resolve key addr: {}",
+                e
+            ))
+        })
     }
 }

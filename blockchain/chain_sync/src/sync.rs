@@ -269,8 +269,12 @@ where
     }
 
     /// Spawns a network handler and begins the syncing process.
-    pub async fn start(mut self, num_workers: usize) {
-        let (worker_tx, worker_rx) = channel(5);
+    pub async fn start(
+        mut self,
+        worker_tx: Sender<Arc<Tipset>>,
+        worker_rx: Receiver<Arc<Tipset>>,
+        num_workers: usize,
+    ) {
         for _ in 0..num_workers {
             self.spawn_worker(worker_rx.clone()).await;
         }
@@ -510,7 +514,7 @@ where
 }
 
 /// Returns message root CID from bls and secp message contained in the param Block
-fn compute_msg_meta<DB: BlockStore>(
+pub fn compute_msg_meta<DB: BlockStore>(
     blockstore: &DB,
     bls_msgs: &[UnsignedMessage],
     secp_msgs: &[SignedMessage],
