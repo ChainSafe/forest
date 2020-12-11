@@ -8,19 +8,19 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-vm = { package = "forest_vm", path = "../../vm", version = "0.3" }
-crypto = { package = "forest_crypto", path = "../../crypto", version = "0.4" }
-address = { package = "forest_address", path = "../address", version = "0.3" }
-cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.3" }
-ipld_blockstore = { path = "../../ipld/blockstore", version = "0.1" }
+vm = { package = "forest_vm", version = "0.3" }
+crypto = { package = "forest_crypto", version = "0.4" }
+address = { package = "forest_address", version = "0.3" }
+cid = { package = "forest_cid", version = "0.3" }
+ipld_blockstore = "0.1"
 clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
-forest_encoding = { path = "../../encoding", version = "0.2" }
+forest_encoding = "0.2.1"
 commcid = { path = "../../utils/commcid", version = "0.1.1" }
 filecoin-proofs-api = { version = "5.3", features = ["blst"], default_features = false }
 base64 = "0.13"
-fil_types = { path = "../../types", features = ["proofs"], version = "0.1" }
+fil_types = { features = ["proofs"], version = "0.1.3" }
 log = "0.4.8"
 
 [dev-dependencies]
 interpreter = { path = "../interpreter/" }
-db = { package = "forest_db", path = "../../node/db" }
+db = { package = "forest_db", version = "0.1" }

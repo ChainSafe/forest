@@ -12,12 +12,11 @@ unsigned-varint = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 ahash = "0.5"
-encoding = { package = "forest_encoding", path = "../../encoding", version = "0.2" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
 
 [dev-dependencies]
 rand_xorshift = "0.2.0"
 rand = "0.7.3"
-encoding = { package = "forest_encoding", path = "../../encoding/" }
 criterion = "0.3"
 serde_json = "1.0"
 

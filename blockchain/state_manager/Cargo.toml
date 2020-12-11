@@ -5,14 +5,14 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-address = { package = "forest_address", path = "../../vm/address/" }
-actor = { package = "forest_actor", path = "../../vm/actor/" }
-cid = { package = "forest_cid", path = "../../ipld/cid" }
-db = { package = "forest_db", path = "../../node/db" }
-encoding = { package = "forest_encoding", path = "../../encoding/" }
+address = { package = "forest_address", version = "0.3" }
+actor = { package = "actor_interface", path = "../../vm/actor_interface" }
+cid = { package = "forest_cid", version = "0.3" }
+db = { package = "forest_db", version = "0.1" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", features = ["buffered"] }
+blockstore = { package = "ipld_blockstore", version = "0.1", features = ["buffered"] }
 forest_blocks = { path = "../../blockchain/blocks" }
 beacon = { path = "../../blockchain/beacon" }
 thiserror = "1.0"
@@ -23,17 +23,16 @@ chain = { path = "../chain" }
 async-std = "1.6.3"
 async-log = "2.0.0"
 log = "0.4.8"
-fil_types = { path = "../../types" }
-message = { package = "forest_message", path = "../../vm/message", features = ["json"] }
-vm = { package = "forest_vm", path = "../../vm" }
-bitfield = { package = "forest_bitfield", path = "../../utils/bitfield" }
+fil_types = "0.1"
+message = { package = "forest_message", version = "0.6", features = ["json"] }
+vm = { package = "forest_vm", version = "0.3.1" }
+bitfield = { package = "forest_bitfield", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
-ipld_hamt = { path = "../../ipld/hamt" }
 num-traits = "0.2.11"
 flo_stream = "0.4.0"
 filecoin-proofs-api = { version = "5.3", features = ["blst"], default_features = false }
 futures = "0.3.5"
-runtime = { package = "forest_runtime", path = "../../vm/runtime/" }
+runtime = { package = "forest_runtime", version = "0.1" }
 lazy_static = "1.4"
 lazycell = "1.2.1"
-forest_crypto = { path = "../../crypto" }
+forest_crypto = { version = "0.4" }

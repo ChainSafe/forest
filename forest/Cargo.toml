@@ -5,10 +5,10 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-address = { package = "forest_address", path = "../vm/address" }
+address = { package = "forest_address", version = "0.3" }
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
-db = { package = "forest_db", path = "../node/db" }
+db = { package = "forest_db", version = "0.1" }
 libp2p = { version = "0.24", default-features = false, features = ["identify"] }
 futures = "0.3.5"
 log = "0.4.8"
@@ -19,19 +19,19 @@ pretty_env_logger = "0.4.0"
 ctrlc = "3.1.4"
 chain_sync = { path = "../blockchain/chain_sync" }
 state_manager = { path = "../blockchain/state_manager" }
-cid = { package = "forest_cid", path = "../ipld/cid", features = ["json"] }
+cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 forest_car = { path = "../ipld/car" }
 flo_stream = "0.4.0"
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
-ipld_blockstore = { path = "../ipld/blockstore" }
+ipld_blockstore = "0.1"
 chain = { path = "../blockchain/chain" }
 structopt = { version = "0.3" }
 beacon = { path = "../blockchain/beacon" }
 hex = "0.4.2"
 rpc = { path = "../node/rpc" }
 rpc_client = { package = "rpc-client", path = "../node/rpc-client" }
-fil_types = { path = "../types" }
+fil_types = "0.1"
 serde_json = "1.0"
 message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
 wallet = { package = "key_management", path = "../key_management" }
@@ -39,10 +39,10 @@ jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2
 uuid = { version = "0.8.1", features = ["v4"] }
 auth = { path = "../utils/auth"}
 net_utils = { path = "../utils/net_utils" }
-actor = { package = "forest_actor", path = "../vm/actor/" }
+actor = { package = "actor_interface", path = "../vm/actor_interface" }
 genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
-encoding = { package = "forest_encoding", path = "../encoding" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
 
 [features]
 default = ["rocksdb"]

@@ -8,11 +8,11 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-cid = { package = "forest_cid", path = "../cid", features = ["cbor"], version = "0.3" }
-db = { package = "forest_db", path = "../../node/db", version = "0.1" }
-encoding = { package = "forest_encoding", path = "../../encoding", version = "0.2" }
+cid = { package = "forest_cid", features = ["cbor"], version = "0.3" }
+db = { package = "forest_db", version = "0.1" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
 serde = { version = "1.0", features = ["derive"] }
-ipld_blockstore = { path = "../blockstore", version = "0.1" }
+ipld_blockstore = "0.1"
 thiserror = "1.0"
 lazycell = "1.2.1"
 ahash = { version = "0.5", optional = true }
@@ -22,7 +22,7 @@ go-interop = ["ahash"]
 
 [dev-dependencies]
 criterion = "0.3.1"
-ipld_blockstore = { path = "../blockstore", features = ["tracking"] }
+ipld_blockstore = { version = "0.1", features = ["tracking"] }
 
 [[bench]]
 name = "amt_benchmark"

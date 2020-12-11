@@ -11,18 +11,18 @@ repository = "https://github.com/ChainSafe/forest"
 features = ["json", "proofs"]
 
 [dependencies]
-vm = { package = "forest_vm", path = "../../vm", version = "0.3" }
-address = { package = "forest_address", path = "../address", version = "0.3" }
-cid = { package = "forest_cid", path = "../../ipld/cid", version = "0.3" }
+vm = { package = "forest_vm", version = "0.3" }
+address = { package = "forest_address", version = "0.3" }
+cid = { package = "forest_cid", version = "0.3" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1.1" }
-encoding = { package = "forest_encoding", path = "../../encoding", version = "0.2" }
-crypto = { package = "forest_crypto", path = "../../crypto", version = "0.4" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
+crypto = { package = "forest_crypto", version = "0.4" }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 base64 = { version = "0.13", optional = true }
 forest_json_utils = { path = "../../utils/json_utils", optional = true, version = "0.1" }
 num-traits = "0.2"
-fil_types = { path = "../../types", optional = true, version = "0.1" }
+fil_types = { optional = true, version = "0.1" }
 
 [dev-dependencies]
 serde_json = "1.0"

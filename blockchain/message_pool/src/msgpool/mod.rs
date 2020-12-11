@@ -153,7 +153,11 @@ pub trait Provider {
         h: &BlockHeader,
     ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
     /// Resolves to the key address
-    async fn state_account_key<V>(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>
+    async fn state_account_key<V>(
+        &self,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<Address, Error>
     where
         V: ProofVerifier;
     /// Return all messages for a tipset
@@ -231,7 +235,7 @@ where
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
         chain::compute_base_fee(self.sm.blockstore(), ts).map_err(|err| err.into())
     }
-    async fn state_account_key<V>(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error>
+    async fn state_account_key<V>(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error>
     where
         V: ProofVerifier,
     {
@@ -1424,7 +1428,7 @@ pub mod test_provider {
         async fn state_account_key<V>(
             &self,
             addr: &Address,
-            _ts: &Tipset,
+            _ts: &Arc<Tipset>,
         ) -> Result<Address, Error> {
             match addr.protocol() {
                 Protocol::BLS | Protocol::Secp256k1 => Ok(*addr),

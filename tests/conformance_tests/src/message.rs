@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use db::MemoryDB;
 use fil_types::get_network_version_default;
-use interpreter::CircSupplyCalc;
+use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use state_tree::StateTree;
 use vm::TokenAmount;
 
@@ -35,13 +36,21 @@ impl CircSupplyCalc for MockCircSupply {
     }
 }
 
+struct MockStateLB<'db, MemoryDB>(&'db MemoryDB);
+impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
+    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'db, MemoryDB>, Box<dyn StdError>> {
+        Err("Lotus runner doesn't seem to initialize this?".into())
+    }
+}
+
 pub fn execute_message(
-    bs: &db::MemoryDB,
+    bs: &MemoryDB,
     selector: &Option<Selector>,
     params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let circ_supply = MockCircSupply(params.circ_supply);
-    let mut vm = VM::<_, _, _, _>::new(
+    let lb = MockStateLB(bs);
+    let mut vm = VM::<_, _, _, _, _>::new(
         params.pre_root,
         bs,
         params.epoch,
@@ -49,6 +58,7 @@ pub fn execute_message(
         params.basefee,
         get_network_version_default,
         &circ_supply,
+        &lb,
     )?;
 
     if let Some(s) = &selector {

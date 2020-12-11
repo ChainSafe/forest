@@ -12,6 +12,8 @@ pub mod util;
 
 pub use self::builtin::*;
 pub use self::util::*;
+pub use ipld_amt;
+pub use ipld_hamt;
 pub use vm::{
     actor_error, ActorError, ActorState, DealID, ExitCode, MethodNum, Serialized, TokenAmount,
 };

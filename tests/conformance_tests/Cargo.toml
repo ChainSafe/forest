@@ -26,35 +26,37 @@ submodule_tests = [
     "state_tree",
     "forest_message",
     "futures",
-    "crypto"
+    "crypto",
+    "forest_blocks"
 ]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true }
-cid = { package = "forest_cid", path = "../../ipld/cid", features = [
+cid = { package = "forest_cid", version = "0.3", features = [
     "cbor",
     "json"
 ], optional = true }
-actor = { package = "forest_actor", path = "../../vm/actor", optional = true }
+actor = { package = "actor_interface", path = "../../vm/actor_interface", optional = true }
 clock = { package = "fil_clock", path = "../../node/clock", optional = true }
-db = { package = "forest_db", path = "../../node/db", optional = true }
-address = { package = "forest_address", path = "../../vm/address", features = [
+db = { package = "forest_db", version = "0.1", optional = true }
+address = { package = "forest_address", version = "0.3", features = [
     "json"
 ], optional = true }
 base64 = { version = "0.13", optional = true }
-runtime = { package = "forest_runtime", path = "../../vm/runtime/", optional = true }
+runtime = { package = "forest_runtime", version = "0.1", optional = true }
 state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }
-vm = { package = "forest_vm", path = "../../vm", optional = true }
-blockstore = { package = "ipld_blockstore", path = "../../ipld/blockstore/", features = ["resolve"], optional = true }
-crypto = { package = "forest_crypto", path = "../../crypto", optional = true }
-encoding = { package = "forest_encoding", path = "../../encoding", optional = true }
-fil_types = { path = "../../types", optional = true }
-forest_message = { path = "../../vm/message", features = ["json"], optional = true }
+vm = { package = "forest_vm", version = "0.3.1", optional = true }
+blockstore = { package = "ipld_blockstore", version = "0.1", features = ["resolve"], optional = true }
+crypto = { package = "forest_crypto", version = "0.4", optional = true }
+encoding = { package = "forest_encoding", version = "0.2.1", optional = true }
+fil_types = { version = "0.1", optional = true }
+forest_message = { version = "0.6", features = ["json"], optional = true }
 state_tree = { path = "../../vm/state_tree/", optional = true }
 chain = { path = "../../blockchain/chain", optional = true }
 futures = { version = "0.3.5", optional = true }
+forest_blocks = { path = "../../blockchain/blocks", optional = true }
 
 [dev-dependencies]
 regex = { version = "1.0" }
@@ -67,7 +69,6 @@ pretty_env_logger = "0.4.0"
 log = "0.4"
 paramfetch = { path = "../../utils/paramfetch" }
 async-std = { version = "1.6", features = ["attributes"] }
-forest_blocks = { path = "../../blockchain/blocks" }
 chain_sync = { path = "../../blockchain/chain_sync" }
 statediff = { path = "../../utils/statediff" }
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{tipset_tracker::TipsetTracker, ChainIndex, Error};
-use actor::{miner, power::State as PowerState, STORAGE_POWER_ACTOR_ADDR};
+use actor::{miner, power};
 use address::Address;
 use async_std::sync::{channel, RwLock};
 use async_std::task;
@@ -510,13 +510,7 @@ where
             .map_err(|_| Error::Other("Failure getting actor".to_string()))?
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
-        let act: miner::State = self
-            .db
-            .get(&actor.state)
-            .map_err(|e| Error::State(e.to_string()))?
-            .ok_or_else(|| Error::Other("Could not get actor state".to_string()))?;
-
-        Ok(act)
+        Ok(miner::State::load(self.blockstore(), &actor)?)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
@@ -932,19 +926,17 @@ pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: BlockStore,
 {
-    let mut tpow = BigInt::zero();
     let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
-    if let Some(act) = state
-        .get_actor(&*STORAGE_POWER_ACTOR_ADDR)
+
+    let act = state
+        .get_actor(power::ADDRESS)
         .map_err(|e| e.to_string())?
-    {
-        if let Some(state) = db
-            .get::<PowerState>(&act.state)
-            .map_err(|e| e.to_string())?
-        {
-            tpow = state.total_quality_adj_power;
-        }
-    }
+        .ok_or("Failed to load power actor for calculating weight")?;
+
+    let state = power::State::load(db, &act).map_err(|e| e.to_string())?;
+
+    let tpow = state.into_total_quality_adj_power();
+
     let log2_p = if tpow > BigInt::zero() {
         BigInt::from(tpow.bits() - 1)
     } else {

@@ -17,12 +17,13 @@ use lazycell::AtomicLazyCell;
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::error::Error as StdError;
+use vm::{ActorState, TokenAmount};
 
 lazy_static! {
     static ref TOTALS_BY_EPOCH: Vec<(ChainEpoch, TokenAmount)> = {
-        let epoch_in_year = 365 * network::EPOCHS_IN_DAY;
+        let epoch_in_year = 365 * actor::EPOCHS_IN_DAY;
         vec![
-            (183 * network::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
+            (183 * actor::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
             (epoch_in_year, TokenAmount::from(22_421_712)),
             (2 * epoch_in_year, TokenAmount::from(7_223_364)),
             (3 * epoch_in_year, TokenAmount::from(87_637_883)),
@@ -38,7 +39,7 @@ pub struct GenesisActor {
 
 #[derive(Default)]
 pub struct GenesisInfo {
-    genesis_msigs: Vec<multisig::State>,
+    genesis_msigs: Vec<actorv0::multisig::State>,
     /// info about the Accounts in the genesis state
     genesis_actors: Vec<GenesisActor>,
     genesis_pledge: TokenAmount,
@@ -134,39 +135,34 @@ pub fn get_fil_vested<DB: BlockStore>(
 pub fn get_fil_mined<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let reward_actor = get_actor_state(state_tree, &*REWARD_ACTOR_ADDR)?;
-    let reward_state: reward::State = state_tree
-        .store()
-        .get(&reward_actor.state)?
-        .ok_or_else(|| "Failed to get Rewrad Actor State".to_string())?;
+    let actor = state_tree
+        .get_actor(reward::ADDRESS)?
+        .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+    let state = reward::State::load(state_tree.store(), &actor)?;
 
-    Ok(reward_state.into_total_storage_power_reward())
+    Ok(state.into_total_storage_power_reward())
 }
 
 pub fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let market_actor = get_actor_state(state_tree, &*STORAGE_MARKET_ACTOR_ADDR)?;
+    let actor = state_tree
+        .get_actor(market::ADDRESS)?
+        .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+    let state = market::State::load(state_tree.store(), &actor)?;
 
-    let market_state: market::State = state_tree
-        .store()
-        .get(&market_actor.state)?
-        .ok_or_else(|| "Failed to get Market Actor State".to_string())?;
-
-    Ok(market_state.total_locked())
+    Ok(state.total_locked())
 }
 
 pub fn get_fil_power_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let power_actor = get_actor_state(state_tree, &*STORAGE_POWER_ACTOR_ADDR)?;
+    let actor = state_tree
+        .get_actor(power::ADDRESS)?
+        .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+    let state = power::State::load(state_tree.store(), &actor)?;
 
-    let power_state: power::State = state_tree
-        .store()
-        .get(&power_actor.state)?
-        .ok_or_else(|| "Failed to get Power Actor State".to_string())?;
-
-    Ok(power_state.into_total_locked())
+    Ok(state.into_total_locked())
 }
 
 pub fn get_fil_reserve_disbursed<DB: BlockStore>(
@@ -241,10 +237,10 @@ pub fn setup_preignition_genesis_actors<DB: BlockStore>(
     let mut pre_ignition = init_genesis_info(bs)?;
 
     for (unlock_duration, initial_balance) in &*TOTALS_BY_EPOCH {
-        let ms = multisig::State {
+        let ms = actorv0::multisig::State {
             signers: vec![],
             num_approvals_threshold: 0,
-            next_tx_id: multisig::TxnID(0),
+            next_tx_id: actorv0::multisig::TxnID(0),
             initial_balance: initial_balance.clone(),
             start_epoch: ChainEpoch::default(),
             unlock_duration: *unlock_duration,
@@ -263,10 +259,10 @@ pub fn setup_postignition_genesis_actors<DB: BlockStore>(
     let mut post_ignition = init_genesis_info(bs)?;
 
     for (unlock_duration, initial_balance) in &*TOTALS_BY_EPOCH {
-        let ms = multisig::State {
+        let ms = actorv0::multisig::State {
             signers: vec![],
             num_approvals_threshold: 0,
-            next_tx_id: multisig::TxnID(0),
+            next_tx_id: actorv0::multisig::TxnID(0),
 
             // In the pre-ignition logic, we incorrectly set this value in Fil, not attoFil, an off-by-10^18 error
             initial_balance: initial_balance * FILECOIN_PRECISION,

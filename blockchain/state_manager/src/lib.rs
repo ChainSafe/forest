@@ -10,7 +10,7 @@ pub mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
-use crate::miner::CHAIN_FINALITY;
+use actor::CHAIN_FINALITY;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
@@ -23,7 +23,6 @@ use chain::{draw_randomness, ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
-use encoding::de::DeserializeOwned;
 use encoding::Cbor;
 use fil_types::{get_network_version_default, verifier::ProofVerifier, NetworkVersion, Randomness};
 use fil_types::{SectorInfo, SectorSize};
@@ -34,6 +33,7 @@ use futures::channel::oneshot;
 use futures::select;
 use futures::stream::StreamExt;
 use futures::FutureExt;
+use interpreter::LookbackStateGetter;
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
 use ipld_amt::Amt;
 use lazycell::AtomicLazyCell;
@@ -46,7 +46,10 @@ use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
+use std::marker::PhantomData;
 use std::sync::Arc;
+use vm::ActorState;
+use vm::TokenAmount;
 use vm_circ_supply::GenesisInfoPair;
 
 /// Intermediary for retrieving state objects and updating actor states
@@ -111,27 +114,15 @@ where
             genesis_info: GenesisInfoPair::default(),
         }
     }
-    /// Loads actor state from IPLD Store
-    pub fn load_actor_state<D>(&self, addr: &Address, state_cid: &Cid) -> Result<D, Error>
-    where
-        D: DeserializeOwned,
-    {
-        let actor = self
-            .get_actor(addr, state_cid)?
-            .ok_or_else(|| Error::ActorNotFound(addr.to_string()))?;
-        let act: D = self
-            .blockstore()
-            .get(&actor.state)
-            .map_err(|e| Error::State(e.to_string()))?
-            .ok_or_else(|| Error::ActorStateNotFound(actor.state.to_string()))?;
-        Ok(act)
+
+    /// Returns network version for the given epoch
+    pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
+        get_network_version_default(epoch)
     }
+
     pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.blockstore(), state_cid)
-            .map_err(|e| Error::State(e.to_string()))?;
-        state
-            .get_actor(addr)
-            .map_err(|e| Error::State(e.to_string()))
+        let state = StateTree::new_from_root(self.blockstore(), state_cid)?;
+        Ok(state.get_actor(addr)?)
     }
 
     pub fn blockstore_cloned(&self) -> Arc<DB> {
@@ -148,28 +139,34 @@ where
 
     /// Returns the network name from the init actor state
     pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
-        let state: init::State = self.load_actor_state(&*INIT_ACTOR_ADDR, st)?;
-        Ok(state.network_name)
+        let init_act = self
+            .get_actor(actor::init::ADDRESS, st)?
+            .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
+
+        let state = init::State::load(self.blockstore(), &init_act)?;
+        Ok(state.into_network_name())
     }
     /// Returns true if miner has been slashed or is considered invalid
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
-        let spas: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
+        let actor = self
+            .get_actor(actor::power::ADDRESS, state_cid)?
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let claims = make_map_with_root::<_, power::Claim>(&spas.claims, self.blockstore())
-            .map_err(|e| Error::State(e.to_string()))?;
+        let spas = power::State::load(self.blockstore(), &actor)?;
 
-        Ok(!claims
-            .contains_key(&addr.to_bytes())
-            .map_err(|e| Error::State(e.to_string()))?)
+        Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
     }
     /// Returns raw work address of a miner
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
-        let ms: miner::State = self.load_actor_state(addr, state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore(), state_cid)?;
 
-        let state = StateTree::new_from_root(self.blockstore(), state_cid)
-            .map_err(|e| Error::State(e.to_string()))?;
+        let act = state
+            .get_actor(addr)?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let info = ms.get_info(self.blockstore()).map_err(|e| e.to_string())?;
+        let ms = miner::State::load(self.blockstore(), &act)?;
+
+        let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
         let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker)
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
@@ -179,26 +176,29 @@ where
     pub fn get_power(
         &self,
         state_cid: &Cid,
-        addr: &Address,
-    ) -> Result<(power::Claim, power::Claim), Error> {
-        let ps: power::State = self.load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, state_cid)?;
+        addr: Option<&Address>,
+    ) -> Result<Option<(power::Claim, power::Claim)>, Error> {
+        let actor = self
+            .get_actor(actor::power::ADDRESS, state_cid)?
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let cm = make_map_with_root::<_, power::Claim>(&ps.claims, self.blockstore())
-            .map_err(|e| Error::State(e.to_string()))?;
-        let claim = cm
-            .get(&addr.to_bytes())
-            .map_err(|e| Error::State(e.to_string()))?
-            .ok_or_else(|| {
-                Error::State("Failed to retrieve claimed power from actor state".to_owned())
-            })?
-            .clone();
-        Ok((
-            claim,
-            power::Claim {
-                raw_byte_power: ps.total_raw_byte_power,
-                quality_adj_power: ps.total_quality_adj_power,
-            },
-        ))
+        let spas = power::State::load(self.blockstore(), &actor)?;
+
+        let t_pow = spas.total_power();
+
+        if let Some(maddr) = addr {
+            let m_pow = spas
+                .miner_power(self.blockstore(), maddr)?
+                .ok_or_else(|| Error::State(format!("Miner for address {} not found", maddr)))?;
+
+            let min_pow =
+                spas.miner_nominal_power_meets_consensus_minimum(self.blockstore(), maddr)?;
+            if min_pow {
+                return Ok(Some((m_pow, t_pow)));
+            }
+        }
+
+        Ok(None)
     }
 
     pub fn get_subscriber(&self) -> Option<Subscriber<HeadChange>> {
@@ -209,7 +209,7 @@ where
     /// This function returns the state root and receipt root of the transition.
     #[allow(clippy::too_many_arguments)]
     pub fn apply_blocks<R, V, CB>(
-        &self,
+        self: &Arc<Self>,
         parent_epoch: ChainEpoch,
         p_state: &Cid,
         messages: &[BlockMessages],
@@ -217,6 +217,7 @@ where
         rand: &R,
         base_fee: BigInt,
         callback: Option<CB>,
+        tipset: &Arc<Tipset>,
     ) -> Result<CidPair, Box<dyn StdError>>
     where
         R: Rand,
@@ -224,8 +225,14 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
     {
         let mut buf_store = BufferedBlockStore::new(self.blockstore());
+        let lb_wrapper = SMLookbackWrapper {
+            sm: self,
+            store: &buf_store,
+            tipset,
+            verifier: PhantomData::<V>::default(),
+        };
         // TODO change from statically using devnet params when needed
-        let mut vm = VM::<_, _, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, _, V>::new(
             p_state,
             &buf_store,
             epoch,
@@ -233,12 +240,14 @@ where
             base_fee,
             get_network_version_default,
             &self.genesis_info,
+            &lb_wrapper,
         )?;
 
         // Apply tipset messages
         let receipts = vm.apply_block_messages(messages, parent_epoch, epoch, callback)?;
 
         // Construct receipt root from receipts
+        // TODO this should use an amt relative to the version. This doesn't matter for us yet
         let rect_root = Amt::new_from_slice(self.blockstore(), &receipts)?;
 
         // Flush changes to blockstore
@@ -252,7 +261,7 @@ where
     /// Returns the pair of (parent state root, message receipt root)
     pub async fn tipset_state<V>(
         self: &Arc<Self>,
-        tipset: &Tipset,
+        tipset: &Arc<Tipset>,
     ) -> Result<CidPair, Box<dyn StdError>>
     where
         V: ProofVerifier,
@@ -312,26 +321,35 @@ where
     }
 
     fn call_raw<V>(
-        &self,
+        self: &Arc<Self>,
         msg: &mut UnsignedMessage,
-        bstate: &Cid,
         rand: &ChainRand<DB>,
-        bheight: &ChainEpoch,
+        tipset: &Arc<Tipset>,
     ) -> StateCallResult
     where
         V: ProofVerifier,
     {
         span!("state_call_raw", {
+            let bstate = tipset.parent_state();
+            let bheight = tipset.epoch();
             let block_store = self.blockstore();
+
             let buf_store = BufferedBlockStore::new(block_store);
-            let mut vm = VM::<_, _, _, _, V>::new(
+            let lb_wrapper = SMLookbackWrapper {
+                sm: self,
+                store: &buf_store,
+                tipset,
+                verifier: PhantomData::<V>::default(),
+            };
+            let mut vm = VM::<_, _, _, _, _, V>::new(
                 bstate,
                 &buf_store,
-                *bheight,
+                bheight,
                 rand,
                 0.into(),
                 get_network_version_default,
                 &self.genesis_info,
+                &lb_wrapper,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -363,7 +381,7 @@ where
 
     /// runs the given message and returns its result without any persisted changes.
     pub async fn call<V>(
-        &self,
+        self: &Arc<Self>,
         message: &mut UnsignedMessage,
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult
@@ -378,9 +396,8 @@ where
                 .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
-        let state = ts.parent_state();
         let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone());
-        self.call_raw::<V>(message, state, &chain_rand, &ts.epoch())
+        self.call_raw::<V>(message, &chain_rand, &ts)
     }
 
     pub async fn call_with_gas<V>(
@@ -406,7 +423,15 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone());
 
-        let mut vm = VM::<_, _, _, _, V>::new(
+        // TODO investigate: this doesn't use a buffered store in any way, and can lead to
+        // state bloat potentially?
+        let lb_wrapper = SMLookbackWrapper {
+            sm: self,
+            store: self.blockstore(),
+            tipset: &ts,
+            verifier: PhantomData::<V>::default(),
+        };
+        let mut vm = VM::<_, _, _, _, _, V>::new(
             &st,
             self.blockstore(),
             ts.epoch() + 1,
@@ -414,6 +439,7 @@ where
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
             &self.genesis_info,
+            &lb_wrapper,
         )?;
 
         for msg in prior_messages {
@@ -438,7 +464,7 @@ where
     /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
     pub async fn replay<V>(
         self: &Arc<Self>,
-        ts: &Tipset,
+        ts: &Arc<Tipset>,
         mcid: Cid,
     ) -> Result<(UnsignedMessage, ApplyRet), Error>
     where
@@ -548,23 +574,33 @@ where
             return Ok(false);
         }
 
-        let power_state: power::State =
-            self.load_actor_state(&STORAGE_POWER_ACTOR_ADDR, &base_tipset.parent_state())?;
+        let actor = self
+            .get_actor(actor::power::ADDRESS, base_tipset.parent_state())?
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
+        let power_state = power::State::load(self.blockstore(), &actor)?;
+
+        let actor = self
+            .get_actor(address, base_tipset.parent_state())?
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+
+        let miner_state = miner::State::load(self.blockstore(), &actor)?;
+
+        // Non-empty power claim.
         let claim = power_state
-            .miner_power(self.blockstore(), &address)
-            .map_err(|e| {
-                Error::Other(format!(
-                    "Could not execute miner_power func for elligable to mine func : {:?}",
-                    e
-                ))
-            })?
+            .miner_power(self.blockstore(), &address)?
             .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
         if claim.quality_adj_power <= BigInt::zero() {
             return Ok(false);
         }
 
-        if base_tipset.epoch() <= clock::EPOCH_UNDEFINED {
+        // No fee debt.
+        if !miner_state.fee_debt().is_zero() {
+            return Ok(false);
+        }
+
+        // No active consensus faults.
+        if base_tipset.epoch() <= miner_state.info(self.blockstore())?.consensus_fault_elapsed {
             return Ok(false);
         }
 
@@ -601,7 +637,11 @@ where
         let (lbts, lbst) = self
             .get_lookback_tipset_for_round::<V>(tipset.clone(), round)
             .await?;
-        let state: miner::State = self.load_actor_state(&address, &lbst)?;
+
+        let actor = self
+            .get_actor(&address, &lbst)?
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+        let miner_state = miner::State::load(self.blockstore(), &actor)?;
 
         let buf = address.marshal_cbor()?;
         let prand = draw_randomness(
@@ -611,19 +651,22 @@ where
             &buf,
         )?;
 
-        let sectors = self.get_sectors_for_winning_post::<V>(&lbst, &address, Randomness(prand))?;
+        let nv = get_network_version_default(tipset.epoch());
+        let sectors =
+            self.get_sectors_for_winning_post::<V>(&lbst, nv, &address, Randomness(prand))?;
 
         if sectors.is_empty() {
             return Ok(None);
         }
 
-        let (mpow, tpow) = self.get_power(&lbst, &address)?;
+        let (mpow, tpow) = self
+            .get_power(&lbst, Some(&address))?
+            .ok_or_else(|| Error::State(format!("failed to load power for address {}", address)))?;
 
-        let info = state.get_info(self.blockstore())?;
+        let info = miner_state.info(self.blockstore())?;
 
         let (st, _) = self.tipset_state::<V>(&lbts).await?;
-        let state = StateTree::new_from_root(self.blockstore(), &st)
-            .map_err(|e| Error::State(e.to_string()))?;
+        let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
         let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker)?;
 
@@ -643,7 +686,7 @@ where
 
     pub async fn compute_tipset_state<V, CB: 'static>(
         self: &Arc<Self>,
-        tipset: &Tipset,
+        tipset: &Arc<Tipset>,
         callback: Option<CB>,
     ) -> Result<CidPair, Error>
     where
@@ -699,6 +742,7 @@ where
             let sm = self.clone();
             let sr = *first_block.state_root();
             let epoch = first_block.epoch();
+            let ts_cloned = tipset.clone();
             task::spawn_blocking(move || {
                 sm.apply_blocks::<_, V, _>(
                     parent_epoch,
@@ -708,6 +752,7 @@ where
                     &chain_rand,
                     base_fee,
                     callback,
+                    &ts_cloned,
                 )
                 .map_err(|e| Error::Other(e.to_string()))
             })
@@ -911,7 +956,6 @@ where
         let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
         let sm_cloned = self.clone();
-        // let mut futures = FuturesUnordered::new();
         let mut subscriber_poll = task::spawn::<
             _,
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
@@ -997,8 +1041,7 @@ where
         addr: &Address,
         state_cid: &Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state =
-            StateTree::new_from_root(db, state_cid).map_err(|e| Error::State(e.to_string()))?;
+        let state = StateTree::new_from_root(db, state_cid)?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
@@ -1031,14 +1074,15 @@ where
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
-        state_tree
-            .lookup_id(addr)
-            .map_err(|e| Error::State(e.to_string()))
+        Ok(state_tree.lookup_id(addr)?)
     }
 
     pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
-        let market_state: market::State =
-            self.load_actor_state(&*STORAGE_MARKET_ACTOR_ADDR, ts.parent_state())?;
+        let actor = self
+            .get_actor(actor::market::ADDRESS, ts.parent_state())?
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+
+        let market_state = market::State::load(self.blockstore(), &actor)?;
 
         let new_addr = self
             .lookup_id(addr, ts)?
@@ -1046,14 +1090,14 @@ where
 
         let out = MarketBalance {
             escrow: {
-                let et = BalanceTable::from_root(self.blockstore(), &market_state.escrow_table)
-                    .map_err(|_x| Error::State("Failed to build Escrow Table".to_string()))?;
-                et.get(&new_addr).unwrap_or_default()
+                market_state
+                    .escrow_table(self.blockstore())?
+                    .get(&new_addr)?
             },
             locked: {
-                let lt = BalanceTable::from_root(self.blockstore(), &market_state.locked_table)
-                    .map_err(|_x| Error::State("Failed to build Locked Table".to_string()))?;
-                lt.get(&new_addr).unwrap_or_default()
+                market_state
+                    .locked_table(self.blockstore())?
+                    .get(&new_addr)?
             },
         };
 
@@ -1065,7 +1109,7 @@ where
     pub async fn resolve_to_key_addr<V>(
         self: &Arc<Self>,
         addr: &Address,
-        ts: &Tipset,
+        ts: &Arc<Tipset>,
     ) -> Result<Address, Box<dyn StdError>>
     where
         V: ProofVerifier,
@@ -1079,9 +1123,8 @@ where
             }
             _ => {}
         };
-        let (st, _) = self.tipset_state::<V>(&ts).await?;
-        let state = StateTree::new_from_root(self.blockstore(), &st)
-            .map_err(|e| Error::State(e.to_string()))?;
+        let (st, _) = self.tipset_state::<V>(ts).await?;
+        let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
         Ok(interpreter::resolve_to_key_addr(
             &state,
@@ -1091,12 +1134,17 @@ where
     }
 
     /// Checks power actor state for if miner meets consensus minimum requirements.
-    pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> Result<bool, String> {
-        let ps: power::State = self
-            .load_actor_state(&*STORAGE_POWER_ACTOR_ADDR, ts.parent_state())
-            .map_err(|e| format!("loading power actor state: {}", e))?;
+    pub fn miner_has_min_power(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> Result<bool, Box<dyn StdError>> {
+        let actor = self
+            .get_actor(actor::power::ADDRESS, ts.parent_state())?
+            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+        let ps = power::State::load(self.blockstore(), &actor)?;
+
         ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
-            .map_err(|e| e.to_string())
     }
 
     pub async fn validate_chain<V: ProofVerifier>(
@@ -1152,4 +1200,28 @@ pub struct MiningBaseInfo {
     pub prev_beacon_entry: BeaconEntry,
     pub beacon_entries: Vec<BeaconEntry>,
     pub elligable_for_minning: bool,
+}
+
+struct SMLookbackWrapper<'sm, 'ts, DB, BS, V> {
+    sm: &'sm Arc<StateManager<DB>>,
+    store: &'sm BS,
+    tipset: &'ts Arc<Tipset>,
+    verifier: PhantomData<V>,
+}
+
+impl<'sm, 'ts, DB, BS, V> LookbackStateGetter<'sm, BS> for SMLookbackWrapper<'sm, 'ts, DB, BS, V>
+where
+    // Yes, both are needed, because the VM should only use the buffered store
+    DB: BlockStore + Send + Sync + 'static,
+    BS: BlockStore,
+    V: ProofVerifier,
+{
+    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, Box<dyn StdError>> {
+        let (_, st) = task::block_on(
+            self.sm
+                .get_lookback_tipset_for_round::<V>(self.tipset.clone(), round),
+        )?;
+
+        StateTree::new_from_root(self.store, &st)
+    }
 }

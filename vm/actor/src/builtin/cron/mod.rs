@@ -14,7 +14,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
+// * Updated to specs-actors commit: d84628a278c877bd7ff3a0eadca42fc06105b899 (v2.3.1)
 
 /// Cron actor methods available
 #[derive(FromPrimitive)]
@@ -26,7 +26,7 @@ pub enum Method {
 
 /// Constructor parameters for Cron actor, contains entries
 /// of actors and methods to call on each epoch
-#[derive(Default, Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct ConstructorParams {
     /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
     pub entries: Vec<Entry>,

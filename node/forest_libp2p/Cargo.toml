@@ -26,26 +26,26 @@ log = "0.4.8"
 async-std = { version = "1.6.3", features = ["unstable"] }
 serde = { version = "1.0", features = ["derive"] }
 forest_blocks = { path = "../../blockchain/blocks" }
-forest_message = { path = "../../vm/message" }
-forest_encoding = { path = "../../encoding" }
-forest_cid = { path = "../../ipld/cid" }
+forest_message = "0.6"
+forest_encoding = "0.2.1"
+forest_cid = { version = "0.3" }
 bytes = "0.5.2"
 fnv = "1.0.6"
 smallvec = "1.1.0"
 chain = { path = "../../blockchain/chain" }
 clock = { package = "fil_clock", path = "../clock" }
-db = { package = "forest_db", path = "../db" }
+db = { package = "forest_db", version = "0.1" }
 forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "bd7e083cc5d9ad13bb357e0e0055338c33b18173" }
 tiny-cid = "0.2.0"
-ipld_blockstore = { path = "../../ipld/blockstore" }
+ipld_blockstore = "0.1"
 async-trait = "0.1"
 lazy_static = "1.4"
 
 [dev-dependencies]
-forest_address = { path = "../../vm/address" }
+forest_address = "0.3"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-crypto = { package = "forest_crypto", path = "../../crypto" }
+crypto = { package = "forest_crypto", version = "0.4" }
 genesis = { path = "../../utils/genesis", features = ["testing"] }
 async-std = { version = "1.6.3", features = ["attributes"] }

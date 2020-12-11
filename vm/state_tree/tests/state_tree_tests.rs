@@ -1,7 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{init, ActorState, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
+use actor::actorv0::{
+    init, ActorState, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID,
+};
 use address::{Address, SECP_PUB_LEN};
 use cid::{
     Cid,
@@ -65,7 +67,12 @@ fn get_set_non_id() {
         .map_err(|e| e.to_string())
         .unwrap();
 
-    let act_s = ActorState::new(empty_cid(), state_cid.clone(), Default::default(), 1);
+    let act_s = ActorState::new(
+        *INIT_ACTOR_CODE_ID,
+        state_cid.clone(),
+        Default::default(),
+        1,
+    );
 
     tree.snapshot().unwrap();
     tree.set_actor(&INIT_ACTOR_ADDR, act_s.clone()).unwrap();
@@ -80,7 +87,7 @@ fn get_set_non_id() {
     assert_eq!(
         new_init_s,
         Some(ActorState {
-            code: empty_cid(),
+            code: *INIT_ACTOR_CODE_ID,
             state: state_cid,
             balance: Default::default(),
             sequence: 2

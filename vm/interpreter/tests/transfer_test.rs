@@ -1,14 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::{init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR};
+use actor::actorv0::{account, init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID};
 use address::Address;
 use cid::Code::{Blake2b256, Identity};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use db::MemoryDB;
 use fil_types::{verifier::MockVerifier, NetworkVersion};
-use interpreter::{vm_send, CircSupplyCalc, DefaultRuntime, Rand};
+use interpreter::{vm_send, CircSupplyCalc, DefaultRuntime, LookbackStateGetter, Rand};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
@@ -25,6 +25,13 @@ impl CircSupplyCalc for MockCircSupply {
         _: &StateTree<DB>,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         Ok(0.into())
+    }
+}
+
+struct MockStateLB<'db, MemoryDB>(&'db MemoryDB);
+impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
+    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'db, MemoryDB>, Box<dyn StdError>> {
+        Err("Test shouldn't call lookback".into())
     }
 }
 
@@ -67,7 +74,7 @@ fn transfer_test() {
         .unwrap();
 
     let act_s = ActorState::new(
-        ACCOUNT_ACTOR_CODE_ID.clone(),
+        INIT_ACTOR_CODE_ID.clone(),
         state_cid.clone(),
         Default::default(),
         1,
@@ -80,7 +87,7 @@ fn transfer_test() {
     let actor_state_cid_1 = state
         .store()
         .put(
-            &actor::account::State {
+            &account::State {
                 address: actor_addr_1.clone(),
             },
             Identity,
@@ -91,7 +98,7 @@ fn transfer_test() {
     let actor_state_cid_2 = state
         .store()
         .put(
-            &actor::account::State {
+            &account::State {
                 address: actor_addr_2.clone(),
             },
             Identity,
@@ -128,7 +135,8 @@ fn transfer_test() {
 
     let registered = HashSet::new();
 
-    let mut runtime = DefaultRuntime::<_, _, _, MockVerifier>::new(
+    let lookback = MockStateLB(&store);
+    let mut runtime = DefaultRuntime::<_, _, _, _, MockVerifier>::new(
         NetworkVersion::V0,
         &mut state,
         &store,
@@ -141,6 +149,7 @@ fn transfer_test() {
         &MockRand,
         &registered,
         &MockCircSupply,
+        &lookback,
     )
     .unwrap();
     let _serialized = vm_send(&mut runtime, &message, None).unwrap();

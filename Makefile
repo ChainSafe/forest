@@ -39,6 +39,7 @@ clean:
 	@cargo clean -p test_utils
 	@cargo clean -p message_pool
 	@cargo clean -p genesis
+	@cargo clean -p actor_interface
 	@echo "Done cleaning."
 
 lint: license clean
