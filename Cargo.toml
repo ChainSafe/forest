@@ -39,6 +39,7 @@ members = [
     "utils/genesis",
     "utils/net_utils",
     "utils/statediff",
+    "utils/hash_utils",
     "types",
     "key_management",
 ]
