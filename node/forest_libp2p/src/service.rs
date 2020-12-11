@@ -347,7 +347,7 @@ where
                                 NetRPCMethods::NetAddrsListen => {
                                 let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
                                 let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
-                                    if let Err(_) = response_channel.send(NetRPCResponse::NetAddrsListen(peer_id.clone(), listeners)) {
+                                    if response_channel.send(NetRPCResponse::NetAddrsListen(peer_id.clone(), listeners)).is_err() {
                                         warn!("Failed to get Libp2p listeners");
                                     }
                                 }
