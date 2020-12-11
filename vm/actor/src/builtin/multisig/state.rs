@@ -1,12 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::TxnID;
+use super::{types::Transaction, TxnID};
+use crate::make_map_with_root;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
+use indexmap::IndexMap;
+use ipld_blockstore::BlockStore;
 use num_bigint::{bigint_ser, Integer};
+use num_traits::Zero;
+use std::error::Error as StdError;
 use vm::TokenAmount;
 
 /// Multisig actor state
@@ -43,14 +48,53 @@ impl State {
         if elapsed_epoch >= self.unlock_duration {
             return TokenAmount::from(0);
         }
-        if elapsed_epoch < 0 {
+        if elapsed_epoch <= 0 {
             return self.initial_balance.clone();
         }
-        // Division truncation is broken here: https://github.com/filecoin-project/specs-actors/issues/1131
-        let unit_locked: TokenAmount = self
-            .initial_balance
-            .div_floor(&TokenAmount::from(self.unlock_duration));
-        unit_locked * (self.unlock_duration - elapsed_epoch)
+
+        let remaining_lock_duration = self.unlock_duration - elapsed_epoch;
+
+        // locked = ceil(InitialBalance * remainingLockDuration / UnlockDuration)
+        let numerator: TokenAmount = &self.initial_balance * remaining_lock_duration;
+        let denominator = TokenAmount::from(self.unlock_duration);
+
+        numerator.div_ceil(&denominator)
+    }
+
+    /// Iterates all pending transactions and removes an address from each list of approvals,
+    /// if present.  If an approval list becomes empty, the pending transaction is deleted.
+    pub fn purge_approvals<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        addr: &Address,
+    ) -> Result<(), Box<dyn StdError>> {
+        let mut txns = make_map_with_root(&self.pending_txs, store)?;
+
+        // Identify transactions that need updating
+        let mut txn_ids_to_purge = IndexMap::new();
+        txns.for_each(|tx_id, txn: &Transaction| {
+            for approver in txn.approved.iter() {
+                if approver == addr {
+                    txn_ids_to_purge.insert(tx_id.0.clone(), txn.clone());
+                }
+            }
+            Ok(())
+        })?;
+
+        // Update or remove those transactions.
+        for (tx_id, mut txn) in txn_ids_to_purge {
+            txn.approved.retain(|approver| approver != addr);
+
+            if !txn.approved.is_empty() {
+                txns.set(tx_id.into(), txn)?;
+            } else {
+                txns.delete(&tx_id)?;
+            }
+        }
+
+        self.pending_txs = txns.flush()?;
+
+        Ok(())
     }
 
     pub(crate) fn check_available(
@@ -70,6 +114,12 @@ impl State {
                 "current balance {} less than amount to spend {}",
                 balance, amount_to_spend
             ));
+        }
+
+        if amount_to_spend.is_zero() {
+            // Always permit a transaction that sends no value,
+            // even if the lockup exceeds the current balance.
+            return Ok(());
         }
 
         let remaining_balance = balance - amount_to_spend;

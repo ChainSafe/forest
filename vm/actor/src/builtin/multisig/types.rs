@@ -10,6 +10,10 @@ use num_bigint::bigint_ser;
 use serde::{Deserialize, Serialize};
 use vm::{ExitCode, MethodNum, Serialized, TokenAmount};
 
+/// SignersMax is the maximum number of signers allowed in a multisig. If more
+/// are required, please use a combining tree of multisigs.
+pub(super) const SIGNERS_MAX: usize = 256;
+
 /// Transaction ID type
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -55,6 +59,8 @@ pub struct ConstructorParams {
     pub signers: Vec<Address>,
     pub num_approvals_threshold: usize,
     pub unlock_duration: ChainEpoch,
+    // * Added in v2
+    pub start_epoch: ChainEpoch,
 }
 
 /// Propose method call parameters.

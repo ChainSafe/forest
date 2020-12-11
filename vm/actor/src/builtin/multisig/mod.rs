@@ -16,7 +16,7 @@ use fil_types::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Signed};
 use runtime::{ActorCode, Runtime, Syscalls};
 use std::collections::HashSet;
 use std::error::Error as StdError;
@@ -24,7 +24,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
+// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -54,6 +54,14 @@ impl Actor {
 
         if params.signers.is_empty() {
             return Err(actor_error!(ErrIllegalArgument; "Must have at least one signer"));
+        }
+
+        if params.signers.len() > SIGNERS_MAX {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "cannot add more than {} signers",
+                SIGNERS_MAX
+            ));
         }
 
         // resolve signer addresses and do not allow duplicate signers
@@ -105,7 +113,7 @@ impl Actor {
 
         if params.unlock_duration != 0 {
             st.set_locked(
-                rt.curr_epoch(),
+                params.start_epoch,
                 params.unlock_duration,
                 rt.message().value_received().clone(),
             );
@@ -308,10 +316,19 @@ impl Actor {
         })?;
 
         rt.transaction(|st: &mut State, _| {
+            if st.signers.len() >= SIGNERS_MAX {
+                return Err(actor_error!(
+                    ErrForbidden,
+                    "cannot add more than {} signers",
+                    SIGNERS_MAX
+                ));
+            }
             if is_signer(&resolved_new_signer, &st.signers)? {
-                return Err(
-                    actor_error!(ErrForbidden; "{} is already a signer", resolved_new_signer),
-                );
+                return Err(actor_error!(
+                    ErrForbidden,
+                    "{} is already a signer",
+                    resolved_new_signer
+                ));
             }
 
             // Add signer and increase threshold if set
@@ -348,9 +365,6 @@ impl Actor {
                 return Err(actor_error!(ErrForbidden; "Cannot remove only signer"));
             }
 
-            // Signers have already been resolved
-            st.signers.retain(|s| s != &resolved_old_signer);
-
             if !params.decrease && st.signers.len() < st.num_approvals_threshold {
                 return Err(actor_error!(ErrIllegalArgument;
                     "can't reduce signers to {} below threshold {} with decrease=false",
@@ -358,8 +372,20 @@ impl Actor {
             }
 
             if params.decrease {
+                if st.num_approvals_threshold < 2 {
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "can't decrease approvals from {} to {}",
+                        st.num_approvals_threshold,
+                        st.num_approvals_threshold - 1
+                    ));
+                }
                 st.num_approvals_threshold -= 1;
             }
+
+            // Signers have already been resolved
+            st.signers.retain(|s| s != &resolved_old_signer);
+
             Ok(())
         })?;
 
@@ -387,7 +413,7 @@ impl Actor {
             )
         })?;
 
-        rt.transaction(|st: &mut State, _| {
+        rt.transaction(|st: &mut State, rt| {
             if !is_signer(&from_resolved, &st.signers)? {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", from_resolved));
             }
@@ -402,8 +428,15 @@ impl Actor {
             st.signers.retain(|s| s != &from_resolved);
 
             // Add new signer
-            st.signers.push(params.to);
+            st.signers.push(to_resolved);
 
+            st.purge_approvals(rt.store(), &from_resolved)
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to purge approvals of removed signer",
+                    )
+                })?;
             Ok(())
         })?;
 
@@ -442,14 +475,6 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // This method was introduced at network version 2 in testnet.
-        // Prior to that, the method did not exist so the VM would abort.
-        if rt.network_version() < NetworkVersion::V2 {
-            return Err(actor_error!(
-                SysErrInvalidMethod,
-                "invalid method until network version 2"
-            ));
-        }
         let receiver = *rt.message().receiver();
         rt.validate_immediate_caller_is(std::iter::once(&receiver))?;
 
@@ -457,6 +482,13 @@ impl Actor {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "unlock duration must be positive"
+            ));
+        }
+
+        if rt.network_version() >= NetworkVersion::V7 && params.amount.is_negative() {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "amount to lock must be positive"
             ));
         }
 
@@ -563,19 +595,39 @@ where
                     )
                 })?;
 
-            ptx.delete(&txn_id.key())
-                .map_err(|e| {
+            // Prior to version 6 we attempt to delete all transactions, even those
+            // no longer in the pending txns map because they have been purged.
+            let mut should_delete = true;
+
+            if rt.network_version() >= NetworkVersion::V6 {
+                let tx_exists = ptx.contains_key(&txn_id.key()).map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
-                        "failed to delete transaction for cleanup",
-                    )
-                })?
-                .ok_or_else(|| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to delete transaction for cleanup: does not exist"
+                        format!(
+                            "failed to check existance of transaction {} for cleanup",
+                            txn_id.0
+                        ),
                     )
                 })?;
+
+                should_delete = tx_exists;
+            }
+
+            if should_delete {
+                ptx.delete(&txn_id.key())
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to delete transaction for cleanup",
+                        )
+                    })?
+                    .ok_or_else(|| {
+                        actor_error!(
+                            ErrIllegalState,
+                            "failed to delete transaction for cleanup: does not exist"
+                        )
+                    })?;
+            }
 
             st.pending_txs = ptx.flush().map_err(|e| {
                 e.downcast_default(
