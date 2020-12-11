@@ -4,7 +4,8 @@
 use super::{tipset_tracker::TipsetTracker, ChainIndex, Error};
 use actor::{miner, power};
 use address::Address;
-use async_std::sync::{channel, RwLock};
+use async_std::channel::bounded;
+use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blake2b_simd::Params;
@@ -526,7 +527,7 @@ where
     {
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
-        let (tx, mut rx) = channel(CHANNEL_CAP);
+        let (tx, mut rx) = bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
         let write_task =
             task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
@@ -540,7 +541,8 @@ where
                 .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.
-            task::block_on(tx.send((cid, block.clone())));
+            // Ignore error intentionally, if receiver dropped, error will be handled below
+            let _ = task::block_on(tx.send((cid, block.clone())));
             Ok(block)
         })
         .await?;

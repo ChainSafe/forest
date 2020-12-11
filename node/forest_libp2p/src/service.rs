@@ -7,7 +7,7 @@ use super::chain_exchange::{
 use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
-use async_std::sync::{channel, Receiver, Sender};
+use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::{stream, task};
 use chain::ChainStore;
 use forest_blocks::GossipBlock;
@@ -160,8 +160,8 @@ where
             warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
-        let (network_sender_in, network_receiver_in) = channel(30);
-        let (network_sender_out, network_receiver_out) = channel(50);
+        let (network_sender_in, network_receiver_in) = unbounded();
+        let (network_sender_out, network_receiver_out) = unbounded();
 
         Libp2pService {
             swarm,
@@ -368,12 +368,8 @@ where
     }
 }
 async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
-    if !sender.is_full() {
-        sender.send(event).await
-    } else {
-        // TODO this would be better to keep the events that would be ignored in some sort of buffer
-        // so that they can be pulled off and sent through the channel when there is available space
-        error!("network sender channel was full, ignoring event");
+    if sender.send(event).await.is_err() {
+        error!("Failed to emit event: Network channel receiver has been dropped");
     }
 }
 

@@ -204,7 +204,7 @@ mod test_selection {
     use crate::head_change;
     use crate::msgpool::test_provider::{mock_block, TestApi};
     use crate::msgpool::tests::create_smsg;
-    use async_std::sync::channel;
+    use async_std::channel::bounded;
     use async_std::task;
     use crypto::SignatureType;
     use db::MemoryDB;
@@ -216,7 +216,7 @@ mod test_selection {
     fn make_test_mpool() -> MessagePool<TestApi> {
         let tma = TestApi::default();
         task::block_on(async move {
-            let (tx, _rx) = channel(50);
+            let (tx, _rx) = bounded(50);
             MessagePool::new(tma, "mptest".to_string(), tx, Default::default()).await
         })
         .unwrap()

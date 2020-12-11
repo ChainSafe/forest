@@ -28,7 +28,7 @@ pub(crate) async fn net_addrs_listen<
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::NetAddrsListen(tx),
     };
-    data.network_send.send(req).await;
+    data.network_send.send(req).await?;
     let (id, addrs) = rx.await?;
     Ok(AddrInfo {
         id: id.to_string(),

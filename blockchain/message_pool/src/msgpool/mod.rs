@@ -6,8 +6,9 @@ use super::config::MpoolConfig;
 use super::errors::Error;
 use crate::msg_chain::{MsgChain, MsgChainNode};
 use address::{Address, Protocol};
+use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
-use async_std::sync::{channel, Arc, RwLock, Sender};
+use async_std::sync::{Arc, RwLock};
 use async_std::task;
 use async_trait::async_trait;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -291,7 +292,7 @@ where
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
 
-        let (repub_trigger, mut repub_trigger_rx) = channel::<()>(4);
+        let (repub_trigger, mut repub_trigger_rx) = bounded::<()>(4);
         let mut mp = MessagePool {
             local_addrs,
             pending,
@@ -404,7 +405,8 @@ where
                     topic: PUBSUB_MSG_TOPIC.clone(),
                     message: msg_ser,
                 })
-                .await;
+                .await
+                .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
         }
         Ok(cid)
     }
@@ -572,7 +574,8 @@ where
                     topic: PUBSUB_MSG_TOPIC.clone(),
                     message: msg.marshal_cbor()?,
                 })
-                .await;
+                .await
+                .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
         }
 
         Ok(msg)
@@ -964,7 +967,8 @@ where
                 topic: PUBSUB_MSG_TOPIC.clone(),
                 message: mb,
             })
-            .await;
+            .await
+            .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
     }
 
     let mut republished_t = HashSet::new();
@@ -1199,7 +1203,10 @@ where
         *cur_tipset.write().await = Arc::new(ts);
     }
     if repub {
-        repub_trigger.send(()).await;
+        repub_trigger
+            .send(())
+            .await
+            .map_err(|_| Error::Other("Republish receiver dropped".to_string()))?;
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
@@ -1561,7 +1568,7 @@ pub mod tests {
     use super::*;
     use crate::MessagePool;
     use address::Address;
-    use async_std::sync::channel;
+    use async_std::channel::bounded;
     use async_std::task;
     use blocks::Tipset;
     use crypto::SignatureType;
@@ -1606,7 +1613,7 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
 
         task::block_on(async move {
-            let (tx, _rx) = channel(50);
+            let (tx, _rx) = bounded(50);
             let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())
                 .await
                 .unwrap();
@@ -1667,7 +1674,7 @@ pub mod tests {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
-        let (tx, _rx) = channel(50);
+        let (tx, _rx) = bounded(50);
 
         task::block_on(async move {
             let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())
@@ -1761,7 +1768,7 @@ pub mod tests {
 
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
-        let (tx, _rx) = channel(50);
+        let (tx, _rx) = bounded(50);
 
         task::block_on(async move {
             let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())

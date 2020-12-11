@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
-use async_std::{
-    sync::{channel, RwLock},
-    task,
-};
+use async_std::{channel::bounded, sync::RwLock, task};
 use auth::{generate_priv_key, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
@@ -128,7 +125,7 @@ pub(super) async fn start(config: Config) {
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
-    let (worker_tx, worker_rx) = channel(20);
+    let (worker_tx, worker_rx) = bounded(20);
     let worker_tx_clone = worker_tx.clone();
     let sync_task = task::spawn(async move {
         chain_syncer.start(worker_tx_clone, worker_rx).await;
