@@ -33,6 +33,7 @@ use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
+use libp2p::core::Multiaddr;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
@@ -104,6 +105,19 @@ pub enum NetworkMessage {
         cid: Cid,
         response_channel: OneShotSender<()>,
     },
+    JSONRPCRequest {
+        method: NetRPCMethods,
+        response_channel: OneShotSender<NetRPCResponse>,
+    }
+}
+#[derive(Debug)]
+pub enum NetRPCMethods {
+   NetAddrsListen,
+}
+#[derive(Debug)]
+pub enum NetRPCResponse {
+    /// Your peer id and all the multiaddrs you are listening on
+    NetAddrsListen(PeerId, Vec<Multiaddr>)
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService<DB> {
@@ -324,9 +338,20 @@ where
                                 warn!("Failed to send a bitswap want_block: {}", e.to_string());
                             } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
                                     chans.push(response_channel);
-                                } else {
-                                    self.bitswap_response_channels.insert(cid, vec![response_channel]);
+                            } else {
+                                self.bitswap_response_channels.insert(cid, vec![response_channel]);
+                            }
+                        }
+                        NetworkMessage::JSONRPCRequest {method, response_channel} => {
+                            match method {
+                                NetRPCMethods::NetAddrsListen => {
+                                let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
+                                let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
+                                    if let Err(_) = response_channel.send(NetRPCResponse::NetAddrsListen(peer_id.clone(), listeners)) {
+                                        warn!("Failed to get Libp2p listeners");
+                                    }
                                 }
+                            }
                         }
                     }
                     None => { break; }

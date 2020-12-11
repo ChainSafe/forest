@@ -10,6 +10,7 @@ mod mpool_api;
 mod state_api;
 mod sync_api;
 mod wallet_api;
+mod net_api;
 
 use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
 use async_log::span;
@@ -305,6 +306,12 @@ where
         .with_method(
             "Filecoin.BeaconGetEntry",
             beacon_get_entry::<DB, KS, B>,
+            false,
+        )
+        // Net
+        .with_method(
+            "Filecoin.NetAddrsListen",
+            net_api::net_addrs_listen::<DB, KS, B>,
             false,
         )
         .finish_unwrapped();
