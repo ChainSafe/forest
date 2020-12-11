@@ -123,7 +123,7 @@ where
             false,
         )
         .with_method(
-            "Filecoin.ChainGetTipset",
+            "Filecoin.ChainGetTipSet",
             chain_get_tipset::<DB, KS, B>,
             false,
         )
@@ -275,6 +275,11 @@ where
             false,
         )
         .with_method("Filecoin.StateWaitMsg", state_wait_msg::<DB, KS, B>, false)
+        .with_method(
+            "Filecoin.StateMinerSectorAllocated",
+            state_miner_sector_allocated::<DB, KS, B>,
+            false
+        )
         .with_method(
             "Filecoin.StateNetworkName",
             state_network_name::<DB, KS, B>,
