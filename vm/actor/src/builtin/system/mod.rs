@@ -11,7 +11,7 @@ use runtime::{ActorCode, Runtime};
 use serde::{Deserialize, Serialize};
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
-// * Updated to specs-actors commit: d84628a278c877bd7ff3a0eadca42fc06105b899 (v2.3.1)
+// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
 
 /// System actor methods.
 #[derive(FromPrimitive)]
