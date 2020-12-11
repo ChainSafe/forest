@@ -107,17 +107,11 @@ pub enum NetworkMessage {
     },
     JSONRPCRequest {
         method: NetRPCMethods,
-        response_channel: OneShotSender<NetRPCResponse>,
     },
 }
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    NetAddrsListen,
-}
-#[derive(Debug)]
-pub enum NetRPCResponse {
-    /// Your peer id and all the multiaddrs you are listening on
-    NetAddrsListen(PeerId, Vec<Multiaddr>),
+    NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService<DB> {
@@ -342,12 +336,12 @@ where
                                 self.bitswap_response_channels.insert(cid, vec![response_channel]);
                             }
                         }
-                        NetworkMessage::JSONRPCRequest {method, response_channel} => {
+                        NetworkMessage::JSONRPCRequest { method } => {
                             match method {
-                                NetRPCMethods::NetAddrsListen => {
+                                NetRPCMethods::NetAddrsListen(response_channel) => {
                                 let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
                                 let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
-                                    if response_channel.send(NetRPCResponse::NetAddrsListen(peer_id.clone(), listeners)).is_err() {
+                                    if response_channel.send((peer_id.clone(), listeners)).is_err() {
                                         warn!("Failed to get Libp2p listeners");
                                     }
                                 }
