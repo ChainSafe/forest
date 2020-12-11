@@ -1,12 +1,11 @@
-use jsonrpc_v2::{Data, Error as JsonRpcError};
-use wallet::KeyStore;
+use crate::RpcState;
 use beacon::Beacon;
 use blockstore::BlockStore;
-use crate::RpcState;
-use serde::Serialize;
-use forest_libp2p::{PeerId, Multiaddr, NetworkMessage, NetRPCMethods, NetRPCResponse};
+use forest_libp2p::{Multiaddr, NetRPCMethods, NetRPCResponse, NetworkMessage, PeerId};
 use futures::channel::oneshot;
-
+use jsonrpc_v2::{Data, Error as JsonRpcError};
+use serde::Serialize;
+use wallet::KeyStore;
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -25,12 +24,14 @@ pub(crate) async fn net_addrs_listen<
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::NetAddrsListen,
-        response_channel: tx
+        response_channel: tx,
     };
     data.network_send.send(req).await;
     let resp = match rx.await? {
-        NetRPCResponse::NetAddrsListen(id, addrs) => AddrInfo{id: id.to_string(), addrs}
-
+        NetRPCResponse::NetAddrsListen(id, addrs) => AddrInfo {
+            id: id.to_string(),
+            addrs,
+        },
     };
     Ok(resp)
 }

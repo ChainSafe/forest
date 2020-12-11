@@ -7,7 +7,7 @@ use actor::miner::MinerInfo;
 use actor::miner::{
     ChainSectorInfo, Fault, SectorOnChainInfo, SectorPreCommitOnChainInfo, State, WorkerKeyChange,
 };
-use actor::{market, DealID, DealWeight, TokenAmount, STORAGE_MARKET_ACTOR_ADDR, miner};
+use actor::{market, miner, DealID, DealWeight, TokenAmount, STORAGE_MARKET_ACTOR_ADDR};
 use address::{json::AddressJson, Address};
 use async_std::task;
 use beacon::{json::BeaconEntryJson, Beacon, BeaconEntry};
@@ -779,8 +779,12 @@ pub(crate) async fn state_miner_sector_allocated<
 ) -> Result<bool, JsonRpcError> {
     let (AddressJson(maddr), sector_num, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let mas: miner::State = data.state_manager.load_actor_state(&maddr, ts.parent_state())?;
-    let mut allocated_sectors: bitfield::BitField = data.chain_store.db
+    let mas: miner::State = data
+        .state_manager
+        .load_actor_state(&maddr, ts.parent_state())?;
+    let mut allocated_sectors: bitfield::BitField = data
+        .chain_store
+        .db
         .get(&mas.allocated_sectors)?
         .ok_or("allocated sectors bitfield not found")?;
 

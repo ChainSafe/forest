@@ -7,10 +7,10 @@ mod chain_api;
 mod common_api;
 mod gas_api;
 mod mpool_api;
+mod net_api;
 mod state_api;
 mod sync_api;
 mod wallet_api;
-mod net_api;
 
 use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
 use async_log::span;
@@ -278,7 +278,7 @@ where
         .with_method(
             "Filecoin.StateMinerSectorAllocated",
             state_miner_sector_allocated::<DB, KS, B>,
-            false
+            false,
         )
         .with_method(
             "Filecoin.StateNetworkName",

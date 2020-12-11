@@ -18,6 +18,7 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
+use libp2p::core::Multiaddr;
 pub use libp2p::gossipsub::Topic;
 use libp2p::{
     core,
@@ -33,7 +34,6 @@ use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
-use libp2p::core::Multiaddr;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
@@ -108,16 +108,16 @@ pub enum NetworkMessage {
     JSONRPCRequest {
         method: NetRPCMethods,
         response_channel: OneShotSender<NetRPCResponse>,
-    }
+    },
 }
 #[derive(Debug)]
 pub enum NetRPCMethods {
-   NetAddrsListen,
+    NetAddrsListen,
 }
 #[derive(Debug)]
 pub enum NetRPCResponse {
     /// Your peer id and all the multiaddrs you are listening on
-    NetAddrsListen(PeerId, Vec<Multiaddr>)
+    NetAddrsListen(PeerId, Vec<Multiaddr>),
 }
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService<DB> {
