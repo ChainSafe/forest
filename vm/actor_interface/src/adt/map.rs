@@ -48,8 +48,9 @@ where
     }
 
     /// Returns a reference to the value corresponding to the key.
-    pub fn get<Q: ?Sized>(&self, k: &BytesKey) -> Result<Option<&V>, Box<dyn Error>>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, Box<dyn Error>>
     where
+        BytesKey: Borrow<Q>,
         Q: Hash + Eq,
         V: DeserializeOwned,
     {
