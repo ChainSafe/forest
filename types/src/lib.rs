@@ -4,9 +4,9 @@
 pub mod build_version;
 pub mod deadlines;
 mod piece;
-mod state;
 mod randomness;
 pub mod sector;
+mod state;
 mod version;
 
 #[cfg(feature = "json")]
@@ -16,9 +16,9 @@ pub mod genesis;
 pub mod verifier;
 
 pub use self::piece::*;
-pub use self::state::*;
 pub use self::randomness::*;
 pub use self::sector::*;
+pub use self::state::*;
 pub use self::version::*;
 
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
