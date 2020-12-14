@@ -4,7 +4,9 @@
 use crate::RpcState;
 use actor::{
     market::{self, DealProposal, DealState},
-    miner::{self, MinerInfo, SectorOnChainInfo},
+    miner::{self, MinerInfo, SectorOnChainInfo, SectorPreCommitInfo},
+    power::{self},
+    reward::{self},
 };
 use address::{json::AddressJson, Address};
 use async_std::task;
@@ -793,6 +795,92 @@ pub(crate) async fn state_miner_sector_allocated<
     };
 
     Ok(allocated_sectors)
+}
+
+pub(crate) async fn state_miner_pre_commit_deposit_for_power<
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
+>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(AddressJson, SectorPreCommitInfo, TipsetKeysJson)>,
+) -> Result<String, JsonRpcError> {
+    let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
+    let (state, _) = data.state_manager.tipset_state::<V>(&ts).await?;
+    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &state)?;
+    let ssize = pci.seal_proof.sector_size()?;
+
+    let actor = state
+        .get_actor(market::ADDRESS)?
+        .ok_or("couldnt load market actor")?;
+    let (w, vw) = match market::State::load(data.state_manager.blockstore(), &actor)? {
+        market::State::V0(s) => forest_actor_v0::market::validate_deals_for_activation(
+            &s,
+            data.state_manager.blockstore(),
+            &pci.deal_ids,
+            &maddr,
+            pci.expiration,
+            ts.epoch(),
+        ),
+        market::State::V2(s) => forest_actor::market::validate_deals_for_activation(
+            &s,
+            data.state_manager.blockstore(),
+            &pci.deal_ids,
+            &maddr,
+            pci.expiration,
+            ts.epoch(),
+        ),
+    }?;
+    let duration = pci.expiration - ts.epoch();
+    let sector_weight = forest_actor::miner::qa_power_for_weight(ssize, duration, &w, &vw);
+
+    let actor = state
+        .get_actor(power::ADDRESS)?
+        .ok_or("couldnt load market actor")?;
+    let deposit = match power::State::load(data.state_manager.blockstore(), &actor)? {
+        power::State::V0(s) => {
+            let power_smoothed = s.this_epoch_qa_power_smoothed;
+            let reward_actor = state
+                .get_actor(reward::ADDRESS)?
+                .ok_or("couldnt load market actor")?;
+            match reward::State::load(data.state_manager.blockstore(), &reward_actor)? {
+                reward::State::V0(rs) => forest_actor_v0::miner::pre_commit_deposit_for_power(
+                    &rs.this_epoch_reward_smoothed,
+                    &power_smoothed,
+                    &sector_weight,
+                ),
+                reward::State::V2(rs) => forest_actor::miner::pre_commit_deposit_for_power(
+                    &rs.this_epoch_reward_smoothed,
+                    &power_smoothed,
+                    &sector_weight,
+                ),
+            }
+        }
+        power::State::V2(s) => {
+            let power_smoothed = s.this_epoch_qa_power_smoothed;
+            let reward_actor = state
+                .get_actor(reward::ADDRESS)?
+                .ok_or("couldnt load market actor")?;
+            match reward::State::load(data.state_manager.blockstore(), &reward_actor)? {
+                reward::State::V0(rs) => forest_actor_v0::miner::pre_commit_deposit_for_power(
+                    &rs.this_epoch_reward_smoothed,
+                    &power_smoothed,
+                    &sector_weight,
+                ),
+                reward::State::V2(rs) => forest_actor::miner::pre_commit_deposit_for_power(
+                    &rs.this_epoch_reward_smoothed,
+                    &power_smoothed,
+                    &sector_weight,
+                ),
+            }
+        }
+    };
+
+    //	return types.BigDiv(types.BigMul(deposit, initialPledgeNum), initialPledgeDen), nil
+    let ret = (deposit * 110) / 100;
+    Ok(ret.to_string())
 }
 
 /// returns a state tree given a tipset
