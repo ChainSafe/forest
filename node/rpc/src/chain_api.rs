@@ -261,14 +261,14 @@ where
 
 pub(crate) async fn chain_get_randomness_from_tickets<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(TipsetKeys, i64, ChainEpoch, String)>,
+    Params(params): Params<(TipsetKeysJson, i64, ChainEpoch, String)>,
 ) -> Result<[u8; 32], JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (tsk, pers, epoch, entropy) = params;
+    let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     Ok(data
         .state_manager
         .chain_store()
