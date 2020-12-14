@@ -18,3 +18,4 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 libp2p = { version = "0.24", default-features = false }
 forest_bitfield = "0.1"
 num-bigint = { version = "0.1.1", package = "forest_bigint", features = ["json"] }
+forest_hash_utils = "0.1"
