@@ -128,7 +128,7 @@ where
             false,
         )
         .with_method(
-            "Filecoin.ChainGetRandomnessFromTicket",
+            "Filecoin.ChainGetRandomnessFromTickets",
             chain_get_randomness_from_tickets::<DB, KS, B>,
             false,
         )
