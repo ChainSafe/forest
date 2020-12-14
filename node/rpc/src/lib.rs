@@ -100,7 +100,7 @@ where
             chain_api::chain_get_message::<DB, KS, B>,
             false,
         )
-        .with_method("Filecoin.ChainGetObj", chain_read_obj::<DB, KS, B>, false)
+        .with_method("Filecoin.ChainReadObj", chain_read_obj::<DB, KS, B>, false)
         .with_method("Filecoin.ChainHasObj", chain_has_obj::<DB, KS, B>, false)
         .with_method(
             "Filecoin.ChainGetBlockMessages",
@@ -128,8 +128,13 @@ where
             false,
         )
         .with_method(
-            "Filecoin.GetRandomness",
-            chain_get_randomness::<DB, KS, B>,
+            "Filecoin.GetRandomnessFromTickets",
+            chain_get_randomness_from_tickets::<DB, KS, B>,
+            false,
+        )
+        .with_method(
+            "Filecoin.GetRandomnessFromBeacon",
+            chain_get_randomness_from_beacon::<DB, KS, B>,
             false,
         )
         .with_method(
