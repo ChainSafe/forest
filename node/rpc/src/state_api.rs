@@ -27,10 +27,8 @@ use fil_types::json::SectorInfoJson;
 use fil_types::sector::post::json::PoStProofJson;
 use fil_types::{
     deadlines::DeadlineInfo,
-    use_newest_network,
     verifier::{FullVerifier, ProofVerifier},
-    NetworkVersion, PoStProof, SectorNumber, SectorSize, NEWEST_NETWORK_VERSION,
-    UPGRADE_BREEZE_HEIGHT, UPGRADE_SMOKE_HEIGHT,
+    NetworkVersion, PoStProof, SectorNumber, SectorSize,
 };
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
@@ -400,22 +398,17 @@ pub(crate) async fn state_replay<
     })
 }
 
-pub(crate) async fn state_get_network_version(
-    Params(params): Params<ChainEpoch>,
+pub(crate) async fn state_get_network_version<
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(TipsetKeysJson,)>,
 ) -> Result<NetworkVersion, JsonRpcError> {
-    let height = params;
-    if use_newest_network() {
-        return Ok(NEWEST_NETWORK_VERSION);
-    }
-    if height <= UPGRADE_BREEZE_HEIGHT {
-        return Ok(NEWEST_NETWORK_VERSION);
-    }
-
-    if height <= UPGRADE_SMOKE_HEIGHT {
-        return Ok(NetworkVersion::V0);
-    }
-
-    Ok(NEWEST_NETWORK_VERSION)
+    let (TipsetKeysJson(tsk),) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
+    Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
 /// returns the indicated actor's nonce and balance.

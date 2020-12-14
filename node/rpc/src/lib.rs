@@ -300,7 +300,11 @@ where
             miner_create_block::<DB, KS, B, V>,
             false,
         )
-        .with_method("Filecoin.NetworkVersion", state_get_network_version, false)
+        .with_method(
+            "Filecoin.StateNetworkVersion",
+            state_get_network_version::<DB, KS, B>,
+            false,
+        )
         // Gas API
         .with_method(
             "Filecoin.GasEstimateGasLimit",
