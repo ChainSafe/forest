@@ -9,6 +9,7 @@ use cid::{
     Cid,
     Code::{Blake2b256, Identity},
 };
+use fil_types::StateTreeVersion;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use state_tree::*;
@@ -23,7 +24,7 @@ fn get_set_cache() {
     let act_a = ActorState::new(empty_cid(), empty_cid(), Default::default(), 2);
     let addr = Address::new_id(1);
     let store = db::MemoryDB::default();
-    let mut tree = StateTree::new(&store);
+    let mut tree = StateTree::new(&store, StateTreeVersion::V0).unwrap();
 
     // test address not in cache
     assert_eq!(tree.get_actor(&addr).unwrap(), None);
@@ -40,7 +41,7 @@ fn get_set_cache() {
 #[test]
 fn delete_actor() {
     let store = db::MemoryDB::default();
-    let mut tree = StateTree::new(&store);
+    let mut tree = StateTree::new(&store, StateTreeVersion::V0).unwrap();
 
     let addr = Address::new_id(3);
     let act_s = ActorState::new(empty_cid(), empty_cid(), Default::default(), 1);
@@ -53,7 +54,7 @@ fn delete_actor() {
 #[test]
 fn get_set_non_id() {
     let store = db::MemoryDB::default();
-    let mut tree = StateTree::new(&store);
+    let mut tree = StateTree::new(&store, StateTreeVersion::V0).unwrap();
 
     // Empty hamt Cid used for testing
     let e_cid = Hamt::<_, String>::new_with_bit_width(&store, 5)
@@ -104,7 +105,7 @@ fn get_set_non_id() {
 #[test]
 fn test_snapshots() {
     let store = db::MemoryDB::default();
-    let mut tree = StateTree::new(&store);
+    let mut tree = StateTree::new(&store, StateTreeVersion::V0).unwrap();
     let mut addresses: Vec<Address> = Vec::new();
     use num_bigint::BigInt;
 
@@ -181,7 +182,7 @@ fn test_snapshots() {
 #[test]
 fn revert_snapshot() {
     let store = db::MemoryDB::default();
-    let mut tree = StateTree::new(&store);
+    let mut tree = StateTree::new(&store, StateTreeVersion::V0).unwrap();
     use num_bigint::BigInt;
 
     let addr_str = "f01";

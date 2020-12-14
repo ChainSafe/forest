@@ -1,15 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod adt;
 mod builtin;
 mod policy;
 
+pub use self::adt::*;
 pub use self::builtin::*;
 pub use self::policy::*;
 pub use actorv0;
 pub use actorv2;
 
-use fil_types::NetworkVersion;
+use fil_types::{NetworkVersion, StateTreeVersion};
 
 pub enum ActorVersion {
     V0,
@@ -25,6 +27,15 @@ impl From<NetworkVersion> for ActorVersion {
             NetworkVersion::V4 | NetworkVersion::V5 | NetworkVersion::V6 | NetworkVersion::V7 => {
                 ActorVersion::V2
             }
+        }
+    }
+}
+
+impl From<StateTreeVersion> for ActorVersion {
+    fn from(version: StateTreeVersion) -> Self {
+        match version {
+            StateTreeVersion::V0 => ActorVersion::V0,
+            StateTreeVersion::V1 => ActorVersion::V2,
         }
     }
 }

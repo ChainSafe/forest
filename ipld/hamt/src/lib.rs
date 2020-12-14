@@ -23,10 +23,8 @@ pub use self::hamt::Hamt;
 pub use self::hash::*;
 pub use self::hash_algorithm::*;
 
+pub use forest_hash_utils::{BytesKey, Hash};
 use serde::{Deserialize, Serialize};
-use std::borrow::Borrow;
-use std::hash::Hasher;
-use std::ops::Deref;
 
 const MAX_ARRAY_WIDTH: usize = 3;
 
@@ -50,60 +48,5 @@ impl<K, V> KeyValuePair<K, V> {
 impl<K, V> KeyValuePair<K, V> {
     pub fn new(key: K, value: V) -> Self {
         KeyValuePair(key, value)
-    }
-}
-
-/// Key type to be used to isolate usage of unsafe code and allow non utf-8 bytes to be
-/// serialized as a string.
-#[derive(Eq, PartialOrd, Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct BytesKey(#[serde(with = "serde_bytes")] pub Vec<u8>);
-
-impl PartialEq for BytesKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Hash for BytesKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write(&self.0);
-    }
-}
-
-impl Borrow<[u8]> for BytesKey {
-    fn borrow(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl Borrow<Vec<u8>> for BytesKey {
-    fn borrow(&self) -> &Vec<u8> {
-        &self.0
-    }
-}
-
-impl Deref for BytesKey {
-    type Target = Vec<u8>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<Vec<u8>> for BytesKey {
-    fn from(bz: Vec<u8>) -> Self {
-        BytesKey(bz)
-    }
-}
-
-impl From<&[u8]> for BytesKey {
-    fn from(s: &[u8]) -> Self {
-        Self(s.to_vec())
-    }
-}
-
-impl From<&str> for BytesKey {
-    fn from(s: &str) -> Self {
-        Self::from(s.as_bytes())
     }
 }
