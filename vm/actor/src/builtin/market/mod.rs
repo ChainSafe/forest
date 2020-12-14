@@ -31,7 +31,7 @@ use num_bigint::{BigInt, Sign};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error as StdError;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
@@ -143,8 +143,6 @@ impl Actor {
         if params.amount < TokenAmount::from(0) {
             return Err(actor_error!(ErrIllegalArgument; "negative amount: {}", params.amount));
         }
-        // withdrawal can ONLY be done by a signing party.
-        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
 
         let (nominal, recipient, approved) = escrow_address(rt, &params.provider_or_client)?;
         // for providers -> only corresponding owner or worker can withdraw
@@ -238,7 +236,7 @@ impl Actor {
 
         let mut resolved_addrs = HashMap::<Address, Address>::with_capacity(params.deals.len());
         let baseline_power = request_current_baseline_power(rt)?;
-        let (network_raw_power, network_qa_power) = request_current_network_power(rt)?;
+        let (network_raw_power, _) = request_current_network_power(rt)?;
 
         let mut new_deal_ids: Vec<DealID> = Vec::new();
         rt.transaction(|st: &mut State, rt| {
@@ -254,13 +252,7 @@ impl Actor {
                 })?;
 
             for deal in &mut params.deals {
-                validate_deal(
-                    rt,
-                    &deal,
-                    &baseline_power,
-                    &network_raw_power,
-                    &network_qa_power,
-                )?;
+                validate_deal(rt, &deal, &network_raw_power, &baseline_power)?;
 
                 if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
                     return Err(actor_error!(ErrIllegalArgument;
@@ -394,7 +386,7 @@ impl Actor {
 
         let st: State = rt.state()?;
 
-        let (deal_weight, verified_deal_weight) = validate_deals_for_activation(
+        let (deal_weight, verified_deal_weight, deal_space) = validate_deals_for_activation(
             &st,
             rt.store(),
             &params.deal_ids,
@@ -412,6 +404,7 @@ impl Actor {
         Ok(VerifyDealsForActivationReturn {
             deal_weight,
             verified_deal_weight,
+            deal_space,
         })
     }
 
@@ -972,22 +965,33 @@ pub fn validate_deals_for_activation<BS>(
     miner_addr: &Address,
     sector_expiry: ChainEpoch,
     curr_epoch: ChainEpoch,
-) -> Result<(BigInt, BigInt), Box<dyn StdError>>
+) -> Result<(BigInt, BigInt, u64), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
     let proposals = DealArray::load(&st.proposals, store)?;
 
+    let mut seen_deal_ids = HashSet::new();
+    let mut total_deal_space = 0;
     let mut total_deal_space_time = BigInt::zero();
     let mut total_verified_space_time = BigInt::zero();
     for deal_id in deal_ids {
+        if seen_deal_ids.insert(deal_id) {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "deal id {} present multiple times",
+                deal_id
+            )
+            .into());
+        }
         let proposal = proposals
             .get(*deal_id)?
-            .ok_or_else(|| actor_error!(ErrNotFound; "no such deal {}", deal_id))?;
+            .ok_or_else(|| actor_error!(ErrNotFound, "no such deal {}", deal_id))?;
 
         validate_deal_can_activate(&proposal, miner_addr, sector_expiry, curr_epoch)
             .map_err(|e| e.wrap(&format!("cannot activate deal {}", deal_id)))?;
 
+        total_deal_space += proposal.piece_size.0;
         let deal_space_time = deal_weight(&proposal);
         if proposal.verified_deal {
             total_verified_space_time += deal_space_time;
@@ -996,7 +1000,11 @@ where
         }
     }
 
-    Ok((total_deal_space_time, total_verified_space_time))
+    Ok((
+        total_deal_space_time,
+        total_verified_space_time,
+        total_deal_space,
+    ))
 }
 
 fn gen_rand_next_epoch<BS, RT>(
@@ -1053,9 +1061,8 @@ fn validate_deal_can_activate(
 fn validate_deal<BS, RT>(
     rt: &RT,
     deal: &ClientDealProposal,
-    baseline_power: &StoragePower,
     network_raw_power: &StoragePower,
-    network_qa_power: &StoragePower,
+    baseline_power: &StoragePower,
 ) -> Result<(), ActorError>
 where
     BS: BlockStore,
@@ -1064,6 +1071,15 @@ where
     deal_proposal_is_internally_valid(rt, deal)?;
 
     let proposal = &deal.proposal;
+
+    if proposal.label.len() > DEAL_MAX_LABEL_SIZE {
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "deal label can be at most {} bytes, is {}",
+            DEAL_MAX_LABEL_SIZE,
+            proposal.label.len()
+        ));
+    }
 
     proposal
         .piece_size
@@ -1098,12 +1114,9 @@ where
 
     let (min_provider_collateral, max_provider_collateral) = deal_provider_collateral_bounds(
         proposal.piece_size,
-        proposal.verified_deal,
         network_raw_power,
-        network_qa_power,
         baseline_power,
         &rt.total_fil_circ_supply()?,
-        rt.network_version(),
     );
     if proposal.provider_collateral < min_provider_collateral
         || &proposal.provider_collateral > max_provider_collateral
