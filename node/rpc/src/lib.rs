@@ -128,12 +128,12 @@ where
             false,
         )
         .with_method(
-            "Filecoin.GetRandomnessFromTickets",
+            "Filecoin.ChainGetRandomnessFromTicket",
             chain_get_randomness_from_tickets::<DB, KS, B>,
             false,
         )
         .with_method(
-            "Filecoin.GetRandomnessFromBeacon",
+            "Filecoin.ChainGetRandomnessFromBeacon",
             chain_get_randomness_from_beacon::<DB, KS, B>,
             false,
         )
