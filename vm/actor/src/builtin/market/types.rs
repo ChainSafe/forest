@@ -60,6 +60,8 @@ pub struct VerifyDealsForActivationReturn {
     pub deal_weight: DealWeight,
     #[serde(with = "bigint_ser")]
     pub verified_deal_weight: DealWeight,
+    // * Added in v2
+    pub deal_space: u64,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
