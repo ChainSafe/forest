@@ -447,9 +447,10 @@ pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     /// CommR
-    #[serde(with = "cid::json")]
+    #[serde(with = "cid::json", rename="SealedCID")]
     pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
+    #[serde(rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
     pub expiration: ChainEpoch,
     /// Whether to replace a "committed capacity" no-deal sector (requires non-empty DealIDs)
