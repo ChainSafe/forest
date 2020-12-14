@@ -12,6 +12,7 @@ pub mod reward;
 pub mod system;
 
 use cid::Cid;
+use num_bigint::BigInt;
 
 pub const EPOCH_DURATION_SECONDS: clock::ChainEpoch = actorv0::EPOCH_DURATION_SECONDS;
 pub const EPOCHS_IN_DAY: clock::ChainEpoch = actorv0::EPOCHS_IN_DAY;
@@ -35,4 +36,28 @@ pub fn is_account_actor(code: &Cid) -> bool {
 /// Returns true if the code belongs to a singleton actor.
 pub fn is_singleton_actor(code: &Cid) -> bool {
     actorv0::is_singleton_actor(code) || actorv2::is_singleton_actor(code)
+}
+
+#[derive(Default, Clone, Debug, PartialEq)]
+pub struct FilterEstimate {
+    pub position: BigInt,
+    pub velocity: BigInt,
+}
+
+impl From<actorv0::util::smooth::FilterEstimate> for FilterEstimate {
+    fn from(filter_est: actorv0::util::smooth::FilterEstimate) -> Self {
+        Self {
+            position: filter_est.position,
+            velocity: filter_est.velocity,
+        }
+    }
+}
+
+impl From<actorv2::util::smooth::FilterEstimate> for FilterEstimate {
+    fn from(filter_est: actorv2::util::smooth::FilterEstimate) -> Self {
+        Self {
+            position: filter_est.position,
+            velocity: filter_est.velocity,
+        }
+    }
 }

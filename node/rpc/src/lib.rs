@@ -248,6 +248,11 @@ where
             state_miner_partitions::<DB, KS, B>,
             false,
         )
+        .with_method(
+            "Filecoin.StateMinerPreCommitDepositForPower",
+            state_miner_pre_commit_deposit_for_power::<DB, KS, B, V>,
+            false,
+        )
         .with_method("Filecoin.StateReplay", state_replay::<DB, KS, B>, false)
         .with_method(
             "Filecoin.StateGetActor",

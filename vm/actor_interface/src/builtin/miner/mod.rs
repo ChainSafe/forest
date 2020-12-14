@@ -10,7 +10,7 @@ use forest_bitfield::BitField;
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
 use num_bigint::{bigint_ser, BigInt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
@@ -441,7 +441,7 @@ impl From<actorv2::miner::SectorPreCommitOnChainInfo> for SectorPreCommitOnChain
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
