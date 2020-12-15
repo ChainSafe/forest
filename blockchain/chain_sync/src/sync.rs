@@ -19,9 +19,9 @@ use cid::{Cid, Code::Blake2b256};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
-use futures::future::try_join_all;
 use futures::select;
 use futures::stream::StreamExt;
+use futures::{future::try_join_all, try_join};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, trace, warn};
@@ -242,14 +242,6 @@ where
             .map(|m| network.bitswap_get::<UnsignedMessage>(m))
             .collect();
 
-        let bls_messages = match try_join_all(bls_messages).await {
-            Ok(msgs) => msgs,
-            Err(e) => {
-                warn!("Failed to get UnsignedMessage: {}", e);
-                return;
-            }
-        };
-
         // Get secp_messages in the store or over Bitswap
         let secp_messages: Vec<_> = block
             .secpk_messages
@@ -257,13 +249,14 @@ where
             .map(|m| network.bitswap_get::<SignedMessage>(m))
             .collect();
 
-        let secp_messages = match try_join_all(secp_messages).await {
-            Ok(msgs) => msgs,
-            Err(e) => {
-                warn!("Failed to get SignedMessage: {}", e);
-                return;
-            }
-        };
+        let (bls_messages, secp_messages) =
+            match try_join!(try_join_all(bls_messages), try_join_all(secp_messages)) {
+                Ok(msgs) => msgs,
+                Err(e) => {
+                    warn!("Failed to get message: {}", e);
+                    return;
+                }
+            };
 
         // Form block
         let block = Block {
