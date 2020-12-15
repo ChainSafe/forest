@@ -1,21 +1,23 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{CONSENSUS_MINER_MIN_MINERS, CONSENSUS_MINER_MIN_POWER};
+use super::CONSENSUS_MINER_MIN_MINERS;
 use crate::{
-    make_map_with_root,
+    consensus_miner_min_power, make_map_with_root,
     smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA},
     ActorDowncast, BytesKey, Map, Multimap,
 };
 use address::Address;
 use cid::Cid;
-use clock::{ChainEpoch, EPOCH_UNDEFINED};
+use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
-use fil_types::StoragePower;
+use fil_types::{RegisteredSealProof, StoragePower};
 use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
 use num_bigint::{bigint_ser, BigInt, Sign};
+use num_traits::Signed;
 use std::error::Error as StdError;
+use std::ops::Neg;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 
 lazy_static! {
@@ -58,9 +60,6 @@ pub struct State {
     /// and the current epoch inclusively to find tasks to execute.
     pub first_cron_epoch: ChainEpoch,
 
-    /// Last epoch power cron tick has been processed.
-    pub last_processed_cron_epoch: ChainEpoch,
-
     /// Claimed power for each miner.
     pub claims: Cid, // Map, HAMT[address]Claim
 
@@ -72,7 +71,6 @@ impl State {
         State {
             cron_event_queue: empty_mmap_cid,
             claims: empty_map_cid,
-            last_processed_cron_epoch: EPOCH_UNDEFINED,
             this_epoch_qa_power_smoothed: FilterEstimate {
                 position: INITIAL_QA_POWER_ESTIMATE_POSITION.clone(),
                 velocity: INITIAL_QA_POWER_ESTIMATE_VELOCITY.clone(),
@@ -96,9 +94,11 @@ impl State {
         let claim =
             get_claim(&claims, miner)?.ok_or_else(|| format!("no claim for actor: {}", miner))?;
 
-        let miner_nominal_power = &claim.quality_adj_power;
+        let miner_nominal_power = &claim.raw_byte_power;
+        let miner_min_power = consensus_miner_min_power(claim.seal_proof_type)
+            .map_err(|e| format!("could not get miner min power from proof type: {}", e))?;
 
-        if miner_nominal_power >= &CONSENSUS_MINER_MIN_POWER {
+        if miner_nominal_power >= &miner_min_power {
             // If miner is larger than min power requirement, valid
             Ok(true)
         } else if self.miner_above_min_power_count >= CONSENSUS_MINER_MIN_MINERS {
@@ -106,7 +106,7 @@ impl State {
             Ok(false)
         } else {
             // if fewer miners than consensus minimum, return true if non-zero power
-            Ok(miner_nominal_power.sign() == Sign::Plus)
+            Ok(miner_nominal_power.is_positive())
         }
     }
 
@@ -133,13 +133,14 @@ impl State {
         self.total_bytes_committed += power;
 
         let new_claim = Claim {
+            seal_proof_type: old_claim.seal_proof_type,
             raw_byte_power: old_claim.raw_byte_power.clone() + power,
             quality_adj_power: old_claim.quality_adj_power.clone() + qa_power,
         };
 
-        let min_power_ref: &StoragePower = &*CONSENSUS_MINER_MIN_POWER;
-        let prev_below: bool = &old_claim.quality_adj_power < min_power_ref;
-        let still_below: bool = &new_claim.quality_adj_power < min_power_ref;
+        let min_power: StoragePower = consensus_miner_min_power(old_claim.seal_proof_type)?;
+        let prev_below: bool = old_claim.quality_adj_power < min_power;
+        let still_below: bool = new_claim.quality_adj_power < min_power;
 
         if prev_below && !still_below {
             // Just passed min miner size
@@ -228,6 +229,84 @@ impl State {
         self.this_epoch_qa_power_smoothed =
             filter_qa_power.next_estimate(&self.this_epoch_quality_adj_power, delta);
     }
+
+    /// Update stats on new miner creation. This is currently just used to update the miner count
+    /// when new added miner starts above the minimum.
+    pub(super) fn update_stats_for_new_miner(
+        &mut self,
+        seal_proof: RegisteredSealProof,
+    ) -> Result<(), String> {
+        let min_power = consensus_miner_min_power(seal_proof)?;
+
+        if !min_power.is_positive() {
+            self.miner_above_min_power_count += 1;
+        }
+        Ok(())
+    }
+
+    /// Validates that miner has
+    pub(super) fn validate_miner_has_claim<BS>(
+        &self,
+        store: &BS,
+        miner_addr: &Address,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+    {
+        let claims = make_map_with_root::<_, Claim>(&self.claims, store)
+            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims"))?;
+
+        if !claims
+            .contains_key(&miner_addr.to_bytes())
+            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to look up claim"))?
+        {
+            return Err(actor_error!(
+                ErrForbidden,
+                "unknown miner {} forbidden to interact with power actor",
+                miner_addr
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn get_claim<BS: BlockStore>(
+        &self,
+        store: &BS,
+        miner: &Address,
+    ) -> Result<Option<Claim>, Box<dyn StdError>> {
+        let claims = make_map_with_root::<_, Claim>(&self.claims, store)
+            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims"))?;
+
+        let claim = get_claim(&claims, miner)?;
+        Ok(claim.cloned())
+    }
+
+    pub(super) fn delete_claim<BS: BlockStore>(
+        &mut self,
+        claims: &mut Map<BS, Claim>,
+        miner: &Address,
+    ) -> Result<(), Box<dyn StdError>> {
+        let (rbp, qap) =
+            match get_claim(&claims, &miner).map_err(|e| e.downcast_wrap("failed to get claim"))? {
+                None => {
+                    return Ok(());
+                }
+                Some(claim) => (
+                    claim.raw_byte_power.clone(),
+                    claim.quality_adj_power.clone(),
+                ),
+            };
+
+        // Subtract from stats to remove power
+        self.add_to_claim(claims, &miner, &rbp.neg(), &qap.neg())
+            .map_err(|e| e.downcast_wrap("failed to subtract miner power before deleting claim"))?;
+
+        claims
+            .delete(&miner.to_bytes())
+            .map_err(|e| e.downcast_wrap(format!("failed to delete claim for address {}", miner)))?
+            .ok_or("failed to delete claim for address: doesn't exist")?;
+        Ok(())
+    }
 }
 
 pub(super) fn load_cron_events<BS: BlockStore>(
@@ -245,7 +324,7 @@ pub(super) fn load_cron_events<BS: BlockStore>(
 }
 
 /// Gets claim from claims map by address
-pub fn get_claim<'m, BS: BlockStore>(
+fn get_claim<'m, BS: BlockStore>(
     claims: &'m Map<BS, Claim>,
     a: &Address,
 ) -> Result<Option<&'m Claim>, Box<dyn StdError>> {
@@ -274,8 +353,10 @@ pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
 
 impl Cbor for State {}
 
-#[derive(Default, Debug, Serialize_tuple, Deserialize_tuple, Clone)]
+#[derive(Debug, Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct Claim {
+    /// Miner's proof type used to determine minimum miner size
+    pub seal_proof_type: RegisteredSealProof,
     /// Sum of raw byte power for a miner's sectors.
     #[serde(with = "bigint_ser")]
     pub raw_byte_power: StoragePower,
