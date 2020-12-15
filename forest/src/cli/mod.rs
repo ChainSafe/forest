@@ -78,7 +78,10 @@ pub struct DaemonOpts {
     pub import_chain: Option<String>,
     #[structopt(long, help = "Number of worker sync tasks spawned (default is 1")]
     pub worker_tasks: Option<usize>,
-    #[structopt(long, help = "Number of tipsets exchanged over the network (default is 200)")]
+    #[structopt(
+        long,
+        help = "Number of tipsets exchanged over the network (default is 200)"
+    )]
     pub req_window: Option<i64>,
 }
 
@@ -119,6 +122,8 @@ impl DaemonOpts {
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
         // (where to find these flags, should be easy to do with structops)
 
+        // check and set syncing configurations
+        // TODO add MAX conditions
         if let Some(req_window) = &self.req_window {
             cfg.sync.req_window = req_window.to_owned();
         }

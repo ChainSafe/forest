@@ -46,9 +46,13 @@ enum ChainSyncState {
     /// Following chain with blocks received over gossipsub.
     Follow,
 }
+
+/// Struct that defines syncing configuration options
 #[derive(Debug, Deserialize, Clone)]
 pub struct SyncConfig {
+    /// Request window length for tipsets during chain exchange
     pub req_window: i64,
+    /// Number of tasks spawned for sync workers
     pub worker_tasks: usize,
 }
 
@@ -102,6 +106,7 @@ pub struct ChainSyncer<DB, TBeacon, V, M> {
 
     mpool: Arc<MessagePool<M>>,
 
+    /// Syncing configurations
     sync_config: SyncConfig,
 }
 
@@ -288,6 +293,7 @@ where
 
     /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self, worker_tx: Sender<Arc<Tipset>>, worker_rx: Receiver<Arc<Tipset>>) {
+        // TODO benchmark (1 is temporary value to avoid overlap)
         for _ in 0..self.sync_config.worker_tasks {
             self.spawn_worker(worker_rx.clone()).await;
         }
