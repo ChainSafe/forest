@@ -824,7 +824,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
             ts.epoch(),
         )?;
     let duration = pci.expiration - ts.epoch();
-    let sector_weight = forest_actor::miner::qa_power_for_weight(ssize, duration, &w, &vw);
+    let sector_weight = actor::actorv2::miner::qa_power_for_weight(ssize, duration, &w, &vw);
 
     let actor = state
         .get_actor(power::ADDRESS)?
