@@ -83,6 +83,7 @@ async fn space_race_full_sync() {
         genesis,
         bad_blocks: Default::default(),
         verifier: PhantomData::<FullVerifier>::default(),
+        req_window: Default::default(),
     };
 
     // Setup process to handle requests from syncer

@@ -63,6 +63,7 @@ pub(crate) struct SyncWorker<DB, TBeacon, V> {
     /// Proof verification implementation.
     pub verifier: PhantomData<V>,
 
+    /// Number of tipsets requested over chain exchange
     pub req_window: i64,
 }
 

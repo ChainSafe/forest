@@ -80,7 +80,7 @@ pub struct DaemonOpts {
     pub worker_tasks: Option<usize>,
     #[structopt(
         long,
-        help = "Number of tipsets exchanged over the network (default is 200)"
+        help = "Number of tipsets requested over chain exchange (default is 200)"
     )]
     pub req_window: Option<i64>,
 }
