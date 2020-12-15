@@ -27,6 +27,7 @@ use libp2p::core::PeerId;
 use log::{debug, info, trace, warn};
 use message::{SignedMessage, UnsignedMessage};
 use message_pool::{MessagePool, Provider};
+use serde::Deserialize;
 use state_manager::StateManager;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -44,6 +45,32 @@ enum ChainSyncState {
     Initial,
     /// Following chain with blocks received over gossipsub.
     Follow,
+}
+
+/// Struct that defines syncing configuration options
+#[derive(Debug, Deserialize, Clone)]
+pub struct SyncConfig {
+    /// Request window length for tipsets during chain exchange
+    pub req_window: i64,
+    /// Number of tasks spawned for sync workers
+    pub worker_tasks: usize,
+}
+impl SyncConfig {
+    pub fn new(req_window: i64, worker_tasks: usize) -> Self {
+        Self {
+            req_window,
+            worker_tasks,
+        }
+    }
+}
+impl Default for SyncConfig {
+    // TODO benchmark (1 is temporary value to avoid overlap)
+    fn default() -> Self {
+        Self {
+            req_window: 200,
+            worker_tasks: 1,
+        }
+    }
 }
 
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
@@ -87,6 +114,9 @@ pub struct ChainSyncer<DB, TBeacon, V, M> {
     verifier: PhantomData<V>,
 
     mpool: Arc<MessagePool<M>>,
+
+    /// Syncing configurations
+    sync_config: SyncConfig,
 }
 
 impl<DB, TBeacon, V, M> ChainSyncer<DB, TBeacon, V, M>
@@ -103,6 +133,7 @@ where
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
         genesis: Arc<Tipset>,
+        cfg: SyncConfig,
     ) -> Result<Self, Error> {
         let network = SyncNetworkContext::new(
             network_send,
@@ -124,6 +155,7 @@ where
             next_sync_target: None,
             verifier: Default::default(),
             mpool,
+            sync_config: cfg,
         })
     }
 
@@ -269,13 +301,9 @@ where
     }
 
     /// Spawns a network handler and begins the syncing process.
-    pub async fn start(
-        mut self,
-        worker_tx: Sender<Arc<Tipset>>,
-        worker_rx: Receiver<Arc<Tipset>>,
-        num_workers: usize,
-    ) {
-        for _ in 0..num_workers {
+    pub async fn start(mut self, worker_tx: Sender<Arc<Tipset>>, worker_rx: Receiver<Arc<Tipset>>) {
+        // TODO benchmark (1 is temporary value to avoid overlap)
+        for _ in 0..self.sync_config.worker_tasks {
             self.spawn_worker(worker_rx.clone()).await;
         }
 
@@ -345,6 +373,7 @@ where
             genesis: self.genesis.clone(),
             bad_blocks: self.bad_blocks.clone(),
             verifier: PhantomData::<V>::default(),
+            req_window: self.sync_config.req_window,
         }
         .spawn(channel)
         .await
@@ -596,6 +625,7 @@ mod tests {
                 local_sender,
                 event_receiver,
                 genesis_ts,
+                SyncConfig::default(),
             )
             .unwrap(),
             event_sender,
