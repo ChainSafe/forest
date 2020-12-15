@@ -273,9 +273,6 @@ where
         };
         let ts = FullTipset::new(vec![block]).unwrap();
         channel.send((source, ts)).await;
-        // if self.inform_new_head(source.clone(), &ts).await.is_err() {
-        //     warn!("failed to inform new head from peer {}", source);
-        // }
     }
 
     /// Spawns a network handler and begins the syncing process.
