@@ -13,15 +13,15 @@ use amt::Amt;
 use async_std::sync::{channel, Receiver, RwLock, Sender};
 use async_std::task::{self, JoinHandle};
 use beacon::Beacon;
-use blocks::{Block, FullTipset, Tipset, TipsetKeys, TxMeta};
+use blocks::{Block, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Code::Blake2b256};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
-use futures::future::try_join_all;
 use futures::select;
 use futures::stream::StreamExt;
+use futures::{future::try_join_all, try_join};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, info, trace, warn};
@@ -196,63 +196,11 @@ where
 
                 match message {
                     forest_libp2p::PubsubMessage::Block(b) => {
-                        // TODO this handling logic should be done in seperate task.
-                        // When this runs, it slows down the polling thread, which in turn
-                        // makes the events polled from the libp2p thread get dropped.
-
-                        let source = match source.clone() {
-                            Some(source) => source,
-                            None => {
-                                warn!("Got a GossipBlock with no Source sender. This should not happen based on Filecoin's GossipSub options");
-                                return;
-                            }
-                        };
-                        info!(
-                            "Received block over GossipSub: {} from {}",
-                            b.header.epoch(),
-                            source
-                        );
-
-                        // Get bls_messages in the store or over Bitswap
-                        let bls_messages: Vec<_> = b
-                            .bls_messages
-                            .into_iter()
-                            .map(|m| self.network.bitswap_get::<UnsignedMessage>(m))
-                            .collect();
-
-                        let bls_messages = match try_join_all(bls_messages).await {
-                            Ok(msgs) => msgs,
-                            Err(e) => {
-                                warn!("Failed to get UnsignedMessage: {}", e);
-                                return;
-                            }
-                        };
-
-                        // Get secp_messages in the store or over Bitswap
-                        let secp_messages: Vec<_> = b
-                            .secpk_messages
-                            .into_iter()
-                            .map(|m| self.network.bitswap_get::<SignedMessage>(m))
-                            .collect();
-
-                        let secp_messages = match try_join_all(secp_messages).await {
-                            Ok(msgs) => msgs,
-                            Err(e) => {
-                                warn!("Failed to get SignedMessage: {}", e);
-                                return;
-                            }
-                        };
-
-                        // Form block
-                        let block = Block {
-                            header: b.header,
-                            bls_messages,
-                            secp_messages,
-                        };
-                        let ts = FullTipset::new(vec![block]).unwrap();
-                        if self.inform_new_head(source.clone(), &ts).await.is_err() {
-                            warn!("failed to inform new head from peer {}", source);
-                        }
+                        let network = self.network.clone();
+                        let channel = new_ts_tx.clone();
+                        task::spawn(async move {
+                            Self::handle_gossip_block(b, source, network, &channel).await;
+                        });
                     }
                     forest_libp2p::PubsubMessage::Message(m) => {
                         // add message to message pool
@@ -266,6 +214,58 @@ where
             // All other network events are being ignored currently
             _ => {}
         }
+    }
+
+    async fn handle_gossip_block(
+        block: GossipBlock,
+        source: Option<PeerId>,
+        network: SyncNetworkContext<DB>,
+        channel: &Sender<(PeerId, FullTipset)>,
+    ) {
+        let source = match source.clone() {
+            Some(source) => source,
+            None => {
+                warn!("Got a GossipBlock with no Source sender. This should not happen based on Filecoin's GossipSub options");
+                return;
+            }
+        };
+        info!(
+            "Received block over GossipSub: {} from {}",
+            block.header.epoch(),
+            source
+        );
+
+        // Get bls_messages in the store or over Bitswap
+        let bls_messages: Vec<_> = block
+            .bls_messages
+            .into_iter()
+            .map(|m| network.bitswap_get::<UnsignedMessage>(m))
+            .collect();
+
+        // Get secp_messages in the store or over Bitswap
+        let secp_messages: Vec<_> = block
+            .secpk_messages
+            .into_iter()
+            .map(|m| network.bitswap_get::<SignedMessage>(m))
+            .collect();
+
+        let (bls_messages, secp_messages) =
+            match try_join!(try_join_all(bls_messages), try_join_all(secp_messages)) {
+                Ok(msgs) => msgs,
+                Err(e) => {
+                    warn!("Failed to get message: {}", e);
+                    return;
+                }
+            };
+
+        // Form block
+        let block = Block {
+            header: block.header,
+            bls_messages,
+            secp_messages,
+        };
+        let ts = FullTipset::new(vec![block]).unwrap();
+        channel.send((source, ts)).await;
     }
 
     /// Spawns a network handler and begins the syncing process.
