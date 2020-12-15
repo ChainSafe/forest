@@ -54,7 +54,7 @@ fn peer_manager_update() {
         local_sender,
         event_receiver,
         genesis_ts.clone(),
-        SyncConfig::default(),
+        SyncConfig::new(200, 0),
     )
     .unwrap();
 

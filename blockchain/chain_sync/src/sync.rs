@@ -55,8 +55,16 @@ pub struct SyncConfig {
     /// Number of tasks spawned for sync workers
     pub worker_tasks: usize,
 }
-
+impl SyncConfig {
+    pub fn new(req_window: i64, worker_tasks: usize) -> Self {
+        Self {
+            req_window,
+            worker_tasks
+        }
+    }
+}
 impl Default for SyncConfig {
+    // TODO benchmark (1 is temporary value to avoid overlap)
     fn default() -> Self {
         Self {
             req_window: 200,
@@ -64,6 +72,7 @@ impl Default for SyncConfig {
         }
     }
 }
+
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
 /// gossipsub messages, Hello protocol requests, as well as sending and receiving ChainExchange
 /// messages to be able to do the initial sync.

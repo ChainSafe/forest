@@ -1031,7 +1031,7 @@ mod tests {
                 genesis: genesis_ts,
                 bad_blocks: Default::default(),
                 verifier: Default::default(),
-                req_window: Default::default(),
+                req_window: 200,
             },
             test_receiver,
         )
