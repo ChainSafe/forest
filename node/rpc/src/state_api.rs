@@ -816,7 +816,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
         .get_actor(market::ADDRESS)?
         .ok_or("couldnt load market actor")?;
     let (w, vw) = market::State::load(data.state_manager.blockstore(), &actor)?
-        .validate_deals_for_activation(
+        .verify_deals_for_activation(
             data.state_manager.blockstore(),
             &pci.deal_ids,
             &maddr,

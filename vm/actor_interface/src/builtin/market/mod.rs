@@ -128,7 +128,7 @@ impl State {
 
     /// Validates a collection of deal dealProposals for activation, and returns their combined weight,
     /// split into regular deal weight and verified deal weight.
-    pub fn validate_deals_for_activation<BS>(
+    pub fn verify_deals_for_activation<BS>(
         &self,
         store: &BS,
         deal_ids: &[u64],
@@ -155,7 +155,8 @@ impl State {
                 miner_addr,
                 sector_expiry,
                 curr_epoch,
-            ),
+            )
+            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
         }
     }
 }

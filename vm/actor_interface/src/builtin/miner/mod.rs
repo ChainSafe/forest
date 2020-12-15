@@ -447,7 +447,7 @@ pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     /// CommR
-    #[serde(with = "cid::json", rename="SealedCID")]
+    #[serde(with = "cid::json", rename = "SealedCID")]
     pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
     #[serde(rename = "DealIDs")]
