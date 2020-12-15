@@ -59,7 +59,7 @@ impl SyncConfig {
     pub fn new(req_window: i64, worker_tasks: usize) -> Self {
         Self {
             req_window,
-            worker_tasks
+            worker_tasks,
         }
     }
 }
