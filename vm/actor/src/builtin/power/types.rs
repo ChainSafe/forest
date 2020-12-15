@@ -1,11 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{smooth::FilterEstimate, DealWeight};
+use crate::smooth::FilterEstimate;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
-use fil_types::{RegisteredSealProof, SectorSize, StoragePower};
+use fil_types::{RegisteredSealProof, StoragePower};
 use num_bigint::bigint_ser;
 use vm::{Serialized, TokenAmount};
 
@@ -49,23 +49,6 @@ pub struct UpdateClaimedPowerParams {
 pub struct EnrollCronEventParams {
     pub event_epoch: ChainEpoch,
     pub payload: Serialized,
-}
-
-#[derive(Clone, Serialize_tuple, Deserialize_tuple)]
-pub struct SectorStorageWeightDesc {
-    pub sector_size: SectorSize,
-    pub duration: ChainEpoch,
-    #[serde(with = "bigint_ser")]
-    pub deal_weight: DealWeight,
-    #[serde(with = "bigint_ser")]
-    pub verified_deal_weight: DealWeight,
-}
-
-#[derive(Serialize_tuple, Deserialize_tuple)]
-pub struct ReportConsensusFaultParams {
-    pub block_header_1: Serialized,
-    pub block_header_2: Serialized,
-    pub block_header_extra: Serialized,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
