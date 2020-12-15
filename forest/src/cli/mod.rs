@@ -76,6 +76,10 @@ pub struct DaemonOpts {
     pub import_snapshot: Option<String>,
     #[structopt(long, help = "Import a chain from a local CAR file or url")]
     pub import_chain: Option<String>,
+    #[structopt(long, help = "Number of worker sync tasks spawned (default is 1")]
+    pub worker_tasks: Option<usize>,
+    #[structopt(long, help = "Number of tipsets exchanged over the network (default is 200)")]
+    pub req_window: Option<i64>,
 }
 
 impl DaemonOpts {
@@ -114,6 +118,13 @@ impl DaemonOpts {
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
         // (where to find these flags, should be easy to do with structops)
+
+        if let Some(req_window) = &self.req_window {
+            cfg.sync.req_window = req_window.to_owned();
+        }
+        if let Some(worker_tsk) = &self.worker_tasks {
+            cfg.sync.worker_tasks = worker_tsk.to_owned();
+        }
 
         Ok(cfg)
     }

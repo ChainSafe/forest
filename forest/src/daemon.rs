@@ -28,7 +28,7 @@ use wallet::{KeyStore, PersistentKeyStore};
 
 /// Number of tasks spawned for sync workers.
 // TODO benchmark and/or add this as a config option. (1 is temporary value to avoid overlap)
-const WORKER_TASKS: usize = 1;
+const _WORKER_TASKS: usize = 1;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -137,16 +137,15 @@ pub(super) async fn start(config: Config) {
         network_send.clone(),
         network_rx,
         Arc::new(genesis),
+        config.sync,
     )
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
     let (worker_tx, worker_rx) = channel(20);
     let worker_tx_clone = worker_tx.clone();
-    let sync_task = task::spawn(async {
-        chain_syncer
-            .start(worker_tx_clone, worker_rx, WORKER_TASKS)
-            .await;
+    let sync_task = task::spawn(async move {
+        chain_syncer.start(worker_tx_clone, worker_rx).await;
     });
 
     // Start services

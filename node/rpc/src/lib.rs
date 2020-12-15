@@ -393,7 +393,7 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                     match message_result {
                         Ok(message) => {
                             let request_text = message.into_text().unwrap();
-                            if request_text == "" {
+                            if request_text.is_empty() {
                                 return;
                             }
                             info!("RPC Request Received: {:?}", request_text.clone());
