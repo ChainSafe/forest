@@ -49,7 +49,7 @@ pub fn check_empty_params(params: &Serialized) -> Result<(), ActorError> {
 pub fn make_map<BS, V>(store: &'_ BS) -> Map<'_, BS, V>
 where
     BS: BlockStore,
-    V: DeserializeOwned + Serialize + Clone,
+    V: DeserializeOwned + Serialize,
 {
     Map::<_, V>::new_with_bit_width(store, HAMT_BIT_WIDTH)
 }
@@ -62,7 +62,7 @@ pub fn make_map_with_root<'bs, BS, V>(
 ) -> Result<Map<'bs, BS, V>, HamtError>
 where
     BS: BlockStore,
-    V: DeserializeOwned + Serialize + Clone,
+    V: DeserializeOwned + Serialize,
 {
     Map::<_, V>::load_with_bit_width(root, store, HAMT_BIT_WIDTH)
 }
