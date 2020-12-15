@@ -40,6 +40,7 @@ clean:
 	@cargo clean -p message_pool
 	@cargo clean -p genesis
 	@cargo clean -p actor_interface
+	@cargo clean -p forest_hash_utils
 	@echo "Done cleaning."
 
 lint: license clean

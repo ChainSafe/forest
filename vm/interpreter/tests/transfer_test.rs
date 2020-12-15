@@ -7,7 +7,7 @@ use cid::Code::{Blake2b256, Identity};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use db::MemoryDB;
-use fil_types::{verifier::MockVerifier, NetworkVersion};
+use fil_types::{verifier::MockVerifier, NetworkVersion, StateTreeVersion};
 use interpreter::{vm_send, CircSupplyCalc, DefaultRuntime, LookbackStateGetter, Rand};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
@@ -59,7 +59,7 @@ impl Rand for MockRand {
 fn transfer_test() {
     let store = MemoryDB::default();
 
-    let mut state = StateTree::new(&store);
+    let mut state = StateTree::new(&store, StateTreeVersion::V0).unwrap();
 
     let e_cid = Hamt::<_, String>::new_with_bit_width(&store, 5)
         .flush()

@@ -1,10 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::BytesKey;
 use crate::node::Node;
 use crate::{Error, Hash, HashAlgorithm, Sha256, DEFAULT_BIT_WIDTH};
 use cid::{Cid, Code::Blake2b256};
+use forest_hash_utils::BytesKey;
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use std::borrow::Borrow;

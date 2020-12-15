@@ -1,7 +1,8 @@
 [package]
 name = "ipld_hamt"
 description = "Sharded IPLD HashMap implementation."
-version = "0.2.0"
+# TODO bump the major version when releasing v2 actors
+version = "0.1.1"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -19,6 +20,7 @@ serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 thiserror = "1.0"
 sha2 = "0.9.1"
 lazycell = "1.2.1"
+forest_hash_utils = "0.1"
 
 [features]
 identity = []

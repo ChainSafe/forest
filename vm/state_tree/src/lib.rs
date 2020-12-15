@@ -1,12 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::init;
+use actor::{init, ActorVersion, Map};
 use address::{Address, Protocol};
 use cid::{Cid, Code::Blake2b256};
-use fil_types::HAMT_BIT_WIDTH;
+use fil_types::{StateInfo0, StateRoot, StateTreeVersion};
 use ipld_blockstore::BlockStore;
-use ipld_hamt::Hamt;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -15,7 +14,10 @@ use vm::ActorState;
 /// State tree implementation using hamt. This structure is not threadsafe and should only be used
 /// in sync contexts.
 pub struct StateTree<'db, S> {
-    hamt: Hamt<'db, S, ActorState>,
+    hamt: Map<'db, S, ActorState>,
+
+    version: StateTreeVersion,
+    info: Option<Cid>,
 
     /// State cache
     snaps: StateSnapshots,
@@ -170,21 +172,48 @@ impl<'db, S> StateTree<'db, S>
 where
     S: BlockStore,
 {
-    pub fn new(store: &'db S) -> Self {
-        let hamt = Hamt::new_with_bit_width(store, HAMT_BIT_WIDTH);
-        Self {
+    pub fn new(store: &'db S, version: StateTreeVersion) -> Result<Self, Box<dyn StdError>> {
+        let info = match version {
+            StateTreeVersion::V0 => None,
+            StateTreeVersion::V1 => Some(store.put(&StateInfo0::default(), Blake2b256)?),
+        };
+
+        let hamt = Map::new(store, ActorVersion::from(version));
+        Ok(Self {
             hamt,
+            version,
+            info,
             snaps: StateSnapshots::new(),
-        }
+        })
     }
 
     /// Constructor for a hamt state tree given an IPLD store
-    pub fn new_from_root(store: &'db S, root: &Cid) -> Result<Self, Box<dyn StdError>> {
-        let hamt = Hamt::load_with_bit_width(root, store, HAMT_BIT_WIDTH)?;
-        Ok(Self {
-            hamt,
-            snaps: StateSnapshots::new(),
-        })
+    pub fn new_from_root(store: &'db S, c: &Cid) -> Result<Self, Box<dyn StdError>> {
+        // Try to load state root, if versioned
+        let (version, info, actors) = if let Ok(Some(StateRoot {
+            version,
+            info,
+            actors,
+        })) = store.get(c)
+        {
+            (version, Some(info), actors)
+        } else {
+            // Fallback to v0 state tree if retrieval fails
+            (StateTreeVersion::V0, None, *c)
+        };
+
+        match version {
+            StateTreeVersion::V0 | StateTreeVersion::V1 => {
+                let hamt = Map::load(&actors, store, version.into())?;
+
+                Ok(Self {
+                    hamt,
+                    version,
+                    info,
+                    snaps: StateSnapshots::new(),
+                })
+            }
+        }
     }
 
     /// Retrieve store reference to modify db.
@@ -342,6 +371,21 @@ where
             }
         }
 
-        Ok(self.hamt.flush()?)
+        let root = self.hamt.flush()?;
+
+        if matches!(self.version, StateTreeVersion::V0) {
+            Ok(root)
+        } else {
+            Ok(self.store().put(
+                &StateRoot {
+                    version: self.version,
+                    actors: root,
+                    info: self
+                        .info
+                        .expect("malformed state tree, version 1 with no info"),
+                },
+                Blake2b256,
+            )?)
+        }
     }
 }
