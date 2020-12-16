@@ -38,7 +38,7 @@ use vm::{
     METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
+// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
 
 /// Market actor methods available
 #[derive(FromPrimitive)]
