@@ -39,6 +39,9 @@ use vm::{
     EMPTY_ARR_CID, METHOD_SEND,
 };
 
+/// Max runtime call depth
+const MAX_CALL_DEPTH: u64 = 4096;
+
 // This is just used for gas tracing, intentionally 0 and could be removed.
 const ACTOR_EXEC_GAS: GasCharge = GasCharge {
     name: "OnActorExec",
@@ -79,8 +82,11 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DevnetParams> {
     gas_tracker: Rc<RefCell<GasTracker>>,
     vm_msg: VMMsg,
     epoch: ChainEpoch,
+
     origin: Address,
     origin_nonce: u64,
+
+    depth: u64,
     num_actors_created: u64,
     price_list: PriceList,
     rand: &'vm R,
@@ -89,6 +95,7 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DevnetParams> {
     registered_actors: &'vm HashSet<Cid>,
     circ_supply_calc: &'vm C,
     lb_state: &'vm LB,
+
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
@@ -114,6 +121,7 @@ where
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
+        depth: u64,
         rand: &'vm R,
         registered_actors: &'vm HashSet<Cid>,
         circ_supply_calc: &'vm C,
@@ -162,6 +170,7 @@ where
             epoch,
             origin,
             origin_nonce,
+            depth,
             num_actors_created,
             price_list,
             rand,
@@ -294,6 +303,7 @@ where
         // Since it is unsafe to share a mutable reference to the state tree by copying
         // the runtime, all variables must be copied and reset at the end of the transition.
         let prev_val = self.caller_validated;
+        let prev_depth = self.depth;
         let prev_msg = self.vm_msg.clone();
         self.vm_msg = VMMsg {
             caller: from_id,
@@ -301,12 +311,20 @@ where
             value_received: value,
         };
         self.caller_validated = false;
+        self.depth += 1;
+        if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
+            return Err(actor_error!(
+                SysErrForbidden,
+                "message execution exceeds call depth"
+            ));
+        }
 
         let send_res = vm_send::<BS, R, C, LB, V, P>(self, &msg, None);
 
         // Reset values back to their values before the call
         self.vm_msg = prev_msg;
         self.caller_validated = prev_val;
+        self.depth = prev_depth;
 
         let ret = send_res.map_err(|e| {
             if let Err(e) = self.state.revert_to_snapshot() {
