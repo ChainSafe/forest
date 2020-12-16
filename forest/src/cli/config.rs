@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use beacon::DrandPublic;
+use chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use serde::Deserialize;
 use utils::get_home_dir;
@@ -18,6 +19,7 @@ pub struct Config {
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
     pub snapshot_path: Option<String>,
+    pub sync: SyncConfig,
 }
 
 impl Default for Config {
@@ -31,6 +33,7 @@ impl Default for Config {
             rpc_port: "1234".to_string(),
             snapshot_path: None,
             snapshot: false,
+            sync: SyncConfig::default()
         }
     }
 }

@@ -54,6 +54,7 @@ fn peer_manager_update() {
         local_sender,
         event_receiver,
         genesis_ts.clone(),
+        SyncConfig::new(200, 0),
     )
     .unwrap();
 
@@ -61,7 +62,7 @@ fn peer_manager_update() {
 
     let (worker_tx, worker_rx) = channel(10);
     task::spawn(async {
-        cs.start(worker_tx, worker_rx, 0).await;
+        cs.start(worker_tx, worker_rx).await;
     });
 
     let source = PeerId::random();

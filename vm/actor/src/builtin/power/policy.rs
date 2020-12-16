@@ -1,9 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_types::StoragePower;
-use num_traits::FromPrimitive;
-
 /// Minimum power of an individual miner to meet the threshold for leader election.
 pub const CONSENSUS_MINER_MIN_MINERS: i64 = 3;
 
@@ -14,9 +11,3 @@ pub const CONSENSUS_MINER_MIN_MINERS: i64 = 3;
 ///
 /// To support onboarding 1EiB/year, we need to allow at least 32 prove commits per epoch.
 pub const MAX_MINER_PROVE_COMMITS_PER_EPOCH: u64 = 200;
-
-lazy_static! {
-    // TODO: Might need to be able to override later on based on network params
-    /// Minimum power of an individual miner to meet the threshold for leader election.
-    pub static ref CONSENSUS_MINER_MIN_POWER: StoragePower = StoragePower::from_i64(10 << 40).unwrap(); // placeholder
-}

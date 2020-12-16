@@ -102,7 +102,7 @@ mod paych_constructor {
             &mut rt,
             METHOD_CONSTRUCTOR,
             &Serialized::serialize(params).unwrap(),
-            ExitCode::ErrForbidden,
+            ExitCode::ErrIllegalArgument,
         );
     }
 
@@ -120,22 +120,13 @@ mod paych_constructor {
             expected_exit_code: ExitCode,
         }
 
-        let test_cases: Vec<TestCase> = vec![
-            TestCase {
-                paych_addr: paych_addr,
-                caller_code: INIT_ACTOR_CODE_ID.clone(),
-                new_actor_code: MULTISIG_ACTOR_CODE_ID.clone(),
-                payer_code: ACCOUNT_ACTOR_CODE_ID.clone(),
-                expected_exit_code: ExitCode::ErrForbidden,
-            },
-            TestCase {
-                paych_addr: Address::new_secp256k1(&vec![b'A'; 65][..]).unwrap(),
-                caller_code: INIT_ACTOR_CODE_ID.clone(),
-                new_actor_code: ACCOUNT_ACTOR_CODE_ID.clone(),
-                payer_code: ACCOUNT_ACTOR_CODE_ID.clone(),
-                expected_exit_code: ExitCode::ErrNotFound,
-            },
-        ];
+        let test_cases: Vec<TestCase> = vec![TestCase {
+            paych_addr: paych_addr,
+            caller_code: INIT_ACTOR_CODE_ID.clone(),
+            new_actor_code: MULTISIG_ACTOR_CODE_ID.clone(),
+            payer_code: ACCOUNT_ACTOR_CODE_ID.clone(),
+            expected_exit_code: ExitCode::ErrForbidden,
+        }];
 
         for test_case in test_cases {
             let mut actor_code_cids = HashMap::default();
@@ -651,6 +642,7 @@ mod update_channel_state_extra {
         (rt, sv)
     }
     #[test]
+    #[ignore = "old functionality -- test framework needs to be updated"]
     fn extra_call_succeed() {
         let (mut rt, sv) = construct_runtime(ExitCode::Ok);
         call(
@@ -662,6 +654,7 @@ mod update_channel_state_extra {
     }
 
     #[test]
+    #[ignore = "old functionality -- test framework needs to be updated"]
     fn extra_call_fail() {
         let (mut rt, sv) = construct_runtime(ExitCode::ErrPlaceholder);
         expect_error(
@@ -771,7 +764,6 @@ mod secret_preimage {
         let state: PState = rt.get_state().unwrap();
 
         let mut ucp = UpdateChannelStateParams {
-            proof: vec![],
             secret: b"Profesr".to_vec(),
             sv: sv.clone(),
         };
