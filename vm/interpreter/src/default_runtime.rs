@@ -49,7 +49,7 @@ const ACTOR_EXEC_GAS: GasCharge = GasCharge {
 #[derive(Debug, Clone)]
 struct VMMsg {
     caller: Address,
-    receiver: Option<Address>,
+    receiver: Address,
     value_received: TokenAmount,
 }
 
@@ -64,9 +64,7 @@ impl MessageInfo for VMMsg {
     fn receiver(&self) -> &Address {
         // * Can't assert that receiver is an ID address here because it was not being done
         // * pre NetworkVersion3. Can maybe add in assertion later
-        self.receiver
-            .as_ref()
-            .expect("Receiver was not ever resolved")
+        &self.receiver
     }
     fn value_received(&self) -> &TokenAmount {
         &self.value_received
@@ -139,11 +137,14 @@ where
             })?;
 
         let receiver = if version <= NetworkVersion::V3 {
-            Some(*message.to())
+            *message.to()
         } else {
             state
                 .lookup_id(&message.to())
                 .map_err(|e| e.downcast_fatal("failed to lookup id"))?
+                // * Go implementation changes this to undef address. To avoid using optional
+                // * value here, the non-id address is kept here (should never be used)
+                .unwrap_or(*message.to())
         };
 
         let vm_msg = VMMsg {
@@ -296,7 +297,7 @@ where
         let prev_msg = self.vm_msg.clone();
         self.vm_msg = VMMsg {
             caller: from_id,
-            receiver: Some(to),
+            receiver: to,
             value_received: value,
         };
         self.caller_validated = false;
@@ -893,8 +894,8 @@ where
             // Try to create actor if not exist
             let (to_actor, id_addr) = rt.try_create_account_actor(msg.to())?;
             if rt.network_version() > NetworkVersion::V3 {
-                // Update the caller to the created ID address
-                rt.vm_msg.caller = id_addr;
+                // Update the receiver to the created ID address
+                rt.vm_msg.receiver = id_addr;
             }
             to_actor
         }
