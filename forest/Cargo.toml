@@ -48,3 +48,4 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 default = ["rocksdb"]
 rocksdb = ["db/rocksdb", "ipld_blockstore/rocksdb"]
 sled = ["db/sled", "ipld_blockstore/sled"]
+devnet = ["actor/devnet"]
