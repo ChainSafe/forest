@@ -98,6 +98,7 @@ pub enum Method {
     DeclareFaultsRecovered = 11,
     OnDeferredCronEvent = 12,
     CheckSectorProven = 13,
+    // TODO change to ApplyRewards
     AddLockedFund = 14,
     ReportConsensusFault = 15,
     WithdrawBalance = 16,

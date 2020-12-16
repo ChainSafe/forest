@@ -278,3 +278,12 @@ pub struct Fault {
     pub miner: Address,
     pub fault: ChainEpoch,
 }
+
+// * Added in v2 -- param was previously a big int.
+#[derive(Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct ApplyRewardParams {
+    #[serde(with = "bigint_ser")]
+    pub reward: TokenAmount,
+    #[serde(with = "bigint_ser")]
+    pub penalty: TokenAmount,
+}
