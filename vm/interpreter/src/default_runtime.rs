@@ -49,16 +49,24 @@ const ACTOR_EXEC_GAS: GasCharge = GasCharge {
 #[derive(Debug, Clone)]
 struct VMMsg {
     caller: Address,
-    receiver: Address,
+    receiver: Option<Address>,
     value_received: TokenAmount,
 }
 
 impl MessageInfo for VMMsg {
     fn caller(&self) -> &Address {
+        assert!(
+            matches!(self.caller.protocol(), Protocol::ID),
+            "runtime message caller was not resolved to ID address"
+        );
         &self.caller
     }
     fn receiver(&self) -> &Address {
-        &self.receiver
+        // * Can't assert that receiver is an ID address here because it was not being done
+        // * pre NetworkVersion3. Can maybe add in assertion later
+        self.receiver
+            .as_ref()
+            .expect("Receiver was not ever resolved")
     }
     fn value_received(&self) -> &TokenAmount {
         &self.value_received
@@ -113,6 +121,8 @@ where
         circ_supply_calc: &'vm C,
         lb_state: &'vm LB,
     ) -> Result<Self, ActorError> {
+        // TODO handle max call depth for version 6
+
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
         let gas_block_store = GasBlockStore {
@@ -124,13 +134,21 @@ where
         let caller_id = state
             .lookup_id(&message.from())
             .map_err(|e| e.downcast_fatal("failed to lookup id"))?
-            .ok_or_else(
-                || actor_error!(SysErrInvalidReceiver; "resolve msg from address failed"),
-            )?;
+            .ok_or_else(|| {
+                actor_error!(SysErrInvalidReceiver, "resolve msg from address failed")
+            })?;
+
+        let receiver = if version <= NetworkVersion::V3 {
+            Some(*message.to())
+        } else {
+            state
+                .lookup_id(&message.to())
+                .map_err(|e| e.downcast_fatal("failed to lookup id"))?
+        };
 
         let vm_msg = VMMsg {
             caller: caller_id,
-            receiver: *message.to(),
+            receiver,
             value_received: message.value().clone(),
         };
 
@@ -278,7 +296,7 @@ where
         let prev_msg = self.vm_msg.clone();
         self.vm_msg = VMMsg {
             caller: from_id,
-            receiver: to,
+            receiver: Some(to),
             value_received: value,
         };
         self.caller_validated = false;
@@ -304,7 +322,10 @@ where
     }
 
     /// creates account actors from only BLS/SECP256K1 addresses.
-    pub fn try_create_account_actor(&mut self, addr: &Address) -> Result<ActorState, ActorError> {
+    pub fn try_create_account_actor(
+        &mut self,
+        addr: &Address,
+    ) -> Result<(ActorState, Address), ActorError> {
         self.charge_gas(self.price_list().on_create_actor())?;
 
         let addr_id = self
@@ -341,7 +362,7 @@ where
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
             .ok_or_else(|| actor_error!(fatal("failed to retrieve created actor state")))?;
 
-        Ok(act)
+        Ok((act, addr_id))
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> Result<(), Box<dyn StdError>> {
@@ -870,7 +891,12 @@ where
         Some(act) => act,
         None => {
             // Try to create actor if not exist
-            rt.try_create_account_actor(msg.to())?
+            let (to_actor, id_addr) = rt.try_create_account_actor(msg.to())?;
+            if rt.network_version() > NetworkVersion::V3 {
+                // Update the caller to the created ID address
+                rt.vm_msg.caller = id_addr;
+            }
+            to_actor
         }
     };
 
