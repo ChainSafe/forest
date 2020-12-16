@@ -62,6 +62,9 @@ pub(crate) struct SyncWorker<DB, TBeacon, V> {
 
     /// Proof verification implementation.
     pub verifier: PhantomData<V>,
+
+    /// Number of tipsets requested over chain exchange
+    pub req_window: i64,
 }
 
 impl<DB, TBeacon, V> SyncWorker<DB, TBeacon, V>
@@ -190,11 +193,10 @@ where
                 continue;
             }
 
-            // TODO tweak request window when socket frame is tested
-            const REQUEST_WINDOW: i64 = 200;
             let epoch_diff = cur_ts.epoch() - to.epoch();
             debug!("ChainExchange from: {} to {}", cur_ts.epoch(), to.epoch());
-            let window = min(epoch_diff, REQUEST_WINDOW);
+            // TODO tweak request window when socket frame is tested
+            let window = min(epoch_diff, self.req_window);
 
             // Load blocks from network using chain_exchange
             // TODO consider altering window size before returning error for failed sync.
@@ -1029,6 +1031,7 @@ mod tests {
                 genesis: genesis_ts,
                 bad_blocks: Default::default(),
                 verifier: Default::default(),
+                req_window: 200,
             },
             test_receiver,
         )

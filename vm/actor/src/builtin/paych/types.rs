@@ -15,6 +15,9 @@ pub const MAX_LANE: i64 = std::i64::MAX;
 
 pub const SETTLE_DELAY: ChainEpoch = EPOCHS_IN_HOUR * 12;
 
+// Maximum byte length of a secret that can be submitted with a payment channel update.
+pub const MAX_SECRET_SIZE: usize = 256;
+
 /// Constructor parameters for payment channel actor
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ConstructorParams {
@@ -113,16 +116,11 @@ pub struct UpdateChannelStateParams {
     pub sv: SignedVoucher,
     #[serde(with = "serde_bytes")]
     pub secret: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub proof: Vec<u8>,
+    // * proof removed in v2
 }
 
 impl From<SignedVoucher> for UpdateChannelStateParams {
     fn from(sv: SignedVoucher) -> Self {
-        UpdateChannelStateParams {
-            proof: vec![],
-            secret: vec![],
-            sv,
-        }
+        UpdateChannelStateParams { secret: vec![], sv }
     }
 }

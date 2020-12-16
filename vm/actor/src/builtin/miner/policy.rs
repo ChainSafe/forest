@@ -58,14 +58,23 @@ pub const SEALED_CID_PREFIX: cid::Prefix = cid::Prefix {
 /// List of proof types which can be used when creating new miner actors
 pub fn check_supported_proof_types(proof: RegisteredSealProof) -> bool {
     use RegisteredSealProof::*;
-    matches!(
-        proof,
-        StackedDRG2KiBV1 | StackedDRG32GiBV1 | StackedDRG64GiBV1
-    )
+    #[cfg(not(feature = "devnet"))]
+    {
+        matches!(proof, StackedDRG32GiBV1 | StackedDRG64GiBV1)
+    }
+    #[cfg(feature = "devnet")]
+    {
+        matches!(
+            proof,
+            StackedDRG2KiBV1 | StackedDRG32GiBV1 | StackedDRG64GiBV1
+        )
+    }
 }
+
 /// Maximum duration to allow for the sealing process for seal algorithms.
 /// Dependent on algorithm and sector size
 pub fn max_seal_duration(proof: RegisteredSealProof) -> Option<ChainEpoch> {
+    // TODO needs to be updated/removed for v2
     use RegisteredSealProof::*;
     match proof {
         StackedDRG32GiBV1 | StackedDRG2KiBV1 | StackedDRG8MiBV1 | StackedDRG512MiBV1

@@ -17,20 +17,18 @@ use crate::{
 };
 use address::Address;
 use ahash::AHashSet;
-use fil_types::SealVerifyInfo;
+use fil_types::{NetworkVersion, SealVerifyInfo};
 use indexmap::IndexMap;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
-use num_bigint::Sign;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
-use std::ops::Neg;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
+// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
 
 /// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
 /// This number is empirically determined
@@ -47,7 +45,8 @@ pub enum Method {
     EnrollCronEvent = 4,
     OnEpochTickEnd = 5,
     UpdatePledgeTotal = 6,
-    OnConsensusFault = 7,
+    // * Deprecated in v2
+    // OnConsensusFault = 7,
     SubmitPoRepForBulkVerify = 8,
     CurrentTotalPower = 9,
 }
@@ -117,17 +116,39 @@ impl Actor {
             )?
             .deserialize()?;
 
+        let seal_proof_type = params.seal_proof_type;
         rt.transaction(|st: &mut State, rt| {
             let mut claims = make_map_with_root(&st.claims, rt.store()).map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
             })?;
-            set_claim(&mut claims, &id_address, Claim::default()).map_err(|e| {
+            set_claim(
+                &mut claims,
+                &id_address,
+                Claim {
+                    seal_proof_type,
+                    quality_adj_power: Default::default(),
+                    raw_byte_power: Default::default(),
+                },
+            )
+            .map_err(|e| {
                 e.downcast_default(
                     ExitCode::ErrIllegalState,
                     "failed to put power in claimed table while creating miner",
                 )
             })?;
             st.miner_count += 1;
+
+            if rt.network_version() >= NetworkVersion::V7 {
+                st.update_stats_for_new_miner(seal_proof_type)
+                    .map_err(|e| {
+                        actor_error!(
+                            ErrIllegalState,
+                            "failed to update power stats for new miner {}: {}",
+                            &id_address,
+                            e
+                        )
+                    })?;
+            }
 
             st.claims = claims.flush().map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to flush claims")
@@ -228,18 +249,17 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*CRON_ACTOR_ADDR))?;
 
-        Self::process_deferred_cron_events(rt)?;
         Self::process_batch_proof_verifies(rt)?;
+        Self::process_deferred_cron_events(rt)?;
 
-        let this_epoch_raw_byte_power = rt.transaction(|st: &mut State, rt| {
+        let this_epoch_raw_byte_power = rt.transaction(|st: &mut State, _| {
             let (raw_byte_power, qa_power) = st.current_total_power();
             st.this_epoch_pledge_collateral = st.total_pledge_collateral.clone();
             st.this_epoch_quality_adj_power = qa_power;
             st.this_epoch_raw_byte_power = raw_byte_power;
-            let delta = rt.curr_epoch() - st.last_processed_cron_epoch;
-            st.update_smoothed_estimate(delta);
+            // Can assume delta is one since cron is invoked every epoch.
+            st.update_smoothed_estimate(1);
 
-            st.last_processed_cron_epoch = rt.curr_epoch();
             Ok(Serialized::serialize(&BigIntSer(
                 &st.this_epoch_raw_byte_power,
             )))
@@ -263,86 +283,11 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        rt.transaction(|st: &mut State, _| {
+        rt.transaction(|st: &mut State, rt| {
+            st.validate_miner_has_claim(rt.store(), rt.message().caller())?;
             st.add_pledge_total(pledge_delta);
             Ok(())
         })
-    }
-
-    fn on_consensus_fault<BS, RT>(rt: &mut RT, pledge_delta: TokenAmount) -> Result<(), ActorError>
-    where
-        BS: BlockStore,
-        RT: Runtime<BS>,
-    {
-        rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
-        let miner_addr = *rt.message().caller();
-
-        rt.transaction(|st: &mut State, rt| {
-            let mut claims = make_map_with_root(&st.claims, rt.store()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
-            })?;
-
-            let (raw_byte_power, quality_adj_power) = get_claim(&claims, &miner_addr)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to read claimed power for fault",
-                    )
-                })?
-                .map(|claim| {
-                    (
-                        claim.raw_byte_power.clone(),
-                        claim.quality_adj_power.clone(),
-                    )
-                })
-                .ok_or_else(|| {
-                    actor_error!(ErrNotFound;
-                        "miner {} not registered (already slashed?)", miner_addr)
-                })?;
-            assert_ne!(raw_byte_power.sign(), Sign::Minus);
-            assert_ne!(quality_adj_power.sign(), Sign::Minus);
-
-            st.add_to_claim(
-                &mut claims,
-                &miner_addr,
-                &raw_byte_power.neg(),
-                &quality_adj_power.neg(),
-            )
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    format!("could not add to claim for {}", miner_addr),
-                )
-            })?;
-
-            st.add_pledge_total(pledge_delta.neg());
-
-            // delete miner actor claims
-            claims
-                .delete(&miner_addr.to_bytes())
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to remove miner {}", miner_addr),
-                    )
-                })?
-                .ok_or_else(|| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to remove miner {}: does not exist",
-                        miner_addr
-                    )
-                })?;
-
-            st.miner_count -= 1;
-
-            st.claims = claims.flush().map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to flush claims")
-            })?;
-            Ok(())
-        })?;
-
-        Ok(())
     }
 
     fn submit_porep_for_bulk_verify<BS, RT>(
@@ -356,6 +301,8 @@ impl Actor {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
 
         rt.transaction(|st: &mut State, rt| {
+            st.validate_miner_has_claim(rt.store(), rt.message().caller())?;
+
             let mut mmap = if let Some(ref batch) = st.proof_validation_batch {
                 Multimap::from_root(rt.store(), batch).map_err(|e| {
                     e.downcast_default(
@@ -443,10 +390,21 @@ impl Actor {
                     )
                 })?;
 
+            let claims = make_map_with_root::<_, Claim>(&st.claims, rt.store()).map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+            })?;
             mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
                 let addr = Address::from_bytes(&k.0).map_err(|e| {
                     actor_error!(ErrIllegalState, "failed to parse address key: {}", e)
                 })?;
+
+                let contains_claim = claims.contains_key(&addr.to_bytes()).map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to look up claim")
+                })?;
+                if !contains_claim {
+                    log::warn!("skipping batch verifies for unknown miner: {}", addr);
+                    return Ok(());
+                }
 
                 let mut infos = Vec::new();
                 arr.for_each(|_, svi| {
@@ -523,8 +481,11 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
                 })?;
 
+            let claims = make_map_with_root::<_, Claim>(&st.claims, rt.store()).map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+            })?;
             for epoch in st.first_cron_epoch..=rt_epoch {
-                let mut epoch_events = load_cron_events(&events, epoch).map_err(|e| {
+                let epoch_events = load_cron_events(&events, epoch).map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
                         format!("failed to load cron events at {}", epoch),
@@ -535,7 +496,22 @@ impl Actor {
                     continue;
                 }
 
-                cron_events.append(&mut epoch_events);
+                for evt in epoch_events.into_iter() {
+                    let miner_has_claim =
+                        claims
+                            .contains_key(&evt.miner_addr.to_bytes())
+                            .map_err(|e| {
+                                e.downcast_default(
+                                    ExitCode::ErrIllegalState,
+                                    "failed to look up claim",
+                                )
+                            })?;
+                    if !miner_has_claim {
+                        log::warn!("skipping cron event for unknown miner: {}", evt.miner_addr);
+                        continue;
+                    }
+                    cron_events.push(evt);
+                }
 
                 events.remove_all(&epoch_key(epoch)).map_err(|e| {
                     e.downcast_default(
@@ -574,53 +550,37 @@ impl Actor {
                 failed_miner_crons.push(event.miner_addr)
             }
         }
-        rt.transaction(|st: &mut State, rt| {
-            let mut claims = make_map_with_root(&st.claims, rt.store()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
-            })?;
 
-            // Remove power and leave miner frozen
-            for miner_addr in failed_miner_crons {
-                let (rbp, qap) = match get_claim(&claims, &miner_addr) {
-                    Err(e) => {
+        if !failed_miner_crons.is_empty() {
+            rt.transaction(|st: &mut State, rt| {
+                let mut claims = make_map_with_root(&st.claims, rt.store()).map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+                })?;
+
+                // Remove power and leave miner frozen
+                for miner_addr in failed_miner_crons {
+                    if let Err(e) = st.delete_claim(&mut claims, &miner_addr) {
                         log::error!(
-                            "failed to get claim for miner {} after \
-                            failing OnDeferredCronEvent: {}",
+                            "failed to delete claim for miner {} after\
+                            failing on deferred cron event: {}",
                             miner_addr,
                             e
                         );
                         continue;
                     }
-                    Ok(None) => {
-                        log::warn!(
-                            "miner OnDeferredCronEvent failed for miner {} with no power",
-                            miner_addr
-                        );
-                        continue;
+
+                    // On version 7, decrement miner count to keep stats consistent.
+                    if rt.network_version() >= NetworkVersion::V7 {
+                        st.miner_count -= 1;
                     }
-                    Ok(Some(claim)) => (
-                        claim.raw_byte_power.clone(),
-                        claim.quality_adj_power.clone(),
-                    ),
-                };
-
-                // zero out miner power
-                let res = st.add_to_claim(&mut claims, &miner_addr, &rbp.neg(), &qap.neg());
-                if let Err(e) = res {
-                    log::warn!(
-                        "failed to remove power for miner {} after to failed cron: {}",
-                        miner_addr,
-                        e
-                    );
-                    continue;
                 }
-            }
 
-            st.claims = claims.flush().map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to flush claims")
+                st.claims = claims.flush().map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to flush claims")
+                })?;
+                Ok(())
             })?;
-            Ok(())
-        })?;
+        }
         Ok(())
     }
 }
@@ -661,11 +621,6 @@ impl ActorCode for Actor {
             Some(Method::UpdatePledgeTotal) => {
                 let BigIntDe(param) = rt.deserialize_params(params)?;
                 Self::update_pledge_total(rt, param)?;
-                Ok(Serialized::default())
-            }
-            Some(Method::OnConsensusFault) => {
-                let BigIntDe(param) = rt.deserialize_params(params)?;
-                Self::on_consensus_fault(rt, param)?;
                 Ok(Serialized::default())
             }
             Some(Method::SubmitPoRepForBulkVerify) => {
