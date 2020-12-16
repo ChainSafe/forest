@@ -6,7 +6,10 @@ mod types;
 
 pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
-use crate::{check_empty_params, ActorDowncast, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
+use crate::{
+    check_empty_params, resolve_to_id_addr, ActorDowncast, ACCOUNT_ACTOR_CODE_ID,
+    INIT_ACTOR_CODE_ID,
+};
 use address::Address;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -19,7 +22,10 @@ use vm::{
     METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
+// TODO rename to actor exit code to be used ambiguously (requires new releases)
+use vm::ExitCode::ErrTooManyProveCommits as ErrChannelStateUpdateAfterSettled;
+
+// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
 
 /// Payment Channel actor methods available
 #[derive(FromPrimitive)]
@@ -58,27 +64,30 @@ impl Actor {
     }
 
     /// Resolves an address to a canonical ID address and requires it to address an account actor.
-    /// The account actor constructor checks that the embedded address is associated with an appropriate key.
-    /// An alternative (more expensive) would be to send a message to the actor to fetch its key.
-    fn resolve_account<BS, RT>(rt: &RT, raw: &Address) -> Result<Address, ActorError>
+    fn resolve_account<BS, RT>(rt: &mut RT, raw: &Address) -> Result<Address, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let resolved = rt
-            .resolve_address(raw)?
-            .ok_or_else(|| actor_error!(ErrNotFound; "failed to resolve address {}", raw))?;
+        let resolved = resolve_to_id_addr(rt, raw).map_err(|e| {
+            e.downcast_default(
+                ExitCode::ErrIllegalState,
+                format!("failed to resolve address {}", raw),
+            )
+        })?;
 
         let code_cid = rt
             .get_actor_code_cid(&resolved)?
-            .ok_or_else(|| actor_error!(ErrForbidden; "no code for address {}", raw))?;
+            .ok_or_else(|| actor_error!(ErrIllegalArgument, "no code for address {}", resolved))?;
 
         if code_cid != *ACCOUNT_ACTOR_CODE_ID {
-            Err(
-                actor_error!(ErrForbidden; "actor {} must be an account ({}), was {}",
-                    raw, *ACCOUNT_ACTOR_CODE_ID, code_cid
-                ),
-            )
+            Err(actor_error!(
+                ErrForbidden,
+                "actor {} must be an account ({}), was {}",
+                raw,
+                *ACCOUNT_ACTOR_CODE_ID,
+                code_cid
+            ))
         } else {
             Ok(resolved)
         }
@@ -106,7 +115,21 @@ impl Actor {
         let sig = sv
             .signature
             .as_ref()
-            .ok_or_else(|| actor_error!(ErrIllegalArgument; "voucher has no signature"))?;
+            .ok_or_else(|| actor_error!(ErrIllegalArgument, "voucher has no signature"))?;
+
+        if st.settling_at != 0 && rt.curr_epoch() >= st.settling_at {
+            return Err(ActorError::new(
+                ErrChannelStateUpdateAfterSettled,
+                "no vouchers can be processed after settling at epoch".to_string(),
+            ));
+        }
+
+        if params.secret.len() > MAX_SECRET_SIZE {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "secret must be at most 256 bytes long"
+            ));
+        }
 
         // Generate unsigned bytes
         let sv_bz = sv
@@ -119,10 +142,17 @@ impl Actor {
         })?;
 
         let pch_addr = rt.message().receiver();
-        if pch_addr != &sv.channel_addr {
+        let svpch_id_addr = rt.resolve_address(&sv.channel_addr)?.ok_or_else(|| {
+            actor_error!(
+                ErrIllegalArgument,
+                "voucher payment channel address {} does not resolve to an ID address",
+                sv.channel_addr
+            )
+        })?;
+        if pch_addr != &svpch_id_addr {
             return Err(actor_error!(ErrIllegalArgument;
                     "voucher payment channel address {} does not match receiver {}",
-                    sv.channel_addr, pch_addr));
+                    svpch_id_addr, pch_addr));
         }
 
         if rt.curr_epoch() < sv.time_lock_min {
@@ -151,10 +181,7 @@ impl Actor {
             rt.send(
                 extra.actor,
                 extra.method,
-                Serialized::serialize(PaymentVerifyParams {
-                    extra: extra.data.clone(),
-                    proof: params.proof,
-                })?,
+                Serialized::serialize(&extra.data)?,
                 TokenAmount::from(0u8),
             )
             .map_err(|e| e.wrap("spend voucher verification failed"))?;
