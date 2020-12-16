@@ -127,8 +127,6 @@ where
         circ_supply_calc: &'vm C,
         lb_state: &'vm LB,
     ) -> Result<Self, ActorError> {
-        // TODO handle max call depth for version 6
-
         let price_list = price_list_by_epoch(epoch);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
         let gas_block_store = GasBlockStore {
