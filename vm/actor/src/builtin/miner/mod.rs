@@ -2153,14 +2153,15 @@ impl Actor {
         let slasher_reward = reward_for_consensus_slash_report(fault_age, rt.current_balance()?);
         rt.send(reporter, METHOD_SEND, Default::default(), slasher_reward)?;
 
-        let st: State = rt.state()?;
+        // TODO update logic with miner v2 upgrade
+        // let st: State = rt.state()?;
 
-        rt.send(
-            *STORAGE_POWER_ACTOR_ADDR,
-            PowerMethod::OnConsensusFault as u64,
-            Serialized::serialize(BigIntSer(&st.locked_funds))?,
-            TokenAmount::zero(),
-        )?;
+        // rt.send(
+        //     *STORAGE_POWER_ACTOR_ADDR,
+        //     PowerMethod::OnConsensusFault as u64,
+        //     Serialized::serialize(BigIntSer(&st.locked_funds))?,
+        //     TokenAmount::zero(),
+        // )?;
 
         // close deals and burn funds
         terminate_miner(rt)?;
