@@ -60,8 +60,35 @@ where
     }
 }
 
+pub mod go_vec_visitor {
+    use super::*;
+    use serde::de::{Deserialize, Deserializer};
+    use serde::ser::{Serialize, SerializeSeq, Serializer};
+
+    pub fn serialize<S, T>(m: &[T], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Serialize,
+    {
+        let mut seq = serializer.serialize_seq(Some(m.len()))?;
+        for e in m {
+            seq.serialize_element(&e)?;
+        }
+        seq.end()
+    }
+
+    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: Deserialize<'de>,
+    {
+        deserializer.deserialize_any(GoVecVisitor::<T>::new())
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::go_vec_visitor;
     use super::*;
     use serde::{Deserialize, Deserializer};
     use serde_json::from_str;
@@ -131,5 +158,23 @@ mod tests {
             deserialized,
             [TestOther("1".to_owned()), TestOther("2".to_owned())]
         );
+    }
+
+    #[test]
+    fn standard_vec() {
+        #[derive(Deserialize)]
+        struct BasicJson(#[serde(with = "go_vec_visitor")] Vec<u8>);
+
+        let null_json = r#"null"#;
+        let BasicJson(deserialized) = from_str(null_json).unwrap();
+        assert_eq!(deserialized, [0u8; 0]);
+
+        let empty_array = r#"[]"#;
+        let BasicJson(deserialized) = from_str(empty_array).unwrap();
+        assert_eq!(deserialized, [0u8; 0]);
+
+        let with_values = r#"[1, 2]"#;
+        let BasicJson(deserialized) = from_str(with_values).unwrap();
+        assert_eq!(deserialized, [1, 2]);
     }
 }
