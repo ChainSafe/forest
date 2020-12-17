@@ -830,25 +830,15 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
 
     let actor = state
         .get_actor(power::ADDRESS)?
-        .ok_or("couldnt load market actor")?;
-    let deposit = match power::State::load(data.state_manager.blockstore(), &actor)? {
-        power::State::V0(s) => {
-            let power_smoothed = s.this_epoch_qa_power_smoothed;
-            let reward_actor = state
-                .get_actor(reward::ADDRESS)?
-                .ok_or("couldnt load market actor")?;
-            reward::State::load(data.state_manager.blockstore(), &reward_actor)?
-                .pre_commit_deposit_for_power(power_smoothed.into(), &sector_weight)
-        }
-        power::State::V2(s) => {
-            let power_smoothed = s.this_epoch_qa_power_smoothed;
-            let reward_actor = state
-                .get_actor(reward::ADDRESS)?
-                .ok_or("couldnt load market actor")?;
-            reward::State::load(data.state_manager.blockstore(), &reward_actor)?
-                .pre_commit_deposit_for_power(power_smoothed.into(), &sector_weight)
-        }
-    };
+        .ok_or("couldnt load power actor")?;
+    let power_smoothed =
+        power::State::load(data.state_manager.blockstore(), &actor)?.total_power_smoothed();
+
+    let reward_actor = state
+        .get_actor(reward::ADDRESS)?
+        .ok_or("couldnt load reward actor")?;
+    let deposit = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
+        .pre_commit_deposit_for_power(power_smoothed, &sector_weight);
 
     let ret: BigInt = (deposit * 110) / 100;
     Ok(ret.to_string())
@@ -885,43 +875,27 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
 
     let actor = state
         .get_actor(power::ADDRESS)?
-        .ok_or("couldnt load market actor")?;
-    let initial_pledge = match power::State::load(data.state_manager.blockstore(), &actor)? {
-        power::State::V0(s) => {
-            let power_smoothed = s.this_epoch_qa_power_smoothed;
-            let total_locked = s.total_pledge_collateral;
-            let reward_actor = state
-                .get_actor(reward::ADDRESS)?
-                .ok_or("couldnt load market actor")?;
-            let circ_supply = data
-                .state_manager
-                .get_circulating_supply(ts.epoch(), &state)?;
-            reward::State::load(data.state_manager.blockstore(), &reward_actor)?
-                .initial_pledge_for_power(
-                    &sector_weight,
-                    &total_locked,
-                    power_smoothed.into(),
-                    &circ_supply,
-                )
-        }
-        power::State::V2(s) => {
-            let power_smoothed = s.this_epoch_qa_power_smoothed;
-            let total_locked = s.total_pledge_collateral;
-            let reward_actor = state
-                .get_actor(reward::ADDRESS)?
-                .ok_or("couldnt load market actor")?;
-            let circ_supply = data
-                .state_manager
-                .get_circulating_supply(ts.epoch(), &state)?;
-            reward::State::load(data.state_manager.blockstore(), &reward_actor)?
-                .initial_pledge_for_power(
-                    &sector_weight,
-                    &total_locked,
-                    power_smoothed.into(),
-                    &circ_supply,
-                )
-        }
-    };
+        .ok_or("couldnt load power actor")?;
+    let power_state = power::State::load(data.state_manager.blockstore(), &actor)?;
+    let power_smoothed = power_state.total_power_smoothed();
+    let total_locked = power_state.total_locked();
+
+    let circ_supply = data
+        .state_manager
+        .get_circulating_supply(ts.epoch(), &state)?;
+
+    let reward_actor = state
+        .get_actor(reward::ADDRESS)?
+        .ok_or("couldnt load reward actor")?;
+
+    let initial_pledge = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
+        .initial_pledge_for_power(
+            &sector_weight,
+            &total_locked,
+            power_smoothed.into(),
+            &circ_supply,
+        );
+
     let ret: BigInt = (initial_pledge * 110) / 100;
     Ok(ret.to_string())
 }

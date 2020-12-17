@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::FilterEstimate;
 use address::Address;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
@@ -120,6 +121,22 @@ impl State {
         match self {
             State::V0(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
             State::V2(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
+        }
+    }
+
+    /// Returns this_epoch_qa_power_smoothed from the state.
+    pub fn total_power_smoothed(&self) -> FilterEstimate {
+        match self {
+            State::V0(st) => st.this_epoch_qa_power_smoothed.clone().into(),
+            State::V2(st) => st.this_epoch_qa_power_smoothed.clone().into(),
+        }
+    }
+
+    /// Returns total locked funds
+    pub fn total_locked(&self) -> TokenAmount {
+        match self {
+            State::V0(st) => st.total_pledge_collateral.clone(),
+            State::V2(st) => st.total_pledge_collateral.clone(),
         }
     }
 }
