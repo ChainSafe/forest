@@ -889,12 +889,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
         .ok_or("couldnt load reward actor")?;
 
     let initial_pledge = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
-        .initial_pledge_for_power(
-            &sector_weight,
-            &total_locked,
-            power_smoothed.into(),
-            &circ_supply,
-        );
+        .initial_pledge_for_power(&sector_weight, &total_locked, power_smoothed, &circ_supply);
 
     let ret: BigInt = (initial_pledge * 110) / 100;
     Ok(ret.to_string())
