@@ -188,6 +188,8 @@ where
     if from.protocol() == Protocol::ID {
         umsg.from = key_addr;
     }
+    let nonce = data.mpool.get_sequence(&from).await?;
+    umsg.sequence = nonce;
     let key = wallet::find_key(&key_addr, &*keystore)?;
     let sig = wallet::sign(
         *key.key_info.key_type(),
