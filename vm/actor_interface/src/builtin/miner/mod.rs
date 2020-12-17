@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
-
+use forest_json_utils::go_vec_visitor;
 /// Miner actor method.
 pub type Method = actorv2::miner::Method;
 
@@ -450,7 +450,7 @@ pub struct SectorPreCommitInfo {
     #[serde(with = "cid::json", rename = "SealedCID")]
     pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
-    #[serde(rename = "DealIDs")]
+    #[serde(with = "go_vec_visitor", rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
     pub expiration: ChainEpoch,
     /// Whether to replace a "committed capacity" no-deal sector (requires non-empty DealIDs)
