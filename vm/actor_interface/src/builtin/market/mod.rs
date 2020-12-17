@@ -6,7 +6,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser;
+use num_bigint::{bigint_ser, BigInt};
 use serde::Serialize;
 use std::error::Error;
 use vm::{ActorState, TokenAmount};
@@ -123,6 +123,40 @@ impl State {
         match self {
             State::V0(st) => st.total_locked(),
             State::V2(st) => st.total_locked(),
+        }
+    }
+
+    /// Validates a collection of deal dealProposals for activation, and returns their combined weight,
+    /// split into regular deal weight and verified deal weight.
+    pub fn verify_deals_for_activation<BS>(
+        &self,
+        store: &BS,
+        deal_ids: &[u64],
+        miner_addr: &Address,
+        sector_expiry: ChainEpoch,
+        curr_epoch: ChainEpoch,
+    ) -> Result<(BigInt, BigInt), Box<dyn Error>>
+    where
+        BS: BlockStore,
+    {
+        match self {
+            State::V0(st) => actorv0::market::validate_deals_for_activation(
+                &st,
+                store,
+                deal_ids,
+                miner_addr,
+                sector_expiry,
+                curr_epoch,
+            ),
+            State::V2(st) => actorv2::market::validate_deals_for_activation(
+                &st,
+                store,
+                deal_ids,
+                miner_addr,
+                sector_expiry,
+                curr_epoch,
+            )
+            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
         }
     }
 }

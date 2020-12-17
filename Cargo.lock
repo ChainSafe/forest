@@ -24,6 +24,7 @@ dependencies = [
  "forest_cid 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_encoding 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_hash_utils 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "forest_json_utils 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_vm 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ipld_blockstore 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libp2p",

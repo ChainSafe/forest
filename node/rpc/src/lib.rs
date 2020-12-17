@@ -100,7 +100,7 @@ where
             chain_api::chain_get_message::<DB, KS, B>,
             false,
         )
-        .with_method("Filecoin.ChainGetObj", chain_read_obj::<DB, KS, B>, false)
+        .with_method("Filecoin.ChainReadObj", chain_read_obj::<DB, KS, B>, false)
         .with_method("Filecoin.ChainHasObj", chain_has_obj::<DB, KS, B>, false)
         .with_method(
             "Filecoin.ChainGetBlockMessages",
@@ -128,8 +128,13 @@ where
             false,
         )
         .with_method(
-            "Filecoin.GetRandomness",
-            chain_get_randomness::<DB, KS, B>,
+            "Filecoin.ChainGetRandomnessFromTickets",
+            chain_get_randomness_from_tickets::<DB, KS, B>,
+            false,
+        )
+        .with_method(
+            "Filecoin.ChainGetRandomnessFromBeacon",
+            chain_get_randomness_from_beacon::<DB, KS, B>,
             false,
         )
         .with_method(
@@ -243,20 +248,30 @@ where
             state_miner_partitions::<DB, KS, B>,
             false,
         )
+        .with_method(
+            "Filecoin.StateMinerPreCommitDepositForPower",
+            state_miner_pre_commit_deposit_for_power::<DB, KS, B, V>,
+            false,
+        )
+        .with_method(
+            "Filecoin.StateMinerInitialPledgeCollateral",
+            state_miner_initial_pledge_collateral::<DB, KS, B, V>,
+            false,
+        )
         .with_method("Filecoin.StateReplay", state_replay::<DB, KS, B>, false)
         .with_method(
             "Filecoin.StateGetActor",
-            state_get_actor::<DB, KS, B>,
+            state_get_actor::<DB, KS, B, V>,
             false,
         )
         .with_method(
             "Filecoin.StateAccountKey",
-            state_account_key::<DB, KS, B>,
+            state_account_key::<DB, KS, B, V>,
             false,
         )
         .with_method(
             "Filecoin.StateLookupId",
-            state_lookup_id::<DB, KS, B>,
+            state_lookup_id::<DB, KS, B, V>,
             false,
         )
         .with_method(
@@ -295,7 +310,11 @@ where
             miner_create_block::<DB, KS, B, V>,
             false,
         )
-        .with_method("Filecoin.NetworkVersion", state_get_network_version, false)
+        .with_method(
+            "Filecoin.StateNetworkVersion",
+            state_get_network_version::<DB, KS, B>,
+            false,
+        )
         // Gas API
         .with_method(
             "Filecoin.GasEstimateGasLimit",

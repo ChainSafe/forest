@@ -70,6 +70,7 @@ pub fn check_supported_proof_types(proof: RegisteredSealProof) -> bool {
         )
     }
 }
+
 /// Maximum duration to allow for the sealing process for seal algorithms.
 /// Dependent on algorithm and sector size
 pub fn max_seal_duration(proof: RegisteredSealProof) -> Option<ChainEpoch> {

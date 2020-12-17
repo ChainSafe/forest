@@ -83,7 +83,7 @@ where
 pub(crate) async fn chain_read_obj<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(CidJson,)>,
-) -> Result<Vec<u8>, JsonRpcError>
+) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
@@ -95,7 +95,7 @@ where
         .blockstore()
         .get_bytes(&obj_cid)?
         .ok_or("can't find object with that cid")?;
-    Ok(ret)
+    Ok(base64::encode(ret))
 }
 
 pub(crate) async fn chain_has_obj<DB, KS, B>(
@@ -259,16 +259,16 @@ where
     Ok(TipsetJson(ts))
 }
 
-pub(crate) async fn chain_get_randomness<DB, KS, B>(
+pub(crate) async fn chain_get_randomness_from_tickets<DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
-    Params(params): Params<(TipsetKeys, i64, ChainEpoch, Vec<u8>)>,
+    Params(params): Params<(TipsetKeysJson, i64, ChainEpoch, String)>,
 ) -> Result<[u8; 32], JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (tsk, pers, epoch, entropy) = params;
+    let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     Ok(data
         .state_manager
         .chain_store()
@@ -276,7 +276,29 @@ where
             &tsk,
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
-            &entropy,
+            &base64::decode(entropy)?,
+        )
+        .await?)
+}
+
+pub(crate) async fn chain_get_randomness_from_beacon<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(TipsetKeysJson, i64, ChainEpoch, String)>,
+) -> Result<[u8; 32], JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
+    Ok(data
+        .state_manager
+        .chain_store()
+        .get_beacon_randomness(
+            &tsk,
+            DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
+            epoch,
+            &base64::decode(entropy)?,
         )
         .await?)
 }
