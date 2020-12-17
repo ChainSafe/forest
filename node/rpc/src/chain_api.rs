@@ -290,7 +290,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (tsk, pers, epoch, entropy) = params;
+    let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     Ok(data
         .state_manager
         .chain_store()
