@@ -509,6 +509,7 @@ where
             *msg.from(),
             msg.sequence(),
             0,
+            0,
             self.rand,
             &self.registered_actors,
             self.circ_supply_calc,
