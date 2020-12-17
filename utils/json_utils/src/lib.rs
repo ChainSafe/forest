@@ -163,18 +163,22 @@ mod tests {
     #[test]
     fn standard_vec() {
         #[derive(Deserialize)]
-        struct BasicJson(#[serde(with = "go_vec_visitor")] Vec<u8>);
+        #[serde(transparent)]
+        struct BasicJson {
+            #[serde(with = "go_vec_visitor")]
+            ints: Vec<u8>,
+        };
 
         let null_json = r#"null"#;
-        let BasicJson(deserialized) = from_str(null_json).unwrap();
-        assert_eq!(deserialized, [0u8; 0]);
+        let BasicJson { ints } = from_str(null_json).unwrap();
+        assert_eq!(ints, [0u8; 0]);
 
         let empty_array = r#"[]"#;
-        let BasicJson(deserialized) = from_str(empty_array).unwrap();
-        assert_eq!(deserialized, [0u8; 0]);
+        let BasicJson { ints } = from_str(empty_array).unwrap();
+        assert_eq!(ints, [0u8; 0]);
 
         let with_values = r#"[1, 2]"#;
-        let BasicJson(deserialized) = from_str(with_values).unwrap();
-        assert_eq!(deserialized, [1, 2]);
+        let BasicJson { ints } = from_str(with_values).unwrap();
+        assert_eq!(ints, [1, 2]);
     }
 }
