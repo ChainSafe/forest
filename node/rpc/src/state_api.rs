@@ -9,7 +9,6 @@ use actor::{
     reward::{self},
 };
 use address::{json::AddressJson, Address};
-use async_std::task;
 use beacon::{json::BeaconEntryJson, Beacon, BeaconEntry};
 use bitfield::json::BitFieldJson;
 use blocks::{
@@ -418,6 +417,7 @@ pub(crate) async fn state_get_actor<
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
@@ -430,7 +430,7 @@ pub(crate) async fn state_get_actor<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts(&state_manager, tipset).await?;
+    let state = state_for_ts::<DB, V>(&state_manager, tipset).await?;
     Ok(state.get_actor(&actor)?.map(ActorStateJson::from))
 }
 
@@ -458,6 +458,7 @@ pub(crate) async fn state_account_key<
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
@@ -470,7 +471,7 @@ pub(crate) async fn state_account_key<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts(&state_manager, tipset).await?;
+    let state = state_for_ts::<DB, V>(&state_manager, tipset).await?;
     let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
 }
@@ -479,6 +480,7 @@ pub(crate) async fn state_lookup_id<
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
@@ -491,7 +493,7 @@ pub(crate) async fn state_lookup_id<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts(&state_manager, tipset).await?;
+    let state = state_for_ts::<DB, V>(&state_manager, tipset).await?;
     state.lookup_id(&address).map_err(|e| e.into())
 }
 
@@ -848,21 +850,93 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
         }
     };
 
-    //	return types.BigDiv(types.BigMul(deposit, initialPledgeNum), initialPledgeDen), nil
     let ret: BigInt = (deposit * 110) / 100;
     Ok(ret.to_string())
 }
 
+pub(crate) async fn state_miner_initial_pledge_collateral<
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
+>(
+    data: Data<RpcState<DB, KS, B>>,
+    Params(params): Params<(AddressJson, SectorPreCommitInfo, TipsetKeysJson)>,
+) -> Result<String, JsonRpcError> {
+    let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
+    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
+    let (state, _) = data.state_manager.tipset_state::<V>(&ts).await?;
+    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &state)?;
+    let ssize = pci.seal_proof.sector_size()?;
+
+    let actor = state
+        .get_actor(market::ADDRESS)?
+        .ok_or("couldnt load market actor")?;
+    let (w, vw) = market::State::load(data.state_manager.blockstore(), &actor)?
+        .verify_deals_for_activation(
+            data.state_manager.blockstore(),
+            &pci.deal_ids,
+            &maddr,
+            pci.expiration,
+            ts.epoch(),
+        )?;
+    let duration = pci.expiration - ts.epoch();
+    let sector_weight = actor::actorv2::miner::qa_power_for_weight(ssize, duration, &w, &vw);
+
+    let actor = state
+        .get_actor(power::ADDRESS)?
+        .ok_or("couldnt load market actor")?;
+    let initial_pledge = match power::State::load(data.state_manager.blockstore(), &actor)? {
+        power::State::V0(s) => {
+            let power_smoothed = s.this_epoch_qa_power_smoothed;
+            let total_locked = s.total_pledge_collateral;
+            let reward_actor = state
+                .get_actor(reward::ADDRESS)?
+                .ok_or("couldnt load market actor")?;
+            let circ_supply = data
+                .state_manager
+                .get_circulating_supply(ts.epoch(), &state)?;
+            reward::State::load(data.state_manager.blockstore(), &reward_actor)?
+                .initial_pledge_for_power(
+                    &sector_weight,
+                    &total_locked,
+                    power_smoothed.into(),
+                    &circ_supply,
+                )
+        }
+        power::State::V2(s) => {
+            let power_smoothed = s.this_epoch_qa_power_smoothed;
+            let total_locked = s.total_pledge_collateral;
+            let reward_actor = state
+                .get_actor(reward::ADDRESS)?
+                .ok_or("couldnt load market actor")?;
+            let circ_supply = data
+                .state_manager
+                .get_circulating_supply(ts.epoch(), &state)?;
+            reward::State::load(data.state_manager.blockstore(), &reward_actor)?
+                .initial_pledge_for_power(
+                    &sector_weight,
+                    &total_locked,
+                    power_smoothed.into(),
+                    &circ_supply,
+                )
+        }
+    };
+    let ret: BigInt = (initial_pledge * 110) / 100;
+    Ok(ret.to_string())
+}
+
 /// returns a state tree given a tipset
-async fn state_for_ts<DB>(
+async fn state_for_ts<DB, V>(
     state_manager: &Arc<StateManager<DB>>,
     ts: Arc<Tipset>,
 ) -> Result<StateTree<'_, DB>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
 {
     let block_store = state_manager.blockstore();
-    let (st, _) = task::block_on(state_manager.tipset_state::<FullVerifier>(&ts))?;
+    let (st, _) = state_manager.tipset_state::<V>(&ts).await?;
     let state_tree = StateTree::new_from_root(block_store, &st)?;
     Ok(state_tree)
 }

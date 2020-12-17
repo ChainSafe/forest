@@ -74,4 +74,35 @@ impl State {
             ),
         }
     }
+
+    pub fn initial_pledge_for_power(
+        &self,
+        sector_weight: &StoragePower,
+        _network_total_pledge: &TokenAmount,
+        network_qa_power: FilterEstimate,
+        circ_supply: &TokenAmount,
+    ) -> TokenAmount {
+        match self {
+            State::V0(st) => actorv0::miner::initial_pledge_for_power(
+                sector_weight,
+                &st.this_epoch_baseline_power,
+                &st.this_epoch_reward_smoothed,
+                &actorv0::util::smooth::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                circ_supply,
+            ),
+            State::V2(st) => actorv2::miner::initial_pledge_for_power(
+                sector_weight,
+                &st.this_epoch_baseline_power,
+                &st.this_epoch_reward_smoothed,
+                &actorv2::util::smooth::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                circ_supply,
+            ),
+        }
+    }
 }

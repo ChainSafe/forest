@@ -253,20 +253,25 @@ where
             state_miner_pre_commit_deposit_for_power::<DB, KS, B, V>,
             false,
         )
+        .with_method(
+            "Filecoin.StateMinerInitialPledgeCollateral",
+            state_miner_initial_pledge_collateral::<DB, KS, B, V>,
+            false,
+        )
         .with_method("Filecoin.StateReplay", state_replay::<DB, KS, B>, false)
         .with_method(
             "Filecoin.StateGetActor",
-            state_get_actor::<DB, KS, B>,
+            state_get_actor::<DB, KS, B, V>,
             false,
         )
         .with_method(
             "Filecoin.StateAccountKey",
-            state_account_key::<DB, KS, B>,
+            state_account_key::<DB, KS, B, V>,
             false,
         )
         .with_method(
             "Filecoin.StateLookupId",
-            state_lookup_id::<DB, KS, B>,
+            state_lookup_id::<DB, KS, B, V>,
             false,
         )
         .with_method(
