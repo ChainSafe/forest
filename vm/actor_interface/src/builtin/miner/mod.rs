@@ -7,14 +7,14 @@ use clock::ChainEpoch;
 use encoding::BytesDe;
 use fil_types::{deadlines::DeadlineInfo, RegisteredSealProof, SectorNumber, SectorSize};
 use forest_bitfield::BitField;
+use forest_json_utils::go_vec_visitor;
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
 use num_bigint::{bigint_ser, BigInt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
-
 /// Miner actor method.
 pub type Method = actorv2::miner::Method;
 
@@ -441,15 +441,16 @@ impl From<actorv2::miner::SectorPreCommitOnChainInfo> for SectorPreCommitOnChain
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     /// CommR
-    #[serde(with = "cid::json")]
+    #[serde(with = "cid::json", rename = "SealedCID")]
     pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
+    #[serde(with = "go_vec_visitor", rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
     pub expiration: ChainEpoch,
     /// Whether to replace a "committed capacity" no-deal sector (requires non-empty DealIDs)

@@ -4,6 +4,7 @@
 use fil_types::{RegisteredSealProof, StoragePower};
 
 /// Returns the minimum storage power required for each seal proof types.
+#[cfg(not(feature = "devnet"))]
 pub fn consensus_miner_min_power(p: RegisteredSealProof) -> Result<StoragePower, String> {
     use RegisteredSealProof::*;
     match p {
@@ -14,4 +15,10 @@ pub fn consensus_miner_min_power(p: RegisteredSealProof) -> Result<StoragePower,
         StackedDRG64GiBV1 | StackedDRG64GiBV1P1 => Ok(StoragePower::from(20u64 << 40)),
         Invalid(i) => Err(format!("unsupported proof type: {}", i)),
     }
+}
+
+/// Returns the minimum storage power required for each seal proof types.
+#[cfg(feature = "devnet")]
+pub fn consensus_miner_min_power(_p: RegisteredSealProof) -> Result<StoragePower, String> {
+    Ok(StoragePower::from(2048))
 }
