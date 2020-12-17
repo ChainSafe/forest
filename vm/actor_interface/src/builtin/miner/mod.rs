@@ -7,6 +7,7 @@ use clock::ChainEpoch;
 use encoding::BytesDe;
 use fil_types::{deadlines::DeadlineInfo, RegisteredSealProof, SectorNumber, SectorSize};
 use forest_bitfield::BitField;
+use forest_json_utils::go_vec_visitor;
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
 use num_bigint::{bigint_ser, BigInt};
@@ -14,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
-use forest_json_utils::go_vec_visitor;
 /// Miner actor method.
 pub type Method = actorv2::miner::Method;
 
