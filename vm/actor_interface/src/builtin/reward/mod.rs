@@ -1,11 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::FilterEstimate;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use std::error::Error;
-use vm::ActorState;
+use vm::{ActorState, TokenAmount};
 
 /// Reward actor address.
 pub static ADDRESS: &actorv2::REWARD_ACTOR_ADDR = &actorv2::REWARD_ACTOR_ADDR;
@@ -46,6 +47,62 @@ impl State {
         match self {
             State::V0(st) => st.into_total_storage_power_reward(),
             State::V2(st) => st.into_total_storage_power_reward(),
+        }
+    }
+
+    pub fn pre_commit_deposit_for_power(
+        &self,
+        network_qa_power: FilterEstimate,
+        sector_weight: &StoragePower,
+    ) -> TokenAmount {
+        match self {
+            State::V0(st) => actorv0::miner::pre_commit_deposit_for_power(
+                &st.this_epoch_reward_smoothed,
+                &actorv0::util::smooth::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                sector_weight,
+            ),
+            State::V2(st) => actorv2::miner::pre_commit_deposit_for_power(
+                &st.this_epoch_reward_smoothed,
+                &actorv2::util::smooth::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                sector_weight,
+            ),
+        }
+    }
+
+    pub fn initial_pledge_for_power(
+        &self,
+        sector_weight: &StoragePower,
+        _network_total_pledge: &TokenAmount,
+        network_qa_power: FilterEstimate,
+        circ_supply: &TokenAmount,
+    ) -> TokenAmount {
+        match self {
+            State::V0(st) => actorv0::miner::initial_pledge_for_power(
+                sector_weight,
+                &st.this_epoch_baseline_power,
+                &st.this_epoch_reward_smoothed,
+                &actorv0::util::smooth::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                circ_supply,
+            ),
+            State::V2(st) => actorv2::miner::initial_pledge_for_power(
+                sector_weight,
+                &st.this_epoch_baseline_power,
+                &st.this_epoch_reward_smoothed,
+                &actorv2::util::smooth::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                circ_supply,
+            ),
         }
     }
 }

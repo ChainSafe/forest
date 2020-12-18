@@ -146,6 +146,7 @@ fn transfer_test() {
         actor_addr_2.clone(),
         0,
         0,
+        0,
         &MockRand,
         &registered,
         &MockCircSupply,

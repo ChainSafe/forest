@@ -39,6 +39,9 @@ use vm::{
     EMPTY_ARR_CID, METHOD_SEND,
 };
 
+/// Max runtime call depth
+const MAX_CALL_DEPTH: u64 = 4096;
+
 // This is just used for gas tracing, intentionally 0 and could be removed.
 const ACTOR_EXEC_GAS: GasCharge = GasCharge {
     name: "OnActorExec",
@@ -55,9 +58,15 @@ struct VMMsg {
 
 impl MessageInfo for VMMsg {
     fn caller(&self) -> &Address {
+        assert!(
+            matches!(self.caller.protocol(), Protocol::ID),
+            "runtime message caller was not resolved to ID address"
+        );
         &self.caller
     }
     fn receiver(&self) -> &Address {
+        // * Can't assert that receiver is an ID address here because it was not being done
+        // * pre NetworkVersion3. Can maybe add in assertion later
         &self.receiver
     }
     fn value_received(&self) -> &TokenAmount {
@@ -73,8 +82,11 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DevnetParams> {
     gas_tracker: Rc<RefCell<GasTracker>>,
     vm_msg: VMMsg,
     epoch: ChainEpoch,
+
     origin: Address,
     origin_nonce: u64,
+
+    depth: u64,
     num_actors_created: u64,
     price_list: PriceList,
     rand: &'vm R,
@@ -83,6 +95,7 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DevnetParams> {
     registered_actors: &'vm HashSet<Cid>,
     circ_supply_calc: &'vm C,
     lb_state: &'vm LB,
+
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
@@ -108,6 +121,7 @@ where
         origin: Address,
         origin_nonce: u64,
         num_actors_created: u64,
+        depth: u64,
         rand: &'vm R,
         registered_actors: &'vm HashSet<Cid>,
         circ_supply_calc: &'vm C,
@@ -124,13 +138,24 @@ where
         let caller_id = state
             .lookup_id(&message.from())
             .map_err(|e| e.downcast_fatal("failed to lookup id"))?
-            .ok_or_else(
-                || actor_error!(SysErrInvalidReceiver; "resolve msg from address failed"),
-            )?;
+            .ok_or_else(|| {
+                actor_error!(SysErrInvalidReceiver, "resolve msg from address failed")
+            })?;
+
+        let receiver = if version <= NetworkVersion::V3 {
+            *message.to()
+        } else {
+            state
+                .lookup_id(&message.to())
+                .map_err(|e| e.downcast_fatal("failed to lookup id"))?
+                // * Go implementation changes this to undef address. To avoid using optional
+                // * value here, the non-id address is kept here (should never be used)
+                .unwrap_or(*message.to())
+        };
 
         let vm_msg = VMMsg {
             caller: caller_id,
-            receiver: *message.to(),
+            receiver,
             value_received: message.value().clone(),
         };
 
@@ -143,6 +168,7 @@ where
             epoch,
             origin,
             origin_nonce,
+            depth,
             num_actors_created,
             price_list,
             rand,
@@ -275,6 +301,7 @@ where
         // Since it is unsafe to share a mutable reference to the state tree by copying
         // the runtime, all variables must be copied and reset at the end of the transition.
         let prev_val = self.caller_validated;
+        let prev_depth = self.depth;
         let prev_msg = self.vm_msg.clone();
         self.vm_msg = VMMsg {
             caller: from_id,
@@ -282,12 +309,20 @@ where
             value_received: value,
         };
         self.caller_validated = false;
+        self.depth += 1;
+        if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
+            return Err(actor_error!(
+                SysErrForbidden,
+                "message execution exceeds call depth"
+            ));
+        }
 
         let send_res = vm_send::<BS, R, C, LB, V, P>(self, &msg, None);
 
         // Reset values back to their values before the call
         self.vm_msg = prev_msg;
         self.caller_validated = prev_val;
+        self.depth = prev_depth;
 
         let ret = send_res.map_err(|e| {
             if let Err(e) = self.state.revert_to_snapshot() {
@@ -304,7 +339,10 @@ where
     }
 
     /// creates account actors from only BLS/SECP256K1 addresses.
-    pub fn try_create_account_actor(&mut self, addr: &Address) -> Result<ActorState, ActorError> {
+    pub fn try_create_account_actor(
+        &mut self,
+        addr: &Address,
+    ) -> Result<(ActorState, Address), ActorError> {
         self.charge_gas(self.price_list().on_create_actor())?;
 
         let addr_id = self
@@ -341,7 +379,7 @@ where
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
             .ok_or_else(|| actor_error!(fatal("failed to retrieve created actor state")))?;
 
-        Ok(act)
+        Ok((act, addr_id))
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> Result<(), Box<dyn StdError>> {
@@ -870,7 +908,12 @@ where
         Some(act) => act,
         None => {
             // Try to create actor if not exist
-            rt.try_create_account_actor(msg.to())?
+            let (to_actor, id_addr) = rt.try_create_account_actor(msg.to())?;
+            if rt.network_version() > NetworkVersion::V3 {
+                // Update the receiver to the created ID address
+                rt.vm_msg.receiver = id_addr;
+            }
+            to_actor
         }
     };
 

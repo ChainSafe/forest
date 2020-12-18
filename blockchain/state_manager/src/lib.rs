@@ -10,6 +10,7 @@ pub mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
+use actor::market::State;
 use actor::CHAIN_FINALITY;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
@@ -33,8 +34,8 @@ use futures::channel::oneshot;
 use futures::select;
 use futures::stream::StreamExt;
 use futures::FutureExt;
-use interpreter::LookbackStateGetter;
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
+use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use ipld_amt::Amt;
 use lazycell::AtomicLazyCell;
 use log::{debug, info, trace, warn};
@@ -1188,6 +1189,27 @@ where
             last_receipt = msg_root;
         }
         Ok(())
+    }
+
+    /// Retrieves total circulating supply on the network.
+    pub fn get_circulating_supply(
+        self: &Arc<Self>,
+        height: ChainEpoch,
+        state_tree: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        self.genesis_info.get_supply(height, state_tree)
+    }
+
+    /// Return the state of Market Actor
+    pub fn get_market_state(&self, ts: &Tipset) -> Result<State, Error> {
+        let actor = self
+            .get_actor(actor::market::ADDRESS, ts.parent_state())?
+            .ok_or_else(|| {
+                Error::State("Market actor address could not be resolved".to_string())
+            })?;
+
+        let market_state = market::State::load(self.blockstore(), &actor)?;
+        Ok(market_state)
     }
 }
 
