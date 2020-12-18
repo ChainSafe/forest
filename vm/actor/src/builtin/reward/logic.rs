@@ -4,7 +4,7 @@
 use super::expneg::expneg;
 use crate::math::PRECISION;
 use clock::ChainEpoch;
-use fil_types::{NetworkVersion, StoragePower, FILECOIN_PRECISION};
+use fil_types::{StoragePower, FILECOIN_PRECISION};
 use num_bigint::{BigInt, Integer};
 use std::str::FromStr;
 use vm::TokenAmount;
@@ -14,23 +14,20 @@ lazy_static! {
     /// Q.128 formatted number such that f(epoch) = baseExponent^epoch grows 200% in one
     /// year of epochs
     /// Calculation here: https://www.wolframalpha.com/input/?i=IntegerPart%5BExp%5BLog%5B1%2B200%25%5D%2F%28%28365+days%29%2F%2830+seconds%29%29%5D*2%5E128%5D
-    pub static ref BASELINE_EXPONENT_V0: StoragePower =
-        StoragePower::from_str("340282722551251692435795578557183609728").unwrap();
-    pub static ref BASELINE_EXPONENT_V3: StoragePower =
+    pub static ref BASELINE_EXPONENT: StoragePower =
         StoragePower::from_str("340282591298641078465964189926313473653").unwrap();
 
-    /// 1EiB
-    pub static ref BASELINE_INITIAL_VALUE_V0: StoragePower = StoragePower::from(1) << 60;
-    pub static ref BASELINE_INITIAL_VALUE_V3: StoragePower = StoragePower::from(2_888_888_880_000_000_000u128);
+    // 2.5057116798121726 EiB
+    pub static ref BASELINE_INITIAL_VALUE: StoragePower = StoragePower::from(2_888_888_880_000_000_000u128);
 
     /// 1EiB
     pub static ref INIT_BASELINE_POWER: StoragePower =
-    ((BASELINE_INITIAL_VALUE_V0.clone() << (2*PRECISION)) / &*BASELINE_EXPONENT_V0) >> PRECISION;
+    ((BASELINE_INITIAL_VALUE.clone() << (2*PRECISION)) / &*BASELINE_EXPONENT) >> PRECISION;
 
-    /// 330M for testnet
-    static ref SIMPLE_TOTAL: BigInt = BigInt::from(330_000_000) * FILECOIN_PRECISION;
-    /// 770M for testnet
-    static ref BASELINE_TOTAL: BigInt = BigInt::from(770_000_000) * FILECOIN_PRECISION;
+    /// 330M for mainnet
+    pub(super) static ref SIMPLE_TOTAL: BigInt = BigInt::from(330_000_000) * FILECOIN_PRECISION;
+    /// 770M for mainnet
+    pub(super) static ref BASELINE_TOTAL: BigInt = BigInt::from(770_000_000) * FILECOIN_PRECISION;
     /// expLamSubOne = e^lambda - 1
     /// for Q.128: int(expLamSubOne * 2^128)
     static ref EXP_LAM_SUB_ONE: BigInt = BigInt::from(37396273494747879394193016954629u128);
@@ -41,16 +38,8 @@ lazy_static! {
 
 /// Compute BaselinePower(t) from BaselinePower(t-1) with an additional multiplication
 /// of the base exponent.
-pub(crate) fn baseline_power_from_prev(
-    prev_power: &StoragePower,
-    version: NetworkVersion,
-) -> StoragePower {
-    let exponent = if version < NetworkVersion::V3 {
-        &*BASELINE_EXPONENT_V0
-    } else {
-        &*BASELINE_EXPONENT_V3
-    };
-    (prev_power * exponent) >> PRECISION
+pub(crate) fn baseline_power_from_prev(prev_power: &StoragePower) -> StoragePower {
+    (prev_power * &*BASELINE_EXPONENT) >> PRECISION
 }
 
 /// Computes RewardTheta which is is precise fractional value of effectiveNetworkTime.
@@ -82,21 +71,24 @@ pub(crate) fn compute_reward(
     epoch: ChainEpoch,
     prev_theta: BigInt,
     curr_theta: BigInt,
+    simple_total: &BigInt,
+    baseline_total: &BigInt,
 ) -> TokenAmount {
-    let mut simple_reward = &*SIMPLE_TOTAL * &*EXP_LAM_SUB_ONE;
+    let mut simple_reward = simple_total * &*EXP_LAM_SUB_ONE;
     let epoch_lam = &*LAMBDA * epoch;
 
     simple_reward *= expneg(&epoch_lam);
     simple_reward >>= PRECISION;
 
-    let baseline_reward = compute_baseline_supply(curr_theta) - compute_baseline_supply(prev_theta);
+    let baseline_reward = compute_baseline_supply(curr_theta, baseline_total)
+        - compute_baseline_supply(prev_theta, baseline_total);
 
     (simple_reward + baseline_reward) >> PRECISION
 }
 
 /// Computes baseline supply based on theta in Q.128 format.
 /// Return is in Q.128 format
-fn compute_baseline_supply(theta: BigInt) -> BigInt {
+fn compute_baseline_supply(theta: BigInt, baseline_total: &BigInt) -> BigInt {
     let theta_lam = (theta * &*LAMBDA) >> PRECISION;
 
     let etl = expneg(&theta_lam);
@@ -104,5 +96,5 @@ fn compute_baseline_supply(theta: BigInt) -> BigInt {
     let one = BigInt::from(1) << PRECISION;
     let one_sub = one - etl;
 
-    one_sub * &*BASELINE_TOTAL
+    one_sub * baseline_total
 }

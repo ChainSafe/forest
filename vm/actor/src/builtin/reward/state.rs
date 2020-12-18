@@ -5,7 +5,7 @@ use super::logic::*;
 use crate::smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA};
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{repr::*, tuple::*, Cbor};
-use fil_types::{NetworkVersion, Spacetime, StoragePower};
+use fil_types::{Spacetime, StoragePower};
 use num_bigint::{bigint_ser, Integer};
 use num_derive::FromPrimitive;
 use vm::TokenAmount;
@@ -25,7 +25,7 @@ pub struct State {
     #[serde(with = "bigint_ser")]
     pub cumsum_baseline: Spacetime,
 
-    /// CumsumRealized is cumulative sum of network power capped by BalinePower(epoch).
+    /// CumsumRealized is cumulative sum of network power capped by BaselinePower(epoch).
     /// Expressed in byte-epochs.
     #[serde(with = "bigint_ser")]
     pub cumsum_realized: Spacetime,
@@ -55,38 +55,45 @@ pub struct State {
     /// Epoch tracks for which epoch the Reward was computed.
     pub epoch: ChainEpoch,
 
-    /// TotalMined tracks the total FIL awared to block miners.
+    // TotalStoragePowerReward tracks the total FIL awarded to block miners
     #[serde(with = "bigint_ser")]
-    pub total_mined: TokenAmount,
+    pub total_storage_power_reward: TokenAmount,
+
+    // Simple and Baseline totals are constants used for computing rewards.
+    // They are on chain because of a historical fix resetting baseline value
+    // in a way that depended on the history leading immediately up to the
+    // migration fixing the value.  These values can be moved from state back
+    // into a code constant in a subsequent upgrade.
+    #[serde(with = "bigint_ser")]
+    pub simple_total: TokenAmount,
+    #[serde(with = "bigint_ser")]
+    pub baseline_total: TokenAmount,
 }
 
 impl State {
     pub fn new(curr_realized_power: StoragePower) -> Self {
         let mut st = Self {
-            effective_baseline_power: BASELINE_INITIAL_VALUE_V0.clone(),
+            effective_baseline_power: BASELINE_INITIAL_VALUE.clone(),
             this_epoch_baseline_power: INIT_BASELINE_POWER.clone(),
             epoch: EPOCH_UNDEFINED,
             this_epoch_reward_smoothed: FilterEstimate::new(
                 INITIAL_REWARD_POSITION_ESTIMATE.clone(),
                 INITIAL_REWARD_VELOCITY_ESTIMATE.clone(),
             ),
+            simple_total: SIMPLE_TOTAL.clone(),
+            baseline_total: BASELINE_TOTAL.clone(),
             ..Default::default()
         };
-        st.update_to_next_epoch_with_reward(&curr_realized_power, NetworkVersion::V0);
+        st.update_to_next_epoch_with_reward(&curr_realized_power);
 
         st
     }
 
     /// Takes in current realized power and updates internal state
     /// Used for update of internal state during null rounds
-    pub(super) fn update_to_next_epoch(
-        &mut self,
-        curr_realized_power: &StoragePower,
-        version: NetworkVersion,
-    ) {
+    pub(super) fn update_to_next_epoch(&mut self, curr_realized_power: &StoragePower) {
         self.epoch += 1;
-        self.this_epoch_baseline_power =
-            baseline_power_from_prev(&self.this_epoch_baseline_power, version);
+        self.this_epoch_baseline_power = baseline_power_from_prev(&self.this_epoch_baseline_power);
         let capped_realized_power =
             std::cmp::min(&self.this_epoch_baseline_power, curr_realized_power);
         self.cumsum_realized += capped_realized_power;
@@ -94,25 +101,21 @@ impl State {
         while self.cumsum_realized > self.cumsum_baseline {
             self.effective_network_time += 1;
             self.effective_baseline_power =
-                baseline_power_from_prev(&self.effective_baseline_power, version);
+                baseline_power_from_prev(&self.effective_baseline_power);
             self.cumsum_baseline += &self.effective_baseline_power;
         }
     }
 
     /// Takes in a current realized power for a reward epoch and computes
     /// and updates reward state to track reward for the next epoch
-    pub(super) fn update_to_next_epoch_with_reward(
-        &mut self,
-        curr_realized_power: &StoragePower,
-        version: NetworkVersion,
-    ) {
+    pub(super) fn update_to_next_epoch_with_reward(&mut self, curr_realized_power: &StoragePower) {
         let prev_reward_theta = compute_r_theta(
             self.effective_network_time,
             &self.effective_baseline_power,
             &self.cumsum_realized,
             &self.cumsum_baseline,
         );
-        self.update_to_next_epoch(curr_realized_power, version);
+        self.update_to_next_epoch(curr_realized_power);
         let curr_reward_theta = compute_r_theta(
             self.effective_network_time,
             &self.effective_baseline_power,
@@ -120,7 +123,13 @@ impl State {
             &self.cumsum_baseline,
         );
 
-        self.this_epoch_reward = compute_reward(self.epoch, prev_reward_theta, curr_reward_theta);
+        self.this_epoch_reward = compute_reward(
+            self.epoch,
+            prev_reward_theta,
+            curr_reward_theta,
+            &self.simple_total,
+            &self.baseline_total,
+        );
     }
 
     pub(super) fn update_smoothed_estimates(&mut self, delta: ChainEpoch) {
@@ -134,7 +143,7 @@ impl State {
     }
 
     pub fn into_total_storage_power_reward(self) -> TokenAmount {
-        self.total_mined
+        self.total_storage_power_reward
     }
 }
 
