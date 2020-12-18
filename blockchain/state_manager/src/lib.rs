@@ -11,6 +11,7 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use actor::CHAIN_FINALITY;
+use actor::market::State;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
