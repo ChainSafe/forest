@@ -74,7 +74,7 @@ impl VestingFunds {
 
             let elapsed = vest_epoch - vest_begin;
             let target_vest = if elapsed < spec.vest_period {
-                // Linear vesting, PARAM_FINISH
+                // Linear vesting
                 (vesting_sum * elapsed).div_floor(&TokenAmount::from(vest_period))
             } else {
                 vesting_sum.clone()

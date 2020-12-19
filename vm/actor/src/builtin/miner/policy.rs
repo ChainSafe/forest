@@ -4,7 +4,7 @@
 use super::types::SectorOnChainInfo;
 use crate::{network::*, DealWeight};
 use clock::ChainEpoch;
-use fil_types::{RegisteredSealProof, SectorQuality, SectorSize, StoragePower};
+use fil_types::{NetworkVersion, RegisteredSealProof, SectorQuality, SectorSize, StoragePower};
 use num_bigint::BigUint;
 use num_bigint::{BigInt, Integer};
 use num_traits::Pow;
@@ -20,9 +20,25 @@ pub const WPOST_PERIOD_DEADLINES: u64 = 48;
 /// The maximum distance back that a valid Window PoSt must commit to the current chain.
 pub const WPOST_MAX_CHAIN_COMMIT_AGE: ChainEpoch = WPOST_CHALLENGE_WINDOW;
 
-// The maximum number of sectors that a miner can have simultaneously active.
-// This also bounds the number of faults that can be declared, etc.
-pub const SECTORS_MAX: usize = 32 << 20; // PARAM_FINISH
+/// The maximum number of sectors that a miner can have simultaneously active.
+/// This also bounds the number of faults that can be declared, etc.
+pub const SECTORS_MAX: usize = 32 << 20;
+
+/// Maximum number of partitions that will be assigned to a deadline.
+/// For a minimum storage of upto 1Eib, we need 300 partitions per deadline.
+/// 48 * 32GiB * 2349 * 300 = 1.00808144 EiB
+/// So, to support upto 10Eib storage, we set this to 3000.
+pub const MAX_PARTITIONS_PER_DEADLINE: u64 = 3000;
+
+/// Maximum number of control addresses a miner may register.
+pub const MAX_CONTROL_ADDRESSES: usize = 10;
+
+/// MaxPeerIDLength is the maximum length allowed for any on-chain peer ID.
+/// Most Peer IDs are expected to be less than 50 bytes.
+pub const MAX_PEER_ID_LENGTH: usize = 128;
+
+/// MaxMultiaddrData is the maximum amount of data that can be stored in multiaddrs.
+pub const MAX_MULTIADDR_DATA: usize = 1024;
 
 // The maximum number of partitions that may be required to be loaded in a single invocation.
 // This limits the number of simultaneous fault, recovery, or sector-extension declarations.
@@ -56,18 +72,22 @@ pub const SEALED_CID_PREFIX: cid::Prefix = cid::Prefix {
 };
 
 /// List of proof types which can be used when creating new miner actors
-pub fn check_supported_proof_types(proof: RegisteredSealProof) -> bool {
+pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof, nv: NetworkVersion) -> bool {
     use RegisteredSealProof::*;
-    #[cfg(not(feature = "devnet"))]
-    {
-        matches!(proof, StackedDRG32GiBV1 | StackedDRG64GiBV1)
-    }
+
     #[cfg(feature = "devnet")]
     {
-        matches!(
-            proof,
-            StackedDRG2KiBV1 | StackedDRG32GiBV1 | StackedDRG64GiBV1
-        )
+        if matches!(proof, StackedDRG2KiBV1 | StackedDRG2KiBV1P1) {
+            return true;
+        }
+    }
+
+    if nv >= NetworkVersion::V8 {
+        matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
+    } else if nv >= NetworkVersion::V7 {
+        matches!(proof, StackedDRG32GiBV1 | StackedDRG64GiBV1)
+    } else {
+        matches!(proof, StackedDRG32GiBV1 | StackedDRG64GiBV1)
     }
 }
 

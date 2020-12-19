@@ -264,6 +264,11 @@ pub struct SectorOnChainInfo {
     /// Expected twenty day projection of reward for sector computed at activation time
     #[serde(with = "bigint_ser")]
     pub expected_storage_pledge: TokenAmount,
+    /// Age of sector this sector replaced or zero
+    pub replaced_sector_age: ChainEpoch,
+    /// Day reward of sector this sector replace or zero
+    #[serde(with = "bigint_ser")]
+    pub replaced_day_reward: TokenAmount,
 }
 
 // TODO: figure out if we need this type

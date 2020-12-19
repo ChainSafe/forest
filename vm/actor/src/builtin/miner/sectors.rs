@@ -3,6 +3,8 @@
 
 use super::SectorOnChainInfo;
 use crate::{actor_error, ActorDowncast, ActorError, ExitCode};
+use ahash::AHashSet;
+use bitfield::BitField;
 use cid::Cid;
 use fil_types::{SectorNumber, MAX_SECTOR_NUMBER};
 use ipld_amt::{Amt, Error as AmtError};
@@ -91,4 +93,27 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
         self.get(sector_number)?
             .ok_or_else(|| format!("sector {} not found", sector_number).into())
     }
+}
+
+pub(crate) fn select_sectors(
+    sectors: &[SectorOnChainInfo],
+    field: &BitField,
+) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
+    let mut to_include: AHashSet<_> = field.iter().collect();
+
+    let mut included = Vec::with_capacity(to_include.len());
+    for s in sectors {
+        let sec = s.sector_number as usize;
+        if !to_include.contains(&sec) {
+            continue;
+        }
+        included.push(s.clone());
+        to_include.remove(&sec);
+    }
+
+    if !to_include.is_empty() {
+        return Err(format!("failed to find {} expected sectors", to_include.len()).into());
+    }
+
+    Ok(included)
 }

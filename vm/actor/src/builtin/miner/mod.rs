@@ -58,7 +58,7 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
     self, InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,
 };
-use encoding::Cbor;
+use encoding::{BytesDe, Cbor};
 use fil_types::{
     deadlines::DeadlineInfo, InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness,
     RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
@@ -78,6 +78,14 @@ use vm::{
     ActorError, DealID, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
     METHOD_SEND,
 };
+
+// The first 1000 actor-specific codes are left open for user error, i.e. things that might
+// actually happen without programming error in the actor code.
+
+// The following errors are particular cases of illegal state.
+// They're not expected to ever happen, but if they do, distinguished codes can help us
+// diagnose the problem.
+use ExitCode::ErrPlaceholder as ErrBalanceInvariantBroken;
 
 // * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
 
@@ -122,7 +130,10 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(&[*INIT_ACTOR_ADDR])?;
 
-        if !check_supported_proof_types(params.seal_proof_type) {
+        check_control_addresses(&params.control_addresses)?;
+        check_peer_info(&params.peer_id, &params.multi_addresses)?;
+
+        if !can_pre_commit_seal_proof(params.seal_proof_type, rt.network_version()) {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "proof type {:?} not allowed for new miner actors",
@@ -199,8 +210,9 @@ impl Actor {
                 )
             })?;
 
-        let period_start = next_proving_period_start(current_epoch, offset);
-        assert!(period_start > current_epoch);
+        let period_start = current_proving_period_start(current_epoch, offset);
+        let deadline_idx = current_deadline_index(current_epoch, period_start);
+        assert!(deadline_idx < WPOST_PERIOD_DEADLINES);
 
         let info = MinerInfo::new(
             owner,
@@ -227,6 +239,7 @@ impl Actor {
         let st = State::new(
             info_cid,
             period_start,
+            deadline_idx,
             empty_bitfield_cid,
             empty_array,
             empty_map,
@@ -391,262 +404,262 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let current_epoch = rt.curr_epoch();
-        let network_version = rt.network_version();
+        todo!()
+        // let current_epoch = rt.curr_epoch();
+        // let network_version = rt.network_version();
 
-        if params.deadline >= WPOST_PERIOD_DEADLINES {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "invalid deadline {} of {}",
-                params.deadline,
-                WPOST_PERIOD_DEADLINES
-            ));
-        }
+        // if params.deadline >= WPOST_PERIOD_DEADLINES {
+        //     return Err(actor_error!(
+        //         ErrIllegalArgument,
+        //         "invalid deadline {} of {}",
+        //         params.deadline,
+        //         WPOST_PERIOD_DEADLINES
+        //     ));
+        // }
 
-        if params.chain_commit_epoch >= current_epoch {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "PoSt chain commitment {} must be in the past",
-                params.chain_commit_epoch
-            ));
-        }
+        // if params.chain_commit_epoch >= current_epoch {
+        //     return Err(actor_error!(
+        //         ErrIllegalArgument,
+        //         "PoSt chain commitment {} must be in the past",
+        //         params.chain_commit_epoch
+        //     ));
+        // }
 
-        if params.chain_commit_epoch < current_epoch - WPOST_MAX_CHAIN_COMMIT_AGE {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "PoSt chain commitment {} too far in the past, must be after {}",
-                params.chain_commit_epoch,
-                current_epoch - WPOST_MAX_CHAIN_COMMIT_AGE
-            ));
-        }
+        // if params.chain_commit_epoch < current_epoch - WPOST_MAX_CHAIN_COMMIT_AGE {
+        //     return Err(actor_error!(
+        //         ErrIllegalArgument,
+        //         "PoSt chain commitment {} too far in the past, must be after {}",
+        //         params.chain_commit_epoch,
+        //         current_epoch - WPOST_MAX_CHAIN_COMMIT_AGE
+        //     ));
+        // }
 
-        let comm_rand = rt.get_randomness_from_tickets(
-            DomainSeparationTag::PoStChainCommit,
-            params.chain_commit_epoch,
-            &[],
-        )?;
+        // let comm_rand = rt.get_randomness_from_tickets(
+        //     DomainSeparationTag::PoStChainCommit,
+        //     params.chain_commit_epoch,
+        //     &[],
+        // )?;
 
-        if comm_rand != params.chain_commit_rand {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "post commit randomness mismatched"
-            ));
-        }
+        // if comm_rand != params.chain_commit_rand {
+        //     return Err(actor_error!(
+        //         ErrIllegalArgument,
+        //         "post commit randomness mismatched"
+        //     ));
+        // }
 
-        // Get the total power/reward. We need these to compute penalties.
-        let reward_stats = request_current_epoch_block_reward(rt)?;
-        let power_total = request_current_total_power(rt)?;
+        // // Get the total power/reward. We need these to compute penalties.
+        // let reward_stats = request_current_epoch_block_reward(rt)?;
+        // let power_total = request_current_total_power(rt)?;
 
-        let mut penalty_total = TokenAmount::zero();
-        let mut pledge_delta = TokenAmount::zero();
+        // let mut penalty_total = TokenAmount::zero();
+        // let mut pledge_delta = TokenAmount::zero();
 
-        let post_result = rt.transaction(|state: &mut State, rt| {
-            let info = get_miner_info(rt, state)?;
+        // let post_result = rt.transaction(|state: &mut State, rt| {
+        //     let info = get_miner_info(rt, state)?;
 
-            rt.validate_immediate_caller_is(
-                info.control_addresses
-                    .iter()
-                    .chain(&[info.worker, info.owner]),
-            )?;
+        //     rt.validate_immediate_caller_is(
+        //         info.control_addresses
+        //             .iter()
+        //             .chain(&[info.worker, info.owner]),
+        //     )?;
 
-            // Validate that the miner didn't try to prove too many partitions at once.
-            let submission_partition_limit =
-                load_partitions_sectors_max(info.window_post_partition_sectors);
-            if params.partitions.len() as u64 > submission_partition_limit {
-                return Err(actor_error!(
-                    ErrIllegalArgument,
-                    "too many partitions {}, limit {}",
-                    params.partitions.len(),
-                    submission_partition_limit
-                ));
-            }
+        //     // Validate that the miner didn't try to prove too many partitions at once.
+        //     let submission_partition_limit =
+        //         load_partitions_sectors_max(info.window_post_partition_sectors);
+        //     if params.partitions.len() as u64 > submission_partition_limit {
+        //         return Err(actor_error!(
+        //             ErrIllegalArgument,
+        //             "too many partitions {}, limit {}",
+        //             params.partitions.len(),
+        //             submission_partition_limit
+        //         ));
+        //     }
 
-            // Load and check deadline.
-            let current_deadline = state.deadline_info(current_epoch);
-            let mut deadlines = state
-                .load_deadlines(rt.store())
-                .map_err(|e| e.wrap("failed to load deadlines"))?;
+        //     // Load and check deadline.
+        //     let current_deadline = state.deadline_info(current_epoch);
+        //     let mut deadlines = state
+        //         .load_deadlines(rt.store())
+        //         .map_err(|e| e.wrap("failed to load deadlines"))?;
 
-            // Check that the miner state indicates that the current proving deadline has started.
-            // This should only fail if the cron actor wasn't invoked, and matters only in case that it hasn't been
-            // invoked for a whole proving period, and hence the missed PoSt submissions from the prior occurrence
-            // of this deadline haven't been processed yet.
-            if !current_deadline.is_open() {
-                return Err(actor_error!(
-                    ErrIllegalState,
-                    "proving period {} not yet open at {}",
-                    current_deadline.period_start,
-                    current_epoch
-                ));
-            }
+        //     // Check that the miner state indicates that the current proving deadline has started.
+        //     // This should only fail if the cron actor wasn't invoked, and matters only in case that it hasn't been
+        //     // invoked for a whole proving period, and hence the missed PoSt submissions from the prior occurrence
+        //     // of this deadline haven't been processed yet.
+        //     if !current_deadline.is_open() {
+        //         return Err(actor_error!(
+        //             ErrIllegalState,
+        //             "proving period {} not yet open at {}",
+        //             current_deadline.period_start,
+        //             current_epoch
+        //         ));
+        //     }
 
-            // The miner may only submit a proof for the current deadline.
-            if params.deadline != current_deadline.index {
-                return Err(actor_error!(
-                    ErrIllegalArgument,
-                    "invalid deadline {} at epoch {}, expected {}",
-                    params.deadline,
-                    current_epoch,
-                    current_deadline.index
-                ));
-            }
+        //     // The miner may only submit a proof for the current deadline.
+        //     if params.deadline != current_deadline.index {
+        //         return Err(actor_error!(
+        //             ErrIllegalArgument,
+        //             "invalid deadline {} at epoch {}, expected {}",
+        //             params.deadline,
+        //             current_epoch,
+        //             current_deadline.index
+        //         ));
+        //     }
 
-            let sectors = Sectors::load(rt.store(), &state.sectors).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load sectors")
-            })?;
+        //     let sectors = Sectors::load(rt.store(), &state.sectors).map_err(|e| {
+        //         e.downcast_default(ExitCode::ErrIllegalState, "failed to load sectors")
+        //     })?;
 
-            let mut deadline = deadlines
-                .load_deadline(rt.store(), params.deadline)
-                .map_err(|e| e.wrap(format!("failed to load deadline {}", params.deadline)))?;
+        //     let mut deadline = deadlines
+        //         .load_deadline(rt.store(), params.deadline)
+        //         .map_err(|e| e.wrap(format!("failed to load deadline {}", params.deadline)))?;
 
-            // Record proven sectors/partitions, returning updates to power and the final set of sectors
-            // proven/skipped.
-            //
-            // NOTE: This function does not actually check the proofs but does assume that they'll be
-            // successfully validated. The actual proof verification is done below in verifyWindowedPost.
-            //
-            // If proof verification fails, the this deadline MUST NOT be saved and this function should
-            // be aborted.
-            let fault_expiration = current_deadline.last() + FAULT_MAX_AGE;
-            let post_result = deadline
-                .record_proven_sectors(
-                    rt.store(),
-                    &sectors,
-                    info.sector_size,
-                    current_deadline.quant_spec(),
-                    fault_expiration,
-                    &mut params.partitions,
-                )
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!(
-                            "failed to process post submission for deadline {}",
-                            params.deadline
-                        ),
-                    )
-                })?;
+        //     // Record proven sectors/partitions, returning updates to power and the final set of sectors
+        //     // proven/skipped.
+        //     //
+        //     // NOTE: This function does not actually check the proofs but does assume that they'll be
+        //     // successfully validated. The actual proof verification is done below in verifyWindowedPost.
+        //     //
+        //     // If proof verification fails, the this deadline MUST NOT be saved and this function should
+        //     // be aborted.
+        //     let fault_expiration = current_deadline.last() + FAULT_MAX_AGE;
+        //     let post_result = deadline
+        //         .record_proven_sectors(
+        //             rt.store(),
+        //             &sectors,
+        //             info.sector_size,
+        //             current_deadline.quant_spec(),
+        //             fault_expiration,
+        //             &mut params.partitions,
+        //         )
+        //         .map_err(|e| {
+        //             e.downcast_default(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!(
+        //                     "failed to process post submission for deadline {}",
+        //                     params.deadline
+        //                 ),
+        //             )
+        //         })?;
 
-            // Validate proofs
+        //     // Validate proofs
 
-            // Load sector infos for proof, substituting a known-good sector for known-faulty sectors.
-            // Note: this is slightly sub-optimal, loading info for the recovering sectors again after they were already
-            // loaded above.
-            let sector_infos = state
-                .load_sector_infos_for_proof(
-                    rt.store(),
-                    &post_result.sectors,
-                    &post_result.ignored_sectors,
-                )
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to load proven sector info",
-                    )
-                })?;
+        //     // Load sector infos for proof, substituting a known-good sector for known-faulty sectors.
+        //     // Note: this is slightly sub-optimal, loading info for the recovering sectors again after they were already
+        //     // loaded above.
+        //     let sector_infos = state
+        //         .load_sector_infos_for_proof(
+        //             rt.store(),
+        //             &post_result.sectors,
+        //             &post_result.ignored_sectors,
+        //         )
+        //         .map_err(|e| {
+        //             e.downcast_default(
+        //                 ExitCode::ErrIllegalState,
+        //                 "failed to load proven sector info",
+        //             )
+        //         })?;
 
-            // Skip verification if all sectors are faults.
-            // We still need to allow this call to succeed so the miner can declare a whole partition as skipped.
-            if !sector_infos.is_empty() {
-                // Verify the proof.
-                // A failed verification doesn't immediately cause a penalty; the miner can try again.
-                verify_windowed_post(rt, current_deadline.challenge, &sector_infos, params.proofs)?;
-            }
+        //     // Skip verification if all sectors are faults.
+        //     // We still need to allow this call to succeed so the miner can declare a whole partition as skipped.
+        //     if !sector_infos.is_empty() {
+        //         // Verify the proof.
+        //         // A failed verification doesn't immediately cause a penalty; the miner can try again.
+        //         verify_windowed_post(rt, current_deadline.challenge, &sector_infos, params.proofs)?;
+        //     }
 
-            // Penalize new skipped faults and retracted recoveries as undeclared faults.
-            // These pay a higher fee than faults declared before the deadline challenge window opened.
-            let undeclared_penalty_power = post_result.penalty_power();
-            let undeclared_penalty_target = if network_version >= NetworkVersion::V3 {
-                // From version 3, skipped faults and retracted recoveries pay nothing at Window PoSt,
-                // but will incur the "ongoing" fault fee at deadline end.
-                Default::default()
-            } else {
-                let mut undeclared_penalty_target = pledge_penalty_for_undeclared_fault(
-                    &reward_stats.this_epoch_reward_smoothed,
-                    &power_total.quality_adj_power_smoothed,
-                    &undeclared_penalty_power.qa,
-                    network_version,
-                );
-                // Subtract the "ongoing" fault fee from the amount charged now, since it will be charged at
-                // the end-of-deadline cron.
-                undeclared_penalty_target -= pledge_penalty_for_declared_fault(
-                    &reward_stats.this_epoch_reward_smoothed,
-                    &power_total.quality_adj_power_smoothed,
-                    &undeclared_penalty_power.qa,
-                    network_version,
-                );
+        //     // Penalize new skipped faults and retracted recoveries as undeclared faults.
+        //     // These pay a higher fee than faults declared before the deadline challenge window opened.
+        //     let undeclared_penalty_power = post_result.penalty_power();
+        //     let undeclared_penalty_target = if network_version >= NetworkVersion::V3 {
+        //         // From version 3, skipped faults and retracted recoveries pay nothing at Window PoSt,
+        //         // but will incur the "ongoing" fault fee at deadline end.
+        //         Default::default()
+        //     } else {
+        //         let mut undeclared_penalty_target = pledge_penalty_for_undeclared_fault(
+        //             &reward_stats.this_epoch_reward_smoothed,
+        //             &power_total.quality_adj_power_smoothed,
+        //             &undeclared_penalty_power.qa,
+        //             network_version,
+        //         );
+        //         // Subtract the "ongoing" fault fee from the amount charged now, since it will be charged at
+        //         // the end-of-deadline cron.
+        //         undeclared_penalty_target -= pledge_penalty_for_declared_fault(
+        //             &reward_stats.this_epoch_reward_smoothed,
+        //             &power_total.quality_adj_power_smoothed,
+        //             &undeclared_penalty_power.qa,
+        //             network_version,
+        //         );
 
-                undeclared_penalty_target
-            };
+        //         undeclared_penalty_target
+        //     };
 
-            // Penalize recoveries as declared faults (a lower fee than the undeclared, above).
-            // It sounds odd, but because faults are penalized in arrears, at the _end_ of the faulty period, we must
-            // penalize recovered sectors here because they won't be penalized by the end-of-deadline cron for the
-            // immediately-prior faulty period.
-            let declared_penalty_target = if network_version >= NetworkVersion::V3 {
-                // From version 3, recovered sectors pay no penalty.
-                // They won't pay anything at deadline end either, since they'll no longer be faulty.
-                Default::default()
-            } else {
-                pledge_penalty_for_declared_fault(
-                    &reward_stats.this_epoch_reward_smoothed,
-                    &power_total.quality_adj_power_smoothed,
-                    &post_result.recovered_power.qa,
-                    network_version,
-                )
-            };
+        //     // Penalize recoveries as declared faults (a lower fee than the undeclared, above).
+        //     // It sounds odd, but because faults are penalized in arrears, at the _end_ of the faulty period, we must
+        //     // penalize recovered sectors here because they won't be penalized by the end-of-deadline cron for the
+        //     // immediately-prior faulty period.
+        //     let declared_penalty_target = if network_version >= NetworkVersion::V3 {
+        //         // From version 3, recovered sectors pay no penalty.
+        //         // They won't pay anything at deadline end either, since they'll no longer be faulty.
+        //         Default::default()
+        //     } else {
+        //         pledge_penalty_for_declared_fault(
+        //             &reward_stats.this_epoch_reward_smoothed,
+        //             &power_total.quality_adj_power_smoothed,
+        //             &post_result.recovered_power.qa,
+        //             network_version,
+        //         )
+        //     };
 
-            // Note: We could delay this charge until end of deadline, but that would require more accounting state.
-            let total_penalty_target = undeclared_penalty_target + declared_penalty_target;
-            let unlocked_balance =
-                state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
-            let (vesting_penalty_total, balance_penalty_total) = state
-                .penalize_funds_in_priority_order(
-                    rt.store(),
-                    current_epoch,
-                    &total_penalty_target,
-                    &unlocked_balance,
-                )
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!(
-                            "failed to unlock penalty for {:?}",
-                            undeclared_penalty_power
-                        ),
-                    )
-                })?;
-            penalty_total = &vesting_penalty_total + balance_penalty_total;
-            pledge_delta -= vesting_penalty_total;
+        //     // Note: We could delay this charge until end of deadline, but that would require more accounting state.
+        //     let total_penalty_target = undeclared_penalty_target + declared_penalty_target;
+        //     let unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?)?;
+        //     let (vesting_penalty_total, balance_penalty_total) = state
+        //         .penalize_funds_in_priority_order(
+        //             rt.store(),
+        //             current_epoch,
+        //             &total_penalty_target,
+        //             &unlocked_balance,
+        //         )
+        //         .map_err(|e| {
+        //             e.downcast_default(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!(
+        //                     "failed to unlock penalty for {:?}",
+        //                     undeclared_penalty_power
+        //                 ),
+        //             )
+        //         })?;
+        //     penalty_total = &vesting_penalty_total + balance_penalty_total;
+        //     pledge_delta -= vesting_penalty_total;
 
-            let deadline_idx = params.deadline;
-            deadlines
-                .update_deadline(rt.store(), params.deadline, &deadline)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to update deadline {}", deadline_idx),
-                    )
-                })?;
+        //     let deadline_idx = params.deadline;
+        //     deadlines
+        //         .update_deadline(rt.store(), params.deadline, &deadline)
+        //         .map_err(|e| {
+        //             e.downcast_default(
+        //                 ExitCode::ErrIllegalState,
+        //                 format!("failed to update deadline {}", deadline_idx),
+        //             )
+        //         })?;
 
-            state.save_deadlines(rt.store(), deadlines).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to save deadlines")
-            })?;
+        //     state.save_deadlines(rt.store(), deadlines).map_err(|e| {
+        //         e.downcast_default(ExitCode::ErrIllegalState, "failed to save deadlines")
+        //     })?;
 
-            Ok(post_result)
-        })?;
+        //     Ok(post_result)
+        // })?;
 
-        // Restore power for recovered sectors. Remove power for new faults.
-        // NOTE: It would be permissible to delay the power loss until the deadline closes, but that would require
-        // additional accounting state.
-        // https://github.com/filecoin-project/specs-actors/issues/414
-        request_update_power(rt, post_result.power_delta())?;
+        // // Restore power for recovered sectors. Remove power for new faults.
+        // // NOTE: It would be permissible to delay the power loss until the deadline closes, but that would require
+        // // additional accounting state.
+        // // https://github.com/filecoin-project/specs-actors/issues/414
+        // request_update_power(rt, post_result.power_delta)?;
 
-        // Burn penalties.
-        burn_funds(rt, penalty_total)?;
-        notify_pledge_changed(rt, &pledge_delta)?;
+        // // Burn penalties.
+        // burn_funds(rt, penalty_total)?;
+        // notify_pledge_changed(rt, &pledge_delta)?;
 
-        Ok(())
+        // Ok(())
     }
 
     /// Proposals must be posted on chain via sma.PublishStorageDeals before PreCommitSector.
@@ -656,7 +669,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        if !check_supported_proof_types(params.seal_proof) {
+        if !can_pre_commit_seal_proof(params.seal_proof, rt.network_version()) {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "unsupported seal proof type: {:?}",
@@ -838,8 +851,16 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to vest funds")
                 })?;
 
-            let available_balance =
-                state.get_available_balance(&rt.current_balance()?, rt.network_version())?;
+            let available_balance = state
+                .get_available_balance(&rt.current_balance()?)
+                .map_err(|e| {
+                    // TODO dc
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to calculate available balance: {}",
+                        e
+                    )
+                })?;
             let duration = params.expiration - rt.curr_epoch();
 
             let sector_weight = qa_power_for_weight(
@@ -867,7 +888,14 @@ impl Actor {
             }
 
             state.add_pre_commit_deposit(&deposit_req);
-            state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
+            state
+                .check_balance_invariants(&rt.current_balance()?)
+                .map_err(|e| {
+                    ActorError::new(
+                        ErrBalanceInvariantBroken,
+                        format!("balance invariant broken: {}", e),
+                    )
+                })?;
 
             let seal_proof = params.seal_proof;
             let sector_number = params.sector_number;
@@ -940,7 +968,8 @@ impl Actor {
         // slightly higher than the true amount (i.e. slightly in the miner's favour).
         // Computing vesting here would be almost always redundant since vesting is quantized to ~daily units.
         // Vesting will be at most one proving period old if computed in the cron callback.
-        verify_pledge_meets_initial_requirements(rt, &st)?;
+        // TODO
+        // verify_pledge_meets_initial_requirements(rt, &st)?;
 
         let sector_number = params.sector_number;
         let precommit = st
@@ -1173,13 +1202,17 @@ impl Actor {
                     seal_proof: pre_commit.info.seal_proof,
                     sealed_cid: pre_commit.info.sealed_cid,
                     deal_ids: pre_commit.info.deal_ids,
-                    activation,
                     expiration: pre_commit.info.expiration,
+                    activation,
                     deal_weight: pre_commit.deal_weight,
                     verified_deal_weight: pre_commit.verified_deal_weight,
                     initial_pledge,
                     expected_day_reward: day_reward,
                     expected_storage_pledge: storage_pledge,
+
+                    // TODO
+                    replaced_sector_age: Default::default(),
+                    replaced_day_reward: Default::default(),
                 };
 
                 new_sector_numbers.push(new_sector_info.sector_number);
@@ -1227,8 +1260,15 @@ impl Actor {
             // Unlock deposit for successful proofs, make it available for lock-up as initial pledge.
             state.add_pre_commit_deposit(&(-total_pre_commit_deposit));
 
-            let available_balance =
-                state.get_available_balance(&rt.current_balance()?, rt.network_version())?;
+            let available_balance = state
+                .get_available_balance(&rt.current_balance()?)
+                .map_err(|e| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to calculate available balance: {}",
+                        e
+                    )
+                })?;
             if available_balance < total_pledge {
                 return Err(actor_error!(
                     ErrInsufficientFunds,
@@ -1238,8 +1278,15 @@ impl Actor {
                 ));
             }
 
-            state.add_initial_pledge_requirement(&total_pledge);
-            state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
+            state.add_initial_pledge(&total_pledge);
+            state
+                .check_balance_invariants(&rt.current_balance()?)
+                .map_err(|e| {
+                    ActorError::new(
+                        ErrBalanceInvariantBroken,
+                        format!("balance invariant broken: {}", e),
+                    )
+                })?;
 
             Ok((new_power, total_pledge, newly_vested))
         })?;
@@ -1981,6 +2028,7 @@ impl Actor {
                 .add_sectors(
                     store,
                     info.window_post_partition_sectors,
+                    true,
                     &sectors,
                     info.sector_size,
                     quant,
@@ -2090,7 +2138,14 @@ impl Actor {
             // This ensures that the amountToLock is always locked up if the miner account
             // can cover it.
             let unlocked_balance =
-                st.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
+                st.get_unlocked_balance(&rt.current_balance()?)
+                    .map_err(|e| {
+                        actor_error!(
+                            ErrIllegalState,
+                            "failed to calculate unlocked balance: {}",
+                            e
+                        )
+                    })?;
             if unlocked_balance < amount_to_lock {
                 return Err(actor_error!(
                     ErrInsufficientFunds,
@@ -2208,14 +2263,22 @@ impl Actor {
                 .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "Failed to vest funds"))?;
 
             // Verify InitialPledgeRequirement does not exceed unlocked funds
-            verify_pledge_meets_initial_requirements(rt, state)?;
+            // TODO
+            // verify_pledge_meets_initial_requirements(rt, state)?;
 
             Ok((info, newly_vested, state.clone()))
         })?;
 
         let curr_balance = rt.current_balance()?;
         let amount_withdrawn = cmp::min(
-            state.get_available_balance(&curr_balance, rt.network_version())?,
+            state.get_available_balance(&curr_balance).map_err(|e| {
+                // TODO dc
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to calculate available balance: {}",
+                    e
+                )
+            })?,
             params.amount_requested,
         );
         assert!(!amount_withdrawn.is_negative());
@@ -2230,7 +2293,14 @@ impl Actor {
 
         notify_pledge_changed(rt, &newly_vested.neg())?;
 
-        state.assert_balance_invariants(&rt.current_balance()?, rt.network_version())?;
+        state
+            .check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariant broken: {}", e),
+                )
+            })?;
         Ok(())
     }
 
@@ -2265,112 +2335,112 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let reward_stats = request_current_epoch_block_reward(rt)?;
-    let power_total = request_current_total_power(rt)?;
-    let network_version = rt.network_version();
+    // let reward_stats = request_current_epoch_block_reward(rt)?;
+    // let power_total = request_current_total_power(rt)?;
+    // let network_version = rt.network_version();
 
-    let (result, more, deals_to_terminate, penalty, pledge_delta) =
-        rt.transaction(|state: &mut State, rt| {
-            let store = rt.store();
+    // let (result, more, deals_to_terminate, penalty, pledge_delta) =
+    //     rt.transaction(|state: &mut State, rt| {
+    // let store = rt.store();
 
-            let (result, more) = state
-                .pop_early_terminations(store, ADDRESSED_PARTITIONS_MAX, ADDRESSED_SECTORS_MAX)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to pop early terminations",
-                    )
-                })?;
+    // let (result, more) = state
+    //     .pop_early_terminations(store, ADDRESSED_PARTITIONS_MAX, ADDRESSED_SECTORS_MAX)
+    //     .map_err(|e| {
+    //         e.downcast_default(
+    //             ExitCode::ErrIllegalState,
+    //             "failed to pop early terminations",
+    //         )
+    //     })?;
 
-            // Nothing to do, don't waste any time.
-            // This can happen if we end up processing early terminations
-            // before the cron callback fires.
-            if result.is_empty() {
-                return Ok((
-                    result,
-                    more,
-                    Vec::new(),
-                    TokenAmount::zero(),
-                    TokenAmount::zero(),
-                ));
-            }
+    // // Nothing to do, don't waste any time.
+    // // This can happen if we end up processing early terminations
+    // // before the cron callback fires.
+    // if result.is_empty() {
+    //     return Ok((
+    //         result,
+    //         more,
+    //         Vec::new(),
+    //         TokenAmount::zero(),
+    //         TokenAmount::zero(),
+    //     ));
+    // }
 
-            let info = get_miner_info(rt, state)?;
-            let sectors = Sectors::load(store, &state.sectors).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load sectors array")
-            })?;
+    // let info = get_miner_info(rt, state)?;
+    // let sectors = Sectors::load(store, &state.sectors).map_err(|e| {
+    //     e.downcast_default(ExitCode::ErrIllegalState, "failed to load sectors array")
+    // })?;
 
-            let mut total_initial_pledge = TokenAmount::zero();
-            let mut deals_to_terminate =
-                Vec::<OnMinerSectorsTerminateParams>::with_capacity(result.sectors.len());
-            let mut penalty = TokenAmount::zero();
+    // let mut total_initial_pledge = TokenAmount::zero();
+    // let mut deals_to_terminate =
+    //     Vec::<OnMinerSectorsTerminateParams>::with_capacity(result.sectors.len());
+    // let mut penalty = TokenAmount::zero();
 
-            for (epoch, sector_numbers) in result.iter() {
-                let sectors = sectors
-                    .load_sector(sector_numbers)
-                    .map_err(|e| e.wrap("failed to load sector infos"))?;
+    // for (epoch, sector_numbers) in result.iter() {
+    //     let sectors = sectors
+    //         .load_sector(sector_numbers)
+    //         .map_err(|e| e.wrap("failed to load sector infos"))?;
 
-                penalty += termination_penalty(
-                    info.sector_size,
-                    epoch,
-                    &reward_stats.this_epoch_reward_smoothed,
-                    &power_total.quality_adj_power_smoothed,
-                    &sectors,
-                    network_version,
-                );
+    //     penalty += termination_penalty(
+    //         info.sector_size,
+    //         epoch,
+    //         &reward_stats.this_epoch_reward_smoothed,
+    //         &power_total.quality_adj_power_smoothed,
+    //         &sectors,
+    //         network_version,
+    //     );
 
-                // estimate ~one deal per sector.
-                let mut deal_ids = Vec::<DealID>::with_capacity(sectors.len());
-                for sector in sectors {
-                    deal_ids.extend(sector.deal_ids);
-                    total_initial_pledge += sector.initial_pledge;
-                }
+    //     // estimate ~one deal per sector.
+    //     let mut deal_ids = Vec::<DealID>::with_capacity(sectors.len());
+    //     for sector in sectors {
+    //         deal_ids.extend(sector.deal_ids);
+    //         total_initial_pledge += sector.initial_pledge;
+    //     }
 
-                let params = OnMinerSectorsTerminateParams { epoch, deal_ids };
-                deals_to_terminate.push(params);
-            }
+    //     let params = OnMinerSectorsTerminateParams { epoch, deal_ids };
+    //     deals_to_terminate.push(params);
+    // }
 
-            // Unlock funds for penalties.
-            // We're intentionally reducing the penalty paid to what we have.
-            let unlocked_balance =
-                state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
-            let (penalty_from_vesting, penalty_from_balance) = state
-                .penalize_funds_in_priority_order(
-                    store,
-                    rt.curr_epoch(),
-                    &penalty,
-                    &unlocked_balance,
-                )
-                .map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalState, "failed to unlock unvested funds")
-                })?;
-            let penalty = &penalty_from_vesting + penalty_from_balance;
+    // // Unlock funds for penalties.
+    // // We're intentionally reducing the penalty paid to what we have.
+    // let unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?)?;
+    // let (penalty_from_vesting, penalty_from_balance) = state
+    //     .penalize_funds_in_priority_order(
+    //         store,
+    //         rt.curr_epoch(),
+    //         &penalty,
+    //         &unlocked_balance,
+    //     )
+    //     .map_err(|e| {
+    //         e.downcast_default(ExitCode::ErrIllegalState, "failed to unlock unvested funds")
+    //     })?;
+    // let penalty = &penalty_from_vesting + penalty_from_balance;
 
-            // Remove pledge requirement.
-            state.add_initial_pledge_requirement(&-&total_initial_pledge);
-            let pledge_delta = -(total_initial_pledge + penalty_from_vesting);
+    // // Remove pledge requirement.
+    // state.add_initial_pledge(&-&total_initial_pledge);
+    // let pledge_delta = -(total_initial_pledge + penalty_from_vesting);
 
-            Ok((result, more, deals_to_terminate, penalty, pledge_delta))
-        })?;
+    // Ok((result, more, deals_to_terminate, penalty, pledge_delta))
+    //     })?;
 
-    // We didn't do anything, abort.
-    if result.is_empty() {
-        return Ok(more);
-    }
+    // // We didn't do anything, abort.
+    // if result.is_empty() {
+    //     return Ok(more);
+    // }
 
-    // Burn penalty.
-    burn_funds(rt, penalty)?;
+    // // Burn penalty.
+    // burn_funds(rt, penalty)?;
 
-    // Return pledge.
-    notify_pledge_changed(rt, &pledge_delta)?;
+    // // Return pledge.
+    // notify_pledge_changed(rt, &pledge_delta)?;
 
-    // Terminate deals.
-    for params in deals_to_terminate {
-        request_terminate_deals(rt, params.epoch, params.deal_ids)?;
-    }
+    // // Terminate deals.
+    // for params in deals_to_terminate {
+    //     request_terminate_deals(rt, params.epoch, params.deal_ids)?;
+    // }
 
-    // reschedule cron worker, if necessary.
-    Ok(more)
+    // // reschedule cron worker, if necessary.
+    // Ok(more)
+    todo!()
 }
 
 /// Invoked at the end of the last epoch for each proving deadline.
@@ -2379,265 +2449,265 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let curr_epoch = rt.curr_epoch();
-    let network_version = rt.network_version();
+    todo!()
+    // let curr_epoch = rt.curr_epoch();
+    // let network_version = rt.network_version();
 
-    let epoch_reward = request_current_epoch_block_reward(rt)?;
-    let power_total = request_current_total_power(rt)?;
+    // let epoch_reward = request_current_epoch_block_reward(rt)?;
+    // let power_total = request_current_total_power(rt)?;
 
-    let mut had_early_terminations = false;
+    // let mut had_early_terminations = false;
 
-    let mut power_delta = PowerPair::zero();
-    let mut penalty_total = TokenAmount::zero();
-    let mut pledge_delta = TokenAmount::zero();
+    // let mut power_delta = PowerPair::zero();
+    // let mut penalty_total = TokenAmount::zero();
+    // let mut pledge_delta = TokenAmount::zero();
 
-    let state: State = rt.transaction(|state: &mut State, rt| {
-        // Vest locked funds.
-        // This happens first so that any subsequent penalties are taken
-        // from locked vesting funds before funds free this epoch.
-        let newly_vested = state
-            .unlock_vested_funds(rt.store(), rt.curr_epoch())
-            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to vest funds"))?;
+    // let state: State = rt.transaction(|state: &mut State, rt| {
+    //     // Vest locked funds.
+    //     // This happens first so that any subsequent penalties are taken
+    //     // from locked vesting funds before funds free this epoch.
+    //     let newly_vested = state
+    //         .unlock_vested_funds(rt.store(), rt.curr_epoch())
+    //         .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to vest funds"))?;
 
-        pledge_delta += -newly_vested;
+    //     pledge_delta += -newly_vested;
 
-        // expire pre-committed sectors
-        let mut expiry_queue = BitFieldQueue::new(
-            rt.store(),
-            &state.pre_committed_sectors_expiry,
-            state.quant_spec_every_deadline(),
-        )
-        .map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "failed to load sector expiry queue",
-            )
-        })?;
+    //     // expire pre-committed sectors
+    //     let mut expiry_queue = BitFieldQueue::new(
+    //         rt.store(),
+    //         &state.pre_committed_sectors_expiry,
+    //         state.quant_spec_every_deadline(),
+    //     )
+    //     .map_err(|e| {
+    //         e.downcast_default(
+    //             ExitCode::ErrIllegalState,
+    //             "failed to load sector expiry queue",
+    //         )
+    //     })?;
 
-        let (bitfield, modified) = expiry_queue.pop_until(curr_epoch).map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "failed to pop expired sectors")
-        })?;
+    //     let (bitfield, modified) = expiry_queue.pop_until(curr_epoch).map_err(|e| {
+    //         e.downcast_default(ExitCode::ErrIllegalState, "failed to pop expired sectors")
+    //     })?;
 
-        if modified {
-            state.pre_committed_sectors_expiry = expiry_queue.amt.flush().map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to save expiry queue")
-            })?;
-        }
+    //     if modified {
+    //         state.pre_committed_sectors_expiry = expiry_queue.amt.flush().map_err(|e| {
+    //             e.downcast_default(ExitCode::ErrIllegalState, "failed to save expiry queue")
+    //         })?;
+    //     }
 
-        let deposit_to_burn = state
-            .check_precommit_expiry(rt.store(), &bitfield, rt.network_version())
-            .map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to save expiry queue")
-            })?;
+    //     let deposit_to_burn = state
+    //         .check_precommit_expiry(rt.store(), &bitfield, rt.network_version())
+    //         .map_err(|e| {
+    //             e.downcast_default(ExitCode::ErrIllegalState, "failed to save expiry queue")
+    //         })?;
 
-        penalty_total += deposit_to_burn;
+    //     penalty_total += deposit_to_burn;
 
-        // Record whether or not we _had_ early terminations in the queue before this method.
-        // That way, don't re-schedule a cron callback if one is already scheduled.
-        had_early_terminations = have_pending_early_terminations(state);
+    //     // Record whether or not we _had_ early terminations in the queue before this method.
+    //     // That way, don't re-schedule a cron callback if one is already scheduled.
+    //     had_early_terminations = have_pending_early_terminations(state);
 
-        // Note: because the cron actor is not invoked on epochs with empty tipsets, the current epoch is not necessarily
-        // exactly the final epoch of the deadline; it may be slightly later (i.e. in the subsequent deadline/period).
-        // Further, this method is invoked once *before* the first proving period starts, after the actor is first
-        // constructed; this is detected by !dlInfo.PeriodStarted().
-        // Use dlInfo.PeriodEnd() rather than rt.CurrEpoch unless certain of the desired semantics.
-        let deadline_info = state.deadline_info(curr_epoch);
-        if !deadline_info.period_started() {
-            // Skip checking faults on the first, incomplete period.
-            return Ok(state.clone());
-        }
+    //     // Note: because the cron actor is not invoked on epochs with empty tipsets, the current epoch is not necessarily
+    //     // exactly the final epoch of the deadline; it may be slightly later (i.e. in the subsequent deadline/period).
+    //     // Further, this method is invoked once *before* the first proving period starts, after the actor is first
+    //     // constructed; this is detected by !dlInfo.PeriodStarted().
+    //     // Use dlInfo.PeriodEnd() rather than rt.CurrEpoch unless certain of the desired semantics.
+    //     let deadline_info = state.deadline_info(curr_epoch);
+    //     if !deadline_info.period_started() {
+    //         // Skip checking faults on the first, incomplete period.
+    //         return Ok(state.clone());
+    //     }
 
-        let mut deadlines = state
-            .load_deadlines(rt.store())
-            .map_err(|e| e.wrap("failed to load deadlines"))?;
+    //     let mut deadlines = state
+    //         .load_deadlines(rt.store())
+    //         .map_err(|e| e.wrap("failed to load deadlines"))?;
 
-        let mut deadline = deadlines
-            .load_deadline(rt.store(), deadline_info.index)
-            .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_info.index)))?;
+    //     let mut deadline = deadlines
+    //         .load_deadline(rt.store(), deadline_info.index)
+    //         .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_info.index)))?;
 
-        let quant = deadline_info.quant_spec();
-        let mut unlocked_balance =
-            state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?;
+    //     let quant = deadline_info.quant_spec();
+    //     let mut unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?)?;
 
-        let previously_faulty_power = deadline.faulty_power.qa.clone();
+    //     let previously_faulty_power = deadline.faulty_power.qa.clone();
 
-        // Detect and penalize missing proofs.
-        let fault_expiration = deadline_info.last() + FAULT_MAX_AGE;
-        let mut penalize_power_total = TokenAmount::zero();
+    //     // Detect and penalize missing proofs.
+    //     let fault_expiration = deadline_info.last() + FAULT_MAX_AGE;
+    //     let mut penalize_power_total = TokenAmount::zero();
 
-        let (new_faulty_power, failed_recovery_power) = deadline
-            .process_deadline_end(rt.store(), quant, fault_expiration)
-            .map_err(|e| {
-                e.wrap(format!(
-                    "failed to process end of deadline {}",
-                    deadline_info.index
-                ))
-            })?;
+    //     let (new_faulty_power, failed_recovery_power) = deadline
+    //         .process_deadline_end(rt.store(), quant, fault_expiration)
+    //         .map_err(|e| {
+    //             e.wrap(format!(
+    //                 "failed to process end of deadline {}",
+    //                 deadline_info.index
+    //             ))
+    //         })?;
 
-        power_delta -= &new_faulty_power;
+    //     power_delta -= &new_faulty_power;
 
-        if network_version >= NetworkVersion::V3 {
-            // From network version 3, faults detected from a missed PoSt pay nothing.
-            // Failed recoveries pay nothing here, but will pay the ongoing fault fee
-            // in the subsequent block.
-        } else {
-            penalize_power_total += new_faulty_power.qa;
-            penalize_power_total += failed_recovery_power.qa;
+    //     if network_version >= NetworkVersion::V3 {
+    //         // From network version 3, faults detected from a missed PoSt pay nothing.
+    //         // Failed recoveries pay nothing here, but will pay the ongoing fault fee
+    //         // in the subsequent block.
+    //     } else {
+    //         penalize_power_total += new_faulty_power.qa;
+    //         penalize_power_total += failed_recovery_power.qa;
 
-            // Unlock sector penalty for all undeclared faults.
-            let mut penalty_target = pledge_penalty_for_undeclared_fault(
-                &epoch_reward.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
-                &penalize_power_total,
-                network_version,
-            );
+    //         // Unlock sector penalty for all undeclared faults.
+    //         let mut penalty_target = pledge_penalty_for_undeclared_fault(
+    //             &epoch_reward.this_epoch_reward_smoothed,
+    //             &power_total.quality_adj_power_smoothed,
+    //             &penalize_power_total,
+    //             network_version,
+    //         );
 
-            // Subtract the "ongoing" fault fee from the amount charged now, since it will be added on just below.
-            penalty_target -= pledge_penalty_for_declared_fault(
-                &epoch_reward.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
-                &penalize_power_total,
-                network_version,
-            );
+    //         // Subtract the "ongoing" fault fee from the amount charged now, since it will be added on just below.
+    //         penalty_target -= pledge_penalty_for_declared_fault(
+    //             &epoch_reward.this_epoch_reward_smoothed,
+    //             &power_total.quality_adj_power_smoothed,
+    //             &penalize_power_total,
+    //             network_version,
+    //         );
 
-            let (penalty_from_vesting, penalty_from_balance) = state
-                .penalize_funds_in_priority_order(
-                    rt.store(),
-                    curr_epoch,
-                    &penalty_target,
-                    &unlocked_balance,
-                )
-                .map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalState, "failed to unlock penalty")
-                })?;
+    //         let (penalty_from_vesting, penalty_from_balance) = state
+    //             .penalize_funds_in_priority_order(
+    //                 rt.store(),
+    //                 curr_epoch,
+    //                 &penalty_target,
+    //                 &unlocked_balance,
+    //             )
+    //             .map_err(|e| {
+    //                 e.downcast_default(ExitCode::ErrIllegalState, "failed to unlock penalty")
+    //             })?;
 
-            unlocked_balance -= &penalty_from_balance;
-            penalty_total += &penalty_from_vesting;
-            penalty_total += penalty_from_balance;
-            pledge_delta -= penalty_from_vesting;
-        }
+    //         unlocked_balance -= &penalty_from_balance;
+    //         penalty_total += &penalty_from_vesting;
+    //         penalty_total += penalty_from_balance;
+    //         pledge_delta -= penalty_from_vesting;
+    //     }
 
-        // Record faulty power for penalisation of ongoing faults, before popping expirations.
-        // This includes any power that was just faulted from missing a PoSt.
-        let ongoing_faulty_power = if network_version < NetworkVersion::V3 {
-            &deadline.faulty_power.qa
-        } else {
-            &previously_faulty_power
-        };
-        let penalty_target = pledge_penalty_for_declared_fault(
-            &epoch_reward.this_epoch_reward_smoothed,
-            &power_total.quality_adj_power_smoothed,
-            &ongoing_faulty_power,
-            network_version,
-        );
+    //     // Record faulty power for penalisation of ongoing faults, before popping expirations.
+    //     // This includes any power that was just faulted from missing a PoSt.
+    //     let ongoing_faulty_power = if network_version < NetworkVersion::V3 {
+    //         &deadline.faulty_power.qa
+    //     } else {
+    //         &previously_faulty_power
+    //     };
+    //     let penalty_target = pledge_penalty_for_declared_fault(
+    //         &epoch_reward.this_epoch_reward_smoothed,
+    //         &power_total.quality_adj_power_smoothed,
+    //         &ongoing_faulty_power,
+    //         network_version,
+    //     );
 
-        let (penalty_from_vesting, penalty_from_balance) = state
-            .penalize_funds_in_priority_order(
-                rt.store(),
-                curr_epoch,
-                &penalty_target,
-                &unlocked_balance,
-            )
-            .map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to unlock penalty")
-            })?;
+    //     let (penalty_from_vesting, penalty_from_balance) = state
+    //         .penalize_funds_in_priority_order(
+    //             rt.store(),
+    //             curr_epoch,
+    //             &penalty_target,
+    //             &unlocked_balance,
+    //         )
+    //         .map_err(|e| {
+    //             e.downcast_default(ExitCode::ErrIllegalState, "failed to unlock penalty")
+    //         })?;
 
-        unlocked_balance -= &penalty_from_balance;
-        penalty_total += &penalty_from_vesting;
-        penalty_total += penalty_from_balance;
-        pledge_delta -= penalty_from_vesting;
+    //     unlocked_balance -= &penalty_from_balance;
+    //     penalty_total += &penalty_from_vesting;
+    //     penalty_total += penalty_from_balance;
+    //     pledge_delta -= penalty_from_vesting;
 
-        // Expire sectors that are due, either for on-time expiration or "early" faulty-for-too-long.
-        let expired = deadline
-            .pop_expired_sectors(rt.store(), deadline_info.last(), quant)
-            .map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load expired sectors")
-            })?;
+    //     // Expire sectors that are due, either for on-time expiration or "early" faulty-for-too-long.
+    //     let expired = deadline
+    //         .pop_expired_sectors(rt.store(), deadline_info.last(), quant)
+    //         .map_err(|e| {
+    //             e.downcast_default(ExitCode::ErrIllegalState, "failed to load expired sectors")
+    //         })?;
 
-        // Release pledge requirements for the sectors expiring on-time.
-        // Pledge for the sectors expiring early is retained to support the termination fee that will be assessed
-        // when the early termination is processed.
-        pledge_delta -= &expired.on_time_pledge;
-        state.add_initial_pledge_requirement(&-expired.on_time_pledge);
+    //     // Release pledge requirements for the sectors expiring on-time.
+    //     // Pledge for the sectors expiring early is retained to support the termination fee that will be assessed
+    //     // when the early termination is processed.
+    //     pledge_delta -= &expired.on_time_pledge;
+    //     state.add_initial_pledge(&-expired.on_time_pledge);
 
-        // Record reduction in power of the amount of expiring active power.
-        // Faulty power has already been lost, so the amount expiring can be excluded from the delta.
-        power_delta -= &expired.active_power;
+    //     // Record reduction in power of the amount of expiring active power.
+    //     // Faulty power has already been lost, so the amount expiring can be excluded from the delta.
+    //     power_delta -= &expired.active_power;
 
-        // Record deadlines with early terminations. While this
-        // bitfield is non-empty, the miner is locked until they
-        // pay the fee.
-        let no_early_terminations = expired.early_sectors.is_empty();
-        if !no_early_terminations {
-            state.early_terminations.set(deadline_info.index as usize);
-        }
+    //     // Record deadlines with early terminations. While this
+    //     // bitfield is non-empty, the miner is locked until they
+    //     // pay the fee.
+    //     let no_early_terminations = expired.early_sectors.is_empty();
+    //     if !no_early_terminations {
+    //         state.early_terminations.set(deadline_info.index as usize);
+    //     }
 
-        // The termination fee is paid later, in early-termination queue processing.
-        // We could charge at least the undeclared fault fee here, which is a lower bound on the penalty.
-        // https://github.com/filecoin-project/specs-actors/issues/674
+    //     // The termination fee is paid later, in early-termination queue processing.
+    //     // We could charge at least the undeclared fault fee here, which is a lower bound on the penalty.
+    //     // https://github.com/filecoin-project/specs-actors/issues/674
 
-        // The deals are not terminated yet, that is left for processing of the early termination queue.
+    //     // The deals are not terminated yet, that is left for processing of the early termination queue.
 
-        // Save new deadline state.
-        deadlines
-            .update_deadline(rt.store(), deadline_info.index, &deadline)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    format!("failed to update deadline {}", deadline_info.index),
-                )
-            })?;
+    //     // Save new deadline state.
+    //     deadlines
+    //         .update_deadline(rt.store(), deadline_info.index, &deadline)
+    //         .map_err(|e| {
+    //             e.downcast_default(
+    //                 ExitCode::ErrIllegalState,
+    //                 format!("failed to update deadline {}", deadline_info.index),
+    //             )
+    //         })?;
 
-        state.save_deadlines(rt.store(), deadlines).map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "failed to save deadlines")
-        })?;
+    //     state.save_deadlines(rt.store(), deadlines).map_err(|e| {
+    //         e.downcast_default(ExitCode::ErrIllegalState, "failed to save deadlines")
+    //     })?;
 
-        // Increment current deadline, and proving period if necessary.
-        if deadline_info.period_started() {
-            state.current_deadline += 1;
-            state.current_deadline %= WPOST_PERIOD_DEADLINES;
+    //     // Increment current deadline, and proving period if necessary.
+    //     if deadline_info.period_started() {
+    //         state.current_deadline += 1;
+    //         state.current_deadline %= WPOST_PERIOD_DEADLINES;
 
-            if state.current_deadline == 0 {
-                state.proving_period_start += WPOST_PROVING_PERIOD;
-            }
-        }
+    //         if state.current_deadline == 0 {
+    //             state.proving_period_start += WPOST_PROVING_PERIOD;
+    //         }
+    //     }
 
-        Ok(state.clone())
-    })?;
+    //     Ok(state.clone())
+    // })?;
 
-    // Remove power for new faults, and burn penalties.
-    request_update_power(rt, power_delta)?;
-    burn_funds(rt, penalty_total)?;
-    notify_pledge_changed(rt, &pledge_delta)?;
+    // // Remove power for new faults, and burn penalties.
+    // request_update_power(rt, power_delta)?;
+    // burn_funds(rt, penalty_total)?;
+    // notify_pledge_changed(rt, &pledge_delta)?;
 
-    // Schedule cron callback for next deadline's last epoch.
-    let new_deadline_info = state.deadline_info(curr_epoch);
-    enroll_cron_event(
-        rt,
-        new_deadline_info.last(),
-        CronEventPayload {
-            event_type: CRON_EVENT_PROVING_DEADLINE,
-        },
-    )?;
+    // // Schedule cron callback for next deadline's last epoch.
+    // let new_deadline_info = state.deadline_info(curr_epoch);
+    // enroll_cron_event(
+    //     rt,
+    //     new_deadline_info.last(),
+    //     CronEventPayload {
+    //         event_type: CRON_EVENT_PROVING_DEADLINE,
+    //     },
+    // )?;
 
-    // Record whether or not we _have_ early terminations now.
-    let has_early_terminations = have_pending_early_terminations(&state);
+    // // Record whether or not we _have_ early terminations now.
+    // let has_early_terminations = have_pending_early_terminations(&state);
 
-    // If we didn't have pending early terminations before, but we do now,
-    // handle them at the next epoch.
-    if !had_early_terminations && has_early_terminations {
-        // First, try to process some of these terminations.
-        if process_early_terminations(rt)? {
-            // If that doesn't work, just defer till the next epoch.
-            schedule_early_termination_work(rt)?;
-        }
+    // // If we didn't have pending early terminations before, but we do now,
+    // // handle them at the next epoch.
+    // if !had_early_terminations && has_early_terminations {
+    //     // First, try to process some of these terminations.
+    //     if process_early_terminations(rt)? {
+    //         // If that doesn't work, just defer till the next epoch.
+    //         schedule_early_termination_work(rt)?;
+    //     }
 
-        // Note: _don't_ process early terminations if we had a cron
-        // callback already scheduled. In that case, we'll already have
-        // processed AddressedSectorsMax terminations this epoch.
-    }
+    //     // Note: _don't_ process early terminations if we had a cron
+    //     // callback already scheduled. In that case, we'll already have
+    //     // processed AddressedSectorsMax terminations this epoch.
+    // }
 
-    Ok(())
+    // Ok(())
 }
 
 /// Check expiry is exactly *the epoch before* the start of a proving period.
@@ -3113,27 +3183,6 @@ where
     Ok(power)
 }
 
-/// Verifies that the total locked balance exceeds the sum of sector initial pledges.
-fn verify_pledge_meets_initial_requirements<BS, RT>(
-    rt: &RT,
-    state: &State,
-) -> Result<(), ActorError>
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
-    if state.meets_initial_pledge_condition(&rt.current_balance()?, rt.network_version())? {
-        Ok(())
-    } else {
-        Err(actor_error!(
-            ErrInsufficientFunds,
-            "unlocked balance does not cover pledge requirements ({} < {})",
-            state.get_unlocked_balance(&rt.current_balance()?, rt.network_version())?,
-            state.initial_pledge_requirement
-        ))
-    }
-}
-
 /// Resolves an address to an ID address and verifies that it is address of an account or multisig actor.
 fn resolve_control_address<BS, RT>(rt: &RT, raw: Address) -> Result<Address, ActorError>
 where
@@ -3258,7 +3307,7 @@ fn assign_proving_period_offset(
 /// Computes the epoch at which a proving period should start such that it is greater than the current epoch, and
 /// has a defined offset from being an exact multiple of WPoStProvingPeriod.
 /// A miner is exempt from Winow PoSt until the first full proving period starts.
-fn next_proving_period_start(current_epoch: ChainEpoch, offset: ChainEpoch) -> ChainEpoch {
+fn current_proving_period_start(current_epoch: ChainEpoch, offset: ChainEpoch) -> ChainEpoch {
     let curr_modulus = current_epoch % WPOST_PROVING_PERIOD;
 
     let period_progress = if curr_modulus >= offset {
@@ -3267,9 +3316,15 @@ fn next_proving_period_start(current_epoch: ChainEpoch, offset: ChainEpoch) -> C
         WPOST_PROVING_PERIOD - (offset - curr_modulus)
     };
 
-    let period_start = current_epoch - period_progress + WPOST_PROVING_PERIOD;
-    assert!(period_start > current_epoch);
+    let period_start = current_epoch - period_progress;
+    assert!(period_start <= current_epoch);
     period_start
+}
+
+fn current_deadline_index(current_epoch: ChainEpoch, period_start: ChainEpoch) -> u64 {
+    assert!(current_epoch >= period_start);
+
+    ((current_epoch - period_start) / WPOST_CHALLENGE_WINDOW) as u64
 }
 
 /// Computes deadline information for a fault or recovery declaration.
@@ -3377,6 +3432,49 @@ where
     state
         .get_info(rt.store())
         .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "could not read miner info"))
+}
+
+fn check_control_addresses(control_addrs: &[Address]) -> Result<(), ActorError> {
+    if control_addrs.len() > MAX_CONTROL_ADDRESSES {
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "control addresses length {} exceeds max control addresses length {}",
+            control_addrs.len(),
+            MAX_CONTROL_ADDRESSES
+        ));
+    }
+
+    Ok(())
+}
+
+fn check_peer_info(peer_id: &[u8], multiaddrs: &[BytesDe]) -> Result<(), ActorError> {
+    if peer_id.len() > MAX_PEER_ID_LENGTH {
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "peer ID size of {} exceeds maximum size of {}",
+            peer_id.len(),
+            MAX_PEER_ID_LENGTH
+        ));
+    }
+
+    let mut total_size = 0;
+    for ma in multiaddrs {
+        if ma.0.is_empty() {
+            return Err(actor_error!(ErrIllegalArgument, "invalid empty multiaddr"));
+        }
+        total_size += ma.0.len();
+    }
+
+    if total_size > MAX_MULTIADDR_DATA {
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "multiaddr size of {} exceeds maximum of {}",
+            total_size,
+            MAX_MULTIADDR_DATA
+        ));
+    }
+
+    Ok(())
 }
 
 impl ActorCode for Actor {

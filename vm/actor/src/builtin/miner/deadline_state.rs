@@ -276,6 +276,7 @@ impl Deadline {
         &mut self,
         store: &BS,
         partition_size: u64,
+        proven: bool,
         mut sectors: &[SectorOnChainInfo],
         sector_size: SectorSize,
         quant: QuantSpec,
@@ -286,7 +287,7 @@ impl Deadline {
 
         // First update partitions, consuming the sectors
         let mut partition_deadline_updates = HashMap::<ChainEpoch, Vec<u64>>::new();
-        let mut new_power = PowerPair::zero();
+        let mut activated_power = PowerPair::zero();
         self.live_sectors += sectors.len() as u64;
         self.total_sectors += sectors.len() as u64;
 
@@ -322,9 +323,9 @@ impl Deadline {
             sectors = &sectors[size..];
 
             // Add sectors to partition.
-            let partition_new_power =
-                partition.add_sectors(store, partition_new_sectors, sector_size, quant)?;
-            new_power += &partition_new_power;
+            let partition_activated_power =
+                partition.add_sectors(store, proven, partition_new_sectors, sector_size, quant)?;
+            activated_power += &partition_activated_power;
 
             // Save partition back.
             partitions.set(partition_idx, partition)?;
@@ -352,7 +353,7 @@ impl Deadline {
             .map_err(|e| e.downcast_wrap("failed to add expirations for new deadlines"))?;
         self.expirations_epochs = deadline_expirations.amt.flush()?;
 
-        Ok(new_power)
+        Ok(activated_power)
     }
 
     pub fn pop_early_terminations<BS: BlockStore>(
@@ -618,7 +619,7 @@ impl Deadline {
         // Record partitions with some fault, for subsequently indexing in the deadline.
         // Duplicate entries don't matter, they'll be stored in a bitfield (a set).
         let mut partitions_with_fault = Vec::<u64>::with_capacity(partition_sectors.len());
-        let mut new_faulty_power = PowerPair::zero();
+        let mut power_delta = PowerPair::zero();
 
         for (partition_idx, sector_numbers) in partition_sectors.iter() {
             let mut partition = partitions
@@ -632,7 +633,7 @@ impl Deadline {
                 .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?
                 .clone();
 
-            let (new_faults, new_partition_faulty_power) = partition
+            let (new_faults, partition_power_delta, partition_new_faulty_power) = partition
                 .declare_faults(
                     store,
                     sectors,
@@ -648,7 +649,8 @@ impl Deadline {
                     ))
                 })?;
 
-            new_faulty_power += &new_partition_faulty_power;
+            self.faulty_power += &partition_new_faulty_power;
+            power_delta += &partition_power_delta;
             if !new_faults.is_empty() {
                 partitions_with_fault.push(partition_idx);
             }
@@ -678,8 +680,7 @@ impl Deadline {
             )
         })?;
 
-        self.faulty_power += &new_faulty_power;
-        Ok(new_faulty_power)
+        Ok(power_delta)
     }
 
     pub fn declare_faults_recovered<BS: BlockStore>(
@@ -732,16 +733,14 @@ impl Deadline {
         quant: QuantSpec,
         fault_expiration_epoch: ChainEpoch,
     ) -> Result<(PowerPair, PowerPair), ActorError> {
-        let mut new_faulty_power = PowerPair::zero();
-        let mut failed_recovery_power = PowerPair::zero();
-
         let mut partitions = self
             .partitions_amt(store)
             .map_err(|e| e.wrap("failed to load partitions"))?;
 
         let mut detected_any = false;
         let mut rescheduled_partitions = Vec::<u64>::new();
-
+        let mut power_delta = PowerPair::zero();
+        let mut penalized_power = PowerPair::zero();
         for partition_idx in 0..partitions.count() {
             let proven = self.post_submissions.get(partition_idx as usize);
 
@@ -771,7 +770,7 @@ impl Deadline {
             // Ok, we actually need to process this partition. Make sure we save the partition state back.
             detected_any = true;
 
-            let (part_faulty_power, part_failed_recovery_power) = partition
+            let (part_power_delta, part_penalized_power, part_new_faulty_power) = partition
                 .record_missed_post(store, fault_expiration_epoch, quant)
                 .map_err(|e| {
                     e.downcast_default(
@@ -786,7 +785,7 @@ impl Deadline {
             // We marked some sectors faulty, we need to record the new
             // expiration. We don't want to do this if we're just penalizing
             // the miner for failing to recover power.
-            if !part_faulty_power.is_zero() {
+            if !part_new_faulty_power.is_zero() {
                 rescheduled_partitions.push(partition_idx);
             }
 
@@ -798,8 +797,10 @@ impl Deadline {
                 )
             })?;
 
-            new_faulty_power += &part_faulty_power;
-            failed_recovery_power += &part_failed_recovery_power;
+            self.faulty_power += &part_new_faulty_power;
+
+            power_delta += &part_power_delta;
+            penalized_power += &part_penalized_power;
         }
 
         // Save modified deadline state.
@@ -822,11 +823,9 @@ impl Deadline {
             )
         })?;
 
-        self.faulty_power += &new_faulty_power;
-
         // Reset PoSt submissions.
         self.post_submissions = BitField::new();
-        Ok((new_faulty_power, failed_recovery_power))
+        Ok((power_delta, penalized_power))
     }
     pub fn for_each<BS: BlockStore>(
         &self,
@@ -839,6 +838,7 @@ impl Deadline {
 }
 
 pub struct PoStResult {
+    pub power_delta: PowerPair,
     pub new_faulty_power: PowerPair,
     pub retracted_recovery_power: PowerPair,
     pub recovered_power: PowerPair,
@@ -849,11 +849,6 @@ pub struct PoStResult {
 }
 
 impl PoStResult {
-    /// The power change (positive or negative) after processing the PoSt submission.
-    pub fn power_delta(&self) -> PowerPair {
-        &self.recovered_power - &self.new_faulty_power
-    }
-
     /// The power from this PoSt that should be penalized.
     pub fn penalty_power(&self) -> PowerPair {
         &self.new_faulty_power + &self.retracted_recovery_power
@@ -888,6 +883,7 @@ impl Deadline {
         let mut retracted_recovery_power_total = PowerPair::zero();
         let mut recovered_power_total = PowerPair::zero();
         let mut rescheduled_partitions = Vec::<u64>::new();
+        let mut power_delta = PowerPair::zero();
 
         // Accumulate sectors info for proof verification.
         for post in post_partitions {
@@ -906,25 +902,26 @@ impl Deadline {
 
             // Process new faults and accumulate new faulty power.
             // This updates the faults in partition state ahead of calculating the sectors to include for proof.
-            let (new_fault_power, retracted_recovery_power) = partition
-                .record_skipped_faults(
-                    store,
-                    sectors,
-                    sector_size,
-                    quant,
-                    fault_expiration,
-                    &mut post.skipped,
-                )
-                .map_err(|e| {
-                    e.wrap(format!(
-                        "failed to add skipped faults to partition {}",
-                        post.index
-                    ))
-                })?;
+            let (mut new_power_delta, new_fault_power, retracted_recovery_power, has_new_faults) =
+                partition
+                    .record_skipped_faults(
+                        store,
+                        sectors,
+                        sector_size,
+                        quant,
+                        fault_expiration,
+                        &mut post.skipped,
+                    )
+                    .map_err(|e| {
+                        e.downcast_wrap(format!(
+                            "failed to add skipped faults to partition {}",
+                            post.index
+                        ))
+                    })?;
 
             // If we have new faulty power, we've added some faults. We need
             // to record the new expiration in the deadline.
-            if !new_fault_power.is_zero() {
+            if has_new_faults {
                 rescheduled_partitions.push(post.index);
             }
 
@@ -936,6 +933,8 @@ impl Deadline {
                         post.index
                     ))
                 })?;
+
+            new_power_delta += &partition.activate_unproven();
 
             // note: we do this first because `partition` is moved in the upcoming `partitions.set` call
             // At this point, the partition faults represents the expected faults for the proof, with new skipped
@@ -955,6 +954,8 @@ impl Deadline {
             new_faulty_power_total += &new_fault_power;
             retracted_recovery_power_total += &retracted_recovery_power;
             recovered_power_total += &recovered_power;
+            power_delta += &new_power_delta;
+            power_delta += &recovered_power;
 
             // Record the post.
             self.post_submissions.set(post.index as usize);
@@ -985,6 +986,7 @@ impl Deadline {
             retracted_recovery_power: retracted_recovery_power_total,
             recovered_power: recovered_power_total,
             sectors: all_sector_numbers,
+            power_delta,
             ignored_sectors: all_ignored_sector_numbers,
         })
     }
@@ -1005,12 +1007,13 @@ impl Deadline {
         partition_sectors: &mut PartitionSectorMap,
         sector_size: SectorSize,
         quant: QuantSpec,
-    ) -> Result<(), Box<dyn StdError>> {
+    ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
         let mut partitions = self.partitions_amt(store)?;
 
         // track partitions with moved expirations.
         let mut rescheduled_partitions = Vec::<u64>::new();
 
+        let mut all_replaced = Vec::new();
         for (partition_idx, sector_numbers) in partition_sectors.iter() {
             let mut partition = match partitions.get(partition_idx).map_err(|e| {
                 e.downcast_wrap(format!("failed to load partition {}", partition_idx))
@@ -1024,7 +1027,7 @@ impl Deadline {
                 }
             };
 
-            let moved = partition
+            let replaced = partition
                 .reschedule_expirations(
                     store,
                     sectors,
@@ -1040,10 +1043,11 @@ impl Deadline {
                     ))
                 })?;
 
-            if moved.is_empty() {
+            if replaced.is_empty() {
                 // nothing moved.
                 continue;
             }
+            all_replaced.extend(replaced);
 
             rescheduled_partitions.push(partition_idx);
             partitions.set(partition_idx, partition).map_err(|e| {
@@ -1060,6 +1064,6 @@ impl Deadline {
                 .map_err(|e| e.downcast_wrap("failed to reschedule partition expirations"))?;
         }
 
-        Ok(())
+        Ok(all_replaced)
     }
 }
