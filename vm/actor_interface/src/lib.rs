@@ -24,9 +24,7 @@ impl From<NetworkVersion> for ActorVersion {
             NetworkVersion::V0 | NetworkVersion::V1 | NetworkVersion::V2 | NetworkVersion::V3 => {
                 ActorVersion::V0
             }
-            NetworkVersion::V4 | NetworkVersion::V5 | NetworkVersion::V6 | NetworkVersion::V7 => {
-                ActorVersion::V2
-            }
+            _ => ActorVersion::V2,
         }
     }
 }
