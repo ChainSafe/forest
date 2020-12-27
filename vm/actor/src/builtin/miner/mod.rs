@@ -2120,11 +2120,7 @@ impl Actor {
             ));
         }
 
-        let vesting_schedule = if rt.network_version() < NetworkVersion::V1 {
-            REWARD_VESTING_SPEC_V0
-        } else {
-            REWARD_VESTING_SPEC_V1
-        };
+        let vesting_schedule = REWARD_VESTING_SPEC;
 
         let newly_vested = rt.transaction(|st: &mut State, rt| {
             let info = get_miner_info(rt, st)?;
@@ -3380,23 +3376,24 @@ fn termination_penalty(
     sectors: &[SectorOnChainInfo],
     network_version: NetworkVersion,
 ) -> TokenAmount {
-    let mut total_fee = TokenAmount::zero();
+    todo!()
+    // let mut total_fee = TokenAmount::zero();
 
-    for sector in sectors {
-        let sector_power = qa_power_for_sector(sector_size, sector);
-        let fee = pledge_penalty_for_termination(
-            &sector.expected_day_reward,
-            &sector.expected_storage_pledge,
-            current_epoch - sector.activation,
-            reward_estimate,
-            network_qa_power_estimate,
-            &sector_power,
-            network_version,
-        );
-        total_fee += fee;
-    }
+    // for sector in sectors {
+    //     let sector_power = qa_power_for_sector(sector_size, sector);
+    //     let fee = pledge_penalty_for_termination(
+    //         &sector.expected_day_reward,
+    //         &sector.expected_storage_pledge,
+    //         current_epoch - sector.activation,
+    //         reward_estimate,
+    //         network_qa_power_estimate,
+    //         &sector_power,
+    //         network_version,
+    //     );
+    //     total_fee += fee;
+    // }
 
-    total_fee
+    // total_fee
 }
 
 fn power_for_sector(sector_size: SectorSize, sector: &SectorOnChainInfo) -> PowerPair {
