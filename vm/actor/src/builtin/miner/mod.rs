@@ -775,7 +775,7 @@ impl Actor {
                 ));
             }
 
-            let max_deal_limit = deal_per_sector_limit(info.sector_size);
+            let max_deal_limit = sector_deals_max(info.sector_size);
             if params.deal_ids.len() as u64 > max_deal_limit {
                 return Err(actor_error!(
                     ErrIllegalArgument,
@@ -833,7 +833,7 @@ impl Actor {
 
             // Require sector lifetime meets minimum by assuming activation happens at last epoch permitted for seal proof.
             // This could make sector maximum lifetime validation more lenient if the maximum sector limit isn't hit first.
-            let max_activation = rt.curr_epoch() + max_seal_duration(params.seal_proof).unwrap();
+            let max_activation = rt.curr_epoch() + max_prove_commit_duration(params.seal_proof).unwrap();
             validate_expiration(rt, max_activation, params.expiration, params.seal_proof)?;
 
             let deposit_minimum = if params.replace_capacity {
@@ -919,7 +919,7 @@ impl Actor {
                 })?;
 
             // add precommit expiry to the queue
-            let max_seal_duration = max_seal_duration(seal_proof).ok_or_else(|| {
+            let max_seal_duration = max_prove_commit_duration(seal_proof).ok_or_else(|| {
                 actor_error!(
                     ErrIllegalArgument,
                     "no max seal duration set for proof type: {:?}",
@@ -984,7 +984,7 @@ impl Actor {
                 actor_error!(ErrNotFound, "no pre-committed sector: {}", sector_number)
             })?;
 
-        let msd = max_seal_duration(precommit.info.seal_proof).ok_or_else(|| {
+        let msd = max_prove_commit_duration(precommit.info.seal_proof).ok_or_else(|| {
             actor_error!(
                 ErrIllegalState,
                 "no max seal duration set for proof type: {:?}",
@@ -3418,7 +3418,7 @@ fn power_for_sectors(sector_size: SectorSize, sectors: &[SectorOnChainInfo]) -> 
 
 /// The oldest seal challenge epoch that will be accepted in the current epoch.
 fn seal_challenge_earliest(current_epoch: ChainEpoch, proof: RegisteredSealProof) -> ChainEpoch {
-    current_epoch - CHAIN_FINALITY - max_seal_duration(proof).unwrap_or_default()
+    current_epoch - CHAIN_FINALITY - max_prove_commit_duration(proof).unwrap_or_default()
 }
 
 fn get_miner_info<BS, RT>(rt: &RT, state: &State) -> Result<MinerInfo, ActorError>
