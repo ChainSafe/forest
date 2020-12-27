@@ -13,7 +13,7 @@ use encoding::tuple::*;
 use fil_types::{deadlines::QuantSpec, SectorSize};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use num_traits::Zero;
+use num_traits::{Signed, Zero};
 use std::{cmp, collections::HashMap, collections::HashSet, error::Error as StdError};
 
 /// Deadlines contains Deadline objects, describing the sectors due at the given
@@ -82,6 +82,9 @@ impl Deadlines {
         if deadline_idx >= WPOST_PERIOD_DEADLINES as u64 {
             return Err(format!("invalid deadline {}", deadline_idx).into());
         }
+
+        deadline.validate_state()?;
+
         self.due[deadline_idx as usize] = store.put(deadline, Blake2b256)?;
         Ok(())
     }
@@ -561,7 +564,23 @@ impl Deadline {
                 // Don't allow removing partitions with faulty sectors.
                 let has_no_faults = partition.faults.is_empty();
                 if !has_no_faults {
-                    return Err(actor_error!(ErrIllegalArgument; "cannot remove partition {}: has faults", partition_idx).into());
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "cannot remove partition {}: has faults",
+                        partition_idx
+                    )
+                    .into());
+                }
+
+                // Don't allow removing partitions with unproven sectors
+                let all_proven = partition.unproven.is_empty();
+                if !all_proven {
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "cannot remove partition {}: has unproven sectors",
+                        partition_idx
+                    )
+                    .into());
                 }
 
                 // Get the live sectors.
@@ -725,8 +744,9 @@ impl Deadline {
         Ok(())
     }
 
-    /// Processes all PoSt submissions, marking unproven sectors as faulty and clearing failed recoveries.
-    /// Returns any new faulty power and failed recovery power.
+    /// Processes all PoSt submissions, marking unproven sectors as
+    /// faulty and clearing failed recoveries. It returns the power delta, and any
+    /// power that should be penalized (new faults and failed recoveries).
     pub fn process_deadline_end<BS: BlockStore>(
         &mut self,
         store: &BS,
@@ -835,9 +855,22 @@ impl Deadline {
         let parts = self.partitions_amt(store)?;
         parts.for_each(f)
     }
+
+    pub fn validate_state(&self) -> Result<(), &'static str> {
+        if self.live_sectors > self.total_sectors {
+            return Err("deadline left with more live sectors than total");
+        }
+
+        if self.faulty_power.raw.is_negative() || self.faulty_power.qa.is_negative() {
+            return Err("deadline left with negative faulty power");
+        }
+
+        Ok(())
+    }
 }
 
 pub struct PoStResult {
+	/// Power activated or deactivated (positive or negative).
     pub power_delta: PowerPair,
     pub new_faulty_power: PowerPair,
     pub retracted_recovery_power: PowerPair,
