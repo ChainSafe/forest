@@ -833,7 +833,8 @@ impl Actor {
 
             // Require sector lifetime meets minimum by assuming activation happens at last epoch permitted for seal proof.
             // This could make sector maximum lifetime validation more lenient if the maximum sector limit isn't hit first.
-            let max_activation = rt.curr_epoch() + max_prove_commit_duration(params.seal_proof).unwrap();
+            let max_activation =
+                rt.curr_epoch() + max_prove_commit_duration(params.seal_proof).unwrap();
             validate_expiration(rt, max_activation, params.expiration, params.seal_proof)?;
 
             let deposit_minimum = if params.replace_capacity {

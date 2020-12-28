@@ -870,7 +870,7 @@ impl Deadline {
 }
 
 pub struct PoStResult {
-	/// Power activated or deactivated (positive or negative).
+    /// Power activated or deactivated (positive or negative).
     pub power_delta: PowerPair,
     pub new_faulty_power: PowerPair,
     pub retracted_recovery_power: PowerPair,

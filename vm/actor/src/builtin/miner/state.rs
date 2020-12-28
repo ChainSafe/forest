@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*, types::*,
-    Deadline, DeadlineSectorMap, Deadlines, PowerPair, Sectors, TerminationResult, VestingFunds,
+    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*,
+    quant_spec_for_deadline, types::*, BitFieldQueue, Deadline, DeadlineSectorMap, Deadlines,
+    PowerPair, Sectors, TerminationResult, VestingFunds,
 };
-use crate::{actor_assert, make_map_with_root, u64_key, ActorDowncast};
+use crate::{make_map_with_root, u64_key, ActorDowncast};
 use address::Address;
 use bitfield::BitField;
 use cid::{Cid, Code::Blake2b256};
@@ -13,13 +14,14 @@ use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
     deadlines::{DeadlineInfo, QuantSpec},
-    NetworkVersion, RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
+    RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error as HamtError;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
+use std::ops::Neg;
 use std::{cmp, error::Error as StdError};
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
@@ -616,74 +618,6 @@ impl State {
         Ok(Sectors::load(store, &self.sectors)?.load_sector(sectors)?)
     }
 
-    // /// Loads info for a set of sectors to be proven.
-    // /// If any of the sectors are declared faulty and not to be recovered, info for the first non-faulty sector is substituted instead.
-    // /// If any of the sectors are declared recovered, they are returned from this method.
-    // pub fn load_sector_infos_for_proof<BS: BlockStore>(
-    //     &mut self,
-    //     store: &BS,
-    //     proven_sectors: &BitField,
-    //     expected_faults: &BitField,
-    // ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
-    //     let non_faults = proven_sectors - expected_faults;
-
-    //     if non_faults.is_empty() {
-    //         return Ok(Vec::new());
-    //     }
-
-    //     // Select a non-faulty sector as a substitute for faulty ones.
-    //     let good_sector_no = non_faults
-    //         .first()
-    //         .ok_or("no non-faulty sectors in partitions")?;
-
-    //     // load sector infos
-    //     let sector_infos = self.load_sector_infos_with_fault_mask(
-    //         store,
-    //         &proven_sectors,
-    //         &expected_faults,
-    //         good_sector_no as u64,
-    //     )?;
-
-    //     Ok(sector_infos)
-    // }
-
-    // /// Loads sector info for a sequence of sectors, substituting info for a stand-in sector for any that are faulty.
-    // fn load_sector_infos_with_fault_mask<BS: BlockStore>(
-    //     &self,
-    //     store: &BS,
-    //     sectors_bf: &BitField,
-    //     faults: &BitField,
-    //     fault_stand_in: SectorNumber,
-    // ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
-    //     let sectors = Sectors::load(store, &self.sectors)
-    //         .map_err(|e| e.downcast_wrap("failed to load sectors array"))?;
-
-    //     let stand_in_info = sectors.must_get(fault_stand_in).map_err(|e| {
-    //         e.downcast_wrap(format!("failed to load stand-in sector {}", fault_stand_in))
-    //     })?;
-
-    //     // Expand faults into a map for quick lookups.
-    //     // The faults bitfield should already be a subset of the sectors bitfield.
-    //     let fault_max = sectors.amt.count();
-    //     let fault_set: AHashSet<_> = faults.bounded_iter(fault_max as usize)?.collect();
-
-    //     // Load the sector infos, masking out fault sectors with a good one.
-    //     let mut sector_infos: Vec<SectorOnChainInfo> = Vec::new();
-    //     for i in sectors_bf.iter() {
-    //         let sector = if fault_set.contains(&i) {
-    //             stand_in_info.clone()
-    //         } else {
-    //             sectors
-    //                 .must_get(i as u64)
-    //                 .map_err(|e| e.downcast_wrap(format!("failed to load sector {}", i)))?
-    //         };
-
-    //         sector_infos.push(sector);
-    //     }
-
-    //     Ok(sector_infos)
-    // }
-
     pub fn load_deadlines<BS: BlockStore>(&self, store: &BS) -> Result<Deadlines, ActorError> {
         store
             .get::<Deadlines>(&self.deadlines)
@@ -830,6 +764,27 @@ impl State {
         Ok((from_vesting, from_balance))
     }
 
+    /// Repays the full miner actor fee debt.  Returns the amount that must be
+    /// burnt and an error if there are not sufficient funds to cover repayment.
+    /// Miner state repays from unlocked funds and fails if unlocked funds are insufficient to cover fee debt.
+    /// FeeDebt will be zero after a successful call.
+    pub fn repay_debts(
+        &mut self,
+        curr_balance: &TokenAmount,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        let unlocked_balance = self.get_unlocked_balance(curr_balance)?;
+        if unlocked_balance < self.fee_debt {
+            return Err(actor_error!(
+                ErrInsufficientFunds,
+                "unlocked balance can not repay fee debt ({} < {})",
+                unlocked_balance,
+                self.fee_debt
+            )
+            .into());
+        }
+
+        Ok(std::mem::take(&mut self.fee_debt))
+    }
     /// Unlocks an amount of funds that have *not yet vested*, if possible.
     /// The soonest-vesting entries are unlocked first.
     /// Returns the amount actually unlocked.
@@ -839,6 +794,10 @@ impl State {
         current_epoch: ChainEpoch,
         target: &TokenAmount,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
+        if target.is_zero() || self.locked_funds.is_zero() {
+            return Ok(TokenAmount::zero());
+        }
+
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_unvested_funds(current_epoch, target);
         self.locked_funds -= &amount_unlocked;
@@ -855,6 +814,10 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
+        if self.locked_funds.is_zero() {
+            return Ok(TokenAmount::zero());
+        }
+
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
         self.locked_funds -= &amount_unlocked;
@@ -926,10 +889,6 @@ impl State {
         Ok(())
     }
 
-    pub fn meets_initial_pledge_condition(&self, balance: &TokenAmount) -> Result<bool, String> {
-        Ok(self.get_unlocked_balance(balance)? >= self.initial_pledge)
-    }
-
     /// pre-commit expiry
     pub fn quant_spec_every_deadline(&self) -> QuantSpec {
         QuantSpec {
@@ -956,13 +915,26 @@ impl State {
         Ok(())
     }
 
-    pub fn check_precommit_expiry<BS: BlockStore>(
+    pub fn expire_pre_commits<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sectors: &BitField,
-        network_version: NetworkVersion,
+        current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         let mut deposit_to_burn = TokenAmount::zero();
+
+        // Expire pre-committed sectors
+        let mut expiry_queue = BitFieldQueue::new(
+            store,
+            &self.pre_committed_sectors_expiry,
+            self.quant_spec_every_deadline(),
+        )?;
+
+        let (sectors, modified) = expiry_queue.pop_until(current_epoch)?;
+
+        if modified {
+            self.pre_committed_sectors_expiry = expiry_queue.amt.flush()?;
+        }
+
         let mut precommits_to_delete = Vec::new();
 
         for i in sectors.iter() {
@@ -987,14 +959,112 @@ impl State {
         }
 
         self.pre_commit_deposits -= &deposit_to_burn;
-        actor_assert(
-            self.pre_commit_deposits >= TokenAmount::zero(),
-            network_version,
-            "check precommit expiry deposits < 0",
-        )?;
+        if self.pre_commit_deposits.is_negative() {
+            return Err(format!(
+                "pre-commit expiry caused negative deposits: {}",
+                self.pre_commit_deposits
+            )
+            .into());
+        }
 
         Ok(deposit_to_burn)
     }
+
+    pub fn advance_deadline<BS: BlockStore>(
+        &mut self,
+        store: &BS,
+        current_epoch: ChainEpoch,
+    ) -> Result<AdvanceDeadlineResult, Box<dyn StdError>> {
+        let mut pledge_delta = TokenAmount::zero();
+
+        let dl_info = self.deadline_info(current_epoch);
+
+        if !dl_info.period_started() {
+            return Ok(AdvanceDeadlineResult {
+                pledge_delta,
+                power_delta: PowerPair::zero(),
+                previously_faulty_power: PowerPair::zero(),
+                detected_faulty_power: PowerPair::zero(),
+                total_faulty_power: PowerPair::zero(),
+            });
+        }
+
+        self.current_deadline = (self.current_deadline + 1) % WPOST_PERIOD_DEADLINES;
+        if self.current_deadline == 0 {
+            self.proving_period_start = self.proving_period_start + WPOST_PROVING_PERIOD;
+        }
+
+        let mut deadlines = self.load_deadlines(store)?;
+
+        let mut deadline = deadlines.load_deadline(store, dl_info.index)?;
+
+        let previously_faulty_power = deadline.faulty_power.clone();
+
+        if deadline.live_sectors == 0 {
+            return Ok(AdvanceDeadlineResult {
+                pledge_delta,
+                power_delta: PowerPair::zero(),
+                previously_faulty_power,
+                detected_faulty_power: PowerPair::zero(),
+                total_faulty_power: deadline.faulty_power,
+            });
+        }
+
+        let quant = quant_spec_for_deadline(&dl_info);
+
+        // Detect and penalize missing proofs.
+        let fault_expiration = dl_info.last() + FAULT_MAX_AGE;
+
+        let (mut power_delta, detected_faulty_power) =
+            deadline.process_deadline_end(store, quant, fault_expiration)?;
+
+        // Capture deadline's faulty power after new faults have been detected, but before it is
+        // dropped along with faulty sectors expiring this round.
+        let total_faulty_power = deadline.faulty_power.clone();
+
+        // Expire sectors that are due, either for on-time expiration or "early" faulty-for-too-long.
+        let expired = deadline.pop_expired_sectors(store, dl_info.last(), quant)?;
+
+        // Release pledge requirements for the sectors expiring on-time.
+        // Pledge for the sectors expiring early is retained to support the termination fee that
+        // will be assessed when the early termination is processed.
+        pledge_delta -= &expired.on_time_pledge;
+        self.add_initial_pledge(&expired.on_time_pledge.neg());
+
+        // Record reduction in power of the amount of expiring active power.
+        // Faulty power has already been lost, so the amount expiring can be excluded from the delta.
+        power_delta -= &expired.active_power;
+
+        let no_early_terminations = expired.early_sectors.is_empty();
+        if !no_early_terminations {
+            self.early_terminations.set(dl_info.index as usize);
+        }
+
+        deadlines.update_deadline(store, dl_info.index, &deadline)?;
+
+        self.save_deadlines(store, deadlines)?;
+
+        Ok(AdvanceDeadlineResult {
+            pledge_delta,
+            power_delta,
+            previously_faulty_power,
+            detected_faulty_power,
+            total_faulty_power,
+        })
+    }
+}
+
+pub struct AdvanceDeadlineResult {
+    pub pledge_delta: TokenAmount,
+    pub power_delta: PowerPair,
+    /// Power that was faulty before this advance (including recovering)
+    pub previously_faulty_power: PowerPair,
+    /// Power of new faults and failed recoveries
+    pub detected_faulty_power: PowerPair,
+    /// Total faulty power after detecting faults (before expiring sectors)
+    /// Note that failed recovery power is included in both PreviouslyFaultyPower and
+    /// DetectedFaultyPower, so TotalFaultyPower is not simply their sum.
+    pub total_faulty_power: PowerPair,
 }
 
 /// Static information about miner
