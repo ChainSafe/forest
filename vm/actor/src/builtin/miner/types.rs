@@ -204,6 +204,8 @@ pub struct WorkerKeyChange {
     pub effective_at: ChainEpoch,
 }
 
+pub type PreCommitSectorParams = SectorPreCommitInfo;
+
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,

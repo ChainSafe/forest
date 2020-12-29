@@ -705,7 +705,7 @@ impl State {
         store: &BS,
         current_epoch: ChainEpoch,
         vesting_sum: &TokenAmount,
-        spec: VestSpec,
+        spec: &VestSpec,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         assert!(
             !vesting_sum.is_negative(),

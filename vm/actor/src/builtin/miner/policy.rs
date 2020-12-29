@@ -50,7 +50,7 @@ pub const MAX_PROVE_COMMIT_SIZE_V5: usize = 10240;
 pub const ADDRESSED_PARTITIONS_MAX: u64 = MAX_PARTITIONS_PER_DEADLINE;
 
 /// Maximum number of unique "declarations" in batch operations.
-pub const DELCARATION_MAX: u64 = ADDRESSED_PARTITIONS_MAX;
+pub const DELCARATIONS_MAX: u64 = ADDRESSED_PARTITIONS_MAX;
 
 /// The maximum number of sector infos that may be required to be loaded in a single invocation.
 pub const ADDRESSED_SECTORS_MAX: u64 = 10_000;
