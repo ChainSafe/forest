@@ -142,7 +142,7 @@ impl State {
     pub fn save_info<BS: BlockStore>(
         &mut self,
         store: &BS,
-        info: MinerInfo,
+        info: &MinerInfo,
     ) -> Result<(), Box<dyn StdError>> {
         let cid = store.put(&info, Blake2b256)?;
         self.info = cid;
@@ -991,7 +991,7 @@ impl State {
 
         self.current_deadline = (self.current_deadline + 1) % WPOST_PERIOD_DEADLINES;
         if self.current_deadline == 0 {
-            self.proving_period_start = self.proving_period_start + WPOST_PROVING_PERIOD;
+            self.proving_period_start += WPOST_PROVING_PERIOD;
         }
 
         let mut deadlines = self.load_deadlines(store)?;

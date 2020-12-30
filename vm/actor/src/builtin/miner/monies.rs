@@ -123,6 +123,7 @@ pub fn pledge_penalty_for_termination_lower_bound(
 
 /// Penalty to locked pledge collateral for the termination of a sector before scheduled expiry.
 /// SectorAge is the time between the sector's activation and termination.
+#[allow(clippy::too_many_arguments)]
 pub fn pledge_penalty_for_termination(
     day_reward: &TokenAmount,
     sector_age: ChainEpoch,

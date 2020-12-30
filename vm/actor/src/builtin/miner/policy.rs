@@ -127,6 +127,18 @@ pub fn max_prove_commit_duration(proof: RegisteredSealProof) -> Option<ChainEpoc
     }
 }
 
+/// Maximum duration to allow for the sealing process for seal algorithms.
+/// Dependent on algorithm and sector size
+pub fn seal_proof_sector_maximum_lifetime(proof: RegisteredSealProof) -> Option<ChainEpoch> {
+    use RegisteredSealProof::*;
+    match proof {
+        StackedDRG32GiBV1 | StackedDRG2KiBV1 | StackedDRG8MiBV1 | StackedDRG512MiBV1
+        | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG2KiBV1P1 | StackedDRG8MiBV1P1
+        | StackedDRG512MiBV1P1 | StackedDRG64GiBV1P1 => Some(EPOCHS_IN_YEAR * 5),
+        _ => None,
+    }
+}
+
 pub const MAX_PRE_COMMIT_RANDOMNESS_LOOKBACK: ChainEpoch = EPOCHS_IN_DAY + CHAIN_FINALITY;
 
 /// Number of epochs between publishing the precommit and when the challenge for interactive PoRep is drawn
@@ -249,7 +261,7 @@ pub const REWARD_VESTING_SPEC: VestSpec = VestSpec {
 
 pub fn reward_for_consensus_slash_report(
     elapsed_epoch: ChainEpoch,
-    collateral: TokenAmount,
+    collateral: &TokenAmount,
 ) -> TokenAmount {
     // var growthRate = SLASHER_SHARE_GROWTH_RATE_NUM / SLASHER_SHARE_GROWTH_RATE_DENOM
     // var multiplier = growthRate^elapsedEpoch
@@ -279,7 +291,7 @@ pub fn reward_for_consensus_slash_report(
         .denominator
         .pow(&elapsed);
     let num: BigInt =
-        (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator) * &collateral;
+        (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator) * collateral;
     let denom = slasher_share_denominator * consensus_fault_reporter_initial_share.denominator;
 
     cmp::min(
