@@ -28,7 +28,6 @@ pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 343200;
 
 pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
 
-
 struct Upgrade {
     height: ChainEpoch,
     network: NetworkVersion,
