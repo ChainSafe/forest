@@ -1125,6 +1125,7 @@ dependencies = [
  "forest_runtime",
  "forest_vm",
  "futures 0.3.8",
+ "genesis",
  "interpreter",
  "ipld_blockstore",
  "lazy_static",

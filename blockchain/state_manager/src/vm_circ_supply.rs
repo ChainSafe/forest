@@ -11,7 +11,6 @@ use fil_types::{
     FILECOIN_PRECISION, FIL_RESERVED, UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_IGNITION_HEIGHT,
     UPGRADE_LIFTOFF_HEIGHT,
 };
-use forest_blocks::Tipset;
 use interpreter::CircSupplyCalc;
 use lazycell::AtomicLazyCell;
 use num_bigint::BigInt;
@@ -216,12 +215,10 @@ pub fn get_circulating_supply<'a, DB: BlockStore>(
 fn init_genesis_info<DB: BlockStore>(bs: &DB) -> Result<GenesisInfo, Box<dyn StdError>> {
     let mut ignition = GenesisInfo::default();
 
-    let genesis_block = genesis(bs)?.ok_or_else(|| "Genesis Block doesnt exist".to_string())?;
-
-    let gts = Tipset::new(vec![genesis_block])?;
+    let genesis_block = genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
 
     // Parent state of genesis tipset is tipset state
-    let st = gts.parent_state();
+    let st = genesis_block.state_root();
 
     let state_tree = StateTree::new_from_root(bs, &st)?;
 
