@@ -174,7 +174,7 @@ mod test_award_block_reward {
 
         rt.expect_send(
             *WINNER,
-            MinerMethod::AddLockedFund as u64,
+            MinerMethod::ApplyRewards as u64,
             Serialized::serialize(BigIntSer(&expected_reward)).unwrap(),
             expected_reward,
             Serialized::default(),
@@ -250,7 +250,7 @@ mod test_award_block_reward {
         let expected_reward = TokenAmount::from(1000);
         rt.expect_send(
             *WINNER,
-            MinerMethod::AddLockedFund as u64,
+            MinerMethod::ApplyRewards as u64,
             Serialized::serialize(BigIntSer(&expected_reward)).unwrap(),
             expected_reward.clone(),
             Serialized::default(),
@@ -350,7 +350,7 @@ fn award_block_reward(
     let miner_penalty = &penalty * PENALTY_MULTIPLIER;
     rt.expect_send(
         miner,
-        MinerMethod::AddLockedFund as u64,
+        MinerMethod::ApplyRewards as u64,
         Serialized::serialize(&ApplyRewardParams {
             reward: expected_payment.clone(),
             penalty: miner_penalty,

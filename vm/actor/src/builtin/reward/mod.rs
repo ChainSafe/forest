@@ -162,7 +162,7 @@ impl Actor {
         };
         let res = rt.send(
             miner_addr,
-            miner::Method::AddLockedFund as u64,
+            miner::Method::ApplyRewards as u64,
             Serialized::serialize(&reward_params)?,
             total_reward.clone(),
         );

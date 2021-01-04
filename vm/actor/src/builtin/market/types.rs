@@ -54,7 +54,7 @@ pub struct VerifyDealsForActivationParamsRef<'a> {
     pub sector_start: ChainEpoch,
 }
 
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct VerifyDealsForActivationReturn {
     #[serde(with = "bigint_ser")]
     pub deal_weight: DealWeight,
