@@ -3294,7 +3294,10 @@ where
     rt.verify_post(&pv_info).map_err(|e| {
         e.downcast_default(
             ExitCode::ErrIllegalArgument,
-            format!("invalid PoSt: {:?}", pv_info),
+            format!(
+                "invalid PoSt: proofs({:?}), randomness({:?})",
+                pv_info.proofs, pv_info.randomness
+            ),
         )
     })?;
 

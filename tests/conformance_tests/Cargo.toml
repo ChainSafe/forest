@@ -71,4 +71,6 @@ paramfetch = { path = "../../utils/paramfetch" }
 async-std = { version = "1.6", features = ["attributes"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 statediff = { path = "../../utils/statediff" }
+genesis = { path = "../../utils/genesis" }
+
 

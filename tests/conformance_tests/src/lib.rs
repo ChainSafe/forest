@@ -202,6 +202,9 @@ pub enum TestVector {
         preconditions: PreConditions,
         apply_tipsets: Vec<TipsetVector>,
         postconditions: PostConditions,
+
+        #[serde(default)]
+        randomness: Randomness,
     },
 }
 

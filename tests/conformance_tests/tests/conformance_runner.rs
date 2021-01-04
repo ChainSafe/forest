@@ -6,6 +6,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+use chain::ChainStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use conformance_tests::*;
@@ -18,6 +19,7 @@ use interpreter::ApplyRet;
 use num_bigint::{BigInt, ToBigInt};
 use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
+use state_manager::StateManager;
 use statediff::print_state_diff;
 use std::error::Error as StdError;
 use std::fmt;
@@ -198,16 +200,19 @@ async fn execute_tipset_vector(
     root_cid: Cid,
     tipsets: &[TipsetVector],
     postconditions: &PostConditions,
+    randomness: &Randomness,
     variant: &Variant,
 ) -> Result<(), Box<dyn StdError>> {
     let bs = load_car(car).await?;
     let bs = Arc::new(bs);
+    let sm = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs))));
+    genesis::initialize_genesis(None, &sm).await.unwrap();
 
     let base_epoch = variant.epoch;
     let mut root = root_cid;
 
     let mut receipt_idx = 0;
-    let mut prev_epoch = base_epoch;
+    let mut parent_epoch = base_epoch;
     for (i, ts) in tipsets.into_iter().enumerate() {
         let exec_epoch = base_epoch + ts.epoch_offset;
         let ExecuteTipsetResult {
@@ -215,7 +220,16 @@ async fn execute_tipset_vector(
             post_state_root,
             applied_results,
             ..
-        } = execute_tipset(Arc::clone(&bs), &root, prev_epoch, &ts, exec_epoch)?;
+        } = execute_tipset(
+            Arc::clone(&sm),
+            ExecuteTipsetParams {
+                pre_root: &root,
+                parent_epoch,
+                tipset: &ts,
+                exec_epoch,
+                randomness: ReplayingRand::new(randomness),
+            },
+        )?;
 
         for (j, apply_ret) in applied_results.into_iter().enumerate() {
             check_msg_result(
@@ -228,6 +242,8 @@ async fn execute_tipset_vector(
 
         // Compare receipts root
         let (expected, actual) = (&postconditions.receipts_roots[i], &receipts_root);
+        compare_state_roots(sm.blockstore(), &expected, &actual)?;
+
         if expected != actual {
             return Err(format!(
                 "post receipts did not match; expected: {:?}, got {:?}",
@@ -236,11 +252,11 @@ async fn execute_tipset_vector(
             .into());
         }
 
-        prev_epoch = exec_epoch;
+        parent_epoch = exec_epoch;
         root = post_state_root;
     }
 
-    compare_state_roots(bs.as_ref(), &root, &postconditions.state_tree.root_cid)?;
+    compare_state_roots(sm.blockstore(), &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }
@@ -305,6 +321,7 @@ async fn conformance_test_runner() {
                 preconditions,
                 apply_tipsets,
                 postconditions,
+                randomness,
             } => {
                 for variant in preconditions.variants {
                     if let Err(e) = execute_tipset_vector(
@@ -313,6 +330,7 @@ async fn conformance_test_runner() {
                         preconditions.state_tree.root_cid.clone(),
                         &apply_tipsets,
                         &postconditions,
+                        &randomness,
                         &variant,
                     )
                     .await
