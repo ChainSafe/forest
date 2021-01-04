@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    power_for_sectors, validate_partition_contains_sectors, BitFieldQueue, ExpirationQueue,
-    ExpirationSet, SectorOnChainInfo, Sectors, TerminationResult,
+    power_for_sectors, select_sectors, validate_partition_contains_sectors, BitFieldQueue,
+    ExpirationQueue, ExpirationSet, SectorOnChainInfo, Sectors, TerminationResult,
 };
 use crate::{actor_error, ActorDowncast};
 use bitfield::{BitField, UnvalidatedBitField, Validate};
@@ -16,14 +16,22 @@ use fil_types::{
 };
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
-use num_traits::Zero;
-use std::{error::Error as StdError, ops};
+use num_traits::{Signed, Zero};
+use std::{
+    error::Error as StdError,
+    ops::{self, Neg},
+};
 use vm::{ActorError, ExitCode, TokenAmount};
 
 #[derive(Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct Partition {
-    /// Sector numbers in this partition, including faulty and terminated sectors.
+    /// Sector numbers in this partition, including faulty, unproven and terminated sectors.
     pub sectors: BitField,
+    /// Unproven sectors in this partition. This bitfield will be cleared on
+    /// a successful window post (or at the end of the partition's next
+    /// deadline). At that time, any still unproven sectors will be added to
+    /// the faulty sector bitfield.
+    pub unproven: BitField,
     /// Subset of sectors detected/declared faulty and not yet recovered (excl. from PoSt).
     /// Faults ∩ Terminated = ∅
     pub faults: BitField,
@@ -42,8 +50,10 @@ pub struct Partition {
     /// Not quantized.
     pub early_terminated: Cid, // AMT[ChainEpoch]BitField
 
-    /// Power of not-yet-terminated sectors (incl faulty).
+    /// Power of not-yet-terminated sectors (incl faulty & unproven).
     pub live_power: PowerPair,
+    /// Power of yet-to-be-proved sectors (never faulty).
+    pub unproven_power: PowerPair,
     /// Power of currently-faulty sectors. FaultyPower <= LivePower.
     pub faulty_power: PowerPair,
     /// Power of expected-to-recover sectors. RecoveringPower <= FaultyPower.
@@ -54,12 +64,14 @@ impl Partition {
     pub fn new(empty_array_cid: Cid) -> Self {
         Self {
             sectors: BitField::new(),
+            unproven: BitField::new(),
             faults: BitField::new(),
             recoveries: BitField::new(),
             terminated: BitField::new(),
             expirations_epochs: empty_array_cid,
             early_terminated: empty_array_cid,
             live_power: PowerPair::zero(),
+            unproven_power: PowerPair::zero(),
             faulty_power: PowerPair::zero(),
             recovering_power: PowerPair::zero(),
         }
@@ -70,14 +82,15 @@ impl Partition {
         &self.sectors - &self.terminated
     }
 
-    /// Active sectors are those that are neither terminated nor faulty, i.e. actively contributing power.
+    /// Active sectors are those that are neither terminated nor faulty nor unproven, i.e. actively contributing power.
     pub fn active_sectors(&self) -> BitField {
-        &self.live_sectors() - &self.faults
+        let non_faulty = &self.live_sectors() - &self.faults;
+        &non_faulty - &self.unproven
     }
 
     /// Active power is power of non-faulty sectors.
     pub fn active_power(&self) -> PowerPair {
-        &self.live_power - &self.faulty_power
+        &(&self.live_power - &self.faulty_power) - &self.unproven_power
     }
 
     /// AddSectors adds new sectors to the partition.
@@ -86,6 +99,7 @@ impl Partition {
     pub fn add_sectors<BS: BlockStore>(
         &mut self,
         store: &BS,
+        proven: bool,
         sectors: &[SectorOnChainInfo],
         sector_size: SectorSize,
         quant: QuantSpec,
@@ -110,9 +124,22 @@ impl Partition {
         self.sectors |= &sector_numbers;
         self.live_power += &power;
 
+        let proven_power = if !proven {
+            self.unproven_power += &power;
+            self.unproven |= &sector_numbers;
+
+            // Only return the power if proven.
+            PowerPair::default()
+        } else {
+            power
+        };
+
+        // check invariants
+        self.validate_state()?;
+
         // No change to faults, recoveries, or terminations.
         // No change to faulty or recovering power.
-        Ok(power)
+        Ok(proven_power)
     }
 
     /// marks a set of sectors faulty
@@ -124,13 +151,13 @@ impl Partition {
         fault_expiration: ChainEpoch,
         sector_size: SectorSize,
         quant: QuantSpec,
-    ) -> Result<PowerPair, Box<dyn StdError>> {
+    ) -> Result<(PowerPair, PowerPair), Box<dyn StdError>> {
         // Load expiration queue
         let mut queue = ExpirationQueue::new(store, &self.expirations_epochs, quant)
             .map_err(|e| e.downcast_wrap("failed to load partition queue"))?;
 
         // Reschedule faults
-        let power = queue
+        let new_faulty_power = queue
             .reschedule_as_faults(fault_expiration, sectors, sector_size)
             .map_err(|e| e.downcast_wrap("failed to add faults to partition queue"))?;
 
@@ -142,11 +169,27 @@ impl Partition {
 
         // The sectors must not have been previously faulty or recovering.
         // No change to recoveries or terminations.
+        self.faulty_power += &new_faulty_power;
 
-        self.faulty_power += &power;
-        // No change to live or recovering power.
+        // Once marked faulty, sectors are moved out of the unproven set.
+        let unproven = sector_numbers & &self.unproven;
 
-        Ok(power)
+        self.unproven -= &unproven;
+
+        let mut power_delta = new_faulty_power.clone().neg();
+
+        let unproven_infos = select_sectors(sectors, &unproven)
+            .map_err(|e| e.downcast_wrap("failed to select unproven sectors"))?;
+        if !unproven_infos.is_empty() {
+            let lost_unproven_power = power_for_sectors(sector_size, &unproven_infos);
+            self.unproven_power -= &lost_unproven_power;
+            power_delta += &lost_unproven_power;
+        }
+
+        // check invariants
+        self.validate_state()?;
+
+        Ok((power_delta, new_faulty_power))
     }
 
     /// Declares a set of sectors faulty. Already faulty sectors are ignored,
@@ -165,7 +208,7 @@ impl Partition {
         fault_expiration_epoch: ChainEpoch,
         sector_size: SectorSize,
         quant: QuantSpec,
-    ) -> Result<(BitField, PowerPair), Box<dyn StdError>> {
+    ) -> Result<(BitField, PowerPair, PowerPair), Box<dyn StdError>> {
         validate_partition_contains_sectors(&self, sector_numbers)
             .map_err(|e| actor_error!(ErrIllegalArgument; "failed fault declaration: {}", e))?;
 
@@ -182,25 +225,28 @@ impl Partition {
         new_faults -= &self.faults;
 
         // Add new faults to state.
-        let mut new_faulty_power = PowerPair::zero();
         let new_fault_sectors = sectors
             .load_sector(&new_faults)
             .map_err(|e| e.wrap("failed to load fault sectors"))?;
 
-        if !new_fault_sectors.is_empty() {
-            new_faulty_power = self
-                .add_faults(
-                    store,
-                    &new_faults,
-                    &new_fault_sectors,
-                    fault_expiration_epoch,
-                    sector_size,
-                    quant,
-                )
-                .map_err(|e| e.downcast_wrap("failed to add faults"))?;
-        }
+        let (new_faulty_power, power_delta) = if !new_fault_sectors.is_empty() {
+            self.add_faults(
+                store,
+                &new_faults,
+                &new_fault_sectors,
+                fault_expiration_epoch,
+                sector_size,
+                quant,
+            )
+            .map_err(|e| e.downcast_wrap("failed to add faults"))?
+        } else {
+            Default::default()
+        };
 
-        Ok((new_faults, new_faulty_power))
+        // check invariants
+        self.validate_state()?;
+
+        Ok((new_faults, power_delta, new_faulty_power))
     }
 
     /// Removes sector numbers from faults and thus from recoveries.
@@ -237,10 +283,20 @@ impl Partition {
         self.recoveries = BitField::new();
 
         // No change to live power.
+        // No change to unproven sectors.
         self.faulty_power -= &power;
         self.recovering_power -= &power;
 
+        // check invariants
+        self.validate_state()?;
+
         Ok(power)
+    }
+
+    /// Activates unproven sectors, returning the activated power.
+    pub fn activate_unproven(&mut self) -> PowerPair {
+        self.unproven = BitField::default();
+        std::mem::take(&mut self.unproven_power)
     }
 
     /// Declares sectors as recovering. Non-faulty and already recovering sectors will be skipped.
@@ -272,9 +328,12 @@ impl Partition {
         let power = power_for_sectors(sector_size, &recovery_sectors);
         self.recovering_power += &power;
 
+        // check invariants
+        self.validate_state()?;
+
         // No change to faults, or terminations.
         // No change to faulty power.
-
+        // No change to unproven power/sectors.
         Ok(())
     }
 
@@ -287,8 +346,9 @@ impl Partition {
         self.recoveries -= sector_numbers;
         self.recovering_power -= power;
 
-        // 	// No change to faults, or terminations.
-        // 	// No change to faulty power.
+        // No change to faults, or terminations.
+        // No change to faulty power.
+        // No change to unproven power.
     }
 
     /// RescheduleExpirations moves expiring sectors to the target expiration,
@@ -307,7 +367,7 @@ impl Partition {
         sector_numbers: &mut UnvalidatedBitField,
         sector_size: SectorSize,
         quant: QuantSpec,
-    ) -> Result<BitField, Box<dyn StdError>> {
+    ) -> Result<Vec<SectorOnChainInfo>, Box<dyn StdError>> {
         let sector_numbers = sector_numbers.validate()?;
 
         // Ensure these sectors actually belong to this partition.
@@ -325,7 +385,10 @@ impl Partition {
         expirations.reschedule_expirations(new_expiration, &sector_infos, sector_size)?;
         self.expirations_epochs = expirations.amt.flush()?;
 
-        Ok(active)
+        // check invariants
+        self.validate_state()?;
+
+        Ok(sector_infos)
     }
 
     /// Replaces a number of "old" sectors with new ones.
@@ -369,9 +432,12 @@ impl Partition {
         self.sectors -= &old_sector_numbers;
         self.sectors |= &new_sector_numbers;
         self.live_power += &power_delta;
+
+        // check invariants
+        self.validate_state()?;
+
         // No change to faults, recoveries, or terminations.
         // No change to faulty or recovering power.
-
         Ok((power_delta, pledge_delta))
     }
 
@@ -426,7 +492,7 @@ impl Partition {
         let sector_infos = sectors.load_sector(sector_numbers)?;
         let mut expirations = ExpirationQueue::new(store, &self.expirations_epochs, quant)
             .map_err(|e| e.downcast_wrap("failed to load sector expirations"))?;
-        let (removed, removed_recovering) = expirations
+        let (mut removed, removed_recovering) = expirations
             .remove_sectors(&sector_infos, &self.faults, &self.recoveries, sector_size)
             .map_err(|e| e.downcast_wrap("failed to remove sector expirations"))?;
 
@@ -441,6 +507,8 @@ impl Partition {
         self.record_early_termination(store, epoch, &removed_sectors)
             .map_err(|e| e.downcast_wrap("failed to record early sector termination"))?;
 
+        let unproven_nos = &removed_sectors & &self.unproven;
+
         // Update partition metadata.
         self.faults -= &removed_sectors;
         self.recoveries -= &removed_sectors;
@@ -449,6 +517,15 @@ impl Partition {
         self.live_power -= &removed.faulty_power;
         self.faulty_power -= &removed.faulty_power;
         self.recovering_power -= &removed_recovering;
+        self.unproven -= &unproven_nos;
+
+        let unproven_infos = select_sectors(&sector_infos, &unproven_nos)?;
+        let removed_unproven_power = power_for_sectors(sector_size, &unproven_infos);
+        self.unproven_power -= &removed_unproven_power;
+        removed.active_power -= &removed_unproven_power;
+
+        // check invariants
+        self.validate_state()?;
 
         Ok(removed)
     }
@@ -462,6 +539,12 @@ impl Partition {
         until: ChainEpoch,
         quant: QuantSpec,
     ) -> Result<ExpirationSet, Box<dyn StdError>> {
+        // This is a sanity check to make sure we handle proofs _before_
+        // handling sector expirations.
+        if !self.unproven.is_empty() {
+            return Err("Cannot pop expired sectors from a partition with unproven sectors".into());
+        }
+
         let mut expirations = ExpirationQueue::new(store, &self.expirations_epochs, quant)
             .map_err(|e| e.downcast_wrap("failed to load expiration queue"))?;
         let popped = expirations.pop_until(until).map_err(|e| {
@@ -497,6 +580,9 @@ impl Partition {
         self.record_early_termination(store, until, &popped.early_sectors)
             .map_err(|e| e.downcast_wrap("failed to record early terminations"))?;
 
+        // check invariants
+        self.validate_state()?;
+
         Ok(popped)
     }
 
@@ -508,7 +594,7 @@ impl Partition {
         store: &BS,
         fault_expiration: ChainEpoch,
         quant: QuantSpec,
-    ) -> Result<(PowerPair, PowerPair), Box<dyn StdError>> {
+    ) -> Result<(PowerPair, PowerPair, PowerPair), Box<dyn StdError>> {
         // Collapse tail of queue into the last entry, and mark all power faulty.
         // Load expiration queue
         let mut queue = ExpirationQueue::new(store, &self.expirations_epochs, quant)
@@ -522,17 +608,27 @@ impl Partition {
         self.expirations_epochs = queue.amt.flush()?;
 
         // Compute faulty power for penalization. New faulty power is the total power minus already faulty.
-        let new_fault_power = &self.live_power - &self.faulty_power;
-        let failed_recovery_power = self.recovering_power.clone();
+        let new_faulty_power = &self.live_power - &self.faulty_power;
+        // Penalized power is the newly faulty power, plus the failed recovery power.
+        let penalized_power = &self.recovering_power + &new_faulty_power;
+
+        // The power delta is -(newFaultyPower-unproven), because unproven power
+        // was never activated in the first place.
+        let power_delta = &self.unproven_power - &new_faulty_power;
 
         // Update partition metadata
         let all_faults = self.live_sectors();
         self.faults = all_faults;
         self.recoveries = BitField::new();
+        self.unproven = BitField::new();
         self.faulty_power = self.live_power.clone();
         self.recovering_power = PowerPair::zero();
+        self.unproven_power = PowerPair::zero();
 
-        Ok((new_fault_power, failed_recovery_power))
+        // check invariants
+        self.validate_state()?;
+
+        Ok((power_delta, penalized_power, new_faulty_power))
     }
 
     pub fn pop_early_terminations<BS: BlockStore>(
@@ -600,6 +696,9 @@ impl Partition {
             .flush()
             .map_err(|e| e.downcast_wrap("failed to store early terminations queue"))?;
 
+        // check invariants
+        self.validate_state()?;
+
         let has_more = early_terminated_queue.amt.count() > 0;
         Ok((result, has_more))
     }
@@ -618,7 +717,7 @@ impl Partition {
         quant: QuantSpec,
         fault_expiration: ChainEpoch,
         skipped: &mut UnvalidatedBitField,
-    ) -> Result<(PowerPair, PowerPair), ActorError> {
+    ) -> Result<(PowerPair, PowerPair, PowerPair, bool), Box<dyn StdError>> {
         let skipped = skipped.validate().map_err(|e| {
             actor_error!(
                 ErrIllegalArgument,
@@ -628,14 +727,21 @@ impl Partition {
         })?;
 
         if skipped.is_empty() {
-            return Ok((PowerPair::zero(), PowerPair::zero()));
+            return Ok((
+                PowerPair::zero(),
+                PowerPair::zero(),
+                PowerPair::zero(),
+                false,
+            ));
         }
 
         // Check that the declared sectors are actually in the partition.
         if !self.sectors.contains_all(&skipped) {
-            return Err(
-                actor_error!(ErrIllegalArgument; "skipped faults contains sectors outside partition"),
-            );
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "skipped faults contains sectors outside partition"
+            )
+            .into());
         }
 
         // Find all skipped faults that have been labeled recovered
@@ -652,7 +758,7 @@ impl Partition {
             .map_err(|e| e.wrap("failed to load sectors"))?;
 
         // Record new faults
-        let new_fault_power = self
+        let (power_delta, new_fault_power) = self
             .add_faults(
                 store,
                 &new_faults,
@@ -668,7 +774,74 @@ impl Partition {
         // Remove faulty recoveries
         self.remove_recoveries(&retracted_recoveries, &retracted_recovery_power);
 
-        Ok((new_fault_power, retracted_recovery_power))
+        // check invariants
+        self.validate_state()?;
+
+        Ok((
+            power_delta,
+            new_fault_power,
+            retracted_recovery_power,
+            !new_fault_sectors.is_empty(),
+        ))
+    }
+
+    /// Test invariants about the partition power are valid.
+    pub fn validate_power_state(&self) -> Result<(), &'static str> {
+        if self.live_power.raw.is_negative() || self.live_power.qa.is_negative() {
+            return Err("Partition left with negative live power");
+        }
+        if self.unproven_power.raw.is_negative() || self.unproven_power.qa.is_negative() {
+            return Err("Partition left with negative unproven power");
+        }
+        if self.faulty_power.raw.is_negative() || self.faulty_power.qa.is_negative() {
+            return Err("Partition left with negative faulty power");
+        }
+        if self.recovering_power.raw.is_negative() || self.recovering_power.qa.is_negative() {
+            return Err("Partition left with negative recovering power");
+        }
+        if self.unproven_power.raw > self.live_power.raw {
+            return Err("Partition left with invalid unproven power");
+        }
+        if self.faulty_power.raw > self.live_power.raw {
+            return Err("Partition left with invalid faulty power");
+        }
+        // The first half of this conditional shouldn't matter, keeping for readability
+        if self.recovering_power.raw > self.live_power.raw
+            || self.recovering_power.raw > self.faulty_power.raw
+        {
+            return Err("Partition left with invalid recovering power");
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_bf_state(&self) -> Result<(), &'static str> {
+        let mut merge = &self.unproven | &self.faults;
+
+        // Unproven or faulty sectors should not be in terminated
+        if self.terminated.contains_any(&merge) {
+            return Err("Partition left with terminated sectors in multiple states");
+        }
+
+        merge |= &self.terminated;
+
+        // All merged sectors should exist in partition sectors
+        if !self.sectors.contains_all(&merge) {
+            return Err("Partition left with invalid sector state");
+        }
+
+        // All recoveries should exist in partition faults
+        if !self.faults.contains_all(&self.recoveries) {
+            return Err("Partition left with invalid recovery state");
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_state(&self) -> Result<(), String> {
+        self.validate_power_state()?;
+        self.validate_bf_state()?;
+        Ok(())
     }
 }
 

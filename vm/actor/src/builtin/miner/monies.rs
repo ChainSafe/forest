@@ -1,11 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::{VestSpec, REWARD_VESTING_SPEC};
 use crate::{
     math::PRECISION,
     network::EPOCHS_IN_DAY,
     smooth::{self, FilterEstimate},
-    TokenAmount,
+    TokenAmount, EXPECTED_LEADERS_PER_EPOCH,
 };
 use clock::ChainEpoch;
 use fil_types::{NetworkVersion, StoragePower};
@@ -13,14 +14,14 @@ use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use std::cmp;
 
-// IP = IPBase(precommit time) + AdditionalIP(precommit time)
-// IPBase(t) = BR(t, InitialPledgeProjectionPeriod)
-// AdditionalIP(t) = LockTarget(t)*PledgeShare(t)
-// LockTarget = (LockTargetFactorNum / LockTargetFactorDenom) * FILCirculatingSupply(t)
-// PledgeShare(t) = sectorQAPower / max(BaselinePower(t), NetworkQAPower(t))
-// PARAM_FINISH
+/// Projection period of expected sector block reward for deposit required to pre-commit a sector.
+/// This deposit is lost if the pre-commitment is not timely followed up by a commitment proof.
 const PRE_COMMIT_DEPOSIT_FACTOR: u64 = 20;
+
+/// Projection period of expected sector block rewards for storage pledge required to commit a sector.
+/// This pledge is lost if a sector is terminated before its full committed lifetime.
 const INITIAL_PLEDGE_FACTOR: u64 = 20;
+
 pub const PRE_COMMIT_DEPOSIT_PROJECTION_PERIOD: i64 =
     (PRE_COMMIT_DEPOSIT_FACTOR as ChainEpoch) * EPOCHS_IN_DAY;
 pub const INITIAL_PLEDGE_PROJECTION_PERIOD: i64 =
@@ -30,38 +31,43 @@ lazy_static! {
     static ref LOCK_TARGET_FACTOR_NUM: BigInt = BigInt::from(3);
     static ref LOCK_TARGET_FACTOR_DENOM: BigInt = BigInt::from(10);
 
+    static ref TERMINATION_REWARD_FACTOR_NUM: BigInt = BigInt::from(1);
+    static ref TERMINATION_REWARD_FACTOR_DENOM: BigInt = BigInt::from(2);
+
+    // * go impl has 75/100 but this is just simplified
+    static ref LOCKED_REWARD_FACTOR_NUM: BigInt = BigInt::from(3);
+    static ref LOCKED_REWARD_FACTOR_DENOM: BigInt = BigInt::from(4);
+
     /// Cap on initial pledge requirement for sectors during the Space Race network.
     /// The target is 1 FIL (10**18 attoFIL) per 32GiB.
     /// This does not divide evenly, so the result is fractionally smaller.
-    static ref SPACE_RACE_INITIAL_PLEDGE_MAX_PER_BYTE: BigInt =
+    static ref INITIAL_PLEDGE_MAX_PER_BYTE: BigInt =
         BigInt::from(10_u64.pow(18) / (32 << 30));
 }
 
-// FF = BR(t, DeclaredFaultProjectionPeriod)
-// projection period of 2.14 days:  2880 * 2.14 = 6163.2.  Rounded to nearest epoch 6163
-const DECLARED_FAULT_FACTOR_NUM_V0: i64 = 214;
-const DECLARED_FAULT_FACTOR_NUM_V3: i64 = 351;
-const DECLARED_FAULT_FACTOR_DENOM: i64 = 100;
-pub const DECLARED_FAULT_PROJECTION_PERIOD_V0: ChainEpoch =
-    (EPOCHS_IN_DAY * DECLARED_FAULT_FACTOR_NUM_V0) / DECLARED_FAULT_FACTOR_DENOM;
-pub const DECLARED_FAULT_PROJECTION_PERIOD_V3: ChainEpoch =
-    (EPOCHS_IN_DAY * DECLARED_FAULT_FACTOR_NUM_V3) / DECLARED_FAULT_FACTOR_DENOM;
+// Projection period of expected daily sector block reward penalised when a fault is continued after initial detection.
+// This guarantees that a miner pays back at least the expected block reward earned since the last successful PoSt.
+// The network conservatively assumes the sector was faulty since the last time it was proven.
+// This penalty is currently overly punitive for continued faults.
+// FF = BR(t, ContinuedFaultProjectionPeriod)
+const CONTINUED_FAULT_FACTOR_NUM: i64 = 351;
+const CONTINUED_FAULT_FACTOR_DENOM: i64 = 100;
+pub const CONTINUED_FAULT_PROJECTION_PERIOD: ChainEpoch =
+    (EPOCHS_IN_DAY * CONTINUED_FAULT_FACTOR_NUM) / CONTINUED_FAULT_FACTOR_DENOM;
 
-// SP = BR(t, UndeclaredFaultProjectionPeriod)
-const UNDECLARED_FAULT_FACTOR_NUM_V0: i64 = 50;
-const UNDECLARED_FAULT_FACTOR_NUM_V1: i64 = 35;
-const UNDECLARED_FAULT_FACTOR_DENOM: i64 = 10;
-pub const UNDECLARED_FAULT_PROJECTION_PERIOD_V0: i64 =
-    (EPOCHS_IN_DAY * UNDECLARED_FAULT_FACTOR_NUM_V0) / UNDECLARED_FAULT_FACTOR_DENOM;
-pub const UNDECLARED_FAULT_PROJECTION_PERIOD_V1: i64 =
-    (EPOCHS_IN_DAY * UNDECLARED_FAULT_FACTOR_NUM_V1) / UNDECLARED_FAULT_FACTOR_DENOM;
+const TERMINATION_PENALTY_LOWER_BOUND_PROJECTIONS_PERIOD: ChainEpoch = (EPOCHS_IN_DAY * 35) / 10;
 
-// Maximum number of days of BR a terminated sector can be penalized
-pub const TERMINATION_LIFETIME_CAP: ChainEpoch = 70;
+// Maximum number of lifetime days penalized when a sector is terminated.
+pub const TERMINATION_LIFETIME_CAP: ChainEpoch = 140;
 
-/// This is the BR(t) value of the given sector for the current epoch.
-/// It is the expected reward this sector would pay out over a one day period.
-/// BR(t) = CurrEpochReward(t) * SectorQualityAdjustedPower * EpochsInDay / TotalNetworkQualityAdjustedPower(t)
+// Multiplier of whole per-winner rewards for a consensus fault penalty.
+const CONSENSUS_FAULT_FACTOR: u64 = 5;
+
+/// The projected block reward a sector would earn over some period.
+/// Also known as "BR(t)".
+/// BR(t) = ProjectedRewardFraction(t) * SectorQualityAdjustedPower
+/// ProjectedRewardFraction(t) is the sum of estimated reward over estimated total power
+/// over all epochs in the projection period [t t+projectionDuration]
 pub fn expected_reward_for_power(
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
@@ -80,88 +86,81 @@ pub fn expected_reward_for_power(
         reward_estimate,
         network_qa_power_estimate,
     );
-    let br = qa_sector_power * expected_reward_for_proving_period; // Q.0 * Q.128 => Q.128
-    br >> PRECISION
+    let br128 = qa_sector_power * expected_reward_for_proving_period; // Q.0 * Q.128 => Q.128
+    std::cmp::max(br128 >> PRECISION, Default::default())
 }
 
-// This is the FF(t) penalty for a sector expected to be in the fault state either because the fault was declared or because
-// it has been previously detected by the network.
-// FF(t) = DeclaredFaultFactor * BR(t)
-pub fn pledge_penalty_for_declared_fault(
+/// The penalty for a sector continuing faulty for another proving period.
+/// It is a projection of the expected reward earned by the sector.
+/// Also known as "FF(t)"
+pub fn pledge_penalty_for_continued_fault(
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
     qa_sector_power: &StoragePower,
-    network_version: NetworkVersion,
 ) -> TokenAmount {
-    let projection_period = if network_version < NetworkVersion::V3 {
-        DECLARED_FAULT_PROJECTION_PERIOD_V0
-    } else {
-        DECLARED_FAULT_PROJECTION_PERIOD_V3
-    };
     expected_reward_for_power(
         reward_estimate,
         network_qa_power_estimate,
         qa_sector_power,
-        projection_period,
+        CONTINUED_FAULT_PROJECTION_PERIOD,
     )
 }
 
 /// This is the SP(t) penalty for a newly faulty sector that has not been declared.
 /// SP(t) = UndeclaredFaultFactor * BR(t)
-pub fn pledge_penalty_for_undeclared_fault(
+pub fn pledge_penalty_for_termination_lower_bound(
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
     qa_sector_power: &StoragePower,
-    network_version: NetworkVersion,
 ) -> TokenAmount {
-    let projection_period = if network_version < NetworkVersion::V3 {
-        UNDECLARED_FAULT_PROJECTION_PERIOD_V0
-    } else {
-        UNDECLARED_FAULT_PROJECTION_PERIOD_V1
-    };
     expected_reward_for_power(
         reward_estimate,
         network_qa_power_estimate,
         qa_sector_power,
-        projection_period,
+        TERMINATION_PENALTY_LOWER_BOUND_PROJECTIONS_PERIOD,
     )
 }
 
 /// Penalty to locked pledge collateral for the termination of a sector before scheduled expiry.
 /// SectorAge is the time between the sector's activation and termination.
+#[allow(clippy::too_many_arguments)]
 pub fn pledge_penalty_for_termination(
-    day_reward_at_activation: &TokenAmount,
+    day_reward: &TokenAmount,
+    sector_age: ChainEpoch,
     twenty_day_reward_at_activation: &TokenAmount,
-    mut sector_age: ChainEpoch,
-    reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
     qa_sector_power: &StoragePower,
-    network_version: NetworkVersion,
+    reward_estimate: &FilterEstimate,
+    replaced_day_reward: &TokenAmount,
+    replaced_sector_age: ChainEpoch,
 ) -> TokenAmount {
-    // max(SP(t), BR(StartEpoch, 20d) + BR(StartEpoch, 1d)*min(SectorAgeInDays, 70))
+    // max(SP(t), BR(StartEpoch, 20d) + BR(StartEpoch, 1d) * terminationRewardFactor * min(SectorAgeInDays, 140))
     // and sectorAgeInDays = sectorAge / EpochsInDay
-    if network_version >= NetworkVersion::V1 {
-        sector_age /= 2;
-    }
-    let capped_sector_age = BigInt::from(cmp::min(
-        sector_age,
-        TERMINATION_LIFETIME_CAP * EPOCHS_IN_DAY,
-    ));
+    let lifetime_cap = TERMINATION_LIFETIME_CAP * EPOCHS_IN_DAY;
+    let capped_sector_age = std::cmp::min(sector_age, lifetime_cap);
+
+    let mut expected_reward: TokenAmount = day_reward * capped_sector_age;
+
+    let relevant_replaced_age =
+        std::cmp::min(replaced_sector_age, lifetime_cap - capped_sector_age);
+
+    expected_reward += replaced_day_reward * relevant_replaced_age;
+
+    let penalized_reward = expected_reward * &*TERMINATION_REWARD_FACTOR_NUM;
+    let penalized_reward = penalized_reward / &*TERMINATION_REWARD_FACTOR_DENOM;
 
     cmp::max(
-        pledge_penalty_for_undeclared_fault(
+        pledge_penalty_for_termination_lower_bound(
             reward_estimate,
             network_qa_power_estimate,
             qa_sector_power,
-            network_version,
         ),
-        twenty_day_reward_at_activation
-            + (day_reward_at_activation * capped_sector_age) / EPOCHS_IN_DAY,
+        twenty_day_reward_at_activation + (penalized_reward / EPOCHS_IN_DAY),
     )
 }
 
-/// Computes the PreCommit Deposit given sector qa weight and current network conditions.
-/// PreCommit Deposit = 20 * BR(t)
+/// Computes the PreCommit deposit given sector qa weight and current network conditions.
+/// PreCommit Deposit = BR(PreCommitDepositProjectionPeriod)
 pub fn pre_commit_deposit_for_power(
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
@@ -175,18 +174,24 @@ pub fn pre_commit_deposit_for_power(
     )
 }
 
-// Computes the pledge requirement for committing new quality-adjusted power to the network, given the current
-// total power, total pledge commitment, epoch block reward, and circulating token supply.
-// In plain language, the pledge requirement is a multiple of the block reward expected to be earned by the
-// newly-committed power, holding the per-epoch block reward constant (though in reality it will change over time).
+/// Computes the pledge requirement for committing new quality-adjusted power to the network, given
+/// the current network total and baseline power, per-epoch  reward, and circulating token supply.
+/// The pledge comprises two parts:
+/// - storage pledge, aka IP base: a multiple of the reward expected to be earned by newly-committed power
+/// - consensus pledge, aka additional IP: a pro-rata fraction of the circulating money supply
+///
+/// IP = IPBase(t) + AdditionalIP(t)
+/// IPBase(t) = BR(t, InitialPledgeProjectionPeriod)
+/// AdditionalIP(t) = LockTarget(t)*PledgeShare(t)
+/// LockTarget = (LockTargetFactorNum / LockTargetFactorDenom) * FILCirculatingSupply(t)
+/// PledgeShare(t) = sectorQAPower / max(BaselinePower(t), NetworkQAPower(t))
 pub fn initial_pledge_for_power(
     qa_power: &StoragePower,
     baseline_power: &StoragePower,
     reward_estimate: &FilterEstimate,
     network_qa_power_estimate: &FilterEstimate,
-    network_circulating_supply_smoothed: &TokenAmount,
+    circulating_supply: &TokenAmount,
 ) -> TokenAmount {
-    let network_qa_power = network_qa_power_estimate.estimate();
     let ip_base = expected_reward_for_power(
         reward_estimate,
         network_qa_power_estimate,
@@ -194,16 +199,36 @@ pub fn initial_pledge_for_power(
         INITIAL_PLEDGE_PROJECTION_PERIOD,
     );
 
-    let lock_target_num = &*LOCK_TARGET_FACTOR_NUM * network_circulating_supply_smoothed;
+    let lock_target_num = &*LOCK_TARGET_FACTOR_NUM * circulating_supply;
     let lock_target_denom = &*LOCK_TARGET_FACTOR_DENOM;
     let pledge_share_num = qa_power;
-    let pledge_share_denom = cmp::max(cmp::max(&network_qa_power, baseline_power), qa_power); // use qaPower in case others are 0
-    let additional_ip_num: TokenAmount = &lock_target_num * pledge_share_num;
+    let network_qa_power = network_qa_power_estimate.estimate();
+    let pledge_share_denom = cmp::max(cmp::max(&network_qa_power, baseline_power), qa_power);
+    let additional_ip_num: TokenAmount = lock_target_num * pledge_share_num;
     let additional_ip_denom = lock_target_denom * pledge_share_denom;
     let additional_ip = additional_ip_num.div_floor(&additional_ip_denom);
 
     let nominal_pledge = ip_base + additional_ip;
-    let space_race_pledge_cap = &*SPACE_RACE_INITIAL_PLEDGE_MAX_PER_BYTE * qa_power;
+    let pledge_cap = &*INITIAL_PLEDGE_MAX_PER_BYTE * qa_power;
 
-    cmp::min(nominal_pledge, space_race_pledge_cap)
+    cmp::min(nominal_pledge, pledge_cap)
+}
+
+pub fn consensus_fault_penalty(this_epoch_reward: TokenAmount) -> TokenAmount {
+    this_epoch_reward.div_floor(&TokenAmount::from(
+        CONSENSUS_FAULT_FACTOR * EXPECTED_LEADERS_PER_EPOCH,
+    ))
+}
+
+/// Returns the amount of a reward to vest, and the vesting schedule, for a reward amount.
+pub fn locked_reward_from_reward(
+    reward: TokenAmount,
+    nv: NetworkVersion,
+) -> (TokenAmount, &'static VestSpec) {
+    let lock_amount = if nv >= NetworkVersion::V6 {
+        (reward * &*LOCKED_REWARD_FACTOR_NUM).div_floor(&*LOCKED_REWARD_FACTOR_DENOM)
+    } else {
+        reward
+    };
+    (lock_amount, &REWARD_VESTING_SPEC)
 }

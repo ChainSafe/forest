@@ -32,6 +32,10 @@ impl DeadlineAssignmentInfo {
     fn is_full_now(&self, partition_size: u64) -> bool {
         self.total_sectors % partition_size == 0
     }
+
+    fn max_partitions_reached(&self, partition_size: u64, max_partitions: u64) -> bool {
+        self.total_sectors >= partition_size * max_partitions
+    }
 }
 
 fn cmp(a: &DeadlineAssignmentInfo, b: &DeadlineAssignmentInfo, partition_size: u64) -> Ordering {
@@ -126,10 +130,11 @@ fn cmp(a: &DeadlineAssignmentInfo, b: &DeadlineAssignmentInfo, partition_size: u
 // Assigns partitions to deadlines, first filling partial partitions, then
 // adding new partitions to deadlines with the fewest live sectors.
 pub fn assign_deadlines(
+    max_partitions: u64,
     partition_size: u64,
     deadlines: &[Option<Deadline>],
     sectors: Vec<SectorOnChainInfo>,
-) -> Vec<Vec<SectorOnChainInfo>> {
+) -> Result<Vec<Vec<SectorOnChainInfo>>, String> {
     struct Entry {
         partition_size: u64,
         info: DeadlineAssignmentInfo,
@@ -176,10 +181,18 @@ pub fn assign_deadlines(
 
     for sector in sectors {
         let info = &mut heap.peek_mut().unwrap().info;
+
+        if info.max_partitions_reached(partition_size, max_partitions) {
+            return Err(format!(
+                "max partitions limit {} reached for all deadlines",
+                max_partitions
+            ));
+        }
+
         changes[info.index].push(sector);
         info.live_sectors += 1;
         info.total_sectors += 1;
     }
 
-    changes
+    Ok(changes)
 }
