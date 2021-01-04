@@ -4,7 +4,10 @@
 use super::policy::*;
 use super::{Deadlines, Partition};
 use clock::ChainEpoch;
-use fil_types::{deadlines::DeadlineInfo, SectorNumber};
+use fil_types::{
+    deadlines::{DeadlineInfo, QuantSpec},
+    SectorNumber,
+};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use std::error::Error as StdError;
@@ -73,4 +76,11 @@ pub fn deadline_is_mutable(
     // Ensure that the current epoch is at least one challenge window before
     // that deadline opens.
     current_epoch < deadline_info.open - WPOST_CHALLENGE_WINDOW
+}
+
+pub fn quant_spec_for_deadline(di: &DeadlineInfo) -> QuantSpec {
+    QuantSpec {
+        unit: WPOST_PROVING_PERIOD,
+        offset: di.last(),
+    }
 }

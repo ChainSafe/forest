@@ -69,10 +69,18 @@ pub enum NetworkVersion {
     V4,
     /// tape (increases max prove commit size by 10x)
     V5,
-    // kumquat   (specs-actors v2.2.0)
+    // kumquat (specs-actors v2.2.0)
     V6,
-    /// upcoming
+    /// calico (specs-actors v2.3.2)
     V7,
+    /// persian (post-2.3.2 behaviour transition)
+    V8,
+    /// reserved
+    V9,
+    /// reserved
+    V10,
+    /// reserved
+    V11,
 }
 
 /// this function helps us check if we shoudl be getting the newest network

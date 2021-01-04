@@ -976,7 +976,7 @@ where
     let mut total_deal_space_time = BigInt::zero();
     let mut total_verified_space_time = BigInt::zero();
     for deal_id in deal_ids {
-        if seen_deal_ids.insert(deal_id) {
+        if !seen_deal_ids.insert(deal_id) {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "deal id {} present multiple times",
