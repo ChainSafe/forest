@@ -274,10 +274,6 @@ async fn conformance_test_runner() {
                 randomness,
             } => {
                 for variant in preconditions.variants {
-                    if variant.nv > 3 {
-                        // Skip v2 upgrade and above
-                        continue;
-                    }
                     if let Err(e) = execute_message_vector(
                         &selector,
                         &car,
@@ -311,10 +307,6 @@ async fn conformance_test_runner() {
                 postconditions,
             } => {
                 for variant in preconditions.variants {
-                    if variant.nv > 3 {
-                        // Skip v2 upgrade and above
-                        continue;
-                    }
                     if let Err(e) = execute_tipset_vector(
                         &selector,
                         &car,

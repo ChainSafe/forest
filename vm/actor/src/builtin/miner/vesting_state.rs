@@ -47,7 +47,7 @@ impl VestingFunds {
         current_epoch: ChainEpoch,
         vesting_sum: &TokenAmount,
         proving_period_start: ChainEpoch,
-        spec: VestSpec,
+        spec: &VestSpec,
     ) {
         // maps the epochs in VestingFunds to their indices in the vec
         let mut epoch_to_index = HashMap::<ChainEpoch, usize>::with_capacity(self.funds.len());
@@ -74,7 +74,7 @@ impl VestingFunds {
 
             let elapsed = vest_epoch - vest_begin;
             let target_vest = if elapsed < spec.vest_period {
-                // Linear vesting, PARAM_FINISH
+                // Linear vesting
                 (vesting_sum * elapsed).div_floor(&TokenAmount::from(vest_period))
             } else {
                 vesting_sum.clone()
