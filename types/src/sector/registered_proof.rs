@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::SectorSize;
+use crate::NetworkVersion;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(feature = "proofs")]
@@ -24,6 +25,28 @@ pub enum RegisteredSealProof {
 }
 
 impl RegisteredSealProof {
+    /// Returns registered seal proof for given sector size
+    pub fn from_sector_size(size: SectorSize, network_version: NetworkVersion) -> Self {
+        if network_version < NetworkVersion::V7 {
+            match size {
+                SectorSize::_2KiB => Self::StackedDRG2KiBV1,
+                SectorSize::_8MiB => Self::StackedDRG8MiBV1,
+                SectorSize::_512MiB => Self::StackedDRG512MiBV1,
+                SectorSize::_32GiB => Self::StackedDRG32GiBV1,
+                SectorSize::_64GiB => Self::StackedDRG64GiBV1,
+            }
+        } else {
+            match size {
+                SectorSize::_2KiB => Self::StackedDRG2KiBV1P1,
+                SectorSize::_8MiB => Self::StackedDRG8MiBV1P1,
+                SectorSize::_512MiB => Self::StackedDRG512MiBV1P1,
+                SectorSize::_32GiB => Self::StackedDRG32GiBV1P1,
+                SectorSize::_64GiB => Self::StackedDRG64GiBV1P1,
+            }
+        }
+    }
+
+    #[deprecated(since = "0.1.10", note = "Logic should exist in actors")]
     /// The maximum duration a sector sealed with this proof may exist between activation and expiration.
     pub fn sector_maximum_lifetime(self) -> clock::ChainEpoch {
         // For all Stacked DRG sectors, the max is 5 years
@@ -217,18 +240,6 @@ impl TryFrom<RegisteredSealProof> for filecoin_proofs_api::RegisteredSealProof {
             StackedDRG8MiBV1P1 => Ok(Self::StackedDrg8MiBV1_1),
             StackedDRG512MiBV1P1 => Ok(Self::StackedDrg512MiBV1_1),
             Invalid(i) => Err(format!("unsupported proof type: {}", i)),
-        }
-    }
-}
-
-impl From<SectorSize> for RegisteredSealProof {
-    fn from(ss: SectorSize) -> Self {
-        match ss {
-            SectorSize::_2KiB => Self::StackedDRG2KiBV1,
-            SectorSize::_8MiB => Self::StackedDRG8MiBV1,
-            SectorSize::_512MiB => Self::StackedDRG512MiBV1,
-            SectorSize::_32GiB => Self::StackedDRG32GiBV1,
-            SectorSize::_64GiB => Self::StackedDRG64GiBV1,
         }
     }
 }

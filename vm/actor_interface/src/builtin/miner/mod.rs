@@ -284,6 +284,7 @@ impl Deadline {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum Partition<'a> {
     V0(Cow<'a, actorv0::miner::Partition>),
     V2(Cow<'a, actorv2::miner::Partition>),

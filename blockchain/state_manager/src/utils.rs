@@ -79,7 +79,7 @@ where
 
         let info = mas.info(store)?;
 
-        let spt = RegisteredSealProof::from(info.sector_size);
+        let spt = RegisteredSealProof::from_sector_size(info.sector_size, nv);
 
         let wpt = spt.registered_winning_post_proof()?;
 
