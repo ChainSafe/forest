@@ -16,17 +16,24 @@ pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = 138720;
 pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = 140760;
 /// v6 network upgrade
 pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = 170000;
+/// v7 network upgrade
+pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = 265200;
+/// v8 network upgrade
+pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 272400;
+/// v9 network upgrade
+pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 336458;
+/// Remove burn on window PoSt fork
+// TODO implement updates for height https://github.com/ChainSafe/forest/issues/905
+pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 343200;
 
 pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
-
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V6;
 
 struct Upgrade {
     height: ChainEpoch,
     network: NetworkVersion,
 }
 
-const MAINNET_SCHEDULE: [Upgrade; 6] = [
+const MAINNET_SCHEDULE: [Upgrade; 9] = [
     Upgrade {
         height: UPGRADE_BREEZE_HEIGHT,
         network: NetworkVersion::V1,
@@ -50,6 +57,18 @@ const MAINNET_SCHEDULE: [Upgrade; 6] = [
     Upgrade {
         height: UPGRADE_KUMQUAT_HEIGHT,
         network: NetworkVersion::V6,
+    },
+    Upgrade {
+        height: UPGRADE_CALICO_HEIGHT,
+        network: NetworkVersion::V7,
+    },
+    Upgrade {
+        height: UPGRADE_PERSIAN_HEIGHT,
+        network: NetworkVersion::V8,
+    },
+    Upgrade {
+        height: UPGRADE_ORANGE_HEIGHT,
+        network: NetworkVersion::V9,
     },
 ];
 
@@ -75,7 +94,7 @@ pub enum NetworkVersion {
     V7,
     /// persian (post-2.3.2 behaviour transition)
     V8,
-    /// reserved
+    /// orange
     V9,
     /// reserved
     V10,

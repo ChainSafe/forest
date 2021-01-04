@@ -1910,7 +1910,7 @@ dependencies = [
 
 [[package]]
 name = "fil_types"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "async-std",
  "base64 0.13.0",
