@@ -885,7 +885,23 @@ where
     where
         V: ProofVerifier,
     {
-        // TODO allow for insecure validation to skip these checks
+        #[cfg(feature = "insecure_post")]
+        {
+            let wpp = header.winning_post_proof();
+            if wpp.len() == 0 {
+                return Err(Error::Validation(
+                    "[INSECURE-POST-VALIDATION] No winning post proof given".to_string(),
+                ));
+            }
+
+            if wpp[0].proof_bytes == "valid proof".as_bytes() {
+                return Ok(());
+            }
+
+            return Err(Error::Validation(
+                "[INSECURE-POST-VALIDATION] winning post was invalid".to_string(),
+            ));
+        }
 
         let buf = header.miner_address().marshal_cbor()?;
 
@@ -1074,5 +1090,11 @@ mod tests {
             send_chain_exchange_response(network_receiver);
             assert_eq!(return_set.await.unwrap().len(), 4);
         });
+    }
+
+    #[cfg(feature = "insecure_post")]
+    #[test]
+    fn insecure_post_validation() {
+        assert!(false)
     }
 }
