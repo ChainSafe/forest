@@ -885,16 +885,15 @@ where
     where
         V: ProofVerifier,
     {
-        #[cfg(feature = "insecure_post")]
-        {
+        if cfg!(insecure_post) {
             let wpp = header.winning_post_proof();
-            if wpp.len() == 0 {
+            if wpp.is_empty() {
                 return Err(Error::Validation(
                     "[INSECURE-POST-VALIDATION] No winning post proof given".to_string(),
                 ));
             }
 
-            if wpp[0].proof_bytes == "valid proof".as_bytes() {
+            if wpp[0].proof_bytes == b"valid proof" {
                 return Ok(());
             }
 
@@ -956,7 +955,6 @@ where
 
 /// Helper function to verify VRF proofs.
 fn verify_election_post_vrf(worker: &Address, rand: &[u8], evrf: &[u8]) -> Result<(), String> {
-    // TODO allow for insecure post validation to skip checks
     crypto::verify_vrf(worker, rand, evrf)
 }
 
@@ -1090,11 +1088,5 @@ mod tests {
             send_chain_exchange_response(network_receiver);
             assert_eq!(return_set.await.unwrap().len(), 4);
         });
-    }
-
-    #[cfg(feature = "insecure_post")]
-    #[test]
-    fn insecure_post_validation() {
-        assert!(false)
     }
 }
