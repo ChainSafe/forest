@@ -19,17 +19,30 @@ use state_tree::StateTree;
 use std::error::Error as StdError;
 use vm::{ActorState, TokenAmount};
 
+const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
+
 lazy_static! {
-    static ref TOTALS_BY_EPOCH: Vec<(ChainEpoch, TokenAmount)> = {
-        let epoch_in_year = 365 * actor::EPOCHS_IN_DAY;
-        vec![
-            (183 * actor::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
-            (epoch_in_year, TokenAmount::from(22_421_712)),
-            (2 * epoch_in_year, TokenAmount::from(7_223_364)),
-            (3 * epoch_in_year, TokenAmount::from(87_637_883)),
-            (6 * epoch_in_year, TokenAmount::from(400_000_000)),
-        ]
-    };
+    static ref PRE_CALICO_VESTING: [(ChainEpoch, TokenAmount); 5] = [
+        (183 * actor::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
+        (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712)),
+        (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
+        (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883)),
+        (6 * EPOCHS_IN_YEAR, TokenAmount::from(400_000_000)),
+    ];
+    static ref CALICO_VESTING: [(ChainEpoch, TokenAmount); 6] = [
+        (0, TokenAmount::from(10_632_000)),
+        (
+            183 * actor::EPOCHS_IN_DAY,
+            TokenAmount::from(19_015_887 + 32_787_700)
+        ),
+        (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712 + 9_400_000)),
+        (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
+        (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883 + 898_958)),
+        (
+            6 * EPOCHS_IN_YEAR,
+            TokenAmount::from(100_000_000 + 300_000_000 + 9_805_053)
+        ),
+    ];
 }
 
 #[derive(Default)]
@@ -89,11 +102,7 @@ impl CircSupplyCalc for GenesisInfo {
                 .fill(setup_ignition_vesting_schedule());
         }
         if !self.vesting.calico.filled() {
-            let _ = self
-                .vesting
-                .calico
-                // TODO change
-                .fill(setup_ignition_vesting_schedule());
+            let _ = self.vesting.calico.fill(setup_calico_vesting_schedule());
         }
 
         get_circulating_supply(&self, height, state_tree)
@@ -232,7 +241,7 @@ pub fn get_circulating_supply<'a, DB: BlockStore>(
 }
 
 fn setup_genesis_vesting_schedule() -> Vec<msig0::State> {
-    TOTALS_BY_EPOCH
+    PRE_CALICO_VESTING
         .iter()
         .map(|(unlock_duration, initial_balance)| {
             msig0::State {
@@ -250,7 +259,32 @@ fn setup_genesis_vesting_schedule() -> Vec<msig0::State> {
 }
 
 fn setup_ignition_vesting_schedule() -> Vec<msig0::State> {
-    TOTALS_BY_EPOCH
+    PRE_CALICO_VESTING
+        .iter()
+        .map(|(unlock_duration, initial_balance)| {
+            msig0::State {
+                signers: vec![],
+                num_approvals_threshold: 0,
+                next_tx_id: msig0::TxnID(0),
+
+                // In the pre-ignition logic, we incorrectly set this value in Fil, not attoFil,
+                // an off-by-10^18 error
+                initial_balance: initial_balance * FILECOIN_PRECISION,
+
+                // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic
+                // of the Ignition upgrade itself.
+                start_epoch: UPGRADE_LIFTOFF_HEIGHT,
+
+                unlock_duration: *unlock_duration,
+                // Default Cid is ok here because this field is never read
+                pending_txs: Cid::default(),
+            }
+        })
+        .collect()
+}
+
+fn setup_calico_vesting_schedule() -> Vec<msig0::State> {
+    CALICO_VESTING
         .iter()
         .map(|(unlock_duration, initial_balance)| {
             msig0::State {
