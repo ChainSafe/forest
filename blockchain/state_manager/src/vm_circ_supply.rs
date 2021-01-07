@@ -291,15 +291,8 @@ fn setup_calico_vesting_schedule() -> Vec<msig0::State> {
                 signers: vec![],
                 num_approvals_threshold: 0,
                 next_tx_id: msig0::TxnID(0),
-
-                // In the pre-ignition logic, we incorrectly set this value in Fil, not attoFil,
-                // an off-by-10^18 error
                 initial_balance: initial_balance * FILECOIN_PRECISION,
-
-                // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic
-                // of the Ignition upgrade itself.
                 start_epoch: UPGRADE_LIFTOFF_HEIGHT,
-
                 unlock_duration: *unlock_duration,
                 // Default Cid is ok here because this field is never read
                 pending_txs: Cid::default(),
