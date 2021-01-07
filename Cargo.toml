@@ -1,64 +1,62 @@
 [workspace]
 members = [
-    "forest",
-    "blockchain/beacon",
-    "blockchain/blocks",
-    "blockchain/chain",
-    "blockchain/state_manager",
-    "blockchain/chain_sync",
-    "blockchain/beacon",
-    "blockchain/message_pool",
-    "vm",
-    "vm/actor",
-    "vm/actor_interface",
-    "vm/address",
-    "vm/message",
-    "vm/runtime",
-    "vm/state_tree",
-    "vm/interpreter",
-    "node/clock",
-    "node/rpc",
-    "crypto",
-    "encoding",
-    "ipld/cid",
-    "ipld/car",
-    "ipld/amt",
-    "ipld",
-    "ipld/hamt",
-    "ipld/blockstore",
-    # TODO re-enable graphsync when work continues
-    # "ipld/graphsync",
-    "utils/bigint",
-    "tests/serialization_tests",
-    "utils/auth",
-    "tests/conformance_tests",
-    "utils/bitfield",
-    "utils/test_utils",
-    "utils/commcid",
-    "utils/json_utils",
-    "utils/genesis",
-    "utils/net_utils",
-    "utils/statediff",
-    "utils/hash_utils",
-    "types",
-    "key_management",
+  "forest",
+  "blockchain/beacon",
+  "blockchain/blocks",
+  "blockchain/chain",
+  "blockchain/state_manager",
+  "blockchain/chain_sync",
+  "blockchain/beacon",
+  "blockchain/message_pool",
+  "vm",
+  "vm/actor",
+  "vm/actor_interface",
+  "vm/address",
+  "vm/message",
+  "vm/runtime",
+  "vm/state_tree",
+  "vm/interpreter",
+  "node/clock",
+  "node/rpc",
+  "crypto",
+  "encoding",
+  "ipld/cid",
+  "ipld/car",
+  "ipld/amt",
+  "ipld",
+  "ipld/hamt",
+  "ipld/blockstore", # TODO re-enable graphsync when work continues  # "ipld/graphsync",
+  "utils/bigint",
+  "tests/serialization_tests",
+  "utils/auth",
+  "tests/conformance_tests",
+  "utils/bitfield",
+  "utils/test_utils",
+  "utils/commcid",
+  "utils/json_utils",
+  "utils/genesis",
+  "utils/net_utils",
+  "utils/statediff",
+  "utils/hash_utils",
+  "types",
+  "key_management",
 ]
 
 [patch.crates-io]
-ipld_blockstore = { path = "./ipld/blockstore" }
-fil_types = { path = "./types" }
-fil_clock = { path = "./node/clock" }
-forest_db = { path = "./node/db" }
-forest_crypto = { path = "./crypto" }
-forest_address = { path = "./vm/address" }
-forest_bigint = { path = "./utils/bigint" }
-forest_bitfield = { path = "./utils/bitfield" }
-forest_cid = { path = "./ipld/cid" }
-forest_ipld = { path = "./ipld" }
-forest_encoding = { path = "./encoding" }
-forest_hash_utils = { path = "./utils/hash_utils" }
-forest_json_utils = { path = "./utils/json_utils" }
-commcid = { path = "./utils/commcid" }
-forest_vm = { path = "./vm" }
-forest_runtime = { path = "./vm/runtime" }
-forest_message = { path = "./vm/message" }
+commcid = {path = "./utils/commcid"}
+fil_clock = {path = "./node/clock"}
+fil_types = {path = "./types"}
+forest_address = {path = "./vm/address"}
+forest_bigint = {path = "./utils/bigint"}
+forest_bitfield = {path = "./utils/bitfield"}
+forest_cid = {path = "./ipld/cid"}
+forest_crypto = {path = "./crypto"}
+forest_db = {path = "./node/db"}
+forest_encoding = {path = "./encoding"}
+forest_hash_utils = {path = "./utils/hash_utils"}
+forest_ipld = {path = "./ipld"}
+forest_json_utils = {path = "./utils/json_utils"}
+forest_message = {path = "./vm/message"}
+forest_runtime = {path = "./vm/runtime"}
+forest_vm = {path = "./vm"}
+ipld_blockstore = {path = "./ipld/blockstore"}

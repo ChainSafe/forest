@@ -885,7 +885,7 @@ where
     where
         V: ProofVerifier,
     {
-        if cfg!(insecure_post) {
+        if cfg!(feature = "insecure_post") {
             let wpp = header.winning_post_proof();
             if wpp.is_empty() {
                 return Err(Error::Validation(
