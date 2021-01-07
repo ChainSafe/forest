@@ -6,13 +6,13 @@ mod full_sync_test;
 #[cfg(test)]
 mod validate_block_test;
 
-use super::bad_block_cache::BadBlockCache;
 use super::sync_state::{SyncStage, SyncState};
+use super::{bad_block_cache::BadBlockCache, sync::ChainSyncState};
 use super::{Error, SyncNetworkContext};
 use actor::{is_account_actor, power};
 use address::Address;
 use amt::Amt;
-use async_std::sync::{Receiver, RwLock};
+use async_std::sync::{Mutex, Receiver, RwLock};
 use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -77,13 +77,20 @@ where
         self.state_manager.chain_store()
     }
 
-    pub async fn spawn(self, mut inbound_channel: Receiver<Arc<Tipset>>) -> JoinHandle<()> {
+    pub async fn spawn(
+        self,
+        mut inbound_channel: Receiver<Arc<Tipset>>,
+        state: Arc<Mutex<ChainSyncState>>,
+    ) -> JoinHandle<()> {
         task::spawn(async move {
             while let Some(ts) = inbound_channel.next().await {
-                if let Err(e) = self.sync(ts).await {
-                    let err = e.to_string();
-                    warn!("failed to sync tipset: {}", &err);
-                    self.state.write().await.error(err);
+                match self.sync(ts).await {
+                    Ok(()) => *state.lock().await = ChainSyncState::Follow,
+                    Err(e) => {
+                        let err = e.to_string();
+                        warn!("failed to sync tipset: {}", &err);
+                        self.state.write().await.error(err);
+                    }
                 }
             }
         })

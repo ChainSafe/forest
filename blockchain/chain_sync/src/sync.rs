@@ -10,7 +10,7 @@ use super::sync_state::SyncState;
 use super::sync_worker::SyncWorker;
 use super::{Error, SyncNetworkContext};
 use amt::Amt;
-use async_std::sync::{channel, Receiver, RwLock, Sender};
+use async_std::sync::{channel, Mutex, Receiver, RwLock, Sender};
 use async_std::task::{self, JoinHandle};
 use beacon::Beacon;
 use blocks::{Block, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta};
@@ -38,7 +38,7 @@ use std::sync::Arc;
 type WorkerState = Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>;
 
 #[derive(Debug, PartialEq)]
-enum ChainSyncState {
+pub enum ChainSyncState {
     /// Bootstrapping peers before starting sync.
     Bootstrap,
     /// Syncing chain with ChainExchange protocol.
@@ -78,7 +78,7 @@ impl Default for SyncConfig {
 /// messages to be able to do the initial sync.
 pub struct ChainSyncer<DB, TBeacon, V, M> {
     /// State of general `ChainSync` protocol.
-    state: ChainSyncState,
+    state: Arc<Mutex<ChainSyncState>>,
 
     /// Syncing state of chain sync workers.
     worker_state: WorkerState,
@@ -142,7 +142,7 @@ where
         );
 
         Ok(Self {
-            state: ChainSyncState::Bootstrap,
+            state: Arc::new(Mutex::new(ChainSyncState::Bootstrap)),
             worker_state: Default::default(),
             beacon,
             network,
@@ -221,7 +221,7 @@ where
                     .await
             }
             NetworkEvent::PubsubMessage { source, message } => {
-                if self.state != ChainSyncState::Follow {
+                if *self.state.lock().await != ChainSyncState::Follow {
                     // Ignore gossipsub events if not in following state
                     return;
                 }
@@ -375,7 +375,7 @@ where
             verifier: PhantomData::<V>::default(),
             req_window: self.sync_config.req_window,
         }
-        .spawn(channel)
+        .spawn(channel, Arc::clone(&self.state))
         .await
     }
 
@@ -424,10 +424,10 @@ where
             .await;
 
         // Only update target on initial sync
-        if self.state == ChainSyncState::Bootstrap {
+        if *self.state.lock().await == ChainSyncState::Bootstrap {
             if let Some(best_target) = self.select_sync_target().await {
                 self.schedule_tipset(best_target).await;
-                self.state = ChainSyncState::Initial;
+                *self.state.lock().await = ChainSyncState::Initial;
                 return;
             }
         }
