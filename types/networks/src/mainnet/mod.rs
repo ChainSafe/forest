@@ -1,7 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{drand::DRAND_MAINNET, DrandPoint, Upgrade};
+use super::{
+    drand::{DRAND_INCENTINET, DRAND_MAINNET},
+    DrandPoint, Upgrade,
+};
 use clock::ChainEpoch;
 use fil_types::NetworkVersion;
 
@@ -88,14 +91,14 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
 ];
 
 lazy_static! {
-    pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [
+    pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
         DrandPoint {
             height: 0,
+            config: &*DRAND_INCENTINET,
+        },
+        DrandPoint {
+            height: UPGRADE_SMOKE_HEIGHT,
             config: &*DRAND_MAINNET,
         },
-        // DrandPoint {
-        //     height: UPGRADE_SMOKE_HEIGHT,
-        //     beacon: todo!(),
-        // },
     ];
 }
