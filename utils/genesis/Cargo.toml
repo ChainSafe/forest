@@ -21,3 +21,4 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 net_utils = { path = "../net_utils" }
 url = "2.1.1"
 futures = "0.3.5"
+networks = { path = "../../types/networks" }

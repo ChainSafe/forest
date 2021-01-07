@@ -13,6 +13,7 @@ use futures::AsyncRead;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
 use net_utils::FetchProgress;
+use networks::DEFAULT_GENESIS;
 use state_manager::StateManager;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
@@ -21,7 +22,7 @@ use std::sync::Arc;
 use url::Url;
 
 #[cfg(feature = "testing")]
-pub const EXPORT_SR_40: &[u8; 1226395] = include_bytes!("mainnet/export40.car");
+pub const EXPORT_SR_40: &[u8] = include_bytes!("export40.car");
 
 /// Uses an optional file path or the default genesis to parse the genesis and determine if
 /// chain store has existing data for the given genesis.
@@ -40,8 +41,7 @@ where
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
-            let bz = include_bytes!("mainnet/genesis.car");
-            let reader = BufReader::<&[u8]>::new(bz.as_ref());
+            let reader = BufReader::<&[u8]>::new(DEFAULT_GENESIS);
             process_car(reader, state_manager.chain_store()).await?
         }
     };

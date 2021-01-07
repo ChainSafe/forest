@@ -8,6 +8,9 @@ use super::{
 use clock::ChainEpoch;
 use fil_types::NetworkVersion;
 
+/// Default genesis car file bytes.
+pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
+
 /// V1 network upgrade
 pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = 41280;
 /// V2 network upgrade
