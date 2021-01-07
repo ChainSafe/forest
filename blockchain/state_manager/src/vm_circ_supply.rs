@@ -267,7 +267,7 @@ fn setup_ignition_vesting_schedule() -> Vec<msig0::State> {
                 num_approvals_threshold: 0,
                 next_tx_id: msig0::TxnID(0),
 
-                // In the pre-ignition logic, we incorrectly set this value in Fil, not attoFil,
+                // In the pre-ignition logic, this value was incorrectly set in Fil, not attoFil,
                 // an off-by-10^18 error
                 initial_balance: initial_balance * FILECOIN_PRECISION,
 
