@@ -1,53 +1,53 @@
 [package]
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
 name = "chain_sync"
 version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
 
 [dependencies]
-actor = {package = "actor_interface", path = "../../vm/actor_interface"}
-address = {package = "forest_address", version = "0.3"}
-amt = {package = "ipld_amt", path = "../../ipld/amt"}
-async-std = {version = "1.6.3", features = ["unstable"]}
-beacon = {path = "../beacon"}
-blocks = {package = "forest_blocks", path = "../blocks", features = ["json"]}
-chain = {path = "../chain"}
-cid = {package = "forest_cid", version = "0.3"}
-clock = {package = "fil_clock", path = "../../node/clock"}
-commcid = {path = "../../utils/commcid"}
-crypto = {package = "forest_crypto", version = "0.4"}
-db = {package = "forest_db", version = "0.1"}
-encoding = {package = "forest_encoding", version = "0.2.1"}
-fil_types = "0.1"
-flo_stream = "0.4.0"
-forest_libp2p = {path = "../../node/forest_libp2p"}
+address = { package = "forest_address", version = "0.3" }
+vm = { package = "forest_vm", version = "0.3.1" }
+amt = { package = "ipld_amt", path = "../../ipld/amt" }
+hamt = { package = "ipld_hamt", path = "../../ipld/hamt" }
+blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
+beacon = { path = "../beacon" }
+db = { package = "forest_db", version = "0.1" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
+libp2p = { version = "0.24", default-features = false }
+cid = { package = "forest_cid", version = "0.3" }
+ipld_blockstore = "0.1"
+chain = { path = "../chain" }
+message = { package = "forest_message", version = "0.6", features = ["proofs"] }
+state_tree = { path = "../../vm/state_tree/" }
+state_manager = { path = "../state_manager/" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+crypto = { package = "forest_crypto", version = "0.4" }
+log = "0.4.8"
+async-std = { version = "1.6.3", features = ["unstable"] }
+forest_libp2p = { path = "../../node/forest_libp2p" }
 futures = "0.3.5"
 futures-util = "0.3.5"
-hamt = {package = "ipld_hamt", path = "../../ipld/hamt"}
-interpreter = {path = "../../vm/interpreter/"}
-ipld_blockstore = "0.1"
-libp2p = {version = "0.24", default-features = false}
-log = "0.4.8"
 lru = "0.6"
-message = {package = "forest_message", version = "0.6", features = ["proofs"]}
-message_pool = {path = "../message_pool"}
-num-bigint = {path = "../../utils/bigint", package = "forest_bigint"}
-num-traits = "0.2"
-rand = "0.7.3"
-serde = {version = "1.0", features = ["derive", "rc"]}
-smallvec = "1.1.0"
-state_manager = {path = "../state_manager/"}
-state_tree = {path = "../../vm/state_tree/"}
 thiserror = "1.0"
-vm = {package = "forest_vm", version = "0.3.1"}
+num-traits = "0.2"
+fil_types = "0.1"
+commcid = { path = "../../utils/commcid" }
+clock = { package = "fil_clock", path = "../../node/clock" }
+serde = { version = "1.0", features = ["derive", "rc"] }
+flo_stream = "0.4.0"
+rand = "0.7.3"
+smallvec = "1.1.0"
+actor = { package = "actor_interface", path = "../../vm/actor_interface" }
+interpreter = { path = "../../vm/interpreter/" }
+message_pool = { path = "../message_pool" }
 
 [dev-dependencies]
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
 base64 = "0.13"
-forest_car = {path = "../../ipld/car"}
-genesis = {path = "../../utils/genesis", features = ["testing"]}
-hex = "0.4"
+genesis = { path = "../../utils/genesis", features = ["testing"] }
 pretty_env_logger = "0.4.0"
-test_utils = {version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"]}
+forest_car = { path = "../../ipld/car" }
+hex = "0.4"
 
 [features]
 insecure_post = []
