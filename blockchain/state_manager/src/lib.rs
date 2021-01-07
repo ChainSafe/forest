@@ -50,7 +50,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::ActorState;
 use vm::TokenAmount;
-use vm_circ_supply::GenesisInfoPair;
+use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -86,7 +86,7 @@ pub struct StateManager<DB> {
     /// of the state/receipt root.
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     subscriber: Option<Subscriber<HeadChange>>,
-    genesis_info: GenesisInfoPair,
+    genesis_info: GenesisInfo,
 }
 
 impl<DB> StateManager<DB>
@@ -98,7 +98,7 @@ where
             cs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
-            genesis_info: GenesisInfoPair::default(),
+            genesis_info: GenesisInfo::default(),
         }
     }
 
@@ -111,7 +111,7 @@ where
             cs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
-            genesis_info: GenesisInfoPair::default(),
+            genesis_info: GenesisInfo::default(),
         }
     }
 
