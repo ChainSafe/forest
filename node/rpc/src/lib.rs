@@ -21,7 +21,7 @@ use async_tungstenite::{
     tungstenite::handshake::server::Request, tungstenite::Message, WebSocketStream,
 };
 use auth::{has_perms, Error as AuthError, JWT_IDENTIFIER, WRITE_ACCESS};
-use beacon::{Beacon, Schedule};
+use beacon::{Beacon, BeaconSchedule};
 use blocks::Tipset;
 use blockstore::BlockStore;
 use chain::ChainStore;
@@ -71,7 +71,7 @@ where
     pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub network_name: String,
     pub chain_store: Arc<ChainStore<DB>>,
-    pub beacon: Schedule<B>,
+    pub beacon: Arc<BeaconSchedule<B>>,
 }
 
 pub async fn start_rpc<DB, KS, B, V>(state: RpcState<DB, KS, B>, rpc_endpoint: &str)

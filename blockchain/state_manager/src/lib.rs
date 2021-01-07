@@ -16,8 +16,7 @@ use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
-use beacon::BeaconEntry;
-use beacon::{Beacon, Schedule, IGNORE_DRAND_VAR};
+use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use blockstore::BlockStore;
 use blockstore::BufferedBlockStore;
 use chain::{draw_randomness, ChainStore, HeadChange};
@@ -611,7 +610,7 @@ where
     /// gets associated miner base info based
     pub async fn miner_get_base_info<V: ProofVerifier, B: Beacon>(
         self: &Arc<Self>,
-        schedule: &Schedule<B>,
+        beacon: &BeaconSchedule<B>,
         key: &TipsetKeys,
         round: ChainEpoch,
         address: Address,
@@ -621,8 +620,8 @@ where
             Ok(prev) => prev,
             Err(err) => {
                 if std::env::var(IGNORE_DRAND_VAR)
-                    .map(|e| e == "1")
-                    .unwrap_or_default()
+                    .map(|e| e != "1")
+                    .unwrap_or(true)
                 {
                     return Err(Box::from(format!(
                         "failed to get latest beacon entry: {:?}",
@@ -632,8 +631,9 @@ where
                 beacon::BeaconEntry::default()
             }
         };
-        let beacon = schedule.beacon_for_epoch(round)?;
-        let entries = beacon::beacon_entries_for_block(beacon, round, &prev).await?;
+        let entries = beacon
+            .beacon_entries_for_block(round, tipset.epoch(), &prev)
+            .await?;
         let rbase = entries.iter().last().unwrap_or(&prev);
         let (lbts, lbst) = self
             .get_lookback_tipset_for_round::<V>(tipset.clone(), round)

@@ -1,19 +1,25 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use beacon::{Beacon, DrandBeacon, DrandPublic, DEFAULT_DRAND_URL};
+use beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig};
 use serde::{Deserialize, Serialize};
 
 async fn new_beacon() -> DrandBeacon {
-    // Current public parameters, subject to change.
-    let coeffs =
-        hex::decode("922a2e93828ff83345bae533f5172669a26c02dc76d6bf59c80892e12ab1455c229211886f35bb56af6d5bea981024df").unwrap();
-    let dist_pub = DrandPublic {
-        coefficient: coeffs,
-    };
-    DrandBeacon::new(DEFAULT_DRAND_URL, dist_pub, 15904451751, 25)
-        .await
-        .unwrap()
+    DrandBeacon::new(
+        15904451751,
+        25,
+        // TODO this could maybe be referencing existing config
+        &DrandConfig {
+            server: "https://pl-us.incentinet.drand.sh",
+            chain_info: ChainInfo {
+                public_key: "922a2e93828ff83345bae533f5172669a26c02dc76d6bf59c80892e12ab1455c229211886f35bb56af6d5bea981024df"
+                    .into(),
+                ..Default::default()
+            },
+        },
+    )
+    .await
+    .unwrap()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

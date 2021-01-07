@@ -5,7 +5,7 @@ use super::*;
 use address::Address;
 use async_std::sync::channel;
 use async_std::task;
-use beacon::MockBeacon;
+use beacon::{BeaconPoint, MockBeacon};
 use blocks::BlockHeader;
 use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
@@ -45,7 +45,10 @@ fn peer_manager_update() {
     let gen_hash = chain_store.set_genesis(&dummy_header).unwrap();
 
     let genesis_ts = Arc::new(Tipset::new(vec![dummy_header]).unwrap());
-    let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+    let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
+        height: 0,
+        beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
+    }]));
     let state_manager = Arc::new(StateManager::new(chain_store));
     let cs = ChainSyncer::<_, _, MockVerifier, TestApi>::new(
         state_manager,

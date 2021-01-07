@@ -22,9 +22,6 @@ const FULL_API_VERSION: Version = new_version(1, 0, 0);
 const MINER_API_VERSION: Version = new_version(0, 15, 0);
 const WORKER_API_VERSION: Version = new_version(0, 15, 0);
 
-/// a constant for the block delay process in seconds
-pub const BLOCK_DELAY_SECS: u64 = 4;
-
 lazy_static! {
     static ref CURRENT_COMMIT: String = {
         let output = Command::new("git")

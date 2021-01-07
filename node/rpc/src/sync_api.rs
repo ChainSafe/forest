@@ -122,7 +122,7 @@ mod tests {
     use super::*;
     use async_std::sync::{channel, Receiver, RwLock};
     use async_std::task;
-    use beacon::{BeaconPoint, MockBeacon, Schedule};
+    use beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
     use blocks::{BlockHeader, Tipset};
     use chain::ChainStore;
     use chain_sync::SyncStage;
@@ -132,7 +132,7 @@ mod tests {
     use message_pool::{MessagePool, MpoolRpcProvider};
     use serde_json::from_str;
     use state_manager::StateManager;
-    use std::sync::Arc;
+    use std::{sync::Arc, time::Duration};
     use wallet::MemKeyStore;
 
     const TEST_NET_NAME: &str = "test";
@@ -141,7 +141,10 @@ mod tests {
         Arc<RpcState<MemoryDB, MemKeyStore, MockBeacon>>,
         Receiver<NetworkMessage>,
     ) {
-        let beacon = MockBeacon::new(std::time::Duration::from_secs(2));
+        let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
+            height: 0,
+            beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
+        }]));
 
         let (network_send, network_rx) = channel(5);
         let db = Arc::new(MemoryDB::default());
@@ -178,7 +181,6 @@ mod tests {
             .unwrap()
         });
         let (new_mined_block_tx, _) = channel(5);
-        let beacon = Arc::new(beacon);
         let state = Arc::new(RpcState {
             state_manager,
             keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
@@ -189,7 +191,7 @@ mod tests {
             network_name: TEST_NET_NAME.to_owned(),
             events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
             chain_store: cs_for_chain,
-            beacon: Schedule(vec![BeaconPoint { start: 0, beacon }]),
+            beacon,
             new_mined_block_tx,
         });
         (state, network_rx)

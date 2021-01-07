@@ -973,6 +973,7 @@ dependencies = [
  "log",
  "lru",
  "message_pool",
+ "networks",
  "num-traits 0.2.14",
  "pretty_env_logger",
  "rand 0.7.3",
@@ -2090,6 +2091,7 @@ dependencies = [
  "log",
  "message_pool",
  "net_utils",
+ "networks",
  "paramfetch",
  "pretty_env_logger",
  "rpc",
@@ -2375,6 +2377,7 @@ dependencies = [
  "libp2p-bitswap",
  "libp2p-request-response",
  "log",
+ "networks",
  "serde",
  "smallvec",
  "tiny-cid",
@@ -4195,6 +4198,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "networks"
+version = "0.1.0"
+dependencies = [
+ "beacon",
+ "fil_clock",
+ "fil_types",
+ "lazy_static",
+ "serde_json",
+]
+
+[[package]]
 name = "nix"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5779,6 +5793,7 @@ dependencies = [
  "lazy_static",
  "lazycell",
  "log",
+ "networks",
  "num-traits 0.2.14",
  "serde",
  "state_tree",

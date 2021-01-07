@@ -3,7 +3,7 @@
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use address::Address;
-use beacon::{self, Beacon, BeaconEntry};
+use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::Signature;
@@ -341,9 +341,12 @@ impl BlockHeader {
     /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
     pub async fn validate_block_drand<B: Beacon>(
         &self,
-        beacon: &B,
+        b_schedule: &BeaconSchedule<B>,
         prev_entry: &BeaconEntry,
     ) -> Result<(), Error> {
+        let beacon = b_schedule
+            .beacon_for_epoch(self.epoch)
+            .map_err(|e| Error::Validation(e.to_string()))?;
         // TODO validation may need to use the beacon schedule from `ChainSyncer`. Seems outdated
         let max_round = beacon.max_beacon_round_for_epoch(self.epoch);
         if max_round == prev_entry.round() {
