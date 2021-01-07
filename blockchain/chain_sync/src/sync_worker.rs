@@ -892,7 +892,22 @@ where
     where
         V: ProofVerifier,
     {
-        // TODO allow for insecure validation to skip these checks
+        if cfg!(feature = "insecure_post") {
+            let wpp = header.winning_post_proof();
+            if wpp.is_empty() {
+                return Err(Error::Validation(
+                    "[INSECURE-POST-VALIDATION] No winning post proof given".to_string(),
+                ));
+            }
+
+            if wpp[0].proof_bytes == b"valid proof" {
+                return Ok(());
+            }
+
+            return Err(Error::Validation(
+                "[INSECURE-POST-VALIDATION] winning post was invalid".to_string(),
+            ));
+        }
 
         let buf = header.miner_address().marshal_cbor()?;
 
@@ -947,7 +962,6 @@ where
 
 /// Helper function to verify VRF proofs.
 fn verify_election_post_vrf(worker: &Address, rand: &[u8], evrf: &[u8]) -> Result<(), String> {
-    // TODO allow for insecure post validation to skip checks
     crypto::verify_vrf(worker, rand, evrf)
 }
 
