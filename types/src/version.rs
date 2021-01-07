@@ -102,14 +102,6 @@ pub enum NetworkVersion {
     V11,
 }
 
-/// this function helps us check if we shoudl be getting the newest network
-pub fn use_newest_network() -> bool {
-    if UPGRADE_BREEZE_HEIGHT <= 0 && UPGRADE_SMOKE_HEIGHT <= 0 {
-        return true;
-    }
-    false
-}
-
 /// Gets network version from epoch using default Mainnet schedule
 pub fn get_network_version_default(epoch: ChainEpoch) -> NetworkVersion {
     MAINNET_SCHEDULE

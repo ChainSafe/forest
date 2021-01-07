@@ -24,7 +24,7 @@ where
     let first = params
         .first()
         .ok_or_else(|| "Empty vec given for beacon".to_string())?;
-    let beacon = data.beacon.beacon_for_epoch(*first)?;
+    let (_, beacon) = data.beacon.beacon_for_epoch(*first)?;
     let rr = beacon.max_beacon_round_for_epoch(*first);
     let e = beacon.entry(rr).await?;
     Ok(BeaconEntryJson(e))

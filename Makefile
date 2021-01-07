@@ -41,6 +41,7 @@ clean:
 	@cargo clean -p genesis
 	@cargo clean -p actor_interface
 	@cargo clean -p forest_hash_utils
+	@cargo clean -p networks
 	@echo "Done cleaning."
 
 lint: license clean

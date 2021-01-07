@@ -43,6 +43,7 @@ actor = { package = "actor_interface", path = "../vm/actor_interface" }
 genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
+networks = { path = "../types/networks" }
 
 [features]
 default = ["rocksdb"]

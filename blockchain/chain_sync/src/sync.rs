@@ -12,7 +12,7 @@ use super::{Error, SyncNetworkContext};
 use amt::Amt;
 use async_std::sync::{channel, Mutex, Receiver, RwLock, Sender};
 use async_std::task::{self, JoinHandle};
-use beacon::Beacon;
+use beacon::{Beacon, BeaconSchedule};
 use blocks::{Block, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Code::Blake2b256};
@@ -84,7 +84,7 @@ pub struct ChainSyncer<DB, TBeacon, V, M> {
     worker_state: WorkerState,
 
     /// Drand randomness beacon
-    beacon: Arc<TBeacon>,
+    beacon: Arc<BeaconSchedule<TBeacon>>,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -128,7 +128,7 @@ where
 {
     pub fn new(
         state_manager: Arc<StateManager<DB>>,
-        beacon: Arc<TBeacon>,
+        beacon: Arc<BeaconSchedule<TBeacon>>,
         mpool: Arc<MessagePool<M>>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
@@ -579,7 +579,7 @@ mod tests {
     use async_std::sync::channel;
     use async_std::sync::Sender;
     use async_std::task;
-    use beacon::MockBeacon;
+    use beacon::{BeaconPoint, MockBeacon};
     use db::MemoryDB;
     use fil_types::verifier::MockVerifier;
     use forest_libp2p::NetworkEvent;
@@ -614,7 +614,10 @@ mod tests {
         let gen = construct_dummy_header();
         chain_store.set_genesis(&gen).unwrap();
 
-        let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+        let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
+            height: 0,
+            beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
+        }]));
 
         let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
         (

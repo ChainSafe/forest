@@ -11,13 +11,8 @@ use clock::ChainEpoch;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::borrow::Cow;
-use std::convert::TryFrom;
 use std::error;
 use std::sync::Arc;
-
-/// Default endpoint for the drand beacon node.
-// TODO this URL is only valid until smoke fork, should setup schedule for drand upgrade
-pub const DEFAULT_DRAND_URL: &str = "https://pl-us.incentinet.drand.sh";
 
 /// Enviromental Variable to ignore Drand. Lotus parallel is LOTUS_IGNORE_DRAND
 pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
@@ -35,32 +30,72 @@ impl DrandPublic {
     }
 }
 
-pub struct Schedule<T>(pub Vec<BeaconPoint<T>>);
+#[derive(Clone)]
+pub struct DrandConfig<'a> {
+    pub server: &'static str,
+    pub chain_info: ChainInfo<'a>,
+}
 
-impl<T> Schedule<T>
+pub struct BeaconSchedule<T>(pub Vec<BeaconPoint<T>>);
+
+impl<T> BeaconSchedule<T>
 where
     T: Beacon,
 {
-    pub fn beacon_for_epoch(&self, e: ChainEpoch) -> Result<&T, Box<dyn error::Error>> {
-        if let Some(beacon_point) = self
+    pub async fn beacon_entries_for_block(
+        &self,
+        epoch: ChainEpoch,
+        parent_epoch: ChainEpoch,
+        prev: &BeaconEntry,
+    ) -> Result<Vec<BeaconEntry>, Box<dyn error::Error>> {
+        let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
+        let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
+        if cb_epoch != pb_epoch {
+            // Fork logic
+            let round = curr_beacon.max_beacon_round_for_epoch(epoch);
+            let mut entries = Vec::with_capacity(2);
+            entries.push(curr_beacon.entry(round - 1).await?);
+            entries.push(curr_beacon.entry(round).await?);
+            return Ok(entries);
+        }
+        let max_round = curr_beacon.max_beacon_round_for_epoch(epoch);
+        if max_round == prev.round() {
+            return Ok(vec![]);
+        }
+        // TODO: this is a sketchy way to handle the genesis block not having a beacon entry
+        let prev_round = if prev.round() == 0 {
+            max_round - 1
+        } else {
+            prev.round()
+        };
+
+        let mut cur = max_round;
+        let mut out = Vec::new();
+        while cur > prev_round {
+            let entry = curr_beacon.entry(cur).await?;
+            cur = entry.round() - 1;
+            out.push(entry);
+        }
+        out.reverse();
+        Ok(out)
+    }
+
+    pub fn beacon_for_epoch(
+        &self,
+        epoch: ChainEpoch,
+    ) -> Result<(ChainEpoch, &T), Box<dyn error::Error>> {
+        Ok(self
             .0
             .iter()
             .rev()
-            .find(|beacon| beacon.start == e)
-            .map(|s| &s.beacon)
-        {
-            Ok(&*beacon_point)
-        } else {
-            self.0
-                .first()
-                .map(|s| &*s.beacon)
-                .ok_or_else(|| Box::from("Could not get first_value of beacon in beacon_for_epoch"))
-        }
+            .find(|upgrade| epoch >= upgrade.height)
+            .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
+            .ok_or("Invalid beacon schedule, no valid beacon")?)
     }
 }
 
 pub struct BeaconPoint<T> {
-    pub start: ChainEpoch,
+    pub height: ChainEpoch,
     pub beacon: Arc<T>,
 }
 
@@ -83,14 +118,14 @@ where
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
 }
 
-#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone)]
-pub struct ChainInfo {
-    public_key: String,
-    period: i32,
-    genesis_time: i32,
-    hash: String,
+#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Default)]
+pub struct ChainInfo<'a> {
+    pub public_key: Cow<'a, str>,
+    pub period: i32,
+    pub genesis_time: i32,
+    pub hash: Cow<'a, str>,
     #[serde(rename = "groupHash")]
-    group_hash: String,
+    pub group_hash: Cow<'a, str>,
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone)]
@@ -102,7 +137,7 @@ pub struct BeaconEntryJson {
 }
 
 pub struct DrandBeacon {
-    url: Cow<'static, str>,
+    url: &'static str,
 
     pub_key: DrandPublic,
     /// Interval between beacons, in seconds.
@@ -118,26 +153,28 @@ pub struct DrandBeacon {
 impl DrandBeacon {
     /// Construct a new DrandBeacon.
     pub async fn new(
-        url: impl Into<Cow<'static, str>>,
-        pub_key: DrandPublic,
         genesis_ts: u64,
         interval: u64,
+        config: &DrandConfig<'_>,
     ) -> Result<Self, Box<dyn error::Error>> {
         if genesis_ts == 0 {
             panic!("Genesis timestamp cannot be 0")
         }
-        let url = url.into();
-        let chain_info: ChainInfo = surf::get(&format!("{}/info", &url)).recv_json().await?;
-        let remote_pub_key = hex::decode(chain_info.public_key)?;
-        if remote_pub_key != pub_key.coefficient {
-            return Err(Box::try_from(
-                "Drand pub key from config is different than one on drand servers",
-            )?);
+
+        let chain_info = &config.chain_info;
+
+        if cfg!(debug_assertions) {
+            let remote_chain_info: ChainInfo = surf::get(&format!("{}/info", &config.server))
+                .recv_json()
+                .await?;
+            debug_assert!(&remote_chain_info == chain_info);
         }
 
         Ok(Self {
-            url,
-            pub_key,
+            url: config.server,
+            pub_key: DrandPublic {
+                coefficient: hex::decode(chain_info.public_key.as_ref())?,
+            },
             interval: chain_info.period as u64,
             drand_gen_time: chain_info.genesis_time as u64,
             fil_round_time: interval,

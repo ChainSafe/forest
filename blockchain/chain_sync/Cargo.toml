@@ -40,6 +40,7 @@ smallvec = "1.1.0"
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 interpreter = { path = "../../vm/interpreter/" }
 message_pool = { path = "../message_pool" }
+networks = { path = "../../types/networks" }
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }

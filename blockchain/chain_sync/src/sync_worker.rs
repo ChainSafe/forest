@@ -14,7 +14,7 @@ use address::Address;
 use amt::Amt;
 use async_std::sync::{Mutex, Receiver, RwLock};
 use async_std::task::{self, JoinHandle};
-use beacon::{Beacon, BeaconEntry, IGNORE_DRAND_VAR};
+use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use chain::{persist_objects, ChainStore};
 use cid::{Cid, Code::Blake2b256};
@@ -45,7 +45,7 @@ pub(crate) struct SyncWorker<DB, TBeacon, V> {
     pub state: Arc<RwLock<SyncState>>,
 
     /// Drand randomness beacon.
-    pub beacon: Arc<TBeacon>,
+    pub beacon: Arc<BeaconSchedule<TBeacon>>,
 
     /// manages retrieving and updates state objects.
     pub state_manager: Arc<StateManager<DB>>,
@@ -424,7 +424,7 @@ where
     /// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
     async fn validate_block(
         sm: Arc<StateManager<DB>>,
-        bc: Arc<TBeacon>,
+        bc: Arc<BeaconSchedule<TBeacon>>,
         block: Arc<Block>,
     ) -> Result<Arc<Block>, (Cid, Error)> {
         debug!(
@@ -666,10 +666,11 @@ where
         // * Beacon values check
         if std::env::var(IGNORE_DRAND_VAR) != Ok("1".to_owned()) {
             let block_cloned = Arc::clone(&block);
+            let parent_epoch = base_ts.epoch();
             validations.push(task::spawn(async move {
                 block_cloned
                     .header()
-                    .validate_block_drand(bc.as_ref(), &p_beacon)
+                    .validate_block_drand(bc.as_ref(), parent_epoch, &p_beacon)
                     .await
                     .map_err(|e| {
                         Error::Validation(format!(
@@ -1018,7 +1019,7 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 mod tests {
     use super::*;
     use async_std::sync::channel;
-    use beacon::MockBeacon;
+    use beacon::{BeaconPoint, MockBeacon};
     use db::MemoryDB;
     use fil_types::verifier::MockVerifier;
     use forest_libp2p::NetworkMessage;
@@ -1040,7 +1041,10 @@ mod tests {
         let gen = construct_dummy_header();
         chain_store.set_genesis(&gen).unwrap();
 
-        let beacon = Arc::new(MockBeacon::new(Duration::from_secs(1)));
+        let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
+            height: 0,
+            beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
+        }]));
 
         let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
         (

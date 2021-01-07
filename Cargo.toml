@@ -41,6 +41,7 @@ members = [
     "utils/statediff",
     "utils/hash_utils",
     "types",
+    "types/networks",
     "key_management",
 ]
 

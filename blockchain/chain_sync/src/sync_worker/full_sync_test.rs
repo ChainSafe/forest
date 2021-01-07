@@ -3,10 +3,8 @@
 
 use super::*;
 use crate::peer_manager::PeerManager;
-use actor::EPOCH_DURATION_SECONDS;
 use async_std::sync::channel;
 use async_std::task;
-use beacon::{DrandBeacon, DrandPublic};
 use db::MemoryDB;
 use fil_types::verifier::FullVerifier;
 use forest_car::load_car;
@@ -51,14 +49,11 @@ async fn space_race_full_sync() {
     let (genesis, _) = initialize_genesis(None, &state_manager).await.unwrap();
     let genesis = Arc::new(genesis);
 
-    let beacon = Arc::new(DrandBeacon::new(
-        "https://pl-us.incentinet.drand.sh",
-        DrandPublic{coefficient: hex::decode("8cad0c72c606ab27d36ee06de1d5b2db1faf92e447025ca37575ab3a8aac2eaae83192f846fc9e158bc738423753d000").unwrap()},
-        genesis.blocks()[0].timestamp(),
-        EPOCH_DURATION_SECONDS as u64,
-    )
-    .await
-    .unwrap());
+    let beacon = Arc::new(
+        networks::beacon_schedule_default(genesis.min_timestamp())
+            .await
+            .unwrap(),
+    );
 
     let peer = PeerId::random();
     let peer_manager = PeerManager::default();

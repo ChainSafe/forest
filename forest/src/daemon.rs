@@ -2,14 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
-use actor::EPOCH_DURATION_SECONDS;
 use async_std::{
     sync::{channel, RwLock},
     task,
 };
 use auth::{generate_priv_key, JWT_IDENTIFIER};
-use beacon::{BeaconPoint, Schedule};
-use beacon::{DrandBeacon, DEFAULT_DRAND_URL};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use fil_types::verifier::FullVerifier;
@@ -111,21 +108,14 @@ pub(super) async fn start(config: Config) {
         .unwrap(),
     );
 
-    // Get Drand Coefficients
-    let coeff = config.drand_public;
-
-    let beacon = DrandBeacon::new(
-        DEFAULT_DRAND_URL,
-        coeff,
-        genesis.blocks()[0].timestamp(),
-        EPOCH_DURATION_SECONDS as u64,
-    )
-    .await
-    .unwrap();
+    let beacon = Arc::new(
+        networks::beacon_schedule_default(genesis.min_timestamp())
+            .await
+            .unwrap(),
+    );
 
     // Initialize ChainSyncer
     // TODO allow for configuring validation strategy (defaulting to full validation)
-    let beacon = Arc::new(beacon);
     let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
         beacon.clone(),
@@ -163,7 +153,7 @@ pub(super) async fn start(config: Config) {
                     network_send,
                     network_name,
                     events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
-                    beacon: Schedule(vec![BeaconPoint { start: 0, beacon }]),
+                    beacon,
                     chain_store,
                     new_mined_block_tx: worker_tx,
                 },
