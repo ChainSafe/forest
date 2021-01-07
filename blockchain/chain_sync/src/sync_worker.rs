@@ -659,10 +659,11 @@ where
         // * Beacon values check
         if std::env::var(IGNORE_DRAND_VAR) != Ok("1".to_owned()) {
             let block_cloned = Arc::clone(&block);
+            let parent_epoch = base_ts.epoch();
             validations.push(task::spawn(async move {
                 block_cloned
                     .header()
-                    .validate_block_drand(bc.as_ref(), &p_beacon)
+                    .validate_block_drand(bc.as_ref(), parent_epoch, &p_beacon)
                     .await
                     .map_err(|e| {
                         Error::Validation(format!(

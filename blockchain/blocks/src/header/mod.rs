@@ -342,13 +342,32 @@ impl BlockHeader {
     pub async fn validate_block_drand<B: Beacon>(
         &self,
         b_schedule: &BeaconSchedule<B>,
+        _parent_epoch: ChainEpoch,
         prev_entry: &BeaconEntry,
     ) -> Result<(), Error> {
-        let beacon = b_schedule
+        let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
-        // TODO validation may need to use the beacon schedule from `ChainSyncer`. Seems outdated
-        let max_round = beacon.max_beacon_round_for_epoch(self.epoch);
+        let (pb_epoch, _) = b_schedule
+            .beacon_for_epoch(self.epoch)
+            .map_err(|e| Error::Validation(e.to_string()))?;
+
+        if cb_epoch != pb_epoch {
+            // Fork logic
+            if self.beacon_entries.len() != 2 {
+                return Err(Error::Validation(format!(
+                    "Expected two beacon entries at beacon fork, got {}",
+                    self.beacon_entries.len()
+                )));
+            }
+
+            curr_beacon
+                .verify_entry(&self.beacon_entries[1], &self.beacon_entries[0])
+                .await
+                .map_err(|e| Error::Validation(e.to_string()))?;
+        }
+
+        let max_round = curr_beacon.max_beacon_round_for_epoch(self.epoch);
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {
                 return Err(Error::Validation(format!(
@@ -370,7 +389,7 @@ impl BlockHeader {
 
         let mut prev = prev_entry;
         for curr in &self.beacon_entries {
-            if !beacon
+            if !curr_beacon
                 .verify_entry(&curr, &prev)
                 .await
                 .map_err(|e| Error::Validation(e.to_string()))?

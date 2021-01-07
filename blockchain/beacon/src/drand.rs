@@ -45,13 +45,20 @@ where
     pub async fn beacon_entries_for_block(
         &self,
         epoch: ChainEpoch,
-        _parent_epoch: ChainEpoch,
+        parent_epoch: ChainEpoch,
         prev: &BeaconEntry,
     ) -> Result<Vec<BeaconEntry>, Box<dyn error::Error>> {
-        // TODO handle fork logic
-
-        let beacon = self.beacon_for_epoch(epoch)?;
-        let max_round = beacon.max_beacon_round_for_epoch(epoch);
+        let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
+        let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
+        if cb_epoch != pb_epoch {
+            // Fork logic
+            let round = curr_beacon.max_beacon_round_for_epoch(epoch);
+            let mut entries = Vec::with_capacity(2);
+            entries.push(curr_beacon.entry(round - 1).await?);
+            entries.push(curr_beacon.entry(round).await?);
+            return Ok(entries);
+        }
+        let max_round = curr_beacon.max_beacon_round_for_epoch(epoch);
         if max_round == prev.round() {
             return Ok(vec![]);
         }
@@ -65,7 +72,7 @@ where
         let mut cur = max_round;
         let mut out = Vec::new();
         while cur > prev_round {
-            let entry = beacon.entry(cur).await?;
+            let entry = curr_beacon.entry(cur).await?;
             cur = entry.round() - 1;
             out.push(entry);
         }
@@ -73,13 +80,16 @@ where
         Ok(out)
     }
 
-    pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> Result<&T, Box<dyn error::Error>> {
+    pub fn beacon_for_epoch(
+        &self,
+        epoch: ChainEpoch,
+    ) -> Result<(ChainEpoch, &T), Box<dyn error::Error>> {
         Ok(self
             .0
             .iter()
             .rev()
             .find(|upgrade| epoch >= upgrade.height)
-            .map(|upgrade| upgrade.beacon.as_ref())
+            .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
             .ok_or("Invalid beacon schedule, no valid beacon")?)
     }
 }
