@@ -675,6 +675,18 @@ where
             .ok_or_else(|| actor_error!(SysErrIllegalActor; "failed to load actor in delete actor"))
             .map(|act| act.balance)?;
         if balance != 0.into() {
+            if self.version >= NetworkVersion::V7 {
+                let beneficiary_id = self.resolve_address(&beneficiary)?.ok_or_else(|| {
+                    actor_error!(SysErrIllegalArgument, "beneficiary doesn't exist")
+                })?;
+
+                if &beneficiary_id == self.message().receiver() {
+                    return Err(actor_error!(
+                        SysErrIllegalArgument,
+                        "benefactor cannot be beneficiary"
+                    ));
+                }
+            }
             // Transfer the executing actor's balance to the beneficiary
             transfer(self.state, &receiver, beneficiary, &balance)
                 .map_err(|e| e.wrap("failed to transfer balance to beneficiary actor"))?;
@@ -685,6 +697,7 @@ where
             .delete_actor(&receiver)
             .map_err(|e| e.downcast_fatal("failed to delete actor"))
     }
+
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         self.circ_supply_calc
             .get_supply(self.epoch, self.state)
