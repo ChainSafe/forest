@@ -5,7 +5,6 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
-use fil_types::{NetworkVersion, ZERO_ADDRESS};
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
@@ -79,9 +78,9 @@ impl UnsignedMessage {
     pub fn valid_for_block_inclusion(
         &self,
         min_gas: i64,
-        version: NetworkVersion,
+        version: fil_types::NetworkVersion,
     ) -> Result<(), String> {
-        use fil_types::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
+        use fil_types::{NetworkVersion, BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
         use num_traits::Signed;
         if self.version != 0 {
             return Err(format!("Message version: {} not  supported", self.version));
