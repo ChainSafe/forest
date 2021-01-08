@@ -639,6 +639,8 @@ where
         Ok(addr)
     }
     fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
+        // * Lotus does undef address check here, should be impossible to hit.
+        // * if diff with `SysErrIllegalArgument` check here
         if !actor::is_builtin_actor(&code_id) {
             return Err(actor_error!(SysErrIllegalArgument; "Can only create built-in actors."));
         }
