@@ -3108,6 +3108,7 @@ dependencies = [
  "ipld_hamt 0.1.1",
  "lazy_static",
  "log",
+ "networks",
  "num-traits 0.2.14",
  "rayon",
  "state_tree",
