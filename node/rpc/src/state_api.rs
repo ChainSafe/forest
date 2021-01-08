@@ -24,13 +24,13 @@ use bls_signatures::Serialize as SerializeBls;
 use cid::{json::CidJson, Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::SignatureType;
+use fil_types::json::SectorInfoJson;
 use fil_types::sector::post::json::PoStProofJson;
 use fil_types::{
     deadlines::DeadlineInfo,
     verifier::{FullVerifier, ProofVerifier},
     NetworkVersion, PoStProof, SectorNumber, SectorSize,
 };
-use fil_types::{get_network_version_default, json::SectorInfoJson};
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -39,6 +39,7 @@ use message::{
     signed_message::{json::SignedMessageJson, SignedMessage},
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
+use networks::get_network_version_default;
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
 use state_manager::{InvocResult, MarketBalance, MiningBaseInfo, StateManager};

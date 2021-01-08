@@ -7,12 +7,10 @@ use blockstore::BlockStore;
 use chain::*;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::{
-    FILECOIN_PRECISION, FIL_RESERVED, UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_IGNITION_HEIGHT,
-    UPGRADE_LIFTOFF_HEIGHT,
-};
+use fil_types::{FILECOIN_PRECISION, FIL_RESERVED};
 use interpreter::CircSupplyCalc;
 use lazycell::AtomicLazyCell;
+use networks::{UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_IGNITION_HEIGHT, UPGRADE_LIFTOFF_HEIGHT};
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::error::Error as StdError;
