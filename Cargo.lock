@@ -1132,6 +1132,7 @@ dependencies = [
  "ipld_blockstore",
  "lazy_static",
  "log",
+ "networks",
  "paramfetch",
  "pretty_env_logger",
  "regex",

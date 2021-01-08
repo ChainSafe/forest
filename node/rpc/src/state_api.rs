@@ -205,7 +205,7 @@ pub async fn state_miner_info<
 
     // TODO revisit better way of handling (Lotus does here as well)
     if get_network_version_default(ts.epoch()) >= NetworkVersion::V7 {
-        miner_info.seal_proof_type.to_proof_v1();
+        miner_info.seal_proof_type.update_to_v1();
     }
     Ok(miner_info)
 }

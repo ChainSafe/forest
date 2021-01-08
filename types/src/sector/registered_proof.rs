@@ -46,7 +46,7 @@ impl RegisteredSealProof {
         }
     }
 
-    pub fn to_proof_v1(&mut self) {
+    pub fn update_to_v1(&mut self) {
         *self = match self {
             Self::StackedDRG2KiBV1 => Self::StackedDRG2KiBV1P1,
             Self::StackedDRG512MiBV1 => Self::StackedDRG512MiBV1P1,
