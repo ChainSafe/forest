@@ -24,13 +24,13 @@ use bls_signatures::Serialize as SerializeBls;
 use cid::{json::CidJson, Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::SignatureType;
-use fil_types::json::SectorInfoJson;
 use fil_types::sector::post::json::PoStProofJson;
 use fil_types::{
     deadlines::DeadlineInfo,
     verifier::{FullVerifier, ProofVerifier},
     NetworkVersion, PoStProof, SectorNumber, SectorSize,
 };
+use fil_types::{get_network_version_default, json::SectorInfoJson};
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -186,17 +186,26 @@ pub async fn state_miner_info<
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<MinerInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (actor, key) = params;
-    let actor = actor.into();
-    let miner_state = data
+    let store = state_manager.blockstore();
+    let (AddressJson(addr), TipsetKeysJson(key)) = params;
+
+    let ts = data.chain_store.tipset_from_keys(&key).await?;
+    let actor = data
         .state_manager
-        .chain_store()
-        .miner_load_actor_tsk(&actor, &key.into())
-        .await
-        .map_err(|e| format!("Could not load miner {:?}", e))?;
-    let miner_info = miner_state
-        .info(state_manager.blockstore())
+        .get_actor(&addr, ts.parent_state())
+        .map_err(|e| format!("Could not load miner {}: {:?}", addr, e))?
+        .ok_or_else(|| format!("miner {} does not exist", addr))?;
+
+    let miner_state = miner::State::load(store, &actor)?;
+
+    let mut miner_info = miner_state
+        .info(store)
         .map_err(|e| format!("Could not get info {:?}", e))?;
+
+    // TODO revisit better way of handling (Lotus does here as well)
+    if get_network_version_default(ts.epoch()) >= NetworkVersion::V7 {
+        miner_info.seal_proof_type.to_proof_v1();
+    }
     Ok(miner_info)
 }
 
