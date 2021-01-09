@@ -22,7 +22,7 @@ use vm::Serialized;
 
 #[test]
 fn unsigned_symmetric_json() {
-    let message_json = r#"{"Version":9,"To":"t01234","From":"t01234","Nonce":42,"Value":"0","GasLimit":1,"GasFeeCap":"2","GasPremium":"9","Method":1,"Params":"Ynl0ZSBhcnJheQ==","CID":{"/":"bafy2bzacea5z7ywqogtuxykqcis76lrhl4fl27bg63firldlry5ml6bbahoy6"}}"#;
+    let message_json = r#"{"Version":9,"To":"f01234","From":"f01234","Nonce":42,"Value":"0","GasLimit":1,"GasFeeCap":"2","GasPremium":"9","Method":1,"Params":"Ynl0ZSBhcnJheQ==","CID":{"/":"bafy2bzacea5z7ywqogtuxykqcis76lrhl4fl27bg63firldlry5ml6bbahoy6"}}"#;
 
     // Deserialize
     let UnsignedMessageJson(cid_d) = from_str(message_json).unwrap();
@@ -34,7 +34,7 @@ fn unsigned_symmetric_json() {
 
 #[test]
 fn signed_symmetric_json() {
-    let message_json = r#"{"Message":{"Version":9,"To":"t01234","From":"t01234","Nonce":42,"Value":"0","GasLimit":1,"GasFeeCap":"2","GasPremium":"9","Method":1,"Params":"Ynl0ZSBhcnJheQ==","CID":{"/":"bafy2bzacea5z7ywqogtuxykqcis76lrhl4fl27bg63firldlry5ml6bbahoy6"}},"Signature":{"Type":2,"Data":"Ynl0ZSBhcnJheQ=="},"CID":{"/":"bafy2bzacea5z7ywqogtuxykqcis76lrhl4fl27bg63firldlry5ml6bbahoy6"}}"#;
+    let message_json = r#"{"Message":{"Version":9,"To":"f01234","From":"f01234","Nonce":42,"Value":"0","GasLimit":1,"GasFeeCap":"2","GasPremium":"9","Method":1,"Params":"Ynl0ZSBhcnJheQ==","CID":{"/":"bafy2bzacea5z7ywqogtuxykqcis76lrhl4fl27bg63firldlry5ml6bbahoy6"}},"Signature":{"Type":2,"Data":"Ynl0ZSBhcnJheQ=="},"CID":{"/":"bafy2bzacea5z7ywqogtuxykqcis76lrhl4fl27bg63firldlry5ml6bbahoy6"}}"#;
 
     // Deserialize
     let SignedMessageJson(cid_d) = from_str(message_json).unwrap();
@@ -79,8 +79,8 @@ fn message_json_annotations() {
         {
             "unsigned": {
                 "Version": 10,
-                "To": "t012",
-                "From": "t034",
+                "To": "f012",
+                "From": "f034",
                 "Nonce": 5,
                 "Value": "6",
                 "GasPremium": "9",
@@ -92,8 +92,8 @@ fn message_json_annotations() {
             "signed": {
                 "Message": {
                     "Version": 10,
-                    "To": "t012",
-                    "From": "t034",
+                    "To": "f012",
+                    "From": "f034",
                     "Nonce": 5,
                     "Value": "6",
                     "GasPremium": "9",

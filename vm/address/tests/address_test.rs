@@ -80,7 +80,7 @@ fn secp256k1_address() {
                 224, 210, 36, 84, 33, 248, 97, 59, 193, 13, 114, 250, 33, 102, 102, 169, 108, 59,
                 193, 57, 32, 211, 255, 35, 63, 208, 188, 5,
             ],
-            expected: "t15ihq5ibzwki2b4ep2f46avlkrqzhpqgtga7pdrq",
+            expected: "f15ihq5ibzwki2b4ep2f46avlkrqzhpqgtga7pdrq",
         },
         AddressTestVec {
             input: &[
@@ -89,7 +89,7 @@ fn secp256k1_address() {
                 118, 242, 28, 165, 93, 54, 149, 145, 82, 176, 225, 232, 135, 145, 124, 57, 53, 118,
                 238, 240, 147, 246, 30, 189, 58, 208, 111, 127, 218,
             ],
-            expected: "t12fiakbhe2gwd5cnmrenekasyn6v5tnaxaqizq6a",
+            expected: "f12fiakbhe2gwd5cnmrenekasyn6v5tnaxaqizq6a",
         },
         AddressTestVec {
             input: &[
@@ -98,7 +98,7 @@ fn secp256k1_address() {
                 133, 248, 209, 37, 129, 45, 172, 65, 99, 163, 150, 52, 155, 35, 193, 28, 194, 255,
                 53, 157, 229, 75, 226, 135, 234, 98, 49, 155,
             ],
-            expected: "t1wbxhu3ypkuo6eyp6hjx6davuelxaxrvwb2kuwva",
+            expected: "f1wbxhu3ypkuo6eyp6hjx6davuelxaxrvwb2kuwva",
         },
         AddressTestVec {
             input: &[
@@ -107,7 +107,7 @@ fn secp256k1_address() {
                 216, 239, 145, 57, 233, 18, 73, 202, 189, 57, 50, 145, 207, 229, 210, 119, 186,
                 118, 222, 69, 227, 224, 133, 163, 118, 129, 191, 54, 69, 210,
             ],
-            expected: "t1xtwapqc6nh4si2hcwpr3656iotzmlwumogqbuaa",
+            expected: "f1xtwapqc6nh4si2hcwpr3656iotzmlwumogqbuaa",
         },
         AddressTestVec {
             input: &[
@@ -116,7 +116,7 @@ fn secp256k1_address() {
                 30, 208, 180, 236, 137, 8, 0, 37, 63, 166, 252, 32, 172, 144, 251, 241, 251, 242,
                 113, 48, 164, 236, 195, 228, 3, 183, 5, 118,
             ],
-            expected: "t1xcbgdhkgkwht3hrrnui3jdopeejsoatkzmoltqy",
+            expected: "f1xcbgdhkgkwht3hrrnui3jdopeejsoatkzmoltqy",
         },
         AddressTestVec {
             input: &[
@@ -125,7 +125,7 @@ fn secp256k1_address() {
                 95, 200, 98, 104, 207, 234, 235, 167, 174, 5, 191, 184, 214, 142, 183, 90, 82, 104,
                 120, 44, 248, 111, 200, 112, 43, 239, 138, 31, 224,
             ],
-            expected: "t17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy",
+            expected: "f17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy",
         },
     ];
 
@@ -143,35 +143,35 @@ fn actor_address() {
                 118, 18, 129, 144, 205, 240, 104, 209, 65, 128, 68, 172, 192, 62, 11, 103, 129,
                 151, 13, 96,
             ],
-            expected: "t24vg6ut43yw2h2jqydgbg2xq7x6f4kub3bg6as6i",
+            expected: "f24vg6ut43yw2h2jqydgbg2xq7x6f4kub3bg6as6i",
         },
         AddressTestVec {
             input: &[
                 44, 175, 184, 226, 224, 107, 186, 152, 234, 101, 124, 92, 245, 244, 32, 35, 170,
                 35, 232, 142,
             ],
-            expected: "t25nml2cfbljvn4goqtclhifepvfnicv6g7mfmmvq",
+            expected: "f25nml2cfbljvn4goqtclhifepvfnicv6g7mfmmvq",
         },
         AddressTestVec {
             input: &[
                 2, 44, 158, 14, 162, 157, 143, 64, 197, 106, 190, 195, 92, 141, 88, 125, 160, 166,
                 76, 24,
             ],
-            expected: "t2nuqrg7vuysaue2pistjjnt3fadsdzvyuatqtfei",
+            expected: "f2nuqrg7vuysaue2pistjjnt3fadsdzvyuatqtfei",
         },
         AddressTestVec {
             input: &[
                 223, 236, 3, 14, 32, 79, 15, 89, 216, 15, 29, 94, 233, 29, 253, 6, 109, 127, 99,
                 189,
             ],
-            expected: "t24dd4ox4c2vpf5vk5wkadgyyn6qtuvgcpxxon64a",
+            expected: "f24dd4ox4c2vpf5vk5wkadgyyn6qtuvgcpxxon64a",
         },
         AddressTestVec {
             input: &[
                 61, 58, 137, 232, 221, 171, 84, 120, 50, 113, 108, 109, 70, 140, 53, 96, 201, 244,
                 127, 216,
             ],
-            expected: "t2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
+            expected: "f2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
         },
     ];
 
@@ -189,35 +189,35 @@ fn bls_address() {
 			186, 78, 168, 27, 57, 94, 18, 121, 123, 132, 185, 207, 49, 75, 149, 70,
 			112, 94, 131, 156, 122, 153, 214, 6, 178, 71, 221, 180, 249, 172, 122,
             52, 20, 221],
-            expected: "t3vvmn62lofvhjd2ugzca6sof2j2ubwok6cj4xxbfzz4yuxfkgobpihhd2thlanmsh3w2ptld2gqkn2jvlss4a",
+            expected: "f3vvmn62lofvhjd2ugzca6sof2j2ubwok6cj4xxbfzz4yuxfkgobpihhd2thlanmsh3w2ptld2gqkn2jvlss4a",
         },
 		AddressTestVec {
             input: &[179, 41, 79, 10, 46, 41, 224, 198, 110, 188, 35, 93, 47, 237,
 			202, 86, 151, 191, 120, 74, 246, 5, 199, 90, 246, 8, 230, 166, 61, 92,
 			211, 142, 168, 92, 168, 152, 158, 14, 253, 233, 24, 139, 56, 47,
             147, 114, 70, 13],
-            expected: "t3wmuu6crofhqmm3v4enos73okk2l366ck6yc4owxwbdtkmpk42ohkqxfitcpa57pjdcftql4tojda2poeruwa",
+            expected: "f3wmuu6crofhqmm3v4enos73okk2l366ck6yc4owxwbdtkmpk42ohkqxfitcpa57pjdcftql4tojda2poeruwa",
         },
 		AddressTestVec {
             input: &[150, 161, 163, 228, 234, 122, 20, 212, 153, 133, 230, 97, 178,
 			36, 1, 212, 79, 237, 64, 45, 29, 9, 37, 178, 67, 201, 35, 88, 156,
 			15, 188, 126, 50, 205, 4, 226, 158, 215, 141, 21, 211, 125, 58, 170,
             63, 230, 218, 51],
-            expected: "t3s2q2hzhkpiknjgmf4zq3ejab2rh62qbndueslmsdzervrhapxr7dftie4kpnpdiv2n6tvkr743ndhrsw6d3a",
+            expected: "f3s2q2hzhkpiknjgmf4zq3ejab2rh62qbndueslmsdzervrhapxr7dftie4kpnpdiv2n6tvkr743ndhrsw6d3a",
         },
 		AddressTestVec {
             input: &[134, 180, 84, 37, 140, 88, 148, 117, 247, 209, 111, 90, 172, 1,
 			138, 121, 246, 193, 22, 157, 32, 252, 51, 146, 29, 216, 181, 206, 28,
 			172, 108, 52, 143, 144, 163, 96, 54, 36, 246, 174, 185, 27, 100, 81,
             140, 46, 128, 149],
-            expected: "t3q22fijmmlckhl56rn5nkyamkph3mcfu5ed6dheq53c244hfmnq2i7efdma3cj5voxenwiummf2ajlsbxc65a",
+            expected: "f3q22fijmmlckhl56rn5nkyamkph3mcfu5ed6dheq53c244hfmnq2i7efdma3cj5voxenwiummf2ajlsbxc65a",
         },
 		AddressTestVec {
             input: &[167, 114, 107, 3, 128, 34, 247, 90, 56, 70, 23, 88, 83, 96, 206,
 			230, 41, 7, 10, 45, 157, 40, 113, 41, 101, 229, 242, 110, 204, 64,
 			133, 131, 130, 128, 55, 36, 237, 52, 242, 114, 3, 54, 240, 157, 182,
             49, 240, 116],
-            expected: "t3u5zgwa4ael3vuocgc5mfgygo4yuqocrntuuhcklf4xzg5tcaqwbyfabxetwtj4tsam3pbhnwghyhijr5mixa",
+            expected: "f3u5zgwa4ael3vuocgc5mfgygo4yuqocrntuuhcklf4xzg5tcaqwbyfabxetwtj4tsam3pbhnwghyhijr5mixa",
         },
     ];
 
@@ -236,39 +236,39 @@ fn id_address() {
     let test_vectors = &[
         IDTestVec {
             input: 0,
-            expected: "t00",
+            expected: "f00",
         },
         IDTestVec {
             input: 1,
-            expected: "t01",
+            expected: "f01",
         },
         IDTestVec {
             input: 10,
-            expected: "t010",
+            expected: "f010",
         },
         IDTestVec {
             input: 150,
-            expected: "t0150",
+            expected: "f0150",
         },
         IDTestVec {
             input: 499,
-            expected: "t0499",
+            expected: "f0499",
         },
         IDTestVec {
             input: 1024,
-            expected: "t01024",
+            expected: "f01024",
         },
         IDTestVec {
             input: 1729,
-            expected: "t01729",
+            expected: "f01729",
         },
         IDTestVec {
             input: 999999,
-            expected: "t0999999",
+            expected: "f0999999",
         },
         IDTestVec {
             input: std::u64::MAX,
-            expected: "t018446744073709551615",
+            expected: "f018446744073709551615",
         },
     ];
 
@@ -290,37 +290,37 @@ fn invalid_string_addresses() {
             expected: Error::UnknownNetwork,
         },
         StringAddrVec {
-            input: "t4gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
+            input: "f4gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
             expected: Error::UnknownProtocol,
         },
         StringAddrVec {
-            input: "t2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr24y",
+            input: "f2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr24y",
             expected: Error::InvalidChecksum,
         },
         StringAddrVec {
-            input: "t0banananananannnnnnnnn",
+            input: "f0banananananannnnnnnnn",
             expected: Error::InvalidLength,
         },
         StringAddrVec {
-            input: "t0banananananannnnnnnn",
+            input: "f0banananananannnnnnnn",
             expected: Error::InvalidPayload,
         },
         StringAddrVec {
-            input: "t2gfvuyh7v2sx3patm1k23wdzmhyhtmqctasbr24y",
+            input: "f2gfvuyh7v2sx3patm1k23wdzmhyhtmqctasbr24y",
             expected: Error::Base32Decoding(DecodeError {
                 position: 16,
                 kind: DecodeKind::Symbol,
             }),
         },
         StringAddrVec {
-            input: "t2gfvuyh7v2sx3paTm1k23wdzmhyhtmqctasbr24y",
+            input: "f2gfvuyh7v2sx3paTm1k23wdzmhyhtmqctasbr24y",
             expected: Error::Base32Decoding(DecodeError {
                 position: 14,
                 kind: DecodeKind::Symbol,
             }),
         },
         StringAddrVec {
-            input: "t2",
+            input: "f2",
             expected: Error::InvalidLength,
         },
     ];
@@ -417,99 +417,99 @@ fn cbor_encoding() {
 
     let test_vectors = &[
         StringAddrVec{
-            input: "t00",
+            input: "f00",
             encoded: &[66, 0, 0],
         },
         StringAddrVec{
-            input: "t01",
+            input: "f01",
             encoded: &[66, 0, 1],
         },
         StringAddrVec{
-            input: "t010",
+            input: "f010",
             encoded: &[66, 0, 10],
         },
         StringAddrVec{
-            input: "t0150",
+            input: "f0150",
             encoded: &[67, 0, 150, 1],
         },
         StringAddrVec{
-            input: "t0499",
+            input: "f0499",
             encoded: &[67, 0, 243, 3],
         },
         StringAddrVec{
-            input: "t01024",
+            input: "f01024",
             encoded: &[67, 0, 128, 8],
         },
         StringAddrVec{
-            input: "t01729",
+            input: "f01729",
             encoded: &[67, 0, 193, 13],
         },
         StringAddrVec{
-            input: "t0999999",
+            input: "f0999999",
             encoded: &[68, 0, 191, 132, 61],
         },
         StringAddrVec{
-            input: "t15ihq5ibzwki2b4ep2f46avlkrqzhpqgtga7pdrq",
+            input: "f15ihq5ibzwki2b4ep2f46avlkrqzhpqgtga7pdrq",
             encoded: &[85, 1, 234, 15, 14, 160, 57, 178, 145, 160, 240, 143, 209, 121, 224, 85, 106, 140, 50, 119, 192, 211],
         },
         StringAddrVec{
-            input: "t12fiakbhe2gwd5cnmrenekasyn6v5tnaxaqizq6a",
+            input: "f12fiakbhe2gwd5cnmrenekasyn6v5tnaxaqizq6a",
             encoded: &[85, 1, 209, 80, 5, 4, 228, 209, 172, 62, 137, 172, 137, 26, 69, 2, 88, 111, 171, 217, 180, 23],
         },
         StringAddrVec{
-            input: "t1wbxhu3ypkuo6eyp6hjx6davuelxaxrvwb2kuwva",
+            input: "f1wbxhu3ypkuo6eyp6hjx6davuelxaxrvwb2kuwva",
             encoded: &[85, 1, 176, 110, 122, 111, 15, 85, 29, 226, 97, 254, 58, 111, 225, 130, 180, 34, 238, 11, 198, 182],
         },
         StringAddrVec{
-            input: "t1xtwapqc6nh4si2hcwpr3656iotzmlwumogqbuaa",
+            input: "f1xtwapqc6nh4si2hcwpr3656iotzmlwumogqbuaa",
             encoded: &[85, 1, 188, 236, 7, 192, 94, 105, 249, 36, 104, 226, 179, 227, 191, 119, 200, 116, 242, 197, 218, 140],
         },
         StringAddrVec{
-            input: "t1xcbgdhkgkwht3hrrnui3jdopeejsoatkzmoltqy",
+            input: "f1xcbgdhkgkwht3hrrnui3jdopeejsoatkzmoltqy",
             encoded: &[85, 1, 184, 130, 97, 157, 70, 85, 143, 61, 158, 49, 109, 17, 180, 141, 207, 33, 19, 39, 2, 106],
         },
         StringAddrVec{
-            input: "t17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy",
+            input: "f17uoq6tp427uzv7fztkbsnn64iwotfrristwpryy",
             encoded: &[85, 1, 253, 29, 15, 77, 252, 215, 233, 154, 252, 185, 154, 131, 38, 183, 220, 69, 157, 50, 198, 40],
         },
         StringAddrVec{
-            input: "t24vg6ut43yw2h2jqydgbg2xq7x6f4kub3bg6as6i",
+            input: "f24vg6ut43yw2h2jqydgbg2xq7x6f4kub3bg6as6i",
             encoded: &[85, 2, 229, 77, 234, 79, 155, 197, 180, 125, 38, 24, 25, 130, 109, 94, 31, 191, 139, 197, 80, 59],
         },
         StringAddrVec{
-            input: "t25nml2cfbljvn4goqtclhifepvfnicv6g7mfmmvq",
+            input: "f25nml2cfbljvn4goqtclhifepvfnicv6g7mfmmvq",
             encoded: &[85, 2, 235, 88, 189, 8, 161, 90, 106, 222, 25, 208, 152, 150, 116, 20, 143, 169, 90, 129, 87, 198],
         },
         StringAddrVec{
-            input: "t2nuqrg7vuysaue2pistjjnt3fadsdzvyuatqtfei",
+            input: "f2nuqrg7vuysaue2pistjjnt3fadsdzvyuatqtfei",
             encoded: &[85, 2, 109, 33, 19, 126, 180, 196, 129, 66, 105, 232, 148, 210, 150, 207, 101, 0, 228, 60, 215, 20],
         },
         StringAddrVec{
-            input: "t24dd4ox4c2vpf5vk5wkadgyyn6qtuvgcpxxon64a",
+            input: "f24dd4ox4c2vpf5vk5wkadgyyn6qtuvgcpxxon64a",
             encoded: &[85, 2, 224, 199, 199, 95, 130, 213, 94, 94, 213, 93, 178, 128, 51, 99, 13, 244, 39, 74, 152, 79],
         },
         StringAddrVec{
-            input: "t2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
+            input: "f2gfvuyh7v2sx3patm5k23wdzmhyhtmqctasbr23y",
             encoded: &[85, 2, 49, 107, 76, 31, 245, 212, 175, 183, 130, 108, 234, 181, 187, 15, 44, 62, 15, 54, 64, 83],
         },
         StringAddrVec{
-            input: "t3vvmn62lofvhjd2ugzca6sof2j2ubwok6cj4xxbfzz4yuxfkgobpihhd2thlanmsh3w2ptld2gqkn2jvlss4a",
+            input: "f3vvmn62lofvhjd2ugzca6sof2j2ubwok6cj4xxbfzz4yuxfkgobpihhd2thlanmsh3w2ptld2gqkn2jvlss4a",
             encoded: &[88, 49, 3, 173, 88, 223, 105, 110, 45, 78, 145, 234, 134, 200, 129, 233, 56, 186, 78, 168, 27, 57, 94, 18, 121, 123, 132, 185, 207, 49, 75, 149, 70, 112, 94, 131, 156, 122, 153, 214, 6, 178, 71, 221, 180, 249, 172, 122, 52, 20, 221],
         },
         StringAddrVec{
-            input: "t3wmuu6crofhqmm3v4enos73okk2l366ck6yc4owxwbdtkmpk42ohkqxfitcpa57pjdcftql4tojda2poeruwa",
+            input: "f3wmuu6crofhqmm3v4enos73okk2l366ck6yc4owxwbdtkmpk42ohkqxfitcpa57pjdcftql4tojda2poeruwa",
             encoded: &[88, 49, 3, 179, 41, 79, 10, 46, 41, 224, 198, 110, 188, 35, 93, 47, 237, 202, 86, 151, 191, 120, 74, 246, 5, 199, 90, 246, 8, 230, 166, 61, 92, 211, 142, 168, 92, 168, 152, 158, 14, 253, 233, 24, 139, 56, 47, 147, 114, 70, 13],
         },
         StringAddrVec{
-            input: "t3s2q2hzhkpiknjgmf4zq3ejab2rh62qbndueslmsdzervrhapxr7dftie4kpnpdiv2n6tvkr743ndhrsw6d3a",
+            input: "f3s2q2hzhkpiknjgmf4zq3ejab2rh62qbndueslmsdzervrhapxr7dftie4kpnpdiv2n6tvkr743ndhrsw6d3a",
             encoded: &[88, 49, 3, 150, 161, 163, 228, 234, 122, 20, 212, 153, 133, 230, 97, 178, 36, 1, 212, 79, 237, 64, 45, 29, 9, 37, 178, 67, 201, 35, 88, 156, 15, 188, 126, 50, 205, 4, 226, 158, 215, 141, 21, 211, 125, 58, 170, 63, 230, 218, 51],
         },
         StringAddrVec{
-            input: "t3q22fijmmlckhl56rn5nkyamkph3mcfu5ed6dheq53c244hfmnq2i7efdma3cj5voxenwiummf2ajlsbxc65a",
+            input: "f3q22fijmmlckhl56rn5nkyamkph3mcfu5ed6dheq53c244hfmnq2i7efdma3cj5voxenwiummf2ajlsbxc65a",
             encoded: &[88, 49, 3, 134, 180, 84, 37, 140, 88, 148, 117, 247, 209, 111, 90, 172, 1, 138, 121, 246, 193, 22, 157, 32, 252, 51, 146, 29, 216, 181, 206, 28, 172, 108, 52, 143, 144, 163, 96, 54, 36, 246, 174, 185, 27, 100, 81, 140, 46, 128, 149],
         },
         StringAddrVec{
-            input: "t3u5zgwa4ael3vuocgc5mfgygo4yuqocrntuuhcklf4xzg5tcaqwbyfabxetwtj4tsam3pbhnwghyhijr5mixa",
+            input: "f3u5zgwa4ael3vuocgc5mfgygo4yuqocrntuuhcklf4xzg5tcaqwbyfabxetwtj4tsam3pbhnwghyhijr5mixa",
             encoded: &[88, 49, 3, 167, 114, 107, 3, 128, 34, 247, 90, 56, 70, 23, 88, 83, 96, 206, 230, 41, 7, 10, 45, 157, 40, 113, 41, 101, 229, 242, 110, 204, 64, 133, 131, 130, 128, 55, 36, 237, 52, 242, 114, 3, 54, 240, 157, 182, 49, 240, 116],
         },
     ];
@@ -549,15 +549,15 @@ fn address_hashmap() {
 fn set_network() {
     // Assert network can be chained when printing string
     let mut addr: Address = from_slice(&[66, 0, 1]).unwrap();
-    assert_eq!(addr.network(), Network::Testnet);
-    assert_eq!(addr.set_network(Network::Mainnet).to_string(), "f01");
+    assert_eq!(addr.network(), Network::Mainnet);
+    assert_eq!(addr.set_network(Network::Testnet).to_string(), "t01");
 
     // Assert network can be set before printing
     let mut addr: Address = from_slice(&[66, 0, 1]).unwrap();
-    assert_eq!(addr.network(), Network::Testnet);
-    addr.set_network(Network::Mainnet);
     assert_eq!(addr.network(), Network::Mainnet);
-    assert_eq!(addr.to_string(), "f01");
+    addr.set_network(Network::Testnet);
+    assert_eq!(addr.network(), Network::Testnet);
+    assert_eq!(addr.to_string(), "t01");
 }
 
 #[test]
