@@ -45,7 +45,7 @@ const TESTNET_PREFIX: &str = "t";
 const UNDEF_ADDR_STRING: &str = "<empty>";
 
 // TODO pull network from config (probably)
-const NETWORK_DEFAULT: Network = Network::Testnet;
+const NETWORK_DEFAULT: Network = Network::Mainnet;
 
 /// Address is the struct that defines the protocol and data payload conversion from either
 /// a public key or value
