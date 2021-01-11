@@ -645,10 +645,6 @@ async fn streaming_payload(
                 });
                 while let Some(event) = filter_on_channel_id.next().await {
                     if let EventsPayload::SubHeadChanges(ref index_to_head_change) = event {
-                        error!(
-                            "index_to_head change {}, streamcount: {}",
-                            index_to_head_change.0, streaming_count
-                        );
                         if streaming_count == index_to_head_change.0 {
                             let head_change = (&index_to_head_change.1).into();
                             let data = StreamingData {

@@ -60,8 +60,6 @@ where
     Ok(UnsignedMessageJson(ret))
 }
 
-// use chain::{IndexToHeadChange, EventsPayload, HeadChange};
-// use flo_stream::MessagePublisher;
 pub(crate) async fn chain_notify<'a, DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<usize>,
