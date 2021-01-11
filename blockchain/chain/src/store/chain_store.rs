@@ -133,23 +133,18 @@ where
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         *self.heaviest.write().await = Some(ts.clone());
         let e = ts.epoch().clone();
-        error!("Set Heaviest Tipset called with epoch: {}. ", ts.epoch());
         self.publisher
             .write()
             .await
             .publish(HeadChange::Apply(ts))
             .await;
-        error!("Publish successsful: {}", e);
-
         Ok(())
     }
 
     // subscribing returns a future sink that we can essentially iterate over using future streams
     pub async fn subscribe(&self) -> (Subscriber<HeadChange>, Arc<Tipset>) {
-        error!("New subscribe");
         let sub = self.publisher.write().await.subscribe();
         let ts = self.heaviest_tipset().await.unwrap();
-        error!("New subscribe end");
         (sub, ts)
     }
 
@@ -980,38 +975,25 @@ pub async fn sub_head_changes(
     let head = heaviest_tipset
         .as_ref()
         .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
-    error!(
-        "sub_head_changes begin broadcast current event: {}",
-        current_index
-    );
+
     (*events_pubsub.write().await)
         .publish(EventsPayload::SubHeadChanges(IndexToHeadChange(
             current_index,
             HeadChange::Current(head.clone()),
         )))
         .await;
-    error!(
-        "sub_head_changes broadcast current event done: {}",
-        current_index
-    );
 
     let subhead_sender = events_pubsub.clone();
     let handle = task::spawn(async move {
-        error!("sub_head_changes spawned start: {}", current_index);
         while let Some(change) = subscribed_head_change.next().await {
-            error!("sub_head_changes broadcast new event: {}", current_index);
             let index_to_head_change = IndexToHeadChange(current_index, change);
             subhead_sender
                 .write()
                 .await
                 .publish(EventsPayload::SubHeadChanges(index_to_head_change))
                 .await;
-            error!(
-                "sub_head_changes broadcast new event end: {}",
-                current_index
-            );
+
         }
-        error!("sub_head_changes spawned terminate: {}", current_index);
     });
     let mut x = events_pubsub.write().await;
     let cancel_sender = x.subscribe();
@@ -1028,14 +1010,9 @@ pub async fn sub_head_changes(
             .next()
             .await
         {
-            error!(
-                "CANCELLED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! current_index {}",
-                current_index
-            );
             handle.cancel().await;
         }
     });
-    error!("sub_head_changes function end");
     Ok(current_index)
 }
 
