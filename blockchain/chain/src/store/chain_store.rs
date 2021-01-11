@@ -967,18 +967,14 @@ where
 
 pub async fn sub_head_changes(
     mut subscribed_head_change: Subscriber<HeadChange>,
-    heaviest_tipset: &Option<Arc<Tipset>>,
+    heaviest_tipset: &Arc<Tipset>,
     current_index: usize,
     events_pubsub: Arc<RwLock<Publisher<EventsPayload>>>,
 ) -> Result<usize, Error> {
-    let head = heaviest_tipset
-        .as_ref()
-        .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
-
     (*events_pubsub.write().await)
         .publish(EventsPayload::SubHeadChanges(IndexToHeadChange(
             current_index,
-            HeadChange::Current(head.clone()),
+            HeadChange::Current(heaviest_tipset.clone()),
         )))
         .await;
 
@@ -993,9 +989,7 @@ pub async fn sub_head_changes(
                 .await;
         }
     });
-    let mut x = events_pubsub.write().await;
-    let cancel_sender = x.subscribe();
-    drop(x);
+    let cancel_sender = events_pubsub.write().await.subscribe();
     task::spawn(async move {
         if let Some(EventsPayload::TaskCancel(_, ())) = cancel_sender
             .filter(|s| {

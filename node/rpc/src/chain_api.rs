@@ -72,7 +72,7 @@ where
     let (data_subscribe, ts) = data.state_manager.chain_store().subscribe().await;
     let index = chain::sub_head_changes(
         data_subscribe,
-        &Some(ts),
+        &ts,
         params,
         data.events_pubsub.clone(),
     )
