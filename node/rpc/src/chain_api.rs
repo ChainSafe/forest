@@ -70,13 +70,8 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (data_subscribe, ts) = data.state_manager.chain_store().subscribe().await;
-    let index = chain::sub_head_changes(
-        data_subscribe,
-        &ts,
-        params,
-        data.events_pubsub.clone(),
-    )
-    .await?;
+    let index =
+        chain::sub_head_changes(data_subscribe, &ts, params, data.events_pubsub.clone()).await?;
     Ok(index)
 }
 
