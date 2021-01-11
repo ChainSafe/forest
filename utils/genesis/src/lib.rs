@@ -17,12 +17,11 @@ use networks::DEFAULT_GENESIS;
 use state_manager::StateManager;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
-use std::include_bytes;
 use std::sync::Arc;
 use url::Url;
 
 #[cfg(feature = "testing")]
-pub const EXPORT_SR_40: &[u8] = include_bytes!("export40.car");
+pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
 
 /// Uses an optional file path or the default genesis to parse the genesis and determine if
 /// chain store has existing data for the given genesis.

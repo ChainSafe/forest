@@ -39,6 +39,7 @@ use message::{
     signed_message::{json::SignedMessageJson, SignedMessage},
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
+use networks::get_network_version_default;
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
 use state_manager::{InvocResult, MarketBalance, MiningBaseInfo, StateManager};
@@ -186,17 +187,26 @@ pub async fn state_miner_info<
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<MinerInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (actor, key) = params;
-    let actor = actor.into();
-    let miner_state = data
+    let store = state_manager.blockstore();
+    let (AddressJson(addr), TipsetKeysJson(key)) = params;
+
+    let ts = data.chain_store.tipset_from_keys(&key).await?;
+    let actor = data
         .state_manager
-        .chain_store()
-        .miner_load_actor_tsk(&actor, &key.into())
-        .await
-        .map_err(|e| format!("Could not load miner {:?}", e))?;
-    let miner_info = miner_state
-        .info(state_manager.blockstore())
+        .get_actor(&addr, ts.parent_state())
+        .map_err(|e| format!("Could not load miner {}: {:?}", addr, e))?
+        .ok_or_else(|| format!("miner {} does not exist", addr))?;
+
+    let miner_state = miner::State::load(store, &actor)?;
+
+    let mut miner_info = miner_state
+        .info(store)
         .map_err(|e| format!("Could not get info {:?}", e))?;
+
+    // TODO revisit better way of handling (Lotus does here as well)
+    if get_network_version_default(ts.epoch()) >= NetworkVersion::V7 {
+        miner_info.seal_proof_type.update_to_v1();
+    }
     Ok(miner_info)
 }
 

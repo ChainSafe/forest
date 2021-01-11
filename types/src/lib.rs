@@ -21,6 +21,7 @@ pub use self::sector::*;
 pub use self::state::*;
 pub use self::version::*;
 
+use address::Address;
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use num_bigint::BigInt;
 
@@ -31,6 +32,8 @@ lazy_static! {
     /// Total Filecoin available to the network.
     pub static ref TOTAL_FILECOIN: BigInt = BigInt::from(TOTAL_FILECOIN_BASE) * FILECOIN_PRECISION;
     pub static ref FIL_RESERVED: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
+
+    pub static ref ZERO_ADDRESS: Address = "f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a".parse().unwrap();
 }
 
 /// Identifier for Actors, includes builtin and initialized actors
