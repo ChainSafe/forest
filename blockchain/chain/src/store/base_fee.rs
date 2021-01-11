@@ -6,9 +6,10 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::Message;
+use networks::UPGRADE_SMOKE_HEIGHT;
 use num_bigint::{BigInt, Integer};
 use std::collections::HashSet;
-use types::{BLOCK_GAS_LIMIT, UPGRADE_SMOKE_HEIGHT};
+use types::BLOCK_GAS_LIMIT;
 
 pub const BLOCK_GAS_TARGET: i64 = (BLOCK_GAS_LIMIT / 2) as i64;
 pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8; // 12.5%;

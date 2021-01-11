@@ -48,6 +48,7 @@ vm = { package = "forest_vm", version = "0.3.1" }
 base64 = "0.13"
 ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
 bitfield = { package = "forest_bitfield", version = "0.1", features = ["json"] }
+networks = { path = "../../types/networks" }
 
 [dev-dependencies]
 db = { package = "forest_db", version = "0.1" }
