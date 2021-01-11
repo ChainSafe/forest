@@ -24,6 +24,7 @@ use futures::{future::select, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
+use networks::{NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT};
 use num_bigint::{BigInt, Integer};
 use num_rational::BigRational;
 use num_traits::cast::ToPrimitive;
@@ -34,7 +35,6 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use types::verifier::ProofVerifier;
-use types::UPGRADE_BREEZE_HEIGHT;
 use vm::ActorState;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
@@ -415,7 +415,7 @@ where
             return Err(Error::MessageTooBig);
         }
         msg.message()
-            .valid_for_block_inclusion(0)
+            .valid_for_block_inclusion(0, NEWEST_NETWORK_VERSION)
             .map_err(Error::Other)?;
         if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
@@ -742,7 +742,7 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
     let epoch = cur_ts.epoch();
     let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
     m.message()
-        .valid_for_block_inclusion(min_gas.total())
+        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
         .map_err(Error::Other)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
