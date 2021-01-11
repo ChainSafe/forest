@@ -7,8 +7,8 @@ use clock::ChainEpoch;
 use crypto::SignatureType;
 use fil_types::{
     PieceInfo, RegisteredPoStProof, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo,
-    UPGRADE_CALICO_HEIGHT,
 };
+use networks::UPGRADE_CALICO_HEIGHT;
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
