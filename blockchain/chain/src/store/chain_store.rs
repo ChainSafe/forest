@@ -132,7 +132,6 @@ where
     pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         *self.heaviest.write().await = Some(ts.clone());
-        let e = ts.epoch().clone();
         self.publisher
             .write()
             .await
