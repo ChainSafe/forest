@@ -992,7 +992,6 @@ pub async fn sub_head_changes(
                 .await
                 .publish(EventsPayload::SubHeadChanges(index_to_head_change))
                 .await;
-
         }
     });
     let mut x = events_pubsub.write().await;
