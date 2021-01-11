@@ -6,7 +6,7 @@ use super::{
     vm_send, DefaultRuntime, Rand,
 };
 use actor::{
-    actorv0::reward::AwardBlockRewardParams, cron, reward, system, BURNT_FUNDS_ACTOR_ADDR,
+    actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
@@ -20,6 +20,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::warn;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
+use networks::UPGRADE_CLAUS_HEIGHT;
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -430,6 +431,10 @@ where
             ExitCode::Ok
         };
 
+        let should_burn = self
+            .should_burn(self.state(), msg, err_code)
+            .map_err(|e| format!("failed to decide whether to burn: {}", e))?;
+
         let GasOutputs {
             base_fee_burn,
             miner_tip,
@@ -443,6 +448,7 @@ where
             &self.base_fee,
             msg.gas_fee_cap(),
             msg.gas_premium().clone(),
+            should_burn,
         );
 
         let mut transfer_to_actor = |addr: &Address, amt: &TokenAmount| -> Result<(), String> {
@@ -524,6 +530,33 @@ where
             Err(e) => (Serialized::default(), None, Some(e)),
         }
     }
+
+    fn should_burn(
+        &self,
+        st: &StateTree<DB>,
+        msg: &ChainMessage,
+        exit_code: ExitCode,
+    ) -> Result<bool, Box<dyn StdError>> {
+        // Check to see if we should burn funds. We avoid burning on successful
+        // window post. This won't catch _indirect_ window post calls, but this
+        // is the best we can get for now.
+        if self.epoch > UPGRADE_CLAUS_HEIGHT
+            && exit_code.is_success()
+            && msg.method_num() == miner::Method::SubmitWindowedPoSt as u64
+        {
+            // Ok, we've checked the _method_, but we still need to check
+            // the target actor.
+            let to_actor = st.get_actor(msg.to())?;
+
+            if let Some(actor) = to_actor {
+                if actor::is_miner_actor(&actor.code) {
+                    // This is a storage miner and processed a window post, remove burn
+                    return Ok(false);
+                }
+            }
+        }
+        Ok(true)
+    }
 }
 
 #[derive(Clone, Default)]
@@ -544,6 +577,7 @@ fn compute_gas_outputs(
     base_fee: &TokenAmount,
     fee_cap: &TokenAmount,
     gas_premium: TokenAmount,
+    charge_network_fee: bool,
 ) -> GasOutputs {
     let mut base_fee_to_pay = base_fee;
     let mut out = GasOutputs::default();
@@ -552,7 +586,12 @@ fn compute_gas_outputs(
         base_fee_to_pay = fee_cap;
         out.miner_penalty = (base_fee - fee_cap) * gas_used
     }
-    out.base_fee_burn = base_fee_to_pay * gas_used;
+
+    // If charge network fee is disabled just skip computing the base fee burn.
+    // This is part of the temporary fix with Claus fork.
+    if charge_network_fee {
+        out.base_fee_burn = base_fee_to_pay * gas_used;
+    }
 
     let mut miner_tip = gas_premium;
     if &(base_fee_to_pay + &miner_tip) > fee_cap {
