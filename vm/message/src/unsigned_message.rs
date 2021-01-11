@@ -108,9 +108,10 @@ impl UnsignedMessage {
         }
 
         if self.gas_limit < min_gas {
-            return Err(
-                "gas_limit cannot be less than cost of storing a message on chain".to_string(),
-            );
+            return Err(format!(
+                "gas_limit {} cannot be less than cost {} of storing a message on chain",
+                self.gas_limit, min_gas
+            ));
         }
 
         Ok(())

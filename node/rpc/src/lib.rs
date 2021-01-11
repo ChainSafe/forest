@@ -355,6 +355,7 @@ where
     let try_socket = TcpListener::bind(rpc_endpoint).await;
     let listener = try_socket.expect("Failed to bind to addr");
     let rpc_state = Arc::new(rpc);
+    let chain_notify_count: Arc<RwLock<usize>> = Default::default();
 
     info!("waiting for web socket connections");
     while let Ok((stream, addr)) = listener.accept().await {
@@ -366,6 +367,7 @@ where
             addr,
             events_pubsub.clone(),
             subscriber,
+            chain_notify_count.clone(),
         ));
     }
 
@@ -379,6 +381,7 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
     addr: std::net::SocketAddr,
     events_out: Arc<RwLock<Publisher<EventsPayload>>>,
     events_in: Subscriber<EventsPayload>,
+    chain_notify_count: Arc<RwLock<usize>>,
 ) {
     span!("handle_connection_and_log", {
         let mut authorization_header: Arc<Option<String>> = Arc::new(None);
@@ -400,7 +403,6 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
             debug!("accepted websocket connection at {:}", addr);
             let (ws_sender, mut ws_receiver) = ws_stream.split();
             let ws_sender = Arc::new(RwLock::new(ws_sender));
-            let mut chain_notify_count: usize = 0;
             while let Some(message_result) = ws_receiver.next().await {
                 let s = state.clone();
                 let ws_sender_clone = ws_sender.clone();
@@ -408,7 +410,10 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                 let auth_header_clone = authorization_header.clone();
                 let events_out_clone = events_out.clone();
                 let events_in_clone = events_in.clone();
+                let chain_notify_count_shared = chain_notify_count.clone();
                 task::spawn(async move {
+                    let mut chain_notify_count_curr: usize =
+                        *chain_notify_count_shared.read().await;
                     match message_result {
                         Ok(message) => {
                             let request_text = message.into_text().unwrap();
@@ -424,12 +429,16 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                                     // if this expands, better to implement some sort of middleware
 
                                     let call = if &*call.method == CHAIN_NOTIFY_METHOD_NAME {
-                                        chain_notify_count += 1;
+                                        let mut x = chain_notify_count_shared.write().await;
+                                        *x += 1;
+                                        chain_notify_count_curr = *x;
+                                        drop(x);
+
                                         RequestBuilder::default()
                                             .with_id(
                                                 call.id.unwrap_or_default().unwrap_or_default(),
                                             )
-                                            .with_params(chain_notify_count)
+                                            .with_params(chain_notify_count_curr)
                                             .with_method(CHAIN_NOTIFY_METHOD_NAME)
                                             .finish()
                                     } else {
@@ -459,7 +468,7 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                                     let join_handle = streaming_payload(
                                         ws_sender_clone.clone(),
                                         response,
-                                        chain_notify_count,
+                                        chain_notify_count_curr,
                                         events_out_clone.clone(),
                                         events_in_clone.clone(),
                                     )
@@ -469,7 +478,7 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                                             &error_send,
                                             format!(
                                                 "channel id {:}, error {:?}",
-                                                chain_notify_count,
+                                                chain_notify_count_curr,
                                                 e.message()
                                             ),
                                         )
@@ -502,7 +511,7 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                                                         &error_join_send,
                                                         format!(
                                                             "channel id {:}, error {:?}",
-                                                            chain_notify_count,
+                                                            chain_notify_count_curr,
                                                             e.message()
                                                         ),
                                                     )
@@ -524,19 +533,10 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                                                 .write()
                                                 .await
                                                 .publish(EventsPayload::TaskCancel(
-                                                    chain_notify_count,
+                                                    chain_notify_count_curr,
                                                     (),
                                                 ))
                                                 .await;
-                                        } else {
-                                            handle_events_out
-                                                .write()
-                                                .await
-                                                .publish(EventsPayload::TaskCancel(
-                                                    chain_notify_count,
-                                                    (),
-                                                ))
-                                                .await
                                         }
                                     });
                                 }
@@ -639,7 +639,7 @@ async fn streaming_payload(
                 let mut filter_on_channel_id = events_in.filter(|s| {
                     future::ready(
                         s.sub_head_changes()
-                            .map(|s| s.0 == streaming_count)
+                            .map(|s| streaming_count == s.0)
                             .unwrap_or_default(),
                     )
                 });
