@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::*;
+use actorv0::multisig as msig0;
 use address::Address;
 use blockstore::BlockStore;
 use chain::*;
@@ -16,40 +17,68 @@ use state_tree::StateTree;
 use std::error::Error as StdError;
 use vm::{ActorState, TokenAmount};
 
-lazy_static! {
-    static ref TOTALS_BY_EPOCH: Vec<(ChainEpoch, TokenAmount)> = {
-        let epoch_in_year = 365 * actor::EPOCHS_IN_DAY;
-        vec![
-            (183 * actor::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
-            (epoch_in_year, TokenAmount::from(22_421_712)),
-            (2 * epoch_in_year, TokenAmount::from(7_223_364)),
-            (3 * epoch_in_year, TokenAmount::from(87_637_883)),
-            (6 * epoch_in_year, TokenAmount::from(400_000_000)),
-        ]
-    };
-}
+const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
 
-pub struct GenesisActor {
-    addr: Address,
-    init_bal: TokenAmount,
+lazy_static! {
+    static ref PRE_CALICO_VESTING: [(ChainEpoch, TokenAmount); 5] = [
+        (183 * actor::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
+        (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712)),
+        (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
+        (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883)),
+        (6 * EPOCHS_IN_YEAR, TokenAmount::from(400_000_000)),
+    ];
+    static ref CALICO_VESTING: [(ChainEpoch, TokenAmount); 6] = [
+        (0, TokenAmount::from(10_632_000)),
+        (
+            183 * actor::EPOCHS_IN_DAY,
+            TokenAmount::from(19_015_887 + 32_787_700)
+        ),
+        (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712 + 9_400_000)),
+        (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
+        (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883 + 898_958)),
+        (
+            6 * EPOCHS_IN_YEAR,
+            TokenAmount::from(100_000_000 + 300_000_000 + 9_805_053)
+        ),
+    ];
 }
 
 #[derive(Default)]
 pub struct GenesisInfo {
-    genesis_msigs: Vec<actorv0::multisig::State>,
+    vesting: GenesisInfoVesting,
+
     /// info about the Accounts in the genesis state
-    genesis_actors: Vec<GenesisActor>,
-    genesis_pledge: TokenAmount,
-    genesis_market_funds: TokenAmount,
+    pub genesis_pledge: AtomicLazyCell<TokenAmount>,
+    pub genesis_market_funds: AtomicLazyCell<TokenAmount>,
+}
+
+impl GenesisInfo {
+    fn init<DB: BlockStore>(&self, bs: &DB) -> Result<(), Box<dyn StdError>> {
+        let genesis_block =
+            genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
+
+        // Parent state of genesis tipset is tipset state
+        let st = genesis_block.state_root();
+
+        let state_tree = StateTree::new_from_root(bs, &st)?;
+
+        let _ = self
+            .genesis_market_funds
+            .fill(get_fil_market_locked(&state_tree)?);
+        let _ = self.genesis_pledge.fill(get_fil_power_locked(&state_tree)?);
+
+        Ok(())
+    }
 }
 
 #[derive(Default)]
-pub struct GenesisInfoPair {
-    pub pre_ignition: AtomicLazyCell<GenesisInfo>,
-    pub post_ignition: AtomicLazyCell<GenesisInfo>,
+pub struct GenesisInfoVesting {
+    pub genesis: AtomicLazyCell<Vec<msig0::State>>,
+    pub ignition: AtomicLazyCell<Vec<msig0::State>>,
+    pub calico: AtomicLazyCell<Vec<msig0::State>>,
 }
 
-impl CircSupplyCalc for GenesisInfoPair {
+impl CircSupplyCalc for GenesisInfo {
     fn get_supply<DB: BlockStore>(
         &self,
         height: ChainEpoch,
@@ -60,29 +89,21 @@ impl CircSupplyCalc for GenesisInfoPair {
         // but it's not ideal to have the side effect from the VM to modify the genesis info
         // of the state manager. This isn't terrible because it's just caching to avoid
         // recalculating using the store, and it avoids computing until circ_supply is called.
-        if !self.pre_ignition.filled() {
-            let _ = self
-                .pre_ignition
-                .fill(setup_preignition_genesis_actors(state_tree.store())?);
+        if !self.vesting.genesis.filled() {
+            self.init(state_tree.store())?;
+            let _ = self.vesting.genesis.fill(setup_genesis_vesting_schedule());
         }
-        if !self.post_ignition.filled() {
+        if !self.vesting.ignition.filled() {
             let _ = self
-                .post_ignition
-                .fill(setup_postignition_genesis_actors(state_tree.store())?);
+                .vesting
+                .ignition
+                .fill(setup_ignition_vesting_schedule());
+        }
+        if !self.vesting.calico.filled() {
+            let _ = self.vesting.calico.fill(setup_calico_vesting_schedule());
         }
 
-        get_circulating_supply(
-            &self
-                .pre_ignition
-                .borrow()
-                .expect("Pre ignition should be initialized"),
-            &self
-                .post_ignition
-                .borrow()
-                .expect("Post ignition should be initialized"),
-            height,
-            state_tree,
-        )
+        get_circulating_supply(&self, height, state_tree)
     }
 }
 
@@ -95,35 +116,43 @@ fn get_actor_state<DB: BlockStore>(
         .ok_or_else(|| format!("Failed to get Actor for address {}", addr))?)
 }
 
-pub fn get_fil_vested<DB: BlockStore>(
-    pre_ignition: &GenesisInfo,
-    post_ignition: &GenesisInfo,
+pub fn get_fil_vested(
+    genesis_info: &GenesisInfo,
     height: ChainEpoch,
-    state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let mut return_value = TokenAmount::default();
 
+    let pre_ignition = genesis_info
+        .vesting
+        .genesis
+        .borrow()
+        .expect("Pre ignition should be initialized");
+    let post_ignition = genesis_info
+        .vesting
+        .ignition
+        .borrow()
+        .expect("Post ignition should be initialized");
+
     if height <= UPGRADE_IGNITION_HEIGHT {
-        for actor in &pre_ignition.genesis_msigs {
+        for actor in pre_ignition {
             return_value += &actor.initial_balance - actor.amount_locked(height);
         }
     } else {
-        for actor in &post_ignition.genesis_msigs {
+        for actor in post_ignition {
             return_value +=
                 &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
         }
     }
 
-    for actor in &pre_ignition.genesis_actors {
-        let state = get_actor_state(state_tree, &actor.addr)?;
-        let diff = &actor.init_bal - state.balance;
-        if diff > TokenAmount::default() {
-            return_value += diff
-        }
-    }
-
     if height <= UPGRADE_ACTORS_V2_HEIGHT {
-        return_value += &pre_ignition.genesis_pledge + &pre_ignition.genesis_market_funds;
+        return_value += genesis_info
+            .genesis_pledge
+            .borrow()
+            .expect("Genesis info should be initialized")
+            + genesis_info
+                .genesis_market_funds
+                .borrow()
+                .expect("Genesis info should be initialized");
     }
 
     Ok(return_value)
@@ -188,12 +217,11 @@ pub fn get_fil_burnt<DB: BlockStore>(
 }
 
 pub fn get_circulating_supply<'a, DB: BlockStore>(
-    pre_ignition: &GenesisInfo,
-    post_ignition: &GenesisInfo,
+    genesis_info: &GenesisInfo,
     height: ChainEpoch,
     state_tree: &StateTree<'a, DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let fil_vested = get_fil_vested(&pre_ignition, &post_ignition, height, &state_tree)?;
+    let fil_vested = get_fil_vested(genesis_info, height)?;
     let fil_mined = get_fil_mined(&state_tree)?;
     let fil_burnt = get_fil_burnt(&state_tree)?;
     let fil_locked = get_fil_locked(&state_tree)?;
@@ -210,67 +238,63 @@ pub fn get_circulating_supply<'a, DB: BlockStore>(
     Ok(fil_circulating)
 }
 
-fn init_genesis_info<DB: BlockStore>(bs: &DB) -> Result<GenesisInfo, Box<dyn StdError>> {
-    let mut ignition = GenesisInfo::default();
-
-    let genesis_block = genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
-
-    // Parent state of genesis tipset is tipset state
-    let st = genesis_block.state_root();
-
-    let state_tree = StateTree::new_from_root(bs, &st)?;
-
-    ignition.genesis_market_funds = get_fil_market_locked(&state_tree)?;
-    ignition.genesis_pledge = get_fil_power_locked(&state_tree)?;
-
-    Ok(ignition)
+fn setup_genesis_vesting_schedule() -> Vec<msig0::State> {
+    PRE_CALICO_VESTING
+        .iter()
+        .map(|(unlock_duration, initial_balance)| {
+            msig0::State {
+                signers: vec![],
+                num_approvals_threshold: 0,
+                next_tx_id: msig0::TxnID(0),
+                initial_balance: initial_balance.clone(),
+                start_epoch: ChainEpoch::default(),
+                unlock_duration: *unlock_duration,
+                // Default Cid is ok here because this field is never read
+                pending_txs: Cid::default(),
+            }
+        })
+        .collect()
 }
 
-pub fn setup_preignition_genesis_actors<DB: BlockStore>(
-    bs: &DB,
-) -> Result<GenesisInfo, Box<dyn StdError>> {
-    let mut pre_ignition = init_genesis_info(bs)?;
+fn setup_ignition_vesting_schedule() -> Vec<msig0::State> {
+    PRE_CALICO_VESTING
+        .iter()
+        .map(|(unlock_duration, initial_balance)| {
+            msig0::State {
+                signers: vec![],
+                num_approvals_threshold: 0,
+                next_tx_id: msig0::TxnID(0),
 
-    for (unlock_duration, initial_balance) in &*TOTALS_BY_EPOCH {
-        let ms = actorv0::multisig::State {
-            signers: vec![],
-            num_approvals_threshold: 0,
-            next_tx_id: actorv0::multisig::TxnID(0),
-            initial_balance: initial_balance.clone(),
-            start_epoch: ChainEpoch::default(),
-            unlock_duration: *unlock_duration,
-            // Default Cid is ok here because this field is never read
-            pending_txs: Cid::default(),
-        };
-        pre_ignition.genesis_msigs.push(ms);
-    }
+                // In the pre-ignition logic, this value was incorrectly set in Fil, not attoFil,
+                // an off-by-10^18 error
+                initial_balance: initial_balance * FILECOIN_PRECISION,
 
-    Ok(pre_ignition)
+                // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic
+                // of the Ignition upgrade itself.
+                start_epoch: UPGRADE_LIFTOFF_HEIGHT,
+
+                unlock_duration: *unlock_duration,
+                // Default Cid is ok here because this field is never read
+                pending_txs: Cid::default(),
+            }
+        })
+        .collect()
 }
 
-pub fn setup_postignition_genesis_actors<DB: BlockStore>(
-    bs: &DB,
-) -> Result<GenesisInfo, Box<dyn StdError>> {
-    let mut post_ignition = init_genesis_info(bs)?;
-
-    for (unlock_duration, initial_balance) in &*TOTALS_BY_EPOCH {
-        let ms = actorv0::multisig::State {
-            signers: vec![],
-            num_approvals_threshold: 0,
-            next_tx_id: actorv0::multisig::TxnID(0),
-
-            // In the pre-ignition logic, we incorrectly set this value in Fil, not attoFil, an off-by-10^18 error
-            initial_balance: initial_balance * FILECOIN_PRECISION,
-
-            // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic of the Ignition upgrade itself.
-            start_epoch: UPGRADE_LIFTOFF_HEIGHT,
-
-            unlock_duration: *unlock_duration,
-            // Default Cid is ok here because this field is never read
-            pending_txs: Cid::default(),
-        };
-        post_ignition.genesis_msigs.push(ms);
-    }
-
-    Ok(post_ignition)
+fn setup_calico_vesting_schedule() -> Vec<msig0::State> {
+    CALICO_VESTING
+        .iter()
+        .map(|(unlock_duration, initial_balance)| {
+            msig0::State {
+                signers: vec![],
+                num_approvals_threshold: 0,
+                next_tx_id: msig0::TxnID(0),
+                initial_balance: initial_balance * FILECOIN_PRECISION,
+                start_epoch: UPGRADE_LIFTOFF_HEIGHT,
+                unlock_duration: *unlock_duration,
+                // Default Cid is ok here because this field is never read
+                pending_txs: Cid::default(),
+            }
+        })
+        .collect()
 }
