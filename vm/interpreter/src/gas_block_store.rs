@@ -97,6 +97,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::price_list_by_epoch;
     use cid::Code::Blake2b256;
     use db::MemoryDB;
     use vm::{ActorError, ExitCode};
@@ -109,7 +110,7 @@ mod tests {
                 ipld_get_base: 4,
                 ipld_put_base: 2,
                 ipld_put_per_byte: 1,
-                ..Default::default()
+                ..price_list_by_epoch(0)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(5000, 0))),
             store: &db,
@@ -128,7 +129,7 @@ mod tests {
         let gbs = GasBlockStore {
             price_list: PriceList {
                 ipld_put_base: 12,
-                ..Default::default()
+                ..price_list_by_epoch(0)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(10, 0))),
             store: &db,
