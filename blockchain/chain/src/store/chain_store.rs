@@ -22,7 +22,7 @@ use futures::{future, AsyncWrite, StreamExt};
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{info, warn, error};
+use log::{error, info, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
@@ -980,14 +980,20 @@ pub async fn sub_head_changes(
     let head = heaviest_tipset
         .as_ref()
         .ok_or_else(|| Error::Other("Could not get heaviest tipset".to_string()))?;
-    error!("sub_head_changes begin broadcast current event: {}", current_index);
+    error!(
+        "sub_head_changes begin broadcast current event: {}",
+        current_index
+    );
     (*events_pubsub.write().await)
         .publish(EventsPayload::SubHeadChanges(IndexToHeadChange(
             current_index,
             HeadChange::Current(head.clone()),
         )))
         .await;
-        error!("sub_head_changes broadcast current event done: {}", current_index);
+    error!(
+        "sub_head_changes broadcast current event done: {}",
+        current_index
+    );
 
     let subhead_sender = events_pubsub.clone();
     let handle = task::spawn(async move {
@@ -1000,7 +1006,10 @@ pub async fn sub_head_changes(
                 .await
                 .publish(EventsPayload::SubHeadChanges(index_to_head_change))
                 .await;
-            error!("sub_head_changes broadcast new event end: {}", current_index);
+            error!(
+                "sub_head_changes broadcast new event end: {}",
+                current_index
+            );
         }
         error!("sub_head_changes spawned terminate: {}", current_index);
     });
@@ -1019,7 +1028,10 @@ pub async fn sub_head_changes(
             .next()
             .await
         {
-            error!("CANCELLED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! current_index {}", current_index);
+            error!(
+                "CANCELLED !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! current_index {}",
+                current_index
+            );
             handle.cancel().await;
         }
     });

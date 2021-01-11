@@ -412,7 +412,8 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                 let events_in_clone = events_in.clone();
                 let chain_notify_count_shared = chain_notify_count.clone();
                 task::spawn(async move {
-                    let mut chain_notify_count_curr: usize = *chain_notify_count_shared.read().await;
+                    let mut chain_notify_count_curr: usize =
+                        *chain_notify_count_shared.read().await;
                     match message_result {
                         Ok(message) => {
                             let request_text = message.into_text().unwrap();
@@ -432,7 +433,7 @@ async fn handle_connection_and_log<KS: KeyStore + Send + Sync + 'static>(
                                         *x += 1;
                                         chain_notify_count_curr = *x;
                                         drop(x);
-                                        
+
                                         RequestBuilder::default()
                                             .with_id(
                                                 call.id.unwrap_or_default().unwrap_or_default(),
@@ -626,13 +627,13 @@ async fn streaming_payload(
         .await
         .send(Message::text(response_text))
         .await?;
-        if let ResponseObjects::One(ResponseObject::Result {
-            jsonrpc: _,
-            result: _,
-            id: _,
-            streaming,
-        }) = response_object
-        {
+    if let ResponseObjects::One(ResponseObject::Result {
+        jsonrpc: _,
+        result: _,
+        id: _,
+        streaming,
+    }) = response_object
+    {
         if streaming {
             let handle = task::spawn(async move {
                 let mut filter_on_channel_id = events_in.filter(|s| {
@@ -644,7 +645,10 @@ async fn streaming_payload(
                 });
                 while let Some(event) = filter_on_channel_id.next().await {
                     if let EventsPayload::SubHeadChanges(ref index_to_head_change) = event {
-                        error!("index_to_head change {}, streamcount: {}", index_to_head_change.0, streaming_count);
+                        error!(
+                            "index_to_head change {}, streamcount: {}",
+                            index_to_head_change.0, streaming_count
+                        );
                         if streaming_count == index_to_head_change.0 {
                             let head_change = (&index_to_head_change.1).into();
                             let data = StreamingData {
