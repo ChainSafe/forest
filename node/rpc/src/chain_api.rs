@@ -60,6 +60,8 @@ where
     Ok(UnsignedMessageJson(ret))
 }
 
+// use chain::{IndexToHeadChange, EventsPayload, HeadChange};
+// use flo_stream::MessagePublisher;
 pub(crate) async fn chain_notify<'a, DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<usize>,
@@ -69,10 +71,10 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (data_subscribe, _) = data.state_manager.chain_store().subscribe().await;
+    let (data_subscribe, ts) = data.state_manager.chain_store().subscribe().await;
     let index = chain::sub_head_changes(
         data_subscribe,
-        &data.state_manager.chain_store().heaviest_tipset().await,
+        &Some(ts),
         params,
         data.events_pubsub.clone(),
     )

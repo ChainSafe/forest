@@ -7,7 +7,7 @@ use std::num::TryFromIntError;
 const _ISO_FORMAT: &str = "%FT%X.%.9F";
 
 /// Duration of each tipset epoch.
-pub const EPOCH_DURATION_SECONDS: i64 = 30;
+pub const EPOCH_DURATION_SECONDS: i64 = 4;
 
 /// Epoch number of a chain. This acts as a proxt for time within the VM.
 pub type ChainEpoch = i64;
