@@ -22,7 +22,7 @@ use futures::{future, AsyncWrite, StreamExt};
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{error, info, warn};
+use log::{info, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
@@ -47,7 +47,7 @@ const W_RATIO_DEN: u64 = 2;
 const BLOCKS_PER_EPOCH: u64 = 5;
 
 // A cap on the size of the future_sink
-const SINK_CAP: usize = 10000;
+const SINK_CAP: usize = 1000;
 
 const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
 
