@@ -46,6 +46,17 @@ impl RegisteredSealProof {
         }
     }
 
+    pub fn update_to_v1(&mut self) {
+        *self = match self {
+            Self::StackedDRG2KiBV1 => Self::StackedDRG2KiBV1P1,
+            Self::StackedDRG512MiBV1 => Self::StackedDRG512MiBV1P1,
+            Self::StackedDRG8MiBV1 => Self::StackedDRG8MiBV1P1,
+            Self::StackedDRG32GiBV1 => Self::StackedDRG32GiBV1P1,
+            Self::StackedDRG64GiBV1 => Self::StackedDRG64GiBV1P1,
+            _ => return,
+        };
+    }
+
     #[deprecated(since = "0.1.10", note = "Logic should exist in actors")]
     /// The maximum duration a sector sealed with this proof may exist between activation and expiration.
     pub fn sector_maximum_lifetime(self) -> clock::ChainEpoch {

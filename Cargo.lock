@@ -929,6 +929,7 @@ dependencies = [
  "log",
  "lru",
  "multihash 0.13.2",
+ "networks",
  "num-traits 0.2.14",
  "rayon",
  "serde",
@@ -1131,6 +1132,7 @@ dependencies = [
  "ipld_blockstore",
  "lazy_static",
  "log",
+ "networks",
  "paramfetch",
  "pretty_env_logger",
  "regex",
@@ -3108,6 +3110,7 @@ dependencies = [
  "ipld_hamt 0.1.1",
  "lazy_static",
  "log",
+ "networks",
  "num-traits 0.2.14",
  "rayon",
  "state_tree",
@@ -3969,6 +3972,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "lru",
+ "networks",
  "num-rational 0.3.2",
  "num-traits 0.2.14",
  "rand 0.7.3",
@@ -5204,6 +5208,7 @@ dependencies = [
  "libp2p",
  "log",
  "message_pool",
+ "networks",
  "num-traits 0.2.14",
  "rand 0.7.3",
  "rand_distr 0.3.0",
@@ -5686,9 +5691,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.5.1"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae524f056d7d770e174287294f562e95044c68e88dec909a00d2094805db9d75"
+checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
 name = "snow"

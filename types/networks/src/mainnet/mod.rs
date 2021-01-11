@@ -74,6 +74,9 @@ pub(super) const VERSION_SCHEDULE: [Upgrade; 9] = [
     },
 ];
 
+/// Current network version for the network
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V9;
+
 /// Bootstrap peer ids
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-0.mainnet.filops.net/tcp/1347/p2p/12D3KooWCVe8MmsEMes2FzgTpt9fXtmCY7wrq91GRiaC8PHSCCBj",

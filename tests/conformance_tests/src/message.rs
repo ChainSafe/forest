@@ -3,8 +3,8 @@
 
 use super::*;
 use db::MemoryDB;
-use fil_types::get_network_version_default;
 use interpreter::{CircSupplyCalc, LookbackStateGetter};
+use networks::get_network_version_default;
 use state_tree::StateTree;
 use vm::TokenAmount;
 

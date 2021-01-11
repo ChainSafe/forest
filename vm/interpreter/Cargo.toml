@@ -26,6 +26,7 @@ fil_types = "0.1"
 ahash = "0.5"
 lazy_static = "1.4"
 rayon = "1.3"
+networks = { path = "../../types/networks" }
 
 [dev-dependencies]
 ipld_hamt = { path = "../../ipld/hamt" }

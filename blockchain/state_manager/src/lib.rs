@@ -24,7 +24,7 @@ use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
-use fil_types::{get_network_version_default, verifier::ProofVerifier, NetworkVersion, Randomness};
+use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness};
 use fil_types::{SectorInfo, SectorSize};
 use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -40,6 +40,7 @@ use lazycell::AtomicLazyCell;
 use log::{debug, info, trace, warn};
 use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
+use networks::get_network_version_default;
 use num_bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
@@ -50,7 +51,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::ActorState;
 use vm::TokenAmount;
-use vm_circ_supply::GenesisInfoPair;
+use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states
 pub type CidPair = (Cid, Cid);
@@ -86,7 +87,7 @@ pub struct StateManager<DB> {
     /// of the state/receipt root.
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     subscriber: Option<Subscriber<HeadChange>>,
-    genesis_info: GenesisInfoPair,
+    genesis_info: GenesisInfo,
 }
 
 impl<DB> StateManager<DB>
@@ -98,7 +99,7 @@ where
             cs,
             cache: RwLock::new(HashMap::new()),
             subscriber: None,
-            genesis_info: GenesisInfoPair::default(),
+            genesis_info: GenesisInfo::default(),
         }
     }
 
@@ -111,7 +112,7 @@ where
             cs,
             cache: RwLock::new(HashMap::new()),
             subscriber: Some(chain_subs),
-            genesis_info: GenesisInfoPair::default(),
+            genesis_info: GenesisInfo::default(),
         }
     }
 

@@ -38,6 +38,11 @@ pub fn is_singleton_actor(code: &Cid) -> bool {
     actorv0::is_singleton_actor(code) || actorv2::is_singleton_actor(code)
 }
 
+/// Returns true if the code belongs to a miner actor.
+pub fn is_miner_actor(code: &Cid) -> bool {
+    code == &*actorv0::MINER_ACTOR_CODE_ID || code == &*actorv2::MINER_ACTOR_CODE_ID
+}
+
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct FilterEstimate {
     pub position: BigInt,
