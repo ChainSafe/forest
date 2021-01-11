@@ -8,6 +8,7 @@ use crypto::SignatureType;
 use fil_types::{
     PieceInfo, RegisteredPoStProof, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo,
 };
+use networks::UPGRADE_CALICO_HEIGHT;
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
@@ -66,6 +67,64 @@ lazy_static! {
         .iter()
         .copied()
         .collect(),
+        verify_post_discount: true,
+    };
+
+    static ref CALICO_PRICES: PriceList = PriceList {
+        on_chain_message_compute_base: 38863,
+        on_chain_message_storage_base: 36,
+        on_chain_message_storage_per_byte: 1,
+
+        on_chain_return_value_per_byte: 1,
+
+        send_base: 29233,
+        send_transfer_funds: 27500,
+        send_transfer_only_premium: 159672,
+        send_invoke_method: -5377,
+
+        ipld_get_base: 114617,
+        ipld_put_base: 353640,
+        ipld_put_per_byte: 1,
+
+        create_actor_compute: 1108454,
+        create_actor_storage: 36 + 40,
+        delete_actor: -(36 + 40),
+
+        bls_sig_cost: 16598605,
+        secp256k1_sig_cost: 1637292,
+
+        hashing_base: 31355,
+        compute_unsealed_sector_cid_base: 98647,
+        verify_seal_base: 2000, // TODO revisit potential removal of this
+        verify_consensus_fault: 495422,
+
+        verify_post_lookup: [
+            (
+                RegisteredPoStProof::StackedDRGWindow512MiBV1,
+                ScalingCost {
+                    flat: 117680921,
+                    scale: 43780,
+                },
+            ),
+            (
+                RegisteredPoStProof::StackedDRGWindow32GiBV1,
+                ScalingCost {
+                    flat: 117680921,
+                    scale: 43780,
+                },
+            ),
+            (
+                RegisteredPoStProof::StackedDRGWindow64GiBV1,
+                ScalingCost {
+                    flat: 117680921,
+                    scale: 43780,
+                },
+            ),
+        ]
+        .iter()
+        .copied()
+        .collect(),
+        verify_post_discount: false,
     };
 }
 
@@ -146,6 +205,7 @@ pub struct PriceList {
     pub compute_unsealed_sector_cid_base: i64,
     pub verify_seal_base: i64,
     pub verify_post_lookup: AHashMap<RegisteredPoStProof, ScalingCost>,
+    pub verify_post_discount: bool,
     pub verify_consensus_fault: i64,
 }
 
@@ -259,7 +319,9 @@ impl PriceList {
         });
 
         let mut gas_used = cost.flat + info.challenged_sectors.len() as i64 * cost.scale;
-        gas_used /= 2;
+        if self.verify_post_discount {
+            gas_used /= 2;
+        }
 
         GasCharge::new("OnVerifyPost", gas_used, 0)
     }
@@ -270,14 +332,11 @@ impl PriceList {
     }
 }
 
-impl Default for PriceList {
-    fn default() -> Self {
-        BASE_PRICES.clone()
-    }
-}
-
 /// Returns gas price list by Epoch for gas consumption
-pub fn price_list_by_epoch(_epoch: ChainEpoch) -> PriceList {
-    // In future will match on epoch and select matching price lists when config options allowed
-    BASE_PRICES.clone()
+pub fn price_list_by_epoch(epoch: ChainEpoch) -> PriceList {
+    if epoch < UPGRADE_CALICO_HEIGHT {
+        BASE_PRICES.clone()
+    } else {
+        CALICO_PRICES.clone()
+    }
 }

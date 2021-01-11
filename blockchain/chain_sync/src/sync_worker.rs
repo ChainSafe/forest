@@ -22,7 +22,7 @@ use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
     verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS,
-    BLOCK_GAS_LIMIT, TICKET_RANDOMNESS_LOOKBACK, UPGRADE_SMOKE_HEIGHT,
+    BLOCK_GAS_LIMIT, TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -30,6 +30,7 @@ use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
+use networks::{get_network_version_default, UPGRADE_SMOKE_HEIGHT};
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -759,6 +760,7 @@ where
         block: &Block,
         base_ts: &Arc<Tipset>,
     ) -> Result<(), Box<dyn StdError>> {
+        let nv = get_network_version_default(block.header().epoch());
         // do the initial loop here
         // Check Block Message and Signatures in them
         let mut pub_keys = Vec::new();
@@ -804,7 +806,7 @@ where
          -> Result<(), Box<dyn StdError>> {
             // Phase 1: syntactic validation
             let min_gas = pl.on_chain_message(msg.marshal_cbor().unwrap().len());
-            msg.valid_for_block_inclusion(min_gas.total())?;
+            msg.valid_for_block_inclusion(min_gas.total(), nv)?;
 
             sum_gas_limit += msg.gas_limit();
             if sum_gas_limit > BLOCK_GAS_LIMIT {

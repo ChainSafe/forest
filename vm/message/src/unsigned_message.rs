@@ -75,11 +75,18 @@ impl UnsignedMessage {
 
     /// Semantic validation and validates the message has enough gas.
     #[cfg(feature = "proofs")]
-    pub fn valid_for_block_inclusion(&self, min_gas: i64) -> Result<(), String> {
-        use fil_types::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN};
+    pub fn valid_for_block_inclusion(
+        &self,
+        min_gas: i64,
+        version: fil_types::NetworkVersion,
+    ) -> Result<(), String> {
+        use fil_types::{NetworkVersion, BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
         use num_traits::Signed;
         if self.version != 0 {
             return Err(format!("Message version: {} not  supported", self.version));
+        }
+        if self.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
+            return Err("invalid 'to' address".to_string());
         }
         if self.value.is_negative() {
             return Err("message value cannot be negative".to_string());
