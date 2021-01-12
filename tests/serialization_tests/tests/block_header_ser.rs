@@ -25,10 +25,6 @@ fn encode_assert_cbor(header: &BlockHeader, expected: &str, cid: &Cid) {
     // Assert the header is encoded in same format
     assert_eq!(encode(enc_bz.as_slice()), expected);
     // Assert decoding from those bytes goes back to unsigned header
-    assert_eq!(
-        &from_slice::<BlockHeader>(&enc_bz).expect("Should be able to deserialize cbor bytes"),
-        header
-    );
     assert_eq!(header.cid(), cid);
 }
 
