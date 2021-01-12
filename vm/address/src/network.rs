@@ -12,7 +12,7 @@ pub enum Network {
 
 impl Default for Network {
     fn default() -> Self {
-        Network::Testnet
+        Network::Mainnet
     }
 }
 
