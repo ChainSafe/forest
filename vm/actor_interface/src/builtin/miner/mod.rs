@@ -51,7 +51,7 @@ impl State {
             State::V0(st) => {
                 let info = st.get_info(store)?;
 
-                let peer_id = PeerId::from_bytes(info.peer_id)
+                let peer_id = PeerId::from_bytes(&info.peer_id)
                     .map_err(|e| format!("bytes {:?} cannot be converted into a PeerId", e))?;
 
                 Ok(MinerInfo {
@@ -74,7 +74,7 @@ impl State {
             State::V2(st) => {
                 let info = st.get_info(store)?;
 
-                let peer_id = PeerId::from_bytes(info.peer_id)
+                let peer_id = PeerId::from_bytes(&info.peer_id)
                     .map_err(|e| format!("bytes {:?} cannot be converted into a PeerId", e))?;
 
                 Ok(MinerInfo {

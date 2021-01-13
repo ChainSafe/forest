@@ -9,11 +9,9 @@ use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
-use libp2p::core::identity::Keypair;
-use libp2p::core::PeerId;
 use libp2p::gossipsub::{
-    error::PublishError, Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, Topic,
-    TopicHash, ValidationMode,
+    error::PublishError, Gossipsub, GossipsubEvent, IdentTopic as Topic, MessageAuthenticity,
+    MessageId, TopicHash, ValidationMode,
 };
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::kad::record::store::MemoryStore;
@@ -32,6 +30,8 @@ use libp2p::swarm::{
     toggle::Toggle, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
 };
 use libp2p::NetworkBehaviour;
+use libp2p::{core::identity::Keypair, gossipsub::error::SubscriptionError};
+use libp2p::{core::PeerId, gossipsub::GossipsubConfigBuilder};
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
 use std::collections::HashMap;
@@ -78,8 +78,8 @@ pub enum ForestBehaviourEvent {
     PeerDialed(PeerId),
     PeerDisconnected(PeerId),
     GossipMessage {
-        source: Option<PeerId>,
-        topics: Vec<TopicHash>,
+        source: PeerId,
+        topic: TopicHash,
         message: Vec<u8>,
     },
     BitswapReceivedBlock(PeerId, Cid, Box<[u8]>),
@@ -168,10 +168,15 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
 
 impl NetworkBehaviourEventProcess<GossipsubEvent> for ForestBehaviour {
     fn inject_event(&mut self, message: GossipsubEvent) {
-        if let GossipsubEvent::Message(_, _, message) = message {
+        if let GossipsubEvent::Message {
+            propagation_source,
+            message,
+            message_id: _,
+        } = message
+        {
             self.events.push(ForestBehaviourEvent::GossipMessage {
-                source: message.source,
-                topics: message.topics,
+                source: propagation_source,
+                topic: message.topic,
                 message: message.data,
             })
         }
@@ -243,8 +248,13 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
                         .as_nanos();
-                    self.hello
-                        .send_response(channel, HelloResponse { arrival, sent });
+                    if self
+                        .hello
+                        .send_response(channel, HelloResponse { arrival, sent })
+                        .is_err()
+                    {
+                        warn!("failed to send hello response to peer {:?}", peer);
+                    }
                     self.events
                         .push(ForestBehaviourEvent::HelloRequest { request, peer });
                 }
@@ -272,6 +282,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
             } => {
                 warn!("Hello inbound error (peer: {:?}): {:?}", peer, error)
             }
+            RequestResponseEvent::ResponseSent { .. } => (),
         }
     }
 }
@@ -338,6 +349,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                 "ChainExchange inbound error (peer: {:?}): {:?}",
                 peer, error
             ),
+            RequestResponseEvent::ResponseSent { .. } => (),
         }
     }
 }
@@ -361,7 +373,14 @@ impl ForestBehaviour {
                 None => continue,
             };
 
-            self.chain_exchange.send_response(inner_channel, response)
+            if self
+                .chain_exchange
+                .send_response(inner_channel, response)
+                .is_err()
+            {
+                // TODO can include request id from RequestProcessingOutcome
+                warn!("failed to send chain exchange response");
+            }
         }
         if !self.events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
@@ -371,12 +390,11 @@ impl ForestBehaviour {
 
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
         let local_peer_id = local_key.public().into_peer_id();
-        let gossipsub_config = GossipsubConfig {
-            validation_mode: ValidationMode::Strict,
-            // Using go gossipsub default, not certain this is intended
-            max_transmit_size: 1 << 20,
-            ..Default::default()
-        };
+        let mut gs_config_builder = GossipsubConfigBuilder::default();
+        gs_config_builder.max_transmit_size(1 << 20);
+        gs_config_builder.validation_mode(ValidationMode::Strict);
+
+        let gossipsub_config = gs_config_builder.build().unwrap();
 
         let mut bitswap = Bitswap::new();
 
@@ -406,7 +424,7 @@ impl ForestBehaviour {
         };
 
         let mdns_opt = if config.mdns {
-            Some(Mdns::new().expect("Could not start mDNS"))
+            Some(async_std::task::block_on(Mdns::new()).expect("Could not start mDNS"))
         } else {
             None
         };
@@ -422,7 +440,8 @@ impl ForestBehaviour {
             gossipsub: Gossipsub::new(
                 MessageAuthenticity::Signed(local_key.clone()),
                 gossipsub_config,
-            ),
+            )
+            .unwrap(),
             mdns: mdns_opt.into(),
             ping: Ping::default(),
             identify: Identify::new(
@@ -452,12 +471,16 @@ impl ForestBehaviour {
     }
 
     /// Publish data over the gossip network.
-    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) -> Result<(), PublishError> {
+    pub fn publish(
+        &mut self,
+        topic: Topic,
+        data: impl Into<Vec<u8>>,
+    ) -> Result<MessageId, PublishError> {
         self.gossipsub.publish(topic, data)
     }
 
     /// Subscribe to a gossip topic.
-    pub fn subscribe(&mut self, topic: Topic) -> bool {
+    pub fn subscribe(&mut self, topic: &Topic) -> Result<bool, SubscriptionError> {
         self.gossipsub.subscribe(topic)
     }
 
