@@ -6,8 +6,9 @@ use crate::chain_exchange::{
 };
 use crate::config::Libp2pConfig;
 use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
-use crate::rpc::RPCRequest;
 use forest_cid::Cid;
+use futures::channel::oneshot::{self, Sender as OneShotSender};
+use futures::{prelude::*, stream::FuturesUnordered};
 use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{
@@ -33,10 +34,13 @@ use libp2p_request_response::{
     RequestResponseMessage, ResponseChannel,
 };
 use log::{debug, trace, warn};
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error;
+use std::pin::Pin;
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{task::Context, task::Poll};
 use tiny_cid::Cid as Cid2;
 
@@ -55,6 +59,18 @@ pub struct ForestBehaviour {
     events: Vec<ForestBehaviourEvent>,
     #[behaviour(ignore)]
     peers: HashSet<PeerId>,
+    /// Keeps track of Chain exchange requests to responses
+    #[behaviour(ignore)]
+    cx_request_table: HashMap<RequestId, OneShotSender<ChainExchangeResponse>>,
+    /// Boxed futures of responses for the
+    #[behaviour(ignore)]
+    cx_pending_responses:
+        FuturesUnordered<Pin<Box<dyn Future<Output = Option<RequestProcessingOutcome>> + Send>>>,
+}
+
+struct RequestProcessingOutcome {
+    inner_channel: ResponseChannel<ChainExchangeResponse>,
+    response: ChainExchangeResponse,
 }
 
 #[derive(Debug)]
@@ -71,7 +87,6 @@ pub enum ForestBehaviourEvent {
     HelloRequest {
         peer: PeerId,
         request: HelloRequest,
-        channel: ResponseChannel<HelloResponse>,
     },
     HelloResponse {
         peer: PeerId,
@@ -81,12 +96,7 @@ pub enum ForestBehaviourEvent {
     ChainExchangeRequest {
         peer: PeerId,
         request: ChainExchangeRequest,
-        channel: ResponseChannel<ChainExchangeResponse>,
-    },
-    ChainExchangeResponse {
-        peer: PeerId,
-        request_id: RequestId,
-        response: ChainExchangeResponse,
+        channel: OneShotSender<ChainExchangeResponse>,
     },
 }
 
@@ -219,11 +229,22 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
         match event {
             RequestResponseEvent::Message { peer, message } => match message {
                 RequestResponseMessage::Request { request, channel } => {
-                    self.events.push(ForestBehaviourEvent::HelloRequest {
-                        peer,
-                        request,
-                        channel,
-                    })
+                    let arrival = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("System time before unix epoch")
+                        .as_nanos();
+
+                    debug!("Received hello request: {:?}", request);
+                    let sent = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("System time before unix epoch")
+                        .as_nanos();
+                    async_std::task::block_on(
+                        self.hello
+                            .send_response(channel, HelloResponse { arrival, sent }),
+                    );
+                    self.events
+                        .push(ForestBehaviourEvent::HelloRequest { request, peer });
                 }
                 RequestResponseMessage::Response {
                     request_id,
@@ -259,23 +280,37 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
         match event {
             RequestResponseEvent::Message { peer, message } => match message {
                 RequestResponseMessage::Request { request, channel } => {
+                    let (tx, rx) = oneshot::channel();
+                    self.cx_pending_responses.push(Box::pin(async move {
+                        rx.await
+                            .map(|response| RequestProcessingOutcome {
+                                inner_channel: channel,
+                                response,
+                            })
+                            .ok()
+                    }));
+
                     self.events
                         .push(ForestBehaviourEvent::ChainExchangeRequest {
                             peer,
                             request,
-                            channel,
+                            channel: tx,
                         })
                 }
                 RequestResponseMessage::Response {
                     request_id,
                     response,
-                } => self
-                    .events
-                    .push(ForestBehaviourEvent::ChainExchangeResponse {
-                        peer,
-                        request_id,
-                        response,
-                    }),
+                } => {
+                    let tx = self.cx_request_table.remove(&request_id);
+
+                    if let Some(tx) = tx {
+                        if tx.send(response).is_err() {
+                            debug!("RPCResponse receive failed")
+                        }
+                    } else {
+                        debug!("RPCResponse receive failed: channel not found");
+                    };
+                }
             },
             RequestResponseEvent::OutboundFailure {
                 peer,
@@ -297,9 +332,24 @@ impl ForestBehaviour {
     /// Consumes the events list when polled.
     fn poll<TBehaviourIn>(
         &mut self,
-        _: &mut Context,
+        cx: &mut Context,
         _: &mut impl PollParameters,
     ) -> Poll<NetworkBehaviourAction<TBehaviourIn, ForestBehaviourEvent>> {
+        // Poll to see if any response is ready to be sent back.
+        while let Poll::Ready(Some(outcome)) = self.cx_pending_responses.poll_next_unpin(cx) {
+            let RequestProcessingOutcome {
+                inner_channel,
+                response,
+            } = match outcome {
+                Some(outcome) => outcome,
+                // The response builder was too busy and thus the request was dropped. This is
+                // later on reported as a `InboundFailure::Omission`.
+                None => continue,
+            };
+
+            // TODO remove block
+            async_std::task::block_on(self.chain_exchange.send_response(inner_channel, response))
+        }
         if !self.events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
         }
@@ -372,6 +422,8 @@ impl ForestBehaviour {
             bitswap,
             hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),
             chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
+            cx_pending_responses: Default::default(),
+            cx_request_table: Default::default(),
             events: vec![],
             peers: Default::default(),
         }
@@ -396,14 +448,20 @@ impl ForestBehaviour {
         self.gossipsub.subscribe(topic)
     }
 
-    /// Send an RPC request or response to some peer.
-    pub fn send_rpc_request(&mut self, peer_id: &PeerId, req: RPCRequest) -> RequestId {
-        match req {
-            RPCRequest::Hello(request) => self.hello.send_request(peer_id, request),
-            RPCRequest::ChainExchange(request) => {
-                self.chain_exchange.send_request(peer_id, request)
-            }
-        }
+    /// Send a hello request or response to some peer.
+    pub fn send_hello_request(&mut self, peer_id: &PeerId, request: HelloRequest) {
+        self.hello.send_request(peer_id, request);
+    }
+
+    /// Send a chain exchange request or response to some peer.
+    pub fn send_chain_exchange_request(
+        &mut self,
+        peer_id: &PeerId,
+        request: ChainExchangeRequest,
+        response_channel: OneShotSender<ChainExchangeResponse>,
+    ) {
+        let req_id = self.chain_exchange.send_request(peer_id, request);
+        self.cx_request_table.insert(req_id, response_channel);
     }
 
     /// Adds peer to the peer set.

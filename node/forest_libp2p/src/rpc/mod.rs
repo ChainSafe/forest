@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_exchange::{ChainExchangeRequest, ChainExchangeResponse};
-use crate::hello::{HelloRequest, HelloResponse};
+use crate::chain_exchange::ChainExchangeResponse;
+use crate::hello::HelloResponse;
 use async_trait::async_trait;
 use forest_encoding::{from_slice, to_vec};
 use futures::prelude::*;
@@ -18,13 +18,6 @@ use std::marker::PhantomData;
 pub enum RPCResponse {
     ChainExchange(ChainExchangeResponse),
     Hello(HelloResponse),
-}
-
-/// RPCRequest payloads for request/response calls
-#[derive(Debug, Clone, PartialEq)]
-pub enum RPCRequest {
-    ChainExchange(ChainExchangeRequest),
-    Hello(HelloRequest),
 }
 
 #[derive(Clone)]

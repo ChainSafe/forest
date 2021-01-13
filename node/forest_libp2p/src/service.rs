@@ -4,7 +4,6 @@
 use super::chain_exchange::{
     make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse,
 };
-use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
 use async_std::channel::{unbounded, Receiver, Sender};
@@ -33,7 +32,6 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::{SystemTime, UNIX_EPOCH};
 use utils::read_file_to_vec;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
@@ -47,7 +45,7 @@ lazy_static! {
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
 /// Events emitted by this Service
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
         source: Option<PeerId>,
@@ -118,8 +116,7 @@ pub enum NetRPCMethods {
 pub struct Libp2pService<DB> {
     pub swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
-    /// Keeps track of Chain exchange requests to responses
-    cx_request_table: HashMap<RequestId, OneShotSender<ChainExchangeResponse>>,
+
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: Receiver<NetworkEvent>,
@@ -167,7 +164,6 @@ where
         Libp2pService {
             swarm,
             cs,
-            cx_request_table: HashMap::new(),
             network_receiver_in,
             network_sender_in,
             network_receiver_out,
@@ -236,22 +232,8 @@ where
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
                             }
                         }
-                        ForestBehaviourEvent::HelloRequest { request, channel, peer } => {
-                            let arrival = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .expect("System time before unix epoch")
-                                .as_nanos();
-
-                            debug!("Received hello request: {:?}", request);
-                            let sent = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .expect("System time before unix epoch")
-                                .as_nanos();
-                            channel.send(HelloResponse {
-                                arrival,
-                                sent,
-                            }).await;
-
+                        ForestBehaviourEvent::HelloRequest { request,  peer } => {
+                            debug!("Received hello request (peer_id: {:?})", peer);
                             emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
                                 source: peer,
@@ -265,25 +247,12 @@ where
                             }).await;
                         }
                         ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
-                            debug!("Received chain_exchange request (peerId: {:?})", peer);
+                            debug!("Received chain_exchange request (peer_id: {:?})", peer);
                             let db = self.cs.clone();
-                            task::spawn(async move {
-                                let response = make_chain_exchange_response(db.as_ref(), &request).await;
-                                channel.send(response).await;
-                            });
-                        }
-                        ForestBehaviourEvent::ChainExchangeResponse { request_id, response, .. } => {
-                            debug!("Received chain_exchange response (id: {:?})", request_id);
-                            let tx = self.cx_request_table.remove(&request_id);
 
-                            if let Some(tx) = tx {
-                                if tx.send(response).is_err() {
-                                    debug!("RPCResponse receive failed")
-                                }
-                            }
-                            else {
-                                debug!("RPCResponse receive failed: channel not found");
-                            };
+                            task::spawn(async move {
+                                channel.send(make_chain_exchange_response(db.as_ref(), &request).await)
+                            });
                         }
                         ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block) => {
                             let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
@@ -333,12 +302,10 @@ where
                             }
                         }
                         NetworkMessage::HelloRequest { peer_id, request } => {
-                            let _ = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::Hello(request));
+                            swarm_stream.get_mut().send_hello_request(&peer_id, request);
                         }
                         NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
-                            let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::ChainExchange(request));
-                            debug!("Sent BS Request with id: {:?}", id);
-                            self.cx_request_table.insert(id, response_channel);
+                            swarm_stream.get_mut().send_chain_exchange_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::BitswapRequest { cid, response_channel } => {
                             if let Err(e) = swarm_stream.get_mut().want_block(cid, 1000) {
