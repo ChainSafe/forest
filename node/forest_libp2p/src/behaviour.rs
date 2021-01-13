@@ -228,7 +228,11 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
     fn inject_event(&mut self, event: RequestResponseEvent<HelloRequest, HelloResponse>) {
         match event {
             RequestResponseEvent::Message { peer, message } => match message {
-                RequestResponseMessage::Request { request, channel } => {
+                RequestResponseMessage::Request {
+                    request,
+                    channel,
+                    request_id: _,
+                } => {
                     let arrival = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
@@ -261,7 +265,11 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                 "Hello outbound failure (peer: {:?}) (id: {:?}): {:?}",
                 peer, request_id, error
             ),
-            RequestResponseEvent::InboundFailure { peer, error } => {
+            RequestResponseEvent::InboundFailure {
+                peer,
+                error,
+                request_id: _,
+            } => {
                 warn!("Hello inbound error (peer: {:?}): {:?}", peer, error)
             }
         }
@@ -277,7 +285,11 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
     ) {
         match event {
             RequestResponseEvent::Message { peer, message } => match message {
-                RequestResponseMessage::Request { request, channel } => {
+                RequestResponseMessage::Request {
+                    request,
+                    channel,
+                    request_id: _,
+                } => {
                     let (tx, rx) = oneshot::channel();
                     self.cx_pending_responses.push(Box::pin(async move {
                         rx.await
@@ -318,7 +330,11 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                 "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
                 peer, request_id, error
             ),
-            RequestResponseEvent::InboundFailure { peer, error } => warn!(
+            RequestResponseEvent::InboundFailure {
+                peer,
+                error,
+                request_id: _,
+            } => warn!(
                 "ChainExchange inbound error (peer: {:?}): {:?}",
                 peer, error
             ),
