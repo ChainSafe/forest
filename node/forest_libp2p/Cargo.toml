@@ -30,7 +30,7 @@ forest_blocks = { path = "../../blockchain/blocks" }
 forest_message = "0.6"
 forest_encoding = "0.2.1"
 forest_cid = { version = "0.3" }
-bytes = "0.5.2"
+bytes = "1.0"
 fnv = "1.0.6"
 smallvec = "1.1.0"
 chain = { path = "../../blockchain/chain" }

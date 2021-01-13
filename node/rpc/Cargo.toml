@@ -39,7 +39,7 @@ rand = "0.7"
 interpreter = { path = "../../vm/interpreter/" }
 fil_types = "0.1"
 futures = "0.3.5"
-async-tungstenite = "0.9.1"
+async-tungstenite = "0.12"
 async-log = "2.0.0"
 log ="0.4.8"
 flo_stream = "0.4.0"

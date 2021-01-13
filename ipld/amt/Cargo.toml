@@ -16,7 +16,7 @@ serde = { version = "1.0", features = ["derive"] }
 ipld_blockstore = "0.1"
 thiserror = "1.0"
 lazycell = "1.2.1"
-ahash = { version = "0.5", optional = true }
+ahash = { version = "0.6", optional = true }
 
 [features]
 go-interop = ["ahash"]
