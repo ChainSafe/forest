@@ -3,7 +3,6 @@
 
 use super::*;
 use crate::peer_manager::PeerManager;
-use actor::EPOCH_DURATION_SECONDS;
 use async_std::channel::bounded;
 use async_std::task;
 use db::MemoryDB;

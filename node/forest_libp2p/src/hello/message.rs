@@ -20,9 +20,9 @@ pub struct HelloRequest {
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct HelloResponse {
     /// Time of arrival in unix nanoseconds
-    pub arrival: i64,
+    pub arrival: u128,
     /// Time sent in unix nanoseconds
-    pub sent: i64,
+    pub sent: u128,
 }
 
 #[cfg(test)]

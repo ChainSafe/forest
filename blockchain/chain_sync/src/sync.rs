@@ -176,8 +176,7 @@ where
         new_ts_tx: &Sender<(PeerId, FullTipset)>,
     ) {
         match network_event {
-            NetworkEvent::HelloRequest { request, channel } => {
-                let source = channel.peer.clone();
+            NetworkEvent::HelloRequest { request, source } => {
                 self.network
                     .peer_manager()
                     .update_peer_head(source.clone(), None)

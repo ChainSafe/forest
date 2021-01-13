@@ -4,7 +4,7 @@
 #![cfg(feature = "submodule_tests")]
 
 use cid::Cid;
-use encoding::{from_slice, to_vec};
+use encoding::to_vec;
 use forest_blocks::{header, BlockHeader};
 use hex::encode;
 use serde::Deserialize;

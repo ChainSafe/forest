@@ -33,6 +33,7 @@ use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 use utils::read_file_to_vec;
 
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
@@ -54,7 +55,7 @@ pub enum NetworkEvent {
     },
     HelloRequest {
         request: HelloRequest,
-        channel: ResponseChannel<HelloResponse>,
+        source: PeerId,
     },
     HelloResponse {
         request_id: RequestId,
@@ -235,11 +236,25 @@ where
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
                             }
                         }
-                        ForestBehaviourEvent::HelloRequest { request, channel, .. } => {
+                        ForestBehaviourEvent::HelloRequest { request, channel, peer } => {
+                            let arrival = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .expect("System time before unix epoch")
+                                .as_nanos();
+
                             debug!("Received hello request: {:?}", request);
+                            let sent = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .expect("System time before unix epoch")
+                                .as_nanos();
+                            channel.send(HelloResponse {
+                                arrival,
+                                sent,
+                            }).await;
+
                             emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
-                                channel,
+                                source: peer,
                             }).await;
                         }
                         ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
@@ -252,12 +267,10 @@ where
                         ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
                             debug!("Received chain_exchange request (peerId: {:?})", peer);
                             let db = self.cs.clone();
-                            async {
-                                let response = task::spawn(async move {
-                                    make_chain_exchange_response(db.as_ref(), &request).await
-                                }).await;
-                                let _ = channel.send(response).await;
-                            }.await;
+                            task::spawn(async move {
+                                let response = make_chain_exchange_response(db.as_ref(), &request).await;
+                                channel.send(response).await;
+                            });
                         }
                         ForestBehaviourEvent::ChainExchangeResponse { request_id, response, .. } => {
                             debug!("Received chain_exchange response (id: {:?})", request_id);

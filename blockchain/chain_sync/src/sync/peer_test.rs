@@ -9,7 +9,7 @@ use beacon::{BeaconPoint, MockBeacon};
 use blocks::BlockHeader;
 use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
-use forest_libp2p::{hello::HelloRequest, rpc::ResponseChannel};
+use forest_libp2p::hello::HelloRequest;
 use libp2p::core::PeerId;
 use message_pool::{test_provider::TestApi, MessagePool};
 use state_manager::StateManager;
@@ -70,7 +70,6 @@ fn peer_manager_update() {
 
     let source = PeerId::random();
     let source_clone = source.clone();
-    let (sender, _) = bounded(1);
 
     let gen_cloned = genesis_ts.clone();
     task::block_on(async {
@@ -82,12 +81,10 @@ fn peer_manager_update() {
                     heaviest_tipset_weight: gen_cloned.weight().clone(),
                     genesis_hash: gen_hash,
                 },
-                channel: ResponseChannel {
-                    peer: source,
-                    sender,
-                },
+                source,
             })
-            .await;
+            .await
+            .unwrap();
 
         // Would be ideal to not have to sleep here and have it deterministic
         task::sleep(Duration::from_millis(1000)).await;
