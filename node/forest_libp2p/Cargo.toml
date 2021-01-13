@@ -18,9 +18,8 @@ libp2p = { version = "0.24", default-features = false, features = [
     "tcp-async-std",
     "dns",
     "mplex",
-    # "request-response"
+    "request-response"
 ] }
-libp2p-request-response = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "b1fe08464ce4d395e92a5725202caedeb3a60165" }
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures_codec = "0.4.0"

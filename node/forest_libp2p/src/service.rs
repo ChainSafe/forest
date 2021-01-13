@@ -26,7 +26,7 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mplex, noise, yamux, PeerId, Swarm, Transport,
 };
-use libp2p_request_response::{RequestId, ResponseChannel};
+use libp2p::request_response::{RequestId, ResponseChannel};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};

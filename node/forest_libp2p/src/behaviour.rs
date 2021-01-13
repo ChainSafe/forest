@@ -24,15 +24,15 @@ use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
 };
+use libp2p::request_response::{
+    ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
+    RequestResponseMessage, ResponseChannel,
+};
 use libp2p::swarm::{
     toggle::Toggle, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
 };
 use libp2p::NetworkBehaviour;
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
-use libp2p_request_response::{
-    ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
-    RequestResponseMessage, ResponseChannel,
-};
 use log::{debug, trace, warn};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -239,10 +239,8 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
                         .as_nanos();
-                    async_std::task::block_on(
-                        self.hello
-                            .send_response(channel, HelloResponse { arrival, sent }),
-                    );
+                    self.hello
+                        .send_response(channel, HelloResponse { arrival, sent });
                     self.events
                         .push(ForestBehaviourEvent::HelloRequest { request, peer });
                 }
@@ -347,8 +345,7 @@ impl ForestBehaviour {
                 None => continue,
             };
 
-            // TODO remove block
-            async_std::task::block_on(self.chain_exchange.send_response(inner_channel, response))
+            self.chain_exchange.send_response(inner_channel, response)
         }
         if !self.events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
