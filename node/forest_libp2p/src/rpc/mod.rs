@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use forest_encoding::{from_slice, to_vec};
 use futures::prelude::*;
 use libp2p::core::ProtocolName;
+use libp2p::request_response::OutboundFailure;
 use libp2p::request_response::RequestResponseCodec;
-pub use libp2p::request_response::{RequestId, ResponseChannel};
 use serde::{de::DeserializeOwned, Serialize};
 use std::io;
 use std::marker::PhantomData;
@@ -24,6 +24,40 @@ impl<P, RQ, RS> Default for CborRequestResponse<P, RQ, RS> {
             protocol: PhantomData::<P>::default(),
             request: PhantomData::<RQ>::default(),
             response: PhantomData::<RS>::default(),
+        }
+    }
+}
+
+/// libp2p request response outbound error type. This indicates a failure sending a request to
+/// a peer. This is different from a failure response from a node, as this is an error that
+/// prevented a response.
+///
+/// This type mirrors the internal libp2p type, but this avoids having to expose that internal type.
+#[derive(Debug)]
+pub enum RequestResponseError {
+    /// The request could not be sent because a dialing attempt failed.
+    DialFailure,
+    /// The request timed out before a response was received.
+    ///
+    /// It is not known whether the request may have been
+    /// received (and processed) by the remote peer.
+    Timeout,
+    /// The connection closed before a response was received.
+    ///
+    /// It is not known whether the request may have been
+    /// received (and processed) by the remote peer.
+    ConnectionClosed,
+    /// The remote supports none of the requested protocols.
+    UnsupportedProtocols,
+}
+
+impl From<OutboundFailure> for RequestResponseError {
+    fn from(err: OutboundFailure) -> Self {
+        match err {
+            OutboundFailure::DialFailure => Self::DialFailure,
+            OutboundFailure::Timeout => Self::Timeout,
+            OutboundFailure::ConnectionClosed => Self::ConnectionClosed,
+            OutboundFailure::UnsupportedProtocols => Self::UnsupportedProtocols,
         }
     }
 }
