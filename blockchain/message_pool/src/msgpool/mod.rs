@@ -1379,9 +1379,7 @@ pub mod test_provider {
         }
 
         async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-            Tipset::new(vec![create_header(1, b"", b"")])
-                .ok()
-                .map(Arc::new)
+            Tipset::new(vec![create_header(1)]).ok().map(Arc::new)
         }
 
         fn put_message(&self, _msg: &ChainMessage) -> Result<Cid, Errors> {
@@ -1470,11 +1468,9 @@ pub mod test_provider {
         }
     }
 
-    pub fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
+    pub fn create_header(weight: u64) -> BlockHeader {
         BlockHeader::builder()
             .weight(BigInt::from(weight))
-            .cached_bytes(cached_bytes.to_vec())
-            .cached_cid(cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap()
@@ -1500,7 +1496,7 @@ pub mod test_provider {
             .messages(c)
             .state_root(c)
             .weight(weight_inc)
-            .build_and_validate()
+            .build()
             .unwrap()
     }
 
@@ -1525,7 +1521,7 @@ pub mod test_provider {
             .state_root(c)
             .weight(weight_inc)
             .epoch(epoch)
-            .build_and_validate()
+            .build()
             .unwrap()
     }
     pub fn mock_block_with_parents(
@@ -1557,7 +1553,7 @@ pub mod test_provider {
             .state_root(*parents.blocks()[0].state_root())
             .weight(weight_inc)
             .epoch(height)
-            .build_and_validate()
+            .build()
             .unwrap()
     }
 }

@@ -138,7 +138,7 @@ where
         .bls_aggregate(v.bls_aggregate)
         .election_proof(v.election_proof)
         .parent_base_fee(v.parent_base_fee.parse().map_err(de::Error::custom)?)
-        .build_and_validate()
+        .build()
         .map_err(de::Error::custom)?)
 }
 

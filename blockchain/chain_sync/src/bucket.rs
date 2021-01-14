@@ -6,7 +6,7 @@ use num_bigint::BigInt;
 use std::sync::Arc;
 
 /// SyncBucket defines a bucket of tipsets to sync
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct SyncBucket {
     tips: Vec<Arc<Tipset>>,
 }
@@ -26,6 +26,7 @@ impl SyncBucket {
     }
     /// Returns true if tipset is from same chain
     pub fn is_same_chain_as(&self, ts: &Tipset) -> bool {
+        // TODO can maybe short circuit when keys equivalent, instead of checking on add
         self.tips
             .iter()
             .any(|t| ts.key() == t.key() || ts.key() == t.parents() || ts.parents() == t.key())
@@ -92,14 +93,11 @@ mod tests {
     use super::*;
     use address::Address;
     use blocks::BlockHeader;
-    use cid::Code::Blake2b256;
     use num_bigint::BigInt;
 
-    fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
+    fn create_header(weight: u64) -> BlockHeader {
         let header = BlockHeader::builder()
             .weight(BigInt::from(weight))
-            .cached_bytes(cached_bytes.to_vec())
-            .cached_cid(cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
@@ -113,8 +111,8 @@ mod tests {
 
     #[test]
     fn heaviest_tipset() {
-        let l_tip = Arc::new(Tipset::new(vec![create_header(1, b"", b"")]).unwrap());
-        let h_tip = Arc::new(Tipset::new(vec![create_header(3, b"", b"")]).unwrap());
+        let l_tip = Arc::new(Tipset::new(vec![create_header(1)]).unwrap());
+        let h_tip = Arc::new(Tipset::new(vec![create_header(3)]).unwrap());
 
         // Test the comparison of tipsets
         let bucket = SyncBucket::new(vec![l_tip.clone(), h_tip]);
@@ -135,13 +133,13 @@ mod tests {
     #[test]
     fn sync_bucket_inserts() {
         let mut set = SyncBucketSet::default();
-        let tipset1 = Arc::new(Tipset::new(vec![create_header(1, b"1", b"1")]).unwrap());
+        let tipset1 = Arc::new(Tipset::new(vec![create_header(1)]).unwrap());
         set.insert(tipset1.clone());
         assert_eq!(set.buckets.len(), 1);
         assert_eq!(set.buckets[0].tips.len(), 1);
 
         // Assert a tipset on non relating chain is put in another bucket
-        let tipset2 = Arc::new(Tipset::new(vec![create_header(2, b"2", b"2")]).unwrap());
+        let tipset2 = Arc::new(Tipset::new(vec![create_header(2)]).unwrap());
         set.insert(tipset2);
         assert_eq!(
             set.buckets.len(),
@@ -151,8 +149,17 @@ mod tests {
         assert_eq!(set.buckets[1].tips.len(), 1);
 
         // Assert a tipset connected to the first
-        let tipset3 = Arc::new(Tipset::new(vec![create_header(3, b"1", b"1")]).unwrap());
-        assert_eq!(tipset1.key(), tipset3.key());
+        let tipset3 = Arc::new(
+            Tipset::new(vec![BlockHeader::builder()
+                .weight(3.into())
+                .parents(tipset1.key().clone())
+                .miner_address(Address::new_id(0))
+                .build()
+                .unwrap()])
+            .unwrap(),
+        );
+        assert_ne!(tipset1.key(), tipset3.key());
+        assert_eq!(tipset3.parents(), tipset1.key());
         set.insert(tipset3);
         assert_eq!(
             set.buckets.len(),
