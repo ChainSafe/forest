@@ -51,6 +51,8 @@ pub struct ForestBehaviour {
     mdns: Toggle<Mdns>,
     ping: Ping,
     identify: Identify,
+    // TODO would be nice to have this handled together and generic, to avoid duplicated polling
+    // but is fine for now, since the protocols are handled slightly differently.
     hello: RequestResponse<HelloCodec>,
     chain_exchange: RequestResponse<ChainExchangeCodec>,
     kademlia: Toggle<Kademlia<MemoryStore>>,

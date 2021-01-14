@@ -371,7 +371,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     };
 
     transport
-        .upgrade(core::upgrade::Version::V1Lazy)
+        .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
         .multiplex(mplex_config)
         .timeout(Duration::from_secs(20))
