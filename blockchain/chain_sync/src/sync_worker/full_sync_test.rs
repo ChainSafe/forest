@@ -24,7 +24,7 @@ where
                 response_channel,
                 ..
             }) => response_channel
-                .send(make_chain_exchange_response(&db, &request).await)
+                .send(Ok(make_chain_exchange_response(&db, &request).await))
                 .unwrap(),
             Some(event) => log::warn!("Other request sent to network: {:?}", event),
             None => break,
