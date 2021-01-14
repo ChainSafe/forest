@@ -125,11 +125,11 @@ pub struct BlockHeader {
     parent_base_fee: TokenAmount,
     // CACHE
     /// stores the cid for the block after the first call to `cid()`
-    #[builder(default, setter(into))]
+    #[builder(default, setter(skip))]
     cached_cid: OnceCell<Cid>,
 
     /// stores the hashed bytes of the block after the fist call to `cid()`
-    #[builder(default, setter(into))]
+    #[builder(default, setter(skip))]
     cached_bytes: OnceCell<Vec<u8>>,
 
     /// Cached signature validation
