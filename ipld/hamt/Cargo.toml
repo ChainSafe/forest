@@ -34,7 +34,7 @@ ignore-dead-links = []
 hex = "0.4.2"
 criterion = "0.3.3"
 ipld_blockstore = { version = "0.1", features = ["tracking"] }
-unsigned-varint = "0.5"
+unsigned-varint = "0.6"
 
 [[bench]]
 name = "hamt_beckmark"

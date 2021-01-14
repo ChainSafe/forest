@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 utils = { path = "../utils" }
 networks = { path = "../../types/networks" }
-libp2p = { version = "0.24", default-features = false, features = [
+libp2p = { version = "0.28", default-features = false, features = [
     "gossipsub",
     "kad",
     "identify",
@@ -17,9 +17,10 @@ libp2p = { version = "0.24", default-features = false, features = [
     "yamux",
     "tcp-async-std",
     "dns",
-    "mplex"
+    "mplex",
+    "request-response",
+    "websocket"
 ] }
-libp2p-request-response = { git = "https://github.com/ChainSafe/rust-libp2p", rev = "b1fe08464ce4d395e92a5725202caedeb3a60165" }
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures_codec = "0.4.0"
@@ -30,7 +31,7 @@ forest_blocks = { path = "../../blockchain/blocks" }
 forest_message = "0.6"
 forest_encoding = "0.2.1"
 forest_cid = { version = "0.3" }
-bytes = "0.5.2"
+bytes = "1.0"
 fnv = "1.0.6"
 smallvec = "1.1.0"
 chain = { path = "../../blockchain/chain" }
@@ -38,7 +39,7 @@ clock = { package = "fil_clock", path = "../clock" }
 db = { package = "forest_db", version = "0.1" }
 forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "bd7e083cc5d9ad13bb357e0e0055338c33b18173" }
+libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "db4b938d9b1692d04dba0d4b2dc6e86fff22df04" }
 tiny-cid = "0.2.0"
 ipld_blockstore = "0.1"
 async-trait = "0.1"

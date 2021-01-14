@@ -14,8 +14,9 @@ mod wallet_api;
 
 use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
 use async_log::span;
+use async_std::channel::Sender;
 use async_std::net::{TcpListener, TcpStream};
-use async_std::sync::{Arc, RwLock, Sender};
+use async_std::sync::{Arc, RwLock};
 use async_std::task::{self, JoinHandle};
 use async_tungstenite::{
     tungstenite::handshake::server::Request, tungstenite::Message, WebSocketStream,

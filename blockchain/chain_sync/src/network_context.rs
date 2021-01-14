@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::peer_manager::PeerManager;
+use async_std::channel::Sender;
 use async_std::future;
-use async_std::sync::Sender;
 use blocks::{FullTipset, Tipset, TipsetKeys};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
@@ -132,7 +132,8 @@ where
                 cid: content,
                 response_channel: tx,
             })
-            .await;
+            .await
+            .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
         let res = future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
         match res {
             Ok(Ok(())) => {
@@ -223,13 +224,18 @@ where
         let req_pre_time = SystemTime::now();
 
         let (tx, rx) = oneshot_channel();
-        self.network_send
+        if self
+            .network_send
             .send(NetworkMessage::ChainExchangeRequest {
                 peer_id: peer_id.clone(),
                 request,
                 response_channel: tx,
             })
-            .await;
+            .await
+            .is_err()
+        {
+            return Err("Failed to send chain exchange request to network".to_string());
+        };
 
         let res = future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
         let res_duration = SystemTime::now()
@@ -252,11 +258,16 @@ where
     }
 
     /// Send a hello request to the network (does not await response)
-    pub async fn hello_request(&self, peer_id: PeerId, request: HelloRequest) {
+    pub async fn hello_request(
+        &self,
+        peer_id: PeerId,
+        request: HelloRequest,
+    ) -> Result<(), &'static str> {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
         self.network_send
             .send(NetworkMessage::HelloRequest { peer_id, request })
-            .await;
+            .await
+            .map_err(|_| "Failed to send hello request: receiver dropped")
     }
 }

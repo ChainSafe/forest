@@ -12,7 +12,8 @@ use super::{Error, SyncNetworkContext};
 use actor::{is_account_actor, power};
 use address::Address;
 use amt::Amt;
-use async_std::sync::{Mutex, Receiver, RwLock};
+use async_std::channel::Receiver;
+use async_std::sync::{Mutex, RwLock};
 use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -1020,7 +1021,7 @@ fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std::sync::channel;
+    use async_std::channel::bounded;
     use beacon::{BeaconPoint, MockBeacon};
     use db::MemoryDB;
     use fil_types::verifier::MockVerifier;
@@ -1038,7 +1039,7 @@ mod tests {
     ) {
         let chain_store = Arc::new(ChainStore::new(db.clone()));
 
-        let (local_sender, test_receiver) = channel(20);
+        let (local_sender, test_receiver) = bounded(20);
 
         let gen = construct_dummy_header();
         chain_store.set_genesis(&gen).unwrap();

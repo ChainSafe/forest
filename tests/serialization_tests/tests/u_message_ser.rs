@@ -4,7 +4,7 @@
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
 
-use encoding::{from_slice, to_vec};
+use encoding::to_vec;
 use forest_message::{unsigned_message, UnsignedMessage};
 use hex::encode;
 use serde::Deserialize;

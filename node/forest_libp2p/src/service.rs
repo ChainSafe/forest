@@ -4,10 +4,9 @@
 use super::chain_exchange::{
     make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse,
 };
-use super::rpc::RPCRequest;
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::hello::{HelloRequest, HelloResponse};
-use async_std::sync::{channel, Receiver, Sender};
+use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::{stream, task};
 use chain::ChainStore;
 use forest_blocks::GossipBlock;
@@ -20,6 +19,7 @@ use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::Multiaddr;
 pub use libp2p::gossipsub::Topic;
+use libp2p::request_response::{RequestId, ResponseChannel};
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -27,7 +27,6 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mplex, noise, yamux, PeerId, Swarm, Transport,
 };
-use libp2p_request_response::{RequestId, ResponseChannel};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -46,7 +45,7 @@ lazy_static! {
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
 /// Events emitted by this Service
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
         source: Option<PeerId>,
@@ -54,7 +53,7 @@ pub enum NetworkEvent {
     },
     HelloRequest {
         request: HelloRequest,
-        channel: ResponseChannel<HelloResponse>,
+        source: PeerId,
     },
     HelloResponse {
         request_id: RequestId,
@@ -117,8 +116,7 @@ pub enum NetRPCMethods {
 pub struct Libp2pService<DB> {
     pub swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
-    /// Keeps track of Chain exchange requests to responses
-    cx_request_table: HashMap<RequestId, OneShotSender<ChainExchangeResponse>>,
+
     network_receiver_in: Receiver<NetworkMessage>,
     network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: Receiver<NetworkEvent>,
@@ -160,13 +158,12 @@ where
             warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
-        let (network_sender_in, network_receiver_in) = channel(30);
-        let (network_sender_out, network_receiver_out) = channel(50);
+        let (network_sender_in, network_receiver_in) = unbounded();
+        let (network_sender_out, network_receiver_out) = unbounded();
 
         Libp2pService {
             swarm,
             cs,
-            cx_request_table: HashMap::new(),
             network_receiver_in,
             network_sender_in,
             network_receiver_out,
@@ -235,11 +232,11 @@ where
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
                             }
                         }
-                        ForestBehaviourEvent::HelloRequest { request, channel, .. } => {
-                            debug!("Received hello request: {:?}", request);
+                        ForestBehaviourEvent::HelloRequest { request,  peer } => {
+                            debug!("Received hello request (peer_id: {:?})", peer);
                             emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
-                                channel,
+                                source: peer,
                             }).await;
                         }
                         ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
@@ -250,27 +247,12 @@ where
                             }).await;
                         }
                         ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
-                            debug!("Received chain_exchange request (peerId: {:?})", peer);
+                            debug!("Received chain_exchange request (peer_id: {:?})", peer);
                             let db = self.cs.clone();
-                            async {
-                                let response = task::spawn(async move {
-                                    make_chain_exchange_response(db.as_ref(), &request).await
-                                }).await;
-                                let _ = channel.send(response).await;
-                            }.await;
-                        }
-                        ForestBehaviourEvent::ChainExchangeResponse { request_id, response, .. } => {
-                            debug!("Received chain_exchange response (id: {:?})", request_id);
-                            let tx = self.cx_request_table.remove(&request_id);
 
-                            if let Some(tx) = tx {
-                                if tx.send(response).is_err() {
-                                    debug!("RPCResponse receive failed")
-                                }
-                            }
-                            else {
-                                debug!("RPCResponse receive failed: channel not found");
-                            };
+                            task::spawn(async move {
+                                channel.send(make_chain_exchange_response(db.as_ref(), &request).await)
+                            });
                         }
                         ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block) => {
                             let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
@@ -320,12 +302,10 @@ where
                             }
                         }
                         NetworkMessage::HelloRequest { peer_id, request } => {
-                            let _ = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::Hello(request));
+                            swarm_stream.get_mut().send_hello_request(&peer_id, request);
                         }
                         NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
-                            let id = swarm_stream.get_mut().send_rpc_request(&peer_id, RPCRequest::ChainExchange(request));
-                            debug!("Sent BS Request with id: {:?}", id);
-                            self.cx_request_table.insert(id, response_channel);
+                            swarm_stream.get_mut().send_chain_exchange_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::BitswapRequest { cid, response_channel } => {
                             if let Err(e) = swarm_stream.get_mut().want_block(cid, 1000) {
@@ -368,32 +348,40 @@ where
     }
 }
 async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
-    if !sender.is_full() {
-        sender.send(event).await
-    } else {
-        // TODO this would be better to keep the events that would be ignored in some sort of buffer
-        // so that they can be pulled off and sent through the channel when there is available space
-        error!("network sender channel was full, ignoring event");
+    if sender.send(event).await.is_err() {
+        error!("Failed to emit event: Network channel receiver has been dropped");
     }
 }
 
 /// Builds the transport stack that LibP2P will communicate over
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
+    let transport = libp2p::websocket::WsConfig::new(transport.clone()).or_transport(transport);
     let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
-    let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&local_key)
-        .expect("Noise key generation failed");
-    let mut yamux_config = yamux::Config::default();
-    yamux_config.set_max_buffer_size(16 * 1024 * 1024);
-    yamux_config.set_receive_window(16 * 1024 * 1024);
+
+    let auth_config = {
+        let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
+            .into_authentic(&local_key)
+            .expect("Noise key generation failed");
+
+        noise::NoiseConfig::xx(dh_keys).into_authenticated()
+    };
+
+    let mplex_config = {
+        let mut mplex_config = mplex::MplexConfig::new();
+        mplex_config.max_buffer_len(usize::MAX);
+
+        let mut yamux_config = yamux::Config::default();
+        yamux_config.set_max_buffer_size(16 * 1024 * 1024);
+        yamux_config.set_receive_window(16 * 1024 * 1024);
+
+        core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
+    };
+
     transport
         .upgrade(core::upgrade::Version::V1)
-        .authenticate(noise::NoiseConfig::xx(dh_keys).into_authenticated())
-        .multiplex(core::upgrade::SelectUpgrade::new(
-            yamux_config,
-            mplex::MplexConfig::new(),
-        ))
+        .authenticate(auth_config)
+        .multiplex(mplex_config)
         .map(|(peer, muxer), _| (peer, core::muxing::StreamMuxerBox::new(muxer)))
         .timeout(Duration::from_secs(20))
         .map_err(|err| Error::new(ErrorKind::Other, err))

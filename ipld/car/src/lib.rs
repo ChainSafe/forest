@@ -121,8 +121,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_std::channel::bounded;
     use async_std::io::Cursor;
-    use async_std::sync::{channel, RwLock};
+    use async_std::sync::RwLock;
     use db::Store;
     use std::sync::Arc;
 
@@ -150,7 +151,7 @@ mod tests {
         };
         assert_eq!(to_vec(&header).unwrap().len(), 60);
 
-        let (tx, mut rx) = channel(10);
+        let (tx, mut rx) = bounded(10);
 
         let buffer_cloned = buffer.clone();
         let write_task = async_std::task::spawn(async move {
@@ -160,7 +161,7 @@ mod tests {
                 .unwrap()
         });
 
-        tx.send((cid, b"test".to_vec())).await;
+        tx.send((cid, b"test".to_vec())).await.unwrap();
         drop(tx);
         write_task.await;
 

@@ -1,31 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_exchange::{ChainExchangeRequest, ChainExchangeResponse};
-use crate::hello::{HelloRequest, HelloResponse};
 use async_trait::async_trait;
 use forest_encoding::{from_slice, to_vec};
 use futures::prelude::*;
 use libp2p::core::ProtocolName;
-use libp2p_request_response::RequestResponseCodec;
-pub use libp2p_request_response::{RequestId, ResponseChannel};
+use libp2p::request_response::RequestResponseCodec;
+pub use libp2p::request_response::{RequestId, ResponseChannel};
 use serde::{de::DeserializeOwned, Serialize};
 use std::io;
 use std::marker::PhantomData;
-
-/// RPCResponse payloads for request/response calls
-#[derive(Debug, Clone, PartialEq)]
-pub enum RPCResponse {
-    ChainExchange(ChainExchangeResponse),
-    Hello(HelloResponse),
-}
-
-/// RPCRequest payloads for request/response calls
-#[derive(Debug, Clone, PartialEq)]
-pub enum RPCRequest {
-    ChainExchange(ChainExchangeRequest),
-    Hello(HelloRequest),
-}
 
 #[derive(Clone)]
 pub struct CborRequestResponse<P, RQ, RS> {
@@ -89,7 +73,9 @@ where
         io.write_all(
             &to_vec(&req).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
         )
-        .await
+        .await?;
+        io.close().await?;
+        Ok(())
     }
 
     async fn write_response<T>(
@@ -104,6 +90,8 @@ where
         io.write_all(
             &to_vec(&res).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
         )
-        .await
+        .await?;
+        io.close().await?;
+        Ok(())
     }
 }

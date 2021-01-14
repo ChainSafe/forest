@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::{
+    channel::bounded,
     fs::{self, File},
     io::{copy, BufWriter},
-    sync::{channel, Arc},
+    sync::Arc,
     task,
 };
 use blake2b_simd::{Hash, State as Blake2b};
@@ -90,7 +91,7 @@ pub async fn get_params(
 
     if let Some(multi_bar) = mb {
         let cmb = multi_bar.clone();
-        let (mb_send, mb_rx) = channel(1);
+        let (mb_send, mb_rx) = bounded(1);
         let mb = task::spawn(async move {
             while mb_rx.try_recv().is_err() {
                 cmb.listen();
@@ -100,7 +101,10 @@ pub async fn get_params(
         for t in tasks {
             t.await;
         }
-        mb_send.send(()).await;
+        mb_send
+            .send(())
+            .await
+            .expect("Receiver should not be dropped");
         mb.await;
     } else {
         for t in tasks {

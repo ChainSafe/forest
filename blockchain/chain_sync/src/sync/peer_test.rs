@@ -3,13 +3,13 @@
 
 use super::*;
 use address::Address;
-use async_std::sync::channel;
+use async_std::channel::bounded;
 use async_std::task;
 use beacon::{BeaconPoint, MockBeacon};
 use blocks::BlockHeader;
 use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
-use forest_libp2p::{hello::HelloRequest, rpc::ResponseChannel};
+use forest_libp2p::hello::HelloRequest;
 use libp2p::core::PeerId;
 use message_pool::{test_provider::TestApi, MessagePool};
 use state_manager::StateManager;
@@ -20,7 +20,7 @@ fn peer_manager_update() {
     let db = Arc::new(MemoryDB::default());
 
     let chain_store = Arc::new(ChainStore::new(db.clone()));
-    let (tx, _rx) = channel(10);
+    let (tx, _rx) = bounded(10);
     let mpool = task::block_on(MessagePool::new(
         TestApi::default(),
         "test".to_string(),
@@ -30,8 +30,8 @@ fn peer_manager_update() {
     .unwrap();
     let mpool = Arc::new(mpool);
 
-    let (local_sender, _test_receiver) = channel(20);
-    let (event_sender, event_receiver) = channel(20);
+    let (local_sender, _test_receiver) = bounded(20);
+    let (event_sender, event_receiver) = bounded(20);
 
     let msg_root = compute_msg_meta(chain_store.blockstore(), &[], &[]).unwrap();
 
@@ -63,14 +63,13 @@ fn peer_manager_update() {
 
     let peer_manager = Arc::clone(&cs.network.peer_manager_cloned());
 
-    let (worker_tx, worker_rx) = channel(10);
+    let (worker_tx, worker_rx) = bounded(10);
     task::spawn(async {
         cs.start(worker_tx, worker_rx).await;
     });
 
     let source = PeerId::random();
     let source_clone = source.clone();
-    let (sender, _) = channel(1);
 
     let gen_cloned = genesis_ts.clone();
     task::block_on(async {
@@ -82,12 +81,10 @@ fn peer_manager_update() {
                     heaviest_tipset_weight: gen_cloned.weight().clone(),
                     genesis_hash: gen_hash,
                 },
-                channel: ResponseChannel {
-                    peer: source,
-                    sender,
-                },
+                source,
             })
-            .await;
+            .await
+            .unwrap();
 
         // Would be ideal to not have to sleep here and have it deterministic
         task::sleep(Duration::from_millis(1000)).await;
