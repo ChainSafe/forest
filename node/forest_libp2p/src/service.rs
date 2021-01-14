@@ -370,7 +370,6 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
     let mplex_config = {
         let mut mplex_config = mplex::MplexConfig::new();
         mplex_config.max_buffer_len(usize::MAX);
-        // mplex_config.set_max_buffer_size(usize::MAX);
 
         let mut yamux_config = yamux::Config::default();
         yamux_config.set_max_buffer_size(16 * 1024 * 1024);

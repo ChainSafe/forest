@@ -51,6 +51,8 @@ pub struct ForestBehaviour {
     mdns: Toggle<Mdns>,
     ping: Ping,
     identify: Identify,
+    // TODO would be nice to have this handled together and generic, to avoid duplicated polling
+    // but is fine for now, since the protocols are handled slightly differently.
     hello: RequestResponse<HelloCodec>,
     chain_exchange: RequestResponse<ChainExchangeCodec>,
     kademlia: Toggle<Kademlia<MemoryStore>>,
@@ -62,7 +64,11 @@ pub struct ForestBehaviour {
     /// Keeps track of Chain exchange requests to responses
     #[behaviour(ignore)]
     cx_request_table: HashMap<RequestId, OneShotSender<ChainExchangeResponse>>,
-    /// Boxed futures of responses for the
+    /// Boxed futures of responses for Chain Exchange incoming requests. This needs to be polled
+    /// in the behaviour to have access to the `RequestResponse` protocol when sending response.
+    ///
+    /// This technically shouldn't be necessary, because the response can just be sent through the
+    /// internal channel, but is necessary to avoid forking `RequestResponse`.
     #[behaviour(ignore)]
     cx_pending_responses:
         FuturesUnordered<Pin<Box<dyn Future<Output = Option<RequestProcessingOutcome>> + Send>>>,
@@ -243,6 +249,9 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
                         .as_nanos();
+
+                    // Send hello response immediately, no need to have the overhead of emitting
+                    // channel and polling future here.
                     self.hello
                         .send_response(channel, HelloResponse { arrival, sent });
                     self.events
@@ -290,8 +299,12 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                     channel,
                     request_id: _,
                 } => {
+                    // This creates a new channel to be used to handle the response from
+                    // outside the libp2p service. This is necessary because libp2p req-res does
+                    // not expose the response channel and this is better to control the interface.
                     let (tx, rx) = oneshot::channel();
                     self.cx_pending_responses.push(Box::pin(async move {
+                        // Await on created channel response
                         rx.await
                             .map(|response| RequestProcessingOutcome {
                                 inner_channel: channel,
@@ -304,6 +317,8 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                         .push(ForestBehaviourEvent::ChainExchangeRequest {
                             peer,
                             request,
+                            // Sender for the channel polled above will be emitted and handled
+                            // by whatever consumes the events
                             channel: tx,
                         })
                 }
