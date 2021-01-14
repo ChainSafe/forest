@@ -269,7 +269,7 @@ where
                 // Sender channel internally dropped or timeout, both should log failure which will
                 // negatively score the peer, but not drop yet.
                 self.peer_manager.log_failure(&peer_id, res_duration).await;
-                Err(format!("Chain exchange request timed out"))
+                Err("Chain exchange request timed out".to_string())
             }
         }
     }
