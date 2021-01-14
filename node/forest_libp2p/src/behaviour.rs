@@ -354,7 +354,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
 
                 let tx = self.cx_request_table.remove(&request_id);
 
-                // Send error out through channel out.
+                // Send error through channel out.
                 if let Some(tx) = tx {
                     if tx.send(Err(error.into())).is_err() {
                         debug!("RPCResponse receive failed")
