@@ -1073,7 +1073,7 @@ mod tests {
                 NetworkMessage::ChainExchangeRequest {
                     response_channel, ..
                 } => {
-                    response_channel.send(rpc_response).unwrap();
+                    response_channel.send(Ok(rpc_response)).unwrap();
                 }
                 _ => unreachable!(),
             }

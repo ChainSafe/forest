@@ -1,11 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_exchange::{
-    ChainExchangeCodec, ChainExchangeProtocolName, ChainExchangeRequest, ChainExchangeResponse,
-};
 use crate::config::Libp2pConfig;
 use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
+use crate::{
+    chain_exchange::{
+        ChainExchangeCodec, ChainExchangeProtocolName, ChainExchangeRequest, ChainExchangeResponse,
+    },
+    rpc::RequestResponseError,
+};
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
@@ -63,7 +66,8 @@ pub struct ForestBehaviour {
     peers: HashSet<PeerId>,
     /// Keeps track of Chain exchange requests to responses
     #[behaviour(ignore)]
-    cx_request_table: HashMap<RequestId, OneShotSender<ChainExchangeResponse>>,
+    cx_request_table:
+        HashMap<RequestId, OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>>,
     /// Boxed futures of responses for Chain Exchange incoming requests. This needs to be polled
     /// in the behaviour to have access to the `RequestResponse` protocol when sending response.
     ///
@@ -328,9 +332,10 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                 } => {
                     let tx = self.cx_request_table.remove(&request_id);
 
+                    // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
-                        if tx.send(response).is_err() {
-                            debug!("RPCResponse receive failed")
+                        if tx.send(Ok(response)).is_err() {
+                            debug!("RPCResponse receive timed out")
                         }
                     } else {
                         debug!("RPCResponse receive failed: channel not found");
@@ -341,10 +346,21 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                 peer,
                 request_id,
                 error,
-            } => warn!(
-                "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
-                peer, request_id, error
-            ),
+            } => {
+                warn!(
+                    "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
+                    peer, request_id, error
+                );
+
+                let tx = self.cx_request_table.remove(&request_id);
+
+                // Send error through channel out.
+                if let Some(tx) = tx {
+                    if tx.send(Err(error.into())).is_err() {
+                        debug!("RPCResponse receive failed")
+                    }
+                }
+            }
             RequestResponseEvent::InboundFailure {
                 peer,
                 error,
@@ -486,7 +502,7 @@ impl ForestBehaviour {
         &mut self,
         peer_id: &PeerId,
         request: ChainExchangeRequest,
-        response_channel: OneShotSender<ChainExchangeResponse>,
+        response_channel: OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>,
     ) {
         let req_id = self.chain_exchange.send_request(peer_id, request);
         self.cx_request_table.insert(req_id, response_channel);

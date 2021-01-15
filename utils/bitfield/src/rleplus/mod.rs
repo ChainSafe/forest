@@ -69,6 +69,7 @@ pub use writer::BitWriter;
 
 use super::{BitField, Result};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Cow;
 
 impl Serialize for BitField {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -85,7 +86,7 @@ impl<'de> Deserialize<'de> for BitField {
     where
         D: Deserializer<'de>,
     {
-        let bytes: &[u8] = serde_bytes::deserialize(deserializer)?;
+        let bytes: Cow<'de, [u8]> = serde_bytes::deserialize(deserializer)?;
         Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }
