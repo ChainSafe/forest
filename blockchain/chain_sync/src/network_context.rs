@@ -13,6 +13,7 @@ use forest_libp2p::{
         MESSAGES,
     },
     hello::HelloRequest,
+    rpc::RequestResponseError,
     NetworkMessage,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
@@ -24,6 +25,8 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 /// Timeout for response from an RPC request
+// TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
+// requests from slowing the node down. If increase, should create a countermeasure for this.
 const RPC_TIMEOUT: u64 = 5;
 
 /// Context used in chain sync to handle network requests
@@ -242,17 +245,31 @@ where
             .duration_since(req_pre_time)
             .unwrap_or_default();
         match res {
-            Ok(Ok(bs_res)) => {
+            Ok(Ok(Ok(bs_res))) => {
+                // Successful response
                 self.peer_manager.log_success(&peer_id, res_duration).await;
                 Ok(bs_res)
             }
-            Ok(Err(e)) => {
+            Ok(Ok(Err(e))) => {
+                // Internal libp2p error, score failure for peer and potentially disconnect
                 self.peer_manager.log_failure(&peer_id, res_duration).await;
-                Err(format!("RPC error: {}", e.to_string()))
+                match e {
+                    RequestResponseError::ConnectionClosed
+                    | RequestResponseError::DialFailure
+                    | RequestResponseError::UnsupportedProtocols => {
+                        self.peer_manager.remove_peer(&peer_id).await;
+                    }
+                    // Ignore dropping peer on timeout for now. Can't be confident yet that the
+                    // specified timeout is adequate time.
+                    RequestResponseError::Timeout => (),
+                }
+                Err(format!("Internal libp2p error: {:?}", e))
             }
-            Err(_) => {
+            Ok(Err(_)) | Err(_) => {
+                // Sender channel internally dropped or timeout, both should log failure which will
+                // negatively score the peer, but not drop yet.
                 self.peer_manager.log_failure(&peer_id, res_duration).await;
-                Err("Connection timed out".to_string())
+                Err("Chain exchange request timed out".to_string())
             }
         }
     }
