@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
-use forest_encoding::{from_slice, to_vec};
+use forest_encoding::to_vec;
 use futures::prelude::*;
+use futures_cbor_codec::Decoder;
+use futures_codec::FramedRead;
 use libp2p::core::ProtocolName;
 use libp2p::request_response::RequestResponseCodec;
 pub use libp2p::request_response::{RequestId, ResponseChannel};
@@ -43,9 +45,15 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut buf = Vec::new();
-        io.read_to_end(&mut buf).await?;
-        Ok(from_slice(&buf).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?)
+        let mut reader = FramedRead::new(io, Decoder::<RQ>::new());
+        // Expect only one request
+        let req = reader
+            .next()
+            .await
+            .transpose()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "read_request returned none"))?;
+        Ok(req)
     }
 
     async fn read_response<T>(
@@ -56,9 +64,15 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut buf = Vec::new();
-        io.read_to_end(&mut buf).await?;
-        Ok(from_slice(&buf).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?)
+        let mut reader = FramedRead::new(io, Decoder::<RS>::new());
+        // Expect only one response
+        let resp = reader
+            .next()
+            .await
+            .transpose()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "read_response returned none"))?;
+        Ok(resp)
     }
 
     async fn write_request<T>(
