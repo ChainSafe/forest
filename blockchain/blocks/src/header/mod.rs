@@ -128,7 +128,7 @@ pub struct BlockHeader {
     #[builder(default, setter(skip))]
     cached_cid: OnceCell<Cid>,
 
-    /// stores the hashed bytes of the block after the fist call to `cached_bytes()`
+    /// stores the hashed bytes of the block after the first call to `cached_bytes()`
     #[builder(default, setter(skip))]
     cached_bytes: OnceCell<Vec<u8>>,
 
