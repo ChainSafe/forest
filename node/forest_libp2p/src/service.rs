@@ -5,7 +5,10 @@ use super::chain_exchange::{
     make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse,
 };
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
-use crate::hello::{HelloRequest, HelloResponse};
+use crate::{
+    hello::{HelloRequest, HelloResponse},
+    rpc::RequestResponseError,
+};
 use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::{stream, task};
 use chain::ChainStore;
@@ -94,7 +97,7 @@ pub enum NetworkMessage {
     ChainExchangeRequest {
         peer_id: PeerId,
         request: ChainExchangeRequest,
-        response_channel: OneShotSender<ChainExchangeResponse>,
+        response_channel: OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>,
     },
     HelloRequest {
         peer_id: PeerId,

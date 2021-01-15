@@ -15,7 +15,8 @@ use std::time::Duration;
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;
 
-pub(crate) const SHUFFLE_PEERS_PREFIX: usize = 5;
+/// Defines max number of peers to send each chain exchange request to.
+pub(crate) const SHUFFLE_PEERS_PREFIX: usize = 16;
 
 /// Local duration multiplier, affects duration delta change.
 const LOCAL_INV_ALPHA: u32 = 5;
@@ -163,10 +164,14 @@ impl PeerManager {
     }
 
     /// Removes a peer from the set and returns true if the value was present previously
-    // TODO peers should only be removed after certain criteria is hit, this doesn't matter as much
-    // because a faulty peer will just be ignored.
-    pub async fn _remove_peer(&self, peer_id: &PeerId) -> bool {
-        self.full_peers.write().await.remove(peer_id).is_some()
+    pub async fn remove_peer(&self, peer_id: &PeerId) -> bool {
+        let mut peers = self.full_peers.write().await;
+        debug!(
+            "removing peer {:?}, remaining chain exchange peers: {}",
+            peer_id,
+            peers.len()
+        );
+        peers.remove(peer_id).is_some()
     }
 
     /// Gets count of full peers managed.
