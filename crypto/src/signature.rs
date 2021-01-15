@@ -11,6 +11,7 @@ use encoding::{blake2b_256, de, repr::*, ser, serde_bytes};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
+use std::borrow::Cow;
 
 /// BLS signature length in bytes.
 pub const BLS_SIG_LEN: usize = 96;
@@ -65,7 +66,7 @@ impl<'de> de::Deserialize<'de> for Signature {
     where
         D: de::Deserializer<'de>,
     {
-        let bytes: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
+        let bytes: Cow<'de, [u8]> = serde_bytes::Deserialize::deserialize(deserializer)?;
         if bytes.is_empty() {
             return Err(de::Error::custom("Cannot deserialize empty bytes"));
         }

@@ -3,6 +3,7 @@
 
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 /// Wrapper for serializing big ints to match filecoin spec. Serializes as bytes.
 #[derive(Serialize)]
@@ -35,7 +36,7 @@ pub fn deserialize<'de, D>(deserializer: D) -> Result<BigUint, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
+    let bz: Cow<'de, [u8]> = serde_bytes::Deserialize::deserialize(deserializer)?;
     if bz.is_empty() {
         return Ok(BigUint::default());
     }
