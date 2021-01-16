@@ -32,7 +32,7 @@ impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug, Eq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Tipset {
     blocks: Vec<BlockHeader>,
     key: TipsetKeys,
@@ -67,8 +67,7 @@ impl Tipset {
     pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
         verify_blocks(&headers)?;
 
-        // TODO Have a check the ensures CIDs are distinct
-        let cids = headers.iter().map(BlockHeader::cid).cloned().collect();
+        let cids: Vec<Cid> = headers.iter().map(BlockHeader::cid).cloned().collect();
 
         // sort headers by ticket size
         // break ticket ties with the header CIDs, which are distinct
@@ -218,20 +217,12 @@ where
             "parent cids are not equal",
         )?;
         verify(
-            header.weight() == first_header.weight(),
-            "weights are not equal",
-        )?;
-        verify(
             header.state_root() == first_header.state_root(),
             "state_roots are not equal",
         )?;
         verify(
             header.epoch() == first_header.epoch(),
             "epochs are not equal",
-        )?;
-        verify(
-            header.message_receipts() == first_header.message_receipts(),
-            "message_receipts are not equal",
         )?;
         verify(
             header.miner_address() != first_header.miner_address(),

@@ -26,7 +26,6 @@ pub fn template_key(data: &[u8]) -> Cid {
 /// Defines a block header used in testing
 fn template_header(
     ticket_p: Vec<u8>,
-    cid: Cid,
     timestamp: u64,
     epoch: i64,
     msg_root: Cid,
@@ -46,7 +45,6 @@ fn template_header(
         .signature(Some(Signature::new_bls(vec![1, 4, 3, 6, 7, 1, 2])))
         .epoch(epoch)
         .weight(BigInt::from(weight))
-        .cached_cid(cid)
         .build()
         .unwrap()
 }
@@ -66,7 +64,6 @@ pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
     let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
     let data2: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2];
-    let cids = construct_keys();
     // setup a deterministic message root within block header
     let meta = TxMeta {
         bls_message_root: Cid::try_from(
@@ -82,9 +79,9 @@ pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let msg_root = cid::new_from_cbor(&bz, Blake2b256);
 
     return vec![
-        template_header(data0, cids[0], 1, epoch, msg_root, weight),
-        template_header(data1, cids[1], 2, epoch, msg_root, weight),
-        template_header(data2, cids[2], 3, epoch, msg_root, weight),
+        template_header(data0, 1, epoch, msg_root, weight),
+        template_header(data1, 2, epoch, msg_root, weight),
+        template_header(data2, 3, epoch, msg_root, weight),
     ];
 }
 
@@ -189,7 +186,7 @@ pub fn construct_dummy_header() -> BlockHeader {
         .messages(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
         .message_receipts(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
         .state_root(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        .build_and_validate()
+        .build()
         .unwrap()
 }
 
