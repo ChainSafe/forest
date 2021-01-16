@@ -15,9 +15,9 @@ use data_encoding::Encoding;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, serde_bytes, Cbor};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
 use std::hash::Hash;
 use std::str::FromStr;
+use std::{borrow::Cow, fmt};
 
 /// defines the encoder for base32 encoding with the provided string with no padding
 const ADDRESS_ENCODER: Encoding = new_encoding! {
@@ -250,7 +250,7 @@ impl<'de> Deserialize<'de> for Address {
     where
         D: Deserializer<'de>,
     {
-        let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
+        let bz: Cow<'de, [u8]> = serde_bytes::Deserialize::deserialize(deserializer)?;
 
         // Create and return created address of unmarshalled bytes
         Address::from_bytes(&bz).map_err(de::Error::custom)

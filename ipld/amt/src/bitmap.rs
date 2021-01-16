@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de, ser, serde_bytes};
-use std::{cmp, fmt, u8};
+use std::{borrow::Cow, cmp, fmt, u8};
 
 /// Map of bits to indicate which indexes contain values and which are empty
 #[derive(PartialEq, Eq, Clone, Debug, Default, Copy)]
@@ -24,7 +24,7 @@ impl<'de> de::Deserialize<'de> for BitMap {
     where
         D: de::Deserializer<'de>,
     {
-        let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
+        let bz: Cow<'de, [u8]> = serde_bytes::Deserialize::deserialize(deserializer)?;
 
         if bz.len() != 1 {
             return Err(de::Error::custom(&format!(
