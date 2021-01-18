@@ -31,10 +31,13 @@ use num_traits::Zero;
 use rayon::prelude::*;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error as StdError;
 use std::io::Write;
 use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    time::SystemTime,
+};
 
 const GENESIS_KEY: &str = "gen_block";
 pub const HEAD_KEY: &str = "head";
@@ -146,12 +149,6 @@ where
         let sub = self.publisher.write().await.subscribe();
         let ts = self.heaviest_tipset().await.unwrap();
         (sub, ts)
-    }
-
-    /// Sets tip_index tracker
-    // TODO handle managing tipset in tracker
-    pub async fn set_tipset_tracker(&self, _: &BlockHeader) -> Result<(), Error> {
-        Ok(())
     }
 
     /// Writes genesis to blockstore
@@ -532,7 +529,7 @@ where
         let write_task =
             task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
 
-        // TODO add timer for export
+        let global_pre_time = SystemTime::now();
         info!("chain export started");
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
@@ -554,7 +551,11 @@ where
         write_task
             .await
             .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))?;
-        info!("export finished");
+
+        let time = SystemTime::now()
+            .duration_since(global_pre_time)
+            .expect("time cannot go backwards");
+        info!("export finished, took {} seconds", time.as_secs());
 
         Ok(())
     }

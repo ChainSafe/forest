@@ -655,7 +655,6 @@ where
         let b_cloned = Arc::clone(&block);
         let p_beacon = Arc::clone(&prev_beacon);
         validations.push(task::spawn_blocking(move || {
-            // TODO switch logic to function attached to block header
             let block_sig_bytes = b_cloned.header().to_signing_bytes()?;
 
             // Can unwrap here because verified to be `Some` in the sanity checks.
@@ -997,7 +996,6 @@ pub fn compute_msg_meta<DB: BlockStore>(
     let secp_cids = cids_from_messages(secp_msgs)?;
 
     // generate Amt and batch set message values
-    // TODO avoid having to clone all cids (from iter function on Amt)
     let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
     let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
 

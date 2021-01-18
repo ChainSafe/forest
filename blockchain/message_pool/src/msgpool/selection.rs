@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{allow_negative_chains, create_message_chains, MessagePool, Provider};
+use super::{create_message_chains, MessagePool, Provider};
 use crate::msg_chain::MsgChain;
 use crate::{run_head_change, Error};
 use address::Address;
@@ -59,7 +59,7 @@ where
             chains.extend(create_message_chains(&self.api, &actor, &mset, &base_fee, &ts).await?);
         }
 
-        let (msgs, _) = merge_and_trim(chains, result, &base_fee, &cur_ts, gas_limit, min_gas)?;
+        let (msgs, _) = merge_and_trim(chains, result, &base_fee, gas_limit, min_gas)?;
         Ok(msgs)
     }
 
@@ -122,7 +122,7 @@ where
             return Ok((Vec::new(), gas_limit));
         }
 
-        merge_and_trim(chains, result, base_fee, ts, gas_limit, min_gas)
+        merge_and_trim(chains, result, base_fee, gas_limit, min_gas)
     }
 }
 /// Returns merged and trimmed messages with the gas limit
@@ -130,7 +130,6 @@ fn merge_and_trim(
     chains: Vec<MsgChain>,
     result: Vec<SignedMessage>,
     base_fee: &BigInt,
-    ts: &Tipset,
     gas_limit: i64,
     min_gas: i64,
 ) -> Result<(Vec<SignedMessage>, i64), Error> {
@@ -140,14 +139,14 @@ fn merge_and_trim(
     // 2. Sort the chains
     chains.sort_by(|a, b| b.compare(&a));
 
-    if !allow_negative_chains(ts.epoch()) && !chains.is_empty() && chains[0].curr().gas_perf < 0.0 {
+    if !chains.is_empty() && chains[0].curr().gas_perf < 0.0 {
         return Ok((Vec::new(), gas_limit));
     }
 
     // 3. Merge chains until the block limit, as long as they have non-negative gas performance
     let mut last = chains.len();
     for (i, chain) in chains.iter().enumerate() {
-        if !allow_negative_chains(ts.epoch()) && chain.curr().gas_perf < 0.0 {
+        if chain.curr().gas_perf < 0.0 {
             break;
         }
         if chain.curr().gas_limit <= gas_limit {
@@ -159,8 +158,8 @@ fn merge_and_trim(
         break;
     }
     'tail_loop: while gas_limit >= min_gas && last < chains.len() {
-        //trim, discard negative performing messages
-        chains[last].trim(gas_limit, base_fee, allow_negative_chains(ts.epoch()));
+        // trim, discard negative performing messages
+        chains[last].trim(gas_limit, base_fee);
 
         // push down if it hasn't been invalidated
         if chains[last].curr().valid {
@@ -179,7 +178,7 @@ fn merge_and_trim(
             }
 
             // if gas_perf < 0 then we have no more profitable chains
-            if !allow_negative_chains(ts.epoch()) && chain.curr().gas_perf < 0.0 {
+            if chain.curr().gas_perf < 0.0 {
                 break 'tail_loop;
             }
 

@@ -17,8 +17,9 @@ use beacon::{Beacon, BeaconSchedule};
 use blocks::{Block, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Code::Blake2b256};
+use clock::ChainEpoch;
 use encoding::{Cbor, Error as EncodingError};
-use fil_types::verifier::ProofVerifier;
+use fil_types::{verifier::ProofVerifier, BLOCK_DELAY_SECS};
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
 use futures::select;
 use futures::stream::StreamExt;
@@ -30,8 +31,13 @@ use message::{SignedMessage, UnsignedMessage};
 use message_pool::{MessagePool, Provider};
 use serde::Deserialize;
 use state_manager::StateManager;
-use std::marker::PhantomData;
 use std::sync::Arc;
+use std::{
+    marker::PhantomData,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+const MAX_HEIGHT_DRIFT: u64 = 5;
 
 // TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
 // on separate thread and needs to be mutated independently, but the vec needs to be read
@@ -308,7 +314,6 @@ where
 
     /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self, worker_tx: Sender<Arc<Tipset>>, worker_rx: Receiver<Arc<Tipset>>) {
-        // TODO benchmark (1 is temporary value to avoid overlap)
         for _ in 0..self.sync_config.worker_tasks {
             self.spawn_worker(worker_rx.clone()).await;
         }
@@ -399,7 +404,12 @@ where
         if ts.blocks().is_empty() {
             return Err(Error::NoBlocks);
         }
-        // TODO: Check if tipset has height that is too far ahead to be possible
+        if self.is_epoch_beyond_curr_max(ts.epoch()) {
+            error!("Received block with impossibly large height {}", ts.epoch());
+            return Err(Error::Validation(
+                "Block has impossibly large height".to_string(),
+            ));
+        }
 
         for block in ts.blocks() {
             if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
@@ -512,6 +522,20 @@ where
         chain::persist_objects(self.state_manager.blockstore(), block.secp_msgs())?;
 
         Ok(())
+    }
+
+    fn is_epoch_beyond_curr_max(&self, epoch: ChainEpoch) -> bool {
+        let genesis = if let Ok(Some(gen)) = self.state_manager.chain_store().genesis() {
+            gen
+        } else {
+            return false;
+        };
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        epoch as u64 > ((now - genesis.timestamp()) / BLOCK_DELAY_SECS) + MAX_HEIGHT_DRIFT
     }
 
     /// Returns `FullTipset` from store if `TipsetKeys` exist in key-value store otherwise requests
