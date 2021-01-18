@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
+use forest_encoding::to_vec;
 use futures::prelude::*;
-use futures_cbor_codec::{Decoder, Encoder};
-use futures_codec::{FramedRead, FramedWrite};
+use futures_cbor_codec::Decoder;
+use futures_codec::FramedRead;
 use libp2p::core::ProtocolName;
 use libp2p::request_response::OutboundFailure;
 use libp2p::request_response::RequestResponseCodec;
@@ -117,10 +118,13 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let mut writer = FramedWrite::new(io, Encoder::<RQ>::new());
-        // Expect to send one request only
-        writer.send(req).await.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-        writer.close().await.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        // TODO: Use FramedWrite to stream write. Dilemma right now is if we should fork the cbor codec so we can replace serde_cbor to our fork of serde_cbor
+
+        io.write_all(
+            &to_vec(&req).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
+        )
+        .await?;
+        io.close().await?;
         Ok(())
     }
 
@@ -133,10 +137,12 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let mut writer = FramedWrite::new(io, Encoder::<RS>::new());
-        // Expect to send one response only
-        writer.send(res).await.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-        writer.close().await.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        // TODO: Use FramedWrite to stream write. Dilemma right now is if we should fork the cbor codec so we can replace serde_cbor to our fork of serde_cbor
+        io.write_all(
+            &to_vec(&res).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
+        )
+        .await?;
+        io.close().await?;
         Ok(())
     }
 }
