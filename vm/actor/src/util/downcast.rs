@@ -126,7 +126,6 @@ fn downcast_util(error: Box<dyn StdError>) -> Result<ActorError, Box<dyn StdErro
                 Ok(a) => return Ok(a),
                 Err(other) => other,
             },
-            // TODO avoid reallocation if possible (low priority, these cases are rarely hit)
             other => Box::new(other),
         },
         Err(other) => other,

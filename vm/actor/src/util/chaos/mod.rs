@@ -120,7 +120,6 @@ impl Actor {
             arg.cid
         };
 
-        // TODO This may need to change to match address.Undef in Spec-actors
         let actor_address = arg.address;
 
         rt.create_actor(actor_cid, &actor_address)

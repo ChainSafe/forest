@@ -274,7 +274,6 @@ where
         params: Serialized,
     ) -> Result<Serialized, ActorError> {
         // ID must be resolved because otherwise would be done in creation of new runtime.
-        // TODO revisit this later, it's possible there are no code paths this is needed.
         let from_id = self.resolve_address(&from)?.ok_or_else(|| {
             actor_error!(SysErrInvalidReceiver;
             "resolving from address in internal send failed")
@@ -539,7 +538,6 @@ where
                 || actor_error!(SysErrIllegalArgument; "Actor readonly state does not exist"),
             )?;
 
-        // TODO revisit as the go impl doesn't handle not exists and nil cases
         self.get(&actor.state)?.ok_or_else(|| {
             actor_error!(fatal(
                 "State does not exist for actor state cid: {}",

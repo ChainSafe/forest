@@ -32,7 +32,6 @@ pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 272400;
 /// V9 network upgrade
 pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 336458;
 /// Remove burn on window PoSt fork
-// TODO implement updates for height https://github.com/ChainSafe/forest/issues/905
 pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 343200;
 
 pub(super) const VERSION_SCHEDULE: [Upgrade; 9] = [

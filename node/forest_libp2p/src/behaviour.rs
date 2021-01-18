@@ -458,7 +458,8 @@ impl ForestBehaviour {
             ping: Ping::default(),
             identify: Identify::new(
                 "ipfs/0.1.0".into(),
-                // TODO update to include actual version
+                // TODO update to include actual version 
+                // https://github.com/ChainSafe/forest/issues/934
                 format!("forest-{}", "0.1.0"),
                 local_key.public(),
             ),
