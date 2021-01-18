@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
-use forest_encoding::to_vec;
 use futures::prelude::*;
-use futures_cbor_codec::Decoder;
-use futures_codec::FramedRead;
+use futures_cbor_codec::{Decoder, Encoder};
+use futures_codec::{FramedRead, FramedWrite};
 use libp2p::core::ProtocolName;
 use libp2p::request_response::OutboundFailure;
 use libp2p::request_response::RequestResponseCodec;
@@ -118,11 +117,10 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        io.write_all(
-            &to_vec(&req).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
-        )
-        .await?;
-        io.close().await?;
+        let mut writer = FramedWrite::new(io, Encoder::<RQ>::new());
+        // Expect to send one request only
+        writer.send(req).await.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        writer.close().await.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
         Ok(())
     }
 
@@ -135,11 +133,10 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        io.write_all(
-            &to_vec(&res).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
-        )
-        .await?;
-        io.close().await?;
+        let mut writer = FramedWrite::new(io, Encoder::<RS>::new());
+        // Expect to send one response only
+        writer.send(res).await.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        writer.close().await.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
         Ok(())
     }
 }
