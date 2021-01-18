@@ -28,7 +28,9 @@ use libp2p::{
     core::muxing::StreamMuxerBox,
     core::transport::boxed::Boxed,
     identity::{ed25519, Keypair},
-    mplex, noise, yamux, PeerId, Swarm, Transport,
+    mplex, noise, yamux,
+    yamux::WindowUpdateMode,
+    PeerId, Swarm, Transport,
 };
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
@@ -377,7 +379,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
         let mut yamux_config = yamux::Config::default();
         yamux_config.set_max_buffer_size(16 * 1024 * 1024);
         yamux_config.set_receive_window(16 * 1024 * 1024);
-
+        yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
         core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
     };
 

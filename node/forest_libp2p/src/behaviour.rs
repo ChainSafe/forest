@@ -511,7 +511,8 @@ impl ForestBehaviour {
     /// Adds peer to the peer set.
     pub fn add_peer(&mut self, peer_id: PeerId) {
         self.peers.insert(peer_id.clone());
-        self.bitswap.connect(peer_id);
+        self.bitswap.connect(peer_id.clone());
+        self.events.push(ForestBehaviourEvent::PeerDialed(peer_id));
     }
 
     /// Adds peer to the peer set.

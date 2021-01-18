@@ -2426,6 +2426,7 @@ dependencies = [
  "forest_message",
  "futures 0.3.10",
  "futures-util",
+ "futures_cbor_codec",
  "futures_codec",
  "genesis",
  "ipld_blockstore",
@@ -2658,6 +2659,19 @@ dependencies = [
  "proc-macro-hack",
  "proc-macro-nested",
  "slab",
+]
+
+[[package]]
+name = "futures_cbor_codec"
+version = "0.3.0"
+source = "git+https://github.com/najamelan/futures_cbor_codec?rev=de08e31530513f993cbf5efef7311ac5194b2256#de08e31530513f993cbf5efef7311ac5194b2256"
+dependencies = [
+ "bytes 0.5.6",
+ "futures 0.3.10",
+ "futures_codec",
+ "rustc_version 0.2.3",
+ "serde",
+ "serde_cbor",
 ]
 
 [[package]]
