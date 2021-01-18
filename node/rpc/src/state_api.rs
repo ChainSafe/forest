@@ -714,7 +714,7 @@ pub(crate) async fn miner_create_block<
         .state_root(st)
         .message_receipts(recpts)
         .signature(None)
-        .build_and_validate()?;
+        .build()?;
 
     let key = wallet::find_key(&worker, &*data.keystore.as_ref().write().await)?;
     let sig = wallet::sign(

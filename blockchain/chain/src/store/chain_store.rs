@@ -1053,7 +1053,7 @@ mod tests {
             .message_receipts(cid::new_from_cbor(&[], Identity))
             .state_root(cid::new_from_cbor(&[], Identity))
             .miner_address(Address::new_id(0))
-            .build_and_validate()
+            .build()
             .unwrap();
 
         assert_eq!(cs.genesis().unwrap(), None);

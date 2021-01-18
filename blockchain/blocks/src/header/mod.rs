@@ -10,11 +10,12 @@ use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
-use fil_types::PoStProof;
+use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
 };
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::fmt;
@@ -23,9 +24,7 @@ use vm::TokenAmount;
 #[cfg(feature = "json")]
 pub mod json;
 
-// TODO should probably have a central place for constants
 const SHA_256_BITS: usize = 256;
-const BLOCKS_PER_EPOCH: u64 = 5;
 
 /// Header of a block
 ///
@@ -53,10 +52,10 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 ///     .timestamp(0) // optional
 ///     .ticket(Some(Ticket::default())) // optional
 ///     .fork_signal(0) // optional
-///     .build_and_validate()
+///     .build()
 ///     .unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq, Builder, Eq)]
+#[derive(Clone, Debug, Builder)]
 #[builder(name = "BlockHeaderBuilder")]
 pub struct BlockHeader {
     // CHAIN LINKING
@@ -126,15 +125,28 @@ pub struct BlockHeader {
     parent_base_fee: TokenAmount,
     // CACHE
     /// stores the cid for the block after the first call to `cid()`
-    #[builder(default)]
-    cached_cid: Cid,
+    #[builder(default, setter(skip))]
+    cached_cid: OnceCell<Cid>,
 
-    /// stores the hashed bytes of the block after the fist call to `cid()`
-    #[builder(default)]
-    cached_bytes: Vec<u8>,
+    /// stores the hashed bytes of the block after the first call to `cached_bytes()`
+    #[builder(default, setter(skip))]
+    cached_bytes: OnceCell<Vec<u8>>,
+
+    /// Cached signature validation
+    #[builder(setter(skip), default)]
+    is_validated: OnceCell<bool>,
+}
+
+impl PartialEq for BlockHeader {
+    fn eq(&self, other: &Self) -> bool {
+        self.cid().eq(other.cid())
+    }
 }
 
 impl Cbor for BlockHeader {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
+        Ok(self.cached_bytes().clone())
+    }
     fn cid(&self) -> Result<Cid, EncodingError> {
         Ok(*self.cid())
     }
@@ -208,7 +220,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             .ticket(ticket)
             .bls_aggregate(bls_aggregate)
             .parent_base_fee(parent_base_fee)
-            .build_and_validate()
+            .build()
             .unwrap();
 
         Ok(header)
@@ -270,8 +282,8 @@ impl BlockHeader {
     }
     /// Getter for BlockHeader cid
     pub fn cid(&self) -> &Cid {
-        // Cache should be initialized, otherwise will return default Cid
-        &self.cached_cid
+        self.cached_cid
+            .get_or_init(|| cid::new_from_cbor(self.cached_bytes(), Blake2b256))
     }
     /// Getter for BlockHeader parent_base_fee
     pub fn parent_base_fee(&self) -> &BigInt {
@@ -295,13 +307,17 @@ impl BlockHeader {
         Some((ticket_hash, self.cid().to_bytes()))
     }
     /// Updates cache and returns mutable reference of header back
-    fn update_cache(&mut self) -> Result<(), String> {
-        self.cached_bytes = self.marshal_cbor().map_err(|e| e.to_string())?;
-        self.cached_cid = cid::new_from_cbor(&self.cached_bytes, Blake2b256);
-        Ok(())
+    fn cached_bytes(&self) -> &Vec<u8> {
+        self.cached_bytes
+            .get_or_init(|| encoding::to_vec(self).expect("header serialization cannot fail"))
     }
     /// Check to ensure block signature is valid
     pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
+        // If the block has already been validated, short circuit
+        if let Some(true) = self.is_validated.get() {
+            return Ok(());
+        }
+
         let signature = self
             .signature()
             .as_ref()
@@ -310,6 +326,9 @@ impl BlockHeader {
         signature
             .verify(&self.cid().to_bytes(), &addr)
             .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
+
+        // Set validated cache to true
+        let _ = self.is_validated.set(true);
 
         Ok(())
     }
@@ -415,20 +434,6 @@ impl BlockHeader {
 impl fmt::Display for BlockHeader {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BlockHeader: {:?}", self.cid())
-    }
-}
-
-impl BlockHeaderBuilder {
-    pub fn build_and_validate(&self) -> Result<BlockHeader, String> {
-        // Convert header builder into header struct
-        let mut header = self.build()?;
-
-        // TODO add validation function
-
-        // Fill header cache with raw bytes and cid
-        header.update_cache()?;
-
-        Ok(header)
     }
 }
 
