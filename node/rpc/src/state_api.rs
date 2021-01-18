@@ -720,7 +720,7 @@ pub(crate) async fn miner_create_block<
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        &next.to_signing_bytes()?,
+        &next.to_signing_bytes(),
     )?;
     next.signature = Some(sig);
 
