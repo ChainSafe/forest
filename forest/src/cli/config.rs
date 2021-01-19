@@ -5,6 +5,7 @@ use chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use serde::Deserialize;
 use utils::get_home_dir;
+
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -17,6 +18,9 @@ pub struct Config {
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
     pub snapshot_path: Option<String>,
+    /// Skips loading import CAR file and assumes it's already been loaded.
+    /// Will use the cids in the header of the file to index the chain.
+    pub skip_load: bool,
     pub sync: SyncConfig,
 }
 
@@ -30,6 +34,7 @@ impl Default for Config {
             rpc_port: "1234".to_string(),
             snapshot_path: None,
             snapshot: false,
+            skip_load: false,
             sync: SyncConfig::default(),
         }
     }
