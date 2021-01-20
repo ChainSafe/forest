@@ -11,7 +11,10 @@ use clock::ChainEpoch;
 use fil_types::{FILECOIN_PRECISION, FIL_RESERVED};
 use interpreter::CircSupplyCalc;
 use lazycell::AtomicLazyCell;
-use networks::{UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_IGNITION_HEIGHT, UPGRADE_LIFTOFF_HEIGHT};
+use networks::{
+    UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_CALICO_HEIGHT, UPGRADE_IGNITION_HEIGHT,
+    UPGRADE_LIFTOFF_HEIGHT,
+};
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::error::Error as StdError;
@@ -132,13 +135,23 @@ pub fn get_fil_vested(
         .ignition
         .borrow()
         .expect("Post ignition should be initialized");
+    let calico_vesting = genesis_info
+        .vesting
+        .calico
+        .borrow()
+        .expect("calico vesting should be initialized");
 
     if height <= UPGRADE_IGNITION_HEIGHT {
         for actor in pre_ignition {
             return_value += &actor.initial_balance - actor.amount_locked(height);
         }
-    } else {
+    } else if height <= UPGRADE_CALICO_HEIGHT {
         for actor in post_ignition {
+            return_value +=
+                &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
+        }
+    } else {
+        for actor in calico_vesting {
             return_value +=
                 &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
         }
