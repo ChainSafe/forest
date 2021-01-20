@@ -6059,6 +6059,7 @@ dependencies = [
  "num-traits 0.2.14",
  "serde",
  "state_tree",
+ "statediff",
  "thiserror",
 ]
 
@@ -6093,6 +6094,7 @@ dependencies = [
  "ipld_hamt 0.1.1",
  "serde",
  "serde_json",
+ "state_tree",
 ]
 
 [[package]]
