@@ -62,7 +62,7 @@ where
             let mut proving_sectors = BitField::new();
             mas.for_each_deadline(store, |_, deadline| {
                 deadline.for_each(store, |_, partition: miner::Partition| {
-                    proving_sectors |= &partition.all_sectors();
+                    proving_sectors |= &partition.active_sectors();
                     Ok(())
                 })?;
                 Ok(())
