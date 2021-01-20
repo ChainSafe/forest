@@ -44,6 +44,7 @@ tiny-cid = "0.2.0"
 ipld_blockstore = "0.1"
 async-trait = "0.1"
 lazy_static = "1.4"
+futures_cbor_codec = { git = "https://github.com/najamelan/futures_cbor_codec", rev = "de08e31530513f993cbf5efef7311ac5194b2256" }
 
 [dev-dependencies]
 forest_address = "0.3"

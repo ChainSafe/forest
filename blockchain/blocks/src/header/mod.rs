@@ -203,25 +203,27 @@ impl<'de> Deserialize<'de> for BlockHeader {
             BigIntDe(parent_base_fee),
         ) = Deserialize::deserialize(deserializer)?;
 
-        let header = BlockHeader::builder()
-            .parents(parents)
-            .weight(weight)
-            .epoch(epoch)
-            .beacon_entries(beacon_entries)
-            .winning_post_proof(winning_post_proof)
-            .miner_address(miner_address)
-            .messages(messages)
-            .message_receipts(message_receipts)
-            .state_root(state_root)
-            .fork_signal(fork_signal)
-            .signature(signature)
-            .election_proof(election_proof)
-            .timestamp(timestamp)
-            .ticket(ticket)
-            .bls_aggregate(bls_aggregate)
-            .parent_base_fee(parent_base_fee)
-            .build()
-            .unwrap();
+        let header = BlockHeader {
+            parents,
+            weight,
+            epoch,
+            beacon_entries,
+            winning_post_proof,
+            miner_address,
+            messages,
+            message_receipts,
+            state_root,
+            fork_signal,
+            signature,
+            election_proof,
+            timestamp,
+            ticket,
+            bls_aggregate,
+            parent_base_fee,
+            cached_bytes: Default::default(),
+            cached_cid: Default::default(),
+            is_validated: Default::default(),
+        };
 
         Ok(header)
     }
@@ -422,11 +424,18 @@ impl BlockHeader {
         }
         Ok(())
     }
+
     /// Serializes the header to bytes for signing purposes i.e. without the signature field
-    pub fn to_signing_bytes(&self) -> Result<Vec<u8>, String> {
+    pub fn to_signing_bytes(&self) -> Vec<u8> {
         let mut blk = self.clone();
         blk.signature = None;
-        blk.marshal_cbor().map_err(|e| e.to_string())
+
+        // This isn't required now, but future proofs for if the encoding ever uses a cache.
+        blk.cached_bytes = Default::default();
+        blk.cached_cid = Default::default();
+
+        // * Intentionally not using cache here, to avoid using cached bytes with signature encoded.
+        encoding::to_vec(&blk).expect("block serialization cannot fail")
     }
 }
 
@@ -444,9 +453,19 @@ mod tests {
 
     #[test]
     fn symmetric_header_encoding() {
-        // This test vector is the genesis header for interopnet config
-        let bz = hex::decode("904300e80781586082cb7477a801f55c1f2ea5e5d1167661feea60a39f697e1099af132682b81cc5047beacf5b6e80d5f52b9fd90323fb8510a5396416dd076c13c85619e176558582744053a3faef6764829aa02132a1571a76aabdc498a638ea0054d3bb57f41d82015860812d2396cc4592cdf7f829374b01ffd03c5469a4b0a9acc5ccc642797aa0a5498b97b28d90820fedc6f79ff0a6005f5c15dbaca3b8a45720af7ed53000555667207a0ccb50073cd24510995abd4c4e45c1e9e114905018b2da9454190499941e818201582012dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a608182004b76616c69642070726f6f6681d82a5827000171a0e4022030f89a8b0373ad69079dbcbc5addfe9b34dce932189786e50d3eb432ede3ba9c43000f0001d82a5827000171a0e4022052238c7d15c100c1b9ebf849541810c9e3c2d86e826512c6c416d2318fcd496dd82a5827000171a0e40220e5658b3d18cd06e1db9015b4b0ec55c123a24d5be1ea24d83938c5b8397b4f2fd82a5827000171a0e4022018d351341c302a21786b585708c9873565a0d07c42521d4aaf52da3ff6f2e461586102c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001a5f2c5439586102b5cd48724dce0fec8799d77fd6c5113276e7f470c8391faa0b5a6033a3eaf357d635705c36abe10309d73592727289680515afd9d424793ba4796b052682d21b03c5c8a37d94827fecc59cdc5750e198fdf20dee012f4d627c6665132298ab95004500053724e0").unwrap();
+        // This test vector is pulled from space race, and contains a valid signature
+        let bz = hex::decode("904300e8078158608798de4e49e02ee129920224ea767650aa6e693857431cc95b5a092a57d80ef4d841ebedbf09f7680a5e286cd297f40100b496648e1fa0fd55f899a45d51404a339564e7d4809741ba41d9fcc8ac0261bf521cd5f718389e81354eff2aa52b338201586084d8929eeedc654d6bec8bb750fcc8a1ebf2775d8167d3418825d9e989905a8b7656d906d23dc83e0dad6e7f7a193df70a82d37da0565ce69b776d995eefd50354c85ec896a2173a5efed53a27275e001ad72a3317b2190b98cceb0f01c46b7b81821a00013cbe5860ae1102b76dea635b2f07b7d06e1671d695c4011a73dc33cace159509eac7edc305fa74495505f0cd0046ee0d3b17fabc0fc0560d44d296c6d91bcc94df76266a8e9d5312c617ca72a2e186cadee560477f6d120f6614e21fb07c2390a166a25981820358c0b965705cec77b46200af8fb2e47c0eca175564075061132949f00473dcbe74529c623eb510081e8b8bd34418d21c646485d893f040dcfb7a7e7af9ae4ed7bd06772c24fb0cc5b8915300ab5904fbd90269d523018fbf074620fd3060d55dd6c6057b4195950ac4155a735e8fec79767f659c30ea6ccf0813a4ab2b4e60f36c04c71fb6c58efc123f60c6ea8797ab3706a80a4ccc1c249989934a391803789ab7d04f514ee0401d0f87a1f5262399c451dcf5f7ec3bb307fc6f1a41f5ff3a5ddb81d82a5827000171a0e402209a0640d0620af5d1c458effce4cbb8969779c9072b164d3fe6f5179d6378d8cd4300310001d82a5827000171a0e402208fbc07f7587e2efebab9ff1ab27c928881abf9d1b7e5ad5206781415615867aed82a5827000171a0e40220e5658b3d18cd06e1db9015b4b0ec55c123a24d5be1ea24d83938c5b8397b4f2fd82a5827000171a0e402209967f10c4c0e336b3517d3a972f701dadea5b41ce33defb126b88e650cf884545861028ec8b64e2d93272f97edcab1f56bcad4a2b145ea88c232bfae228e4adbbd807e6a41740cc8cb569197dae6b2cbf8c1a4035e81fd7805ccbe88a5ec476bcfa438db4bd677de06b45e94310533513e9d17c635940ba8fa2650cdb34d445724c5971a5f44387e5861028a45c70a39fe8e526cbb6ba2a850e9063460873d6329f26cc2fc91972256c40249dba289830cc99619109c18e695d78012f760e7fda1b68bc3f1fe20ff8a017044753da38ca6384de652f3ee13aae5b64e6f88f85fd50d5c862fed3c1f594ace004500053724e0").unwrap();
         let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
-        assert_eq!(hex::encode(header.marshal_cbor().unwrap()), hex::encode(bz));
+        assert_eq!(header.marshal_cbor().unwrap(), bz);
+
+        // Verify the signature of this block header using the resolved address used to sign.
+        // This is a valid signature, but if the block header vector changes, the address should
+        // need to as well.
+        header
+            .signature
+            .as_ref()
+            .unwrap()
+            .verify(&header.to_signing_bytes(), &"f3vfs6f7tagrcpnwv65wq3leznbajqyg77bmijrpvoyjv3zjyi3urq25vigfbs3ob6ug5xdihajumtgsxnz2pa".parse().unwrap())
+            .unwrap();
     }
 }
