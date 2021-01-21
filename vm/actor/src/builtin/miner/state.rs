@@ -718,11 +718,11 @@ impl State {
         // unlock vested funds first
         let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
         self.locked_funds -= &amount_unlocked;
+        assert!(!self.locked_funds.is_negative());
 
         // add locked funds now
         vesting_funds.add_locked_funds(current_epoch, vesting_sum, self.proving_period_start, spec);
         self.locked_funds += vesting_sum;
-        assert!(!self.locked_funds.is_negative());
 
         // save the updated vesting table state
         self.save_vesting_funds(store, &vesting_funds)?;
@@ -821,7 +821,13 @@ impl State {
         let mut vesting_funds = self.load_vesting_funds(store)?;
         let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
         self.locked_funds -= &amount_unlocked;
-        assert!(!self.locked_funds.is_negative());
+        if self.locked_funds.is_negative() {
+            return Err(format!(
+                "vesting cause locked funds to become negative: {}",
+                self.locked_funds,
+            )
+            .into());
+        }
 
         self.save_vesting_funds(store, &vesting_funds)?;
         Ok(amount_unlocked)
