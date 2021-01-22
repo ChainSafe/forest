@@ -14,6 +14,9 @@ use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
 lazy_static! {
     static ref BASE_PRICES: PriceList = PriceList {
+        compute_gas_multiplier: 1,
+        storage_gas_multiplier: 1000,
+
         on_chain_message_compute_base: 38863,
         on_chain_message_storage_base: 36,
         on_chain_message_storage_per_byte: 1,
@@ -71,6 +74,9 @@ lazy_static! {
     };
 
     static ref CALICO_PRICES: PriceList = PriceList {
+        compute_gas_multiplier: 1,
+        storage_gas_multiplier: 1300,
+
         on_chain_message_compute_base: 38863,
         on_chain_message_storage_base: 36,
         on_chain_message_storage_per_byte: 1,
@@ -137,6 +143,13 @@ pub struct ScalingCost {
 /// Provides prices for operations in the VM
 #[derive(Clone, Debug)]
 pub struct PriceList {
+    /// Compute gas charge multiplier
+    // * This multiplier is not currently applied to anything, but is matching lotus.
+    // * If the possible values are non 1 or if Lotus adds, we should change also.
+    pub compute_gas_multiplier: i64,
+    /// Storage gas charge multiplier
+    pub storage_gas_multiplier: i64,
+
     /// Gas cost charged to the originator of an on-chain message (regardless of
     /// whether it succeeds or fails in application) is given by:
     ///   OnChainMessageBase + len(serialized message)*OnChainMessagePerByte
@@ -216,8 +229,9 @@ impl PriceList {
         GasCharge::new(
             "OnChainMessage",
             self.on_chain_message_compute_base,
-            self.on_chain_message_storage_base
-                + self.on_chain_message_storage_per_byte * msg_size as i64,
+            (self.on_chain_message_storage_base
+                + self.on_chain_message_storage_per_byte * msg_size as i64)
+                * self.storage_gas_multiplier,
         )
     }
     /// Returns the gas required for storing the response of a message in the chain.
@@ -226,7 +240,7 @@ impl PriceList {
         GasCharge::new(
             "OnChainReturnValue",
             0,
-            data_size as i64 * self.on_chain_return_value_per_byte,
+            data_size as i64 * self.on_chain_return_value_per_byte * self.storage_gas_multiplier,
         )
     }
     /// Returns the gas required when invoking a method.
@@ -255,7 +269,7 @@ impl PriceList {
         GasCharge::new(
             "OnIpldPut",
             self.ipld_put_base,
-            data_size as i64 * self.ipld_put_per_byte,
+            data_size as i64 * self.ipld_put_per_byte * self.storage_gas_multiplier,
         )
     }
     /// Returns the gas required for creating an actor
@@ -264,13 +278,17 @@ impl PriceList {
         GasCharge::new(
             "OnCreateActor",
             self.create_actor_compute,
-            self.create_actor_storage,
+            self.create_actor_storage * self.storage_gas_multiplier,
         )
     }
     /// Returns the gas required for deleting an actor
     #[inline]
     pub fn on_delete_actor(&self) -> GasCharge {
-        GasCharge::new("OnDeleteActor", 0, self.delete_actor)
+        GasCharge::new(
+            "OnDeleteActor",
+            0,
+            self.delete_actor * self.storage_gas_multiplier,
+        )
     }
     /// Returns gas required for signature verification
     #[inline]
