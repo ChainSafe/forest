@@ -264,11 +264,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
-    let entropy = match entropy {
-        Some(e) => e,
-        None => "".to_string(),
-    };
-
+    let entropy = entropy.unwrap_or_default();
     Ok(data
         .state_manager
         .chain_store()
@@ -291,10 +287,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
-    let entropy = match entropy {
-        Some(e) => e,
-        None => "".to_string(),
-    };
+    let entropy = entropy.unwrap_or_default();
 
     Ok(data
         .state_manager
