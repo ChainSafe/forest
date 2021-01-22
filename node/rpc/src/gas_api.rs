@@ -66,7 +66,7 @@ where
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
-    let mut out = fee_in_future/(1<<8);
+    let mut out = fee_in_future / (1 << 8);
     out += msg.gas_premium();
     Ok(out)
 }
