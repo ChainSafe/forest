@@ -485,8 +485,8 @@ impl Partition {
             )
         })?;
 
-        if live_sectors.contains_all(sector_numbers) {
-            return Err(actor_error!(ErrIllegalArgument; "can only terminate live sectors").into());
+        if !live_sectors.contains_all(sector_numbers) {
+            return Err(actor_error!(ErrIllegalArgument, "can only terminate live sectors").into());
         }
 
         let sector_infos = sectors.load_sector(sector_numbers)?;
