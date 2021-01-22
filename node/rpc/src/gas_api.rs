@@ -17,7 +17,6 @@ use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
 use wallet::KeyStore;
 const MIN_GAS_PREMIUM: f64 = 100000.0;
-const MAX_SPEND_ON_FEE_DENOM: i64 = 100;
 
 /// Estimate the fee cap
 pub(crate) async fn gas_estimate_fee_cap<DB, KS, B>(
