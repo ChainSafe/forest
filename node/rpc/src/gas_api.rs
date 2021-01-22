@@ -54,11 +54,6 @@ where
         .await
         .ok_or("can't find heaviest tipset")?;
 
-    let act = data
-        .state_manager
-        .get_actor(msg.from(), ts.parent_state())?
-        .ok_or("could not load actor")?;
-
     let parent_base_fee = ts.blocks()[0].parent_base_fee();
     let increase_factor =
         (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(max_queue_blks as f64);
