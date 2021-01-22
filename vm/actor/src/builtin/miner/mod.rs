@@ -2420,8 +2420,6 @@ impl Actor {
 
         let nv = rt.network_version();
 
-        // let mut pledge_delta_total = TokenAmount::zero();
-        // let mut to_burn = TokenAmount::zero();
         let (pledge_delta_total, to_burn) = rt.transaction(|st: &mut State, rt| {
             let mut pledge_delta_total = TokenAmount::zero();
 
@@ -2941,7 +2939,7 @@ where
             .map_err(|e| actor_error!(ErrIllegalState, "failed to unlock penalty: {}", e))?;
 
         penalty_total = &penalty_from_vesting + penalty_from_balance;
-        pledge_delta_total += penalty_from_vesting;
+        pledge_delta_total -= penalty_from_vesting;
         Ok(state.clone())
     })?;
 
