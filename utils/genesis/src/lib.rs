@@ -6,7 +6,6 @@ use async_std::io::BufReader;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
 use cid::Cid;
-use encoding::Cbor;
 use fil_types::verifier::ProofVerifier;
 use forest_car::{load_car, CarReader};
 use futures::AsyncRead;
@@ -122,23 +121,24 @@ where
         .chain_store()
         .tipset_from_keys(&TipsetKeys::new(cids))
         .await?;
-    let gb = sm
-        .chain_store()
-        .tipset_by_height(0, ts.clone(), true)
-        .await?;
+
+    if !skip_load {
+        let gb = sm
+            .chain_store()
+            .tipset_by_height(0, ts.clone(), true)
+            .await?;
+        sm.chain_store().set_genesis(&gb.blocks()[0])?;
+    }
+
+    // Update head with snapshot header tipset
+    sm.chain_store().set_heaviest_tipset(ts.clone()).await?;
 
     if let Some(height) = validate_height {
         info!("Validating imported chain");
         sm.validate_chain::<V>(ts.clone(), height).await?;
     }
-    let gen_cid = sm.chain_store().set_genesis(&gb.blocks()[0])?;
-    sm.blockstore()
-        .write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
-    info!(
-        "Accepting {:?} as new head with genesis {:?}",
-        ts.cids(),
-        gen_cid
-    );
+
+    info!("Accepting {:?} as new head.", ts.cids(),);
     Ok(())
 }
 
