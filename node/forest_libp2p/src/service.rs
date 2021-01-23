@@ -198,6 +198,7 @@ where
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
                             debug!("Peer disconnected, {:?}", peer_id);
+                            swarm_stream.get_mut().remove_peer(&peer_id);
                         }
                         ForestBehaviourEvent::GossipMessage {
                             source,
