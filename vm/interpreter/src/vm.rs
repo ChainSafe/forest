@@ -3,7 +3,7 @@
 
 use super::{
     gas_tracker::{price_list_by_epoch, GasCharge},
-    vm_send, DefaultRuntime, Rand,
+    DefaultRuntime, Rand,
 };
 use actor::{
     actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
@@ -523,7 +523,7 @@ where
         );
 
         match res {
-            Ok(mut rt) => match vm_send(&mut rt, msg, gas_cost) {
+            Ok(mut rt) => match rt.send(msg, gas_cost) {
                 Ok(ser) => (ser, Some(rt), None),
                 Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
             },
