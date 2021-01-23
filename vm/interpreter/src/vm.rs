@@ -18,7 +18,7 @@ use fil_types::{
 };
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
-use log::warn;
+use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use networks::UPGRADE_CLAUS_HEIGHT;
 use num_bigint::{BigInt, Sign};
@@ -387,7 +387,7 @@ where
                     err
                 ));
             } else {
-                warn!(
+                debug!(
                     "[from={}, to={}, seq={}, m={}] send error: {}",
                     msg.from(),
                     msg.to(),
