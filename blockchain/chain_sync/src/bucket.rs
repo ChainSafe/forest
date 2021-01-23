@@ -86,6 +86,25 @@ impl SyncBucketSet {
     pub(crate) fn buckets(&self) -> &[SyncBucket] {
         &self.buckets
     }
+
+    /// Heaviest tipset among all the buckets
+    pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
+        // let tipsets: Vec<_> = self.buckets().iter().filter_map(|b| b.heaviest_tipset().is_some()).collect();
+        let mut tips: Vec<_> = self
+            .buckets()
+            .iter()
+            .map(|b| b.heaviest_tipset())
+            .filter(|t| t.is_some())
+            .map(|t| t.unwrap())
+            .collect();
+        tips.sort_by_key(|ts| ts.weight().clone());
+
+        if tips.is_empty() {
+            return None;
+        } else {
+            return Some(tips.last().unwrap().clone());
+        }
+    }
 }
 
 #[cfg(test)]
