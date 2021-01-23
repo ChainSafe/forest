@@ -303,6 +303,17 @@ where
         let prev_val = self.caller_validated;
         let prev_depth = self.depth;
         let prev_msg = self.vm_msg.clone();
+
+        // Ensure receiver is resolved for chained calls (specifically multisig executions)
+        let to = if self.network_version() <= NetworkVersion::V3 {
+            // Don't resolve to address before NV3
+            to
+        } else {
+            self.resolve_address(&to)?.ok_or_else(|| {
+                actor_error!(SysErrInvalidReceiver, "resolve msg.from() address failed")
+            })?
+        };
+
         self.vm_msg = VMMsg {
             caller: from_id,
             receiver: to,
