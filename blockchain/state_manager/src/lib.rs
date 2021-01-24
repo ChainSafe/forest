@@ -46,7 +46,7 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
+use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use vm::ActorState;
 use vm::TokenAmount;
 use vm_circ_supply::GenesisInfo;
@@ -957,43 +957,50 @@ where
             _,
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
         >(async move {
-            while let Ok(subscriber) = subscribers.recv().await {
-                match subscriber {
-                    HeadChange::Revert(_tipset) => {
-                        if candidate_tipset.is_some() {
-                            candidate_tipset = None;
-                            candidate_receipt = None;
-                        }
-                    }
-                    HeadChange::Apply(tipset) => {
-                        if candidate_tipset
-                            .as_ref()
-                            .map(|s| tipset.epoch() >= s.epoch() + confidence)
-                            .unwrap_or_default()
-                        {
-                            return Ok((candidate_tipset, candidate_receipt));
-                        }
-                        let poll_receiver = receiver.try_recv();
-                        if let Ok(Some(_)) = poll_receiver {
-                            block_revert
-                                .write()
-                                .await
-                                .insert(tipset.key().to_owned(), true);
-                        }
-
-                        let message_var = (message.from(), &message.sequence());
-                        let maybe_receipt = sm_cloned
-                            .tipset_executed_message(&tipset, &msg_cid, message_var)
-                            .await?;
-                        if let Some(receipt) = maybe_receipt {
-                            if confidence == 0 {
-                                return Ok((Some(tipset), Some(receipt)));
+            loop {
+                match subscribers.recv().await {
+                    Ok(subscriber) => match subscriber {
+                        HeadChange::Revert(_tipset) => {
+                            if candidate_tipset.is_some() {
+                                candidate_tipset = None;
+                                candidate_receipt = None;
                             }
-                            candidate_tipset = Some(tipset);
-                            candidate_receipt = Some(receipt)
                         }
-                    }
-                    _ => (),
+                        HeadChange::Apply(tipset) => {
+                            if candidate_tipset
+                                .as_ref()
+                                .map(|s| tipset.epoch() >= s.epoch() + confidence)
+                                .unwrap_or_default()
+                            {
+                                return Ok((candidate_tipset, candidate_receipt));
+                            }
+                            let poll_receiver = receiver.try_recv();
+                            if let Ok(Some(_)) = poll_receiver {
+                                block_revert
+                                    .write()
+                                    .await
+                                    .insert(tipset.key().to_owned(), true);
+                            }
+
+                            let message_var = (message.from(), &message.sequence());
+                            let maybe_receipt = sm_cloned
+                                .tipset_executed_message(&tipset, &msg_cid, message_var)
+                                .await?;
+                            if let Some(receipt) = maybe_receipt {
+                                if confidence == 0 {
+                                    return Ok((Some(tipset), Some(receipt)));
+                                }
+                                candidate_tipset = Some(tipset);
+                                candidate_receipt = Some(receipt)
+                            }
+                        }
+                        _ => (),
+                    },
+                    Err(RecvError::Lagged(i)) => log::warn!(
+                        "wait for message head change subscriber lagged, skipped {} events",
+                        i
+                    ),
+                    Err(RecvError::Closed) => break,
                 }
             }
             Ok((None, None))
