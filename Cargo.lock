@@ -582,7 +582,7 @@ dependencies = [
  "ahash 0.5.10",
  "bit-vec",
  "blake2s_simd",
- "blstrs 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "blstrs",
  "byteorder 1.4.2",
  "crossbeam-channel 0.5.0",
  "ff-cl-gen",
@@ -773,11 +773,12 @@ dependencies = [
 
 [[package]]
 name = "bls-signatures"
-version = "0.6.1"
-source = "git+https://github.com/filecoin-project/bls-signatures?rev=6b375d11c1420c9e792461cf75832411b8a1af6f#6b375d11c1420c9e792461cf75832411b8a1af6f"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c304bf630458ef603e5a98c430562aa40ea50f1acedb8ecf2366fe3f73919d71"
 dependencies = [
  "blst",
- "blstrs 0.1.1 (git+https://github.com/filecoin-project/blstrs?branch=feat-hash-to-curve)",
+ "blstrs",
  "fff",
  "groupy",
  "rand_core 0.5.1",
@@ -798,26 +799,15 @@ dependencies = [
 
 [[package]]
 name = "blstrs"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "702227675e134066d803fa30a58f0b73681ffa23bd547334a194eab84894381f"
+checksum = "0b109d2bfceb784992223b60cd6f631081a99d7f84c195b4a26611343dee7bef"
 dependencies = [
  "blst",
  "fff",
  "groupy",
  "rand_core 0.5.1",
  "serde",
-]
-
-[[package]]
-name = "blstrs"
-version = "0.1.1"
-source = "git+https://github.com/filecoin-project/blstrs?branch=feat-hash-to-curve#643f7b9ff011f36ef69b3de3f4d15a2c204a3745"
-dependencies = [
- "blst",
- "fff",
- "groupy",
- "rand_core 0.5.1",
 ]
 
 [[package]]
