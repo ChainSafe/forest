@@ -147,7 +147,6 @@ pub(super) async fn start(config: Config) {
                     sync_state,
                     network_send,
                     network_name,
-                    // events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
                     beacon,
                     chain_store,
                     new_mined_block_tx: worker_tx,

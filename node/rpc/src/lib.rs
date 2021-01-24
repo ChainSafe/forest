@@ -464,10 +464,6 @@ async fn handle_connection_and_log<KS, DB>(
                                                     let msg = e.message();
                                                     send_error(3, &ws_sender, msg).await;
                                                 }
-                                                // let response_text = serde_json::to_string(&data)?;
-                                                // ws_sender
-                                                //     .send(Message::text(response_text))
-                                                //     .await?;
                                             }
 
                                             Ok::<(), Error>(())
@@ -569,51 +565,3 @@ async fn send_error(code: i64, ws_sender: &RwLock<WsSink>, message: String) {
         Err(e) => log::error!("failed to serialize websocket error: {}", e),
     }
 }
-// async fn streaming_payload(
-//     ws_sender: Arc<RwLock<WsSink>>,
-//     response_object: ResponseObjects,
-//     streaming_count: usize,
-//     // TODO this is set as only head change for now, but this will likely need to switch to
-//     // an enum to handle other options
-//     mut data_stream: Receiver<HeadChange>,
-// ) -> Result<Option<JoinHandle<Result<(), Error>>>, Error> {
-//     let response_text = serde_json::to_string(&response_object)?;
-//     ws_sender
-//         .write()
-//         .await
-//         .send(Message::text(response_text))
-//         .await?;
-//     if let ResponseObjects::One(ResponseObject::Result {
-//         jsonrpc: _,
-//         result: _,
-//         id: _,
-//         streaming,
-//     }) = response_object
-//     {
-//         if streaming {
-//             let handle = task::spawn(async move {
-//                 while let Some(event) = data_stream.next().await {
-//                     let data = StreamingData {
-//                         json_rpc: "2.0",
-//                         method: "xrpc.ch.val",
-//                         params: (streaming_count, vec![HeadChangeJson::from(&event)]),
-//                     };
-//                     let response_text = serde_json::to_string(&data)?;
-//                     ws_sender
-//                         .write()
-//                         .await
-//                         .send(Message::text(response_text))
-//                         .await?;
-//                 }
-
-//                 Ok::<(), Error>(())
-//             });
-
-//             Ok(Some(handle))
-//         } else {
-//             Ok(None)
-//         }
-//     } else {
-//         Ok(None)
-//     }
-// }

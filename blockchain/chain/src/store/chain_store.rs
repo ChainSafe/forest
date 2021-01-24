@@ -60,31 +60,6 @@ pub enum HeadChange {
     Revert(Arc<Tipset>),
 }
 
-// #[derive(Debug, Clone)]
-// pub struct IndexToHeadChange(pub usize, pub HeadChange);
-
-// #[derive(Clone)]
-// pub enum EventsPayload {
-//     TaskCancel(usize, ()),
-//     SubHeadChanges(IndexToHeadChange),
-// }
-
-// impl EventsPayload {
-//     pub fn sub_head_changes(&self) -> Option<&IndexToHeadChange> {
-//         match self {
-//             EventsPayload::SubHeadChanges(s) => Some(s),
-//             _ => None,
-//         }
-//     }
-
-//     pub fn task_cancel(&self) -> Option<(usize, ())> {
-//         match self {
-//             EventsPayload::TaskCancel(val, _) => Some((*val, ())),
-//             _ => None,
-//         }
-//     }
-// }
-
 /// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
 /// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
@@ -992,53 +967,6 @@ where
     out += &e_weight;
     Ok(out)
 }
-
-// pub async fn sub_head_changes(
-//     mut subscribed_head_change: Subscriber<HeadChange>,
-//     heaviest_tipset: &Arc<Tipset>,
-//     current_index: usize,
-//     events_pubsub: Arc<Publisher<EventsPayload>>,
-// ) -> Result<usize, Error> {
-//     events_pubsub.send(EventsPayload::SubHeadChanges(IndexToHeadChange(
-//         current_index,
-//         HeadChange::Current(heaviest_tipset.clone()),
-//     )));
-
-//     let subhead_sender = events_pubsub.clone();
-//     let handle = task::spawn(async move {
-//         loop {
-//             match subscribed_head_change.recv().await {
-//                 Ok(change) => {
-//                     let index_to_head_change = IndexToHeadChange(current_index, change);
-//                     subhead_sender.send(EventsPayload::SubHeadChanges(index_to_head_change));
-//                 }
-//                 Err(RecvError::Lagged(_)) => todo!(),
-//                 Err(RecvError::Closed) => todo!(),
-//             }
-//         }
-//     });
-//     let mut cancel_sender = events_pubsub.subscribe();
-//     task::spawn(async move {
-//         while let Ok(event) = cancel_sender.recv().await {
-//             todo!()
-//             // handle.cancel().await;
-//         }
-//         // if let Some(EventsPayload::TaskCancel(_, ())) = cancel_sender
-//         //     .filter(|s| {
-//         //         future::ready(
-//         //             s.task_cancel()
-//         //                 .map(|s| s.0 == current_index)
-//         //                 .unwrap_or_default(),
-//         //         )
-//         //     })
-//         //     .next()
-//         //     .await
-//         // {
-//         //     handle.cancel().await;
-//         // }
-//     });
-//     Ok(current_index)
-// }
 
 #[cfg(feature = "json")]
 pub mod headchange_json {
