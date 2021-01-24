@@ -342,7 +342,8 @@ where
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
-        // * Following logic would be called
+        // * Following logic would be called in the go runtime initialization.
+        // * Since We reuse the runtime, all of these things need to happen on each call
         self.caller_validated = false;
         self.depth += 1;
         if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
