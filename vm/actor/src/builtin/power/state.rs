@@ -127,7 +127,7 @@ impl State {
         qa_power: &StoragePower,
     ) -> Result<(), Box<dyn StdError>> {
         let old_claim = get_claim(claims, miner)?
-            .ok_or_else(|| actor_error!(ErrNotFound; "no claim for actor {}", miner))?;
+            .ok_or_else(|| actor_error!(ErrNotFound, "no claim for actor {}", miner))?;
 
         self.total_qa_bytes_committed += qa_power;
         self.total_bytes_committed += power;
@@ -139,8 +139,8 @@ impl State {
         };
 
         let min_power: StoragePower = consensus_miner_min_power(old_claim.seal_proof_type)?;
-        let prev_below: bool = old_claim.quality_adj_power < min_power;
-        let still_below: bool = new_claim.quality_adj_power < min_power;
+        let prev_below: bool = old_claim.raw_byte_power < min_power;
+        let still_below: bool = new_claim.raw_byte_power < min_power;
 
         if prev_below && !still_below {
             // Just passed min miner size
