@@ -26,13 +26,10 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness};
 use fil_types::{SectorInfo, SectorSize};
-use flo_stream::Subscriber;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::channel::oneshot;
-use futures::select;
-use futures::stream::StreamExt;
-use futures::FutureExt;
+use futures::{select, FutureExt};
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
 use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use ipld_amt::Amt;
@@ -49,6 +46,7 @@ use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 use vm::ActorState;
 use vm::TokenAmount;
 use vm_circ_supply::GenesisInfo;
@@ -86,7 +84,7 @@ pub struct StateManager<DB> {
     /// The calculated state is wrapped in a mutex to avoid duplicate computation
     /// of the state/receipt root.
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
-    subscriber: Option<Subscriber<HeadChange>>,
+    publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
 }
 
@@ -98,20 +96,17 @@ where
         Self {
             cs,
             cache: RwLock::new(HashMap::new()),
-            subscriber: None,
+            publisher: None,
             genesis_info: GenesisInfo::default(),
         }
     }
 
-    // Creates a constructor that passes in a HeadChange subscriber and a back_search subscriber
-    pub fn new_with_subscribers(
-        cs: Arc<ChainStore<DB>>,
-        chain_subs: Subscriber<HeadChange>,
-    ) -> Self {
+    /// Creates a constructor that passes in a HeadChange publisher
+    pub fn new_with_publisher(cs: Arc<ChainStore<DB>>, chain_subs: Publisher<HeadChange>) -> Self {
         Self {
             cs,
             cache: RwLock::new(HashMap::new()),
-            subscriber: Some(chain_subs),
+            publisher: Some(chain_subs),
             genesis_info: GenesisInfo::default(),
         }
     }
@@ -203,7 +198,7 @@ where
     }
 
     pub fn get_subscriber(&self) -> Option<Subscriber<HeadChange>> {
-        self.subscriber.clone()
+        self.publisher.as_ref().map(|p| p.subscribe())
     }
 
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
@@ -962,7 +957,7 @@ where
             _,
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
         >(async move {
-            while let Some(subscriber) = subscribers.next().await {
+            while let Ok(subscriber) = subscribers.recv().await {
                 match subscriber {
                     HeadChange::Revert(_tipset) => {
                         if candidate_tipset.is_some() {

@@ -27,5 +27,5 @@ protoc-rust = "2.14.0"
 
 [dev-dependencies]
 multihash = { version = "0.13", default-features = false, features = ["std", "blake2b", "derive"] }
-async-std = "1.6.3"
+async-std = "1.9"
 rand = "0.7"

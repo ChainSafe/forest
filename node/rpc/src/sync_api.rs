@@ -128,7 +128,6 @@ mod tests {
     use chain::ChainStore;
     use chain_sync::SyncStage;
     use db::{MemoryDB, Store};
-    use flo_stream::Publisher;
     use forest_libp2p::NetworkMessage;
     use message_pool::{MessagePool, MpoolRpcProvider};
     use serde_json::from_str;
@@ -153,7 +152,6 @@ mod tests {
         let state_manager = Arc::new(StateManager::new(cs_arc.clone()));
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = cs_arc.clone();
-        let cs_subsciber = cs_arc.clone();
         let cs_for_chain = cs_arc.clone();
         let mpool_network_send = network_send.clone();
         let pool = task::block_on(async move {
@@ -163,7 +161,6 @@ mod tests {
             let db = cs_for_test.blockstore();
             let tsk = ts.key().cids.clone();
             cs_for_test.set_heaviest_tipset(Arc::new(ts)).await.unwrap();
-            let (subscriber, _) = cs_subsciber.subscribe().await;
 
             for i in tsk {
                 let bz2 = bz.clone();
@@ -171,7 +168,7 @@ mod tests {
             }
 
             let provider =
-                MpoolRpcProvider::new(subscriber.clone(), state_manager_for_thread.clone());
+                MpoolRpcProvider::new(cs_arc.publisher().clone(), state_manager_for_thread.clone());
             MessagePool::new(
                 provider,
                 "test".to_string(),
@@ -190,10 +187,10 @@ mod tests {
             sync_state: Arc::new(RwLock::new(vec![Default::default()])),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
-            events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
             chain_store: cs_for_chain,
             beacon,
             new_mined_block_tx,
+            chain_notify_streams: Default::default(),
         });
         (state, network_rx)
     }
