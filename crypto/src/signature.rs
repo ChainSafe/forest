@@ -4,8 +4,7 @@
 use super::errors::Error;
 use address::{Address, Protocol};
 use bls_signatures::{
-    hash as bls_hash, paired::bls12_381::G2, verify, PublicKey as BlsPubKey, Serialize,
-    Signature as BlsSignature,
+    verify_messages, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
 };
 use encoding::{blake2b_256, de, repr::*, ser, serde_bytes};
 use num_derive::FromPrimitive;
@@ -123,9 +122,6 @@ impl Signature {
 pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
     let pub_k = addr.payload_bytes();
 
-    // hash data to be verified
-    let hashed = bls_hash(data);
-
     // generate public key object from bytes
     let pk = BlsPubKey::from_bytes(&pub_k).map_err(|e| e.to_string())?;
 
@@ -133,7 +129,7 @@ pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> R
     let sig = BlsSignature::from_bytes(signature).map_err(|e| e.to_string())?;
 
     // BLS verify hash against key
-    if verify(&sig, &[hashed], &[pk]) {
+    if verify_messages(&sig, &[data], &[pk]) {
         Ok(())
     } else {
         Err(format!(
@@ -190,10 +186,8 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
         Err(_) => return false,
     };
 
-    let hashed_data: Vec<G2> = data.iter().map(|x| bls_hash(x)).collect();
-
     // Does the aggregate verification
-    verify(&sig, &hashed_data[..], &pks[..])
+    verify_messages(&sig, data, &pks[..])
 }
 
 /// Return Address for a message given it's signing bytes hash and signature.

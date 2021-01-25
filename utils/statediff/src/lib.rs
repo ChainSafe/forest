@@ -7,11 +7,10 @@ use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use colored::*;
 use difference::{Changeset, Difference};
-use fil_types::HAMT_BIT_WIDTH;
 use ipld::json::{IpldJson, IpldJsonRef};
 use ipld::Ipld;
-use ipld_hamt::{BytesKey, Hamt};
 use serde::{Deserialize, Serialize};
+use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use vm::ActorState;
@@ -44,10 +43,8 @@ fn root_to_state_map<BS: BlockStore>(
     root: &Cid,
 ) -> Result<HashMap<Address, ActorState>, Box<dyn StdError>> {
     let mut actors = HashMap::default();
-    let hamt: Hamt<_, _> = Hamt::load_with_bit_width(root, bs, HAMT_BIT_WIDTH)?;
-    hamt.for_each(|k: &BytesKey, actor: &ActorState| {
-        let addr = Address::from_bytes(&k.0)?;
-
+    let state_tree = StateTree::new_from_root(bs, root)?;
+    state_tree.for_each(|addr: Address, actor: &ActorState| {
         actors.insert(addr, actor.clone());
         Ok(())
     })?;
@@ -70,10 +67,8 @@ fn try_print_actor_states<BS: BlockStore>(
     let mut e_state = root_to_state_map(bs, expected_root)?;
 
     // Compare state with expected
-    let hamt: Hamt<_, _> = Hamt::load_with_bit_width(root, bs, HAMT_BIT_WIDTH)?;
-    hamt.for_each(|k: &BytesKey, actor: &ActorState| {
-        let addr = Address::from_bytes(&k.0)?;
-
+    let state_tree = StateTree::new_from_root(bs, root)?;
+    state_tree.for_each(|addr: Address, actor: &ActorState| {
         let calc_json = serde_json::to_string_pretty(&actor_to_resolved(bs, actor, depth))?;
 
         if let Some(other) = e_state.remove(&addr) {
