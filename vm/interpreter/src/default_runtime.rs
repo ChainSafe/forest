@@ -362,12 +362,10 @@ where
 
         let receiver = if self.network_version() <= NetworkVersion::V3 {
             msg.to
+        } else if let Some(resolved) = self.resolve_address(msg.to())? {
+            resolved
         } else {
-            if let Some(resolved) = self.resolve_address(msg.to())? {
-                resolved
-            } else {
-                msg.to
-            }
+            msg.to
         };
 
         self.vm_msg = VMMsg {
