@@ -11,8 +11,15 @@ use std::{error::Error, sync::Arc};
 
 mod drand;
 
+#[cfg(not(any(feature = "interopnet")))]
 mod mainnet;
+#[cfg(not(any(feature = "interopnet")))]
 pub use self::mainnet::*;
+
+#[cfg(feature = "interopnet")]
+mod interopnet;
+#[cfg(feature = "interopnet")]
+pub use self::interopnet::*;
 
 struct Upgrade {
     height: ChainEpoch,
