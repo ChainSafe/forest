@@ -31,7 +31,7 @@ use num_bigint::{BigInt, Sign};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
 use runtime::{ActorCode, Runtime};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::error::Error as StdError;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
@@ -234,7 +234,6 @@ impl Actor {
             return Err(actor_error!(ErrForbidden; "Caller is not provider {}", worker));
         }
 
-        let mut resolved_addrs = HashMap::<Address, Address>::with_capacity(params.deals.len());
         let baseline_power = request_current_baseline_power(rt)?;
         let (network_raw_power, _) = request_current_network_power(rt)?;
 
@@ -265,7 +264,6 @@ impl Actor {
                 // Normalise provider and client addresses in the proposal stored on chain
                 // (after signature verification).
                 deal.proposal.provider = provider;
-                resolved_addrs.insert(deal.proposal.client, client);
                 deal.proposal.client = client;
 
                 msm.lock_client_and_provider_balances(&deal.proposal)?;
@@ -345,14 +343,14 @@ impl Actor {
             // Either the DealSize is within the available DataCap of the VerifiedClient
             // or this message will fail. We do not allow a deal that is partially verified.
             if deal.proposal.verified_deal {
-                let resolved_client = *resolved_addrs.get(&deal.proposal.client).ok_or_else(
-                    || actor_error!(ErrIllegalArgument; "could not get resolved client address"),
-                )?;
+                // * Go implementation retrieves resolved client from map here, not necessary
+                // * as we update it in place. If logic changes and unintended side effects occur,
+                // * compare the difference in modified deal over copied and modified.
                 rt.send(
                     *VERIFIED_REGISTRY_ACTOR_ADDR,
                     VerifregMethod::UseBytes as u64,
                     Serialized::serialize(&UseBytesParams {
-                        address: resolved_client,
+                        address: deal.proposal.client,
                         deal_size: BigInt::from(deal.proposal.piece_size.0),
                     })?,
                     TokenAmount::zero(),

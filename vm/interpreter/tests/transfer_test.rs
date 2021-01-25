@@ -8,7 +8,7 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use db::MemoryDB;
 use fil_types::{verifier::MockVerifier, NetworkVersion, StateTreeVersion};
-use interpreter::{vm_send, CircSupplyCalc, DefaultRuntime, LookbackStateGetter, Rand};
+use interpreter::{CircSupplyCalc, DefaultRuntime, LookbackStateGetter, Rand};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
@@ -153,7 +153,7 @@ fn transfer_test() {
         &lookback,
     )
     .unwrap();
-    let _serialized = vm_send(&mut runtime, &message, None).unwrap();
+    let _serialized = runtime.send(&message, None).unwrap();
 
     let actor_state_result_1 = state.get_actor(&actor_addr_1).unwrap().unwrap();
     let actor_state_result_2 = state.get_actor(&actor_addr_2).unwrap().unwrap();

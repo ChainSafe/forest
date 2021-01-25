@@ -271,8 +271,11 @@ impl Actor {
                 )
             })?;
 
-            if params.proposal_hash != calculated_hash {
-                return Err(actor_error!(ErrIllegalState; "hash does not match proposal params"));
+            if !params.proposal_hash.is_empty() && params.proposal_hash != calculated_hash {
+                return Err(actor_error!(
+                    ErrIllegalState,
+                    "hash does not match proposal params"
+                ));
             }
 
             ptx.delete(&params.id.key())
@@ -678,7 +681,7 @@ where
             )
         })?;
 
-        if proposal_hash != calculated_hash {
+        if !proposal_hash.is_empty() && proposal_hash != calculated_hash {
             return Err(actor_error!(ErrIllegalArgument;
                     "hash does not match proposal params (ensure requester is an ID address)"));
         }

@@ -490,14 +490,16 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
 
         // Split into faulty and non-faulty. We process non-faulty sectors first
         // because they always expire on-time so we know where to find them.
-        let mut non_faulty_sectors = Vec::<&SectorOnChainInfo>::new();
+        // TODO since cloning info, should be RC or find a way for data to be references.
+        // This might get optimized by the compiler, so not a priority
+        let mut non_faulty_sectors = Vec::<SectorOnChainInfo>::new();
         let mut faulty_sectors = Vec::<&SectorOnChainInfo>::new();
 
         for sector in sectors {
             if faults_map.contains(&sector.sector_number) {
                 faulty_sectors.push(sector);
             } else {
-                non_faulty_sectors.push(sector);
+                non_faulty_sectors.push(sector.clone());
 
                 // remove them from "remaining", we're going to process them below.
                 remaining.remove(&sector.sector_number);
@@ -506,7 +508,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
 
         // Remove non-faulty sectors.
         let (removed_sector_numbers, removed_power, removed_pledge) = self
-            .remove_active_sectors(sectors, sector_size)
+            .remove_active_sectors(&non_faulty_sectors, sector_size)
             .map_err(|e| e.downcast_wrap("failed to remove on-time recoveries"))?;
         removed.on_time_sectors = removed_sector_numbers;
         removed.active_power = removed_power;
