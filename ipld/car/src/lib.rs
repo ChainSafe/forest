@@ -6,7 +6,7 @@ mod util;
 
 use blockstore::BlockStore;
 use cid::Cid;
-use error::*;
+pub use error::*;
 use forest_encoding::{from_slice, to_vec};
 use futures::{AsyncRead, AsyncWrite, Stream, StreamExt};
 use serde::{Deserialize, Serialize};
@@ -97,8 +97,9 @@ pub struct Block {
 }
 
 /// Loads a CAR buffer into a BlockStore
-pub async fn load_car<R, B: BlockStore>(s: &B, reader: R) -> Result<Vec<Cid>, Error>
+pub async fn load_car<R, B>(s: &B, reader: R) -> Result<Vec<Cid>, Error>
 where
+    B: BlockStore,
     R: AsyncRead + Send + Unpin,
 {
     let mut car_reader = CarReader::new(reader).await?;

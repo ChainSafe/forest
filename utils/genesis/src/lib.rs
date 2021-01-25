@@ -6,18 +6,17 @@ use async_std::io::BufReader;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
 use cid::Cid;
-use encoding::Cbor;
 use fil_types::verifier::ProofVerifier;
-use forest_car::load_car;
+use forest_car::{load_car, CarReader};
 use futures::AsyncRead;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
 use net_utils::FetchProgress;
 use networks::DEFAULT_GENESIS;
 use state_manager::StateManager;
-use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::sync::Arc;
+use std::{convert::TryFrom, io::Stdout};
 use url::Url;
 
 #[cfg(feature = "testing")]
@@ -96,6 +95,7 @@ pub async fn import_chain<V: ProofVerifier, DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
     validate_height: Option<i64>,
+    skip_load: bool,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -108,35 +108,55 @@ where
         let url = Url::parse(path).expect("URL is invalid");
         info!("Downloading file...");
         let reader = FetchProgress::try_from(url)?;
-        load_car(sm.blockstore(), reader).await?
+        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     } else {
         let file = File::open(&path)
             .await
             .expect("Snapshot file path not found!");
         info!("Reading file...");
         let reader = FetchProgress::try_from(file)?;
-        load_car(sm.blockstore(), reader).await?
+        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     };
     let ts = sm
         .chain_store()
         .tipset_from_keys(&TipsetKeys::new(cids))
         .await?;
-    let gb = sm
-        .chain_store()
-        .tipset_by_height(0, ts.clone(), true)
-        .await?;
+
+    if !skip_load {
+        let gb = sm
+            .chain_store()
+            .tipset_by_height(0, ts.clone(), true)
+            .await?;
+        sm.chain_store().set_genesis(&gb.blocks()[0])?;
+    }
+
+    // Update head with snapshot header tipset
+    sm.chain_store().set_heaviest_tipset(ts.clone()).await?;
 
     if let Some(height) = validate_height {
         info!("Validating imported chain");
         sm.validate_chain::<V>(ts.clone(), height).await?;
     }
-    let gen_cid = sm.chain_store().set_genesis(&gb.blocks()[0])?;
-    sm.blockstore()
-        .write(chain::HEAD_KEY, ts.key().marshal_cbor()?)?;
-    info!(
-        "Accepting {:?} as new head with genesis {:?}",
-        ts.cids(),
-        gen_cid
-    );
+
+    info!("Accepting {:?} as new head.", ts.cids(),);
     Ok(())
+}
+
+/// Loads car file into database, and returns the block header Cids from the CAR header.
+async fn load_and_retrieve_header<DB, R>(
+    store: &DB,
+    mut reader: FetchProgress<R, Stdout>,
+    skip_load: bool,
+) -> Result<Vec<Cid>, Box<dyn StdError>>
+where
+    DB: BlockStore,
+    R: AsyncRead + Send + Unpin,
+{
+    let result = if skip_load {
+        CarReader::new(&mut reader).await?.header.roots
+    } else {
+        load_car(store, &mut reader).await?
+    };
+    reader.finish();
+    Ok(result)
 }
