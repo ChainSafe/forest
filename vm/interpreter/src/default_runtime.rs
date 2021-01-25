@@ -319,7 +319,7 @@ where
         // the runtime, all variables must be copied and reset at the end of the transition.
         // This logic is the equivalent to the go implementation creating a new runtime with
         // shared values.
-        // All other fields will
+        // All other fields will be updated from the execution.
         let prev_val = self.caller_validated;
         let prev_depth = self.depth;
         let prev_msg = self.vm_msg.clone();
