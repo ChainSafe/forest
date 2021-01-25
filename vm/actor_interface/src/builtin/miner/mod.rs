@@ -51,8 +51,8 @@ impl State {
             State::V0(st) => {
                 let info = st.get_info(store)?;
 
-                let peer_id = PeerId::from_bytes(info.peer_id)
-                    .map_err(|e| format!("bytes {:?} cannot be converted into a PeerId", e))?;
+                // Deserialize into peer id if valid, `None` if not.
+                let peer_id = PeerId::from_bytes(info.peer_id).ok();
 
                 Ok(MinerInfo {
                     owner: info.owner,
@@ -74,8 +74,8 @@ impl State {
             State::V2(st) => {
                 let info = st.get_info(store)?;
 
-                let peer_id = PeerId::from_bytes(info.peer_id)
-                    .map_err(|e| format!("bytes {:?} cannot be converted into a PeerId", e))?;
+                // Deserialize into peer id if valid, `None` if not.
+                let peer_id = PeerId::from_bytes(info.peer_id).ok();
 
                 Ok(MinerInfo {
                     owner: info.owner,
@@ -244,7 +244,7 @@ pub struct MinerInfo {
     pub control_addresses: Vec<Address>, // Must all be ID addresses.
     pub worker_change_epoch: ChainEpoch,
     #[serde(with = "peer_id_json")]
-    pub peer_id: PeerId,
+    pub peer_id: Option<PeerId>,
     pub multiaddrs: Vec<BytesDe>,
     pub seal_proof_type: RegisteredSealProof,
     pub sector_size: SectorSize,
@@ -327,12 +327,11 @@ mod peer_id_json {
     use super::*;
     use serde::Serializer;
 
-    pub fn serialize<S>(m: &PeerId, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(m: &Option<PeerId>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        // TODO Go impl seems to not have a valid output for this -- check
-        m.to_string().serialize(serializer)
+        m.as_ref().map(|pid| pid.to_string()).serialize(serializer)
     }
 }
 
