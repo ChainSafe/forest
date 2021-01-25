@@ -222,14 +222,14 @@ i64_conversion! {
 i64_conversion! {
     RegisteredSealProof;
     StackedDRG2KiBV1 => 0,
-    StackedDRG512MiBV1 => 1,
-    StackedDRG8MiBV1 => 2,
+    StackedDRG8MiBV1 => 1,
+    StackedDRG512MiBV1 => 2,
     StackedDRG32GiBV1 => 3,
     StackedDRG64GiBV1 => 4,
 
     StackedDRG2KiBV1P1 => 5,
-    StackedDRG512MiBV1P1 => 6,
-    StackedDRG8MiBV1P1 => 7,
+    StackedDRG8MiBV1P1 => 6,
+    StackedDRG512MiBV1P1 => 7,
     StackedDRG32GiBV1P1 => 8,
     StackedDRG64GiBV1P1 => 9,
 }
