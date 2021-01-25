@@ -1,5 +1,5 @@
 [package]
-name = "forest_integration_tests"
+name = "integration_tests"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -7,7 +7,7 @@ publish = false
 
 [features]
 default = []
-submodule_tests = ["cmd_lib"]
+integration_tests = ["anyhow"]
 
 [dependencies]
-cmd_lib = { version = "0.8.5", optional = true }
+anyhow = { version = "1.0.38", optional = true }
