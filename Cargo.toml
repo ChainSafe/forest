@@ -29,9 +29,10 @@ members = [
     # TODO re-enable graphsync when work continues
     # "ipld/graphsync",
     "utils/bigint",
+    "tests/integration_tests",
     "tests/serialization_tests",
-    "utils/auth",
     "tests/conformance_tests",
+    "utils/auth",
     "utils/bitfield",
     "utils/test_utils",
     "utils/commcid",

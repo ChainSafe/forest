@@ -71,12 +71,16 @@ run-vectors: run-serialization-vectors run-conformance-vectors
 
 test-vectors: pull-serialization-tests run-vectors
 
+# Run only integration tests
+test-integration:
+	cargo test --release --all --all-features --exclude serialization_tests --exclude conformance_tests
+
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo test --all --all-features --exclude serialization_tests --exclude conformance_tests
+	cargo test --all --all-features --exclude serialization_tests --exclude conformance_tests --exclude integration_tests
 
 test-release:
-	cargo test --release --all --all-features --exclude serialization_tests --exclude conformance_tests
+	cargo test --release --all --all-features --exclude serialization_tests --exclude conformance_tests --exclude integration_tests
 
 test-all: test-release run-vectors
 

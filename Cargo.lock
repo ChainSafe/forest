@@ -1115,6 +1115,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmd_lib"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42443b644d30f401746fb4483fba96b13076e1ef6cb5bca7d6a14d1d8f9f2bd9"
+dependencies = [
+ "cmd_lib_core",
+ "cmd_lib_macros",
+]
+
+[[package]]
+name = "cmd_lib_core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c50c50a1536e882455aeaff22015146ea143b9106fc8e116669dd078ec7b7fc8"
+
+[[package]]
+name = "cmd_lib_macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d202b0cfc28d8928ba89138c0a8248cf921b9870c6c9d60c9951092df5b62b2"
+dependencies = [
+ "cmd_lib_core",
+ "proc-macro2 1.0.24",
+ "quote 1.0.8",
+]
+
+[[package]]
 name = "colored"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2453,6 +2480,13 @@ version = "0.1.0"
 dependencies = [
  "cs_serde_bytes",
  "serde",
+]
+
+[[package]]
+name = "forest_integration_tests"
+version = "0.1.0"
+dependencies = [
+ "cmd_lib",
 ]
 
 [[package]]

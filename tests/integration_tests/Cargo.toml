@@ -7,10 +7,7 @@ publish = false
 
 [features]
 default = []
-submodule_tests = [
-  "forest/single_producer_multiple_consumer",
-  "interop/bootstrap_sync",
-  "interop/forest_producer",
-  "interop/lotus_consumer",
-  "interop/lotus_producer"
-]
+submodule_tests = ["cmd_lib"]
+
+[dependencies]
+cmd_lib = { version = "0.8.5", optional = true }
