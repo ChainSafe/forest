@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
+[package.metadata.docs.rs]
+features = ["statediff"]
+
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
@@ -12,7 +15,9 @@ db = { package = "forest_db", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
-blockstore = { package = "ipld_blockstore", version = "0.1", features = ["buffered"] }
+blockstore = { package = "ipld_blockstore", version = "0.1", features = [
+    "buffered"
+] }
 forest_blocks = { path = "../../blockchain/blocks" }
 beacon = { path = "../../blockchain/beacon" }
 thiserror = "1.0"
@@ -39,3 +44,4 @@ lazy_static = "1.4"
 lazycell = "1.2.1"
 forest_crypto = { version = "0.4" }
 networks = { path = "../../types/networks" }
+statediff = { path = "../../utils/statediff", optional = true }
