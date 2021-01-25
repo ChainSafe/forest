@@ -203,11 +203,9 @@ impl Beacon for DrandBeacon {
         msg.write_u64::<BigEndian>(curr.round())?;
         // H(prev sig | curr_round)
         let digest = sha2::Sha256::digest(&msg);
-        // Hash to G2
-        let digest = bls_signatures::hash(&digest);
         // Signature
         let sig = Signature::from_bytes(curr.data())?;
-        let sig_match = bls_signatures::verify(&sig, &[digest], &[self.pub_key.key()]);
+        let sig_match = bls_signatures::verify_messages(&sig, &[&digest], &[self.pub_key.key()]);
 
         // Cache the result
         let contains_curr = self.local_cache.read().await.contains_key(&curr.round());

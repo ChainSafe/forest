@@ -170,7 +170,7 @@ where
         // blockstore reads
         persist_objects(self.blockstore(), ts.blocks())?;
         let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
-        self.update_heaviest(&expanded).await?;
+        self.update_heaviest(Arc::new(expanded)).await?;
         Ok(())
     }
 
@@ -227,7 +227,7 @@ where
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    async fn update_heaviest(&self, ts: &Tipset) -> Result<(), Error> {
+    async fn update_heaviest(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = self
             .heaviest
@@ -237,17 +237,17 @@ where
             .map(|ts| weight(self.db.as_ref(), ts.as_ref()));
         match heaviest_weight {
             Some(heaviest) => {
-                let new_weight = weight(self.blockstore(), ts)?;
+                let new_weight = weight(self.blockstore(), ts.as_ref())?;
                 let curr_weight = heaviest?;
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset");
-                    self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
+                    self.set_heaviest_tipset(ts).await?;
                 }
             }
             None => {
                 info!("set heaviest tipset");
-                self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
+                self.set_heaviest_tipset(ts).await?;
             }
         }
         Ok(())
