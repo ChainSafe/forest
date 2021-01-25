@@ -277,7 +277,7 @@ where
             from,
             to,
             method_num: method,
-            value: value.clone(),
+            value,
             params,
             gas_limit: self.gas_available(),
             version: Default::default(),
