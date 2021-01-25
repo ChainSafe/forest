@@ -1,0 +1,16 @@
+[package]
+name = "forest_integration_tests"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+publish = false
+
+[features]
+default = []
+submodule_tests = [
+  "forest/single_producer_multiple_consumer",
+  "interop/bootstrap_sync",
+  "interop/forest_producer",
+  "interop/lotus_consumer",
+  "interop/lotus_producer"
+]
