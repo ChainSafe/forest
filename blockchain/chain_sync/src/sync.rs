@@ -204,7 +204,6 @@ where
                 });
             }
             NetworkEvent::PeerDialed { peer_id } => {
-                error!("PEER DIALED, SEND HELLO");
                 let heaviest = self
                     .state_manager
                     .chain_store()
@@ -304,11 +303,9 @@ where
             secp_messages,
         };
         let ts = FullTipset::new(vec![block]).unwrap();
-        info!("Gossipblock formed: {}", ts.epoch());
         if channel.send((source, ts)).await.is_err() {
             error!("Failed to update peer list, receiver dropped");
         }
-        info!("Handle gossipsub done.");
     }
 
     /// Spawns a network handler and begins the syncing process.
@@ -327,10 +324,8 @@ where
         loop {
             // TODO would be ideal if this is a future attached to the select
             if worker_tx.is_empty() {
-                println!("Worker_tx is empty!");
                 if let Some(tar) = self.next_sync_target.take() {
                     if let Some(ts) = tar.heaviest_tipset() {
-                        info!("Gunna sent through channel now!!!");
                         self.active_sync_tipsets.insert(ts.clone());
                         worker_tx
                             .send(ts)
@@ -346,7 +341,6 @@ where
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
-                        info!("Informing new head: {}", new_head.epoch());
                         if let Err(e) = self.inform_new_head(peer.clone(), &new_head).await {
                             warn!("failed to inform new head from peer {}: {}", peer, e);
                         }
@@ -441,7 +435,6 @@ where
             for block in ts.blocks() {
                 self.validate_msg_meta(block)?;
             }
-            info!("Setting peer head");
             self.set_peer_head(peer, Arc::new(ts.to_tipset())).await;
         }
 
@@ -477,69 +470,6 @@ where
     async fn schedule_tipset(&mut self, tipset: Arc<Tipset>) {
         debug!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
-        // let mut related_to_active = false;
-
-        // // // No workers spawned yet, this means we have not started initial sync
-        // // if self.worker_state.read().await.is_empty() {
-        // //     let mut sb = SyncBucket::default();
-        // //     sb.add(tipset);
-        // //     self.next_sync_target = Some(sb);
-        // //     return;
-        // // }
-
-        // // Loop through all worker threads and check on their targets so that
-        // // we can see if it is the next tipset. If so, we add it to the sync queue.
-        // for act_state in self.worker_state.read().await.iter() {
-        //     if let Some(target) = act_state.read().await.target() {
-        //         if target == &tipset {
-        //             return;
-        //         }
-        //         info!("Worker Parent key: {:?}, Target Key: {:?}", tipset.parents(), target.key());
-        //         if tipset.parents() == target.key() {
-        //             self.sync_queue.inset(tipset);
-        //             related_to_active = true;
-        //             return;
-        //         }
-        //     }
-        // }
-
-        // // Check if related to active tipset buckets.
-        // if !related_to_active && self.active_sync_tipsets.related_to_any(tipset.as_ref()) {
-        //     info!("Check if related to active tipset buckets");
-        //     related_to_active = true;
-        // }
-
-        // if related_to_active {
-        //     info!("Related to active sync fo sho");
-        //     self.sync_queue.insert(tipset);
-        //     if self.next_sync_target.is_none() {
-        //         if let Some(target_bucket) = self.sync_queue.pop() {
-        //             self.next_sync_target = Some(target_bucket);
-        //         }
-        //     }
-        //     return;
-        // }
-
-        // // if next_sync_target is from same chain as incoming tipset add it to be synced next
-        // if let Some(tar) = &mut self.next_sync_target {
-        //     if tar.is_same_chain_as(&tipset) {
-        //         info!("Is same chain as!!!!");
-        //         tar.add(tipset);
-        //     } else {
-        //         info!("IS NOT SAME CHAIN AS????")
-        //     }
-        // } else {
-        //     // add incoming tipset to queue to by synced later
-        //     info!("Added to queue to be synced later");
-        //     self.sync_queue.insert(tipset);
-        //     // update next sync target if none
-        //     if self.next_sync_target.is_none() {
-        //         if let Some(target_bucket) = self.sync_queue.pop() {
-        //             self.next_sync_target = Some(target_bucket);
-        //         }
-        //     }
-        // }
-
         // TODO check if this is already synced.
 
         for act_state in self.worker_state.read().await.iter() {
@@ -555,7 +485,6 @@ where
                 // The new tipset is the successor block of a block being synced, add it to queue.
                 // We might need to check if it is still currently syncing or if it is complete...
                 if tipset.parents() == target.key() {
-                    info!("Tipset {} is the next block!", tipset.epoch());
                     self.sync_queue.insert(tipset);
                     if self.next_sync_target.is_none() {
                         if let Some(target_bucket) = self.sync_queue.pop() {
@@ -568,10 +497,6 @@ where
         }
 
         if self.sync_queue.related_to_any(&tipset) {
-            info!(
-                "Tipset {} is related to something in the queue",
-                tipset.epoch()
-            );
             self.sync_queue.insert(tipset);
             if self.next_sync_target.is_none() {
                 if let Some(target_bucket) = self.sync_queue.pop() {

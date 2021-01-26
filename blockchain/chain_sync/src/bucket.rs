@@ -89,7 +89,6 @@ impl SyncBucketSet {
 
     /// Heaviest tipset among all the buckets
     pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
-        // let tipsets: Vec<_> = self.buckets().iter().filter_map(|b| b.heaviest_tipset().is_some()).collect();
         let mut tips: Vec<_> = self
             .buckets()
             .iter()
