@@ -25,7 +25,7 @@ use futures::{future::select, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
-use networks::NEWEST_NETWORK_VERSION;
+use networks::{BLOCK_DELAY_SECS, NEWEST_NETWORK_VERSION};
 use num_bigint::{BigInt, Integer};
 use num_rational::BigRational;
 use num_traits::cast::ToPrimitive;
@@ -44,7 +44,7 @@ const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
-const REPUBLISH_INTERVAL: u64 = 10 * types::BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
+const REPUBLISH_INTERVAL: u64 = 10 * BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address

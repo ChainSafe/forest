@@ -17,7 +17,6 @@ use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
 use wallet::KeyStore;
 const MIN_GAS_PREMIUM: f64 = 100000.0;
-const MAX_SPEND_ON_FEE_DENOM: i64 = 100;
 
 /// Estimate the fee cap
 pub(crate) async fn gas_estimate_fee_cap<DB, KS, B>(
@@ -54,11 +53,6 @@ where
         .await
         .ok_or("can't find heaviest tipset")?;
 
-    let act = data
-        .state_manager
-        .get_actor(msg.from(), ts.parent_state())?
-        .ok_or("could not load actor")?;
-
     let parent_base_fee = ts.blocks()[0].parent_base_fee();
     let increase_factor =
         (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(max_queue_blks as f64);
@@ -66,17 +60,8 @@ where
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
-    let fee_in_future = fee_in_future / (1 << 8);
-
-    let gas_limit_big: BigInt = msg.gas_limit().into();
-    let max_accepted = act.balance / MAX_SPEND_ON_FEE_DENOM;
-    let expected_fee = &fee_in_future * &gas_limit_big;
-
-    let out = if expected_fee > max_accepted {
-        max_accepted / gas_limit_big
-    } else {
-        fee_in_future
-    };
+    let mut out = fee_in_future / (1 << 8);
+    out += msg.gas_premium();
     Ok(out)
 }
 

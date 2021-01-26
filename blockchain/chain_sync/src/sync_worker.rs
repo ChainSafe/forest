@@ -22,8 +22,8 @@ use cid::{Cid, Code::Blake2b256};
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
-    verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS,
-    BLOCK_GAS_LIMIT, TICKET_RANDOMNESS_LOOKBACK,
+    verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
+    TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -31,7 +31,7 @@ use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
-use networks::{get_network_version_default, UPGRADE_SMOKE_HEIGHT};
+use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::collections::HashMap;

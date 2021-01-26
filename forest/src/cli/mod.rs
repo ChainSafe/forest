@@ -76,6 +76,12 @@ pub struct DaemonOpts {
     pub import_snapshot: Option<String>,
     #[structopt(long, help = "Import a chain from a local CAR file or url")]
     pub import_chain: Option<String>,
+    #[structopt(
+        long,
+        help = "Skips loading CAR file and uses header to index chain.\
+                    Assumes a pre-loaded database"
+    )]
+    pub skip_load: bool,
     #[structopt(long, help = "Number of worker sync tasks spawned (default is 1")]
     pub worker_tasks: Option<usize>,
     #[structopt(
@@ -116,6 +122,8 @@ impl DaemonOpts {
                 cfg.snapshot_path = Some(snapshot_path.to_owned());
                 cfg.snapshot = false;
             }
+
+            cfg.skip_load = self.skip_load;
         }
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);

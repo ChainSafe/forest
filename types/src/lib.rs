@@ -22,7 +22,7 @@ pub use self::state::*;
 pub use self::version::*;
 
 use address::Address;
-use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
+use clock::ChainEpoch;
 use num_bigint::BigInt;
 
 #[macro_use]
@@ -53,9 +53,6 @@ pub const BLOCKS_PER_EPOCH: u64 = 5;
 
 /// Ratio of integer values to token value.
 pub const FILECOIN_PRECISION: i64 = 1_000_000_000_000_000_000;
-
-/// Block delay, or epoch duration, to be used in blockchain system.
-pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;
 
 /// Allowable clock drift in validations.
 pub const ALLOWABLE_CLOCK_DRIFT: u64 = 1;
