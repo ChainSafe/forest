@@ -3,9 +3,9 @@
 
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
-    DrandPoint, Upgrade,
+    DrandPoint,
 };
-use clock::ChainEpoch;
+use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
 
 /// Default genesis car file bytes.
@@ -32,47 +32,7 @@ pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 272400;
 /// V9 network upgrade
 pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 336458;
 /// Remove burn on window PoSt fork
-// TODO implement updates for height https://github.com/ChainSafe/forest/issues/905
 pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 343200;
-
-pub(super) const VERSION_SCHEDULE: [Upgrade; 9] = [
-    Upgrade {
-        height: UPGRADE_BREEZE_HEIGHT,
-        network: NetworkVersion::V1,
-    },
-    Upgrade {
-        height: UPGRADE_SMOKE_HEIGHT,
-        network: NetworkVersion::V2,
-    },
-    Upgrade {
-        height: UPGRADE_IGNITION_HEIGHT,
-        network: NetworkVersion::V3,
-    },
-    Upgrade {
-        height: UPGRADE_ACTORS_V2_HEIGHT,
-        network: NetworkVersion::V4,
-    },
-    Upgrade {
-        height: UPGRADE_TAPE_HEIGHT,
-        network: NetworkVersion::V5,
-    },
-    Upgrade {
-        height: UPGRADE_KUMQUAT_HEIGHT,
-        network: NetworkVersion::V6,
-    },
-    Upgrade {
-        height: UPGRADE_CALICO_HEIGHT,
-        network: NetworkVersion::V7,
-    },
-    Upgrade {
-        height: UPGRADE_PERSIAN_HEIGHT,
-        network: NetworkVersion::V8,
-    },
-    Upgrade {
-        height: UPGRADE_ORANGE_HEIGHT,
-        network: NetworkVersion::V9,
-    },
-];
 
 /// Current network version for the network
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V9;
@@ -108,3 +68,5 @@ lazy_static! {
         },
     ];
 }
+
+pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;

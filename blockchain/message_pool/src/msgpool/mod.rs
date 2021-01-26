@@ -25,7 +25,7 @@ use futures::{future::select, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
-use networks::{NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT};
+use networks::{BLOCK_DELAY_SECS, NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT};
 use num_bigint::{BigInt, Integer};
 use num_rational::BigRational;
 use num_traits::cast::ToPrimitive;
@@ -45,7 +45,7 @@ const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
-const REPUBLISH_INTERVAL: u64 = 10 * types::BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
+const REPUBLISH_INTERVAL: u64 = 10 * BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
 
 // this is *temporary* mutilation until we have implemented uncapped miner penalties -- it will go
 // away in the next fork.
