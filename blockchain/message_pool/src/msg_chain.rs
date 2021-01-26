@@ -141,14 +141,14 @@ impl MsgChain {
             .then_with(|| self_curr.gas_reward.cmp(&other_curr.gas_reward))
     }
 
-    pub(crate) fn trim(&mut self, gas_limit: i64, base_fee: &BigInt, allow_negative: bool) {
+    pub(crate) fn trim(&mut self, gas_limit: i64, base_fee: &BigInt) {
         let mut i = self.chain.len() as i64 - 1;
         let prev = match self.prev() {
             Some(prev) => Some((prev.eff_perf, prev.gas_limit)),
             None => None,
         };
         let mut mc = self.curr_mut();
-        while i >= 0 && (mc.gas_limit > gas_limit || (!allow_negative && mc.gas_perf < 0.0)) {
+        while i >= 0 && (mc.gas_limit > gas_limit || (mc.gas_perf < 0.0)) {
             let gas_reward = get_gas_reward(&mc.msgs[i as usize], base_fee);
             mc.gas_reward -= gas_reward;
             mc.gas_limit -= mc.msgs[i as usize].gas_limit();

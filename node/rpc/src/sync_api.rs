@@ -227,7 +227,6 @@ mod tests {
         let st_copy = state.sync_state.clone();
 
         match sync_state(Data(state.clone())).await {
-            // TODO this will probably have to be updated when sync state is updated
             Ok(ret) => assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await),
             Err(e) => panic!(e),
         }

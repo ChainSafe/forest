@@ -31,5 +31,3 @@ fn decode_ticket() {
     let decoded_ticket: Ticket = from_slice(&TICKET).unwrap();
     assert_eq!(ticket, decoded_ticket);
 }
-
-// TODO add EPoStProof serialize vector when we are sure it won't change again

@@ -402,7 +402,7 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to look up claim")
                 })?;
                 if !contains_claim {
-                    log::warn!("skipping batch verifies for unknown miner: {}", addr);
+                    log::debug!("skipping batch verifies for unknown miner: {}", addr);
                     return Ok(());
                 }
 
@@ -507,7 +507,7 @@ impl Actor {
                                 )
                             })?;
                     if !miner_has_claim {
-                        log::warn!("skipping cron event for unknown miner: {}", evt.miner_addr);
+                        log::debug!("skipping cron event for unknown miner: {}", evt.miner_addr);
                         continue;
                     }
                     cron_events.push(evt);
@@ -542,7 +542,7 @@ impl Actor {
             // Failures are unexpected here but will result in removal of miner power
             // A log message would really help here.
             if let Err(e) = res {
-                log::warn!(
+                log::debug!(
                     "OnDeferredCronEvent failed for miner {}: res {}",
                     event.miner_addr,
                     e

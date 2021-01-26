@@ -25,16 +25,15 @@ use futures::{future::select, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
-use networks::{BLOCK_DELAY_SECS, NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT};
+use networks::{BLOCK_DELAY_SECS, NEWEST_NETWORK_VERSION};
 use num_bigint::{BigInt, Integer};
 use num_rational::BigRational;
 use num_traits::cast::ToPrimitive;
 use state_manager::StateManager;
 use state_tree::StateTree;
-use std::borrow::BorrowMut;
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
+use std::{borrow::BorrowMut, cmp::Ordering};
 use types::verifier::ProofVerifier;
 use vm::ActorState;
 
@@ -46,13 +45,6 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
 const REPUBLISH_INTERVAL: u64 = 10 * BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
-
-// this is *temporary* mutilation until we have implemented uncapped miner penalties -- it will go
-// away in the next fork.
-// TODO: Get rid of this?
-fn allow_negative_chains(epoch: i64) -> bool {
-    epoch < UPGRADE_BREEZE_HEIGHT + 5
-}
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
 /// which corresponds to that address
@@ -319,7 +311,6 @@ where
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
 
-        // TODO: Check this
         let cur_tipset = mp.cur_tipset.clone();
         let repub_trigger = Arc::new(mp.repub_trigger.clone());
 
@@ -668,7 +659,7 @@ where
 
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
     /// most likely need to be implemented
-    // TODO: UPDATE
+    // TODO: UPDATE https://github.com/ChainSafe/forest/issues/901
     pub fn estimate_gas_premium(
         &self,
         nblocksincl: u64,
@@ -676,8 +667,6 @@ where
         _gas_limit: u64,
         _tsk: TipsetKeys,
     ) -> Result<BigInt, Error> {
-        // TODO possibly come up with a smarter way to estimate the gas price
-        // TODO a smarter way exists now
         let min_gas_price = 0;
         match nblocksincl {
             0 => Ok(BigInt::from(min_gas_price + 2)),
@@ -693,7 +682,6 @@ where
         let msg_vec: Vec<SignedMessage> = local_msgs.iter().cloned().collect();
 
         for k in msg_vec.into_iter() {
-            // TODO no need to clone message, if error, message could be returned in error
             self.add(k.clone()).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
@@ -939,7 +927,7 @@ where
             // check the baseFee lower bound -- only republish messages that can be included in the chain
             // within the next 20 blocks.
             for m in chain.msgs.iter() {
-                if !allow_negative_chains(ts.epoch()) && m.gas_fee_cap() < &base_fee_lower_bound {
+                if m.gas_fee_cap() < &base_fee_lower_bound {
                     msg_chain.invalidate();
                     continue 'l;
                 }
@@ -949,7 +937,7 @@ where
             i += 1;
             continue;
         }
-        msg_chain.trim(gas_limit, &base_fee, true);
+        msg_chain.trim(gas_limit, &base_fee);
         let mut j = i;
         while j < chains.len() - 1 {
             if chains[j].compare(&chains[j + 1]) == Ordering::Less {
@@ -1168,9 +1156,8 @@ where
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
-            let (umsg, mut smsgs) = api.read().await.messages_for_block(&block)?;
-            msgs.append(smsgs.as_mut());
-            // TODO: Unsigned messages
+            let (umsg, smsgs) = api.read().await.messages_for_block(&block)?;
+            msgs.extend(smsgs);
             for msg in umsg {
                 let mut bls_sig_cache = bls_sig_cache.write().await;
                 let smsg = recover_sig(&mut bls_sig_cache, msg).await?;

@@ -201,7 +201,6 @@ fn fts_from_bundle_parts(
         secp_msgs,
     } = messages.ok_or("Tipset bundle did not contain message bundle")?;
 
-    // TODO: we may already want to check this on construction of the bundle
     if headers.len() != bls_msg_includes.len() || headers.len() != secp_msg_includes.len() {
         return Err(
             format!("Invalid formed Tipset bundle, lengths of includes does not match blocks. Header len: {}, bls_msg len: {}, secp_msg len: {}", headers.len(), bls_msg_includes.len(), secp_msg_includes.len()),

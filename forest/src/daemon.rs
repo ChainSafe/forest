@@ -113,7 +113,6 @@ pub(super) async fn start(config: Config) {
     );
 
     // Initialize ChainSyncer
-    // TODO allow for configuring validation strategy (defaulting to full validation)
     let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
         beacon.clone(),
