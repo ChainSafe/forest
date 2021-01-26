@@ -403,6 +403,7 @@ impl Actor {
                         "failed to purge approvals of removed signer",
                     )
                 })?;
+            st.signers.retain(|s| s != &resolved_old_signer);
 
             Ok(())
         })?;
