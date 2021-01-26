@@ -183,6 +183,7 @@ pub(super) async fn start(config: Config) {
 }
 
 #[cfg(test)]
+#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
     use db::MemoryDB;

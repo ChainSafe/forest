@@ -6,13 +6,20 @@ extern crate lazy_static;
 
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::ChainEpoch;
-use fil_types::{NetworkVersion, BLOCK_DELAY_SECS};
+use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 
 mod drand;
 
+#[cfg(not(any(feature = "interopnet")))]
 mod mainnet;
+#[cfg(not(any(feature = "interopnet")))]
 pub use self::mainnet::*;
+
+#[cfg(feature = "interopnet")]
+mod interopnet;
+#[cfg(feature = "interopnet")]
+pub use self::interopnet::*;
 
 struct Upgrade {
     height: ChainEpoch,
@@ -23,6 +30,45 @@ struct DrandPoint<'a> {
     pub height: ChainEpoch,
     pub config: &'a DrandConfig<'a>,
 }
+
+const VERSION_SCHEDULE: [Upgrade; 9] = [
+    Upgrade {
+        height: UPGRADE_BREEZE_HEIGHT,
+        network: NetworkVersion::V1,
+    },
+    Upgrade {
+        height: UPGRADE_SMOKE_HEIGHT,
+        network: NetworkVersion::V2,
+    },
+    Upgrade {
+        height: UPGRADE_IGNITION_HEIGHT,
+        network: NetworkVersion::V3,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V2_HEIGHT,
+        network: NetworkVersion::V4,
+    },
+    Upgrade {
+        height: UPGRADE_TAPE_HEIGHT,
+        network: NetworkVersion::V5,
+    },
+    Upgrade {
+        height: UPGRADE_KUMQUAT_HEIGHT,
+        network: NetworkVersion::V6,
+    },
+    Upgrade {
+        height: UPGRADE_CALICO_HEIGHT,
+        network: NetworkVersion::V7,
+    },
+    Upgrade {
+        height: UPGRADE_PERSIAN_HEIGHT,
+        network: NetworkVersion::V8,
+    },
+    Upgrade {
+        height: UPGRADE_ORANGE_HEIGHT,
+        network: NetworkVersion::V9,
+    },
+];
 
 /// Gets network version from epoch using default Mainnet schedule
 pub fn get_network_version_default(epoch: ChainEpoch) -> NetworkVersion {
