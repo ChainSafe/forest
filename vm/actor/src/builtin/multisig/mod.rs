@@ -133,14 +133,16 @@ impl Actor {
         let proposer: Address = *rt.message().caller();
 
         if params.value.sign() == Sign::Minus {
-            return Err(
-                actor_error!(ErrIllegalArgument; "proposed value must be non-negative, was {}", params.value),
-            );
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "proposed value must be non-negative, was {}",
+                params.value
+            ));
         }
 
         let (txn_id, txn) = rt.transaction(|st: &mut State, rt| {
             if !is_signer(&proposer, &st.signers)? {
-                return Err(actor_error!(ErrForbidden; "{} is not a signer", proposer));
+                return Err(actor_error!(ErrForbidden, "{} is not a signer", proposer));
             }
 
             let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(|e| {
@@ -359,9 +361,13 @@ impl Actor {
             )
         })?;
 
-        rt.transaction(|st: &mut State, _| {
+        rt.transaction(|st: &mut State, rt| {
             if !is_signer(&resolved_old_signer, &st.signers)? {
-                return Err(actor_error!(ErrForbidden; "{} is not a signer", resolved_old_signer));
+                return Err(actor_error!(
+                    ErrForbidden,
+                    "{} is not a signer",
+                    resolved_old_signer
+                ));
             }
 
             if st.signers.len() == 1 {
@@ -369,9 +375,12 @@ impl Actor {
             }
 
             if !params.decrease && st.signers.len() < st.num_approvals_threshold {
-                return Err(actor_error!(ErrIllegalArgument;
+                return Err(actor_error!(
+                    ErrIllegalArgument,
                     "can't reduce signers to {} below threshold {} with decrease=false",
-                    st.signers.len(), st.num_approvals_threshold));
+                    st.signers.len(),
+                    st.num_approvals_threshold
+                ));
             }
 
             if params.decrease {
@@ -386,7 +395,14 @@ impl Actor {
                 st.num_approvals_threshold -= 1;
             }
 
-            // Signers have already been resolved
+            // Remove approvals from removed signer
+            st.purge_approvals(rt.store(), &resolved_old_signer)
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to purge approvals of removed signer",
+                    )
+                })?;
             st.signers.retain(|s| s != &resolved_old_signer);
 
             Ok(())
@@ -520,8 +536,11 @@ impl Actor {
     {
         for previous_approver in &txn.approved {
             if previous_approver == rt.message().caller() {
-                return Err(actor_error!(ErrForbidden;
-                        "{} already approved this message", previous_approver));
+                return Err(actor_error!(
+                    ErrForbidden,
+                    "{} already approved this message",
+                    previous_approver
+                ));
             }
         }
 
@@ -575,9 +594,9 @@ where
     let threshold_met = txn.approved.len() >= st.num_approvals_threshold;
     if threshold_met {
         st.check_available(rt.current_balance()?, &txn.value, rt.curr_epoch())
-            .map_err(
-                |e| actor_error!(ErrInsufficientFunds; "insufficient funds unlocked: {}", e),
-            )?;
+            .map_err(|e| {
+                actor_error!(ErrInsufficientFunds, "insufficient funds unlocked: {}", e)
+            })?;
 
         match rt.send(txn.to, txn.method, txn.params.clone(), txn.value.clone()) {
             Ok(ser) => {
@@ -598,39 +617,19 @@ where
                     )
                 })?;
 
-            // Prior to version 6 we attempt to delete all transactions, even those
-            // no longer in the pending txns map because they have been purged.
-            let mut should_delete = true;
-
-            if rt.network_version() >= NetworkVersion::V6 {
-                let tx_exists = ptx.contains_key(&txn_id.key()).map_err(|e| {
+            ptx.delete(&txn_id.key())
+                .map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
-                        format!(
-                            "failed to check existance of transaction {} for cleanup",
-                            txn_id.0
-                        ),
+                        "failed to delete transaction for cleanup",
+                    )
+                })?
+                .ok_or_else(|| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to delete transaction for cleanup: does not exist"
                     )
                 })?;
-
-                should_delete = tx_exists;
-            }
-
-            if should_delete {
-                ptx.delete(&txn_id.key())
-                    .map_err(|e| {
-                        e.downcast_default(
-                            ExitCode::ErrIllegalState,
-                            "failed to delete transaction for cleanup",
-                        )
-                    })?
-                    .ok_or_else(|| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to delete transaction for cleanup: does not exist"
-                        )
-                    })?;
-            }
 
             st.pending_txs = ptx.flush().map_err(|e| {
                 e.downcast_default(
@@ -682,8 +681,10 @@ where
         })?;
 
         if !proposal_hash.is_empty() && proposal_hash != calculated_hash {
-            return Err(actor_error!(ErrIllegalArgument;
-                    "hash does not match proposal params (ensure requester is an ID address)"));
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "hash does not match proposal params (ensure requester is an ID address)"
+            ));
         }
     }
 
@@ -774,7 +775,7 @@ impl ActorCode for Actor {
                 Self::lock_balance(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
-            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
+            None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),
         }
     }
 }
