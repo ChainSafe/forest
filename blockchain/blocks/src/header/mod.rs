@@ -363,14 +363,14 @@ impl BlockHeader {
     pub async fn validate_block_drand<B: Beacon>(
         &self,
         b_schedule: &BeaconSchedule<B>,
-        _parent_epoch: ChainEpoch,
+        parent_epoch: ChainEpoch,
         prev_entry: &BeaconEntry,
     ) -> Result<(), Error> {
         let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
         let (pb_epoch, _) = b_schedule
-            .beacon_for_epoch(self.epoch)
+            .beacon_for_epoch(parent_epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
 
         if cb_epoch != pb_epoch {

@@ -86,6 +86,14 @@ impl SyncBucketSet {
     pub(crate) fn buckets(&self) -> &[SyncBucket] {
         &self.buckets
     }
+
+    /// Heaviest tipset among all the buckets
+    pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
+        self.buckets()
+            .iter()
+            .filter_map(|b| b.heaviest_tipset())
+            .max_by_key(|ts| ts.weight().clone())
+    }
 }
 
 #[cfg(test)]
