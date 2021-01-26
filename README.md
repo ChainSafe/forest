@@ -85,6 +85,23 @@ make test-vectors
 make test-all
 ```
 
+### Joining the testnet
+
+Build with the `interopnet` config with:
+
+```bash
+make interopnet
+
+# Run and import past the state migrations to latest network version
+./target/release/forest --import-snapshot ./types/networks/src/interopnet/snapshot.car
+```
+
+Importing the snapshot only needs to happen during the first run. Following this, to restart the daemon run:
+
+```bash
+./target/release/forest
+```
+
 ### Documentation
 https://chainsafe.github.io/forest/
 
