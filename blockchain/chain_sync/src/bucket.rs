@@ -99,9 +99,9 @@ impl SyncBucketSet {
         tips.sort_by_key(|ts| ts.weight().clone());
 
         if tips.is_empty() {
-            return None;
+            None
         } else {
-            return Some(tips.last().unwrap().clone());
+            Some(tips.last().unwrap().clone())
         }
     }
 }

@@ -4,8 +4,6 @@
 #[cfg(test)]
 mod peer_test;
 
-use crate::SyncStage;
-
 use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
 use super::sync_state::SyncState;
