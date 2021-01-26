@@ -996,7 +996,6 @@ pub fn compute_msg_meta<DB: BlockStore>(
     let secp_cids = cids_from_messages(secp_msgs)?;
 
     // generate Amt and batch set message values
-    // TODO avoid having to clone all cids (from iter function on Amt)
     let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
     let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
 

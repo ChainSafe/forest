@@ -29,8 +29,6 @@ pub struct MockRuntime {
     pub caller_type: Cid,
     pub value_received: TokenAmount,
 
-    // TODO: syscalls: syscaller
-
     // Actor State
     pub state: Option<Cid>,
     pub balance: TokenAmount,

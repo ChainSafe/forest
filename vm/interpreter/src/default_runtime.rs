@@ -650,7 +650,6 @@ where
                 || actor_error!(SysErrIllegalArgument; "Actor readonly state does not exist"),
             )?;
 
-        // TODO revisit as the go impl doesn't handle not exists and nil cases
         self.get(&actor.state)?.ok_or_else(|| {
             actor_error!(fatal(
                 "State does not exist for actor state cid: {}",
