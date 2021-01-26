@@ -19,7 +19,7 @@ use fil_types::{verifier::ProofVerifier, DevnetParams, NetworkParams, NetworkVer
 use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use forest_encoding::{blake2b_256, to_vec, Cbor};
 use ipld_blockstore::BlockStore;
-use log::warn;
+use log::debug;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -717,7 +717,7 @@ where
         let ret = self
             .internal_send(*self.message().receiver(), to, method, value, params)
             .map_err(|e| {
-                warn!(
+                debug!(
                     "internal send failed: (to: {}) (method: {}) {}",
                     to, method, e
                 );
@@ -990,7 +990,7 @@ where
                     .par_iter()
                     .map(|s| {
                         if let Err(err) = V::verify_seal(s) {
-                            warn!(
+                            debug!(
                                 "seal verify in batch failed (miner: {}) (err: {})",
                                 addr, err
                             );
