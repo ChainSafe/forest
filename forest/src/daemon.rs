@@ -183,12 +183,12 @@ pub(super) async fn start(config: Config) {
 }
 
 #[cfg(test)]
+#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
     use db::MemoryDB;
 
     #[async_std::test]
-    #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
     async fn import_snapshot_from_file() {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
@@ -198,7 +198,6 @@ mod test {
             .expect("Failed to import chain");
     }
     #[async_std::test]
-    #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
     async fn import_chain_from_file() {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
