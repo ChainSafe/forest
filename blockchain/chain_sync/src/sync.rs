@@ -159,7 +159,7 @@ where
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
             sync_queue: SyncBucketSet::default(),
-            active_sync_tipsets: SyncBucketSet::default(),
+            active_sync_tipsets: Default::default(),
             next_sync_target: None,
             verifier: Default::default(),
             mpool,
@@ -468,42 +468,54 @@ where
     async fn schedule_tipset(&mut self, tipset: Arc<Tipset>) {
         debug!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
-        let mut related_to_active = false;
+        // TODO check if this is already synced.
+
         for act_state in self.worker_state.read().await.iter() {
             if let Some(target) = act_state.read().await.target() {
+                // Already currently syncing this, so just return
                 if target == &tipset {
                     return;
                 }
-
+                // The new tipset is the successor block of a block being synced, add it to queue.
+                // We might need to check if it is still currently syncing or if it is complete...
                 if tipset.parents() == target.key() {
-                    related_to_active = true;
+                    self.sync_queue.insert(tipset);
+                    if self.next_sync_target.is_none() {
+                        if let Some(target_bucket) = self.sync_queue.pop() {
+                            self.next_sync_target = Some(target_bucket);
+                        }
+                    }
+                    return;
                 }
             }
         }
 
-        // Check if related to active tipset buckets.
-        if !related_to_active && self.active_sync_tipsets.related_to_any(tipset.as_ref()) {
-            related_to_active = true;
-        }
-
-        if related_to_active {
-            self.active_sync_tipsets.insert(tipset);
-            return;
-        }
-
-        // if next_sync_target is from same chain as incoming tipset add it to be synced next
-        if let Some(tar) = &mut self.next_sync_target {
-            if tar.is_same_chain_as(&tipset) {
-                tar.add(tipset);
-            }
-        } else {
-            // add incoming tipset to queue to by synced later
+        if self.sync_queue.related_to_any(&tipset) {
             self.sync_queue.insert(tipset);
-            // update next sync target if none
             if self.next_sync_target.is_none() {
                 if let Some(target_bucket) = self.sync_queue.pop() {
                     self.next_sync_target = Some(target_bucket);
                 }
+            }
+            return;
+        }
+
+        // TODO sync the fork?
+
+        // Check if the incoming tipset is heavier than the heaviest tipset in the queue.
+        // If it isnt, return because we dont want to sync that.
+        let queue_heaviest = self.sync_queue.heaviest();
+        if let Some(qtip) = queue_heaviest {
+            if qtip.weight() > tipset.weight() {
+                return;
+            }
+        }
+        // Heavy enough to be synced. If there is no current thing being synced,
+        // add it to be synced right away. Otherwise, add it to the queue.
+        self.sync_queue.insert(tipset);
+        if self.next_sync_target.is_none() {
+            if let Some(target_bucket) = self.sync_queue.pop() {
+                self.next_sync_target = Some(target_bucket);
             }
         }
     }
