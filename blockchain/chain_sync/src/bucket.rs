@@ -91,9 +91,7 @@ impl SyncBucketSet {
     pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
         self.buckets()
             .iter()
-            .map(|b| b.heaviest_tipset())
-            .filter(|ts| ts.is_some())
-            .map(|ts| ts.unwrap())
+            .filter_map(|b| b.heaviest_tipset())
             .max_by_key(|ts| ts.weight().clone())
     }
 }
