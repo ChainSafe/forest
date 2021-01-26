@@ -418,16 +418,6 @@ where
             // Currently needed to go GT because equal tipsets are attempted to be synced.
             .map(|heaviest| ts.weight() > heaviest.weight())
             .unwrap_or(true);
-        info!(
-            "New tipset heavier than heaviest: {}, and heaviest weight: {:?}, new weight: {}",
-            candidate_ts,
-            self.state_manager
-                .chain_store()
-                .heaviest_tipset()
-                .await
-                .map(|e| e.weight().clone()),
-            ts.weight()
-        );
         if candidate_ts {
             // Check message meta after all other checks (expensive)
             for block in ts.blocks() {
@@ -446,7 +436,6 @@ where
             .await;
 
         // Only update target on initial sync
-        info!("ChainSync state: {:?}", *self.state.lock().await);
         if *self.state.lock().await == ChainSyncState::Bootstrap {
             if let Some(best_target) = self.select_sync_target().await {
                 self.schedule_tipset(best_target).await;
@@ -474,10 +463,6 @@ where
             if let Some(target) = act_state.read().await.target() {
                 // Already currently syncing this, so just return
                 if target == &tipset {
-                    info!(
-                        "Tipset {} is already currently being synced. Skipping it.",
-                        tipset.epoch()
-                    );
                     return;
                 }
                 // The new tipset is the successor block of a block being synced, add it to queue.
