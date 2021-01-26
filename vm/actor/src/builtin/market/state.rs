@@ -334,7 +334,7 @@ where
             );
             state.slash_epoch
         } else {
-            deal.end_epoch
+            std::cmp::min(deal.end_epoch, epoch)
         };
 
         let payment_start_epoch = if ever_updated && state.last_updated_epoch > deal.start_epoch {
@@ -343,11 +343,9 @@ where
             deal.start_epoch
         };
 
-        let elapsed_end = std::cmp::min(epoch, payment_end_epoch);
+        let num_epochs_elapsed = payment_end_epoch - payment_start_epoch;
 
-        let num_epochs_elapsed = elapsed_end - payment_start_epoch;
-
-        let total_payment = &deal.storage_price_per_epoch * num_epochs_elapsed as u64;
+        let total_payment = &deal.storage_price_per_epoch * num_epochs_elapsed;
         if total_payment > 0.into() {
             self.transfer_balance(&deal.client, &deal.provider, &total_payment)?;
         }
