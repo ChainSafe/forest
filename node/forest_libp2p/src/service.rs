@@ -274,7 +274,7 @@ where
                                                 trace!("Saved Bitswap block with cid {:?}", cid);
                                         }
                                     } else {
-                                        warn!("Received Bitswap response, but response channel cannot be found");
+                                        debug!("Received Bitswap response, but response channel cannot be found");
                                     }
                                     emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{cid}).await;
                                 }
