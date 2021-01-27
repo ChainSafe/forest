@@ -273,7 +273,8 @@ where
             }
         };
         info!(
-            "Received block over GossipSub: {} from {}",
+            "Received block over GossipSub: {} height {} from {}",
+            block.header.cid(),
             block.header.epoch(),
             source
         );

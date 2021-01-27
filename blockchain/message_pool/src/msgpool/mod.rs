@@ -77,11 +77,9 @@ impl MsgSet {
                 let rbf_denom = BigInt::from(RBF_DENOM);
                 let min_price = premium + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
                 if m.message().gas_premium() <= &min_price {
-                    warn!("message gas price is below min gas price");
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
-                warn!("try to add message with duplicate sequence increase gas premium");
                 return Err(Error::DuplicateSequence);
             }
         }
