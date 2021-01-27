@@ -80,7 +80,7 @@ impl MsgSet {
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
-                (Error::DuplicateSequence);
+                return Err(Error::DuplicateSequence);
             }
         }
         self.msgs.insert(m.sequence(), m);
