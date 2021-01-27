@@ -274,7 +274,7 @@ where
         };
         info!(
             "Received block over GossipSub: {} from {}",
-            block.header.epoch(),
+            block.header.cid(),
             source
         );
 
