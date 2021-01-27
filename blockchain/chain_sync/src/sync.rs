@@ -208,7 +208,7 @@ where
                     .await;
                 });
             }
-            NetworkEvent::PeerDialed { peer_id } => {
+            NetworkEvent::PeerConnected(peer_id) => {
                 let heaviest = self
                     .state_manager
                     .chain_store()
@@ -230,6 +230,9 @@ where
                 {
                     error!("{}", e)
                 };
+            }
+            NetworkEvent::PeerDisconnected(peer_id) => {
+                self.network.peer_manager().remove_peer(&peer_id).await;
             }
             NetworkEvent::PubsubMessage { source, message } => {
                 if *self.state.lock().await != ChainSyncState::Follow {

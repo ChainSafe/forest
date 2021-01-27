@@ -9,6 +9,7 @@ extern crate lazy_static;
 mod behaviour;
 pub mod chain_exchange;
 mod config;
+mod discovery;
 pub mod hello;
 pub mod rpc;
 mod service;

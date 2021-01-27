@@ -72,9 +72,8 @@ pub enum NetworkEvent {
         request_id: RequestId,
         response: ChainExchangeResponse,
     },
-    PeerDialed {
-        peer_id: PeerId,
-    },
+    PeerConnected(PeerId),
+    PeerDisconnected(PeerId),
     BitswapBlock {
         cid: Cid,
     },
@@ -190,15 +189,13 @@ where
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(event) => match event {
-                        ForestBehaviourEvent::PeerDialed(peer_id) => {
-                            debug!("Peer dialed, {:?}", peer_id);
-                            emit_event(&self.network_sender_out, NetworkEvent::PeerDialed {
-                                peer_id
-                            }).await;
+                        ForestBehaviourEvent::PeerConnected(peer_id) => {
+                            debug!("Peer connected, {:?}", peer_id);
+                            emit_event(&self.network_sender_out,
+                                NetworkEvent::PeerConnected(peer_id)).await;
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
-                            debug!("Peer disconnected, {:?}", peer_id);
-                            swarm_stream.get_mut().remove_peer(&peer_id);
+                            emit_event(&self.network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
                         }
                         ForestBehaviourEvent::GossipMessage {
                             source,
@@ -337,7 +334,7 @@ where
                     None => { break; }
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
-                    info!("Peers connected: {}", swarm_stream.get_ref().peers().len());
+                    info!("Peers connected: {}", swarm_stream.get_mut().peers().len());
                 }
             };
         }
