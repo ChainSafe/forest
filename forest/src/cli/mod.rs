@@ -70,7 +70,7 @@ pub struct DaemonOpts {
     pub port: Option<String>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
     pub kademlia: Option<bool>,
-    #[structopt(short, long, help = "Allow MDNS (default = true)")]
+    #[structopt(short, long, help = "Allow MDNS (default = false)")]
     pub mdns: Option<bool>,
     #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
     pub import_snapshot: Option<String>,
