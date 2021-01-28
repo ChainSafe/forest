@@ -215,24 +215,26 @@ where
                     .heaviest_tipset()
                     .await
                     .unwrap();
-                if let Err(e) = self
-                    .network
-                    .hello_request(
-                        peer_id,
-                        HelloRequest {
-                            heaviest_tip_set: heaviest.cids().to_vec(),
-                            heaviest_tipset_height: heaviest.epoch(),
-                            heaviest_tipset_weight: heaviest.weight().clone(),
-                            genesis_hash: *self.genesis.blocks()[0].cid(),
-                        },
-                    )
-                    .await
-                {
-                    error!("{}", e)
-                };
+                if !self.network.peer_manager().is_peer_bad(&peer_id).await {
+                    if let Err(e) = self
+                        .network
+                        .hello_request(
+                            peer_id,
+                            HelloRequest {
+                                heaviest_tip_set: heaviest.cids().to_vec(),
+                                heaviest_tipset_height: heaviest.epoch(),
+                                heaviest_tipset_weight: heaviest.weight().clone(),
+                                genesis_hash: *self.genesis.blocks()[0].cid(),
+                            },
+                        )
+                        .await
+                    {
+                        error!("{}", e)
+                    }
+                }
             }
             NetworkEvent::PeerDisconnected(peer_id) => {
-                self.network.peer_manager().remove_peer(&peer_id).await;
+                self.network.peer_manager().remove_peer(peer_id).await;
             }
             NetworkEvent::PubsubMessage { source, message } => {
                 if *self.state.lock().await != ChainSyncState::Follow {

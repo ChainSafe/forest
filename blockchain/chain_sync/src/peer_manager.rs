@@ -7,10 +7,10 @@ use libp2p::core::PeerId;
 use log::{debug, trace, warn};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{cmp::Ordering, collections::HashSet};
 
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;
@@ -52,6 +52,9 @@ pub struct PeerManager {
     /// Hash set of full peers available
     full_peers: RwLock<HashMap<PeerId, PeerInfo>>,
 
+    /// Set of peers to ignore for being incompatible/ failing to accept connections.
+    bad_peers: RwLock<HashSet<PeerId>>,
+
     /// Average response time from peers
     avg_global_time: RwLock<Duration>,
 }
@@ -72,6 +75,11 @@ impl PeerManager {
     /// Returns true if peer set is empty
     pub async fn is_empty(&self) -> bool {
         self.full_peers.read().await.is_empty()
+    }
+
+    /// Returns true if peer set is empty
+    pub async fn is_peer_bad(&self, peer_id: &PeerId) -> bool {
+        self.bad_peers.read().await.contains(peer_id)
     }
 
     /// Sort peers based on a score function with the success rate and latency of requests.
@@ -164,14 +172,19 @@ impl PeerManager {
     }
 
     /// Removes a peer from the set and returns true if the value was present previously
-    pub async fn remove_peer(&self, peer_id: &PeerId) -> bool {
+    pub async fn remove_peer(&self, peer_id: PeerId) -> bool {
         let mut peers = self.full_peers.write().await;
         debug!(
             "removing peer {:?}, remaining chain exchange peers: {}",
             peer_id,
             peers.len()
         );
-        peers.remove(peer_id).is_some()
+        let removed = peers.remove(&peer_id).is_some();
+        drop(peers);
+
+        // Add peer to bad peer set if explicitly removed.
+        self.bad_peers.write().await.insert(peer_id);
+        removed
     }
 
     /// Gets count of full peers managed.

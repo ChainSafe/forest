@@ -257,7 +257,7 @@ where
                     RequestResponseError::ConnectionClosed
                     | RequestResponseError::DialFailure
                     | RequestResponseError::UnsupportedProtocols => {
-                        self.peer_manager.remove_peer(&peer_id).await;
+                        self.peer_manager.remove_peer(peer_id).await;
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
