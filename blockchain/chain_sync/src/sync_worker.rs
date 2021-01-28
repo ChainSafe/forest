@@ -171,7 +171,7 @@ where
         let mut accepted_blocks: Vec<Cid> = Vec::new();
 
         let sync_len = head.epoch() - to.epoch();
-        if !sync_len.is_positive() {
+        if sync_len < 0 {
             return Err(Error::Other(
                 "Target tipset must be after heaviest".to_string(),
             ));
@@ -239,15 +239,15 @@ where
         }
 
         let last_ts = return_set.last().unwrap();
+        if last_ts.parents() == to.parents() {
+            // block received part of same tipset as best block
+            // This removes need to sync fork
+            return Ok(return_set);
+        }
 
         // Check if local chain was fork
         if last_ts.key() != to.key() {
             info!("Local chain was fork. Syncing fork...");
-            if last_ts.parents() == to.parents() {
-                // block received part of same tipset as best block
-                // This removes need to sync fork
-                return Ok(return_set);
-            }
             // add fork into return set
             let fork = self.sync_fork(&last_ts, &to).await?;
             info!("Fork Synced");
