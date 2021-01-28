@@ -22,7 +22,7 @@ use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::Multiaddr;
 pub use libp2p::gossipsub::Topic;
-use libp2p::request_response::{RequestId, ResponseChannel};
+use libp2p::request_response::ResponseChannel;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -60,17 +60,9 @@ pub enum NetworkEvent {
         request: HelloRequest,
         source: PeerId,
     },
-    HelloResponse {
-        request_id: RequestId,
-        response: HelloResponse,
-    },
     ChainExchangeRequest {
         request: ChainExchangeRequest,
         channel: ResponseChannel<ChainExchangeResponse>,
-    },
-    ChainExchangeResponse {
-        request_id: RequestId,
-        response: ChainExchangeResponse,
     },
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
@@ -103,6 +95,7 @@ pub enum NetworkMessage {
     HelloRequest {
         peer_id: PeerId,
         request: HelloRequest,
+        response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
     },
     BitswapRequest {
         cid: Cid,
@@ -242,13 +235,6 @@ where
                                 source: peer,
                             }).await;
                         }
-                        ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
-                            debug!("Received hello response (id: {:?})", request_id);
-                            emit_event(&self.network_sender_out, NetworkEvent::HelloResponse {
-                                request_id,
-                                response,
-                            }).await;
-                        }
                         ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
                             debug!("Received chain_exchange request (peer_id: {:?})", peer);
                             let db = self.cs.clone();
@@ -304,8 +290,8 @@ where
                                 warn!("Failed to send gossipsub message: {:?}", e);
                             }
                         }
-                        NetworkMessage::HelloRequest { peer_id, request } => {
-                            swarm_stream.get_mut().send_hello_request(&peer_id, request);
+                        NetworkMessage::HelloRequest { peer_id, request, response_channel } => {
+                            swarm_stream.get_mut().send_hello_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
                             swarm_stream.get_mut().send_chain_exchange_request(&peer_id, request, response_channel);

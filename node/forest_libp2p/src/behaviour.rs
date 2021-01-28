@@ -35,13 +35,13 @@ use libp2p::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::pin::Pin;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{collections::HashMap, convert::TryInto};
 use std::{task::Context, task::Poll};
 use tiny_cid::Cid as Cid2;
 
@@ -63,6 +63,10 @@ pub struct ForestBehaviour {
     #[behaviour(ignore)]
     cx_request_table:
         HashMap<RequestId, OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>>,
+    /// Keeps track of hello requests indexed by request ID to route response.
+    #[behaviour(ignore)]
+    hello_request_table:
+        HashMap<RequestId, OneShotSender<Result<HelloResponse, RequestResponseError>>>,
     /// Boxed futures of responses for Chain Exchange incoming requests. This needs to be polled
     /// in the behaviour to have access to the `RequestResponse` protocol when sending response.
     ///
@@ -92,11 +96,6 @@ pub enum ForestBehaviourEvent {
     HelloRequest {
         peer: PeerId,
         request: HelloRequest,
-    },
-    HelloResponse {
-        peer: PeerId,
-        request_id: RequestId,
-        response: HelloResponse,
     },
     ChainExchangeRequest {
         peer: PeerId,
@@ -220,13 +219,17 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                     let arrival = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
-                        .as_nanos();
+                        .as_nanos()
+                        .try_into()
+                        .expect("System time since unix epoch should not exceed u64");
 
                     debug!("Received hello request: {:?}", request);
                     let sent = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
-                        .as_nanos();
+                        .as_nanos()
+                        .try_into()
+                        .expect("System time since unix epoch should not exceed u64");
 
                     // Send hello response immediately, no need to have the overhead of emitting
                     // channel and polling future here.
@@ -238,20 +241,36 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                 RequestResponseMessage::Response {
                     request_id,
                     response,
-                } => self.events.push(ForestBehaviourEvent::HelloResponse {
-                    peer,
-                    request_id,
-                    response,
-                }),
+                } => {
+                    // Send the sucessful response through channel out.
+                    let tx = self.hello_request_table.remove(&request_id);
+                    if let Some(tx) = tx {
+                        if tx.send(Ok(response)).is_err() {
+                            debug!("RPCResponse receive timed out");
+                        }
+                    } else {
+                        debug!("RPCResponse receive failed: channel not found");
+                    };
+                }
             },
             RequestResponseEvent::OutboundFailure {
                 peer,
                 request_id,
                 error,
-            } => warn!(
-                "Hello outbound failure (peer: {:?}) (id: {:?}): {:?}",
-                peer, request_id, error
-            ),
+            } => {
+                warn!(
+                    "Hello outbound error (peer: {:?}) (id: {:?}): {:?}",
+                    peer, request_id, error
+                );
+
+                // Send error through channel out.
+                let tx = self.hello_request_table.remove(&request_id);
+                if let Some(tx) = tx {
+                    if tx.send(Err(error.into())).is_err() {
+                        debug!("RPCResponse receive failed");
+                    }
+                }
+            }
             RequestResponseEvent::InboundFailure {
                 peer,
                 error,
@@ -388,7 +407,9 @@ impl ForestBehaviour {
         discovery_config
             .with_mdns(config.mdns)
             .with_kademlia(config.kademlia)
-            .with_user_defined(config.bootstrap_peers.clone());
+            .with_user_defined(config.bootstrap_peers.clone())
+            // TODO allow configuring this through config.
+            .discovery_limit(50);
 
         let hp = std::iter::once((HelloProtocolName, ProtocolSupport::Full));
         let cp = std::iter::once((ChainExchangeProtocolName, ProtocolSupport::Full));
@@ -416,6 +437,7 @@ impl ForestBehaviour {
             chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
             cx_pending_responses: Default::default(),
             cx_request_table: Default::default(),
+            hello_request_table: Default::default(),
             events: vec![],
         }
     }
@@ -436,8 +458,14 @@ impl ForestBehaviour {
     }
 
     /// Send a hello request or response to some peer.
-    pub fn send_hello_request(&mut self, peer_id: &PeerId, request: HelloRequest) {
-        self.hello.send_request(peer_id, request);
+    pub fn send_hello_request(
+        &mut self,
+        peer_id: &PeerId,
+        request: HelloRequest,
+        response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
+    ) {
+        let req_id = self.hello.send_request(peer_id, request);
+        self.hello_request_table.insert(req_id, response_channel);
     }
 
     /// Send a chain exchange request or response to some peer.

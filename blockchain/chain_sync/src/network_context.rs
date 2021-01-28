@@ -282,8 +282,13 @@ where
     ) -> Result<(), &'static str> {
         trace!("Sending Hello Message {:?}", request);
         // TODO update to await response when we want to handle the latency
+        let (tx, _) = oneshot_channel();
         self.network_send
-            .send(NetworkMessage::HelloRequest { peer_id, request })
+            .send(NetworkMessage::HelloRequest {
+                peer_id,
+                request,
+                response_channel: tx,
+            })
             .await
             .map_err(|_| "Failed to send hello request: receiver dropped")
     }

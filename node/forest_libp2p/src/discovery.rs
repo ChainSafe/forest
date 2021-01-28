@@ -44,6 +44,7 @@ pub enum DiscoveryOut {
 pub struct DiscoveryConfig<'a> {
     local_peer_id: PeerId,
     user_defined: Vec<Multiaddr>,
+    discovery_max: u64,
     enable_mdns: bool,
     enable_kademlia: bool,
     network_name: &'a str,
@@ -55,10 +56,17 @@ impl<'a> DiscoveryConfig<'a> {
         DiscoveryConfig {
             local_peer_id: local_public_key.into_peer_id(),
             user_defined: Vec::new(),
+            discovery_max: std::u64::MAX,
             enable_mdns: false,
             enable_kademlia: true,
             network_name,
         }
+    }
+
+    /// Set the number of active connections at which we pause discovery.
+    pub fn discovery_limit(&mut self, limit: u64) -> &mut Self {
+        self.discovery_max = limit;
+        self
     }
 
     /// Set custom nodes which never expire, e.g. bootstrap or reserved nodes.
@@ -87,6 +95,7 @@ impl<'a> DiscoveryConfig<'a> {
         let DiscoveryConfig {
             local_peer_id,
             user_defined,
+            discovery_max,
             enable_mdns,
             enable_kademlia,
             network_name,
@@ -144,6 +153,7 @@ impl<'a> DiscoveryConfig<'a> {
             num_connections: 0,
             mdns: mdns_opt.into(),
             peers,
+            discovery_max,
         }
     }
 }
@@ -167,6 +177,8 @@ pub struct DiscoveryBehaviour {
     num_connections: u64,
     /// Keeps hash set of peers connected.
     peers: HashSet<PeerId>,
+    /// Number of active connections to pause discovery on.
+    discovery_max: u64,
 }
 
 impl DiscoveryBehaviour {
@@ -321,12 +333,15 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         // Poll the stream that fires when we need to start a random Kademlia query.
         while let Poll::Ready(_) = self.next_kad_random_query.poll_next_unpin(cx) {
-            let random_peer_id = PeerId::random();
-            debug!(target: "forest-discovery",
-					"Libp2p <= Starting random Kademlia request for {:?}",
-					random_peer_id);
-            if let Some(k) = self.kademlia.as_mut() {
-                k.get_closest_peers(random_peer_id.clone());
+            if self.num_connections < self.discovery_max {
+                // We still have not hit the discovery max, send random request for peers.
+                let random_peer_id = PeerId::random();
+                debug!(target: "forest-discovery",
+                        "Libp2p <= Starting random Kademlia request for {:?}",
+                        random_peer_id);
+                if let Some(k) = self.kademlia.as_mut() {
+                    k.get_closest_peers(random_peer_id.clone());
+                }
             }
 
             // Schedule the next random query with exponentially increasing delay,
@@ -381,6 +396,13 @@ impl NetworkBehaviour for DiscoveryBehaviour {
             match ev {
                 NetworkBehaviourAction::GenerateEvent(event) => match event {
                     MdnsEvent::Discovered(list) => {
+                        if self.num_connections >= self.discovery_max {
+                            // Already over discovery max, don't add discovered peers.
+                            // We could potentially buffer these addresses to be added later,
+                            // but mdns is not an important use case and may be removed in future.
+                            continue;
+                        }
+
                         // Add any discovered peers to Kademlia
                         for (peer_id, multiaddr) in list {
                             if let Some(kad) = self.kademlia.as_mut() {
