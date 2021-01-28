@@ -1,5 +1,4 @@
-#![cfg(feature = "integration_tests")]
-
+#![cfg(test)]
 use anyhow::{Error, Result};
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};

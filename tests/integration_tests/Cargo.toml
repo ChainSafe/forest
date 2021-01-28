@@ -5,9 +5,5 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 publish = false
 
-[features]
-default = []
-integration_tests = ["anyhow"]
-
 [dependencies]
-anyhow = { version = "1.0.38", optional = true }
+anyhow = "1.0.38"
