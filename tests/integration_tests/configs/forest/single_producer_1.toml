@@ -1,6 +1,0 @@
-data_dir = "/tmp/forest_sp1"
-genesis_file = "<relative file path of genesis car file>"
-
-[network]
-listening_multiaddr = "<multiaddress>"
-bootstrap_peers = ["<multiaddress>"]

@@ -7,3 +7,4 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.38"
+async-std = { version = "1.6.3", features = ["unstable", "attributes"] }

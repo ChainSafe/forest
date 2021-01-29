@@ -1,20 +1,26 @@
 #![cfg(test)]
 use anyhow::{Error, Result};
+use async_std::process::{Command, Stdio};
+use async_std::sync::{Arc, Mutex};
 use std::io::{BufRead, BufReader};
-use std::process::{Command, Stdio};
 
-const CONFIGS_PATH: &str = "./configs";
+struct Process {
+  output: Arc<Mutex<String>>,
+}
 
-#[test]
-pub fn single_producer_multiple_consumer() -> Result<(), Error> {
-  let forest_sp1_config = format!("{}/forest/single_producer_1.toml", CONFIGS_PATH);
+impl Process {
+  pub fn new() -> Self {
+    let output = Arc::new(Mutex::new(String::new()));
 
+    Self { output }
+  }
+}
+
+#[async_std::test]
+pub async fn single_producer_multiple_consumer() -> Result<(), Error> {
   let mut output = Command::new("bash")
     .arg("-C")
-    .arg(format!(
-      "../../target/release/forest --config {}",
-      forest_sp1_config
-    ))
+    .arg(format!("forest --config {}", forest_sp1_config))
     .stdout(Stdio::piped())
     .spawn()
     .expect("forest failed to start");
