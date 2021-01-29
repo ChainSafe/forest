@@ -494,17 +494,13 @@ where
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> Result<(), Box<dyn StdError>> {
-        let worker_addr = self.worker_key_at_lookback(bh.epoch(), bh.miner_address())?;
+        let worker_addr = self.worker_key_at_lookback(bh.epoch())?;
 
         bh.check_block_signature(&worker_addr)?;
         Ok(())
     }
 
-    fn worker_key_at_lookback(
-        &self,
-        height: ChainEpoch,
-        address: &Address,
-    ) -> Result<Address, Box<dyn StdError>> {
+    fn worker_key_at_lookback(&self, height: ChainEpoch) -> Result<Address, Box<dyn StdError>> {
         if self.network_version() >= NetworkVersion::V7
             && height < self.epoch - actor::CHAIN_FINALITY
         {
@@ -519,7 +515,7 @@ where
         let actor = lb_state
             // * @austinabell: Yes, this is intentional (should be updated with v3 actors though)
             .get_actor(self.vm_msg.receiver())?
-            .ok_or_else(|| format!("actor not found {:?}", address))?;
+            .ok_or_else(|| format!("actor not found {:?}", self.vm_msg.receiver()))?;
 
         let ms = actor::miner::State::load(self.store(), &actor)?;
 
@@ -903,6 +899,10 @@ where
         let bh_1 = BlockHeader::unmarshal_cbor(h1)?;
         let bh_2 = BlockHeader::unmarshal_cbor(h2)?;
 
+        if bh_1.cid() == bh_2.cid() {
+            return Err("no consensus fault: submitted blocks are the same".into());
+        }
+
         // (1) check conditions necessary to any consensus fault
 
         if bh_1.miner_address() != bh_2.miner_address() {
@@ -914,7 +914,7 @@ where
             .into());
         };
         // block a must be earlier or equal to block b, epoch wise (ie at least as early in the chain).
-        if bh_1.epoch() < bh_2.epoch() {
+        if bh_2.epoch() < bh_1.epoch() {
             return Err(format!(
                 "first block must not be of higher height than second: {:?}, {:?}",
                 bh_1.epoch(),
@@ -922,7 +922,10 @@ where
             )
             .into());
         };
+
+        // (2) check for the consensus faults themselves
         let mut cf: Option<ConsensusFault> = None;
+
         // (a) double-fork mining fault
         if bh_1.epoch() == bh_2.epoch() {
             cf = Some(ConsensusFault {
@@ -931,10 +934,11 @@ where
                 fault_type: ConsensusFaultType::DoubleForkMining,
             })
         };
+
         // (b) time-offset mining fault
         // strictly speaking no need to compare heights based on double fork mining check above,
         // but at same height this would be a different fault.
-        if bh_1.parents() != bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
+        if bh_1.parents() == bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
             cf = Some(ConsensusFault {
                 target: *bh_1.miner_address(),
                 epoch: bh_2.epoch(),
