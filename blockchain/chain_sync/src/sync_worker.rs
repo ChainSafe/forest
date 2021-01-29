@@ -655,13 +655,8 @@ where
         let b_cloned = Arc::clone(&block);
         let p_beacon = Arc::clone(&prev_beacon);
         validations.push(task::spawn_blocking(move || {
-            let block_sig_bytes = b_cloned.header().to_signing_bytes();
-
-            // Can unwrap here because verified to be `Some` in the sanity checks.
-            let block_sig = b_cloned.header().signature().as_ref().unwrap();
-            block_sig
-                .verify(&block_sig_bytes, &work_addr)
-                .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
+            b_cloned.header().check_block_signature(&work_addr)?;
+            Ok(())
         }));
 
         // * Beacon values check
