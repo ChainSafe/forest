@@ -655,10 +655,8 @@ where
         let b_cloned = Arc::clone(&block);
         let p_beacon = Arc::clone(&prev_beacon);
         validations.push(task::spawn_blocking(move || {
-            b_cloned
-                .header()
-                .check_block_signature(&work_addr)
-                .map_err(|e| Error::Blockchain(e))
+            b_cloned.header().check_block_signature(&work_addr)?;
+            Ok(())
         }));
 
         // * Beacon values check
