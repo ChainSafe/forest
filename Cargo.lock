@@ -3323,7 +3323,7 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "ipld_blockstore",
- "lazycell",
+ "once_cell",
  "serde",
  "thiserror",
 ]
