@@ -369,6 +369,8 @@ mod test_selection {
     }
 
     #[async_std::test]
+    #[ignore = "test is incredibly slow"]
+    // TODO optimize logic tested in this function
     async fn message_selection_trimming() {
         let mpool = make_test_mpool();
 

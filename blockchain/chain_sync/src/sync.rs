@@ -186,10 +186,6 @@ where
     ) {
         match network_event {
             NetworkEvent::HelloRequest { request, source } => {
-                self.network
-                    .peer_manager()
-                    .update_peer_head(source.clone(), None)
-                    .await;
                 debug!(
                     "Message inbound, heaviest tipset cid: {:?}",
                     request.heaviest_tip_set
@@ -370,7 +366,7 @@ where
                 hello_event = hello_futures.select_next_some() => match hello_event {
                     (peer_id, sent, Some(Ok(_res))) => {
                         let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
-                        self.network.peer_manager().log_success(&peer_id, lat).await;
+                        self.network.peer_manager().log_success(peer_id, lat).await;
                     },
                     (peer_id, sent, Some(Err(e))) => {
                         match e {
@@ -382,14 +378,14 @@ where
                             // Log failure for timeout on remote node.
                             RequestResponseError::Timeout => {
                                 let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
-                                self.network.peer_manager().log_failure(&peer_id, lat).await;
+                                self.network.peer_manager().log_failure(peer_id, lat).await;
                             },
                         }
                     }
                     // This is indication of timeout on receiver, log failure.
                     (peer_id, sent, None) => {
                         let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
-                        self.network.peer_manager().log_failure(&peer_id, lat).await;
+                        self.network.peer_manager().log_failure(peer_id, lat).await;
                     },
                 },
             }
@@ -484,7 +480,7 @@ where
     async fn set_peer_head(&mut self, peer: PeerId, ts: Arc<Tipset>) {
         self.network
             .peer_manager()
-            .update_peer_head(peer, Some(Arc::clone(&ts)))
+            .update_peer_head(peer, Arc::clone(&ts))
             .await;
 
         // Only update target on initial sync

@@ -4,7 +4,7 @@
 use async_std::sync::RwLock;
 use blocks::Tipset;
 use libp2p::core::PeerId;
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -23,7 +23,7 @@ const LOCAL_INV_ALPHA: u32 = 5;
 /// Global duration multiplier, affects duration delta change.
 const GLOBAL_INV_ALPHA: u32 = 20;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct PeerInfo {
     /// Head tipset received from hello message.
     head: Option<Arc<Tipset>>,
@@ -36,9 +36,9 @@ struct PeerInfo {
 }
 
 impl PeerInfo {
-    fn new(head: Option<Arc<Tipset>>) -> Self {
+    fn new(head: Arc<Tipset>) -> Self {
         Self {
-            head,
+            head: Some(head),
             successes: 0,
             failures: 0,
             average_time: Default::default(),
@@ -70,11 +70,11 @@ pub struct PeerManager {
 impl PeerManager {
     /// Updates peer's heaviest tipset. If the peer does not exist in the set, a new `PeerInfo`
     /// will be generated.
-    pub async fn update_peer_head(&self, peer_id: PeerId, ts: Option<Arc<Tipset>>) {
+    pub async fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
         let mut peers = self.peers.write().await;
         trace!("Updating head for PeerId {}", &peer_id);
         if let Some(pi) = peers.full_peers.get_mut(&peer_id) {
-            pi.head = ts;
+            pi.head = Some(ts);
         } else {
             peers.full_peers.insert(peer_id, PeerInfo::new(ts));
         }
@@ -159,26 +159,23 @@ impl PeerManager {
     }
 
     /// Logs a success for the given peer, and updates the average request duration.
-    pub async fn log_success(&self, peer: &PeerId, dur: Duration) {
+    pub async fn log_success(&self, peer: PeerId, dur: Duration) {
         debug!("logging success for {:?}", peer);
-        match self.peers.write().await.full_peers.get_mut(peer) {
-            Some(p) => {
-                p.successes += 1;
-                log_time(p, dur);
-            }
-            None => warn!("log success called for peer not in peer manager ({})", peer),
-        }
+        let mut peers = self.peers.write().await;
+        peers.bad_peers.remove(&peer);
+        let peer_stats = peers.full_peers.entry(peer).or_default();
+        peer_stats.successes += 1;
+        log_time(peer_stats, dur);
     }
 
     /// Logs a failure for the given peer, and updates the average request duration.
-    pub async fn log_failure(&self, peer: &PeerId, dur: Duration) {
+    pub async fn log_failure(&self, peer: PeerId, dur: Duration) {
         debug!("logging failure for {:?}", peer);
-        match self.peers.write().await.full_peers.get_mut(peer) {
-            Some(p) => {
-                p.failures += 1;
-                log_time(p, dur);
-            }
-            None => warn!("log success called for peer not in peer manager ({})", peer),
+        let mut peers = self.peers.write().await;
+        if !peers.bad_peers.contains(&peer) {
+            let peer_stats = peers.full_peers.entry(peer).or_default();
+            peer_stats.failures += 1;
+            log_time(peer_stats, dur);
         }
     }
 

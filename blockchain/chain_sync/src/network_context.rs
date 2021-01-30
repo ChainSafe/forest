@@ -262,7 +262,7 @@ where
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
-                self.peer_manager.log_success(&peer_id, res_duration).await;
+                self.peer_manager.log_success(peer_id, res_duration).await;
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {
@@ -276,7 +276,7 @@ where
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
                     RequestResponseError::Timeout => {
-                        self.peer_manager.log_failure(&peer_id, res_duration).await;
+                        self.peer_manager.log_failure(peer_id, res_duration).await;
                     }
                 }
                 Err(format!("Internal libp2p error: {:?}", e))
@@ -284,7 +284,7 @@ where
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which will
                 // negatively score the peer, but not drop yet.
-                self.peer_manager.log_failure(&peer_id, res_duration).await;
+                self.peer_manager.log_failure(peer_id, res_duration).await;
                 Err("Chain exchange request timed out".to_string())
             }
         }
