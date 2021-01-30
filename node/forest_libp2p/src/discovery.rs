@@ -223,7 +223,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
             list.extend(list_to_filter);
         }
 
-        trace!(target: "forest-discovery", "Addresses of {:?}: {:?}", peer_id, list);
+        trace!("Addresses of {:?}: {:?}", peer_id, list);
 
         list
     }
@@ -287,8 +287,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         if let Some(kad) = self.kademlia.as_mut() {
             return kad.inject_event(peer_id, connection, event);
         }
-        error!(target: "forest-discovery",
-			"inject_node_event: no kademlia instance registered for protocol")
+        error!("inject_node_event: no kademlia instance registered for protocol")
     }
 
     fn inject_new_external_addr(&mut self, addr: &Multiaddr) {
@@ -336,9 +335,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
             if self.num_connections < self.discovery_max {
                 // We still have not hit the discovery max, send random request for peers.
                 let random_peer_id = PeerId::random();
-                debug!(target: "forest-discovery",
-                        "Libp2p <= Starting random Kademlia request for {:?}",
-                        random_peer_id);
+                debug!(
+                    "Libp2p <= Starting random Kademlia request for {:?}",
+                    random_peer_id
+                );
                 if let Some(k) = self.kademlia.as_mut() {
                     k.get_closest_peers(random_peer_id.clone());
                 }
@@ -364,7 +364,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                             // Intentionally ignore
                         }
                         other => {
-                            debug!(target: "forest-discovery", "Libp2p => Unhandled Kademlia event: {:?}", other)
+                            debug!("Libp2p => Unhandled Kademlia event: {:?}", other)
                         }
                     },
                     NetworkBehaviourAction::DialAddress { address } => {
