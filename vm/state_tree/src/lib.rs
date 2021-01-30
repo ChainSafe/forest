@@ -388,4 +388,12 @@ where
             )?)
         }
     }
+
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    where
+        F: FnMut(Address, &ActorState) -> Result<(), Box<dyn StdError>>,
+        S: BlockStore,
+    {
+        self.hamt.for_each(|k, v| f(Address::from_bytes(&k.0)?, v))
+    }
 }

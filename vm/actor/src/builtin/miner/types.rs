@@ -273,13 +273,6 @@ pub struct SectorOnChainInfo {
     pub replaced_day_reward: TokenAmount,
 }
 
-// TODO: figure out if we need this type
-#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
-pub struct ChainSectorInfo {
-    pub info: SectorOnChainInfo,
-    pub id: SectorNumber,
-}
-
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct Fault {
     pub miner: Address,

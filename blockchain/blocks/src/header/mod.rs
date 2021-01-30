@@ -326,7 +326,7 @@ impl BlockHeader {
             .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
 
         signature
-            .verify(&self.cid().to_bytes(), &addr)
+            .verify(&self.to_signing_bytes(), &addr)
             .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
 
         // Set validated cache to true
@@ -363,14 +363,14 @@ impl BlockHeader {
     pub async fn validate_block_drand<B: Beacon>(
         &self,
         b_schedule: &BeaconSchedule<B>,
-        _parent_epoch: ChainEpoch,
+        parent_epoch: ChainEpoch,
         prev_entry: &BeaconEntry,
     ) -> Result<(), Error> {
         let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
         let (pb_epoch, _) = b_schedule
-            .beacon_for_epoch(self.epoch)
+            .beacon_for_epoch(parent_epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
 
         if cb_epoch != pb_epoch {
@@ -462,10 +462,10 @@ mod tests {
         // This is a valid signature, but if the block header vector changes, the address should
         // need to as well.
         header
-            .signature
-            .as_ref()
-            .unwrap()
-            .verify(&header.to_signing_bytes(), &"f3vfs6f7tagrcpnwv65wq3leznbajqyg77bmijrpvoyjv3zjyi3urq25vigfbs3ob6ug5xdihajumtgsxnz2pa".parse().unwrap())
+            .check_block_signature(
+                &"f3vfs6f7tagrcpnwv65wq3leznbajqyg77bmijrpvoyjv3zjyi3urq25vigfbs3ob6ug5xdihajumtgsxnz2pa"
+                .parse()
+                .unwrap())
             .unwrap();
     }
 }

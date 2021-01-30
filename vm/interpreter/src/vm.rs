@@ -3,7 +3,7 @@
 
 use super::{
     gas_tracker::{price_list_by_epoch, GasCharge},
-    vm_send, DefaultRuntime, Rand,
+    DefaultRuntime, Rand,
 };
 use actor::{
     actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
@@ -18,7 +18,7 @@ use fil_types::{
 };
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
-use log::warn;
+use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use networks::UPGRADE_CLAUS_HEIGHT;
 use num_bigint::{BigInt, Sign};
@@ -387,7 +387,7 @@ where
                     err
                 ));
             } else {
-                warn!(
+                debug!(
                     "[from={}, to={}, seq={}, m={}] send error: {}",
                     msg.from(),
                     msg.to(),
@@ -523,7 +523,7 @@ where
         );
 
         match res {
-            Ok(mut rt) => match vm_send(&mut rt, msg, gas_cost) {
+            Ok(mut rt) => match rt.send(msg, gas_cost) {
                 Ok(ser) => (ser, Some(rt), None),
                 Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
             },

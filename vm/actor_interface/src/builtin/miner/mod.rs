@@ -91,8 +91,7 @@ impl State {
                     seal_proof_type: info.seal_proof_type,
                     sector_size: info.sector_size,
                     window_post_partition_sectors: info.window_post_partition_sectors,
-                    // TODO update on v2 update
-                    consensus_fault_elapsed: -1,
+                    consensus_fault_elapsed: info.consensus_fault_elapsed,
                 })
             }
         }
@@ -216,8 +215,7 @@ impl State {
     pub fn fee_debt(&self) -> TokenAmount {
         match self {
             State::V0(_) => TokenAmount::from(0),
-            // TODO update on V2 actor impl
-            State::V2(_) => TokenAmount::from(0),
+            State::V2(st) => st.fee_debt.clone(),
         }
     }
 

@@ -17,6 +17,7 @@ use beacon::{Beacon, BeaconSchedule};
 use blocks::{Block, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Code::Blake2b256};
+use clock::ChainEpoch;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
@@ -28,10 +29,16 @@ use libp2p::core::PeerId;
 use log::{debug, error, info, trace, warn};
 use message::{SignedMessage, UnsignedMessage};
 use message_pool::{MessagePool, Provider};
+use networks::BLOCK_DELAY_SECS;
 use serde::Deserialize;
 use state_manager::StateManager;
-use std::marker::PhantomData;
 use std::sync::Arc;
+use std::{
+    marker::PhantomData,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+const MAX_HEIGHT_DRIFT: u64 = 5;
 
 // TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
 // on separate thread and needs to be mutated independently, but the vec needs to be read
@@ -152,7 +159,7 @@ where
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
             sync_queue: SyncBucketSet::default(),
-            active_sync_tipsets: SyncBucketSet::default(),
+            active_sync_tipsets: Default::default(),
             next_sync_target: None,
             verifier: Default::default(),
             mpool,
@@ -266,7 +273,8 @@ where
             }
         };
         info!(
-            "Received block over GossipSub: {} from {}",
+            "Received block over GossipSub: {} height {} from {}",
+            block.header.cid(),
             block.header.epoch(),
             source
         );
@@ -308,7 +316,6 @@ where
 
     /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self, worker_tx: Sender<Arc<Tipset>>, worker_rx: Receiver<Arc<Tipset>>) {
-        // TODO benchmark (1 is temporary value to avoid overlap)
         for _ in 0..self.sync_config.worker_tasks {
             self.spawn_worker(worker_rx.clone()).await;
         }
@@ -399,7 +406,12 @@ where
         if ts.blocks().is_empty() {
             return Err(Error::NoBlocks);
         }
-        // TODO: Check if tipset has height that is too far ahead to be possible
+        if self.is_epoch_beyond_curr_max(ts.epoch()) {
+            error!("Received block with impossibly large height {}", ts.epoch());
+            return Err(Error::Validation(
+                "Block has impossibly large height".to_string(),
+            ));
+        }
 
         for block in ts.blocks() {
             if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
@@ -457,42 +469,54 @@ where
     async fn schedule_tipset(&mut self, tipset: Arc<Tipset>) {
         debug!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
-        let mut related_to_active = false;
+        // TODO check if this is already synced.
+
         for act_state in self.worker_state.read().await.iter() {
             if let Some(target) = act_state.read().await.target() {
+                // Already currently syncing this, so just return
                 if target == &tipset {
                     return;
                 }
-
+                // The new tipset is the successor block of a block being synced, add it to queue.
+                // We might need to check if it is still currently syncing or if it is complete...
                 if tipset.parents() == target.key() {
-                    related_to_active = true;
+                    self.sync_queue.insert(tipset);
+                    if self.next_sync_target.is_none() {
+                        if let Some(target_bucket) = self.sync_queue.pop() {
+                            self.next_sync_target = Some(target_bucket);
+                        }
+                    }
+                    return;
                 }
             }
         }
 
-        // Check if related to active tipset buckets.
-        if !related_to_active && self.active_sync_tipsets.related_to_any(tipset.as_ref()) {
-            related_to_active = true;
-        }
-
-        if related_to_active {
-            self.active_sync_tipsets.insert(tipset);
-            return;
-        }
-
-        // if next_sync_target is from same chain as incoming tipset add it to be synced next
-        if let Some(tar) = &mut self.next_sync_target {
-            if tar.is_same_chain_as(&tipset) {
-                tar.add(tipset);
-            }
-        } else {
-            // add incoming tipset to queue to by synced later
+        if self.sync_queue.related_to_any(&tipset) {
             self.sync_queue.insert(tipset);
-            // update next sync target if none
             if self.next_sync_target.is_none() {
                 if let Some(target_bucket) = self.sync_queue.pop() {
                     self.next_sync_target = Some(target_bucket);
                 }
+            }
+            return;
+        }
+
+        // TODO sync the fork?
+
+        // Check if the incoming tipset is heavier than the heaviest tipset in the queue.
+        // If it isnt, return because we dont want to sync that.
+        let queue_heaviest = self.sync_queue.heaviest();
+        if let Some(qtip) = queue_heaviest {
+            if qtip.weight() > tipset.weight() {
+                return;
+            }
+        }
+        // Heavy enough to be synced. If there is no current thing being synced,
+        // add it to be synced right away. Otherwise, add it to the queue.
+        self.sync_queue.insert(tipset);
+        if self.next_sync_target.is_none() {
+            if let Some(target_bucket) = self.sync_queue.pop() {
+                self.next_sync_target = Some(target_bucket);
             }
         }
     }
@@ -512,6 +536,20 @@ where
         chain::persist_objects(self.state_manager.blockstore(), block.secp_msgs())?;
 
         Ok(())
+    }
+
+    fn is_epoch_beyond_curr_max(&self, epoch: ChainEpoch) -> bool {
+        let genesis = if let Ok(Some(gen)) = self.state_manager.chain_store().genesis() {
+            gen
+        } else {
+            return false;
+        };
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        epoch as u64 > ((now - genesis.timestamp()) / BLOCK_DELAY_SECS) + MAX_HEIGHT_DRIFT
     }
 
     /// Returns `FullTipset` from store if `TipsetKeys` exist in key-value store otherwise requests

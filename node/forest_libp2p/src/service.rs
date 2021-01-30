@@ -198,6 +198,7 @@ where
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
                             debug!("Peer disconnected, {:?}", peer_id);
+                            swarm_stream.get_mut().remove_peer(&peer_id);
                         }
                         ForestBehaviourEvent::GossipMessage {
                             source,
@@ -273,7 +274,7 @@ where
                                                 trace!("Saved Bitswap block with cid {:?}", cid);
                                         }
                                     } else {
-                                        warn!("Received Bitswap response, but response channel cannot be found");
+                                        debug!("Received Bitswap response, but response channel cannot be found");
                                     }
                                     emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{cid}).await;
                                 }

@@ -43,3 +43,4 @@ libp2p = { version = "0.28", default-features = false }
 
 [features]
 devnet = []
+interopnet = []

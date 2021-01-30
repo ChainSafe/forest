@@ -459,6 +459,7 @@ impl ForestBehaviour {
             identify: Identify::new(
                 "ipfs/0.1.0".into(),
                 // TODO update to include actual version
+                // https://github.com/ChainSafe/forest/issues/934
                 format!("forest-{}", "0.1.0"),
                 local_key.public(),
             ),
@@ -510,9 +511,10 @@ impl ForestBehaviour {
 
     /// Adds peer to the peer set.
     pub fn add_peer(&mut self, peer_id: PeerId) {
-        self.peers.insert(peer_id.clone());
-        self.bitswap.connect(peer_id.clone());
-        self.events.push(ForestBehaviourEvent::PeerDialed(peer_id));
+        if self.peers.insert(peer_id.clone()) {
+            self.bitswap.connect(peer_id.clone());
+            self.events.push(ForestBehaviourEvent::PeerDialed(peer_id));
+        }
     }
 
     /// Adds peer to the peer set.

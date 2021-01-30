@@ -5,8 +5,6 @@ use address::Address;
 use encoding::{tuple::*, Cbor};
 use vm::MethodNum;
 
-// TODO setup builtin entries for genesis initialization
-
 /// Cron actor state which holds entries to call during epoch tick
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {

@@ -30,10 +30,13 @@ use num_traits::Zero;
 use rayon::prelude::*;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error as StdError;
 use std::io::Write;
 use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    time::SystemTime,
+};
 use tokio::sync::broadcast::{self, error::RecvError, Receiver as Subscriber, Sender as Publisher};
 
 const GENESIS_KEY: &str = "gen_block";
@@ -122,12 +125,6 @@ where
         (sub, ts)
     }
 
-    /// Sets tip_index tracker
-    // TODO handle managing tipset in tracker
-    pub async fn set_tipset_tracker(&self, _: &BlockHeader) -> Result<(), Error> {
-        Ok(())
-    }
-
     /// Writes genesis to blockstore
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
@@ -144,7 +141,7 @@ where
         // blockstore reads
         persist_objects(self.blockstore(), ts.blocks())?;
         let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
-        self.update_heaviest(&expanded).await?;
+        self.update_heaviest(Arc::new(expanded)).await?;
         Ok(())
     }
 
@@ -201,7 +198,7 @@ where
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    async fn update_heaviest(&self, ts: &Tipset) -> Result<(), Error> {
+    async fn update_heaviest(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = self
             .heaviest
@@ -211,17 +208,17 @@ where
             .map(|ts| weight(self.db.as_ref(), ts.as_ref()));
         match heaviest_weight {
             Some(heaviest) => {
-                let new_weight = weight(self.blockstore(), ts)?;
+                let new_weight = weight(self.blockstore(), ts.as_ref())?;
                 let curr_weight = heaviest?;
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset");
-                    self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
+                    self.set_heaviest_tipset(ts).await?;
                 }
             }
             None => {
                 info!("set heaviest tipset");
-                self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
+                self.set_heaviest_tipset(ts).await?;
             }
         }
         Ok(())
@@ -506,7 +503,7 @@ where
         let write_task =
             task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
 
-        // TODO add timer for export
+        let global_pre_time = SystemTime::now();
         info!("chain export started");
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
@@ -528,7 +525,11 @@ where
         write_task
             .await
             .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))?;
-        info!("export finished");
+
+        let time = SystemTime::now()
+            .duration_since(global_pre_time)
+            .expect("time cannot go backwards");
+        info!("export finished, took {} seconds", time.as_secs());
 
         Ok(())
     }

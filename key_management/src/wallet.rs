@@ -182,7 +182,9 @@ pub fn try_find<T: KeyStore>(addr: &Address, keystore: &mut T) -> Result<KeyInfo
         Ok(k) => Ok(k),
         Err(_) => {
             let mut new_addr = addr.to_string();
-            // TODO: This needs to be handled better. See this issue: https://github.com/ChainSafe/forest/issues/867
+
+            // Try to replace prefix with testnet, for backwards compatibility
+            // * We might be able to remove this, look into variants
             new_addr.replace_range(0..1, "t");
             let key_string = format!("wallet-{}", new_addr);
             let key_info = keystore.get(&key_string)?;

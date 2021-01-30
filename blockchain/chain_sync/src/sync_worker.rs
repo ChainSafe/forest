@@ -22,8 +22,8 @@ use cid::{Cid, Code::Blake2b256};
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{
-    verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS,
-    BLOCK_GAS_LIMIT, TICKET_RANDOMNESS_LOOKBACK,
+    verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
+    TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -31,7 +31,7 @@ use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
 use message::{Message, SignedMessage, UnsignedMessage};
-use networks::{get_network_version_default, UPGRADE_SMOKE_HEIGHT};
+use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -171,7 +171,7 @@ where
         let mut accepted_blocks: Vec<Cid> = Vec::new();
 
         let sync_len = head.epoch() - to.epoch();
-        if !sync_len.is_positive() {
+        if sync_len < 0 {
             return Err(Error::Other(
                 "Target tipset must be after heaviest".to_string(),
             ));
@@ -239,15 +239,15 @@ where
         }
 
         let last_ts = return_set.last().unwrap();
+        if last_ts.parents() == to.parents() {
+            // block received part of same tipset as best block
+            // This removes need to sync fork
+            return Ok(return_set);
+        }
 
         // Check if local chain was fork
         if last_ts.key() != to.key() {
             info!("Local chain was fork. Syncing fork...");
-            if last_ts.parents() == to.parents() {
-                // block received part of same tipset as best block
-                // This removes need to sync fork
-                return Ok(return_set);
-            }
             // add fork into return set
             let fork = self.sync_fork(&last_ts, &to).await?;
             info!("Fork Synced");
@@ -655,13 +655,8 @@ where
         let b_cloned = Arc::clone(&block);
         let p_beacon = Arc::clone(&prev_beacon);
         validations.push(task::spawn_blocking(move || {
-            let block_sig_bytes = b_cloned.header().to_signing_bytes();
-
-            // Can unwrap here because verified to be `Some` in the sanity checks.
-            let block_sig = b_cloned.header().signature().as_ref().unwrap();
-            block_sig
-                .verify(&block_sig_bytes, &work_addr)
-                .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
+            b_cloned.header().check_block_signature(&work_addr)?;
+            Ok(())
         }));
 
         // * Beacon values check
@@ -996,7 +991,6 @@ pub fn compute_msg_meta<DB: BlockStore>(
     let secp_cids = cids_from_messages(secp_msgs)?;
 
     // generate Amt and batch set message values
-    // TODO avoid having to clone all cids (from iter function on Amt)
     let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
     let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
 
