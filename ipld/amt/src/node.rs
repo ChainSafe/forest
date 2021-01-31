@@ -165,16 +165,6 @@ where
             for (i, link) in (0..).zip(links.iter_mut()) {
                 // links should only be flushed if the bitmap is set.
                 if bmap.get_bit(i) {
-                    #[cfg(feature = "go-interop")]
-                    if let Some(Link::Cid { cache, .. }) = link {
-                        // Yes, this is necessary to interop, and yes this is safe to borrow
-                        // mutably because there are no values changed here, just extra db writes.
-                        if let Some(cached) = cache.get_mut() {
-                            cached.flush(bs)?;
-                            bs.put(cached, Blake2b256)?;
-                        }
-                    }
-
                     if let Some(Link::Dirty(n)) = link {
                         // flush sub node to clear caches
                         n.flush(bs)?;
@@ -435,24 +425,14 @@ where
                         let keep_going = match l.as_ref().expect("bit set at index") {
                             Link::Dirty(sub) => sub.for_each_while(store, height - 1, offs, f)?,
                             Link::Cid { cid, cache } => {
-                                // TODO simplify with try_init when go-interop feature not needed
-                                if let Some(cached_node) = cache.get() {
-                                    cached_node.for_each_while(store, height - 1, offs, f)?
-                                } else {
-                                    let node: Box<Node<V>> = store
-                                        .get(cid)?
-                                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
+                                let cached_node =
+                                    cache.get_or_try_init(|| -> Result<Box<Node<V>>, Error> {
+                                        store
+                                            .get(cid)?
+                                            .ok_or_else(|| Error::CidNotFound(cid.to_string()))
+                                    })?;
 
-                                    #[cfg(not(feature = "go-interop"))]
-                                    {
-                                        // Ignore error intentionally, the cache value will always be the same
-                                        let cache_node = cache.get_or_init(|| node);
-                                        cache_node.for_each_while(store, height - 1, offs, f)?
-                                    }
-
-                                    #[cfg(feature = "go-interop")]
-                                    node.for_each_while(store, height - 1, offs, f)?
-                                }
+                                cached_node.for_each_while(store, height - 1, offs, f)?
                             }
                         };
 
@@ -510,33 +490,19 @@ where
                                 sub.for_each_while_mut(store, height - 1, offs, f)?
                             }
                             Link::Cid { cid, cache } => {
-                                let cache_node = std::mem::take(cache);
-
-                                #[allow(unused_variables)]
-                                let (mut node, cached) = if let Some(sn) = cache_node.into_inner() {
-                                    (sn, true)
-                                } else {
-                                    // Only retrieve sub node if not found in cache
-                                    (store.get(&cid)?.ok_or(Error::RootNotFound)?, false)
-                                };
+                                cache.get_or_try_init(|| -> Result<Box<Node<V>>, Error> {
+                                    store
+                                        .get(cid)?
+                                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))
+                                })?;
+                                let node = cache.get_mut().expect("cache filled on line above");
 
                                 let (keep_going, did_mutate_node) =
                                     node.for_each_while_mut(store, height - 1, offs, f)?;
 
                                 if did_mutate_node {
-                                    *link = Link::Dirty(node);
-                                } else {
-                                    #[cfg(feature = "go-interop")]
-                                    {
-                                        if cached {
-                                            let _ = cache.set(node);
-                                        }
-                                    }
-
-                                    // Replace cache, or else iteration over without modification
-                                    // will consume cache
-                                    #[cfg(not(feature = "go-interop"))]
-                                    let _ = cache.set(node);
+                                    // Cache was mutated, switch it to dirty
+                                    *link = Link::Dirty(std::mem::take(node));
                                 }
 
                                 (keep_going, did_mutate_node)
