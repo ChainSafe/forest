@@ -19,7 +19,7 @@ forest_ipld = "0.1.1"
 serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 thiserror = "1.0"
 sha2 = "0.9.1"
-lazycell = "1.2.1"
+once_cell = "1.5"
 forest_hash_utils = "0.1"
 
 [features]

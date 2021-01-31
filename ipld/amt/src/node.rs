@@ -450,10 +450,7 @@ where
                                     #[cfg(not(feature = "go-interop"))]
                                     {
                                         // Ignore error intentionally, the cache value will always be the same
-                                        let _ = cache.fill(node);
-                                        let cache_node =
-                                            cache.borrow().expect("cache filled on line above");
-
+                                        let cache_node = cache.get_or_init(|| node);
                                         cache_node.for_each_while(store, height - 1, offs, f)?
                                     }
 

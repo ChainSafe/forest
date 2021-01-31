@@ -7,7 +7,7 @@ use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Code::Blake2b256;
 use ipld_blockstore::BlockStore;
-use lazycell::LazyCell;
+use once_cell::unsync::OnceCell;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
@@ -129,7 +129,7 @@ where
         for p in &self.pointers {
             match p {
                 Pointer::Link { cid, cache } => {
-                    if let Some(cached_node) = cache.borrow() {
+                    if let Some(cached_node) = cache.get() {
                         cached_node.for_each(store, f)?
                     } else {
                         let node = if let Some(node) = store.get(cid)? {
@@ -143,8 +143,7 @@ where
                         };
 
                         // Ignore error intentionally, the cache value will always be the same
-                        let _ = cache.fill(node);
-                        let cache_node = cache.borrow().expect("cache filled on line above");
+                        let cache_node = cache.get_or_init(|| node);
                         cache_node.for_each(store, f)?
                     }
                 }
@@ -196,7 +195,7 @@ where
         let child = self.get_child(cindex);
         match child {
             Pointer::Link { cid, cache } => {
-                if let Some(cached_node) = cache.borrow() {
+                if let Some(cached_node) = cache.get() {
                     // Link node is cached
                     cached_node.get_value(hashed_key, bit_width, depth + 1, key, store)
                 } else {
@@ -211,8 +210,7 @@ where
                     };
 
                     // Intentionally ignoring error, cache will always be the same.
-                    let _ = cache.fill(node);
-                    let cache_node = cache.borrow().expect("cache filled on line above");
+                    let cache_node = cache.get_or_init(|| node);
                     cache_node.get_value(hashed_key, bit_width, depth + 1, key, store)
                 }
             }
@@ -393,13 +391,13 @@ where
                 // Put node in blockstore and retrieve Cid
                 let cid = store.put(node, Blake2b256)?;
 
-                let cache = LazyCell::new();
+                let cache = OnceCell::new();
 
                 #[cfg(not(feature = "go-interop"))]
                 {
                     // Can keep the flushed node in link cache
                     let node = std::mem::take(node);
-                    let _ = cache.fill(node);
+                    let _ = cache.set(node);
                 }
 
                 // Replace cached node with Cid link
