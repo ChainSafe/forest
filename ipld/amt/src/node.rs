@@ -224,18 +224,13 @@ where
             Node::Leaf { vals, .. } => Ok(vals[i as usize].as_ref()),
             Node::Link { links, .. } => match &links[sub_i as usize] {
                 Some(Link::Cid { cid, cache }) => {
-                    if let Some(cached_node) = cache.get() {
-                        cached_node.get(bs, height - 1, i % nodes_for_height(height))
-                    } else {
-                        let node: Box<Node<V>> = bs
-                            .get(cid)?
-                            .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
+                    let cached_node =
+                        cache.get_or_try_init(|| -> Result<Box<Node<V>>, Error> {
+                            bs.get(cid)?
+                                .ok_or_else(|| Error::CidNotFound(cid.to_string()))
+                        })?;
 
-                        // Ignore error intentionally, the cache value will always be the same
-                        let _ = cache.set(node);
-                        let cache_node = cache.get().expect("cache filled on line above");
-                        cache_node.get(bs, height - 1, i % nodes_for_height(height))
-                    }
+                    cached_node.get(bs, height - 1, i % nodes_for_height(height))
                 }
                 Some(Link::Dirty(n)) => n.get(bs, height - 1, i % nodes_for_height(height)),
                 None => Ok(None),
@@ -440,6 +435,7 @@ where
                         let keep_going = match l.as_ref().expect("bit set at index") {
                             Link::Dirty(sub) => sub.for_each_while(store, height - 1, offs, f)?,
                             Link::Cid { cid, cache } => {
+                                // TODO simplify with try_init when go-interop feature not needed
                                 if let Some(cached_node) = cache.get() {
                                     cached_node.for_each_while(store, height - 1, offs, f)?
                                 } else {
