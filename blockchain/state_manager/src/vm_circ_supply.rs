@@ -92,16 +92,20 @@ impl CircSupplyCalc for GenesisInfo {
         // but it's not ideal to have the side effect from the VM to modify the genesis info
         // of the state manager. This isn't terrible because it's just caching to avoid
         // recalculating using the store, and it avoids computing until circ_supply is called.
-        if !self.vesting.genesis.get().is_some() {
-            self.init(state_tree.store())?;
-            let _ = self.vesting.genesis.set(setup_genesis_vesting_schedule());
-        }
-        if !self.vesting.ignition.get().is_some() {
-            let _ = self.vesting.ignition.set(setup_ignition_vesting_schedule());
-        }
-        if !self.vesting.calico.get().is_some() {
-            let _ = self.vesting.calico.set(setup_calico_vesting_schedule());
-        }
+        self.vesting
+            .genesis
+            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+                self.init(state_tree.store())?;
+                Ok(setup_genesis_vesting_schedule())
+            })?;
+
+        self.vesting
+            .ignition
+            .get_or_init(|| setup_ignition_vesting_schedule());
+
+        self.vesting
+            .calico
+            .get_or_init(|| setup_calico_vesting_schedule());
 
         get_circulating_supply(&self, height, state_tree)
     }
