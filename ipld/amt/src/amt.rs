@@ -7,8 +7,8 @@ use crate::{
 use cid::{Cid, Code::Blake2b256};
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::BlockStore;
+use itertools::sorted;
 use std::error::Error as StdError;
-
 use super::ValueMut;
 
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
@@ -209,12 +209,30 @@ where
     }
 
     /// Deletes multiple items from AMT
-    pub fn batch_delete(&mut self, iter: impl IntoIterator<Item = u64>) -> Result<(), Error> {
+    /// If `strict` is true, all indices are expected to be present, and this will
+    /// return an error if one is not found.
+    ///
+    /// Returns true if items were deleted.
+    pub fn batch_delete(
+        &mut self,
+        iter: impl IntoIterator<Item = u64>,
+        strict: bool,
+    ) -> Result<bool, Error> {
         // TODO: optimize this
-        for i in iter {
-            self.delete(i)?;
+        let mut modified = false;
+
+        // Iterate sorted indices. Sorted to safely optimize later.
+        for i in sorted(iter) {
+            let found = self.delete(i)?;
+            if strict && !found {
+                return Err(Error::Other(format!(
+                    "no such index {} in Amt for batch delete",
+                    i
+                )));
+            }
+            modified |= found;
         }
-        Ok(())
+        Ok(modified)
     }
 
     /// flush root and return Cid used as key in block store
