@@ -13,7 +13,7 @@ libp2p = { version = "0.28", default-features = false, features = ["identify"] }
 futures = "0.3.5"
 log = "0.4.8"
 async-log = "2.0.0"
-async-std = { version = "1.6.3", features = ["attributes"] }
+async-std = { version = "1.9", features = ["attributes", "tokio1"] }
 serde = { version = "1.0", features = ["derive"] }
 pretty_env_logger = "0.4.0"
 ctrlc = "3.1.4"
@@ -21,7 +21,7 @@ chain_sync = { path = "../blockchain/chain_sync" }
 state_manager = { path = "../blockchain/state_manager" }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 forest_car = { path = "../ipld/car" }
-flo_stream = "0.4.0"
+tokio = { version = "1.0", features = ["sync"] }
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = "0.1"
@@ -35,9 +35,12 @@ fil_types = "0.1"
 serde_json = "1.0"
 message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
 wallet = { package = "key_management", path = "../key_management" }
-jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2", features = ["easy-errors", "macros"], default-features = false }
+jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2", features = [
+    "easy-errors",
+    "macros"
+], default-features = false }
 uuid = { version = "0.8.1", features = ["v4"] }
-auth = { path = "../utils/auth"}
+auth = { path = "../utils/auth" }
 net_utils = { path = "../utils/net_utils" }
 actor = { package = "actor_interface", path = "../vm/actor_interface" }
 genesis = { path = "../utils/genesis" }

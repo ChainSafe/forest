@@ -20,12 +20,12 @@ chain = { path = "../chain" }
 state_tree = { path = "../../vm/state_tree/" }
 serde = { version = "1.0", features = ["derive"] }
 db = { package = "forest_db", version = "0.1" }
-flo_stream = "0.4.0"
+tokio = { version = "1.0", features = ["sync"] }
 futures = "0.3.5"
 libsecp256k1 = "0.3.4"
 blake2b_simd = "0.5.10"
 log = "0.4.8"
-async-std = { version = "1.6.3", features = ["unstable"] }
+async-std = { version = "1.9", features = ["tokio1"] }
 state_manager = { path = "../state_manager" }
 async-trait = "0.1"
 interpreter = { path = "../../vm/interpreter/" }

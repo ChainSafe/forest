@@ -19,7 +19,6 @@ use cid::Code::Blake2b256;
 use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
-use flo_stream::Subscriber;
 use forest_libp2p::{NetworkMessage, PUBSUB_MSG_TOPIC};
 use futures::{future::select, StreamExt};
 use log::{error, warn};
@@ -34,6 +33,7 @@ use state_tree::StateTree;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use std::{borrow::BorrowMut, cmp::Ordering};
+use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use types::verifier::ProofVerifier;
 use vm::ActorState;
 
@@ -161,7 +161,7 @@ pub trait Provider {
 
 /// This is the Provider implementation that will be used for the mpool RPC
 pub struct MpoolRpcProvider<DB> {
-    subscriber: Subscriber<HeadChange>,
+    subscriber: Publisher<HeadChange>,
     sm: Arc<StateManager<DB>>,
 }
 
@@ -169,7 +169,7 @@ impl<DB> MpoolRpcProvider<DB>
 where
     DB: BlockStore + Sync + Send,
 {
-    pub fn new(subscriber: Subscriber<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
+    pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
     where
         DB: BlockStore,
     {
@@ -183,7 +183,7 @@ where
     DB: BlockStore + Sync + Send + 'static,
 {
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-        self.subscriber.clone()
+        self.subscriber.subscribe()
     }
 
     async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
@@ -315,32 +315,40 @@ where
         // Reacts to new HeadChanges
         task::spawn(async move {
             loop {
-                if let Some(ts) = subscriber.next().await {
-                    let (cur, rev, app) = match ts {
-                        HeadChange::Current(_tipset) => continue,
-                        HeadChange::Revert(tipset) => (
-                            cur_tipset.clone(),
-                            vec![tipset.as_ref().clone()],
-                            Vec::new(),
-                        ),
-                        HeadChange::Apply(tipset) => (
-                            cur_tipset.clone(),
-                            Vec::new(),
-                            vec![tipset.as_ref().clone()],
-                        ),
-                    };
-                    head_change(
-                        api.as_ref(),
-                        bls_sig_cache.as_ref(),
-                        repub_trigger.clone(),
-                        republished.as_ref(),
-                        pending.as_ref(),
-                        &cur.as_ref(),
-                        rev,
-                        app,
-                    )
-                    .await
-                    .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
+                match subscriber.recv().await {
+                    Ok(ts) => {
+                        let (cur, rev, app) = match ts {
+                            HeadChange::Current(_tipset) => continue,
+                            HeadChange::Revert(tipset) => (
+                                cur_tipset.clone(),
+                                vec![tipset.as_ref().clone()],
+                                Vec::new(),
+                            ),
+                            HeadChange::Apply(tipset) => (
+                                cur_tipset.clone(),
+                                Vec::new(),
+                                vec![tipset.as_ref().clone()],
+                            ),
+                        };
+                        head_change(
+                            api.as_ref(),
+                            bls_sig_cache.as_ref(),
+                            repub_trigger.clone(),
+                            republished.as_ref(),
+                            pending.as_ref(),
+                            &cur.as_ref(),
+                            rev,
+                            app,
+                        )
+                        .await
+                        .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
+                    }
+                    Err(RecvError::Lagged(e)) => {
+                        log::warn!("Head change subscriber lagged: skipping {} events", e)
+                    }
+                    Err(RecvError::Closed) => {
+                        break;
+                    }
                 }
             }
         });
@@ -1297,9 +1305,9 @@ pub mod test_provider {
     use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use cid::Cid;
     use crypto::VRFProof;
-    use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use message::{SignedMessage, UnsignedMessage};
     use std::convert::TryFrom;
+    use tokio::sync::broadcast;
 
     /// Struct used for creating a provider when writing tests involving message pool
     pub struct TestApi {
@@ -1313,12 +1321,13 @@ pub mod test_provider {
     impl Default for TestApi {
         /// Create a new TestApi
         fn default() -> Self {
+            let (publisher, _) = broadcast::channel(1);
             TestApi {
                 bmsgs: HashMap::new(),
                 state_sequence: HashMap::new(),
                 balances: HashMap::new(),
                 tipsets: Vec::new(),
-                publisher: Publisher::new(1),
+                publisher,
             }
         }
     }
@@ -1342,7 +1351,7 @@ pub mod test_provider {
 
         /// Set the heaviest tipset for TestApi
         pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
-            self.publisher.publish(HeadChange::Apply(ts)).await
+            self.publisher.send(HeadChange::Apply(ts)).unwrap();
         }
 
         pub fn next_block(&mut self) -> BlockHeader {
