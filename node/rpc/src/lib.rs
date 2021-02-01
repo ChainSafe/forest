@@ -432,15 +432,25 @@ async fn handle_connection_and_log<KS, DB>(
                                         let chain_notify_count_curr = *x;
                                         drop(x);
 
-                                        let mut head_changes = cs.sub_head_changes();
+                                        let mut head_changes = cs.sub_head_changes().await;
+
+                                        // TODO remove this manually constructed RPC response
+                                        #[derive(Serialize)]
+                                        struct SubscribeChannelIDResponse<'a> {
+                                            json_rpc: &'a str,
+                                            result: usize,
+                                            id: Id,
+                                        }
 
                                         // First response should be the count serialized.
                                         // This is based on internal golang channel rpc handling
                                         // needed to match Lotus.
-                                        if let Err(e) =
-                                            send_response(&ws_sender, &chain_notify_count_curr)
-                                                .await
-                                        {
+                                        let data = SubscribeChannelIDResponse {
+                                            json_rpc: "2.0",
+                                            result: chain_notify_count_curr,
+                                            id: call.id.flatten().unwrap_or_default(),
+                                        };
+                                        if let Err(e) = send_response(&ws_sender, &data).await {
                                             let msg = e.message();
                                             send_error(3, &ws_sender, msg).await;
                                             return;
@@ -534,7 +544,7 @@ async fn handle_rpc<KS: KeyStore>(
 
 async fn send_response<R>(ws_sender: &RwLock<WsSink>, response: R) -> Result<(), Error>
 where
-    R: Serialize + Send,
+    R: Serialize,
 {
     let response_text = serde_json::to_string(&response)?;
     ws_sender

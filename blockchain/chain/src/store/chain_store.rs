@@ -534,9 +534,16 @@ where
         Ok(())
     }
 
-    pub fn sub_head_changes(&self) -> Receiver<HeadChange> {
+    pub async fn sub_head_changes(&self) -> Receiver<HeadChange> {
         let (tx, rx) = bounded(16);
         let mut subscriber = self.publisher.subscribe();
+
+        // Send current heaviest tipset into receiver as first event.
+        if let Some(ts) = self.heaviest_tipset().await {
+            tx.send(HeadChange::Current(ts))
+                .await
+                .expect("receiver guaranteed to not drop by now")
+        }
 
         task::spawn(async move {
             loop {
