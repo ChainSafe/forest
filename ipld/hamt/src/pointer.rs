@@ -4,7 +4,7 @@
 use super::node::Node;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
-use lazycell::LazyCell;
+use once_cell::unsync::OnceCell;
 use serde::de::{self, DeserializeOwned};
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -15,7 +15,7 @@ pub(crate) enum Pointer<K, V, H> {
     Values(Vec<KeyValuePair<K, V>>),
     Link {
         cid: Cid,
-        cache: LazyCell<Box<Node<K, V, H>>>,
+        cache: OnceCell<Box<Node<K, V, H>>>,
     },
     Dirty(Box<Node<K, V, H>>),
 }

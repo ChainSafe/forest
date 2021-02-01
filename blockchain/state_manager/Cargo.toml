@@ -41,7 +41,7 @@ filecoin-proofs-api = { version = "5.4.1", features = [
 futures = "0.3.5"
 runtime = { package = "forest_runtime", version = "0.1" }
 lazy_static = "1.4"
-lazycell = "1.2.1"
+once_cell = "1.5"
 forest_crypto = { version = "0.4" }
 networks = { path = "../../types/networks" }
 statediff = { path = "../../utils/statediff", optional = true }

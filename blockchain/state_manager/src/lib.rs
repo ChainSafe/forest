@@ -36,13 +36,13 @@ use futures::FutureExt;
 use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
 use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use ipld_amt::Amt;
-use lazycell::AtomicLazyCell;
 use log::{debug, info, trace, warn};
 use message::{message_receipt, unsigned_message};
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use networks::get_network_version_default;
 use num_bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -473,14 +473,14 @@ where
     {
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
-        let outm: AtomicLazyCell<UnsignedMessage> = Default::default();
-        let outr: AtomicLazyCell<ApplyRet> = Default::default();
+        let outm: OnceCell<UnsignedMessage> = Default::default();
+        let outr: OnceCell<ApplyRet> = Default::default();
         let m_clone = outm.clone();
         let r_clone = outr.clone();
         let callback = move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
             if *cid == mcid {
-                let _ = m_clone.fill(unsigned.message().clone());
-                let _ = r_clone.fill(apply_ret.clone());
+                let _ = m_clone.set(unsigned.message().clone());
+                let _ = r_clone.set(apply_ret.clone());
                 return Err("halt".to_string());
             }
 
