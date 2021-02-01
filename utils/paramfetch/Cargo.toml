@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 surf = "2.0"
-async-std = { version = "1.6.3", features = ["attributes"] }
+async-std = { version = "1.9", features = ["unstable", "attributes"] }
 pbr = "1.0.3"
 futures = "0.3.5"
 pin-project-lite = "0.2"
