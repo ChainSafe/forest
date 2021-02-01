@@ -112,7 +112,7 @@ impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
                 self.events.push(ForestBehaviourEvent::PeerConnected(peer));
             }
             DiscoveryOut::Disconnected(peer) => {
-                self.events.push(ForestBehaviourEvent::PeerConnected(peer));
+                self.events.push(ForestBehaviourEvent::PeerDisconnected(peer));
             }
         }
     }
