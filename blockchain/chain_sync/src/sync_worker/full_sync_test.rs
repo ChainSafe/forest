@@ -57,7 +57,10 @@ async fn space_race_full_sync() {
 
     let peer = PeerId::random();
     let peer_manager = PeerManager::default();
-    peer_manager.update_peer_head(peer, None).await;
+    // Just need to add a peer to be valid to send request
+    peer_manager
+        .update_peer_head(peer, Arc::clone(&genesis))
+        .await;
     let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager), db);
 
     let provider_db = Arc::new(MemoryDB::default());

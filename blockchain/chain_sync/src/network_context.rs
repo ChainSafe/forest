@@ -12,17 +12,32 @@ use forest_libp2p::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, BLOCKS,
         MESSAGES,
     },
-    hello::HelloRequest,
+    hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
     NetworkMessage,
 };
-use futures::channel::oneshot::channel as oneshot_channel;
+use futures::{channel::oneshot::channel as oneshot_channel, Future};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{trace, warn};
-use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
+use std::{convert::TryFrom, pin::Pin};
+
+/// Future of the response from sending a hello request. This does not need to be immediately polled
+/// because the response does not need to be handled synchronously.
+pub(crate) type HelloResponseFuture = Pin<
+    Box<
+        dyn Future<
+                Output = (
+                    PeerId,
+                    SystemTime,
+                    Option<Result<HelloResponse, RequestResponseError>>,
+                ),
+            > + Send
+            + Sync,
+    >,
+>;
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
@@ -222,7 +237,7 @@ where
         peer_id: PeerId,
         request: ChainExchangeRequest,
     ) -> Result<ChainExchangeResponse, String> {
-        trace!("Sending ChainExchange Request {:?}", request);
+        trace!("Sending ChainExchange Request {:?} to {}", request, peer_id);
 
         let req_pre_time = SystemTime::now();
 
@@ -247,28 +262,29 @@ where
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
-                self.peer_manager.log_success(&peer_id, res_duration).await;
+                self.peer_manager.log_success(peer_id, res_duration).await;
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {
                 // Internal libp2p error, score failure for peer and potentially disconnect
-                self.peer_manager.log_failure(&peer_id, res_duration).await;
                 match e {
                     RequestResponseError::ConnectionClosed
                     | RequestResponseError::DialFailure
                     | RequestResponseError::UnsupportedProtocols => {
-                        self.peer_manager.remove_peer(&peer_id).await;
+                        self.peer_manager.mark_peer_bad(peer_id).await;
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
-                    RequestResponseError::Timeout => (),
+                    RequestResponseError::Timeout => {
+                        self.peer_manager.log_failure(peer_id, res_duration).await;
+                    }
                 }
                 Err(format!("Internal libp2p error: {:?}", e))
             }
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which will
                 // negatively score the peer, but not drop yet.
-                self.peer_manager.log_failure(&peer_id, res_duration).await;
+                self.peer_manager.log_failure(peer_id, res_duration).await;
                 Err("Chain exchange request timed out".to_string())
             }
         }
@@ -279,12 +295,34 @@ where
         &self,
         peer_id: PeerId,
         request: HelloRequest,
-    ) -> Result<(), &'static str> {
-        trace!("Sending Hello Message {:?}", request);
-        // TODO update to await response when we want to handle the latency
+    ) -> Result<HelloResponseFuture, &'static str> {
+        trace!("Sending Hello Message to {}", peer_id);
+
+        // Create oneshot channel for receiving response from sent hello.
+        let (tx, rx) = oneshot_channel();
+
+        // Send request into libp2p service
         self.network_send
-            .send(NetworkMessage::HelloRequest { peer_id, request })
+            .send(NetworkMessage::HelloRequest {
+                peer_id: peer_id.clone(),
+                request,
+                response_channel: tx,
+            })
             .await
-            .map_err(|_| "Failed to send hello request: receiver dropped")
+            .map_err(|_| "Failed to send hello request: receiver dropped")?;
+
+        let sent = SystemTime::now();
+
+        // Add timeout and create future to be polled asynchronously.
+        let rx = future::timeout(Duration::from_secs(10), rx);
+        Ok(Box::pin(async move {
+            let res = rx.await;
+            match res {
+                // Convert timeout error into `Option` and wrap `Ok` with the PeerId and sent time.
+                Ok(received) => (peer_id, sent, received.ok()),
+                // Timeout on response, this doesn't matter to us, can safely ignore.
+                Err(_) => (peer_id, sent, None),
+            }
+        }))
     }
 }

@@ -22,7 +22,7 @@ use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::Multiaddr;
 pub use libp2p::gossipsub::Topic;
-use libp2p::request_response::{RequestId, ResponseChannel};
+use libp2p::request_response::ResponseChannel;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -60,21 +60,12 @@ pub enum NetworkEvent {
         request: HelloRequest,
         source: PeerId,
     },
-    HelloResponse {
-        request_id: RequestId,
-        response: HelloResponse,
-    },
     ChainExchangeRequest {
         request: ChainExchangeRequest,
         channel: ResponseChannel<ChainExchangeResponse>,
     },
-    ChainExchangeResponse {
-        request_id: RequestId,
-        response: ChainExchangeResponse,
-    },
-    PeerDialed {
-        peer_id: PeerId,
-    },
+    PeerConnected(PeerId),
+    PeerDisconnected(PeerId),
     BitswapBlock {
         cid: Cid,
     },
@@ -104,6 +95,7 @@ pub enum NetworkMessage {
     HelloRequest {
         peer_id: PeerId,
         request: HelloRequest,
+        response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
     },
     BitswapRequest {
         cid: Cid,
@@ -182,7 +174,7 @@ where
     pub async fn run(mut self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
-        let mut interval = stream::interval(Duration::from_secs(10)).fuse();
+        let mut interval = stream::interval(Duration::from_secs(15)).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
@@ -190,15 +182,13 @@ where
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     Some(event) => match event {
-                        ForestBehaviourEvent::PeerDialed(peer_id) => {
-                            debug!("Peer dialed, {:?}", peer_id);
-                            emit_event(&self.network_sender_out, NetworkEvent::PeerDialed {
-                                peer_id
-                            }).await;
+                        ForestBehaviourEvent::PeerConnected(peer_id) => {
+                            debug!("Peer connected, {:?}", peer_id);
+                            emit_event(&self.network_sender_out,
+                                NetworkEvent::PeerConnected(peer_id)).await;
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
-                            debug!("Peer disconnected, {:?}", peer_id);
-                            swarm_stream.get_mut().remove_peer(&peer_id);
+                            emit_event(&self.network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
                         }
                         ForestBehaviourEvent::GossipMessage {
                             source,
@@ -243,13 +233,6 @@ where
                             emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
                                 source: peer,
-                            }).await;
-                        }
-                        ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
-                            debug!("Received hello response (id: {:?})", request_id);
-                            emit_event(&self.network_sender_out, NetworkEvent::HelloResponse {
-                                request_id,
-                                response,
                             }).await;
                         }
                         ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
@@ -307,8 +290,8 @@ where
                                 warn!("Failed to send gossipsub message: {:?}", e);
                             }
                         }
-                        NetworkMessage::HelloRequest { peer_id, request } => {
-                            swarm_stream.get_mut().send_hello_request(&peer_id, request);
+                        NetworkMessage::HelloRequest { peer_id, request, response_channel } => {
+                            swarm_stream.get_mut().send_hello_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
                             swarm_stream.get_mut().send_chain_exchange_request(&peer_id, request, response_channel);
@@ -337,7 +320,7 @@ where
                     None => { break; }
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
-                    info!("Peers connected: {}", swarm_stream.get_ref().peers().len());
+                    info!("Peers connected: {}", swarm_stream.get_mut().peers().len());
                 }
             };
         }
