@@ -8,7 +8,7 @@ use encoding::{
     ser::{self, Serialize},
 };
 use ipld_blockstore::BlockStore;
-use lazycell::LazyCell;
+use once_cell::unsync::OnceCell;
 use std::error::Error as StdError;
 
 use super::ValueMut;
@@ -19,7 +19,7 @@ pub(super) enum Link<V> {
     /// Unchanged link to data with an atomic cache.
     Cid {
         cid: Cid,
-        cache: LazyCell<Box<Node<V>>>,
+        cache: OnceCell<Box<Node<V>>>,
     },
     /// Modifications have been made to the link, requires flush to clear
     Dirty(Box<Node<V>>),
@@ -75,14 +75,8 @@ impl<V> Default for Node<V> {
 }
 
 /// Turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T>(bmap: BitMap, values: &[Option<T>; WIDTH]) -> Vec<&T> {
-    let mut v: Vec<&T> = Vec::new();
-    for (i, _) in values.iter().enumerate().take(WIDTH) {
-        if bmap.get_bit(i as u64) {
-            v.push(values[i].as_ref().unwrap())
-        }
-    }
-    v
+fn values_to_vec<T>(values: &[Option<T>]) -> Vec<&T> {
+    values.iter().filter_map(|val| val.as_ref()).collect()
 }
 
 /// Puts values from vector into shard array
@@ -125,7 +119,9 @@ where
         S: ser::Serializer,
     {
         match &self {
-            Node::Leaf { bmap, vals } => (bmap, [0u8; 0], values_to_vec(*bmap, &vals)).serialize(s),
+            Node::Leaf { bmap, vals } => {
+                (bmap, [0u8; 0], values_to_vec(vals.as_ref())).serialize(s)
+            }
             Node::Link { bmap, links } => {
                 let cids = cids_from_links(links).map_err(|e| ser::Error::custom(e.to_string()))?;
                 (bmap, cids, [0u8; 0]).serialize(s)
@@ -173,7 +169,7 @@ where
                     if let Some(Link::Cid { cache, .. }) = link {
                         // Yes, this is necessary to interop, and yes this is safe to borrow
                         // mutably because there are no values changed here, just extra db writes.
-                        if let Some(cached) = cache.borrow_mut() {
+                        if let Some(cached) = cache.get_mut() {
                             cached.flush(bs)?;
                             bs.put(cached, Blake2b256)?;
                         }
@@ -186,11 +182,9 @@ where
                         // Puts node in blockstore and and retrieves it's CID
                         let cid = bs.put(n, Blake2b256)?;
 
-                        let cache = LazyCell::new();
-
                         // Can keep the flushed node in link cache
                         let node = std::mem::take(n);
-                        let _ = cache.fill(node);
+                        let cache = OnceCell::from(node);
 
                         // Turn dirty node into a Cid link
                         *link = Some(Link::Cid { cid, cache });
@@ -230,18 +224,13 @@ where
             Node::Leaf { vals, .. } => Ok(vals[i as usize].as_ref()),
             Node::Link { links, .. } => match &links[sub_i as usize] {
                 Some(Link::Cid { cid, cache }) => {
-                    if let Some(cached_node) = cache.borrow() {
-                        cached_node.get(bs, height - 1, i % nodes_for_height(height))
-                    } else {
-                        let node: Box<Node<V>> = bs
-                            .get(cid)?
-                            .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
+                    let cached_node =
+                        cache.get_or_try_init(|| -> Result<Box<Node<V>>, Error> {
+                            bs.get(cid)?
+                                .ok_or_else(|| Error::CidNotFound(cid.to_string()))
+                        })?;
 
-                        // Ignore error intentionally, the cache value will always be the same
-                        let _ = cache.fill(node);
-                        let cache_node = cache.borrow().expect("cache filled on line above");
-                        cache_node.get(bs, height - 1, i % nodes_for_height(height))
-                    }
+                    cached_node.get(bs, height - 1, i % nodes_for_height(height))
                 }
                 Some(Link::Dirty(n)) => n.get(bs, height - 1, i % nodes_for_height(height)),
                 None => Ok(None),
@@ -387,7 +376,7 @@ where
                                 // Replace cache, no node deleted.
                                 // Error can be ignored because value will always be the same
                                 // even if possible to hit race condition.
-                                let _ = cache.fill(sub_node);
+                                let _ = cache.set(sub_node);
 
                                 // Index to be deleted was not found
                                 return Ok(false);
@@ -446,7 +435,8 @@ where
                         let keep_going = match l.as_ref().expect("bit set at index") {
                             Link::Dirty(sub) => sub.for_each_while(store, height - 1, offs, f)?,
                             Link::Cid { cid, cache } => {
-                                if let Some(cached_node) = cache.borrow() {
+                                // TODO simplify with try_init when go-interop feature not needed
+                                if let Some(cached_node) = cache.get() {
                                     cached_node.for_each_while(store, height - 1, offs, f)?
                                 } else {
                                     let node: Box<Node<V>> = store
@@ -456,10 +446,7 @@ where
                                     #[cfg(not(feature = "go-interop"))]
                                     {
                                         // Ignore error intentionally, the cache value will always be the same
-                                        let _ = cache.fill(node);
-                                        let cache_node =
-                                            cache.borrow().expect("cache filled on line above");
-
+                                        let cache_node = cache.get_or_init(|| node);
                                         cache_node.for_each_while(store, height - 1, offs, f)?
                                     }
 
@@ -542,14 +529,14 @@ where
                                     #[cfg(feature = "go-interop")]
                                     {
                                         if cached {
-                                            let _ = cache.fill(node);
+                                            let _ = cache.set(node);
                                         }
                                     }
 
                                     // Replace cache, or else iteration over without modification
                                     // will consume cache
                                     #[cfg(not(feature = "go-interop"))]
-                                    let _ = cache.fill(node);
+                                    let _ = cache.set(node);
                                 }
 
                                 (keep_going, did_mutate_node)

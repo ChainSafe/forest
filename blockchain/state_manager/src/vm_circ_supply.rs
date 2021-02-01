@@ -10,12 +10,12 @@ use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::{FILECOIN_PRECISION, FIL_RESERVED};
 use interpreter::CircSupplyCalc;
-use lazycell::AtomicLazyCell;
 use networks::{
     UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_CALICO_HEIGHT, UPGRADE_IGNITION_HEIGHT,
     UPGRADE_LIFTOFF_HEIGHT,
 };
 use num_bigint::BigInt;
+use once_cell::sync::OnceCell;
 use state_tree::StateTree;
 use std::error::Error as StdError;
 use vm::{ActorState, TokenAmount};
@@ -51,8 +51,8 @@ pub struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
-    pub genesis_pledge: AtomicLazyCell<TokenAmount>,
-    pub genesis_market_funds: AtomicLazyCell<TokenAmount>,
+    pub genesis_pledge: OnceCell<TokenAmount>,
+    pub genesis_market_funds: OnceCell<TokenAmount>,
 }
 
 impl GenesisInfo {
@@ -67,8 +67,8 @@ impl GenesisInfo {
 
         let _ = self
             .genesis_market_funds
-            .fill(get_fil_market_locked(&state_tree)?);
-        let _ = self.genesis_pledge.fill(get_fil_power_locked(&state_tree)?);
+            .set(get_fil_market_locked(&state_tree)?);
+        let _ = self.genesis_pledge.set(get_fil_power_locked(&state_tree)?);
 
         Ok(())
     }
@@ -76,9 +76,9 @@ impl GenesisInfo {
 
 #[derive(Default)]
 pub struct GenesisInfoVesting {
-    pub genesis: AtomicLazyCell<Vec<msig0::State>>,
-    pub ignition: AtomicLazyCell<Vec<msig0::State>>,
-    pub calico: AtomicLazyCell<Vec<msig0::State>>,
+    pub genesis: OnceCell<Vec<msig0::State>>,
+    pub ignition: OnceCell<Vec<msig0::State>>,
+    pub calico: OnceCell<Vec<msig0::State>>,
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -92,19 +92,20 @@ impl CircSupplyCalc for GenesisInfo {
         // but it's not ideal to have the side effect from the VM to modify the genesis info
         // of the state manager. This isn't terrible because it's just caching to avoid
         // recalculating using the store, and it avoids computing until circ_supply is called.
-        if !self.vesting.genesis.filled() {
-            self.init(state_tree.store())?;
-            let _ = self.vesting.genesis.fill(setup_genesis_vesting_schedule());
-        }
-        if !self.vesting.ignition.filled() {
-            let _ = self
-                .vesting
-                .ignition
-                .fill(setup_ignition_vesting_schedule());
-        }
-        if !self.vesting.calico.filled() {
-            let _ = self.vesting.calico.fill(setup_calico_vesting_schedule());
-        }
+        self.vesting
+            .genesis
+            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+                self.init(state_tree.store())?;
+                Ok(setup_genesis_vesting_schedule())
+            })?;
+
+        self.vesting
+            .ignition
+            .get_or_init(setup_ignition_vesting_schedule);
+
+        self.vesting
+            .calico
+            .get_or_init(setup_calico_vesting_schedule);
 
         get_circulating_supply(&self, height, state_tree)
     }
@@ -128,17 +129,17 @@ pub fn get_fil_vested(
     let pre_ignition = genesis_info
         .vesting
         .genesis
-        .borrow()
+        .get()
         .expect("Pre ignition should be initialized");
     let post_ignition = genesis_info
         .vesting
         .ignition
-        .borrow()
+        .get()
         .expect("Post ignition should be initialized");
     let calico_vesting = genesis_info
         .vesting
         .calico
-        .borrow()
+        .get()
         .expect("calico vesting should be initialized");
 
     if height <= UPGRADE_IGNITION_HEIGHT {
@@ -160,11 +161,11 @@ pub fn get_fil_vested(
     if height <= UPGRADE_ACTORS_V2_HEIGHT {
         return_value += genesis_info
             .genesis_pledge
-            .borrow()
+            .get()
             .expect("Genesis info should be initialized")
             + genesis_info
                 .genesis_market_funds
-                .borrow()
+                .get()
                 .expect("Genesis info should be initialized");
     }
 

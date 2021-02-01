@@ -137,7 +137,7 @@ async fn fetch_verify_params(
         Ok(()) => return Ok(()),
         Err(e) => {
             if e.kind() != ErrorKind::NotFound {
-                warn!("{}", e)
+                warn!("Error checking file: {}", e);
             }
         }
     }
