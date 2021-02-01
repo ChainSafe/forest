@@ -2505,7 +2505,7 @@ impl Actor {
         let fault = rt
             .verify_consensus_fault(&params.header1, &params.header2, &params.header_extra)
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalArgument, "fault not verified"))?
-            .ok_or_else(|| actor_error!(ErrIllegalArgument, "Invalid fault"))?;
+            .ok_or_else(|| actor_error!(ErrIllegalArgument, "No consensus fault found"))?;
 
         // Elapsed since the fault (i.e. since the higher of the two blocks)
         let fault_age = rt.curr_epoch() - fault.epoch;
