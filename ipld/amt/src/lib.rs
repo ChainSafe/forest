@@ -19,12 +19,10 @@ pub(crate) use self::root::Root;
 pub use self::value_mut::ValueMut;
 
 const DEFAULT_BIT_WIDTH: usize = 3;
-// const WIDTH: usize = 1 << DEFAULT_BIT_WIDTH; // 8
 const MAX_HEIGHT: usize = 64;
 
-// Maximum index for elements in the AMT. This is currently 1^63
-// (max int) because the width is 8. That means every "level" consumes 3 bits
-// from the index, and 63/3 is a nice even 21
+/// MaxIndex is the maximum index for elements in the AMT. This u64::MAX-1 so we
+/// don't overflow u64::MAX when computing the length.
 pub const MAX_INDEX: usize = (std::u64::MAX - 1) as usize;
 
 fn nodes_for_height(bit_width: usize, height: usize) -> usize {
