@@ -669,8 +669,9 @@ pub(crate) async fn miner_create_block<
         }
     }
 
-    let bls_msg_root = Amt::new_from_slice(data.chain_store.blockstore(), &bls_cids)?;
-    let secp_msg_root = Amt::new_from_slice(data.chain_store.blockstore(), &secp_cids)?;
+    let bls_msg_root = Amt::new_from_iter(data.chain_store.blockstore(), bls_cids.iter().copied())?;
+    let secp_msg_root =
+        Amt::new_from_iter(data.chain_store.blockstore(), secp_cids.iter().copied())?;
 
     let mmcid = data.chain_store.blockstore().put(
         &TxMeta {
