@@ -928,7 +928,7 @@ where
     DB: BlockStore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
-    let receipts = amt.get(i)?;
+    let receipts = amt.get(i as u64)?;
     Ok(receipts.cloned())
 }
 

@@ -22,7 +22,7 @@ forest_blocks = { path = "../../blockchain/blocks" }
 beacon = { path = "../../blockchain/beacon" }
 thiserror = "1.0"
 interpreter = { path = "../../vm/interpreter/" }
-ipld_amt = { path = "../../ipld/amt/" }
+ipld_amt = "0.2"
 clock = { package = "fil_clock", path = "../../node/clock" }
 chain = { path = "../chain" }
 async-std = { version = "1.9", features = ["unstable", "tokio1"] }

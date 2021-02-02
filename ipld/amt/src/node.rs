@@ -355,70 +355,60 @@ where
         match self {
             Self::Leaf { vals } => Ok(vals.get_mut(i).map(|v| std::mem::take(v)).flatten()),
             Self::Link { links } => {
-                // TODO this can probably be refactored.
-                #[allow(unused_assignments)]
-                let mut deleted = None;
-                match &mut links[sub_i] {
-                    mod_link @ Some(Link::Dirty(_)) => {
-                        let mut remove = false;
-                        if let Some(Link::Dirty(n)) = mod_link {
-                            deleted = n.delete(
-                                bs,
-                                height - 1,
-                                bit_width,
-                                i % nodes_for_height(bit_width, height),
-                            )?;
-                            if deleted.is_none() {
-                                // Index to be deleted was not found
-                                return Ok(None);
-                            }
-                            if n.is_empty() {
-                                remove = true;
-                            }
-                        } else {
-                            unreachable!("variant matched specifically");
+                let (deleted, replace) = match &mut links[sub_i] {
+                    Some(Link::Dirty(n)) => {
+                        let deleted = n.delete(
+                            bs,
+                            height - 1,
+                            bit_width,
+                            i % nodes_for_height(bit_width, height),
+                        )?;
+                        if deleted.is_none() {
+                            // Index to be deleted was not found
+                            return Ok(None);
+                        }
+                        if !n.is_empty() {
+                            // Link node is not empty yet, just return deleted
+                            return Ok(deleted);
                         }
 
                         // Remove needs to be done outside of the `if let` for memory safety.
-                        if remove {
-                            *mod_link = None;
-                        }
+                        (deleted, None)
                     }
-                    cid_link @ Some(Link::Cid { .. }) => {
-                        let sub_node = if let Some(Link::Cid { cid, cache }) = cid_link {
-                            // Take cache, will be replaced if no nodes deleted
-                            cache.get_or_try_init(|| {
-                                bs.get::<CollapsedNode<V>>(cid)?
-                                    .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
-                                    .expand(bit_width)
-                                    .map(Box::new)
-                            })?;
-                            let sub_node = cache.get_mut().expect("filled line above");
-                            deleted = sub_node.delete(
-                                bs,
-                                height - 1,
-                                bit_width,
-                                i % nodes_for_height(bit_width, height),
-                            )?;
-                            if deleted.is_none() {
-                                // Index to be deleted was not found
-                                return Ok(None);
-                            };
-                            std::mem::replace(sub_node, Box::new(Node::empty()))
-                        } else {
-                            unreachable!("variant matched specifically");
+                    Some(Link::Cid { cid, cache }) => {
+                        // Take cache, will be replaced if no nodes deleted
+                        cache.get_or_try_init(|| {
+                            bs.get::<CollapsedNode<V>>(cid)?
+                                .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                                .expand(bit_width)
+                                .map(Box::new)
+                        })?;
+                        let sub_node = cache.get_mut().expect("filled line above");
+                        let deleted = sub_node.delete(
+                            bs,
+                            height - 1,
+                            bit_width,
+                            i % nodes_for_height(bit_width, height),
+                        )?;
+                        if deleted.is_none() {
+                            // Index to be deleted was not found
+                            return Ok(None);
                         };
+                        let sub_node = std::mem::replace(sub_node, Box::new(Node::empty()));
 
                         if sub_node.is_empty() {
-                            // Sub node is empty, clear bit and current link node.
-                            *cid_link = None;
+                            // Sub node is empty, clear link.
+                            (deleted, None)
                         } else {
-                            *cid_link = Some(Link::Dirty(sub_node));
+                            // Link was modified and is now marked dirty.
+                            (deleted, Some(Link::Dirty(sub_node)))
                         }
                     }
                     // Link index is empty.
                     None => return Ok(None),
                 };
+
+                links[sub_i] = replace;
 
                 Ok(deleted)
             }
