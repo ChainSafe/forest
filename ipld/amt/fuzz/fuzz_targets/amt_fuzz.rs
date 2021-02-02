@@ -8,13 +8,13 @@ use libfuzzer_sys::fuzz_target;
 
 #[derive(Debug, Arbitrary)]
 struct Operation {
-    idx: u64,
+    idx: usize,
     method: Method,
 }
 
 #[derive(Debug, Arbitrary)]
 enum Method {
-    Insert(u64),
+    Insert(usize),
     Remove,
     Get,
 }
@@ -43,7 +43,7 @@ fuzz_target!(|data: (u8, Vec<Operation>)| {
             Method::Remove => {
                 let el = elements.remove(&idx);
                 let amt_deleted = amt.delete(idx).unwrap();
-                assert_eq!(amt_deleted, el.is_some());
+                assert_eq!(amt_deleted, el);
             }
             Method::Get => {
                 let ev = elements.get(&idx);
