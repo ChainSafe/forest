@@ -28,7 +28,7 @@ base64 = { version = "0.13", optional = true }
 forest_json_utils = { path = "../utils/json_utils", optional = true, version = "0.1" }
 lazy_static = "1.4"
 async-std = "1.9"
-
+git-version = "0.3.4"
 
 [features]
 json = ["base64", "forest_json_utils", "num-bigint/json"]

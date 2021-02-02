@@ -45,6 +45,10 @@ use std::{collections::HashMap, convert::TryInto};
 use std::{task::Context, task::Poll};
 use tiny_cid::Cid as Cid2;
 
+lazy_static! {
+    static ref VERSION: &'static str = env!("CARGO_PKG_VERSION");
+}
+
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
 pub struct ForestBehaviour {
@@ -428,9 +432,7 @@ impl ForestBehaviour {
             ping: Ping::default(),
             identify: Identify::new(
                 "ipfs/0.1.0".into(),
-                // TODO update to include actual version
-                // https://github.com/ChainSafe/forest/issues/934
-                format!("forest-{}", "0.1.0"),
+                format!("forest-{}", *VERSION),
                 local_key.public(),
             ),
             bitswap,
