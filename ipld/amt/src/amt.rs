@@ -117,7 +117,7 @@ where
 
         self.root
             .node
-            .get(self.block_store, self.bit_width(), self.height(), i)
+            .get(self.block_store, self.height(), self.bit_width(), i)
     }
 
     /// Set value at index
@@ -189,37 +189,49 @@ where
         let deleted =
             self.root
                 .node
-                .delete(self.block_store, self.bit_width(), self.height(), i)?;
+                .delete(self.block_store, self.height(), self.bit_width(), i)?;
+
         if deleted.is_none() {
             return Ok(None);
         }
 
         self.root.count -= 1;
 
-        // Handle height changes from delete
-        while self.root.node.can_collapse() && self.height() > 0 {
-            let sub_node: Node<V> = match &mut self.root.node {
-                Node::Link { links, .. } => match &mut links[0] {
-                    Some(Link::Dirty(node)) => *std::mem::replace(node, Box::new(Node::empty())),
-                    Some(Link::Cid { cid, cache }) => {
-                        let cache_node = std::mem::take(cache);
-                        if let Some(sn) = cache_node.into_inner() {
-                            *sn
-                        } else {
-                            // Only retrieve sub node if not found in cache
-                            self.block_store
-                                .get::<CollapsedNode<V>>(cid)?
-                                .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
-                                .expand(self.root.bit_width)?
-                        }
-                    }
-                    _ => unreachable!("First index checked to be Some in `can_collapse`"),
-                },
-                Node::Leaf { .. } => unreachable!("Non zero height cannot be a leaf node"),
+        if self.root.node.is_empty() {
+            // Last link was removed, replace root with a leaf node and reset height.
+            self.root.node = Node::Leaf {
+                vals: init_sized_vec(self.root.bit_width),
             };
+            self.root.height = 0;
+        } else {
+            // Handle collapsing node when the root is a link node with only one link,
+            // sub node can be moved up into the root.
+            while self.root.node.can_collapse() && self.height() > 0 {
+                let sub_node: Node<V> = match &mut self.root.node {
+                    Node::Link { links, .. } => match &mut links[0] {
+                        Some(Link::Dirty(node)) => {
+                            *std::mem::replace(node, Box::new(Node::empty()))
+                        }
+                        Some(Link::Cid { cid, cache }) => {
+                            let cache_node = std::mem::take(cache);
+                            if let Some(sn) = cache_node.into_inner() {
+                                *sn
+                            } else {
+                                // Only retrieve sub node if not found in cache
+                                self.block_store
+                                    .get::<CollapsedNode<V>>(cid)?
+                                    .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                                    .expand(self.root.bit_width)?
+                            }
+                        }
+                        _ => unreachable!("First index checked to be Some in `can_collapse`"),
+                    },
+                    Node::Leaf { .. } => unreachable!("Non zero height cannot be a leaf node"),
+                };
 
-            self.root.node = sub_node;
-            self.root.height -= 1;
+                self.root.node = sub_node;
+                self.root.height -= 1;
+            }
         }
 
         Ok(deleted)

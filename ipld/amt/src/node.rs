@@ -75,14 +75,6 @@ pub(super) enum Node<V> {
     Leaf { vals: Vec<Option<V>> },
 }
 
-// impl<V> Default for Node<V> {
-//     fn default() -> Self {
-//         Node::Leaf {
-//             vals: Default::default(),
-//         }
-//     }
-// }
-
 impl<V> Serialize for Node<V>
 where
     V: Serialize,
@@ -227,7 +219,7 @@ where
                     && links
                         .get(1..)
                         .map(|l| l.iter().all(|l| l.is_none()))
-                        .unwrap_or_default()
+                        .unwrap_or(true)
             }
             Node::Leaf { .. } => false,
         }
@@ -337,12 +329,6 @@ where
             }
         } else {
             unreachable!("should not be handled");
-            // ! This should not be handled, but there is a bug in the go implementation
-            // ! and this needs to be matched
-            // *self = Node::Link {
-            //     links: init_sized_vec(bit_width),
-            // };
-            // self.set(bs, height, bit_width, i, val)
         }
     }
 

@@ -29,20 +29,6 @@ impl<V> Root<V> {
     }
 }
 
-// impl<V> Default for Root<V> {
-//     fn default() -> Self {
-//         Self {
-//             node: Node::Leaf {
-//                 bmap: BitMap::new(DEFAULT_BIT_WIDTH),
-//                 vals: Default::default(),
-//             },
-//             count: 0,
-//             height: 0,
-//             bit_width: DEFAULT_BIT_WIDTH,
-//         }
-//     }
-// }
-
 impl<V> Serialize for Root<V>
 where
     V: Serialize,

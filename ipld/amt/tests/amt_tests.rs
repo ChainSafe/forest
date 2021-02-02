@@ -91,7 +91,7 @@ fn expand() {
 
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzaced25ah2r4gcerysjyrjqpqw72jvdy5ziwxk53ldxibktwmgkfgc22"
+        "bafy2bzacecughjbclx3lbqwibrwc6pe7nttlc3qewedsrayghsvh5j5lpofiq"
     );
 
     #[rustfmt::skip]
@@ -192,7 +192,7 @@ fn delete() {
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
-    let regen_amt: Amt<String, _> = Amt::load(&c, &db).unwrap();
+    let regen_amt: Amt<BytesDe, _> = Amt::load(&c, &db).unwrap();
     assert_eq!(regen_amt.count(), 1);
 
     // Test that a new amt inserting just at index 24 is the same
@@ -245,7 +245,7 @@ fn delete_first_entry() {
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
-    let new_amt: Amt<String, _> = Amt::load(&c, &db).unwrap();
+    let new_amt: Amt<BytesDe, _> = Amt::load(&c, &db).unwrap();
     assert_eq!(new_amt.count(), 1);
     assert_eq!(new_amt.height(), 0);
 
@@ -271,8 +271,10 @@ fn delete_reduce_height() {
     assert_eq!(a.height(), 1);
     let c2 = a.flush().unwrap();
 
-    let mut a2: Amt<String, _> = Amt::load(&c2, &db).unwrap();
-    a2.delete(37).unwrap();
+    let mut a2: Amt<BytesDe, _> = Amt::load(&c2, &db).unwrap();
+    assert_eq!(a2.count(), 2);
+    assert_eq!(a2.height(), 1);
+    assert!(a2.delete(37).unwrap().is_some());
     assert_eq!(a2.count(), 1);
     assert_eq!(a2.height(), 0);
 
@@ -329,7 +331,7 @@ fn for_each() {
 
     let mut x = 0;
     new_amt
-        .for_each(|i, _: &String| {
+        .for_each(|i, _: &BytesDe| {
             if i != indexes[x] {
                 panic!(
                     "for each found wrong index: expected {} got {}",
@@ -343,7 +345,7 @@ fn for_each() {
     assert_eq!(x, indexes.len());
 
     // Iteration again will be read diff with go-interop, since they do not cache
-    new_amt.for_each(|_, _: &String| Ok(())).unwrap();
+    new_amt.for_each(|_, _: &BytesDe| Ok(())).unwrap();
 
     assert_eq!(
         c.to_string().as_str(),
@@ -364,7 +366,7 @@ fn for_each_mutate() {
 
     // Set all indices in the Amt
     for &i in indexes.iter() {
-        a.set(i, "value".to_owned()).unwrap();
+        a.set(i, tbytes(b"value")).unwrap();
     }
 
     // Flush and regenerate amt
@@ -374,10 +376,10 @@ fn for_each_mutate() {
     assert_eq!(new_amt.count(), indexes.len() as usize);
 
     new_amt
-        .for_each_mut(|i, v: &mut ipld_amt::ValueMut<'_, String>| {
+        .for_each_mut(|i, v: &mut ipld_amt::ValueMut<'_, BytesDe>| {
             if let 1 | 74 = i {
                 // Value it's set to doesn't matter, just cloning for expedience
-                **v = (*v).clone();
+                **v = v.clone();
             }
             Ok(())
         })
@@ -401,13 +403,11 @@ fn delete_bug_test() {
 
     let k = 100_000;
 
-    a.set(k, "foo".to_owned()).unwrap();
+    a.set(k, tbytes(b"foo")).unwrap();
     a.delete(k).unwrap();
 
     let c = a.flush().unwrap();
 
-    // ! This is a bug, functionality needed to be locked in because this is what is expected
-    // ! for the go implementation and could not be changed.
     assert_eq!(
         empty_cid.to_string().as_str(),
         "bafy2bzacedijw74yui7otvo63nfl3hdq2vdzuy7wx2tnptwed6zml4vvz7wee"
