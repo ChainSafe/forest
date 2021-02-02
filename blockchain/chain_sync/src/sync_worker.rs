@@ -117,7 +117,7 @@ where
         // Get heaviest tipset from storage to sync toward
         let heaviest = self.chain_store().heaviest_tipset().await.unwrap();
 
-        info!("Starting block sync...");
+        info!("Starting chain sync...");
 
         // Sync headers from network from head to heaviest from storage
         self.state
@@ -1086,7 +1086,7 @@ mod tests {
         task::block_on(async move {
             sw.network
                 .peer_manager()
-                .update_peer_head(source.clone(), Some(head.clone()))
+                .update_peer_head(source.clone(), head.clone())
                 .await;
             assert_eq!(sw.network.peer_manager().len().await, 1);
             // make chain_exchange request

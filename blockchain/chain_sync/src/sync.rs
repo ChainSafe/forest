@@ -9,6 +9,7 @@ use super::bucket::{SyncBucket, SyncBucketSet};
 use super::sync_state::SyncState;
 use super::sync_worker::SyncWorker;
 use super::{Error, SyncNetworkContext};
+use crate::network_context::HelloResponseFuture;
 use amt::Amt;
 use async_std::channel::{bounded, Receiver, Sender};
 use async_std::sync::{Mutex, RwLock};
@@ -20,10 +21,10 @@ use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
-use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
-use futures::select;
+use forest_libp2p::{hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage};
 use futures::stream::StreamExt;
 use futures::{future::try_join_all, try_join};
+use futures::{select, stream::FuturesUnordered};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, error, info, trace, warn};
@@ -181,13 +182,10 @@ where
         &mut self,
         network_event: NetworkEvent,
         new_ts_tx: &Sender<(PeerId, FullTipset)>,
+        hello_futures: &FuturesUnordered<HelloResponseFuture>,
     ) {
         match network_event {
             NetworkEvent::HelloRequest { request, source } => {
-                self.network
-                    .peer_manager()
-                    .update_peer_head(source.clone(), None)
-                    .await;
                 debug!(
                     "Message inbound, heaviest tipset cid: {:?}",
                     request.heaviest_tip_set
@@ -208,28 +206,36 @@ where
                     .await;
                 });
             }
-            NetworkEvent::PeerDialed { peer_id } => {
+            NetworkEvent::PeerConnected(peer_id) => {
                 let heaviest = self
                     .state_manager
                     .chain_store()
                     .heaviest_tipset()
                     .await
                     .unwrap();
-                if let Err(e) = self
-                    .network
-                    .hello_request(
-                        peer_id,
-                        HelloRequest {
-                            heaviest_tip_set: heaviest.cids().to_vec(),
-                            heaviest_tipset_height: heaviest.epoch(),
-                            heaviest_tipset_weight: heaviest.weight().clone(),
-                            genesis_hash: *self.genesis.blocks()[0].cid(),
-                        },
-                    )
-                    .await
-                {
-                    error!("{}", e)
-                };
+                if self.network.peer_manager().is_peer_new(&peer_id).await {
+                    match self
+                        .network
+                        .hello_request(
+                            peer_id,
+                            HelloRequest {
+                                heaviest_tip_set: heaviest.cids().to_vec(),
+                                heaviest_tipset_height: heaviest.epoch(),
+                                heaviest_tipset_weight: heaviest.weight().clone(),
+                                genesis_hash: *self.genesis.blocks()[0].cid(),
+                            },
+                        )
+                        .await
+                    {
+                        Ok(hello_fut) => {
+                            hello_futures.push(hello_fut);
+                        }
+                        Err(e) => error!("{}", e),
+                    }
+                }
+            }
+            NetworkEvent::PeerDisconnected(peer_id) => {
+                self.network.peer_manager().remove_peer(&peer_id).await;
             }
             NetworkEvent::PubsubMessage { source, message } => {
                 if *self.state.lock().await != ChainSyncState::Follow {
@@ -323,6 +329,7 @@ where
         // Channels to handle fetching hello tipsets in separate task and return tipset.
         let (new_ts_tx, new_ts_rx) = bounded(10);
 
+        let mut hello_futures = FuturesUnordered::<HelloResponseFuture>::new();
         let mut fused_handler = self.net_handler.clone().fuse();
         let mut fused_inform_channel = new_ts_rx.fuse();
 
@@ -339,9 +346,13 @@ where
                     }
                 }
             }
+
             select! {
                 network_event = fused_handler.next() => match network_event {
-                    Some(event) => self.handle_network_event(event, &new_ts_tx).await,
+                    Some(event) => self.handle_network_event(
+                        event,
+                        &new_ts_tx,
+                        &hello_futures).await,
                     None => break,
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
@@ -351,7 +362,32 @@ where
                         }
                     }
                     None => break,
-                }
+                },
+                hello_event = hello_futures.select_next_some() => match hello_event {
+                    (peer_id, sent, Some(Ok(_res))) => {
+                        let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
+                        self.network.peer_manager().log_success(peer_id, lat).await;
+                    },
+                    (peer_id, sent, Some(Err(e))) => {
+                        match e {
+                            RequestResponseError::ConnectionClosed
+                            | RequestResponseError::DialFailure
+                            | RequestResponseError::UnsupportedProtocols => {
+                                self.network.peer_manager().mark_peer_bad(peer_id).await;
+                            }
+                            // Log failure for timeout on remote node.
+                            RequestResponseError::Timeout => {
+                                let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
+                                self.network.peer_manager().log_failure(peer_id, lat).await;
+                            },
+                        }
+                    }
+                    // This is indication of timeout on receiver, log failure.
+                    (peer_id, sent, None) => {
+                        let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
+                        self.network.peer_manager().log_failure(peer_id, lat).await;
+                    },
+                },
             }
         }
     }
@@ -444,7 +480,7 @@ where
     async fn set_peer_head(&mut self, peer: PeerId, ts: Arc<Tipset>) {
         self.network
             .peer_manager()
-            .update_peer_head(peer, Some(Arc::clone(&ts)))
+            .update_peer_head(peer, Arc::clone(&ts))
             .await;
 
         // Only update target on initial sync

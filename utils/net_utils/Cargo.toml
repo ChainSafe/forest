@@ -11,5 +11,5 @@ log = "0.4.8"
 thiserror = "1.0"
 pbr = "1.0.3"
 pin-project-lite = "0.2"
-async-std = { version = "1.6.3", features = ["attributes"] }
+async-std = { version = "1.9", features = ["attributes"] }
 futures = "0.3.5"

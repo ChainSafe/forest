@@ -1,28 +1,27 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::config::Libp2pConfig;
-use crate::hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse};
 use crate::{
     chain_exchange::{
         ChainExchangeCodec, ChainExchangeProtocolName, ChainExchangeRequest, ChainExchangeResponse,
     },
+    discovery::DiscoveryOut,
     rpc::RequestResponseError,
+};
+use crate::{config::Libp2pConfig, discovery::DiscoveryBehaviour};
+use crate::{
+    discovery::DiscoveryConfig,
+    hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse},
 };
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
-use libp2p::core::identity::Keypair;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{
     error::PublishError, Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, Topic,
     TopicHash, ValidationMode,
 };
 use libp2p::identify::{Identify, IdentifyEvent};
-use libp2p::kad::record::store::MemoryStore;
-use libp2p::kad::{Kademlia, KademliaConfig, KademliaEvent, QueryId};
-use libp2p::mdns::{Mdns, MdnsEvent};
-use libp2p::multiaddr::Protocol;
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
@@ -31,19 +30,18 @@ use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
     RequestResponseMessage, ResponseChannel,
 };
-use libp2p::swarm::{
-    toggle::Toggle, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
-};
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
+use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::pin::Pin;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{collections::HashMap, convert::TryInto};
 use std::{task::Context, task::Poll};
 use tiny_cid::Cid as Cid2;
 
@@ -51,23 +49,24 @@ use tiny_cid::Cid as Cid2;
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
 pub struct ForestBehaviour {
     gossipsub: Gossipsub,
-    mdns: Toggle<Mdns>,
+    discovery: DiscoveryBehaviour,
     ping: Ping,
     identify: Identify,
     // TODO would be nice to have this handled together and generic, to avoid duplicated polling
     // but is fine for now, since the protocols are handled slightly differently.
     hello: RequestResponse<HelloCodec>,
     chain_exchange: RequestResponse<ChainExchangeCodec>,
-    kademlia: Toggle<Kademlia<MemoryStore>>,
     bitswap: Bitswap,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
-    #[behaviour(ignore)]
-    peers: HashSet<PeerId>,
     /// Keeps track of Chain exchange requests to responses
     #[behaviour(ignore)]
     cx_request_table:
         HashMap<RequestId, OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>>,
+    /// Keeps track of hello requests indexed by request ID to route response.
+    #[behaviour(ignore)]
+    hello_request_table:
+        HashMap<RequestId, OneShotSender<Result<HelloResponse, RequestResponseError>>>,
     /// Boxed futures of responses for Chain Exchange incoming requests. This needs to be polled
     /// in the behaviour to have access to the `RequestResponse` protocol when sending response.
     ///
@@ -85,7 +84,7 @@ struct RequestProcessingOutcome {
 
 #[derive(Debug)]
 pub enum ForestBehaviourEvent {
-    PeerDialed(PeerId),
+    PeerConnected(PeerId),
     PeerDisconnected(PeerId),
     GossipMessage {
         source: Option<PeerId>,
@@ -98,11 +97,6 @@ pub enum ForestBehaviourEvent {
         peer: PeerId,
         request: HelloRequest,
     },
-    HelloResponse {
-        peer: PeerId,
-        request_id: RequestId,
-        response: HelloResponse,
-    },
     ChainExchangeRequest {
         peer: PeerId,
         request: ChainExchangeRequest,
@@ -110,36 +104,16 @@ pub enum ForestBehaviourEvent {
     },
 }
 
-impl NetworkBehaviourEventProcess<MdnsEvent> for ForestBehaviour {
-    fn inject_event(&mut self, event: MdnsEvent) {
+impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
+    fn inject_event(&mut self, event: DiscoveryOut) {
         match event {
-            MdnsEvent::Discovered(list) => {
-                for (peer, _) in list {
-                    trace!("mdns: Discovered peer {}", peer.to_base58());
-                    self.add_peer(peer);
-                }
+            DiscoveryOut::Connected(peer) => {
+                self.bitswap.connect(peer.clone());
+                self.events.push(ForestBehaviourEvent::PeerConnected(peer));
             }
-            MdnsEvent::Expired(list) => {
-                if self.mdns.is_enabled() {
-                    for (peer, _) in list {
-                        if !self.mdns.as_ref().unwrap().has_node(&peer) {
-                            self.remove_peer(&peer);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl NetworkBehaviourEventProcess<KademliaEvent> for ForestBehaviour {
-    fn inject_event(&mut self, event: KademliaEvent) {
-        match event {
-            KademliaEvent::RoutingUpdated { peer, .. } => {
-                self.add_peer(peer);
-            }
-            event => {
-                trace!("kad: {:?}", event);
+            DiscoveryOut::Disconnected(peer) => {
+                self.events
+                    .push(ForestBehaviourEvent::PeerDisconnected(peer));
             }
         }
     }
@@ -246,13 +220,17 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                     let arrival = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
-                        .as_nanos();
+                        .as_nanos()
+                        .try_into()
+                        .expect("System time since unix epoch should not exceed u64");
 
                     debug!("Received hello request: {:?}", request);
                     let sent = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
-                        .as_nanos();
+                        .as_nanos()
+                        .try_into()
+                        .expect("System time since unix epoch should not exceed u64");
 
                     // Send hello response immediately, no need to have the overhead of emitting
                     // channel and polling future here.
@@ -264,20 +242,36 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                 RequestResponseMessage::Response {
                     request_id,
                     response,
-                } => self.events.push(ForestBehaviourEvent::HelloResponse {
-                    peer,
-                    request_id,
-                    response,
-                }),
+                } => {
+                    // Send the sucessful response through channel out.
+                    let tx = self.hello_request_table.remove(&request_id);
+                    if let Some(tx) = tx {
+                        if tx.send(Ok(response)).is_err() {
+                            debug!("RPCResponse receive timed out");
+                        }
+                    } else {
+                        debug!("RPCResponse receive failed: channel not found");
+                    };
+                }
             },
             RequestResponseEvent::OutboundFailure {
                 peer,
                 request_id,
                 error,
-            } => warn!(
-                "Hello outbound failure (peer: {:?}) (id: {:?}): {:?}",
-                peer, request_id, error
-            ),
+            } => {
+                warn!(
+                    "Hello outbound error (peer: {:?}) (id: {:?}): {:?}",
+                    peer, request_id, error
+                );
+
+                // Send error through channel out.
+                let tx = self.hello_request_table.remove(&request_id);
+                if let Some(tx) = tx {
+                    if tx.send(Err(error.into())).is_err() {
+                        debug!("RPCResponse receive failed");
+                    }
+                }
+            }
             RequestResponseEvent::InboundFailure {
                 peer,
                 error,
@@ -401,7 +395,6 @@ impl ForestBehaviour {
     }
 
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
-        let local_peer_id = local_key.public().into_peer_id();
         let gossipsub_config = GossipsubConfig {
             validation_mode: ValidationMode::Strict,
             // Using go gossipsub default, not certain this is intended
@@ -409,38 +402,15 @@ impl ForestBehaviour {
             ..Default::default()
         };
 
-        let mut bitswap = Bitswap::new();
+        let bitswap = Bitswap::new();
 
-        // Kademlia config
-        let store = MemoryStore::new(local_peer_id.to_owned());
-        let mut kad_config = KademliaConfig::default();
-        let network = format!("/fil/kad/{}/kad/1.0.0", network_name);
-        kad_config.set_protocol_name(network.as_bytes().to_vec());
-        let kademlia_opt = if config.kademlia {
-            let mut kademlia = Kademlia::with_config(local_peer_id, store, kad_config);
-            for multiaddr in config.bootstrap_peers.iter() {
-                let mut addr = multiaddr.to_owned();
-                if let Some(Protocol::P2p(mh)) = addr.pop() {
-                    let peer_id = PeerId::from_multihash(mh).unwrap();
-                    kademlia.add_address(&peer_id, addr);
-                    bitswap.connect(peer_id);
-                } else {
-                    warn!("Could not add addr {} to Kademlia DHT", multiaddr)
-                }
-            }
-            if let Err(e) = kademlia.bootstrap() {
-                warn!("Kademlia bootstrap failed: {}", e);
-            }
-            Some(kademlia)
-        } else {
-            None
-        };
-
-        let mdns_opt = if config.mdns {
-            Some(Mdns::new().expect("Could not start mDNS"))
-        } else {
-            None
-        };
+        let mut discovery_config = DiscoveryConfig::new(local_key.public(), network_name);
+        discovery_config
+            .with_mdns(config.mdns)
+            .with_kademlia(config.kademlia)
+            .with_user_defined(config.bootstrap_peers.clone())
+            // TODO allow configuring this through config.
+            .discovery_limit(50);
 
         let hp = std::iter::once((HelloProtocolName, ProtocolSupport::Full));
         let cp = std::iter::once((ChainExchangeProtocolName, ProtocolSupport::Full));
@@ -454,7 +424,7 @@ impl ForestBehaviour {
                 MessageAuthenticity::Signed(local_key.clone()),
                 gossipsub_config,
             ),
-            mdns: mdns_opt.into(),
+            discovery: discovery_config.finish(),
             ping: Ping::default(),
             identify: Identify::new(
                 "ipfs/0.1.0".into(),
@@ -463,24 +433,19 @@ impl ForestBehaviour {
                 format!("forest-{}", "0.1.0"),
                 local_key.public(),
             ),
-            kademlia: kademlia_opt.into(),
             bitswap,
             hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),
             chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
             cx_pending_responses: Default::default(),
             cx_request_table: Default::default(),
+            hello_request_table: Default::default(),
             events: vec![],
-            peers: Default::default(),
         }
     }
 
     /// Bootstrap Kademlia network
     pub fn bootstrap(&mut self) -> Result<QueryId, String> {
-        if let Some(active_kad) = self.kademlia.as_mut() {
-            active_kad.bootstrap().map_err(|e| e.to_string())
-        } else {
-            Err("Kademlia is not activated".to_string())
-        }
+        self.discovery.bootstrap()
     }
 
     /// Publish data over the gossip network.
@@ -494,8 +459,14 @@ impl ForestBehaviour {
     }
 
     /// Send a hello request or response to some peer.
-    pub fn send_hello_request(&mut self, peer_id: &PeerId, request: HelloRequest) {
-        self.hello.send_request(peer_id, request);
+    pub fn send_hello_request(
+        &mut self,
+        peer_id: &PeerId,
+        request: HelloRequest,
+        response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
+    ) {
+        let req_id = self.hello.send_request(peer_id, request);
+        self.hello_request_table.insert(req_id, response_channel);
     }
 
     /// Send a chain exchange request or response to some peer.
@@ -510,21 +481,8 @@ impl ForestBehaviour {
     }
 
     /// Adds peer to the peer set.
-    pub fn add_peer(&mut self, peer_id: PeerId) {
-        if self.peers.insert(peer_id.clone()) {
-            self.bitswap.connect(peer_id.clone());
-            self.events.push(ForestBehaviourEvent::PeerDialed(peer_id));
-        }
-    }
-
-    /// Adds peer to the peer set.
-    pub fn remove_peer(&mut self, peer_id: &PeerId) {
-        self.peers.remove(peer_id);
-    }
-
-    /// Adds peer to the peer set.
-    pub fn peers(&self) -> &HashSet<PeerId> {
-        &self.peers
+    pub fn peers(&mut self) -> &HashSet<PeerId> {
+        self.discovery.peers()
     }
 
     /// Send a block to a peer over bitswap

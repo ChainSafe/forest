@@ -23,7 +23,7 @@ state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { package = "forest_crypto", version = "0.4" }
 log = "0.4.8"
-async-std = { version = "1.6.3", features = ["unstable"] }
+async-std = { version = "1.9", features = ["tokio1", "unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 futures = "0.3.5"
 futures-util = "0.3.5"
@@ -34,7 +34,7 @@ fil_types = "0.1"
 commcid = { path = "../../utils/commcid" }
 clock = { package = "fil_clock", path = "../../node/clock" }
 serde = { version = "1.0", features = ["derive", "rc"] }
-flo_stream = "0.4.0"
+tokio = { version = "1.0", features = ["sync"] }
 rand = "0.7.3"
 smallvec = "1.1.0"
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }

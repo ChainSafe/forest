@@ -101,11 +101,11 @@ impl CircSupplyCalc for GenesisInfo {
 
         self.vesting
             .ignition
-            .get_or_init(|| setup_ignition_vesting_schedule());
+            .get_or_init(setup_ignition_vesting_schedule);
 
         self.vesting
             .calico
-            .get_or_init(|| setup_calico_vesting_schedule());
+            .get_or_init(setup_calico_vesting_schedule);
 
         get_circulating_supply(&self, height, state_tree)
     }

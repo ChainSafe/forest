@@ -15,4 +15,4 @@ integer-encoding = { version = "3.0", features = ["futures_async"] }
 
 [dev-dependencies]
 db = { package = "forest_db", version = "0.1" }
-async-std = { version = "1.6.3", features = ["unstable", "attributes"] }
+async-std = { version = "1.9", features = ["attributes"] }

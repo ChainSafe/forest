@@ -25,7 +25,7 @@ futures = "0.3.5"
 futures-util = "0.3.5"
 futures_codec = "0.4.0"
 log = "0.4.8"
-async-std = { version = "1.6.3", features = ["unstable"] }
+async-std = "1.9"
 serde = { version = "1.0", features = ["derive"] }
 forest_blocks = { path = "../../blockchain/blocks" }
 forest_message = "0.6"
@@ -51,4 +51,4 @@ forest_address = "0.3"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 crypto = { package = "forest_crypto", version = "0.4" }
 genesis = { path = "../../utils/genesis", features = ["testing"] }
-async-std = { version = "1.6.3", features = ["attributes"] }
+async-std = { version = "1.9", features = ["attributes"] }

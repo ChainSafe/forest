@@ -215,9 +215,8 @@ pub fn initial_pledge_for_power(
 }
 
 pub fn consensus_fault_penalty(this_epoch_reward: TokenAmount) -> TokenAmount {
-    this_epoch_reward.div_floor(&TokenAmount::from(
-        CONSENSUS_FAULT_FACTOR * EXPECTED_LEADERS_PER_EPOCH,
-    ))
+    (this_epoch_reward * CONSENSUS_FAULT_FACTOR)
+        .div_floor(&TokenAmount::from(EXPECTED_LEADERS_PER_EPOCH))
 }
 
 /// Returns the amount of a reward to vest, and the vesting schedule, for a reward amount.

@@ -7,7 +7,6 @@ use auth::{generate_priv_key, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use fil_types::verifier::FullVerifier;
-use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{import_chain, initialize_genesis};
 use libp2p::identity::{ed25519, Keypair};
@@ -93,8 +92,7 @@ pub(super) async fn start(config: Config) {
     let network_send = p2p_service.network_sender();
 
     // Initialize mpool
-    let subscriber = publisher.write().await.subscribe();
-    let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
+    let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
     let mpool = Arc::new(
         MessagePool::new(
             provider,
@@ -149,10 +147,10 @@ pub(super) async fn start(config: Config) {
                     sync_state,
                     network_send,
                     network_name,
-                    events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
                     beacon,
                     chain_store,
                     new_mined_block_tx: worker_tx,
+                    chain_notify_streams: Default::default(),
                 },
                 &rpc_listen,
             )
