@@ -284,7 +284,7 @@ where
     async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
         // TODO move to shared parameter (from actors crate most likely)
         // TODO the threshold should really be 900. Not entirely sure if we can handle a 900
-        // epoch fork, so we set th 500 for now. If we cant, then we can split up requests into 900/N chunks.
+        // epoch fork, so we set to 500 for now. If we cant, then we can split up requests into 900/N chunks.
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
         // TODO make this request more flexible with the window size, shouldn't require a node
