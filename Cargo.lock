@@ -985,7 +985,7 @@ dependencies = [
  "forest_message",
  "futures 0.3.10",
  "interpreter",
- "ipld_amt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.0",
  "ipld_blockstore",
  "lazy_static",
  "log",
@@ -1029,7 +1029,7 @@ dependencies = [
  "genesis",
  "hex",
  "interpreter",
- "ipld_amt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.0",
  "ipld_blockstore",
  "ipld_hamt 0.1.1",
  "libp2p",
@@ -2262,7 +2262,7 @@ dependencies = [
  "hex",
  "indexmap",
  "integer-encoding 3.0.1",
- "ipld_amt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.0",
  "ipld_blockstore",
  "ipld_hamt 0.1.1",
  "lazy_static",
@@ -3318,22 +3318,6 @@ dependencies = [
 [[package]]
 name = "ipld_amt"
 version = "0.2.0"
-dependencies = [
- "ahash 0.6.2",
- "criterion",
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "ipld_blockstore",
- "itertools 0.10.0",
- "once_cell",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "ipld_amt"
-version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4afbf05b500db86f70d9d5231c715104a103444b766331564f04feefab5b8391"
 dependencies = [
@@ -3342,6 +3326,22 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "ipld_blockstore",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "ipld_amt"
+version = "1.0.0"
+dependencies = [
+ "ahash 0.6.2",
+ "criterion",
+ "forest_cid",
+ "forest_db",
+ "forest_encoding",
+ "ipld_blockstore",
+ "itertools 0.10.0",
  "once_cell",
  "serde",
  "thiserror",
@@ -5598,7 +5598,7 @@ dependencies = [
  "futures 0.3.10",
  "hex",
  "interpreter",
- "ipld_amt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.0",
  "ipld_blockstore",
  "jsonrpc-v2",
  "jsonwebtoken",
@@ -6241,7 +6241,7 @@ dependencies = [
  "forest_vm",
  "futures 0.3.10",
  "interpreter",
- "ipld_amt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.0",
  "ipld_blockstore",
  "lazy_static",
  "log",
