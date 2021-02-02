@@ -787,7 +787,7 @@ where
             .filter(|(_, s)| {
                 s.from() == message_from_address
             })
-            .filter_map(|(index,s)| {
+            .filter_map(|(index, s)| {
                 if s.sequence() == *message_sequence {
                     if s.cid().map(|s|
                         &s == msg_cid
@@ -795,7 +795,7 @@ where
                         let rct = chain::get_parent_reciept(
                             self.blockstore(),
                             tipset.blocks().first().unwrap(),
-                            index as u64,
+                            index,
                         )
                             .map_err(|err| {
                                 Error::Other(err.to_string())

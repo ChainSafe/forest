@@ -5,7 +5,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ipld_amt::Amt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-const ITEM_COUNT: u64 = 60;
+const ITEM_COUNT: usize = 60;
 
 #[allow(dead_code)]
 // Struct to simulate a reasonable amount of data per value into the amt

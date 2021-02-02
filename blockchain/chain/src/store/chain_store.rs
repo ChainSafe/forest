@@ -914,7 +914,7 @@ where
 pub fn get_parent_reciept<DB>(
     db: &DB,
     block_header: &BlockHeader,
-    i: u64,
+    i: usize,
 ) -> Result<Option<MessageReceipt>, Error>
 where
     DB: BlockStore,
