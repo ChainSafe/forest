@@ -995,10 +995,12 @@ where
                         }
                         _ => (),
                     },
-                    Err(RecvError::Lagged(i)) => log::warn!(
-                        "wait for message head change subscriber lagged, skipped {} events",
-                        i
-                    ),
+                    Err(RecvError::Lagged(i)) => {
+                        log::warn!(
+                            "wait for message head change subscriber lagged, skipped {} events",
+                            i
+                        );
+                    }
                     Err(RecvError::Closed) => break,
                 }
             }
