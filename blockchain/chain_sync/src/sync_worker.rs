@@ -287,8 +287,6 @@ where
         // epoch fork, so we set to 500 for now. If we cant, then we can split up requests into 900/N chunks.
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
-        // TODO make this request more flexible with the window size, shouldn't require a node
-        // to have to request all fork length headers at once.
         let tips = self
             .network
             .chain_exchange_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
