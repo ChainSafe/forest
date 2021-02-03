@@ -283,19 +283,8 @@ where
                         )?;
                     }
 
-                    #[cfg(feature = "go-interop")]
-                    {
-                        sub.flush(store)?;
-                        let cid = store.put(&sub, Blake2b256)?;
-                        *child = Pointer::Link {
-                            cid,
-                            cache: Default::default(),
-                        };
-                    }
-                    #[cfg(not(feature = "go-interop"))]
-                    {
-                        *child = Pointer::Dirty(Box::new(sub));
-                    }
+                    *child = Pointer::Dirty(Box::new(sub));
+
                     return Ok(());
                 }
 
@@ -393,26 +382,12 @@ where
 
                 let cache = OnceCell::new();
 
-                #[cfg(not(feature = "go-interop"))]
-                {
-                    // Can keep the flushed node in link cache
-                    let node = std::mem::take(node);
-                    let _ = cache.set(node);
-                }
+                // Can keep the flushed node in link cache
+                let node = std::mem::take(node);
+                let _ = cache.set(node);
 
                 // Replace cached node with Cid link
                 *pointer = Pointer::Link { cid, cache };
-            }
-
-            #[cfg(feature = "go-interop")]
-            if let Pointer::Link { cache, .. } = pointer {
-                let cached = std::mem::take(cache);
-                if let Some(mut cached_node) = cached.into_inner() {
-                    // go implementation flushes all caches, even if the node is a link node.
-                    // Why do they do this? not sure
-                    cached_node.flush(store)?;
-                    store.put(&cached_node, Blake2b256)?;
-                }
             }
         }
 
