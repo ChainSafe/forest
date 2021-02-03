@@ -285,30 +285,46 @@ where
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
     async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
         // TODO move to shared parameter (from actors crate most likely)
+        // TODO the threshold should really be 900. Not entirely sure if we can handle a 900
+        // epoch fork, so we set to 500 for now. If we cant, then we can split up requests into 900/N chunks.
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
-        // TODO make this request more flexible with the window size, shouldn't require a node
-        // to have to request all fork length headers at once.
         let tips = self
             .network
             .chain_exchange_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
             .await?;
 
         let mut ts = self.chain_store().tipset_from_keys(to.parents()).await?;
+        let mut fork_length = 1;
 
         for (i, tip) in tips.iter().enumerate() {
-            while ts.epoch() > tip.epoch() {
-                if ts.epoch() == 0 {
-                    return Err(Error::Other(
-                        "Synced chain forked at genesis, refusing to sync".to_string(),
-                    ));
+            if ts.epoch() == 0 {
+                if self.genesis != ts {
+                    return Err(
+                        Error::Other(
+                            format!("synced chain that linked back to a different genesis. Our genesis: {:?}, Fork Genesis: {:?}",self.genesis.key(), ts.key())
+                        ));
                 }
-                ts = self.chain_store().tipset_from_keys(ts.parents()).await?;
+                return Err(Error::Other(format!(
+                    "Chain forked at genesis, refusing to sync: {:?}",
+                    head.cids()
+                )));
             }
             if ts == *tip {
                 let mut tips = tips;
                 tips.drain((i + 1)..);
                 return Ok(tips);
+            }
+
+            if ts.epoch() < tip.epoch() {
+                continue;
+            } else {
+                fork_length += 1;
+                if fork_length > FORK_LENGTH_THRESHOLD {
+                    return Err(Error::Other("fork too long".to_string()));
+                }
+                // TODO: Check checkpoint when we have it implemented.
+                ts = self.chain_store().tipset_from_keys(ts.parents()).await?;
             }
         }
 
