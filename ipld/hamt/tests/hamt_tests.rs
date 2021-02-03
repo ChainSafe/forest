@@ -1,14 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ipld_hamt::Hamt;
-
 use cid::Code::Blake2b256;
 use ipld_blockstore::{BSStats, BlockStore, TrackingBlockStore};
-use serde_bytes::ByteBuf;
-
-#[cfg(any(feature = "identity", feature = "v2"))]
 use ipld_hamt::BytesKey;
+use ipld_hamt::Hamt;
+use serde_bytes::ByteBuf;
 
 #[cfg(feature = "identity")]
 use ipld_hamt::Identity;
@@ -143,7 +140,6 @@ fn reload_empty() {
 }
 
 #[test]
-#[cfg(feature = "v2")]
 fn set_delete_many() {
     let mem = db::MemoryDB::default();
     let store = TrackingBlockStore::new(&mem);
@@ -398,7 +394,6 @@ fn canonical_structure_alt_bit_width() {
 }
 
 #[test]
-#[cfg(feature = "v2")]
 fn clean_child_ordering() {
     let make_key = |i: u64| -> BytesKey {
         let mut key = unsigned_varint::encode::u64_buffer();

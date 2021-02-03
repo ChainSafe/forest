@@ -29,6 +29,6 @@ rayon = "1.3"
 networks = { path = "../../types/networks" }
 
 [dev-dependencies]
-ipld_hamt = { path = "../../ipld/hamt" }
+ipld_hamt = "1.0"
 interpreter = { path = "../interpreter/" }
 
