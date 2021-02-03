@@ -212,7 +212,9 @@ where
                                             message: PubsubMessage::Block(b),
                                         }).await;
                                     }
-                                    Err(e) => warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e)
+                                    Err(e) => {
+                                        warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e);
+                                    }
                                 }
                             } else if topic == pubsub_msg_str {
                                 match from_slice::<SignedMessage>(&message) {
@@ -222,7 +224,9 @@ where
                                             message: PubsubMessage::Message(m),
                                         }).await;
                                     }
-                                    Err(e) => warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e)
+                                    Err(e) => {
+                                        warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e);
+                                    }
                                 }
                             } else {
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
@@ -269,8 +273,12 @@ where
                         ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => match self.cs.blockstore().get(&cid) {
                             Ok(Some(data)) => {
                                 match swarm_stream.get_mut().send_block(&peer_id, cid, data) {
-                                    Ok(_) => trace!("Sent bitswap message successfully"),
-                                    Err(e) => warn!("Failed to send Bitswap reply: {}", e.to_string()),
+                                    Ok(_) => {
+                                        trace!("Sent bitswap message successfully");
+                                    },
+                                    Err(e) => {
+                                        warn!("Failed to send Bitswap reply: {}", e.to_string());
+                                    },
                                 }
                             }
                             Ok(None) => {

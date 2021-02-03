@@ -182,7 +182,7 @@ impl State {
             self.miner_above_min_power_count
         );
 
-        Ok(set_claim(claims, miner, new_claim)?)
+        set_claim(claims, miner, new_claim)
     }
 
     pub(super) fn add_pledge_total(&mut self, amount: TokenAmount) {
@@ -328,9 +328,9 @@ fn get_claim<'m, BS: BlockStore>(
     claims: &'m Map<BS, Claim>,
     a: &Address,
 ) -> Result<Option<&'m Claim>, Box<dyn StdError>> {
-    Ok(claims
+    claims
         .get(&a.to_bytes())
-        .map_err(|e| e.downcast_wrap(format!("failed to get claim for address {}", a)))?)
+        .map_err(|e| e.downcast_wrap(format!("failed to get claim for address {}", a)))
 }
 
 pub fn set_claim<BS: BlockStore>(
@@ -341,9 +341,9 @@ pub fn set_claim<BS: BlockStore>(
     assert_ne!(claim.raw_byte_power.sign(), Sign::Minus);
     assert_ne!(claim.quality_adj_power.sign(), Sign::Minus);
 
-    Ok(claims
+    claims
         .set(a.to_bytes().into(), claim)
-        .map_err(|e| e.downcast_wrap(format!("failed to set claim for address {}", a)))?)
+        .map_err(|e| e.downcast_wrap(format!("failed to set claim for address {}", a)))
 }
 
 pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {

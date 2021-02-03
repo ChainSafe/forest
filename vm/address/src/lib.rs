@@ -360,7 +360,7 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let address_as_string: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Ok(Address::from_str(&address_as_string).map_err(de::Error::custom)?)
+        Address::from_str(&address_as_string).map_err(de::Error::custom)
     }
 
     #[cfg(feature = "json")]

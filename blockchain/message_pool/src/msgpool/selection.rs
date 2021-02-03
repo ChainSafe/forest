@@ -59,7 +59,7 @@ where
             chains.extend(create_message_chains(&self.api, &actor, &mset, &base_fee, &ts).await?);
         }
 
-        let (msgs, _) = merge_and_trim(chains, result, &base_fee, gas_limit, min_gas)?;
+        let (msgs, _) = merge_and_trim(chains, result, &base_fee, gas_limit, min_gas);
         Ok(msgs)
     }
 
@@ -122,7 +122,7 @@ where
             return Ok((Vec::new(), gas_limit));
         }
 
-        merge_and_trim(chains, result, base_fee, gas_limit, min_gas)
+        Ok(merge_and_trim(chains, result, base_fee, gas_limit, min_gas))
     }
 }
 /// Returns merged and trimmed messages with the gas limit
@@ -132,7 +132,7 @@ fn merge_and_trim(
     base_fee: &BigInt,
     gas_limit: i64,
     min_gas: i64,
-) -> Result<(Vec<SignedMessage>, i64), Error> {
+) -> (Vec<SignedMessage>, i64) {
     let mut chains = chains;
     let mut result = result;
     let mut gas_limit = gas_limit;
@@ -140,7 +140,7 @@ fn merge_and_trim(
     chains.sort_by(|a, b| b.compare(&a));
 
     if !chains.is_empty() && chains[0].curr().gas_perf < 0.0 {
-        return Ok((Vec::new(), gas_limit));
+        return (Vec::new(), gas_limit);
     }
 
     // 3. Merge chains until the block limit, as long as they have non-negative gas performance
@@ -193,7 +193,7 @@ fn merge_and_trim(
         }
         break;
     }
-    Ok((result, gas_limit))
+    (result, gas_limit)
 }
 
 #[cfg(test)]
