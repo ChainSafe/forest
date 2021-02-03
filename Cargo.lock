@@ -2493,6 +2493,7 @@ dependencies = [
  "bytes 1.0.1",
  "chain",
  "fil_clock",
+ "fil_types",
  "fnv",
  "forest_address",
  "forest_bigint",

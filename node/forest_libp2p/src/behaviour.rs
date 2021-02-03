@@ -13,6 +13,7 @@ use crate::{
     discovery::DiscoveryConfig,
     hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse},
 };
+use fil_types::build_version::CURRENT_COMMIT;
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
@@ -432,7 +433,7 @@ impl ForestBehaviour {
             ping: Ping::default(),
             identify: Identify::new(
                 "ipfs/0.1.0".into(),
-                format!("forest-{}", *VERSION),
+                format!("forest-{}-{}", *VERSION, *CURRENT_COMMIT),
                 local_key.public(),
             ),
             bitswap,
