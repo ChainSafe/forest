@@ -243,8 +243,7 @@ where
         let receipts = vm.apply_block_messages(messages, parent_epoch, epoch, callback)?;
 
         // Construct receipt root from receipts
-        // TODO this should use an amt relative to the version. This doesn't matter for us yet
-        let rect_root = Amt::new_from_slice(self.blockstore(), &receipts)?;
+        let rect_root = Amt::new_from_iter(self.blockstore(), receipts)?;
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
@@ -782,7 +781,7 @@ where
             .filter(|(_, s)| {
                 s.from() == message_from_address
             })
-            .filter_map(|(index,s)| {
+            .filter_map(|(index, s)| {
                 if s.sequence() == *message_sequence {
                     if s.cid().map(|s|
                         &s == msg_cid
@@ -790,7 +789,7 @@ where
                         let rct = chain::get_parent_reciept(
                             self.blockstore(),
                             tipset.blocks().first().unwrap(),
-                            index as u64,
+                            index,
                         )
                             .map_err(|err| {
                                 Error::Other(err.to_string())
