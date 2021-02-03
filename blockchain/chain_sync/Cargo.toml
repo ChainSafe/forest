@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
-amt = { package = "ipld_amt", path = "../../ipld/amt" }
+amt = { package = "ipld_amt", version = "0.2" }
 hamt = { package = "ipld_hamt", path = "../../ipld/hamt" }
 blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 beacon = { path = "../beacon" }
@@ -43,7 +43,9 @@ message_pool = { path = "../message_pool" }
 networks = { path = "../../types/networks" }
 
 [dev-dependencies]
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
+    "test_constructors"
+] }
 base64 = "0.13"
 genesis = { path = "../../utils/genesis", features = ["testing"] }
 pretty_env_logger = "0.4.0"

@@ -1,17 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{nodes_for_height, BitMap, Error, WIDTH};
+use super::ValueMut;
+use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 use cid::{Cid, Code::Blake2b256};
-use encoding::{
-    de::{self, Deserialize, DeserializeOwned},
-    ser::{self, Serialize},
-};
+use encoding::{serde_bytes, BytesSer};
 use ipld_blockstore::BlockStore;
 use once_cell::unsync::OnceCell;
+use serde::{
+    de::{self, DeserializeOwned},
+    ser, Deserialize, Serialize,
+};
 use std::error::Error as StdError;
-
-use super::ValueMut;
 
 /// This represents a link to another Node
 #[derive(Debug)]
@@ -23,6 +23,22 @@ pub(super) enum Link<V> {
     },
     /// Modifications have been made to the link, requires flush to clear
     Dirty(Box<Node<V>>),
+}
+
+impl<'de, V> Deserialize<'de> for Link<V>
+where
+    V: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let cid: Cid = Deserialize::deserialize(deserializer)?;
+        Ok(Link::Cid {
+            cid,
+            cache: Default::default(),
+        })
+    }
 }
 
 impl<V> PartialEq for Link<V>
@@ -54,60 +70,9 @@ impl<V> From<Cid> for Link<V> {
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Node<V> {
     /// Node is a link node, contains array of Cid or cached sub nodes.
-    Link {
-        bmap: BitMap,
-        links: [Option<Link<V>>; WIDTH],
-    },
+    Link { links: Vec<Option<Link<V>>> },
     /// Leaf node, this array contains only values.
-    Leaf {
-        bmap: BitMap,
-        vals: [Option<V>; WIDTH],
-    },
-}
-
-impl<V> Default for Node<V> {
-    fn default() -> Self {
-        Node::Leaf {
-            bmap: Default::default(),
-            vals: Default::default(),
-        }
-    }
-}
-
-/// Turns the WIDTH length array into a vector for serialization
-fn values_to_vec<T>(values: &[Option<T>]) -> Vec<&T> {
-    values.iter().filter_map(|val| val.as_ref()).collect()
-}
-
-/// Puts values from vector into shard array
-fn vec_to_values<V, T>(bmap: BitMap, values: Vec<V>) -> Result<[Option<T>; WIDTH], Error>
-where
-    T: From<V>,
-{
-    let mut r_arr: [Option<T>; WIDTH] = Default::default();
-
-    let mut v_iter = values.into_iter();
-
-    for (i, e) in (0..).zip(r_arr.iter_mut()) {
-        if bmap.get_bit(i) {
-            let value = v_iter.next().ok_or(Error::InvalidVecLength)?;
-            *e = Some(<T>::from(value));
-        }
-    }
-
-    Ok(r_arr)
-}
-
-/// Convert Link node into vector of Cids
-fn cids_from_links<V>(links: &[Option<Link<V>>; WIDTH]) -> Result<Vec<&Cid>, Error> {
-    links
-        .iter()
-        .filter_map(|c| match c {
-            Some(Link::Cid { cid, .. }) => Some(Ok(cid)),
-            Some(Link::Dirty(_)) => Some(Err(Error::Cached)),
-            None => None,
-        })
-        .collect()
+    Leaf { vals: Vec<Option<V>> },
 }
 
 impl<V> Serialize for Node<V>
@@ -119,76 +84,124 @@ where
         S: ser::Serializer,
     {
         match &self {
-            Node::Leaf { bmap, vals } => {
-                (bmap, [0u8; 0], values_to_vec(vals.as_ref())).serialize(s)
+            Node::Leaf { vals } => {
+                let mut values = Vec::<&V>::with_capacity(vals.len());
+                let mut bmap = vec![0u8; ((vals.len().saturating_sub(1)) / 8) + 1];
+                for (i, v) in vals.iter().enumerate() {
+                    if let Some(val) = v {
+                        values.push(val);
+                        bmap[i / 8] |= 1 << (i % 8);
+                    }
+                }
+                (BytesSer(&bmap), Vec::<&Cid>::new(), values).serialize(s)
             }
-            Node::Link { bmap, links } => {
-                let cids = cids_from_links(links).map_err(|e| ser::Error::custom(e.to_string()))?;
-                (bmap, cids, [0u8; 0]).serialize(s)
+            Node::Link { links } => {
+                let mut collapsed = Vec::<&Cid>::with_capacity(links.len());
+                let mut bmap = vec![0u8; ((links.len().saturating_sub(1)) / 8) + 1];
+                for (i, v) in links.iter().enumerate() {
+                    if let Some(val) = v {
+                        if let Link::Cid { cid, .. } = val {
+                            collapsed.push(cid);
+                            bmap[i / 8] |= 1 << (i % 8);
+                        } else {
+                            return Err(ser::Error::custom(Error::Cached));
+                        }
+                    }
+                }
+                (BytesSer(&bmap), collapsed, Vec::<&V>::new()).serialize(s)
             }
         }
     }
 }
 
-impl<'de, V> Deserialize<'de> for Node<V>
-where
-    V: Deserialize<'de>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
-    {
-        let (bmap, links, values): (BitMap, Vec<Cid>, Vec<V>) =
-            Deserialize::deserialize(deserializer)?;
+#[derive(Serialize, Deserialize)]
+pub(crate) struct CollapsedNode<V>(#[serde(with = "serde_bytes")] Vec<u8>, Vec<Cid>, Vec<V>);
 
-        if links.is_empty() {
-            Ok(Self::Leaf {
-                bmap,
-                vals: vec_to_values(bmap, values).map_err(|e| de::Error::custom(e.to_string()))?,
-            })
+impl<V> CollapsedNode<V> {
+    pub(crate) fn expand(self, bit_width: usize) -> Result<Node<V>, Error> {
+        let CollapsedNode(bmap, links, values) = self;
+        if !links.is_empty() && !values.is_empty() {
+            return Err(Error::LinksAndValues);
+        }
+
+        if bmap_bytes(bit_width) != bmap.len() {
+            return Err(Error::Other(format!(
+                "expected bitfield of length {}, found bitfield with length {}",
+                bmap_bytes(bit_width),
+                bmap.len()
+            )));
+        }
+
+        if !links.is_empty() {
+            let mut links_iter = links.into_iter();
+            let mut links = init_sized_vec::<Link<V>>(bit_width);
+            for (i, v) in links.iter_mut().enumerate() {
+                if bmap[i / 8] & (1 << (i % 8)) != 0 {
+                    *v = Some(Link::from(links_iter.next().ok_or_else(|| {
+                        Error::Other(
+                            "Bitmap contained more set bits than links provided".to_string(),
+                        )
+                    })?))
+                }
+            }
+            if links_iter.next().is_some() {
+                return Err(Error::Other(
+                    "Bitmap contained less set bits than links provided".to_string(),
+                ));
+            }
+            Ok(Node::Link { links })
         } else {
-            Ok(Self::Link {
-                bmap,
-                links: vec_to_values(bmap, links).map_err(|e| de::Error::custom(e.to_string()))?,
-            })
+            let mut val_iter = values.into_iter();
+            let mut vals = init_sized_vec::<V>(bit_width);
+            for (i, v) in vals.iter_mut().enumerate() {
+                if bmap[i / 8] & (1 << (i % 8)) != 0 {
+                    *v = Some(val_iter.next().ok_or_else(|| {
+                        Error::Other(
+                            "Bitmap contained more set bits than values provided".to_string(),
+                        )
+                    })?)
+                }
+            }
+            if val_iter.next().is_some() {
+                return Err(Error::Other(
+                    "Bitmap contained less set bits than values provided".to_string(),
+                ));
+            }
+            Ok(Node::Leaf { vals })
         }
     }
 }
 
 impl<V> Node<V>
 where
-    V: DeserializeOwned + Serialize,
+    V: Serialize + DeserializeOwned,
 {
+    /// Empty node. This is an invalid format and should only be used temporarily to avoid
+    /// allocations.
+    pub(super) fn empty() -> Self {
+        Node::Leaf {
+            vals: Default::default(),
+        }
+    }
+
     /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
-        if let Node::Link { links, bmap } = self {
-            for (i, link) in (0..).zip(links.iter_mut()) {
+        if let Node::Link { links } = self {
+            for link in links.iter_mut() {
                 // links should only be flushed if the bitmap is set.
-                if bmap.get_bit(i) {
-                    #[cfg(feature = "go-interop")]
-                    if let Some(Link::Cid { cache, .. }) = link {
-                        // Yes, this is necessary to interop, and yes this is safe to borrow
-                        // mutably because there are no values changed here, just extra db writes.
-                        if let Some(cached) = cache.get_mut() {
-                            cached.flush(bs)?;
-                            bs.put(cached, Blake2b256)?;
-                        }
-                    }
+                if let Some(Link::Dirty(n)) = link {
+                    // flush sub node to clear caches
+                    n.flush(bs)?;
 
-                    if let Some(Link::Dirty(n)) = link {
-                        // flush sub node to clear caches
-                        n.flush(bs)?;
+                    // Puts node in blockstore and and retrieves it's CID
+                    let cid = bs.put(n, Blake2b256)?;
 
-                        // Puts node in blockstore and and retrieves it's CID
-                        let cid = bs.put(n, Blake2b256)?;
+                    // Replace the data with some arbitrary node to move without requiring clone
+                    let existing = std::mem::replace(n, Box::new(Node::empty()));
 
-                        // Can keep the flushed node in link cache
-                        let node = std::mem::take(n);
-                        let cache = OnceCell::from(node);
-
-                        // Turn dirty node into a Cid link
-                        *link = Some(Link::Cid { cid, cache });
-                    }
+                    // Can keep the flushed node in link cache
+                    let cache = OnceCell::from(existing);
+                    *link = Some(Link::Cid { cid, cache });
                 }
             }
         }
@@ -196,43 +209,64 @@ where
         Ok(())
     }
 
-    pub(super) fn bitmap(&self) -> &BitMap {
+    /// Returns true if there is only a link in the first index of the values.
+    /// This node can be collapsed into the parent node.
+    pub(super) fn can_collapse(&self) -> bool {
         match self {
-            Node::Link { bmap, .. } => bmap,
-            Node::Leaf { bmap, .. } => bmap,
+            Node::Link { links } => {
+                // Check if first index is a link and all other values are empty.
+                links.get(0).map(|l| l.as_ref()).flatten().is_some()
+                    && links
+                        .get(1..)
+                        .map(|l| l.iter().all(|l| l.is_none()))
+                        .unwrap_or(true)
+            }
+            Node::Leaf { .. } => false,
         }
     }
 
-    /// Check if node is empty
-    pub(super) fn empty(&self) -> bool {
-        self.bitmap().is_empty()
+    /// Returns true if there are no values in the node.
+    pub(super) fn is_empty(&self) -> bool {
+        match self {
+            Node::Link { links } => links.iter().all(|l| l.is_none()),
+            Node::Leaf { vals } => vals.iter().all(|l| l.is_none()),
+        }
     }
 
     /// Gets value at given index of Amt given height
     pub(super) fn get<DB: BlockStore>(
         &self,
         bs: &DB,
-        height: u64,
-        i: u64,
+        height: usize,
+        bit_width: usize,
+        i: usize,
     ) -> Result<Option<&V>, Error> {
-        let sub_i = i / nodes_for_height(height);
-        if !self.bitmap().get_bit(sub_i) {
-            return Ok(None);
-        }
+        let sub_i = i / nodes_for_height(bit_width, height);
 
         match self {
-            Node::Leaf { vals, .. } => Ok(vals[i as usize].as_ref()),
-            Node::Link { links, .. } => match &links[sub_i as usize] {
+            Node::Leaf { vals, .. } => Ok(vals.get(i).map(|v| v.as_ref()).flatten()),
+            Node::Link { links, .. } => match links.get(sub_i).map(|v| v.as_ref()).flatten() {
                 Some(Link::Cid { cid, cache }) => {
-                    let cached_node =
-                        cache.get_or_try_init(|| -> Result<Box<Node<V>>, Error> {
-                            bs.get(cid)?
-                                .ok_or_else(|| Error::CidNotFound(cid.to_string()))
-                        })?;
+                    let cached_node = cache.get_or_try_init(|| {
+                        bs.get::<CollapsedNode<V>>(cid)?
+                            .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                            .expand(bit_width)
+                            .map(Box::new)
+                    })?;
 
-                    cached_node.get(bs, height - 1, i % nodes_for_height(height))
+                    cached_node.get(
+                        bs,
+                        height - 1,
+                        bit_width,
+                        i % nodes_for_height(bit_width, height),
+                    )
                 }
-                Some(Link::Dirty(n)) => n.get(bs, height - 1, i % nodes_for_height(height)),
+                Some(Link::Dirty(n)) => n.get(
+                    bs,
+                    height - 1,
+                    bit_width,
+                    i % nodes_for_height(bit_width, height),
+                ),
                 None => Ok(None),
             },
         }
@@ -242,21 +276,21 @@ where
     pub(super) fn set<DB: BlockStore>(
         &mut self,
         bs: &DB,
-        height: u64,
-        i: u64,
+        height: usize,
+        bit_width: usize,
+        i: usize,
         val: V,
-    ) -> Result<bool, Error> {
+    ) -> Result<Option<V>, Error> {
         if height == 0 {
             return Ok(self.set_leaf(i, val));
         }
 
-        let nfh = nodes_for_height(height);
+        let nfh = nodes_for_height(bit_width, height);
 
         // If dividing by nodes for height should give an index for link in node
-        let idx: usize = (i / nfh) as usize;
-        assert!(idx < 8);
+        let idx: usize = i / nfh;
 
-        if let Node::Link { links, bmap } = self {
+        if let Node::Link { links } = self {
             links[idx] = match &mut links[idx] {
                 Some(Link::Cid { cid, cache }) => {
                     let cache_node = std::mem::take(cache);
@@ -264,7 +298,10 @@ where
                         sn
                     } else {
                         // Only retrieve sub node if not found in cache
-                        bs.get(&cid)?.ok_or(Error::RootNotFound)?
+                        bs.get::<CollapsedNode<V>>(cid)?
+                            .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                            .expand(bit_width)
+                            .map(Box::new)?
                     };
 
                     Some(Link::Dirty(sub_node))
@@ -272,44 +309,34 @@ where
                 None => {
                     let node = match height {
                         1 => Node::Leaf {
-                            bmap: Default::default(),
-                            vals: Default::default(),
+                            vals: init_sized_vec(bit_width),
                         },
                         _ => Node::Link {
-                            bmap: Default::default(),
-                            links: Default::default(),
+                            links: init_sized_vec(bit_width),
                         },
                     };
-                    bmap.set_bit(idx as u64);
                     Some(Link::Dirty(Box::new(node)))
                 }
-                Some(Link::Dirty(node)) => return node.set(bs, height - 1, i % nfh, val),
+                Some(Link::Dirty(node)) => {
+                    return node.set(bs, height - 1, bit_width, i % nfh, val)
+                }
             };
 
             if let Some(Link::Dirty(n)) = &mut links[idx] {
-                n.set(bs, height - 1, i % nfh, val)
+                n.set(bs, height - 1, bit_width, i % nfh, val)
             } else {
                 unreachable!("Value is set as cached")
             }
         } else {
-            // ! This should not be handled, but there is a bug in the go implementation
-            // ! and this needs to be matched
-            *self = Node::Link {
-                links: Default::default(),
-                bmap: Default::default(),
-            };
-            self.set(bs, height, i, val)
+            unreachable!("should not be handled");
         }
     }
 
-    fn set_leaf(&mut self, i: u64, val: V) -> bool {
-        let already_set = self.bitmap().get_bit(i);
-
+    fn set_leaf(&mut self, i: usize, val: V) -> Option<V> {
         match self {
-            Node::Leaf { vals, bmap } => {
-                vals[i as usize] = Some(val);
-                bmap.set_bit(i);
-                !already_set
+            Node::Leaf { vals } => {
+                let prev = std::mem::replace(vals.get_mut(i).unwrap(), Some(val));
+                prev
             }
             Node::Link { .. } => panic!("set_leaf should never be called on a shard of links"),
         }
@@ -319,108 +346,92 @@ where
     pub(super) fn delete<DB: BlockStore>(
         &mut self,
         bs: &DB,
-        height: u64,
-        i: u64,
-    ) -> Result<bool, Error> {
-        let sub_i = i / nodes_for_height(height);
-
-        if !self.bitmap().get_bit(sub_i) {
-            // Value does not exist in Amt
-            return Ok(false);
-        }
+        height: usize,
+        bit_width: usize,
+        i: usize,
+    ) -> Result<Option<V>, Error> {
+        let sub_i = i / nodes_for_height(bit_width, height);
 
         match self {
-            Self::Leaf { bmap, vals } => {
-                assert_eq!(
-                    height, 0,
-                    "Height must be 0 when clearing bit for leaf node"
-                );
-
-                bmap.clear_bit(i);
-                vals[i as usize] = None;
-                Ok(true)
-            }
-            Self::Link { links, bmap } => {
-                match &mut links[sub_i as usize] {
-                    mod_link @ Some(Link::Dirty(_)) => {
-                        let mut remove = false;
-                        if let Some(Link::Dirty(n)) = mod_link {
-                            if !n.delete(bs, height - 1, i % nodes_for_height(height))? {
-                                // Index to be deleted was not found
-                                return Ok(false);
-                            }
-                            if n.bitmap().is_empty() {
-                                bmap.clear_bit(sub_i);
-                                remove = true;
-                            }
-                        } else {
-                            unreachable!("variant matched specifically");
+            Self::Leaf { vals } => Ok(vals.get_mut(i).map(|v| std::mem::take(v)).flatten()),
+            Self::Link { links } => {
+                let (deleted, replace) = match &mut links[sub_i] {
+                    Some(Link::Dirty(n)) => {
+                        let deleted = n.delete(
+                            bs,
+                            height - 1,
+                            bit_width,
+                            i % nodes_for_height(bit_width, height),
+                        )?;
+                        if deleted.is_none() {
+                            // Index to be deleted was not found
+                            return Ok(None);
+                        }
+                        if !n.is_empty() {
+                            // Link node is not empty yet, just return deleted
+                            return Ok(deleted);
                         }
 
                         // Remove needs to be done outside of the `if let` for memory safety.
-                        if remove {
-                            *mod_link = None;
-                        }
+                        (deleted, None)
                     }
-                    cid_link @ Some(Link::Cid { .. }) => {
-                        let sub_node = if let Some(Link::Cid { cid, cache }) = cid_link {
-                            // Take cache, will be replaced if no nodes deleted
-                            let cache_node = std::mem::take(cache);
-                            let mut sub_node = if let Some(sn) = cache_node.into_inner() {
-                                sn
-                            } else {
-                                // Only retrieve sub node if not found in cache
-                                bs.get(&cid)?.ok_or(Error::RootNotFound)?
-                            };
-                            if !sub_node.delete(bs, height - 1, i % nodes_for_height(height))? {
-                                // Replace cache, no node deleted.
-                                // Error can be ignored because value will always be the same
-                                // even if possible to hit race condition.
-                                let _ = cache.set(sub_node);
-
-                                // Index to be deleted was not found
-                                return Ok(false);
-                            }
-                            sub_node
-                        } else {
-                            unreachable!("variant matched specifically");
+                    Some(Link::Cid { cid, cache }) => {
+                        // Take cache, will be replaced if no nodes deleted
+                        cache.get_or_try_init(|| {
+                            bs.get::<CollapsedNode<V>>(cid)?
+                                .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                                .expand(bit_width)
+                                .map(Box::new)
+                        })?;
+                        let sub_node = cache.get_mut().expect("filled line above");
+                        let deleted = sub_node.delete(
+                            bs,
+                            height - 1,
+                            bit_width,
+                            i % nodes_for_height(bit_width, height),
+                        )?;
+                        if deleted.is_none() {
+                            // Index to be deleted was not found
+                            return Ok(None);
                         };
+                        let sub_node = std::mem::replace(sub_node, Box::new(Node::empty()));
 
-                        if sub_node.bitmap().is_empty() {
-                            // Sub node is empty, clear bit and current link node.
-                            bmap.clear_bit(sub_i);
-                            *cid_link = None;
+                        if sub_node.is_empty() {
+                            // Sub node is empty, clear link.
+                            (deleted, None)
                         } else {
-                            *cid_link = Some(Link::Dirty(sub_node));
+                            // Link was modified and is now marked dirty.
+                            (deleted, Some(Link::Dirty(sub_node)))
                         }
                     }
-                    None => unreachable!("Bitmap value for index is set"),
+                    // Link index is empty.
+                    None => return Ok(None),
                 };
 
-                Ok(true)
+                links[sub_i] = replace;
+
+                Ok(deleted)
             }
         }
     }
 
     pub(super) fn for_each_while<S, F>(
         &self,
-        store: &S,
-        height: u64,
-        offset: u64,
+        bs: &S,
+        height: usize,
+        bit_width: usize,
+        offset: usize,
         f: &mut F,
     ) -> Result<bool, Box<dyn StdError>>
     where
-        F: FnMut(u64, &V) -> Result<bool, Box<dyn StdError>>,
+        F: FnMut(usize, &V) -> Result<bool, Box<dyn StdError>>,
         S: BlockStore,
     {
         match self {
-            Node::Leaf { bmap, vals } => {
+            Node::Leaf { vals } => {
                 for (i, v) in (0..).zip(vals.iter()) {
-                    if bmap.get_bit(i) {
-                        let keep_going = f(
-                            offset + i,
-                            v.as_ref().expect("set bit should contain value"),
-                        )?;
+                    if let Some(v) = v {
+                        let keep_going = f(offset + i, v)?;
 
                         if !keep_going {
                             return Ok(false);
@@ -428,31 +439,23 @@ where
                     }
                 }
             }
-            Node::Link { bmap, links } => {
+            Node::Link { links } => {
                 for (i, l) in (0..).zip(links.iter()) {
-                    if bmap.get_bit(i) {
-                        let offs = offset + (i * nodes_for_height(height));
-                        let keep_going = match l.as_ref().expect("bit set at index") {
-                            Link::Dirty(sub) => sub.for_each_while(store, height - 1, offs, f)?,
+                    if let Some(l) = l {
+                        let offs = offset + (i * nodes_for_height(bit_width, height));
+                        let keep_going = match l {
+                            Link::Dirty(sub) => {
+                                sub.for_each_while(bs, height - 1, bit_width, offs, f)?
+                            }
                             Link::Cid { cid, cache } => {
-                                // TODO simplify with try_init when go-interop feature not needed
-                                if let Some(cached_node) = cache.get() {
-                                    cached_node.for_each_while(store, height - 1, offs, f)?
-                                } else {
-                                    let node: Box<Node<V>> = store
-                                        .get(cid)?
-                                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
+                                let cached_node = cache.get_or_try_init(|| {
+                                    bs.get::<CollapsedNode<V>>(cid)?
+                                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                                        .expand(bit_width)
+                                        .map(Box::new)
+                                })?;
 
-                                    #[cfg(not(feature = "go-interop"))]
-                                    {
-                                        // Ignore error intentionally, the cache value will always be the same
-                                        let cache_node = cache.get_or_init(|| node);
-                                        cache_node.for_each_while(store, height - 1, offs, f)?
-                                    }
-
-                                    #[cfg(feature = "go-interop")]
-                                    node.for_each_while(store, height - 1, offs, f)?
-                                }
+                                cached_node.for_each_while(bs, height - 1, bit_width, offs, f)?
                             }
                         };
 
@@ -473,23 +476,23 @@ where
     /// mutated inside the closure, requiring the node to be cached.
     pub(super) fn for_each_while_mut<S, F>(
         &mut self,
-        store: &S,
-        height: u64,
-        offset: u64,
+        bs: &S,
+        height: usize,
+        bit_width: usize,
+        offset: usize,
         f: &mut F,
     ) -> Result<(bool, bool), Box<dyn StdError>>
     where
-        F: FnMut(u64, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
+        F: FnMut(usize, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
         S: BlockStore,
     {
         let mut did_mutate = false;
 
         match self {
-            Node::Leaf { bmap, vals } => {
+            Node::Leaf { vals } => {
                 for (i, v) in (0..).zip(vals.iter_mut()) {
-                    if bmap.get_bit(i) {
-                        let mut value_mut =
-                            ValueMut::new(v.as_mut().expect("set bit should contain value"));
+                    if let Some(v) = v {
+                        let mut value_mut = ValueMut::new(v);
 
                         let keep_going = f(offset + i, &mut value_mut)?;
                         did_mutate |= value_mut.value_changed();
@@ -500,43 +503,32 @@ where
                     }
                 }
             }
-            Node::Link { bmap, links } => {
+            Node::Link { links } => {
                 for (i, l) in (0..).zip(links.iter_mut()) {
-                    if bmap.get_bit(i) {
-                        let offs = offset + (i * nodes_for_height(height));
-                        let link = l.as_mut().expect("bit set at index");
+                    if let Some(link) = l {
+                        let offs = offset + (i * nodes_for_height(bit_width, height));
                         let (keep_going, did_mutate_node) = match link {
                             Link::Dirty(sub) => {
-                                sub.for_each_while_mut(store, height - 1, offs, f)?
+                                sub.for_each_while_mut(bs, height - 1, bit_width, offs, f)?
                             }
                             Link::Cid { cid, cache } => {
-                                let cache_node = std::mem::take(cache);
-
-                                #[allow(unused_variables)]
-                                let (mut node, cached) = if let Some(sn) = cache_node.into_inner() {
-                                    (sn, true)
-                                } else {
-                                    // Only retrieve sub node if not found in cache
-                                    (store.get(&cid)?.ok_or(Error::RootNotFound)?, false)
-                                };
+                                cache.get_or_try_init(|| {
+                                    bs.get::<CollapsedNode<V>>(cid)?
+                                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
+                                        .expand(bit_width)
+                                        .map(Box::new)
+                                })?;
+                                let node = cache.get_mut().expect("cache filled on line above");
 
                                 let (keep_going, did_mutate_node) =
-                                    node.for_each_while_mut(store, height - 1, offs, f)?;
+                                    node.for_each_while_mut(bs, height - 1, bit_width, offs, f)?;
 
                                 if did_mutate_node {
-                                    *link = Link::Dirty(node);
-                                } else {
-                                    #[cfg(feature = "go-interop")]
-                                    {
-                                        if cached {
-                                            let _ = cache.set(node);
-                                        }
-                                    }
-
-                                    // Replace cache, or else iteration over without modification
-                                    // will consume cache
-                                    #[cfg(not(feature = "go-interop"))]
-                                    let _ = cache.set(node);
+                                    // Cache was mutated, switch it to dirty
+                                    *link = Link::Dirty(std::mem::replace(
+                                        node,
+                                        Box::new(Node::empty()),
+                                    ));
                                 }
 
                                 (keep_going, did_mutate_node)
@@ -564,8 +556,14 @@ mod tests {
 
     #[test]
     fn serialize_node_symmetric() {
-        let node = Node::default();
+        let node = Node::Leaf { vals: vec![None] };
         let nbz = to_vec(&node).unwrap();
-        assert_eq!(from_slice::<Node<u8>>(&nbz).unwrap(), node);
+        assert_eq!(
+            from_slice::<CollapsedNode<u8>>(&nbz)
+                .unwrap()
+                .expand(0)
+                .unwrap(),
+            node
+        );
     }
 }
