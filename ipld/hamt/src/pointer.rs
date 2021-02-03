@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::convert::TryFrom;
-
 use super::node::Node;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
@@ -10,6 +8,8 @@ use once_cell::unsync::OnceCell;
 use serde::de::DeserializeOwned;
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::cmp::Ordering;
+use std::convert::TryFrom;
 
 /// Pointer to index values or a link to another child node.
 #[derive(Debug)]
@@ -162,8 +162,8 @@ where
                         .flatten()
                         .collect();
 
-                    use std::cmp::Ordering;
-
+                    // Sorting by key, values are inserted based on the ordering of the key itself,
+                    // so when collapsed, it needs to be ensured that this order is equal.
                     child_vals.sort_unstable_by(|a, b| {
                         a.key().partial_cmp(b.key()).unwrap_or(Ordering::Equal)
                     });
