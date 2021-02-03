@@ -40,11 +40,16 @@ enum PointerSer<'a, K, V> {
     Link(&'a Cid),
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
-enum PointerDe<K, V> {
-    Vals(Vec<KeyValuePair<K, V>>),
-    Link(Cid),
+impl<'a, K, V, H> TryFrom<&'a Pointer<K, V, H>> for PointerSer<'a, K, V> {
+    type Error = &'static str;
+
+    fn try_from(pointer: &'a Pointer<K, V, H>) -> Result<Self, Self::Error> {
+        match pointer {
+            Pointer::Values(vals) => Ok(PointerSer::Vals(vals.as_ref())),
+            Pointer::Link { cid, .. } => Ok(PointerSer::Link(cid)),
+            Pointer::Dirty(_) => Err("Cannot serialize cached values"),
+        }
+    }
 }
 
 impl<K, V, H> Serialize for Pointer<K, V, H>
@@ -62,16 +67,11 @@ where
     }
 }
 
-impl<'a, K, V, H> TryFrom<&'a Pointer<K, V, H>> for PointerSer<'a, K, V> {
-    type Error = &'static str;
-
-    fn try_from(pointer: &'a Pointer<K, V, H>) -> Result<Self, Self::Error> {
-        match pointer {
-            Pointer::Values(vals) => Ok(PointerSer::Vals(vals.as_ref())),
-            Pointer::Link { cid, .. } => Ok(PointerSer::Link(cid)),
-            Pointer::Dirty(_) => Err("Cannot serialize cached values"),
-        }
-    }
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum PointerDe<K, V> {
+    Vals(Vec<KeyValuePair<K, V>>),
+    Link(Cid),
 }
 
 impl<K, V, H> From<PointerDe<K, V>> for Pointer<K, V, H> {
