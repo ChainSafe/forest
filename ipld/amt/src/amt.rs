@@ -165,7 +165,7 @@ where
     // TODO Implement more efficient batch set to not have to traverse tree and keep cache for each
     pub fn batch_set(&mut self, vals: impl IntoIterator<Item = V>) -> Result<(), Error> {
         for (i, val) in vals.into_iter().enumerate() {
-            self.set(i as usize, val)?;
+            self.set(i, val)?;
         }
 
         Ok(())
