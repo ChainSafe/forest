@@ -12,7 +12,8 @@ blockstore = { package = "ipld_blockstore", version = "0.1", features = [
 cid = { package = "forest_cid", version = "0.3", features = ["cbor", "json"] }
 difference = "2.0"
 colored = "2.0"
-ipld_hamt = { path = "../../ipld/hamt", features = ["ignore-dead-links"] }
+# TODO might need to enable feature on other versions (0.1 and local)
+ipld_hamt = { version = "1.0", features = ["ignore-dead-links"] }
 address = { package = "forest_address", version = "0.3", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 ipld = { version = "0.1.1", package = "forest_ipld", features = ["json"] }
