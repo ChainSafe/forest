@@ -330,14 +330,14 @@ where
         }
 
         match self {
-            Self::Leaf { bmap, .. } => {
+            Self::Leaf { bmap, vals } => {
                 assert_eq!(
                     height, 0,
                     "Height must be 0 when clearing bit for leaf node"
                 );
 
-                // When deleting from node, should only need to clear bit from bitmap
                 bmap.clear_bit(i);
+                vals[i as usize] = None;
                 Ok(true)
             }
             Self::Link { links, bmap } => {
