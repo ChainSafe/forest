@@ -105,14 +105,14 @@ fn from_slice(c: &mut Criterion) {
     c.bench_function("AMT initialization from slice", |b| {
         b.iter(|| {
             let db = db::MemoryDB::default();
-            Amt::new_from_slice(&db, black_box(VALUES)).unwrap();
+            Amt::new_from_iter(&db, black_box(VALUES.iter().copied())).unwrap();
         })
     });
 }
 
 fn for_each(c: &mut Criterion) {
     let db = db::MemoryDB::default();
-    let cid = Amt::new_from_slice(&db, black_box(VALUES)).unwrap();
+    let cid = Amt::new_from_iter(&db, black_box(VALUES.iter().copied())).unwrap();
 
     c.bench_function("AMT for_each function", |b| {
         b.iter(|| {

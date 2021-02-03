@@ -7,20 +7,22 @@ mod full_sync_test;
 mod validate_block_test;
 
 use super::sync_state::{SyncStage, SyncState};
-use super::{bad_block_cache::BadBlockCache, sync::ChainSyncState};
+use super::{
+    bad_block_cache::BadBlockCache,
+    sync::{compute_msg_meta, ChainSyncState},
+};
 use super::{Error, SyncNetworkContext};
 use actor::{is_account_actor, power};
 use address::Address;
-use amt::Amt;
 use async_std::channel::Receiver;
 use async_std::sync::{Mutex, RwLock};
 use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use chain::{persist_objects, ChainStore};
-use cid::{Cid, Code::Blake2b256};
+use cid::Cid;
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
-use encoding::{Cbor, Error as EncodingError};
+use encoding::Cbor;
 use fil_types::{
     verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
     TICKET_RANDOMNESS_LOOKBACK,
@@ -30,7 +32,7 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
-use message::{Message, SignedMessage, UnsignedMessage};
+use message::{Message, UnsignedMessage};
 use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -978,37 +980,6 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), &'static str> {
         return Err("Block had no ticket");
     }
     Ok(())
-}
-
-/// Returns message root CID from bls and secp message contained in the param Block
-pub fn compute_msg_meta<DB: BlockStore>(
-    blockstore: &DB,
-    bls_msgs: &[UnsignedMessage],
-    secp_msgs: &[SignedMessage],
-) -> Result<Cid, Error> {
-    // collect bls and secp cids
-    let bls_cids = cids_from_messages(bls_msgs)?;
-    let secp_cids = cids_from_messages(secp_msgs)?;
-
-    // generate Amt and batch set message values
-    let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
-    let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
-
-    let meta = TxMeta {
-        bls_message_root: bls_root,
-        secp_message_root: secp_root,
-    };
-
-    // store message roots and receive meta_root cid
-    let meta_root = blockstore
-        .put(&meta, Blake2b256)
-        .map_err(|e| Error::Other(e.to_string()))?;
-
-    Ok(meta_root)
-}
-
-fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
-    messages.iter().map(Cbor::cid).collect()
 }
 
 #[cfg(test)]

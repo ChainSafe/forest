@@ -639,8 +639,8 @@ pub fn compute_msg_meta<DB: BlockStore>(
     let secp_cids = cids_from_messages(secp_msgs)?;
 
     // generate Amt and batch set message values
-    let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
-    let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
+    let bls_root = Amt::new_from_iter(blockstore, bls_cids)?;
+    let secp_root = Amt::new_from_iter(blockstore, secp_cids)?;
 
     let meta = TxMeta {
         bls_message_root: bls_root,
