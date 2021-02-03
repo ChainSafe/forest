@@ -1,8 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::Node;
-use encoding::{
+use crate::{init_sized_vec, node::CollapsedNode, Node};
+use serde::{
     de::{self, Deserialize},
     ser::{self, Serialize},
 };
@@ -10,17 +10,21 @@ use encoding::{
 /// Root of an AMT vector, can be serialized and keeps track of height and count
 #[derive(PartialEq, Debug)]
 pub(super) struct Root<V> {
-    pub(super) height: u64,
-    pub(super) count: u64,
-    pub(super) node: Node<V>,
+    pub bit_width: usize,
+    pub height: usize,
+    pub count: usize,
+    pub node: Node<V>,
 }
 
-impl<V> Default for Root<V> {
-    fn default() -> Self {
+impl<V> Root<V> {
+    pub(super) fn new(bit_width: usize) -> Self {
         Self {
-            node: Node::default(),
+            bit_width,
             count: 0,
             height: 0,
+            node: Node::Leaf {
+                vals: init_sized_vec(bit_width),
+            },
         }
     }
 }
@@ -33,7 +37,7 @@ where
     where
         S: ser::Serializer,
     {
-        (&self.height, &self.count, &self.node).serialize(s)
+        (&self.bit_width, &self.height, &self.count, &self.node).serialize(s)
     }
 }
 
@@ -45,11 +49,13 @@ where
     where
         D: de::Deserializer<'de>,
     {
-        let (height, count, node) = Deserialize::deserialize(deserializer)?;
+        let (bit_width, height, count, node): (_, _, _, CollapsedNode<V>) =
+            Deserialize::deserialize(deserializer)?;
         Ok(Self {
+            bit_width,
             height,
             count,
-            node,
+            node: node.expand(bit_width).map_err(de::Error::custom)?,
         })
     }
 }
@@ -61,10 +67,10 @@ mod tests {
 
     #[test]
     fn serialize_symmetric() {
-        let mut root = Root::default();
+        let mut root = Root::new(0);
         root.height = 2;
         root.count = 1;
-        root.node = Node::default();
+        root.node = Node::Leaf { vals: vec![None] };
         let rbz = to_vec(&root).unwrap();
         assert_eq!(from_slice::<Root<String>>(&rbz).unwrap(), root);
     }

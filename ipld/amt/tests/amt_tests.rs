@@ -1,12 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{de::DeserializeOwned, ser::Serialize};
+use encoding::{de::DeserializeOwned, ser::Serialize, BytesDe};
 use ipld_amt::{Amt, Error, MAX_INDEX};
 use ipld_blockstore::{BSStats, BlockStore, TrackingBlockStore};
 use std::fmt::Debug;
 
-fn assert_get<V, BS>(a: &Amt<V, BS>, i: u64, v: &V)
+fn assert_get<V, BS>(a: &Amt<V, BS>, i: usize, v: &V)
 where
     V: Serialize + DeserializeOwned + PartialEq + Debug,
     BS: BlockStore,
@@ -20,22 +20,22 @@ fn basic_get_set() {
     let db = TrackingBlockStore::new(&mem);
     let mut a = Amt::new(&db);
 
-    a.set(2, "foo".to_owned()).unwrap();
-    assert_get(&a, 2, &"foo".to_owned());
+    a.set(2, tbytes(b"foo")).unwrap();
+    assert_get(&a, 2, &tbytes(b"foo"));
     assert_eq!(a.count(), 1);
 
     let c = a.flush().unwrap();
 
     let new_amt = Amt::load(&c, &db).unwrap();
-    assert_get(&new_amt, 2, &"foo".to_owned());
+    assert_get(&new_amt, 2, &tbytes(b"foo"));
     let c = a.flush().unwrap();
 
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzacea4z4wxtdoo6ikgqkoe4gm364xhdtreycvfy5txvprpbtunx5jnwy"
+        "bafy2bzacedv5uu5za6oqtnozjvju5lhbgaybayzhw4txiojw7hd47ktgbv5wc"
     );
     #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats { r: 1, w: 2, br: 12, bw: 24 });
+    assert_eq!(*db.stats.borrow(), BSStats {r: 1, w: 2, br: 13, bw: 26});
 }
 
 #[test]
@@ -44,24 +44,25 @@ fn out_of_range() {
     let db = TrackingBlockStore::new(&mem);
     let mut a = Amt::new(&db);
 
-    let res = a.set((1 << 63) + 4, "what is up".to_owned());
-    assert!(matches!(res, Err(Error::OutOfRange(_))));
-
-    let res = a.set(MAX_INDEX + 1, "what is up".to_owned());
-    assert!(matches!(res, Err(Error::OutOfRange(_))));
-
-    let res = a.set(MAX_INDEX, "what is up".to_owned());
+    let res = a.set(MAX_INDEX, tbytes(b"what is up"));
     assert!(res.err().is_none());
-    // 20 is the max height, custom value to avoid exporting
-    assert_eq!(a.height(), 20);
+    // 21 is the max height, custom value to avoid exporting
+    assert_eq!(a.height(), 21);
+
+    let res = a.set(MAX_INDEX + 1, tbytes(b"what is up"));
+    assert!(matches!(res, Err(Error::OutOfRange(_))));
+
+    let res = a.set(MAX_INDEX - 1, tbytes(b"what is up"));
+    assert!(res.err().is_none());
+    assert_eq!(a.height(), 21);
 
     let c = a.flush().unwrap();
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzacedozbiofn5fnrtfzy3tk5k7inyp5ncusdtb6xyl5z4rstdgqbad7g"
+        "bafy2bzacecl3zuubhdvkojg6uhbu4mebaehx554q6algfjitqiivvnrqprkxo"
     );
     #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 0, w: 21, br: 0, bw: 979});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 0, w: 22, br: 0, bw: 1039});
 }
 
 #[test]
@@ -70,13 +71,13 @@ fn expand() {
     let db = TrackingBlockStore::new(&mem);
     let mut a = Amt::new(&db);
 
-    a.set(2, "foo".to_owned()).unwrap();
-    a.set(11, "bar".to_owned()).unwrap();
-    a.set(79, "baz".to_owned()).unwrap();
+    a.set(2, tbytes(b"foo")).unwrap();
+    a.set(11, tbytes(b"bar")).unwrap();
+    a.set(79, tbytes(b"baz")).unwrap();
 
-    assert_get(&a, 2, &"foo".to_owned());
-    assert_get(&a, 11, &"bar".to_owned());
-    assert_get(&a, 79, &"baz".to_owned());
+    assert_get(&a, 2, &tbytes(b"foo"));
+    assert_get(&a, 11, &tbytes(b"bar"));
+    assert_get(&a, 79, &tbytes(b"baz"));
 
     // Flush and save root node and get cid
     let c = a.flush().unwrap();
@@ -84,22 +85,17 @@ fn expand() {
     // Load amt with that cid
     let new_amt = Amt::load(&c, &db).unwrap();
 
-    assert_get(&new_amt, 2, &"foo".to_owned());
-    assert_get(&new_amt, 11, &"bar".to_owned());
-    assert_get(&new_amt, 79, &"baz".to_owned());
+    assert_get(&new_amt, 2, &tbytes(b"foo"));
+    assert_get(&new_amt, 11, &tbytes(b"bar"));
+    assert_get(&new_amt, 79, &tbytes(b"baz"));
 
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzaced25ah2r4gcerysjyrjqpqw72jvdy5ziwxk53ldxibktwmgkfgc22"
+        "bafy2bzacecughjbclx3lbqwibrwc6pe7nttlc3qewedsrayghsvh5j5lpofiq"
     );
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 6, w: 6, br: 260, bw: 260});
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 9, br: 369, bw: 369});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 6, w: 6, br: 261, bw: 261});
 }
 
 #[test]
@@ -108,14 +104,14 @@ fn bulk_insert() {
     let db = TrackingBlockStore::new(&mem);
     let mut a = Amt::new(&db);
 
-    let iterations: u64 = 5000;
+    let iterations: usize = 5000;
 
     for i in 0..iterations {
-        a.set(i, "foo foo bar".to_owned()).unwrap();
+        a.set(i, tbytes(b"foo foo bar")).unwrap();
     }
 
     for i in 0..iterations {
-        assert_get(&a, i, &"foo foo bar".to_owned());
+        assert_get(&a, i, &tbytes(b"foo foo bar"));
     }
 
     assert_eq!(a.count(), iterations);
@@ -125,21 +121,16 @@ fn bulk_insert() {
     let new_amt = Amt::load(&c, &db).unwrap();
 
     for i in 0..iterations {
-        assert_get(&new_amt, i, &"foo foo bar".to_owned());
+        assert_get(&new_amt, i, &tbytes(b"foo foo bar"));
     }
 
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzacedjhcq7542wu7ike4i4srgq7hwxxc5pmw5sub4secqk33mugl4zda"
+        "bafy2bzacecfquuqzqzlox25aynodzw2qhxijdzfvno6tibyes3kb6nd3f7uxa"
     );
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 717, w: 717, br: 94378, bw: 94378});
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 1302, w: 1302, br: 171567, bw: 171567});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 717, w: 717, br: 94379, bw: 94379});
 }
 
 #[test]
@@ -148,35 +139,26 @@ fn flush_read() {
     let db = TrackingBlockStore::new(&mem);
     let mut a = Amt::new(&db);
 
-    let iterations: u64 = 100;
+    let iterations: usize = 100;
 
     for i in 0..iterations {
-        a.set(i, "foo foo bar".to_owned()).unwrap();
+        a.set(i, tbytes(b"foo foo bar")).unwrap();
     }
 
     for i in 0..iterations {
-        assert_get(&a, i, &"foo foo bar".to_owned());
+        assert_get(&a, i, &tbytes(b"foo foo bar"));
     }
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 9, br: 1157, bw: 1157});
 
     // Flush but don't reload from Cid
     a.flush().unwrap();
 
     // These reads can hit cache, if saved
     for i in 0..iterations {
-        assert_get(&a, i, &"foo foo bar".to_owned());
+        assert_get(&a, i, &tbytes(b"foo foo bar"));
     }
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*db.stats.borrow(), BSStats { r: 0, w: 16, br: 0, bw: 1929 });
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 9, w: 25, br: 1157, bw: 3086});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 0, w: 16, br: 0, bw: 1930});
 }
 
 #[test]
@@ -184,48 +166,47 @@ fn delete() {
     let mem = db::MemoryDB::default();
     let db = TrackingBlockStore::new(&mem);
     let mut a = Amt::new(&db);
-    a.set(0, "ferret".to_owned()).unwrap();
-    a.set(1, "ferret".to_owned()).unwrap();
-    a.set(2, "ferret".to_owned()).unwrap();
-    a.set(3, "ferret".to_owned()).unwrap();
+    a.set(0, tbytes(b"cat")).unwrap();
+    a.set(1, tbytes(b"cat")).unwrap();
+    a.set(2, tbytes(b"cat")).unwrap();
+    a.set(3, tbytes(b"cat")).unwrap();
     assert_eq!(a.count(), 4);
 
     a.delete(1).unwrap();
     assert!(a.get(1).unwrap().is_none());
     assert_eq!(a.count(), 3);
 
-    assert_get(&a, 0, &"ferret".to_owned());
-    assert_get(&a, 2, &"ferret".to_owned());
-    assert_get(&a, 3, &"ferret".to_owned());
+    assert_get(&a, 0, &tbytes(b"cat"));
+    assert_get(&a, 2, &tbytes(b"cat"));
+    assert_get(&a, 3, &tbytes(b"cat"));
 
     a.delete(0).unwrap();
     a.delete(2).unwrap();
     a.delete(3).unwrap();
     assert_eq!(a.count(), 0);
 
-    a.set(23, "dog".to_owned()).unwrap();
-    a.set(24, "dog".to_owned()).unwrap();
+    a.set(23, tbytes(b"dog")).unwrap();
+    a.set(24, tbytes(b"dog")).unwrap();
     a.delete(23).unwrap();
     assert_eq!(a.count(), 1);
-    assert_get(&a, 24, &"dog".to_owned());
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
-    let regen_amt: Amt<String, _> = Amt::load(&c, &db).unwrap();
+    let regen_amt: Amt<BytesDe, _> = Amt::load(&c, &db).unwrap();
     assert_eq!(regen_amt.count(), 1);
 
     // Test that a new amt inserting just at index 24 is the same
     let mut new_amt = Amt::new(&db);
-    new_amt.set(24, "dog".to_owned()).unwrap();
+    new_amt.set(24, tbytes(b"dog")).unwrap();
     let c2 = new_amt.flush().unwrap();
 
     assert_eq!(c, c2);
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzacedtq64mekzyjshwa3kxyt4kt5volln6acoavl4p7dexzczefwj7uw"
+        "bafy2bzacebnnxpurpb3zqqr22i7ch4uruz6hgykn3ryzoo4hh3ox2m2kufsvg"
     );
     #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 1, w: 4, br: 51, bw: 120});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 1, w: 4, br: 52, bw: 122});
 }
 
 #[test]
@@ -240,8 +221,8 @@ fn delete_fail_check() {
     assert_eq!(a.count(), 2);
     assert_eq!(a.get(1).unwrap(), Some(&"one".to_string()));
     assert_eq!(a.get(9).unwrap(), Some(&"nine".to_string()));
-    assert_eq!(a.delete(10).unwrap(), false);
-    assert_eq!(a.delete(0).unwrap(), false);
+    assert!(a.delete(10).unwrap().is_none());
+    assert!(a.delete(0).unwrap().is_none());
     assert_eq!(a.count(), 2);
     assert_eq!(a.get(1).unwrap(), Some(&"one".to_string()));
     assert_eq!(a.get(9).unwrap(), Some(&"nine".to_string()));
@@ -253,32 +234,28 @@ fn delete_first_entry() {
     let db = TrackingBlockStore::new(&mem);
     let mut a = Amt::new(&db);
 
-    a.set(0, "cat".to_owned()).unwrap();
-    a.set(27, "cat".to_owned()).unwrap();
+    a.set(0, tbytes(b"cat")).unwrap();
+    a.set(27, tbytes(b"cat")).unwrap();
 
     assert_eq!(a.count(), 2);
     assert_eq!(a.height(), 1);
     a.delete(27).unwrap();
     assert_eq!(a.count(), 1);
-    assert_get(&a, 0, &"cat".to_owned());
+    assert_get(&a, 0, &tbytes(b"cat"));
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
-    let new_amt: Amt<String, _> = Amt::load(&c, &db).unwrap();
+    let new_amt: Amt<BytesDe, _> = Amt::load(&c, &db).unwrap();
     assert_eq!(new_amt.count(), 1);
     assert_eq!(new_amt.height(), 0);
 
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzacec4rpjwfkzp4n2wj233774cnhk5o2d7pub2gso2g3isdfxnxuhbr2"
+        "bafy2bzacecmxrjeri2ojuy3riae2mpbnztx2hqggqgkcrxao2nwpga77j2vqe"
     );
-    #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*db.stats.borrow(), BSStats { r: 1, w: 1, br: 12, bw: 12 });
 
     #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 2, w: 2, br: 21, bw: 21});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 1, w: 1, br: 13, bw: 13});
 }
 
 #[test]
@@ -287,15 +264,17 @@ fn delete_reduce_height() {
     let db = TrackingBlockStore::new(&mem);
     let mut a = Amt::new(&db);
 
-    a.set(1, "thing".to_owned()).unwrap();
+    a.set(1, tbytes(b"thing")).unwrap();
     let c1 = a.flush().unwrap();
 
-    a.set(37, "other".to_owned()).unwrap();
+    a.set(37, tbytes(b"other")).unwrap();
     assert_eq!(a.height(), 1);
     let c2 = a.flush().unwrap();
 
-    let mut a2: Amt<String, _> = Amt::load(&c2, &db).unwrap();
-    a2.delete(37).unwrap();
+    let mut a2: Amt<BytesDe, _> = Amt::load(&c2, &db).unwrap();
+    assert_eq!(a2.count(), 2);
+    assert_eq!(a2.height(), 1);
+    assert!(a2.delete(37).unwrap().is_some());
     assert_eq!(a2.count(), 1);
     assert_eq!(a2.height(), 0);
 
@@ -304,10 +283,10 @@ fn delete_reduce_height() {
 
     assert_eq!(
         c1.to_string().as_str(),
-        "bafy2bzaceccdkhc6fuhybskfl4hoydekua2su2vz45molwmy3ah36pnsmntvc"
+        "bafy2bzacebmkyah6kppbszluix3g332hntzx6wfdcqcr5hjdsaxri5jhgrdmo"
     );
     #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 3, w: 5, br: 116, bw: 144});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 3, w: 5, br: 117, bw: 147});
 }
 
 #[test]
@@ -325,19 +304,19 @@ fn for_each() {
 
     // Set all indices in the Amt
     for i in indexes.iter() {
-        a.set(*i, "value".to_owned()).unwrap();
+        a.set(*i, tbytes(b"value")).unwrap();
     }
 
     // Ensure all values were added into the amt
     for i in indexes.iter() {
-        assert_eq!(a.get(*i).unwrap(), Some(&"value".to_owned()));
+        assert_eq!(a.get(*i).unwrap(), Some(&tbytes(b"value")));
     }
 
-    assert_eq!(a.count(), indexes.len() as u64);
+    assert_eq!(a.count(), indexes.len() as usize);
 
     // Iterate over amt with dirty cache
     let mut x = 0;
-    a.for_each(|_, _: &String| {
+    a.for_each(|_, _: &BytesDe| {
         x += 1;
         Ok(())
     })
@@ -348,11 +327,11 @@ fn for_each() {
     // Flush and regenerate amt
     let c = a.flush().unwrap();
     let new_amt = Amt::load(&c, &db).unwrap();
-    assert_eq!(new_amt.count(), indexes.len() as u64);
+    assert_eq!(new_amt.count(), indexes.len() as usize);
 
     let mut x = 0;
     new_amt
-        .for_each(|i, _: &String| {
+        .for_each(|i, _: &BytesDe| {
             if i != indexes[x] {
                 panic!(
                     "for each found wrong index: expected {} got {}",
@@ -366,20 +345,15 @@ fn for_each() {
     assert_eq!(x, indexes.len());
 
     // Iteration again will be read diff with go-interop, since they do not cache
-    new_amt.for_each(|_, _: &String| Ok(())).unwrap();
+    new_amt.for_each(|_, _: &BytesDe| Ok(())).unwrap();
 
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzaceccb5cgeysdu6ferucawc6twfedv5gc3iqgh2ko7o7e25r5ucpf4u"
+        "bafy2bzaceanqxtbsuyhqgxubiq6vshtbhktmzp2if4g6kxzttxmzkdxmtipcm"
     );
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 1431, w: 1431, br: 88648, bw: 88648});
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r:3446, w:2016, br:213384, bw:124875});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 1431, w: 1431, br: 88649, bw: 88649});
 }
 
 #[test]
@@ -392,20 +366,20 @@ fn for_each_mutate() {
 
     // Set all indices in the Amt
     for &i in indexes.iter() {
-        a.set(i, "value".to_owned()).unwrap();
+        a.set(i, tbytes(b"value")).unwrap();
     }
 
     // Flush and regenerate amt
     let c = a.flush().unwrap();
     drop(a);
     let mut new_amt = Amt::load(&c, &db).unwrap();
-    assert_eq!(new_amt.count(), indexes.len() as u64);
+    assert_eq!(new_amt.count(), indexes.len() as usize);
 
     new_amt
-        .for_each_mut(|i, v: &mut ipld_amt::ValueMut<'_, String>| {
+        .for_each_mut(|i, v: &mut ipld_amt::ValueMut<'_, BytesDe>| {
             if let 1 | 74 = i {
                 // Value it's set to doesn't matter, just cloning for expedience
-                **v = (*v).clone();
+                **v = v.clone();
             }
             Ok(())
         })
@@ -413,16 +387,11 @@ fn for_each_mutate() {
 
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzacecipze2lcvpcrcqy4nyqs4p2sinbytflyyuytge5lc6uz632bj6fu"
+        "bafy2bzaced44wtasbcukqjqicvxzcyn5up6sorr5khzbdkl6zjeo736f377ew"
     );
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*db.stats.borrow(), BSStats { r: 12, w: 12, br: 572, bw: 572 });
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 17, w: 12, br: 910, bw: 572});
+    assert_eq!(*db.stats.borrow(), BSStats {r: 12, w: 12, br: 573, bw: 573});
 }
 
 #[test]
@@ -434,45 +403,20 @@ fn delete_bug_test() {
 
     let k = 100_000;
 
-    a.set(k, "foo".to_owned()).unwrap();
+    a.set(k, tbytes(b"foo")).unwrap();
     a.delete(k).unwrap();
 
     let c = a.flush().unwrap();
 
-    // ! This is a bug, functionality needed to be locked in because this is what is expected
-    // ! for the go implementation and could not be changed.
     assert_eq!(
         empty_cid.to_string().as_str(),
-        "bafy2bzacedswlcz5ddgqnyo3sak3jmhmkxashisnlpq6ujgyhe4mlobzpnhs6"
+        "bafy2bzacedijw74yui7otvo63nfl3hdq2vdzuy7wx2tnptwed6zml4vvz7wee"
     );
-    assert_eq!(
-        c.to_string().as_str(),
-        "bafy2bzacec3ltjhtro3i4usbev24phgv6hb4fbfdaa2lxid4uod3zw4v3uce6"
-    );
+    assert_eq!(c, empty_cid);
     #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 0, w: 2, br: 0, bw: 16});
+    assert_eq!(*db.stats.borrow(), BSStats {r:0, w:2, br:0, bw:18});
+}
 
-    // * Testing bug functionality
-    let mut new_amt = Amt::load(&c, &db).unwrap();
-    new_amt.set(9, "foo".to_owned()).unwrap();
-    assert_eq!(new_amt.get(9).unwrap(), Some(&"foo".to_string()));
-    assert_eq!(new_amt.height(), 5);
-    new_amt.set(66, "bar".to_owned()).unwrap();
-    assert_eq!(new_amt.get(66).unwrap(), Some(&"bar".to_string()));
-    new_amt.set(515, "baz".to_owned()).unwrap();
-    assert_eq!(new_amt.get(515).unwrap(), Some(&"baz".to_string()));
-    assert_eq!(new_amt.height(), 5);
-
-    assert_eq!(new_amt.delete(9).unwrap(), true);
-    assert_eq!(new_amt.height(), 3);
-    assert_eq!(new_amt.delete(515).unwrap(), true);
-    assert_eq!(new_amt.height(), 2);
-
-    let c = new_amt.flush().unwrap();
-    assert_eq!(
-        c.to_string().as_str(),
-        "bafy2bzaceblz37c42237c42h3y7vwzcqdjolm6fmmturwcifbd7zx2afvazke"
-    );
-    #[rustfmt::skip]
-    assert_eq!(*db.stats.borrow(), BSStats {r: 1, w: 5, br: 8, bw: 124});
+fn tbytes(bz: &[u8]) -> BytesDe {
+    BytesDe(bz.to_vec())
 }

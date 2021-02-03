@@ -16,7 +16,7 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 num-traits = "0.2"
 message = { package = "forest_message", version = "0.6" }
 ipld_blockstore = "0.1"
-ipld_amt = { path = "../../ipld/amt/" }
+ipld_amt = "0.2"
 thiserror = "1.0"
 log = "0.4.8"
 state_tree = { path = "../../vm/state_tree/" }
