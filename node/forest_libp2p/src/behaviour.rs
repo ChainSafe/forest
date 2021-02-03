@@ -13,10 +13,10 @@ use crate::{
     discovery::DiscoveryConfig,
     hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse},
 };
-use fil_types::build_version::CURRENT_COMMIT;
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
+use git_version::git_version;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{
     error::PublishError, Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, Topic,
@@ -48,6 +48,7 @@ use tiny_cid::Cid as Cid2;
 
 lazy_static! {
     static ref VERSION: &'static str = env!("CARGO_PKG_VERSION");
+    static ref CURRENT_COMMIT: &'static str = git_version!();
 }
 
 #[derive(NetworkBehaviour)]

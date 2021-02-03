@@ -2509,6 +2509,7 @@ dependencies = [
  "futures_cbor_codec",
  "futures_codec",
  "genesis",
+ "git-version",
  "ipld_blockstore",
  "lazy_static",
  "libp2p",
