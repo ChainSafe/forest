@@ -69,4 +69,4 @@ lazy_static! {
     ];
 }
 
-pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;
+pub const BLOCK_DELAY_SECS: u64 = 4 as u64;
