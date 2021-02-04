@@ -82,9 +82,21 @@ where
         value: V,
         store: &S,
         bit_width: u32,
-    ) -> Result<(), Error> {
+        overwrite: bool,
+    ) -> Result<(Option<V>, bool), Error>
+    where
+        V: PartialEq,
+    {
         let hash = H::hash(&key);
-        self.modify_value(&mut HashBits::new(&hash), bit_width, 0, key, value, store)
+        self.modify_value(
+            &mut HashBits::new(&hash),
+            bit_width,
+            0,
+            key,
+            value,
+            store,
+            overwrite,
+        )
     }
 
     #[inline]
@@ -228,13 +240,17 @@ where
         key: K,
         value: V,
         store: &S,
-    ) -> Result<(), Error> {
+        overwrite: bool,
+    ) -> Result<(Option<V>, bool), Error>
+    where
+        V: PartialEq,
+    {
         let idx = hashed_key.next(bit_width)?;
 
         // No existing values at this point.
         if !self.bitfield.test_bit(idx) {
             self.insert_child(idx, key, value);
-            return Ok(());
+            return Ok((None, true));
         }
 
         let cindex = self.index_for_bit_pos(idx);
@@ -251,25 +267,52 @@ where
                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
                 };
 
-                child_node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
+                let replaced = child_node.modify_value(
+                    hashed_key,
+                    bit_width,
+                    depth + 1,
+                    key,
+                    value,
+                    store,
+                    overwrite,
+                )?;
                 *child = Pointer::Dirty(child_node);
-                Ok(())
+                Ok(replaced)
             }
-            Pointer::Dirty(n) => {
-                Ok(n.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?)
-            }
+            Pointer::Dirty(n) => Ok(n.modify_value(
+                hashed_key,
+                bit_width,
+                depth + 1,
+                key,
+                value,
+                store,
+                overwrite,
+            )?),
             Pointer::Values(vals) => {
                 // Update, if the key already exists.
                 if let Some(i) = vals.iter().position(|p| p.key() == &key) {
-                    vals[i].1 = value;
-                    return Ok(());
+                    if overwrite && vals[i].value() != &value {
+                        // Can overwrite, replace and return true.
+                        return Ok((Some(std::mem::replace(&mut vals[i].1, value)), true));
+                    } else {
+                        // Can't overwrite, return None and false that the Node was not modified.
+                        return Ok((None, false));
+                    }
                 }
 
                 // If the array is full, create a subshard and insert everything
                 if vals.len() >= MAX_ARRAY_WIDTH {
                     let mut sub = Node::<K, V, H>::default();
                     let consumed = hashed_key.consumed;
-                    sub.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
+                    let modified = sub.modify_value(
+                        hashed_key,
+                        bit_width,
+                        depth + 1,
+                        key,
+                        value,
+                        store,
+                        overwrite,
+                    )?;
                     let kvs = std::mem::take(vals);
                     for p in kvs.into_iter() {
                         let hash = H::hash(p.key());
@@ -280,12 +323,13 @@ where
                             p.0,
                             p.1,
                             store,
+                            overwrite,
                         )?;
                     }
 
                     *child = Pointer::Dirty(Box::new(sub));
 
-                    return Ok(());
+                    return Ok(modified);
                 }
 
                 // Otherwise insert the element into the array in order.
@@ -295,7 +339,7 @@ where
                 let np = KeyValuePair::new(key, value);
                 vals.insert(idx, np);
 
-                Ok(())
+                Ok((None, true))
             }
         }
     }
