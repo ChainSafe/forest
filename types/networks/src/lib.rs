@@ -8,7 +8,9 @@ use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::ChainEpoch;
 use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
-
+use blocks::{Block, Tipset};
+use cid::Cid;
+use ipld_blockstore::BlockStore;
 mod drand;
 
 #[cfg(not(any(feature = "interopnet")))]
@@ -21,9 +23,23 @@ mod interopnet;
 #[cfg(feature = "interopnet")]
 pub use self::interopnet::*;
 
-struct Upgrade {
+/// Migrates the state at a certain epoch for hardforks that are state backwards incompatible like actors upgrades.
+/// (old_state: Cid, epoch: ChainEpoch, ts: Arc<Tipset>)
+/// old_state: the state root pre migration
+/// epoch: the epoch at which the upgrade happens
+/// ts: the last non-null tipset before the upgrade
+/// TODO: Definitely some params needed may be missing here... 
+type MigrateFn = dyn FnMut(&dyn BlockStore, Cid, ChainEpoch, Arc<Tipset>) -> Cid;
+
+/// Defines the different hard fork parameters.
+struct Upgrade
+    /// When the hard fork will happen
     height: ChainEpoch,
+    /// The version of the fork
     network: NetworkVersion,
+    /// Migrates the state tree to a new version.
+    /// Necessary when there is no backwards compatability due to new Actor state definitions for example.
+    migrate: Option<Box<MigrateFn>>,
 }
 
 struct DrandPoint<'a> {
@@ -35,38 +51,48 @@ const VERSION_SCHEDULE: [Upgrade; 9] = [
     Upgrade {
         height: UPGRADE_BREEZE_HEIGHT,
         network: NetworkVersion::V1,
+        migrate: None,
     },
     Upgrade {
         height: UPGRADE_SMOKE_HEIGHT,
         network: NetworkVersion::V2,
+        migrate: None,
     },
     Upgrade {
         height: UPGRADE_IGNITION_HEIGHT,
         network: NetworkVersion::V3,
+        migrate: None,
     },
     Upgrade {
         height: UPGRADE_ACTORS_V2_HEIGHT,
         network: NetworkVersion::V4,
+        migrate: None,
     },
     Upgrade {
         height: UPGRADE_TAPE_HEIGHT,
         network: NetworkVersion::V5,
+        migrate: None,
     },
     Upgrade {
         height: UPGRADE_KUMQUAT_HEIGHT,
         network: NetworkVersion::V6,
+        migrate: None,
+
     },
     Upgrade {
         height: UPGRADE_CALICO_HEIGHT,
         network: NetworkVersion::V7,
+        migrate: None,
     },
     Upgrade {
         height: UPGRADE_PERSIAN_HEIGHT,
         network: NetworkVersion::V8,
+        migrate: None,
     },
     Upgrade {
         height: UPGRADE_ORANGE_HEIGHT,
         network: NetworkVersion::V9,
+        migrate: None,
     },
 ];
 
