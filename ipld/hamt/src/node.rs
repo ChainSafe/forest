@@ -232,6 +232,7 @@ where
     }
 
     /// Internal method to modify values.
+    #[allow(clippy::too_many_arguments)]
     fn modify_value<S: BlockStore>(
         &mut self,
         hashed_key: &mut HashBits,
