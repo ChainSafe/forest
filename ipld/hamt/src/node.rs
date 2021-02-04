@@ -424,11 +424,8 @@ where
                 // Put node in blockstore and retrieve Cid
                 let cid = store.put(node, Blake2b256)?;
 
-                let cache = OnceCell::new();
-
                 // Can keep the flushed node in link cache
-                let node = std::mem::take(node);
-                let _ = cache.set(node);
+                let cache = OnceCell::from(std::mem::take(node));
 
                 // Replace cached node with Cid link
                 *pointer = Pointer::Link { cid, cache };
