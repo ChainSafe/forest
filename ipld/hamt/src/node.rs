@@ -258,16 +258,14 @@ where
 
         match child {
             Pointer::Link { cid, cache } => {
-                let cached_node = std::mem::take(cache);
-                let mut child_node = if let Some(sn) = cached_node.into_inner() {
-                    sn
-                } else {
+                cache.get_or_try_init(|| {
                     store
                         .get(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
-                };
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))
+                })?;
+                let child_node = cache.get_mut().expect("filled line above");
 
-                let replaced = child_node.modify_value(
+                let (old, modified) = child_node.modify_value(
                     hashed_key,
                     bit_width,
                     depth + 1,
@@ -276,8 +274,10 @@ where
                     store,
                     overwrite,
                 )?;
-                *child = Pointer::Dirty(child_node);
-                Ok(replaced)
+                if modified {
+                    *child = Pointer::Dirty(std::mem::take(child_node));
+                }
+                Ok((old, modified))
             }
             Pointer::Dirty(n) => Ok(n.modify_value(
                 hashed_key,
@@ -369,17 +369,17 @@ where
 
         match child {
             Pointer::Link { cid, cache } => {
-                let cached_node = std::mem::take(cache);
-                let mut child_node = if let Some(sn) = cached_node.into_inner() {
-                    sn
-                } else {
+                cache.get_or_try_init(|| {
                     store
                         .get(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
-                };
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))
+                })?;
+                let child_node = cache.get_mut().expect("filled line above");
 
                 let deleted = child_node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
-                *child = Pointer::Dirty(child_node);
+                if deleted.is_some() {
+                    *child = Pointer::Dirty(std::mem::take(child_node));
+                }
 
                 // Clean to retrieve canonical form
                 child.clean()?;

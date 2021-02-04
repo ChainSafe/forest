@@ -11,6 +11,9 @@ use std::fmt::Display;
 #[cfg(feature = "identity")]
 use ipld_hamt::Identity;
 
+// Redeclaring max array size of Hamt to avoid exposing value
+const BUCKET_SIZE: usize = 3;
+
 #[test]
 fn test_basics() {
     let store = db::MemoryDB::default();
@@ -56,6 +59,80 @@ fn test_load() {
     // storing the hamt should produce the same cid as storing the root
     let c3 = hamt.flush().unwrap();
     assert_eq!(c3, c2);
+}
+
+#[test]
+fn test_set_if_absent() {
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut hamt: Hamt<_, _> = Hamt::new(&store);
+    assert!(hamt
+        .set_if_absent(tstring("favorite-animal"), tstring("owl bear"))
+        .unwrap());
+
+    // Next two are negatively asserted, shouldn't change
+    assert!(!hamt
+        .set_if_absent(tstring("favorite-animal"), tstring("bright green bear"))
+        .unwrap());
+    assert!(!hamt
+        .set_if_absent(tstring("favorite-animal"), tstring("owl bear"))
+        .unwrap());
+
+    let c = hamt.flush().unwrap();
+
+    let mut h2 = Hamt::<_, BytesKey>::load(&c, &store).unwrap();
+    // Reloading should still have same effect
+    assert!(!h2
+        .set_if_absent(tstring("favorite-animal"), tstring("bright green bear"))
+        .unwrap());
+
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaced2tgnlsq4n2ioe6ldy75fw3vlrrkyfv4bq6didbwoob2552zvpuk"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 1, w: 1, br: 63, bw: 63});
+}
+
+#[test]
+fn set_with_no_effect_does_not_put() {
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut begn: Hamt<_, _> = Hamt::new_with_bit_width(&store, 1);
+    let entries = 2 * BUCKET_SIZE * 5;
+    for i in 0..entries {
+        begn.set(tstring(i), tstring("filler")).unwrap();
+    }
+
+    let c = begn.flush().unwrap();
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzacebjilcrsqa4uyxuh36gllup4rlgnvwgeywdm5yqq2ks4jrsj756qq"
+    );
+
+    begn.set(tstring("favorite-animal"), tstring("bright green bear"))
+        .unwrap();
+    let c2 = begn.flush().unwrap();
+    assert_eq!(
+        c2.to_string().as_str(),
+        "bafy2bzacea7biyabzk7v7le2rrlec5tesjbdnymh5sk4lfprxibg4rtudwtku"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 0, w: 18, br: 0, bw: 1282});
+
+    // This insert should not change value or affect reads or writes
+    begn.set(tstring("favorite-animal"), tstring("bright green bear"))
+        .unwrap();
+    let c3 = begn.flush().unwrap();
+    assert_eq!(
+        c3.to_string().as_str(),
+        "bafy2bzacea7biyabzk7v7le2rrlec5tesjbdnymh5sk4lfprxibg4rtudwtku"
+    );
+
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r:0, w:19, br:0, bw:1372});
 }
 
 #[test]
