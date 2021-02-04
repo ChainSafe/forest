@@ -47,7 +47,7 @@ where
                 struct ValsSer<'a, A, B> {
                     #[serde(rename = "1")]
                     vals: &'a [KeyValuePair<A, B>],
-                };
+                }
                 ValsSer { vals }.serialize(serializer)
             }
             Pointer::Link { cid, .. } => {
@@ -55,7 +55,7 @@ where
                 struct LinkSer<'a> {
                     #[serde(rename = "0")]
                     cid: &'a Cid,
-                };
+                }
                 LinkSer { cid }.serialize(serializer)
             }
             Pointer::Dirty(_) => Err(ser::Error::custom("Cannot serialize cached values")),

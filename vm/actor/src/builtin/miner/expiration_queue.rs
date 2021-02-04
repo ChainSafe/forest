@@ -759,10 +759,9 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         epoch: ChainEpoch,
         expiration_set: ExpirationSet,
     ) -> Result<(), Box<dyn StdError>> {
-        Ok(self
-            .amt
+        self.amt
             .set(epoch as u64, expiration_set)
-            .map_err(|e| e.downcast_wrap(format!("failed to set queue epoch {}", epoch)))?)
+            .map_err(|e| e.downcast_wrap(format!("failed to set queue epoch {}", epoch)))
     }
 
     /// Since this might delete the node, it's not safe for use inside an iteration.

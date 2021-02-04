@@ -304,7 +304,7 @@ where
             actor_error!(fatal("failed to clear snapshot: {}", e));
         }
 
-        Ok(ret?)
+        ret
     }
 
     /// Shared logic between the DefaultRuntime and the Interpreter.

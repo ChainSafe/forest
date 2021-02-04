@@ -340,7 +340,7 @@ where
 
     /// Merges last two snap shot layers
     pub fn clear_snapshot(&mut self) -> Result<(), String> {
-        Ok(self.snaps.merge_last_layer()?)
+        self.snaps.merge_last_layer()
     }
 
     /// Revert state cache by removing last snapshot

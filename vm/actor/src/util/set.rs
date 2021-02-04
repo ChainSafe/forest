@@ -41,7 +41,7 @@ where
     #[inline]
     pub fn put(&mut self, key: BytesKey) -> Result<(), Error> {
         // Set hamt node to array root
-        Ok(self.0.set(key, ())?)
+        self.0.set(key, ())
     }
 
     /// Checks if key exists in the set.
@@ -64,7 +64,7 @@ where
         F: FnMut(&BytesKey) -> Result<(), Box<dyn StdError>>,
     {
         // Calls the for each function on the hamt with ignoring the value
-        Ok(self.0.for_each(|s, _: &()| f(s))?)
+        self.0.for_each(|s, _: &()| f(s))
     }
 
     /// Collects all keys from the set into a vector.
