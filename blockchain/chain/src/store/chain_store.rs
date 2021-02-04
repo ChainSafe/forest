@@ -771,9 +771,8 @@ where
     DB: BlockStore,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    Ok(db
-        .put(&header, Blake2b256)
-        .map_err(|e| Error::Other(e.to_string()))?)
+    db.put(&header, Blake2b256)
+        .map_err(|e| Error::Other(e.to_string()))
 }
 
 /// Persists slice of serializable objects to blockstore.

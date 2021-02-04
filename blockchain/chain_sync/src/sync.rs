@@ -230,7 +230,9 @@ where
                         Ok(hello_fut) => {
                             hello_futures.push(hello_fut);
                         }
-                        Err(e) => error!("{}", e),
+                        Err(e) => {
+                            error!("{}", e);
+                        }
                     }
                 }
             }

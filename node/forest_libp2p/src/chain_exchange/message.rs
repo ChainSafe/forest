@@ -241,5 +241,5 @@ fn fts_from_bundle_parts(
         })
         .collect::<Result<_, _>>()?;
 
-    Ok(FullTipset::new(blocks).map_err(|e| e.to_string())?)
+    FullTipset::new(blocks).map_err(|e| e.to_string())
 }

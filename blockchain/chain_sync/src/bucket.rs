@@ -27,6 +27,7 @@ impl SyncBucket {
     /// Returns true if tipset is from same chain
     pub fn is_same_chain_as(&self, ts: &Tipset) -> bool {
         // TODO can maybe short circuit when keys equivalent, instead of checking on add
+        #[allow(clippy::all)]
         self.tips
             .iter()
             .any(|t| ts.key() == t.key() || ts.key() == t.parents() || ts.parents() == t.key())

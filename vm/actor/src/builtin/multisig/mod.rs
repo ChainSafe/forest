@@ -141,7 +141,7 @@ impl Actor {
         }
 
         let (txn_id, txn) = rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&proposer, &st.signers)? {
+            if !is_signer(&proposer, &st.signers) {
                 return Err(actor_error!(ErrForbidden, "{} is not a signer", proposer));
             }
 
@@ -201,7 +201,7 @@ impl Actor {
 
         let id = params.id;
         let (st, txn) = rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&caller_addr, &st.signers)? {
+            if !is_signer(&caller_addr, &st.signers) {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
             }
 
@@ -240,7 +240,7 @@ impl Actor {
         let caller_addr: Address = *rt.message().caller();
 
         rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&caller_addr, &st.signers)? {
+            if !is_signer(&caller_addr, &st.signers) {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
             }
 
@@ -328,7 +328,7 @@ impl Actor {
                     SIGNERS_MAX
                 ));
             }
-            if is_signer(&resolved_new_signer, &st.signers)? {
+            if is_signer(&resolved_new_signer, &st.signers) {
                 return Err(actor_error!(
                     ErrForbidden,
                     "{} is already a signer",
@@ -362,7 +362,7 @@ impl Actor {
         })?;
 
         rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&resolved_old_signer, &st.signers)? {
+            if !is_signer(&resolved_old_signer, &st.signers) {
                 return Err(actor_error!(
                     ErrForbidden,
                     "{} is not a signer",
@@ -433,11 +433,11 @@ impl Actor {
         })?;
 
         rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&from_resolved, &st.signers)? {
+            if !is_signer(&from_resolved, &st.signers) {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", from_resolved));
             }
 
-            if is_signer(&to_resolved, &st.signers)? {
+            if is_signer(&to_resolved, &st.signers) {
                 return Err(
                     actor_error!(ErrIllegalArgument; "{} is already a signer", to_resolved),
                 );
@@ -691,7 +691,7 @@ where
     Ok(txn)
 }
 
-fn is_signer(address: &Address, signers: &[Address]) -> Result<bool, ActorError> {
+fn is_signer(address: &Address, signers: &[Address]) -> bool {
     assert_eq!(
         address.protocol(),
         Protocol::ID,
@@ -702,11 +702,11 @@ fn is_signer(address: &Address, signers: &[Address]) -> Result<bool, ActorError>
     // Signer addresses have already been resolved
     for signer in signers {
         if signer == address {
-            return Ok(true);
+            return true;
         }
     }
 
-    Ok(false)
+    false
 }
 
 /// Computes a digest of a proposed transaction. This digest is used to confirm identity
