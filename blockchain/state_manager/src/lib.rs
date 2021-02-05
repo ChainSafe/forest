@@ -911,17 +911,18 @@ where
     where
         DB: BlockStore + Send + Sync + 'static,
     {
-        let (mut subscribers, tipset) = self.cs.subscribe().await;
+        let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
         let message_var = (message.from(), &message.sequence());
+        let current_tipset = self.cs.heaviest_tipset().await.unwrap();
         let maybe_message_reciept = self
-            .tipset_executed_message(&tipset, &msg_cid, message_var)
+            .tipset_executed_message(&current_tipset, &msg_cid, message_var)
             .await?;
         if let Some(r) = maybe_message_reciept {
-            return Ok((Some(tipset.clone()), Some(r)));
+            return Ok((Some(current_tipset.clone()), Some(r)));
         }
 
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
@@ -935,11 +936,11 @@ where
         let cid_for_task = cid;
         let address_for_task = *message.from();
         let sequence_for_task = message.sequence();
-        let height_of_head = tipset.epoch();
+        let height_of_head = current_tipset.epoch();
         let task = task::spawn(async move {
             let back_tuple = sm_cloned
                 .search_back_for_message(
-                    &tipset,
+                    &current_tipset,
                     (&address_for_task, &cid_for_task, &sequence_for_task),
                 )
                 .await?;
@@ -957,7 +958,7 @@ where
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
         >(async move {
             loop {
-                match subscribers.recv().await {
+                match subscriber.recv().await {
                     Ok(subscriber) => match subscriber {
                         HeadChange::Revert(_tipset) => {
                             if candidate_tipset.is_some() {

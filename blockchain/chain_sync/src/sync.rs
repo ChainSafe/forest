@@ -577,17 +577,13 @@ where
     }
 
     fn is_epoch_beyond_curr_max(&self, epoch: ChainEpoch) -> bool {
-        let genesis = if let Ok(Some(gen)) = self.state_manager.chain_store().genesis() {
-            gen
-        } else {
-            return false;
-        };
+        let genesis = self.genesis.as_ref();
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
 
-        epoch as u64 > ((now - genesis.timestamp()) / BLOCK_DELAY_SECS) + MAX_HEIGHT_DRIFT
+        epoch as u64 > ((now - genesis.min_timestamp()) / BLOCK_DELAY_SECS) + MAX_HEIGHT_DRIFT
     }
 
     /// Returns `FullTipset` from store if `TipsetKeys` exist in key-value store otherwise requests
