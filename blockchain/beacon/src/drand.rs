@@ -21,27 +21,36 @@ pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
 /// This is shared by all participants on the Drand network.
 #[derive(Clone, Debug, SerdeSerialize, SerdeDeserialize)]
 pub struct DrandPublic {
+    /// Public key used to verify beacon entries.
     pub coefficient: Vec<u8>,
 }
 
 impl DrandPublic {
-    pub fn key(&self) -> PublicKey {
-        PublicKey::from_bytes(&self.coefficient).unwrap()
+    /// Returns the public key for the Drand beacon.
+    pub fn key(&self) -> Result<PublicKey, bls_signatures::Error> {
+        PublicKey::from_bytes(&self.coefficient)
     }
 }
 
 #[derive(Clone)]
+/// Config used when initializing a Drand beacon.
 pub struct DrandConfig<'a> {
+    /// Url endpoint to send JSON http requests to.
     pub server: &'static str,
+    /// Info about the beacon chain, used to verify correctness of endpoint.
     pub chain_info: ChainInfo<'a>,
 }
 
+/// Contains the vector of BeaconPoints, which are mappings of epoch to the Randomness beacons used.
 pub struct BeaconSchedule<T>(pub Vec<BeaconPoint<T>>);
 
 impl<T> BeaconSchedule<T>
 where
     T: Beacon,
 {
+    /// Returns the beacon entries for a given epoch.
+    /// When the beacon for the given epoch is on a new beacon, randomness entries are taken
+    /// from the last two rounds.
     pub async fn beacon_entries_for_block(
         &self,
         epoch: ChainEpoch,
@@ -51,7 +60,7 @@ where
         let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
         let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
         if cb_epoch != pb_epoch {
-            // Fork logic
+            // Fork logic, take entries from the last two rounds of the new beacon.
             let round = curr_beacon.max_beacon_round_for_epoch(epoch);
             let mut entries = Vec::with_capacity(2);
             entries.push(curr_beacon.entry(round - 1).await?);
@@ -60,6 +69,8 @@ where
         }
         let max_round = curr_beacon.max_beacon_round_for_epoch(epoch);
         if max_round == prev.round() {
+            // Our chain has encountered two epochs before beacon chain has elapsed one,
+            // return no beacon entries for this epoch.
             return Ok(vec![]);
         }
         // TODO: this is a sketchy way to handle the genesis block not having a beacon entry
@@ -72,6 +83,7 @@ where
         let mut cur = max_round;
         let mut out = Vec::new();
         while cur > prev_round {
+            // Push all entries from rounds elapsed since the last chain epoch.
             let entry = curr_beacon.entry(cur).await?;
             cur = entry.round() - 1;
             out.push(entry);
@@ -84,6 +96,7 @@ where
         &self,
         epoch: ChainEpoch,
     ) -> Result<(ChainEpoch, &T), Box<dyn error::Error>> {
+        // Iterate over beacon schedule to find the latest randomness beacon to use.
         Ok(self
             .0
             .iter()
@@ -94,12 +107,14 @@ where
     }
 }
 
+/// Contains height at which the beacon is activated, as well as the beacon itself.
 pub struct BeaconPoint<T> {
     pub height: ChainEpoch,
     pub beacon: Arc<T>,
 }
 
 #[async_trait]
+/// Trait used as the interface to be able to retrieve bytes from a randomness beacon.
 pub trait Beacon
 where
     Self: Sized,
@@ -115,10 +130,14 @@ where
     /// In the future, we will cache values, and support streaming.
     async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>>;
 
+    /// Returns the most recent beacon round for the given Filecoin chain epoch.
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Default)]
+/// Contains all the info about a Drand beacon chain.
+/// API reference: https://drand.love/developer/http-api/#info
+/// note: groupHash does not exist in docs currently, but is returned.
 pub struct ChainInfo<'a> {
     pub public_key: Cow<'a, str>,
     pub period: i32,
@@ -129,6 +148,8 @@ pub struct ChainInfo<'a> {
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone)]
+/// Json beacon entry format. This matches the drand round JSON serialization
+/// API reference: https://drand.love/developer/http-api/#public-round.
 pub struct BeaconEntryJson {
     round: u64,
     randomness: String,
@@ -136,6 +157,8 @@ pub struct BeaconEntryJson {
     previous_signature: String,
 }
 
+/// Drand randomness beacon that can be used to generate randomness for the Filecoin chain.
+/// Primary use is to satisfy the [Beacon] trait.
 pub struct DrandBeacon {
     url: &'static str,
 
@@ -183,8 +206,7 @@ impl DrandBeacon {
         })
     }
 }
-/// This struct allows you to talk to a Drand node over GRPC.
-/// Use this to source randomness and to verify Drand beacon entries.
+
 #[async_trait]
 impl Beacon for DrandBeacon {
     async fn verify_entry(
@@ -205,7 +227,7 @@ impl Beacon for DrandBeacon {
         let digest = sha2::Sha256::digest(&msg);
         // Signature
         let sig = Signature::from_bytes(curr.data())?;
-        let sig_match = bls_signatures::verify_messages(&sig, &[&digest], &[self.pub_key.key()]);
+        let sig_match = bls_signatures::verify_messages(&sig, &[&digest], &[self.pub_key.key()?]);
 
         // Cache the result
         let contains_curr = self.local_cache.read().await.contains_key(&curr.round());
