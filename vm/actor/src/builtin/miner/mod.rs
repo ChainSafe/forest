@@ -1722,7 +1722,7 @@ impl Actor {
 
                         // Add declaration partition
                         prev_epoch_partitions
-                            .or_insert(Vec::new())
+                            .or_insert_with(Vec::new)
                             .push(decl.partition);
                         if not_exists {
                             // reschedule epoch if the partition for new epoch didn't already exist
