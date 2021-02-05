@@ -11,7 +11,7 @@ const ITEM_COUNT: u8 = 40;
 
 #[allow(dead_code)]
 // Struct to simulate a reasonable amount of data per value into the amt
-#[derive(Clone, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Serialize_tuple, Deserialize_tuple, PartialEq)]
 struct BenchData {
     v1: Vec<u8>,
     v2: Vec<u8>,
