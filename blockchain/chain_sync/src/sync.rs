@@ -359,7 +359,7 @@ where
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
-                        if let Err(e) = self.inform_new_head(peer.clone(), &new_head).await {
+                        if let Err(e) = self.inform_new_head(peer.clone(), new_head).await {
                             warn!("failed to inform new head from peer {}: {}", peer, e);
                         }
                     }
@@ -439,7 +439,7 @@ where
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    pub async fn inform_new_head(&mut self, peer: PeerId, ts: &FullTipset) -> Result<(), Error> {
+    pub async fn inform_new_head(&mut self, peer: PeerId, ts: FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
         if ts.blocks().is_empty() {
             return Err(Error::NoBlocks);
@@ -473,7 +473,7 @@ where
             for block in ts.blocks() {
                 self.validate_msg_meta(block)?;
             }
-            self.set_peer_head(peer, Arc::new(ts.to_tipset())).await;
+            self.set_peer_head(peer, Arc::new(ts.into_tipset())).await;
         }
 
         Ok(())

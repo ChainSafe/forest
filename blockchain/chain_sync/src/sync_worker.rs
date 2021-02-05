@@ -404,7 +404,7 @@ where
 
     /// validates tipsets and adds header data to tipset tracker
     async fn validate_tipset(&self, fts: FullTipset) -> Result<(), Error> {
-        if &fts.to_tipset() == self.genesis.as_ref() {
+        if fts.key() == self.genesis.key() {
             debug!("Skipping tipset validation for genesis");
             return Ok(());
         }
