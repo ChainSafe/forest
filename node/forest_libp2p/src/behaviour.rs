@@ -135,7 +135,9 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
                     Ok(cid) => self.events.push(ForestBehaviourEvent::BitswapReceivedBlock(
                         peer_id, cid, data,
                     )),
-                    Err(e) => warn!("Fail to convert Cid: {}", e.to_string()),
+                    Err(e) => {
+                        warn!("Fail to convert Cid: {}", e.to_string());
+                    }
                 }
             }
             BitswapEvent::ReceivedWant(peer_id, cid, _priority) => {
@@ -145,7 +147,9 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
                     Ok(cid) => self
                         .events
                         .push(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid)),
-                    Err(e) => warn!("Fail to convert Cid: {}", e.to_string()),
+                    Err(e) => {
+                        warn!("Fail to convert Cid: {}", e.to_string());
+                    }
                 }
             }
             BitswapEvent::ReceivedCancel(_peer_id, _cid) => {
@@ -283,7 +287,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                 error,
                 request_id: _,
             } => {
-                warn!("Hello inbound error (peer: {:?}): {:?}", peer, error)
+                warn!("Hello inbound error (peer: {:?}): {:?}", peer, error);
             }
         }
     }
@@ -365,10 +369,12 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                 peer,
                 error,
                 request_id: _,
-            } => warn!(
-                "ChainExchange inbound error (peer: {:?}): {:?}",
-                peer, error
-            ),
+            } => {
+                warn!(
+                    "ChainExchange inbound error (peer: {:?}): {:?}",
+                    peer, error
+                );
+            }
         }
     }
 }

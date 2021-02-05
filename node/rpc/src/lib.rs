@@ -499,7 +499,7 @@ async fn handle_connection_and_log<KS, DB>(
                 });
             }
         } else {
-            warn!("web socket connection failed at {:}", addr)
+            warn!("web socket connection failed at {:}", addr);
         }
     })
 }
@@ -569,9 +569,11 @@ async fn send_error(code: i64, ws_sender: &RwLock<WsSink>, message: String) {
     match serialized {
         Ok(res) => {
             if let Err(e) = ws_sender.write().await.send(Message::text(res)).await {
-                log::error!("failed to send websocket error: {}", e)
+                log::error!("failed to send websocket error: {}", e);
             }
         }
-        Err(e) => log::error!("failed to serialize websocket error: {}", e),
+        Err(e) => {
+            log::error!("failed to serialize websocket error: {}", e);
+        }
     }
 }

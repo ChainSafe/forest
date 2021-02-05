@@ -391,7 +391,7 @@ impl State {
         sector_number: SectorNumber,
     ) -> Result<(u64, u64), Box<dyn StdError>> {
         let deadlines = self.load_deadlines(store)?;
-        Ok(deadlines.find_sector(store, sector_number)?)
+        deadlines.find_sector(store, sector_number)
     }
 
     /// Schedules each sector to expire at its next deadline end. If it can't find
