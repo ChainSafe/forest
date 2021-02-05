@@ -292,9 +292,18 @@ where
             Pointer::Values(vals) => {
                 // Update, if the key already exists.
                 if let Some(i) = vals.iter().position(|p| p.key() == &key) {
-                    if overwrite && vals[i].value() != &value {
-                        // Can overwrite, replace and return true.
-                        return Ok((Some(std::mem::replace(&mut vals[i].1, value)), true));
+                    if overwrite {
+                        // If value changed, the parent nodes need to be marked as dirty.
+                        // ! The assumption here is that `PartialEq` is implemented correctly,
+                        // ! and that if that is true, the serialized bytes are equal.
+                        // ! To be absolutely sure, can serialize each value and compare or
+                        // ! refactor the Hamt to not be type safe and serialize on entry and
+                        // ! exit. These both come at costs, and this isn't a concern.
+                        let value_changed = vals[i].value() != &value;
+                        return Ok((
+                            Some(std::mem::replace(&mut vals[i].1, value)),
+                            value_changed,
+                        ));
                     } else {
                         // Can't overwrite, return None and false that the Node was not modified.
                         return Ok((None, false));
