@@ -20,7 +20,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::UPGRADE_CLAUS_HEIGHT;
+use networks::{is_migrate_epoch, migrate_state, UPGRADE_CLAUS_HEIGHT};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -180,6 +180,13 @@ where
         for i in parent_epoch..epoch {
             if i > parent_epoch {
                 self.run_cron(epoch, callback.as_mut())?;
+            }
+            if is_migrate_epoch(i) {
+                let prev_state = self.flush()?;
+                let new_state = migrate_state(self.store, prev_state, i);
+                if new_state != prev_state {
+                    self.state = StateTree::new_from_root(self.store, &new_state)?;
+                }
             }
             self.epoch = i + 1;
         }

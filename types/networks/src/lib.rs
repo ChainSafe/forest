@@ -5,12 +5,11 @@
 extern crate lazy_static;
 
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::NetworkVersion;
-use std::{error::Error, sync::Arc};
-use blocks::{Block, Tipset};
-use cid::Cid;
 use ipld_blockstore::BlockStore;
+use std::{error::Error, sync::Arc};
 mod drand;
 
 #[cfg(not(any(feature = "interopnet")))]
@@ -23,23 +22,16 @@ mod interopnet;
 #[cfg(feature = "interopnet")]
 pub use self::interopnet::*;
 
-/// Migrates the state at a certain epoch for hardforks that are state backwards incompatible like actors upgrades.
-/// (old_state: Cid, epoch: ChainEpoch, ts: Arc<Tipset>)
-/// old_state: the state root pre migration
-/// epoch: the epoch at which the upgrade happens
-/// ts: the last non-null tipset before the upgrade
-/// TODO: Definitely some params needed may be missing here... 
-type MigrateFn = dyn FnMut(&dyn BlockStore, Cid, ChainEpoch, Arc<Tipset>) -> Cid;
-
 /// Defines the different hard fork parameters.
-struct Upgrade
+struct Upgrade {
     /// When the hard fork will happen
     height: ChainEpoch,
     /// The version of the fork
     network: NetworkVersion,
-    /// Migrates the state tree to a new version.
-    /// Necessary when there is no backwards compatability due to new Actor state definitions for example.
-    migrate: Option<Box<MigrateFn>>,
+    /// Is there a migration needed for this upgrade?
+    /// Note: We do not support Pre Version 9, so even if there is
+    /// an upgrade there, we don't do a migration.
+    migration: bool,
 }
 
 struct DrandPoint<'a> {
@@ -51,52 +43,51 @@ const VERSION_SCHEDULE: [Upgrade; 9] = [
     Upgrade {
         height: UPGRADE_BREEZE_HEIGHT,
         network: NetworkVersion::V1,
-        migrate: None,
+        migration: false,
     },
     Upgrade {
         height: UPGRADE_SMOKE_HEIGHT,
         network: NetworkVersion::V2,
-        migrate: None,
+        migration: false,
     },
     Upgrade {
         height: UPGRADE_IGNITION_HEIGHT,
         network: NetworkVersion::V3,
-        migrate: None,
+        migration: false,
     },
     Upgrade {
         height: UPGRADE_ACTORS_V2_HEIGHT,
         network: NetworkVersion::V4,
-        migrate: None,
+        migration: false,
     },
     Upgrade {
         height: UPGRADE_TAPE_HEIGHT,
         network: NetworkVersion::V5,
-        migrate: None,
+        migration: false,
     },
     Upgrade {
         height: UPGRADE_KUMQUAT_HEIGHT,
         network: NetworkVersion::V6,
-        migrate: None,
-
+        migration: false,
     },
     Upgrade {
         height: UPGRADE_CALICO_HEIGHT,
         network: NetworkVersion::V7,
-        migrate: None,
+        migration: false,
     },
     Upgrade {
         height: UPGRADE_PERSIAN_HEIGHT,
         network: NetworkVersion::V8,
-        migrate: None,
+        migration: false,
     },
     Upgrade {
         height: UPGRADE_ORANGE_HEIGHT,
         network: NetworkVersion::V9,
-        migrate: None,
+        migration: false,
     },
 ];
 
-/// Gets network version from epoch using default Mainnet schedule
+/// Gets network version from epoch using default Mainnet schedule.
 pub fn get_network_version_default(epoch: ChainEpoch) -> NetworkVersion {
     VERSION_SCHEDULE
         .iter()
@@ -104,6 +95,27 @@ pub fn get_network_version_default(epoch: ChainEpoch) -> NetworkVersion {
         .find(|upgrade| epoch > upgrade.height)
         .map(|upgrade| upgrade.network)
         .unwrap_or(NetworkVersion::V0)
+}
+
+/// If true, then we should perform a state migration at this epoch, otherwise, no migration.
+pub fn is_migrate_epoch(epoch: ChainEpoch) -> bool {
+    VERSION_SCHEDULE
+        .iter()
+        .rev()
+        .find(|upgrade| epoch == upgrade.height)
+        .map(|upgrade| upgrade.migration)
+        .unwrap_or(false)
+}
+
+/// Calls the state migration functions to migrate to the new StateTree.
+/// Currently this is a TODO because we havent implemented and migrations yet.
+/// The first migration to implement is from V2 to V3 (Network Version 10), so this method
+/// signature will probably change as we discover more things we need to pass in + error handling.
+pub fn migrate_state<T>(_bs: &T, _old_state: Cid, _epoch: ChainEpoch) -> Cid
+where
+    T: BlockStore,
+{
+    todo!()
 }
 
 /// Constructs a drand beacon schedule based on the build config.
