@@ -249,7 +249,8 @@ jobs:
           command: cargo install cargo-audit
       - run:
           name: Check for known security issues in dependencies
-          command: cargo audit
+          # TODO remove ignore when https://github.com/filecoin-project/rust-fil-proofs/issues/1403 resolved
+          command: cargo audit --ignore RUSTSEC-2021-0011
 
 workflows:
   setup_test:

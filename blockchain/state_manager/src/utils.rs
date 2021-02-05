@@ -169,7 +169,7 @@ where
                     err
                 ))
             })?;
-        Ok(precommit_info.ok_or_else(|| Error::Other("precommit not found".to_string()))?)
+        precommit_info.ok_or_else(|| Error::Other("precommit not found".to_string()))
     }
 
     pub fn get_miner_info<V>(
@@ -184,7 +184,7 @@ where
             .get_actor(address, tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
-        Ok(mas.info(self.blockstore())?)
+        mas.info(self.blockstore())
     }
 
     pub fn get_miner_deadlines<V>(

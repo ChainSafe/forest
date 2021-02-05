@@ -8,6 +8,7 @@ use once_cell::unsync::OnceCell;
 use serde::de::{self, DeserializeOwned};
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::cmp::Ordering;
 
 /// Pointer to index values or a link to another child node.
 #[derive(Debug)]
@@ -46,7 +47,7 @@ where
                 struct ValsSer<'a, A, B> {
                     #[serde(rename = "1")]
                     vals: &'a [KeyValuePair<A, B>],
-                };
+                }
                 ValsSer { vals }.serialize(serializer)
             }
             Pointer::Link { cid, .. } => {
@@ -54,7 +55,7 @@ where
                 struct LinkSer<'a> {
                     #[serde(rename = "0")]
                     cid: &'a Cid,
-                };
+                }
                 LinkSer { cid }.serialize(serializer)
             }
             Pointer::Dirty(_) => Err(ser::Error::custom("Cannot serialize cached values")),
@@ -155,15 +156,9 @@ where
 
                     // Sorting by key, values are inserted based on the ordering of the key itself,
                     // so when collapsed, it needs to be ensured that this order is equal.
-                    // ! This was fixed only with the v2 actors upgrade, not used in v1
-                    #[cfg(feature = "v2")]
-                    {
-                        use std::cmp::Ordering;
-
-                        child_vals.sort_unstable_by(|a, b| {
-                            a.key().partial_cmp(b.key()).unwrap_or(Ordering::Equal)
-                        });
-                    }
+                    child_vals.sort_unstable_by(|a, b| {
+                        a.key().partial_cmp(b.key()).unwrap_or(Ordering::Equal)
+                    });
 
                     // Replace link node with child values
                     *self = Pointer::Values(child_vals);

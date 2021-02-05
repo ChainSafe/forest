@@ -225,7 +225,9 @@ where
 
         match SystemTime::now().duration_since(global_pre_time) {
             Ok(t) => self.peer_manager.log_global_success(t).await,
-            Err(e) => warn!("logged time less than before request: {}", e),
+            Err(e) => {
+                warn!("logged time less than before request: {}", e);
+            }
         }
 
         Ok(bs_res)

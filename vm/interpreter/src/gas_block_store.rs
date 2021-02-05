@@ -40,7 +40,7 @@ where
             .borrow_mut()
             .charge_gas(self.price_list.on_ipld_put(bytes.len()))?;
 
-        Ok(self.store.put_raw(bytes, code)?)
+        self.store.put_raw(bytes, code)
     }
 }
 
