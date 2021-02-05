@@ -1767,6 +1767,13 @@ impl Actor {
                     })?;
             }
 
+            state.sectors = sectors.amt.flush().map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to save sectors")
+            })?;
+            state.save_deadlines(store, deadlines).map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to save deadlines")
+            })?;
+
             Ok((power_delta, pledge_delta))
         })?;
 
