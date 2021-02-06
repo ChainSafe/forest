@@ -191,6 +191,7 @@ mod tests {
             beacon,
             new_mined_block_tx,
             chain_notify_streams: Default::default(),
+            chain_notify_count: Arc::new(RwLock::new(0)),
         });
         (state, network_rx)
     }

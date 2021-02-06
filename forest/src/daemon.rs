@@ -20,7 +20,7 @@ use utils::write_to_file;
 use wallet::{KeyStore, PersistentKeyStore};
 
 /// Starts daemon process
-pub(super) async fn start(config: Config) {
+pub(super) async fn start(config: Config) -> Result<(), std::io::Error> {
     info!("Starting Forest daemon");
     let net_keypair = get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair"))
         .unwrap_or_else(|| {
@@ -40,19 +40,18 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize keystore
-    let mut ks = PersistentKeyStore::new(config.data_dir.to_string()).unwrap();
+    let mut ks = PersistentKeyStore::new(config.data_dir.to_string())?;
     if ks.get(JWT_IDENTIFIER).is_err() {
-        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
-            .unwrap();
+        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
     }
     let keystore = Arc::new(RwLock::new(ks));
 
     // Initialize database (RocksDb will be default if both features enabled)
     #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
+    let db = db::sled::SledDb::open(config.data_dir + "/sled")?;
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(config.data_dir + "/db").unwrap();
+    let db = db::rocks::RocksDb::open(config.data_dir + "/db")?;
 
     let db = Arc::new(db);
 
@@ -64,22 +63,18 @@ pub(super) async fn start(config: Config) {
 
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
-    let (genesis, network_name) = initialize_genesis(config.genesis_file.as_ref(), &state_manager)
-        .await
-        .unwrap();
+    let (genesis, network_name) =
+        initialize_genesis(config.genesis_file.as_ref(), &state_manager).await?;
 
     let validate_height = if config.snapshot { None } else { Some(0) };
     // Sync from snapshot
     if let Some(path) = &config.snapshot_path {
         import_chain::<FullVerifier, _>(&state_manager, path, validate_height, config.skip_load)
-            .await
-            .unwrap();
+            .await?;
     }
 
     // Fetch and ensure verification keys are downloaded
-    get_params_default(SectorSizeOpt::Keys, false)
-        .await
-        .unwrap();
+    get_params_default(SectorSizeOpt::Keys, false).await?;
 
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
@@ -98,17 +93,12 @@ pub(super) async fn start(config: Config) {
             provider,
             network_name.clone(),
             network_send.clone(),
-            MpoolConfig::load_config(db.as_ref()).unwrap(),
+            MpoolConfig::load_config(db.as_ref())?,
         )
-        .await
-        .unwrap(),
+        .await?,
     );
 
-    let beacon = Arc::new(
-        networks::beacon_schedule_default(genesis.min_timestamp())
-            .await
-            .unwrap(),
-    );
+    let beacon = Arc::new(networks::beacon_schedule_default(genesis.min_timestamp()).await?);
 
     // Initialize ChainSyncer
     let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
@@ -119,8 +109,7 @@ pub(super) async fn start(config: Config) {
         network_rx,
         Arc::new(genesis),
         config.sync,
-    )
-    .unwrap();
+    )?;
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
     let (worker_tx, worker_rx) = bounded(20);
@@ -139,7 +128,7 @@ pub(super) async fn start(config: Config) {
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc::<_, _, _, FullVerifier>(
-                RpcState {
+                Arc::new(RpcState {
                     state_manager,
                     keystore: keystore_rpc,
                     mpool,
@@ -151,10 +140,10 @@ pub(super) async fn start(config: Config) {
                     chain_store,
                     new_mined_block_tx: worker_tx,
                     chain_notify_streams: Default::default(),
-                },
+                }),
                 &rpc_listen,
             )
-            .await;
+            .await?;
         }))
     } else {
         debug!("RPC disabled");
@@ -165,7 +154,7 @@ pub(super) async fn start(config: Config) {
     block_until_sigint().await;
 
     let keystore_write = task::spawn(async move {
-        keystore.read().await.flush().unwrap();
+        keystore.read().await.flush()?;
     });
 
     // Cancel all async services
