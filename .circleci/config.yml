@@ -287,6 +287,9 @@ workflows:
       - nightly-build-check:
           requires:
             - prefetch-crates
+      - msrv-build-check:
+          requires:
+            - prefetch-crates
       - macos-build-check:
           requires:
             - prefetch-crates
