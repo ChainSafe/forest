@@ -158,8 +158,8 @@ jobs:
       - run:
           name: Minimum supported rust version check
           command: |
-            cargo +1.45.0 check -p forest
-            cargo +1.45.0 check
+            cargo +1.46.0 check -p forest
+            cargo +1.46.0 check
   macos-build-check:
     executor: mac-executor
     description: Check macos build
