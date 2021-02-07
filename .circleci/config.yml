@@ -154,7 +154,7 @@ jobs:
       - env_setup
       - run:
           name: Install minimum version
-          command: rustup toolchain install 1.47.0
+          command: rustup toolchain install 1.46.0
       - run:
           name: Minimum supported rust version check
           command: |
