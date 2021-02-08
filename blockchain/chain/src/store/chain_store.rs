@@ -118,15 +118,6 @@ where
         Ok(())
     }
 
-    // /// Subscribe to head change events emitted from the chain store.
-    // /// This returns the subscriber to the head change events, as well as the current
-    // /// heaviest tipset.
-    // pub async fn subscribe(&self) -> (Subscriber<HeadChange>, Arc<Tipset>) {
-    //     let sub = self.publisher.subscribe();
-    //     let ts = self.heaviest_tipset().await.unwrap();
-    //     (sub, ts)
-    // }
-
     /// Writes genesis to blockstore.
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
@@ -137,17 +128,21 @@ where
         self.tipset_tracker.add(header).await;
     }
 
-    /// Writes tipset block headers to data store and updates heaviest tipset.
+    /// Writes tipset block headers to data store and updates heaviest tipset with other
+    /// compatible tracked headers.
     pub async fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         // TODO: we could add the blocks of `ts` to the tipset tracker from here,
         // making `add_to_tipset_tracker` redundant and decreasing the number of
         // blockstore reads
         persist_objects(self.blockstore(), ts.blocks())?;
+
+        // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
         self.update_heaviest(Arc::new(expanded)).await?;
         Ok(())
     }
 
+    /// Expands tipset to tipset with all other headers in the same epoch using the tipset tracker.
     async fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
         self.tipset_tracker.expand(header).await
     }
