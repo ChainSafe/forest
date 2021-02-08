@@ -19,7 +19,7 @@ pub enum NetworkVersion {
     V4,
     /// tape (increases max prove commit size by 10x)
     V5,
-    // kumquat (specs-actors v2.2.0)
+    /// kumquat (specs-actors v2.2.0)
     V6,
     /// calico (specs-actors v2.3.2)
     V7,
@@ -27,7 +27,7 @@ pub enum NetworkVersion {
     V8,
     /// orange
     V9,
-    /// reserved
+    /// actors v3 (specs-actors v3.0.x)
     V10,
     /// reserved
     V11,
