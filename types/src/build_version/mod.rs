@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::sync::RwLock;
+use git_version::git_version;
 use num_derive::FromPrimitive;
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    process::Command,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use serde::Serialize;
 const BUILD_VERSION: &str = "0.10.2";
@@ -23,26 +21,7 @@ const MINER_API_VERSION: Version = new_version(0, 15, 0);
 const WORKER_API_VERSION: Version = new_version(0, 15, 0);
 
 lazy_static! {
-    static ref CURRENT_COMMIT: String = {
-        let output = Command::new("git")
-            .args(&[
-                "describe",
-                "--always",
-                "--match=NeVeRmAtch",
-                "--dirty",
-                "2>/dev/null",
-            ])
-            .output()
-            .map(|s| s.stdout)
-            .unwrap_or_else(|_| {
-                Command::new("git")
-                    .args(&["rev-parse", "--short", "HEAD", "2>/dev/null"])
-                    .output()
-                    .map(|s| s.stdout)
-                    .unwrap_or_default()
-            });
-        String::from(std::str::from_utf8(&output).unwrap_or_default())
-    };
+    pub static ref CURRENT_COMMIT: String = git_version!().to_string();
     pub static ref BUILD_TYPE: RwLock<BuildType> = RwLock::new(BuildType::BuildDefault);
     pub static ref RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
 }
