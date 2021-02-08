@@ -23,7 +23,7 @@ pub const PACKING_EFFICIENCY_DENOM: i64 = 5;
 pub const PACKING_EFFICIENCY_NUM: i64 = 4;
 
 lazy_static! {
-    /// Cbor bytes of an empty array serialized.
+    /// Minimum base fee amount allowed for the given [Tipset].
     pub static ref MINIMUM_BASE_FEE: BigInt = 100.into();
 
     /// These statics are just to avoid allocations for division.

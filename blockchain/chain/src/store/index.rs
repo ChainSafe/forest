@@ -16,7 +16,7 @@ const SKIP_LENGTH: ChainEpoch = 20;
 
 /// Lookback entry to cache in the `ChainIndex`. Stores all relevant info when doing lookbacks.
 #[derive(Clone, PartialEq, Debug)]
-pub struct LookbackEntry {
+pub(crate) struct LookbackEntry {
     tipset: Arc<Tipset>,
     parent_height: ChainEpoch,
     target_height: ChainEpoch,
@@ -25,7 +25,7 @@ pub struct LookbackEntry {
 
 /// Keeps lookback tipsets in cache at a given interval `skip_length` and can be used to lookback
 /// at the chain to retrieve an old tipset.
-pub struct ChainIndex<BS> {
+pub(crate) struct ChainIndex<BS> {
     /// Cache of lookback entries to speed up lookup.
     skip_cache: RwLock<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 

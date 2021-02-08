@@ -13,7 +13,7 @@ use super::Error;
 
 /// Tracks blocks by their height for the purpose of forming tipsets.
 #[derive(Default)]
-pub struct TipsetTracker<DB> {
+pub(crate) struct TipsetTracker<DB> {
     // TODO: look into optimizing https://github.com/ChainSafe/forest/issues/878
     entries: RwLock<HashMap<ChainEpoch, Vec<Cid>>>,
     db: Arc<DB>,

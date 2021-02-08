@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{tipset_tracker::TipsetTracker, ChainIndex, Error};
+use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use actor::{miner, power};
 use address::Address;
 use async_std::channel::{bounded, Receiver};

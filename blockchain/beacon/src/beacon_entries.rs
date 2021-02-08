@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{serde_bytes, tuple::*};
-use serde::de;
 
 /// The result from getting an entry from Drand.
 /// The entry contains the round, or epoch as well as the BLS signature for that round of
@@ -32,7 +31,7 @@ impl BeaconEntry {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a BeaconEntry from JSON.
     #[derive(Deserialize, Serialize)]
