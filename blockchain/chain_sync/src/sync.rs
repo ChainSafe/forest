@@ -8,7 +8,7 @@ use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
 use super::sync_state::SyncState;
 use super::sync_worker::SyncWorker;
-use super::{Error, SyncNetworkContext};
+use super::{network_context::SyncNetworkContext, Error};
 use crate::network_context::HelloResponseFuture;
 use amt::Amt;
 use async_std::channel::{bounded, Receiver, Sender};
@@ -626,7 +626,7 @@ where
     }
 }
 
-/// Returns message root CID from bls and secp message contained in the param Block
+/// Returns message root CID from bls and secp message contained in the param Block.
 pub fn compute_msg_meta<DB: BlockStore>(
     blockstore: &DB,
     bls_msgs: &[UnsignedMessage],

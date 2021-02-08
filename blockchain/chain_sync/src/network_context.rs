@@ -44,13 +44,15 @@ pub(crate) type HelloResponseFuture = Pin<
 // requests from slowing the node down. If increase, should create a countermeasure for this.
 const RPC_TIMEOUT: u64 = 5;
 
-/// Context used in chain sync to handle network requests
-pub struct SyncNetworkContext<DB> {
+/// Context used in chain sync to handle network requests.
+/// This contains the peer manager, p2p service interface, and [BlockStore] required to make
+/// network requests.
+pub(crate) struct SyncNetworkContext<DB> {
     /// Channel to send network messages through p2p service
     network_send: Sender<NetworkMessage>,
 
     /// Manages peers to send requests to and updates request stats for the respective peers.
-    peer_manager: Arc<PeerManager>,
+    pub peer_manager: Arc<PeerManager>,
     db: Arc<DB>,
 }
 
@@ -83,11 +85,6 @@ where
     /// Returns a reference to the peer manager of the network context.
     pub fn peer_manager(&self) -> &PeerManager {
         self.peer_manager.as_ref()
-    }
-
-    /// Clones the `Arc` to the peer manager.
-    pub fn peer_manager_cloned(&self) -> Arc<PeerManager> {
-        self.peer_manager.clone()
     }
 
     /// Send a chain_exchange request for only block headers (ignore messages).
@@ -190,11 +187,14 @@ where
 
         let global_pre_time = SystemTime::now();
         let bs_res = match peer_id {
+            // Specific peer is given to send request, send specifically to that peer.
             Some(id) => self
                 .chain_exchange_request(id, request)
                 .await?
                 .into_result()?,
             None => {
+                // No specific peer set, send requests to a shuffled set of top peers until
+                // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled().await;
                 let mut res = None;
                 for p in peers.into_iter() {
@@ -223,6 +223,7 @@ where
             }
         };
 
+        // Log success for the global request with the latency from before sending.
         match SystemTime::now().duration_since(global_pre_time) {
             Ok(t) => self.peer_manager.log_global_success(t).await,
             Err(e) => {
@@ -257,6 +258,8 @@ where
             return Err("Failed to send chain exchange request to network".to_string());
         };
 
+        // Add timeout to receiving response from p2p service to avoid stalling.
+        // There is also a timeout inside the request-response calls, but this ensures this.
         let res = future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
         let res_duration = SystemTime::now()
             .duration_since(req_pre_time)
@@ -292,7 +295,7 @@ where
         }
     }
 
-    /// Send a hello request to the network (does not await response)
+    /// Send a hello request to the network (does not immediately await response).
     pub async fn hello_request(
         &self,
         peer_id: PeerId,

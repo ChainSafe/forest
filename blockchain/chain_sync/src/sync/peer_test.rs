@@ -61,7 +61,7 @@ fn peer_manager_update() {
     )
     .unwrap();
 
-    let peer_manager = Arc::clone(&cs.network.peer_manager_cloned());
+    let peer_manager = Arc::clone(&cs.network.peer_manager.clone());
 
     let (worker_tx, worker_rx) = bounded(10);
     task::spawn(async {

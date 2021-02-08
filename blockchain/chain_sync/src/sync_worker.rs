@@ -11,7 +11,7 @@ use super::{
     bad_block_cache::BadBlockCache,
     sync::{compute_msg_meta, ChainSyncState},
 };
-use super::{Error, SyncNetworkContext};
+use super::{network_context::SyncNetworkContext, Error};
 use actor::{is_account_actor, power};
 use address::Address;
 use async_std::channel::Receiver;
