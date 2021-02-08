@@ -52,6 +52,8 @@ where
         tipset_from_keys(self.ts_cache.as_ref(), self.db.as_ref(), tsk).await
     }
 
+    /// Loads tipset at `to` [ChainEpoch], loading from sparse cache and/or loading parents
+    /// from the blockstore.
     pub(crate) async fn get_tipset_by_height(
         &self,
         from: Arc<Tipset>,
@@ -82,6 +84,8 @@ where
         }
     }
 
+    /// Walks back from the tipset, ignoring the cached entries.
+    /// This should only be used when the cache is checked to be invalidated.
     pub(crate) async fn get_tipset_by_height_without_cache(
         &self,
         from: Arc<Tipset>,
@@ -124,15 +128,19 @@ where
         Ok(lbe)
     }
 
+    /// Rounds height epoch to nearest sparse cache index epoch.
     fn round_height(&self, height: ChainEpoch) -> ChainEpoch {
         (height / SKIP_LENGTH) * SKIP_LENGTH
     }
+
+    /// Gets the closest rounded sparse index and returns the loaded tipset at that index.
     async fn round_down(&self, ts: Arc<Tipset>) -> Result<Arc<Tipset>, Error> {
         let target = self.round_height(ts.epoch());
 
         self.walk_back(ts, target).await
     }
 
+    /// Load parent tipsets until the `to` [ChainEpoch].
     async fn walk_back(&self, from: Arc<Tipset>, to: ChainEpoch) -> Result<Arc<Tipset>, Error> {
         if to > from.epoch() {
             return Err(Error::Other(
