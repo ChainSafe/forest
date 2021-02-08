@@ -144,6 +144,22 @@ jobs:
             rustup run nightly cargo --version --verbose
             cargo +nightly check -p forest
             cargo +nightly check
+  msrv-build-check:
+    executor: test-executor
+    description: Check minimum supported rust version
+    steps:
+      - checkout
+      - install_rust
+      - install_deps
+      - env_setup
+      - run:
+          name: Install minimum version
+          command: rustup toolchain install 1.46.0
+      - run:
+          name: Minimum supported rust version check
+          command: |
+            cargo +1.46.0 check -p forest
+            cargo +1.46.0 check
   macos-build-check:
     executor: mac-executor
     description: Check macos build
@@ -269,6 +285,9 @@ workflows:
     jobs:
       - prefetch-crates
       - nightly-build-check:
+          requires:
+            - prefetch-crates
+      - msrv-build-check:
           requires:
             - prefetch-crates
       - macos-build-check:
