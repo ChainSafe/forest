@@ -133,8 +133,47 @@ where
     /// map.set(37, "b".to_string()).unwrap();
     /// map.set(37, "c".to_string()).unwrap();
     /// ```
-    pub fn set(&mut self, key: K, value: V) -> Result<(), Error> {
-        self.root.set(key, value, self.store, self.bit_width)
+    pub fn set(&mut self, key: K, value: V) -> Result<Option<V>, Error>
+    where
+        V: PartialEq,
+    {
+        self.root
+            .set(key, value, self.store, self.bit_width, true)
+            .map(|(r, _)| r)
+    }
+
+    /// Inserts a key-value pair into the HAMT only if that key does not already exist.
+    ///
+    /// If the HAMT did not have this key present, `true` is returned and the key/value is added.
+    ///
+    /// If the HAMT did have this key present, this function will return false
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ipld_hamt::Hamt;
+    ///
+    /// let store = db::MemoryDB::default();
+    ///
+    /// let mut map: Hamt<_, _, usize> = Hamt::new(&store);
+    /// let a = map.set_if_absent(37, "a".to_string()).unwrap();
+    /// assert_eq!(map.is_empty(), false);
+    /// assert_eq!(a, true);
+    ///
+    /// let b = map.set_if_absent(37, "b".to_string()).unwrap();
+    /// assert_eq!(b, false);
+    /// assert_eq!(map.get(&37).unwrap(), Some(&"a".to_string()));
+    ///
+    /// let c = map.set_if_absent(30, "c".to_string()).unwrap();
+    /// assert_eq!(c, true);
+    /// ```
+    pub fn set_if_absent(&mut self, key: K, value: V) -> Result<bool, Error>
+    where
+        V: PartialEq,
+    {
+        self.root
+            .set(key, value, self.store, self.bit_width, false)
+            .map(|(_, set)| set)
     }
 
     /// Returns a reference to the value corresponding to the key.

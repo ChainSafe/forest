@@ -74,7 +74,7 @@ use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Signed, Zero};
 use runtime::{ActorCode, Runtime};
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use std::error::Error as StdError;
 use std::{iter, ops::Neg};
 use vm::{
@@ -1717,10 +1717,15 @@ impl Actor {
                     // over declarations.
                     if nv >= NetworkVersion::V7 {
                         let prev_epoch_partitions =
-                            partitions_by_new_epoch.get_mut(&decl.new_expiration);
-                        if let Some(part) = prev_epoch_partitions {
-                            part.push(decl.partition);
-                        } else {
+                            partitions_by_new_epoch.entry(decl.new_expiration);
+                        let not_exists = matches!(prev_epoch_partitions, Entry::Vacant(_));
+
+                        // Add declaration partition
+                        prev_epoch_partitions
+                            .or_insert_with(Vec::new)
+                            .push(decl.partition);
+                        if not_exists {
+                            // reschedule epoch if the partition for new epoch didn't already exist
                             epochs_to_reschedule.push(decl.new_expiration);
                         }
                     }
@@ -1761,6 +1766,13 @@ impl Actor {
                         )
                     })?;
             }
+
+            state.sectors = sectors.amt.flush().map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to save sectors")
+            })?;
+            state.save_deadlines(store, deadlines).map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to save deadlines")
+            })?;
 
             Ok((power_delta, pledge_delta))
         })?;
