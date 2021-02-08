@@ -11,7 +11,7 @@ use std::error::Error;
 pub enum Map<'a, BS, V> {
     V0(actorv0::Map<'a, BS, V>),
     V2(actorv2::Map<'a, BS, V>),
-    /// TODO: Point this to the hamt from the actors v3 crate.
+    // TODO: Point this to the hamt from the actors v3 crate.
     V3(ipld_hamt::Hamt<'a, BS, V>),
 }
 
@@ -24,6 +24,7 @@ where
         match version {
             ActorVersion::V0 => Map::V0(actorv0::make_map(store)),
             ActorVersion::V2 => Map::V2(actorv2::make_map(store)),
+            // TODO: Use interface from actorv3
             ActorVersion::V3 => Map::V3(ipld_hamt::Hamt::new_with_bit_width(store, 5)),
         }
     }

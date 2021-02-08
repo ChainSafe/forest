@@ -10,6 +10,7 @@ use std::error::Error;
 pub enum Array<'a, BS, V> {
     V0(actorv0::ipld_amt::Amt<'a, V, BS>),
     V2(actorv2::ipld_amt::Amt<'a, V, BS>),
+    // TODO: Point this to the hamt from the actors v3 crate.
     V3(ipld_amt::Amt<'a, V, BS>),
 }
 
