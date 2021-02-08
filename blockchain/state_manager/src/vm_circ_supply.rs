@@ -46,13 +46,14 @@ lazy_static! {
     ];
 }
 
+/// Genesis information used when calculating circulating supply.
 #[derive(Default)]
-pub struct GenesisInfo {
+pub(crate) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
-    pub genesis_pledge: OnceCell<TokenAmount>,
-    pub genesis_market_funds: OnceCell<TokenAmount>,
+    genesis_pledge: OnceCell<TokenAmount>,
+    genesis_market_funds: OnceCell<TokenAmount>,
 }
 
 impl GenesisInfo {
@@ -74,11 +75,13 @@ impl GenesisInfo {
     }
 }
 
+/// Vesting schedule info. These states are lazily filled, to avoid doing until needed
+/// to calculate circulating supply.
 #[derive(Default)]
-pub struct GenesisInfoVesting {
-    pub genesis: OnceCell<Vec<msig0::State>>,
-    pub ignition: OnceCell<Vec<msig0::State>>,
-    pub calico: OnceCell<Vec<msig0::State>>,
+struct GenesisInfoVesting {
+    genesis: OnceCell<Vec<msig0::State>>,
+    ignition: OnceCell<Vec<msig0::State>>,
+    calico: OnceCell<Vec<msig0::State>>,
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -120,7 +123,7 @@ fn get_actor_state<DB: BlockStore>(
         .ok_or_else(|| format!("Failed to get Actor for address {}", addr))?)
 }
 
-pub fn get_fil_vested(
+fn get_fil_vested(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
@@ -172,7 +175,7 @@ pub fn get_fil_vested(
     Ok(return_value)
 }
 
-pub fn get_fil_mined<DB: BlockStore>(
+fn get_fil_mined<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let actor = state_tree
@@ -183,7 +186,7 @@ pub fn get_fil_mined<DB: BlockStore>(
     Ok(state.into_total_storage_power_reward())
 }
 
-pub fn get_fil_market_locked<DB: BlockStore>(
+fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let actor = state_tree
@@ -194,7 +197,7 @@ pub fn get_fil_market_locked<DB: BlockStore>(
     Ok(state.total_locked())
 }
 
-pub fn get_fil_power_locked<DB: BlockStore>(
+fn get_fil_power_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let actor = state_tree
@@ -205,7 +208,7 @@ pub fn get_fil_power_locked<DB: BlockStore>(
     Ok(state.into_total_locked())
 }
 
-pub fn get_fil_reserve_disbursed<DB: BlockStore>(
+fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
@@ -214,7 +217,7 @@ pub fn get_fil_reserve_disbursed<DB: BlockStore>(
     Ok(&*FIL_RESERVED - reserve_actor.balance)
 }
 
-pub fn get_fil_locked<DB: BlockStore>(
+fn get_fil_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let market_locked = get_fil_market_locked(&state_tree)?;
@@ -222,7 +225,7 @@ pub fn get_fil_locked<DB: BlockStore>(
     Ok(power_locked + market_locked)
 }
 
-pub fn get_fil_burnt<DB: BlockStore>(
+fn get_fil_burnt<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let burnt_actor = get_actor_state(state_tree, &*BURNT_FUNDS_ACTOR_ADDR)?;
@@ -230,7 +233,7 @@ pub fn get_fil_burnt<DB: BlockStore>(
     Ok(burnt_actor.balance)
 }
 
-pub fn get_circulating_supply<'a, DB: BlockStore>(
+fn get_circulating_supply<'a, DB: BlockStore>(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
     state_tree: &StateTree<'a, DB>,
