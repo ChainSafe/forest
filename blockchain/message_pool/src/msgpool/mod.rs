@@ -47,7 +47,7 @@ const PROPAGATION_DELAY_SECS: u64 = 6;
 const REPUBLISH_INTERVAL: u64 = 10 * BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
-/// which corresponds to that address
+/// which corresponds to that address.
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
     msgs: HashMap<u64, SignedMessage>,
@@ -56,7 +56,7 @@ pub struct MsgSet {
 }
 
 impl MsgSet {
-    /// Generate a new MsgSet with an empty hashmap and a default next_sequence of 0
+    /// Generate a new MsgSet with an empty hashmap and setting the sequence specifically.
     pub fn new(sequence: u64) -> Self {
         MsgSet {
             msgs: HashMap::new(),
@@ -65,8 +65,8 @@ impl MsgSet {
         }
     }
 
-    /// Add a signed message to the MsgSet. Increase next_sequence if the message has a sequence greater
-    /// than any existing message sequence.
+    /// Add a signed message to the MsgSet. Increase next_sequence if the message has a
+    /// sequence greater than any existing message sequence.
     pub fn add(&mut self, m: SignedMessage) -> Result<(), Error> {
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
             self.next_sequence = m.sequence() + 1;
@@ -86,6 +86,8 @@ impl MsgSet {
         self.msgs.insert(m.sequence(), m);
         Ok(())
     }
+
+    /// Removes message with the given sequence. If applied, update the set's next sequence.
     pub fn rm(&mut self, sequence: u64, applied: bool) {
         let m = if let Some(m) = self.msgs.remove(&sequence) {
             m
@@ -159,7 +161,7 @@ pub trait Provider {
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
 }
 
-/// This is the Provider implementation that will be used for the mpool RPC
+/// This is the default Provider implementation that will be used for the mpool RPC.
 pub struct MpoolRpcProvider<DB> {
     subscriber: Publisher<HeadChange>,
     sm: Arc<StateManager<DB>>,
@@ -237,7 +239,8 @@ where
     }
 }
 
-/// This is the main MessagePool struct
+/// This contains all necessary information needed for the message pool.
+/// Keeps track of messages to apply, as well as context needed for verifying transactions.
 pub struct MessagePool<T> {
     local_addrs: Arc<RwLock<Vec<Address>>>,
     pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
@@ -260,7 +263,6 @@ impl<T> MessagePool<T>
 where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
-    /// Create a new message pool
     pub async fn new(
         mut api: T,
         network_name: String,
@@ -271,11 +273,11 @@ where
         T: Provider,
     {
         let local_addrs = Arc::new(RwLock::new(Vec::new()));
-        // LruCache sizes have been taken from the lotus implementation
         let pending = Arc::new(RwLock::new(HashMap::new()));
         let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().await.ok_or_else(
             || Error::Other("Failed to retrieve heaviest tipset from provider".to_owned()),
         )?));
+        // LruCache sizes have been taken from the lotus implementation
         let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(40000)));
         let sig_val_cache = Arc::new(RwLock::new(LruCache::new(32000)));
         let api_mutex = Arc::new(RwLock::new(api));
@@ -381,14 +383,14 @@ where
         Ok(mp)
     }
 
-    /// Add a signed message to local_addrs and local_msgs
+    /// Add a signed message to local_addrs and local_msgs.
     async fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
         self.local_addrs.write().await.push(*m.from());
         self.local_msgs.write().await.insert(m);
         Ok(())
     }
 
-    /// Push a signed message to the MessagePool
+    /// Push a signed message to the MessagePool.
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
@@ -408,7 +410,7 @@ where
         Ok(cid)
     }
 
-    /// Basic checks on the validity of a message
+    /// Basic checks on the validity of a message.
     async fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
@@ -426,7 +428,7 @@ where
     }
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
-    /// to be pushed to the MessagePool
+    /// to be pushed to the MessagePool.
     pub async fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg).await?;
 
@@ -436,13 +438,13 @@ where
         Ok(())
     }
 
-    /// Add a SignedMessage without doing any of the checks
+    /// Add a SignedMessage without doing any of the checks.
     pub async fn add_skip_checks(&mut self, m: SignedMessage) -> Result<(), Error> {
         self.add_helper(m).await
     }
 
     /// Verify the message signature. first check if it has already been verified and put into
-    /// cache. If it has not, then manually verify it then put it into cache for future use
+    /// cache. If it has not, then manually verify it then put it into cache for future use.
     async fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid()?;
 
@@ -457,8 +459,8 @@ where
         Ok(())
     }
 
-    /// Verify the state_sequence and balance for the sender of the message given then call add_locked
-    /// to finish adding the signed_message to pending
+    /// Verify the state_sequence and balance for the sender of the message given then
+    /// call add_locked to finish adding the signed_message to pending.
     async fn add_tipset(
         &self,
         msg: SignedMessage,
@@ -484,8 +486,8 @@ where
     }
 
     /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
-    /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
-    /// and push it to the pending hashmap
+    /// in the hashmap does not yet exist, create a new mset that will correspond to the from
+    /// message and push it to the pending hashmap.
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
         let cur_ts = self.cur_tipset.read().await.clone();
@@ -499,7 +501,8 @@ where
         .await
     }
 
-    /// Get the sequence for a given address, return Error if there is a failure to retrieve sequence
+    /// Get the sequence for a given address, return Error if there is a failure to retrieve
+    /// the respective sequence.
     pub async fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
 
@@ -519,20 +522,20 @@ where
         }
     }
 
-    /// Get the state of the sequence for a given address in cur_ts
+    /// Get the state of the sequence for a given address in cur_ts.
     async fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         let actor = self.api.read().await.get_actor_after(&addr, cur_ts)?;
         Ok(actor.sequence)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
-    /// if this actor does not exist, return an error
+    /// if this actor does not exist, return an error.
     async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
         let actor = self.api.read().await.get_actor_after(&addr, &ts)?;
         Ok(actor.balance)
     }
 
-    /// Adds a local message returned from the call back function with the current nonce
+    /// Adds a local message returned from the call back function with the current nonce.
     pub async fn push_with_sequence<V>(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
     where
         T: Fn(Address, u64) -> Result<SignedMessage, Error>,
@@ -596,7 +599,7 @@ where
         Ok(())
     }
 
-    /// Remove a message given a sequence and address from the messagepool
+    /// Remove a message given a sequence and address from the messagepool.
     pub async fn remove(
         &mut self,
         from: &Address,
@@ -628,7 +631,7 @@ where
     }
 
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
-    /// each messsage's sequence. If no corresponding messages found, return None result type
+    /// each messsage's sequence. If no corresponding messages found, return None result type.
     pub async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let pending = self.pending.read().await;
         let mset = pending.get(a)?;
@@ -643,7 +646,7 @@ where
         Some(msg_vec)
     }
 
-    /// Return Vector of signed messages given a block header for self
+    /// Return Vector of signed messages given a block header for self.
     pub async fn messages_for_blocks(
         &self,
         blks: &[BlockHeader],
@@ -664,7 +667,7 @@ where
     }
 
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
-    /// most likely need to be implemented
+    /// most likely need to be implemented.
     // TODO: UPDATE https://github.com/ChainSafe/forest/issues/901
     pub fn estimate_gas_premium(
         &self,
@@ -681,23 +684,18 @@ where
         }
     }
 
-    /// local_message field
+    /// Loads local messages to the message pool to be applied.
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write().await;
-        let mut rm_vec = Vec::new();
         let msg_vec: Vec<SignedMessage> = local_msgs.iter().cloned().collect();
 
         for k in msg_vec.into_iter() {
             self.add(k.clone()).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
-                    rm_vec.push(k);
+                    local_msgs.remove(&k);
                 }
             })
-        }
-
-        for item in rm_vec {
-            local_msgs.remove(&item);
         }
 
         Ok(())
@@ -766,7 +764,7 @@ fn get_base_fee_lower_bound(base_fee: &BigInt, factor: i64) -> BigInt {
     base_fee_lower_bound
 }
 
-/// Remove a message from pending given the from address and sequence
+/// Remove a message from pending given the from address and sequence.
 pub async fn remove(
     from: &Address,
     pending: &RwLock<HashMap<Address, MsgSet>>,
@@ -789,7 +787,7 @@ pub async fn remove(
     Ok(())
 }
 
-/// Attempt to get a signed message that corresponds to an unsigned message in bls_sig_cache
+/// Attempt to get a signed message that corresponds to an unsigned message in bls_sig_cache.
 async fn recover_sig(
     bls_sig_cache: &mut LruCache<Cid, Signature>,
     msg: UnsignedMessage,
@@ -803,7 +801,7 @@ async fn recover_sig(
 
 /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
 /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
-/// and push it to the pending hashmap
+/// and push it to the pending hashmap.
 async fn add_helper<T>(
     api: &RwLock<T>,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
@@ -848,7 +846,7 @@ where
 
     Ok(())
 }
-/// Get the state of the base_sequence for a given address in cur_ts
+/// Get the state of the base_sequence for a given address in cur_ts.
 async fn get_state_sequence<T>(
     api: &RwLock<T>,
     addr: &Address,
@@ -1126,20 +1124,23 @@ where
     // No need to link the chains because its linked for free
     Ok(chains)
 }
-pub fn get_gas_reward(msg: &SignedMessage, base_fee: &BigInt) -> BigInt {
+
+/// Gets the gas reward for the given message.
+pub(crate) fn get_gas_reward(msg: &SignedMessage, base_fee: &BigInt) -> BigInt {
     let mut max_prem = msg.gas_fee_cap() - base_fee;
     if &max_prem < msg.gas_premium() {
         max_prem = msg.gas_premium().clone();
     }
     max_prem * msg.gas_limit()
 }
-pub fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
+
+pub(crate) fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
     let a = BigRational::new(gas_reward * types::BLOCK_GAS_LIMIT, gas_limit.into());
     a.to_f64().unwrap()
 }
 
 /// This function will revert and/or apply tipsets to the message pool. This function should be
-/// called every time that there is a head change in the message pool
+/// called every time that there is a head change in the message pool.
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &RwLock<T>,
@@ -1287,7 +1288,8 @@ async fn rm(
     Ok(())
 }
 
-/// This function is a helper method for head_change. This method will add a signed message to the given rmsgs HashMap
+/// This function is a helper method for head_change. This method will add a signed message to
+/// the given rmsgs HashMap.
 fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
     let s = rmsgs.get_mut(m.from());
     if let Some(s) = s {
