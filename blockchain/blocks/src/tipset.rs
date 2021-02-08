@@ -41,6 +41,7 @@ pub struct Tipset {
 
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
+        let cache = full_tipset.key;
         let headers: Vec<BlockHeader> = full_tipset
             .blocks
             .into_iter()
@@ -49,7 +50,7 @@ impl From<FullTipset> for Tipset {
 
         Tipset {
             headers,
-            key: OnceCell::new(),
+            key: cache,
         }
     }
 }
