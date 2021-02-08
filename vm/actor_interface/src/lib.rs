@@ -10,12 +10,13 @@ pub use self::builtin::*;
 pub use self::policy::*;
 pub use actorv0;
 pub use actorv2;
-
+pub use actorv3;
 use fil_types::{NetworkVersion, StateTreeVersion};
 
 pub enum ActorVersion {
     V0,
     V2,
+    V3,
 }
 
 impl From<NetworkVersion> for ActorVersion {
