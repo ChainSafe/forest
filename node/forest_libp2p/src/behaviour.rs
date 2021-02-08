@@ -16,6 +16,7 @@ use crate::{
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
+use git_version::git_version;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{
     error::PublishError, Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, Topic,
@@ -44,6 +45,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, convert::TryInto};
 use std::{task::Context, task::Poll};
 use tiny_cid::Cid as Cid2;
+
+lazy_static! {
+    static ref VERSION: &'static str = env!("CARGO_PKG_VERSION");
+    static ref CURRENT_COMMIT: &'static str = git_version!();
+}
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
@@ -434,9 +440,7 @@ impl ForestBehaviour {
             ping: Ping::default(),
             identify: Identify::new(
                 "ipfs/0.1.0".into(),
-                // TODO update to include actual version
-                // https://github.com/ChainSafe/forest/issues/934
-                format!("forest-{}", "0.1.0"),
+                format!("forest-{}-{}", *VERSION, *CURRENT_COMMIT),
                 local_key.public(),
             ),
             bitswap,
