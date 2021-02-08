@@ -203,10 +203,8 @@ where
             if i > parent_epoch {
                 self.run_cron(epoch, callback.as_mut())?;
             }
-            match self.migrate_state(i)? {
-                Some(new_state) => self.state = StateTree::new_from_root(self.store, &new_state)?,
-                // No need to do anything if the None, since that means no migration has happened
-                None => {}
+            if let Some(new_state) = self.migrate_state(i)? {
+                self.state = StateTree::new_from_root(self.store, &new_state)?
             }
             self.epoch = i + 1;
         }
