@@ -17,7 +17,8 @@ dependencies = [
  "fil_clock",
  "fil_types",
  "forest_actor 0.1.5",
- "forest_actor 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "forest_actor 1.0.0",
+ "forest_actor 2.0.0",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -26,7 +27,9 @@ dependencies = [
  "forest_hash_utils",
  "forest_json_utils",
  "forest_vm",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
+ "ipld_hamt 2.0.0",
  "libp2p",
  "serde",
 ]
@@ -2276,6 +2279,40 @@ dependencies = [
 [[package]]
 name = "forest_actor"
 version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "772779d4eca15c0ce0da8e22543a2d9eca384bb31c3a0d762137eed46f5fcb10"
+dependencies = [
+ "ahash 0.6.2",
+ "base64 0.13.0",
+ "byteorder 1.4.2",
+ "commcid",
+ "fil_clock",
+ "fil_types",
+ "forest_address",
+ "forest_bigint",
+ "forest_bitfield",
+ "forest_cid",
+ "forest_crypto",
+ "forest_encoding",
+ "forest_ipld",
+ "forest_runtime",
+ "forest_vm",
+ "indexmap",
+ "integer-encoding 3.0.1",
+ "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_blockstore",
+ "ipld_hamt 1.0.0",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits 0.2.14",
+ "serde",
+ "unsigned-varint 0.6.0",
+]
+
+[[package]]
+name = "forest_actor"
+version = "2.0.0"
 dependencies = [
  "ahash 0.6.2",
  "base64 0.13.0",
@@ -2302,40 +2339,6 @@ dependencies = [
  "ipld_hamt 1.0.0",
  "lazy_static",
  "libp2p",
- "log",
- "num-derive",
- "num-traits 0.2.14",
- "serde",
- "unsigned-varint 0.6.0",
-]
-
-[[package]]
-name = "forest_actor"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "772779d4eca15c0ce0da8e22543a2d9eca384bb31c3a0d762137eed46f5fcb10"
-dependencies = [
- "ahash 0.6.2",
- "base64 0.13.0",
- "byteorder 1.4.2",
- "commcid",
- "fil_clock",
- "fil_types",
- "forest_address",
- "forest_bigint",
- "forest_bitfield",
- "forest_cid",
- "forest_crypto",
- "forest_encoding",
- "forest_ipld",
- "forest_runtime",
- "forest_vm",
- "indexmap",
- "integer-encoding 3.0.1",
- "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "ipld_blockstore",
- "ipld_hamt 1.0.0",
- "lazy_static",
  "log",
  "num-derive",
  "num-traits 0.2.14",

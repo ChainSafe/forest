@@ -18,6 +18,7 @@ pub type Method = actorv2::cron::Method;
 pub enum State {
     V0(actorv0::cron::State),
     V2(actorv2::cron::State),
+    V3(actorv3::cron::State),
 }
 
 impl State {
@@ -34,6 +35,11 @@ impl State {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V2)
+                .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv3::CRON_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V3)
                 .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
