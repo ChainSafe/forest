@@ -564,7 +564,7 @@ impl Actor {
             }
 
             // The miner may only submit a proof for the current deadline.
-            if params.deadline != current_deadline.index {
+            if params.deadline != current_deadline.index as usize {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "invalid deadline {} at epoch {}, expected {}",

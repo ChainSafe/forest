@@ -915,7 +915,7 @@ impl State {
             .map_err(|e| e.downcast_wrap("failed to load pre-commit sector queue"))?;
 
         // add entry for this sector to the queue
-        queue.add_to_queue_values(expire_epoch, &[sector_number])?;
+        queue.add_to_queue_values(expire_epoch, &[sector_number as usize])?;
         self.pre_committed_sectors_expiry = queue.amt.flush()?;
 
         Ok(())
@@ -1002,7 +1002,7 @@ impl State {
 
         let mut deadlines = self.load_deadlines(store)?;
 
-        let mut deadline = deadlines.load_deadline(store, dl_info.index)?;
+        let mut deadline = deadlines.load_deadline(store, dl_info.index as usize)?;
 
         let previously_faulty_power = deadline.faulty_power.clone();
 
@@ -1046,7 +1046,7 @@ impl State {
             self.early_terminations.set(dl_info.index as usize);
         }
 
-        deadlines.update_deadline(store, dl_info.index, &deadline)?;
+        deadlines.update_deadline(store, dl_info.index as usize, &deadline)?;
 
         self.save_deadlines(store, deadlines)?;
 

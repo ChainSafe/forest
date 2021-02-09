@@ -19,7 +19,7 @@ pub struct DeadlineInfo {
     /// First epoch of the proving period (<= CurrentEpoch).
     pub period_start: ChainEpoch,
     /// Current deadline index, in [0..WPoStProvingPeriodDeadlines).
-    pub index: usize,
+    pub index: u64,
     /// First epoch from which a proof may be submitted (>= CurrentEpoch).
     pub open: ChainEpoch,
     /// First epoch from which a proof may no longer be submitted (>= Open).
@@ -31,7 +31,7 @@ pub struct DeadlineInfo {
 
     // Protocol parameters (This is intentionally included in the JSON response for deadlines)
     #[serde(rename = "WPoStPeriodDeadlines")]
-    w_post_period_deadlines: usize,
+    w_post_period_deadlines: u64,
     #[serde(rename = "WPoStProvingPeriod")]
     w_post_proving_period: ChainEpoch,
     #[serde(rename = "WPoStChallengeWindow")]
@@ -45,9 +45,9 @@ impl DeadlineInfo {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         period_start: ChainEpoch,
-        deadline_idx: usize,
+        deadline_idx: u64,
         current_epoch: ChainEpoch,
-        w_post_period_deadlines: usize,
+        w_post_period_deadlines: u64,
         w_post_proving_period: ChainEpoch,
         w_post_challenge_window: ChainEpoch,
         w_post_challenge_lookback: ChainEpoch,

@@ -19,9 +19,9 @@ pub fn new_deadline_info(
 ) -> DeadlineInfo {
     DeadlineInfo::new(
         proving_period_start,
-        deadline_idx,
+        deadline_idx as u64,
         current_epoch,
-        WPOST_PERIOD_DEADLINES as usize,
+        WPOST_PERIOD_DEADLINES as u64,
         WPOST_PROVING_PERIOD,
         WPOST_CHALLENGE_WINDOW,
         WPOST_CHALLENGE_LOOKBACK,

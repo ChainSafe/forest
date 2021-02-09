@@ -49,7 +49,8 @@ where
         let new_root = arr.flush()?;
 
         // Set hamt node to array root
-        Ok(self.0.set(key, new_root)?)
+self.0.set(key, new_root)?;
+        Ok(())
     }
 
     /// Gets the Array of value type `V` using the multimap store.
