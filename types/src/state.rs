@@ -12,8 +12,10 @@ use serde::{Deserialize, Serialize};
 pub enum StateTreeVersion {
     /// Corresponds to actors < v2
     V0,
-    /// Corresponds to actors >= v2
+    /// Corresponds to actors = v2
     V1,
+    /// Corresponds to actors >= v3
+    V2,
 }
 
 #[derive(Deserialize_tuple, Serialize_tuple)]

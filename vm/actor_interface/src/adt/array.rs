@@ -10,6 +10,8 @@ use std::error::Error;
 pub enum Array<'a, BS, V> {
     V0(actorv0::ipld_amt::Amt<'a, V, BS>),
     V2(actorv2::ipld_amt::Amt<'a, V, BS>),
+    // TODO: Point this to the hamt from the actors v3 crate.
+    V3(ipld_amt::Amt<'a, V, BS>),
 }
 
 impl<'a, BS, V> Array<'a, BS, V>
@@ -21,6 +23,7 @@ where
         match version {
             ActorVersion::V0 => Array::V0(actorv0::ipld_amt::Amt::new(store)),
             ActorVersion::V2 => Array::V2(actorv2::ipld_amt::Amt::new(store)),
+            ActorVersion::V3 => Array::V3(ipld_amt::Amt::new(store)),
         }
     }
 
@@ -29,6 +32,7 @@ where
         match version {
             ActorVersion::V0 => Ok(Array::V0(actorv0::ipld_amt::Amt::load(cid, store)?)),
             ActorVersion::V2 => Ok(Array::V2(actorv2::ipld_amt::Amt::load(cid, store)?)),
+            ActorVersion::V3 => Ok(Array::V3(ipld_amt::Amt::load(cid, store)?)),
         }
     }
 
@@ -37,6 +41,7 @@ where
         match self {
             Array::V0(m) => m.count(),
             Array::V2(m) => m.count(),
+            Array::V3(m) => m.count() as u64,
         }
     }
 
@@ -45,6 +50,7 @@ where
         match self {
             Array::V0(m) => Ok(m.get(i)?),
             Array::V2(m) => Ok(m.get(i)?),
+            Array::V3(m) => Ok(m.get(i as usize)?),
         }
     }
 
@@ -53,6 +59,7 @@ where
         match self {
             Array::V0(m) => Ok(m.set(i, val)?),
             Array::V2(m) => Ok(m.set(i, val)?),
+            Array::V3(m) => Ok(m.set(i as usize, val)?),
         }
     }
 
@@ -61,6 +68,7 @@ where
         match self {
             Array::V0(m) => Ok(m.delete(i)?),
             Array::V2(m) => Ok(m.delete(i)?),
+            Array::V3(m) => Ok(m.delete(i as usize)?.is_some()),
         }
     }
 
@@ -69,17 +77,19 @@ where
         match self {
             Array::V0(m) => Ok(m.flush()?),
             Array::V2(m) => Ok(m.flush()?),
+            Array::V3(m) => Ok(m.flush()?),
         }
     }
 
     /// Iterates over each value in the `Array` and runs a function on the values.
-    pub fn for_each<F>(&self, f: F) -> Result<(), Box<dyn Error>>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(u64, &V) -> Result<(), Box<dyn Error>>,
     {
         match self {
             Array::V0(m) => m.for_each(f),
             Array::V2(m) => m.for_each(f),
+            Array::V3(m) => m.for_each(|k: usize, v: &V| f(k as u64, v)),
         }
     }
 }

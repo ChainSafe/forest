@@ -24,6 +24,7 @@ const LOCAL_INV_ALPHA: u32 = 5;
 const GLOBAL_INV_ALPHA: u32 = 20;
 
 #[derive(Debug, Default)]
+/// Contains info about the peer's head [Tipset], as well as the request stats.
 struct PeerInfo {
     /// Head tipset received from hello message.
     head: Option<Arc<Tipset>>,
@@ -59,7 +60,7 @@ struct PeerSets {
 
 /// Thread safe peer manager which handles peer management for the `ChainExchange` protocol.
 #[derive(Default)]
-pub struct PeerManager {
+pub(crate) struct PeerManager {
     /// Full and bad peer sets.
     peers: RwLock<PeerSets>,
 
@@ -78,11 +79,6 @@ impl PeerManager {
         } else {
             peers.full_peers.insert(peer_id, PeerInfo::new(ts));
         }
-    }
-
-    /// Returns true if peer set is empty
-    pub async fn is_empty(&self) -> bool {
-        self.peers.read().await.full_peers.is_empty()
     }
 
     /// Returns true if peer is not marked as bad or not already in set.
@@ -198,7 +194,8 @@ impl PeerManager {
         remove_peer(&mut peers, peer_id)
     }
 
-    /// Gets count of full peers managed.
+    /// Gets count of full peers managed. This is just used for testing.
+    #[allow(dead_code)]
     pub async fn len(&self) -> usize {
         self.peers.read().await.full_peers.len()
     }

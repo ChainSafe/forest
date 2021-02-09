@@ -11,7 +11,7 @@ use std::time::SystemTime;
 /// Current state of the ChainSyncer using the ChainExchange protocol.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum SyncStage {
-    /// Idle state
+    /// Idle state.
     Idle,
     /// Syncing headers from the heaviest tipset to genesis.
     Headers,
@@ -53,7 +53,8 @@ impl Serialize for SyncStage {
     }
 }
 
-/// State of a given sync.
+/// State of a given sync. This state is used to keep track of the state of each sync worker.
+/// This state is different from the general state of the ChainSync process.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SyncState {
     base: Option<Arc<Tipset>>,
@@ -82,6 +83,7 @@ impl SyncState {
         self.stage
     }
 
+    /// Returns the current [Tipset] the
     pub fn target(&self) -> &Option<Arc<Tipset>> {
         &self.target
     }

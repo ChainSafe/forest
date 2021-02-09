@@ -8,7 +8,7 @@ use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
 use super::sync_state::SyncState;
 use super::sync_worker::SyncWorker;
-use super::{Error, SyncNetworkContext};
+use super::{network_context::SyncNetworkContext, Error};
 use crate::network_context::HelloResponseFuture;
 use amt::Amt;
 use async_std::channel::{bounded, Receiver, Sender};
@@ -359,7 +359,7 @@ where
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
-                        if let Err(e) = self.inform_new_head(peer.clone(), &new_head).await {
+                        if let Err(e) = self.inform_new_head(peer.clone(), new_head).await {
                             warn!("failed to inform new head from peer {}: {}", peer, e);
                         }
                     }
@@ -439,7 +439,7 @@ where
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    pub async fn inform_new_head(&mut self, peer: PeerId, ts: &FullTipset) -> Result<(), Error> {
+    pub async fn inform_new_head(&mut self, peer: PeerId, ts: FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
         if ts.blocks().is_empty() {
             return Err(Error::NoBlocks);
@@ -473,7 +473,7 @@ where
             for block in ts.blocks() {
                 self.validate_msg_meta(block)?;
             }
-            self.set_peer_head(peer, Arc::new(ts.to_tipset())).await;
+            self.set_peer_head(peer, Arc::new(ts.into_tipset())).await;
         }
 
         Ok(())
@@ -577,17 +577,13 @@ where
     }
 
     fn is_epoch_beyond_curr_max(&self, epoch: ChainEpoch) -> bool {
-        let genesis = if let Ok(Some(gen)) = self.state_manager.chain_store().genesis() {
-            gen
-        } else {
-            return false;
-        };
+        let genesis = self.genesis.as_ref();
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
 
-        epoch as u64 > ((now - genesis.timestamp()) / BLOCK_DELAY_SECS) + MAX_HEIGHT_DRIFT
+        epoch as u64 > ((now - genesis.min_timestamp()) / BLOCK_DELAY_SECS) + MAX_HEIGHT_DRIFT
     }
 
     /// Returns `FullTipset` from store if `TipsetKeys` exist in key-value store otherwise requests
@@ -630,7 +626,7 @@ where
     }
 }
 
-/// Returns message root CID from bls and secp message contained in the param Block
+/// Returns message root CID from bls and secp message contained in the param Block.
 pub fn compute_msg_meta<DB: BlockStore>(
     blockstore: &DB,
     bls_msgs: &[UnsignedMessage],

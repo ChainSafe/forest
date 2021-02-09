@@ -8,21 +8,24 @@ use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
 use std::error::Error;
-
 pub enum Map<'a, BS, V> {
     V0(actorv0::Map<'a, BS, V>),
     V2(actorv2::Map<'a, BS, V>),
+    // TODO: Point this to the hamt from the actors v3 crate.
+    V3(ipld_hamt::Hamt<'a, BS, V>),
 }
 
 impl<'a, BS, V> Map<'a, BS, V>
 where
-    V: Serialize + DeserializeOwned,
+    V: Serialize + DeserializeOwned + PartialEq,
     BS: BlockStore,
 {
     pub fn new(store: &'a BS, version: ActorVersion) -> Self {
         match version {
             ActorVersion::V0 => Map::V0(actorv0::make_map(store)),
             ActorVersion::V2 => Map::V2(actorv2::make_map(store)),
+            // TODO: Use interface from actorv3
+            ActorVersion::V3 => Map::V3(ipld_hamt::Hamt::new_with_bit_width(store, 5)),
         }
     }
 
@@ -31,6 +34,9 @@ where
         match version {
             ActorVersion::V0 => Ok(Map::V0(actorv0::make_map_with_root(cid, store)?)),
             ActorVersion::V2 => Ok(Map::V2(actorv2::make_map_with_root(cid, store)?)),
+            ActorVersion::V3 => Ok(Map::V3(ipld_hamt::Hamt::load_with_bit_width(
+                cid, store, 5,
+            )?)),
         }
     }
 
@@ -39,6 +45,7 @@ where
         match self {
             Map::V0(m) => m.store(),
             Map::V2(m) => m.store(),
+            Map::V3(m) => m.store(),
         }
     }
 
@@ -47,6 +54,10 @@ where
         match self {
             Map::V0(m) => Ok(m.set(key, value)?),
             Map::V2(m) => Ok(m.set(key, value)?),
+            Map::V3(m) => {
+                m.set(key, value)?;
+                Ok(())
+            }
         }
     }
 
@@ -60,6 +71,7 @@ where
         match self {
             Map::V0(m) => Ok(m.get(k)?),
             Map::V2(m) => Ok(m.get(k)?),
+            Map::V3(m) => Ok(m.get(k)?),
         }
     }
 
@@ -72,6 +84,7 @@ where
         match self {
             Map::V0(m) => Ok(m.contains_key(k)?),
             Map::V2(m) => Ok(m.contains_key(k)?),
+            Map::V3(m) => Ok(m.contains_key(k)?),
         }
     }
 
@@ -85,6 +98,7 @@ where
         match self {
             Map::V0(m) => Ok(m.delete(k)?),
             Map::V2(m) => Ok(m.delete(k)?),
+            Map::V3(m) => Ok(m.delete(k)?),
         }
     }
 
@@ -93,6 +107,7 @@ where
         match self {
             Map::V0(m) => Ok(m.flush()?),
             Map::V2(m) => Ok(m.flush()?),
+            Map::V3(m) => Ok(m.flush()?),
         }
     }
 
@@ -105,6 +120,7 @@ where
         match self {
             Map::V0(m) => m.for_each(f),
             Map::V2(m) => m.for_each(f),
+            Map::V3(m) => m.for_each(f),
         }
     }
 }

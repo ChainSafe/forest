@@ -5,7 +5,7 @@ use chain::Error as ChainError;
 use encoding::Error as EncodeError;
 use thiserror::Error;
 
-// /// MessagePool error
+/// MessagePool error.
 #[derive(Debug, PartialEq, Error)]
 pub enum Error {
     /// Error indicating message that's too large

@@ -25,22 +25,30 @@ pub static RESERVE_ADDRESS: &actorv0::RESERVE_ADDRESS = &actorv0::RESERVE_ADDRES
 
 /// Returns true if the code belongs to a builtin actor.
 pub fn is_builtin_actor(code: &Cid) -> bool {
-    actorv0::is_builtin_actor(code) || actorv2::is_builtin_actor(code)
+    actorv0::is_builtin_actor(code)
+        || actorv2::is_builtin_actor(code)
+        || actorv3::is_builtin_actor(code)
 }
 
 /// Returns true if the code belongs to an account actor.
 pub fn is_account_actor(code: &Cid) -> bool {
-    actorv0::is_account_actor(code) || actorv2::is_account_actor(code)
+    actorv0::is_account_actor(code)
+        || actorv2::is_account_actor(code)
+        || actorv3::is_account_actor(code)
 }
 
 /// Returns true if the code belongs to a singleton actor.
 pub fn is_singleton_actor(code: &Cid) -> bool {
-    actorv0::is_singleton_actor(code) || actorv2::is_singleton_actor(code)
+    actorv0::is_singleton_actor(code)
+        || actorv2::is_singleton_actor(code)
+        || actorv3::is_singleton_actor(code)
 }
 
 /// Returns true if the code belongs to a miner actor.
 pub fn is_miner_actor(code: &Cid) -> bool {
-    code == &*actorv0::MINER_ACTOR_CODE_ID || code == &*actorv2::MINER_ACTOR_CODE_ID
+    code == &*actorv0::MINER_ACTOR_CODE_ID
+        || code == &*actorv2::MINER_ACTOR_CODE_ID
+        || code == &*actorv3::MINER_ACTOR_CODE_ID
 }
 
 #[derive(Default, Clone, Debug, PartialEq)]
