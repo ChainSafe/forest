@@ -6,28 +6,29 @@ use address::Address;
 use encoding::{blake2b_256, serde_bytes};
 use serde::{Deserialize, Serialize};
 
-/// The output from running a VRF
+/// The output from running a VRF proof.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct VRFProof(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 impl VRFProof {
-    /// Creates a VRFProof from a raw vector
+    /// Creates a VRFProof from a raw vector.
     pub fn new(output: Vec<u8>) -> Self {
         Self(output)
     }
 
-    /// Returns reference to underlying vector
+    /// Returns reference to underlying proof bytes.
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 
-    /// Compute the blake2b256 digest of the proof
+    /// Compute the blake2b256 digest of the proof.
     pub fn digest(&self) -> [u8; 32] {
         blake2b_256(&self.0)
     }
 }
 
+/// Verifies raw VRF proof. This VRF proof is a BLS signature.
 pub fn verify_vrf(worker: &Address, vrf_base: &[u8], vrf_proof: &[u8]) -> Result<(), String> {
     verify_bls_sig(vrf_proof, vrf_base, worker).map_err(|e| format!("VRF was invalid: {}", e))
 }
