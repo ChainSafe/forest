@@ -33,25 +33,28 @@ impl Cbor for TipsetKeys {}
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct Tipset {
     headers: Vec<BlockHeader>,
     key: OnceCell<TipsetKeys>,
 }
 
+impl PartialEq for Tipset {
+    fn eq(&self, other: &Self) -> bool {
+        self.headers.eq(&other.headers)
+    }
+}
+
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
-        let cache = full_tipset.key;
+        let key = full_tipset.key;
         let headers: Vec<BlockHeader> = full_tipset
             .blocks
             .into_iter()
             .map(|block| block.header)
             .collect();
 
-        Tipset {
-            headers,
-            key: cache,
-        }
+        Tipset { headers, key }
     }
 }
 
@@ -133,10 +136,16 @@ impl Tipset {
 }
 
 /// FullTipset is an expanded version of the Tipset that contains all the blocks and messages
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
     key: OnceCell<TipsetKeys>,
+}
+
+impl PartialEq for FullTipset {
+    fn eq(&self, other: &Self) -> bool {
+        self.blocks.eq(&other.blocks)
+    }
 }
 
 impl FullTipset {
@@ -166,12 +175,7 @@ impl FullTipset {
     }
     /// Converts the full tipset into a [Tipset] which removes the messages attached.
     pub fn into_tipset(self) -> Tipset {
-        let block_headers: Vec<BlockHeader> = self.blocks.into_iter().map(|b| b.header).collect();
-
-        Tipset {
-            headers: block_headers,
-            key: OnceCell::new(),
-        }
+        Tipset::from(self)
     }
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKeys {
