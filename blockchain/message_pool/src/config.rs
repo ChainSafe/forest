@@ -15,6 +15,9 @@ const PRUNE_COOLDOWN: Duration = Duration::from_secs(60); // 1 minute
 const REPLACE_BY_FEE_RATIO: f64 = 1.25;
 const GAS_LIMIT_OVERESTIMATION: f64 = 1.25;
 
+/// Config available for the [MessagePool].
+///
+/// [MessagePool]: crate::MessagePool
 #[derive(Clone, Serialize, Deserialize)]
 pub struct MpoolConfig {
     pub priority_addrs: Vec<Address>,
@@ -69,18 +72,26 @@ impl MpoolConfig {
             gas_limit_overestimation,
         })
     }
+
+    /// Saves message pool config to the database, to easily reload.
     pub fn save_config<DB: Store>(&self, store: &DB) -> Result<(), Box<dyn StdError>> {
         Ok(store.write(MPOOL_CONFIG_KEY, to_vec(&self)?)?)
     }
+
+    /// Load config from store, if exists. If there is no config, uses default.
     pub fn load_config<DB: Store>(store: &DB) -> Result<Self, Box<dyn StdError>> {
         match store.read(MPOOL_CONFIG_KEY)? {
             Some(v) => Ok(from_slice(&v)?),
             None => Ok(Default::default()),
         }
     }
+
+    /// Returns the low limit capacity of messages to allocate.
     pub fn size_limit_low(&self) -> i64 {
         self.size_limit_low
     }
+
+    /// Returns slice of [Address]es to prioritize when selecting messages.
     pub fn priority_addrs(&self) -> &[Address] {
         &self.priority_addrs
     }

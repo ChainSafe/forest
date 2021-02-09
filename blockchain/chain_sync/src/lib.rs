@@ -17,6 +17,5 @@ extern crate serde;
 
 pub use self::bad_block_cache::BadBlockCache;
 pub use self::errors::Error;
-pub use self::network_context::SyncNetworkContext;
 pub use self::sync::{compute_msg_meta, ChainSyncer, SyncConfig};
 pub use self::sync_state::{SyncStage, SyncState};

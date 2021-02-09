@@ -6,36 +6,33 @@ extern crate lazy_static;
 
 mod chain_rand;
 mod errors;
-pub mod utils;
+mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
-use actor::market::State;
-use actor::CHAIN_FINALITY;
 use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blockstore::BlockStore;
-use blockstore::BufferedBlockStore;
+use blockstore::{BlockStore, BufferedBlockStore};
 use chain::{draw_randomness, ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
-use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness};
-use fil_types::{SectorInfo, SectorSize};
+use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
-use futures::channel::oneshot;
-use futures::{select, FutureExt};
-use interpreter::{resolve_to_key_addr, ApplyRet, BlockMessages, Rand, VM};
-use interpreter::{CircSupplyCalc, LookbackStateGetter};
+use futures::{channel::oneshot, select, FutureExt};
+use interpreter::{
+    resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, LookbackStateGetter, Rand, VM,
+};
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
-use message::{message_receipt, unsigned_message};
-use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
+use message::{
+    message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
+};
 use networks::get_network_version_default;
 use num_bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
@@ -47,14 +44,13 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
-use vm::ActorState;
-use vm::TokenAmount;
+use vm::{ActorState, TokenAmount};
 use vm_circ_supply::GenesisInfo;
 
-/// Intermediary for retrieving state objects and updating actor states
-pub type CidPair = (Cid, Cid);
+/// Intermediary for retrieving state objects and updating actor states.
+type CidPair = (Cid, Cid);
 
-/// Type to represent invocation of state call results
+/// Type to represent invocation of state call results.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
@@ -65,9 +61,10 @@ pub struct InvocResult {
     pub error: Option<String>,
 }
 
-// An alias Result that represents an InvocResult and an Error
-pub type StateCallResult = Result<InvocResult, Error>;
+/// An alias Result that represents an InvocResult and an Error.
+type StateCallResult = Result<InvocResult, Error>;
 
+/// External format for returning market balance from state.
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
@@ -77,6 +74,10 @@ pub struct MarketBalance {
     locked: BigInt,
 }
 
+/// State manager handles all interactions with the internal Filecoin actors state.
+/// This encapsulates the [ChainStore] functionality, which only handles chain data, to
+/// allow for interactions with the underlying state of the chain. The state manager not only
+/// allows interfacing with state, but also is used when performing state transitions.
 pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
 
@@ -101,7 +102,7 @@ where
         }
     }
 
-    /// Creates a constructor that passes in a HeadChange publisher
+    /// Creates a constructor that passes in a HeadChange publisher.
     pub fn new_with_publisher(cs: Arc<ChainStore<DB>>, chain_subs: Publisher<HeadChange>) -> Self {
         Self {
             cs,
@@ -111,29 +112,33 @@ where
         }
     }
 
-    /// Returns network version for the given epoch
+    /// Returns network version for the given epoch.
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         get_network_version_default(epoch)
     }
 
+    /// Gets actor from given [Cid], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
         let state = StateTree::new_from_root(self.blockstore(), state_cid)?;
         Ok(state.get_actor(addr)?)
     }
 
+    /// Returns the cloned [Arc] of the state manager's [BlockStore].
     pub fn blockstore_cloned(&self) -> Arc<DB> {
         self.cs.blockstore_cloned()
     }
 
+    /// Returns a reference to the state manager's [BlockStore].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
     }
 
+    /// Returns reference to the state manager's [ChainStore].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
     }
 
-    /// Returns the network name from the init actor state
+    /// Returns the network name from the init actor state.
     pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
         let init_act = self
             .get_actor(actor::init::ADDRESS, st)?
@@ -142,7 +147,8 @@ where
         let state = init::State::load(self.blockstore(), &init_act)?;
         Ok(state.into_network_name())
     }
-    /// Returns true if miner has been slashed or is considered invalid
+
+    /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
         let actor = self
             .get_actor(actor::power::ADDRESS, state_cid)?
@@ -152,7 +158,8 @@ where
 
         Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
     }
-    /// Returns raw work address of a miner
+
+    /// Returns raw work address of a miner given the state root.
     pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
         let state = StateTree::new_from_root(self.blockstore(), state_cid)?;
 
@@ -168,7 +175,8 @@ where
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
         Ok(addr)
     }
-    /// Returns specified actor's claimed power and total network power as a tuple
+
+    /// Returns specified actor's claimed power and total network power as a tuple.
     pub fn get_power(
         &self,
         state_cid: &Cid,
@@ -197,6 +205,7 @@ where
         Ok(None)
     }
 
+    /// Subscribes to the [HeadChange]s observed by the state manager.
     pub fn get_subscriber(&self) -> Option<Subscriber<HeadChange>> {
         self.publisher.as_ref().map(|p| p.subscribe())
     }
@@ -227,7 +236,7 @@ where
             tipset,
             verifier: PhantomData::<V>::default(),
         };
-        // TODO change from statically using devnet params when needed
+
         let mut vm = VM::<_, _, _, _, _, V>::new(
             p_state,
             &buf_store,
@@ -253,7 +262,9 @@ where
         Ok((state_root, rect_root))
     }
 
-    /// Returns the pair of (parent state root, message receipt root)
+    /// Returns the pair of (parent state root, message receipt root). This will either be cached
+    /// or will be calculated and fill the cache. Tipset state for a given tipset is guaranteed
+    /// not to be computed twice.
     pub async fn tipset_state<V>(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
@@ -395,6 +406,8 @@ where
         self.call_raw::<V>(message, &chain_rand, &ts)
     }
 
+    /// Computes message on the given [Tipset] state, after applying other messages and returns
+    /// the values computed in the VM.
     pub async fn call_with_gas<V>(
         self: &Arc<Self>,
         message: &mut ChainMessage,
@@ -456,7 +469,8 @@ where
         })
     }
 
-    /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
+    /// Replays the given message and returns the result of executing the indicated message,
+    /// assuming it was executed in the indicated tipset.
     pub async fn replay<V>(
         self: &Arc<Self>,
         ts: &Arc<Tipset>,
@@ -552,6 +566,8 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 
+    /// Checks the eligibility of the miner. This is used in the validation that a block's miner
+    /// has the requirements to mine a block.
     pub fn eligible_to_mine(
         self: &Arc<Self>,
         address: &Address,
@@ -602,7 +618,7 @@ where
         Ok(true)
     }
 
-    /// gets associated miner base info based
+    /// Get's a miner's base info from state, based on the address provided.
     pub async fn miner_get_base_info<V: ProofVerifier, B: Beacon>(
         self: &Arc<Self>,
         beacon: &BeaconSchedule<B>,
@@ -666,7 +682,7 @@ where
 
         let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker)?;
 
-        let elligable = self.eligible_to_mine(&address, &tipset.as_ref(), &lbts)?;
+        let eligible = self.eligible_to_mine(&address, &tipset.as_ref(), &lbts)?;
 
         Ok(Some(MiningBaseInfo {
             miner_power: Some(mpow.quality_adj_power),
@@ -676,10 +692,11 @@ where
             sector_size: info.sector_size,
             prev_beacon_entry: prev,
             beacon_entries: entries,
-            elligable_for_minning: elligable,
+            eligible_for_mining: eligible,
         }))
     }
 
+    /// Performs a state transition, and returns the state and receipt root of the transition.
     pub async fn compute_tipset_state<V, CB: 'static>(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
@@ -756,6 +773,8 @@ where
         })
     }
 
+    /// Check if tipset had executed the message, by loading the receipt based on the index of
+    /// the message in the block.
     async fn tipset_executed_message(
         &self,
         tipset: &Tipset,
@@ -765,6 +784,7 @@ where
         if tipset.epoch() == 0 {
             return Ok(None);
         }
+        // Load parent state.
         let pts = self
             .cs
             .tipset_from_keys(tipset.parents())
@@ -777,6 +797,7 @@ where
         messages
             .iter()
             .enumerate()
+            // reverse iteration intentional
             .rev()
             .filter(|(_, s)| {
                 s.from() == message_from_address
@@ -786,6 +807,7 @@ where
                     if s.cid().map(|s|
                         &s == msg_cid
                     ).unwrap_or_default() {
+                        // When message Cid has been found, get receipt at index.
                         let rct = chain::get_parent_reciept(
                             self.blockstore(),
                             tipset.blocks().first().unwrap(),
@@ -875,7 +897,7 @@ where
             };
         }
     }
-    /// returns a message receipt from a given tipset and message cid
+    /// Returns a message receipt from a given tipset and message cid.
     pub async fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
         let m = chain::get_chain_message(self.blockstore(), msg)
             .map_err(|e| Error::Other(e.to_string()))?;
@@ -900,9 +922,9 @@ where
         Ok(message_receipt)
     }
 
-    /// WaitForMessage blocks until a message appears on chain. It looks backwards in the chain to see if this has already
-    /// happened. It guarantees that the message has been on chain for at least confidence epochs without being reverted
-    /// before returning.
+    /// WaitForMessage blocks until a message appears on chain. It looks backwards in the
+    /// chain to see if this has already happened. It guarantees that the message has been on chain
+    /// for at least confidence epochs without being reverted before returning.
     pub async fn wait_for_message(
         self: &Arc<Self>,
         msg_cid: Cid,
@@ -911,17 +933,18 @@ where
     where
         DB: BlockStore + Send + Sync + 'static,
     {
-        let (mut subscribers, tipset) = self.cs.subscribe().await;
+        let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
         let message_var = (message.from(), &message.sequence());
+        let current_tipset = self.cs.heaviest_tipset().await.unwrap();
         let maybe_message_reciept = self
-            .tipset_executed_message(&tipset, &msg_cid, message_var)
+            .tipset_executed_message(&current_tipset, &msg_cid, message_var)
             .await?;
         if let Some(r) = maybe_message_reciept {
-            return Ok((Some(tipset.clone()), Some(r)));
+            return Ok((Some(current_tipset.clone()), Some(r)));
         }
 
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
@@ -935,11 +958,11 @@ where
         let cid_for_task = cid;
         let address_for_task = *message.from();
         let sequence_for_task = message.sequence();
-        let height_of_head = tipset.epoch();
+        let height_of_head = current_tipset.epoch();
         let task = task::spawn(async move {
             let back_tuple = sm_cloned
                 .search_back_for_message(
-                    &tipset,
+                    &current_tipset,
                     (&address_for_task, &cid_for_task, &sequence_for_task),
                 )
                 .await?;
@@ -952,12 +975,14 @@ where
         let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
         let sm_cloned = self.clone();
+
+        // Wait for message to be included in head change.
         let mut subscriber_poll = task::spawn::<
             _,
             Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
         >(async move {
             loop {
-                match subscribers.recv().await {
+                match subscriber.recv().await {
                     Ok(subscriber) => match subscriber {
                         HeadChange::Revert(_tipset) => {
                             if candidate_tipset.is_some() {
@@ -1008,6 +1033,7 @@ where
         })
         .fuse();
 
+        // Search backwards for message.
         let mut search_back_poll = task::spawn::<_, Result<_, Error>>(async move {
             let back_tuple = task.await?;
             if let Some((back_tipset, back_receipt)) = back_tuple {
@@ -1026,10 +1052,13 @@ where
         })
         .fuse();
 
+        // Await on first future to finish.
+        // TODO this should be a future race. I don't think the task is being cancelled here
+        // This seems like it will keep the other task running even though it's unneeded.
         loop {
             select! {
                 res = subscriber_poll => {
-                   return res;
+                    return res;
                 }
                 res = search_back_poll => {
                     if let Ok((Some(ts), Some(rct))) = res {
@@ -1076,12 +1105,14 @@ where
         Ok(actor.balance)
     }
 
+    /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
         Ok(state_tree.lookup_id(addr)?)
     }
 
+    /// Retrieves market balance in escrow and locked tables.
     pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
         let actor = self
             .get_actor(actor::market::ADDRESS, ts.parent_state())?
@@ -1215,8 +1246,8 @@ where
         self.genesis_info.get_supply(height, state_tree)
     }
 
-    /// Return the state of Market Actor
-    pub fn get_market_state(&self, ts: &Tipset) -> Result<State, Error> {
+    /// Return the state of Market Actor.
+    pub fn get_market_state(&self, ts: &Tipset) -> Result<market::State, Error> {
         let actor = self
             .get_actor(actor::market::ADDRESS, ts.parent_state())?
             .ok_or_else(|| {
@@ -1228,6 +1259,9 @@ where
     }
 }
 
+/// Base miner info needed for the RPC API.
+// * There is not a great reason this is a separate type from the one on the RPC.
+// * This should probably be removed in the future, but is a convenience to keep for now.
 pub struct MiningBaseInfo {
     pub miner_power: Option<TokenAmount>,
     pub network_power: Option<TokenAmount>,
@@ -1236,7 +1270,7 @@ pub struct MiningBaseInfo {
     pub sector_size: SectorSize,
     pub prev_beacon_entry: BeaconEntry,
     pub beacon_entries: Vec<BeaconEntry>,
-    pub elligable_for_minning: bool,
+    pub eligible_for_mining: bool,
 }
 
 struct SMLookbackWrapper<'sm, 'ts, DB, BS, V> {

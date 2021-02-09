@@ -8,6 +8,7 @@ use encoding::blake2b_256;
 use std::error::Error;
 use std::time::Duration;
 
+/// Mock beacon used for testing. Deterministic based on an interval.
 pub struct MockBeacon {
     interval: Duration,
 }

@@ -5,7 +5,8 @@ use async_std::sync::RwLock;
 use cid::Cid;
 use lru::LruCache;
 
-/// Threadsafe cache for tracking bad blocks
+/// Threadsafe cache for tracking bad blocks.
+/// This cache is checked before validating a block, to ensure no duplicate work.
 #[derive(Debug)]
 pub struct BadBlockCache {
     cache: RwLock<LruCache<Cid, String>>,

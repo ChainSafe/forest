@@ -979,7 +979,7 @@ impl From<MiningBaseInfo> for MiningBaseInfoJson {
                 .into_iter()
                 .map(BeaconEntryJson)
                 .collect::<Vec<BeaconEntryJson>>(),
-            eligible_for_mining: info.elligable_for_minning,
+            eligible_for_mining: info.eligible_for_mining,
         }
     }
 }

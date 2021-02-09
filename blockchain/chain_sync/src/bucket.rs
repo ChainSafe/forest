@@ -5,7 +5,8 @@ use blocks::Tipset;
 use num_bigint::BigInt;
 use std::sync::Arc;
 
-/// SyncBucket defines a bucket of tipsets to sync
+/// SyncBucket defines a bucket of [Tipsets] to sync.
+/// All tipsets in a bucket are connected on the same chain.
 #[derive(Clone, Default, PartialEq)]
 pub struct SyncBucket {
     tips: Vec<Arc<Tipset>>,
@@ -40,14 +41,15 @@ impl SyncBucket {
     }
 }
 
-/// Set of tipset buckets
+/// Set of tipset buckets. This keeps track of all individual groupings of [Tipset]s.
 #[derive(Default, Clone)]
 pub(crate) struct SyncBucketSet {
     buckets: Vec<SyncBucket>,
 }
 
 impl SyncBucketSet {
-    /// Inserts a tipset into a bucket
+    /// Inserts a tipset into a bucket. This will either add to an existing bucket, if [Tipset]
+    /// is connected, creates new [SyncBucket] if not.
     pub(crate) fn insert(&mut self, tipset: Arc<Tipset>) {
         if let Some(b) = self
             .buckets
@@ -59,7 +61,7 @@ impl SyncBucketSet {
             self.buckets.push(SyncBucket::new(vec![tipset]))
         }
     }
-    /// Removes the SyncBucket with heaviest weighted Tipset from SyncBucketSet
+    /// Removes the [SyncBucket] with heaviest weighted Tipset from [SyncBucketSet]
     pub(crate) fn pop(&mut self) -> Option<SyncBucket> {
         let (i, _) = self
             .buckets()
@@ -83,12 +85,12 @@ impl SyncBucketSet {
         false
     }
 
-    /// Returns a vector of SyncBuckets
+    /// Returns a reference to the [SyncBucket]s.
     pub(crate) fn buckets(&self) -> &[SyncBucket] {
         &self.buckets
     }
 
-    /// Heaviest tipset among all the buckets
+    /// Heaviest tipset among all the buckets.
     pub(crate) fn heaviest(&self) -> Option<Arc<Tipset>> {
         self.buckets()
             .iter()
