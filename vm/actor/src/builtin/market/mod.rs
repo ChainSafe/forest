@@ -572,7 +572,7 @@ impl Actor {
                     .deal_states
                     .as_ref()
                     .unwrap()
-                    .get(id)
+                    .get(id as usize)
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to get deal state")
                     })?
@@ -590,7 +590,7 @@ impl Actor {
                 msm.deal_states
                     .as_mut()
                     .unwrap()
-                    .set(id, state)
+                    .set(id as usize, state)
                     .map_err(|e| {
                         e.downcast_default(
                             ExitCode::ErrIllegalState,
@@ -626,7 +626,7 @@ impl Actor {
         let mut pieces: Vec<PieceInfo> = Vec::with_capacity(params.deal_ids.len());
         for deal_id in params.deal_ids {
             let deal = proposals
-                .get(deal_id)
+                .get(deal_id as usize)
                 .map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
@@ -702,7 +702,7 @@ impl Actor {
                         .deal_proposals
                         .as_ref()
                         .unwrap()
-                        .get(deal_id)
+                        .get(deal_id as usize)
                         .map_err(|e| {
                             e.downcast_default(
                                 ExitCode::ErrIllegalState,
@@ -724,7 +724,7 @@ impl Actor {
                         .deal_states
                         .as_ref()
                         .unwrap()
-                        .get(deal_id)
+                        .get(deal_id as usize)
                         .map_err(|e| {
                             e.downcast_default(
                                 ExitCode::ErrIllegalState,
@@ -755,7 +755,7 @@ impl Actor {
                             .deal_proposals
                             .as_mut()
                             .unwrap()
-                            .delete(deal_id)
+                            .delete(deal_id as usize)
                             .map_err(|e| {
                                 e.downcast_default(
                                     ExitCode::ErrIllegalState,
@@ -825,7 +825,7 @@ impl Actor {
                             .deal_proposals
                             .as_mut()
                             .unwrap()
-                            .delete(deal_id)
+                            .delete(deal_id as usize)
                             .map_err(|e| {
                                 e.downcast_default(
                                     ExitCode::ErrIllegalState,
@@ -841,7 +841,7 @@ impl Actor {
                             msm.deal_states
                                 .as_mut()
                                 .unwrap()
-                                .delete(deal_id)
+                                .delete(deal_id as usize)
                                 .map_err(|e| {
                                     e.downcast_default(
                                         ExitCode::ErrIllegalState,
@@ -862,7 +862,7 @@ impl Actor {
                         msm.deal_states
                             .as_mut()
                             .unwrap()
-                            .set(deal_id, state)
+                            .set(deal_id as usize, state)
                             .map_err(|e| {
                                 e.downcast_default(
                                     ExitCode::ErrIllegalState,
@@ -983,7 +983,7 @@ where
             .into());
         }
         let proposal = proposals
-            .get(*deal_id)?
+            .get(*deal_id as usize)?
             .ok_or_else(|| actor_error!(ErrNotFound, "no such deal {}", deal_id))?;
 
         validate_deal_can_activate(&proposal, miner_addr, sector_expiry, curr_epoch)

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{make_map, make_map_with_root, parse_usize_key, usize_key, DealID, Map};
+use crate::{DealID, Map, make_map, make_map_with_root, parse_usize_key, u64_key, usize_key};
 use cid::Cid;
 use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
@@ -38,7 +38,7 @@ where
         // Get construct amt from retrieved cid or create new
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
-        set.put(usize_key(value))?;
+        set.put(u64_key(value))?;
 
         // Save and calculate new root
         let new_root = set.root()?;
@@ -58,7 +58,7 @@ self.0.set(usize_key(key as usize), new_root)?;
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
         for &v in values {
-            set.put(usize_key(v))?;
+            set.put(u64_key(v))?;
         }
 
         // Save and calculate new root
@@ -87,7 +87,7 @@ self.0.set(usize_key(key as usize), new_root)?;
             None => return Ok(()),
         };
 
-        set.delete(usize_key(v).borrow())?;
+        set.delete(u64_key(v).borrow())?;
 
         // Save and calculate new root
         let new_root = set.root()?;
@@ -120,7 +120,7 @@ self.0.set(usize_key(key as usize), new_root)?;
                 .map_err(|e| format!("Could not parse key: {:?}, ({})", &k.0, e))?;
 
             // Run function on all parsed keys
-            f(v)
+            f(v as u64)
         })
     }
 }
