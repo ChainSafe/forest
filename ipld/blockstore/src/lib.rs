@@ -4,6 +4,9 @@
 #[cfg(feature = "buffered")]
 mod buffered;
 #[cfg(feature = "resolve")]
+/// This module is used for resolving Cids and Ipld recursively. This is generally only needed
+/// for testing because links should generally not be collapsed to generate a singular data
+/// structure, or this would lead to ambiguity of the data.
 pub mod resolve;
 #[cfg(feature = "sled")]
 mod sled;

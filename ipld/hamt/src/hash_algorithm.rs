@@ -27,6 +27,7 @@ impl Hasher for Sha2HasherWrapper {
     }
 }
 
+/// Sha256 hashing algorithm used for hashing keys in the Hamt.
 #[derive(Debug)]
 pub enum Sha256 {}
 
@@ -60,6 +61,8 @@ impl Hasher for IdentityHasher {
     }
 }
 
+/// Identity hashing algorithm used for hashing keys in the Hamt. This should only be used
+/// for testing. The hash is just the first 32 bytes of the serialized key.
 #[cfg(feature = "identity")]
 #[derive(Debug)]
 pub enum Identity {}
