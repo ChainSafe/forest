@@ -17,6 +17,7 @@ members = [
     "vm/state_tree",
     "vm/interpreter",
     "node/clock",
+    "node/db",
     "node/rpc",
     "crypto",
     "encoding",

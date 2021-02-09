@@ -39,17 +39,14 @@ use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
 
+/// Gossipsub Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
+/// Gossipsub Filecoin messages topic identifier.
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
-
-lazy_static! {
-    pub static ref PUBSUB_BLOCK_TOPIC: Topic = Topic::new(PUBSUB_BLOCK_STR.to_owned());
-    pub static ref PUBSUB_MSG_TOPIC: Topic = Topic::new(PUBSUB_MSG_STR.to_owned());
-}
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
-/// Events emitted by this Service
+/// Events emitted by this Service.
 #[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
@@ -80,7 +77,7 @@ pub enum PubsubMessage {
     Message(SignedMessage),
 }
 
-/// Events into this Service
+/// Messages into the service to handle.
 #[derive(Debug)]
 pub enum NetworkMessage {
     PubsubMessage {
@@ -105,13 +102,16 @@ pub enum NetworkMessage {
         method: NetRPCMethods,
     },
 }
+
+/// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
     NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
 }
+
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService<DB> {
-    pub swarm: Swarm<ForestBehaviour>,
+    swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
 
     network_receiver_in: Receiver<NetworkMessage>,
@@ -126,7 +126,6 @@ impl<DB> Libp2pService<DB>
 where
     DB: BlockStore + Sync + Send + 'static,
 {
-    /// Constructs a Libp2pService
     pub fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
@@ -170,7 +169,7 @@ where
         }
     }
 
-    /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
+    /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
     pub async fn run(mut self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
@@ -181,6 +180,7 @@ where
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
+                    // outbound events
                     Some(event) => match event {
                         ForestBehaviourEvent::PeerConnected(peer_id) => {
                             debug!("Peer connected, {:?}", peer_id);
@@ -292,6 +292,7 @@ where
                     None => { break; }
                 },
                 rpc_message = network_stream.next() => match rpc_message {
+                    // Inbound messages
                     Some(message) =>  match message {
                         NetworkMessage::PubsubMessage { topic, message } => {
                             if let Err(e) = swarm_stream.get_mut().publish(&topic, message) {
@@ -328,29 +329,31 @@ where
                     None => { break; }
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
+                    // Print peer count on an interval.
                     info!("Peers connected: {}", swarm_stream.get_mut().peers().len());
                 }
             };
         }
     }
 
-    /// Returns a `Sender` allowing you to send messages over GossipSub
+    /// Returns a sender which allows sending messages to the libp2p service.
     pub fn network_sender(&self) -> Sender<NetworkMessage> {
         self.network_sender_in.clone()
     }
 
-    /// Returns a `Receiver` to listen to network events
+    /// Returns a receiver to listen to network events emitted from the service.
     pub fn network_receiver(&self) -> Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
     }
 }
+
 async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     if sender.send(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }
 }
 
-/// Builds the transport stack that LibP2P will communicate over
+/// Builds the transport stack that LibP2P will communicate over.
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::websocket::WsConfig::new(transport.clone()).or_transport(transport);
@@ -385,7 +388,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
         .boxed()
 }
 
-/// Fetch keypair from disk, returning none if it cannot be decoded
+/// Fetch keypair from disk, returning none if it cannot be decoded.
 pub fn get_keypair(path: &str) -> Option<Keypair> {
     match read_file_to_vec(&path) {
         Err(e) => {

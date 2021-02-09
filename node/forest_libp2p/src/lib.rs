@@ -14,8 +14,7 @@ pub mod hello;
 pub mod rpc;
 mod service;
 
-pub use self::behaviour::*;
-pub use self::chain_exchange::{ChainExchangeRequest, MESSAGES};
+pub(crate) use self::behaviour::*;
 pub use self::config::*;
 pub use self::service::*;
 
