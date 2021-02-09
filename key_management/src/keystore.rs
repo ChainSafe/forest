@@ -6,7 +6,7 @@ extern crate serde_json;
 use super::errors::Error;
 use crypto::SignatureType;
 use log::{error, warn};
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, ErrorKind};
@@ -50,7 +50,7 @@ impl KeyInfo {
 pub mod json {
     use super::*;
     use crypto::signature::json::signature_type::SignatureTypeJson;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Clone, Deserialize, Serialize)]

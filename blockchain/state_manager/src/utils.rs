@@ -114,6 +114,7 @@ where
         Ok(out)
     }
 
+    /// Loads sectors for miner at given [Address].
     pub fn get_miner_sector_set<V>(
         &self,
         tipset: &Tipset,
@@ -131,6 +132,7 @@ where
         Ok(mas.load_sectors(self.blockstore(), filter)?)
     }
 
+    /// Returns miner's sector info for a given index.
     pub fn miner_sector_info<V>(
         &self,
         address: &Address,
@@ -148,6 +150,7 @@ where
             .map_err(|err| Error::State(format!("(get sset) failed to get actor state: {:}", err)))
     }
 
+    /// Returns the precommitted sector info for a miner's sector.
     pub fn precommit_info<V>(
         &self,
         address: &Address,
@@ -172,6 +175,7 @@ where
         precommit_info.ok_or_else(|| Error::Other("precommit not found".to_string()))
     }
 
+    /// Returns miner info at the given [Tipset]'s state.
     pub fn get_miner_info<V>(
         &self,
         tipset: &Tipset,
@@ -187,6 +191,7 @@ where
         mas.info(self.blockstore())
     }
 
+    /// Get all deadlines for a miner.
     pub fn get_miner_deadlines<V>(
         &self,
         tipset: &Tipset,
@@ -238,6 +243,7 @@ where
         Ok(())
     }
 
+    /// Returns a bitfield of all miner's faulty sectors.
     pub fn get_miner_faults<V>(
         &self,
         tipset: &Tipset,
@@ -256,6 +262,7 @@ where
         Ok(out)
     }
 
+    /// Returns bitfield of miner's recovering sectors.
     pub fn get_miner_recoveries<V>(
         &self,
         tipset: &Tipset,
@@ -274,6 +281,7 @@ where
         Ok(out)
     }
 
+    /// Lists all miners that exist in the power actor state at given [Tipset].
     pub fn list_miner_actors<V>(&self, tipset: &Tipset) -> Result<Vec<Address>, Error>
     where
         V: ProofVerifier,
@@ -286,6 +294,7 @@ where
         Ok(power_actor_state.list_all_miners(self.blockstore())?)
     }
 
+    /// Gets miner's worker address from state.
     pub fn get_miner_worker_raw(
         &self,
         state: &Cid,
@@ -311,6 +320,7 @@ where
     }
 }
 
+/// Json serialization formatted Deadline information.
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Deadline {

@@ -10,4 +10,3 @@ mod tipset_tracker;
 pub use self::base_fee::*;
 pub use self::chain_store::*;
 pub use self::errors::*;
-pub use self::index::*;
