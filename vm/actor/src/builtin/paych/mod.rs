@@ -338,7 +338,7 @@ fn find_lane<'a, BS>(
 where
     BS: BlockStore,
 {
-    if id > MAX_LANE as usize{
+    if id > MAX_LANE as usize {
         return Err(actor_error!(ErrIllegalArgument; "maximum lane ID is 2^63-1"));
     }
 

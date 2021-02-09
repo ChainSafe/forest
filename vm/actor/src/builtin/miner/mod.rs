@@ -1171,7 +1171,7 @@ impl Actor {
 
         // This should be enforced by the power actor. We log here just in case
         // something goes wrong.
-        if params.sectors.len()  > MAX_MINER_PROVE_COMMITS_PER_EPOCH {
+        if params.sectors.len() > MAX_MINER_PROVE_COMMITS_PER_EPOCH {
             log::warn!(
                 "confirmed more prove commits in an epoch than permitted: {} > {}",
                 params.sectors.len(),

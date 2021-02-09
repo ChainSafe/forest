@@ -10,8 +10,7 @@ use std::error::Error;
 pub enum Array<'a, BS, V> {
     V0(actorv0::ipld_amt::Amt<'a, V, BS>),
     V2(actorv2::ipld_amt::Amt<'a, V, BS>),
-    // TODO: Point this to the hamt from the actors v3 crate.
-    V3(ipld_amt::Amt<'a, V, BS>),
+    V3(actorv3::ipld_amt::Amt<'a, V, BS>),
 }
 
 impl<'a, BS, V> Array<'a, BS, V>
@@ -23,7 +22,7 @@ where
         match version {
             ActorVersion::V0 => Array::V0(actorv0::ipld_amt::Amt::new(store)),
             ActorVersion::V2 => Array::V2(actorv2::ipld_amt::Amt::new(store)),
-            ActorVersion::V3 => Array::V3(ipld_amt::Amt::new(store)),
+            ActorVersion::V3 => Array::V3(actorv3::ipld_amt::Amt::new(store)),
         }
     }
 
@@ -32,7 +31,7 @@ where
         match version {
             ActorVersion::V0 => Ok(Array::V0(actorv0::ipld_amt::Amt::load(cid, store)?)),
             ActorVersion::V2 => Ok(Array::V2(actorv2::ipld_amt::Amt::load(cid, store)?)),
-            ActorVersion::V3 => Ok(Array::V3(ipld_amt::Amt::load(cid, store)?)),
+            ActorVersion::V3 => Ok(Array::V3(actorv3::ipld_amt::Amt::load(cid, store)?)),
         }
     }
 

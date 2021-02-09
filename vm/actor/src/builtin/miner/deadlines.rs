@@ -38,7 +38,7 @@ impl Deadlines {
         sector_number: SectorNumber,
     ) -> Result<(usize, usize), Box<dyn StdError>> {
         for i in 0..self.due.len() {
-            let deadline_idx = i ;
+            let deadline_idx = i;
             let deadline = self.load_deadline(store, deadline_idx)?;
             let partitions = Amt::<Partition, _>::load(&deadline.partitions, store)?;
 

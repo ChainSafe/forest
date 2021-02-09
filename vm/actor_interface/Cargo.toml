@@ -21,8 +21,6 @@ forest_bitfield = "0.1"
 num-bigint = { version = "0.1.1", package = "forest_bigint", features = ["json"] }
 forest_hash_utils = "0.1"
 forest_json_utils = "0.1.1"
-ipld_hamt = { path = "../../ipld/hamt" }
-ipld_amt = { path = "../../ipld/amt", features = ["go-interop"]}
 [features]
 devnet = ["actorv0/devnet", "actorv2/devnet"]
 interopnet = ["actorv0/interopnet", "actorv2/interopnet"]

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{DealID, Map, make_map, make_map_with_root, parse_usize_key, u64_key, usize_key};
+use crate::{make_map, make_map_with_root, parse_usize_key, u64_key, usize_key, DealID, Map};
 use cid::Cid;
 use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
@@ -44,7 +44,7 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-self.0.set(usize_key(key as usize), new_root)?;
+        self.0.set(usize_key(key as usize), new_root)?;
         Ok(())
     }
 
@@ -65,7 +65,7 @@ self.0.set(usize_key(key as usize), new_root)?;
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-self.0.set(usize_key(key as usize), new_root)?;
+        self.0.set(usize_key(key as usize), new_root)?;
         Ok(())
     }
 
@@ -91,7 +91,7 @@ self.0.set(usize_key(key as usize), new_root)?;
 
         // Save and calculate new root
         let new_root = set.root()?;
-self.0.set(usize_key(key as usize), new_root)?;
+        self.0.set(usize_key(key as usize), new_root)?;
         Ok(())
     }
 

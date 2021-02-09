@@ -49,7 +49,7 @@ where
         let new_root = arr.flush()?;
 
         // Set hamt node to array root
-self.0.set(key, new_root)?;
+        self.0.set(key, new_root)?;
         Ok(())
     }
 

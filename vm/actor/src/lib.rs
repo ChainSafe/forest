@@ -83,7 +83,7 @@ pub fn parse_uint_key(s: &[u8]) -> Result<u64, UVarintError> {
     Ok(v)
 }
 
-pub fn parse_usize_key(s: &[u8]) -> Result<usize, UVarintError>{
+pub fn parse_usize_key(s: &[u8]) -> Result<usize, UVarintError> {
     let (v, _) = unsigned_varint::decode::usize(s)?;
     Ok(v)
 }

@@ -345,7 +345,6 @@ pub fn set_claim<BS: BlockStore>(
         .set(a.to_bytes().into(), claim)
         .map_err(|e| e.downcast_wrap(format!("failed to set claim for address {}", a)))?;
     Ok(())
-        
 }
 
 pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {

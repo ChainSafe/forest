@@ -371,7 +371,7 @@ impl Deadline {
         let mut result = TerminationResult::new();
 
         for i in self.early_terminations.iter() {
-            let partition_idx = i ;
+            let partition_idx = i;
 
             let mut partition = match partitions.get(partition_idx).map_err(|e| {
                 e.downcast_wrap(format!("failed to load partition {}", partition_idx))
