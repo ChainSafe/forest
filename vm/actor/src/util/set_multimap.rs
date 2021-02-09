@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{make_map, make_map_with_root, parse_usize_key, u64_key, usize_key, DealID, Map};
+use crate::{make_map, make_map_with_root, parse_uint_key, u64_key, DealID, Map};
 use cid::Cid;
 use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
@@ -44,7 +44,7 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        self.0.set(usize_key(key as usize), new_root)?;
+        self.0.set(u64_key(key as u64), new_root)?;
         Ok(())
     }
 
@@ -65,14 +65,14 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        self.0.set(usize_key(key as usize), new_root)?;
+        self.0.set(u64_key(key as u64), new_root)?;
         Ok(())
     }
 
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
     pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, Box<dyn StdError>> {
-        match self.0.get(&usize_key(key as usize))? {
+        match self.0.get(&u64_key(key as u64))? {
             Some(cid) => Ok(Some(Set::from_root(self.0.store(), &cid)?)),
             None => Ok(None),
         }
@@ -91,7 +91,7 @@ where
 
         // Save and calculate new root
         let new_root = set.root()?;
-        self.0.set(usize_key(key as usize), new_root)?;
+        self.0.set(u64_key(key as u64), new_root)?;
         Ok(())
     }
 
@@ -99,7 +99,7 @@ where
     #[inline]
     pub fn remove_all(&mut self, key: ChainEpoch) -> Result<(), Box<dyn StdError>> {
         // Remove entry from table
-        self.0.delete(&usize_key(key as usize))?;
+        self.0.delete(&u64_key(key as u64))?;
 
         Ok(())
     }
@@ -116,11 +116,11 @@ where
         };
 
         set.for_each(|k| {
-            let v = parse_usize_key(&k)
+            let v = parse_uint_key(&k)
                 .map_err(|e| format!("Could not parse key: {:?}, ({})", &k.0, e))?;
 
             // Run function on all parsed keys
-            f(v as u64)
+            f(v)
         })
     }
 }

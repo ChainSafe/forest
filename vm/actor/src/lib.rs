@@ -72,19 +72,8 @@ pub fn u64_key(k: u64) -> BytesKey {
     slice.to_vec().into()
 }
 
-pub fn usize_key(k: usize) -> BytesKey {
-    let mut bz = unsigned_varint::encode::usize_buffer();
-    let slice = unsigned_varint::encode::usize(k, &mut bz);
-    slice.to_vec().into()
-}
-
 pub fn parse_uint_key(s: &[u8]) -> Result<u64, UVarintError> {
     let (v, _) = unsigned_varint::decode::u64(s)?;
-    Ok(v)
-}
-
-pub fn parse_usize_key(s: &[u8]) -> Result<usize, UVarintError> {
-    let (v, _) = unsigned_varint::decode::usize(s)?;
     Ok(v)
 }
 

@@ -767,7 +767,7 @@ impl Actor {
                                     "failed to delete deal",
                                 )
                             })?;
-                        if !deleted.is_some() {
+                        if deleted.is_none() {
                             return Err(actor_error!(ErrIllegalState;
                                         "failed to delete deal proposal: does not exist"));
                         }
@@ -837,7 +837,7 @@ impl Actor {
                                     "failed to delete deal proposal",
                                 )
                             })?;
-                        if !deleted.is_some() {
+                        if deleted.is_none() {
                             return Err(actor_error!(ErrIllegalState;
                                 "failed to delete deal proposal: does not exist"));
                         }
@@ -853,7 +853,7 @@ impl Actor {
                                     "failed to delete deal state",
                                 )
                             })?;
-                        if !deleted.is_some() {
+                        if deleted.is_none() {
                             return Err(actor_error!(ErrIllegalState;
                                     "failed to delete deal state: does not exist"));
                         }

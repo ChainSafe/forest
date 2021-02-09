@@ -61,7 +61,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
         if values.is_empty() {
             Ok(())
         } else {
-            self.add_to_queue(epoch, &values.iter().map(|&i| i).collect())
+            self.add_to_queue(epoch, &values.iter().copied().collect())
         }
     }
 
