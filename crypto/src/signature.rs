@@ -22,7 +22,7 @@ pub const SECP_SIG_LEN: usize = 65;
 /// Secp256k1 Public key length in bytes.
 pub const SECP_PUB_LEN: usize = 65;
 
-/// Signature variants for Forest signatures
+/// Signature variants for Filecoin signatures.
 #[derive(
     Clone, Debug, PartialEq, FromPrimitive, Copy, Eq, Serialize_repr, Deserialize_repr, Hash,
 )]
@@ -32,15 +32,8 @@ pub enum SignatureType {
     BLS = 2,
 }
 
-// Just used for defaulting for block signatures, can be removed later if needed
-impl Default for SignatureType {
-    fn default() -> Self {
-        SignatureType::BLS
-    }
-}
-
-/// A cryptographic signature, represented in bytes, of any key protocol
-#[derive(Clone, Debug, PartialEq, Default, Eq, Hash)]
+/// A cryptographic signature, represented in bytes, of any key protocol.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Signature {
     sig_type: SignatureType,
     bytes: Vec<u8>,
@@ -82,7 +75,7 @@ impl<'de> de::Deserialize<'de> for Signature {
 }
 
 impl Signature {
-    /// Creates a SECP Signature given the raw bytes
+    /// Creates a SECP Signature given the raw bytes.
     pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
         Self {
             sig_type: SignatureType::Secp256k1,
@@ -90,7 +83,7 @@ impl Signature {
         }
     }
 
-    /// Creates a BLS Signature given the raw bytes
+    /// Creates a BLS Signature given the raw bytes.
     pub fn new_bls(bytes: Vec<u8>) -> Self {
         Self {
             sig_type: SignatureType::BLS,
@@ -98,17 +91,17 @@ impl Signature {
         }
     }
 
-    /// Returns reference to signature bytes
+    /// Returns reference to signature bytes.
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
 
-    /// Returns reference to signature type
+    /// Returns [SignatureType] for the signature.
     pub fn signature_type(&self) -> SignatureType {
         self.sig_type
     }
 
-    /// Checks if a signature is valid given data and address
+    /// Checks if a signature is valid given data and address.
     pub fn verify(&self, data: &[u8], addr: &Address) -> Result<(), String> {
         match addr.protocol() {
             Protocol::BLS => verify_bls_sig(self.bytes(), data, addr),
@@ -118,7 +111,7 @@ impl Signature {
     }
 }
 
-/// Returns `String` error if a bls signature is invalid
+/// Returns `String` error if a bls signature is invalid.
 pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
     let pub_k = addr.payload_bytes();
 
@@ -139,7 +132,7 @@ pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> R
     }
 }
 
-/// Returns `String` error if a secp256k1 signature is invalid
+/// Returns `String` error if a secp256k1 signature is invalid.
 fn verify_secp256k1_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
     if signature.len() != SECP_SIG_LEN {
         return Err(format!(
@@ -163,7 +156,7 @@ fn verify_secp256k1_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result
         Err("Secp signature verification failed".to_owned())
     }
 }
-/// Aggregates and verifies bls signatures collectively
+/// Aggregates and verifies bls signatures collectively.
 pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &Signature) -> bool {
     // If the number of public keys and data does not match, then return false
     if data.len() != pub_keys.len() {
