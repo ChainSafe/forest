@@ -579,7 +579,7 @@ name = "auth"
 version = "0.1.0"
 dependencies = [
  "forest_crypto",
- "jsonrpc-v2",
+ "jsonrpc-v2 0.5.2",
  "jsonwebtoken",
  "key_management",
  "lazy_static",
@@ -951,9 +951,9 @@ checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
 
 [[package]]
 name = "bstr"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "473fc6b38233f9af7baa94fb5852dca389e3d95b8e21c8e3719301462c5d9faf"
+checksum = "a40b47ad93e1a5404e6c18dec46b628214fee441c70f4ab5d6942142cc268a3d"
 dependencies = [
  "lazy_static",
  "memchr",
@@ -2360,7 +2360,7 @@ dependencies = [
  "genesis",
  "hex",
  "ipld_blockstore",
- "jsonrpc-v2",
+ "jsonrpc-v2 0.7.0",
  "key_management",
  "libp2p",
  "log",
@@ -3656,9 +3656,58 @@ dependencies = [
  "erased-serde",
  "extensions",
  "futures 0.3.12",
- "jsonrpc-v2-macros",
+ "jsonrpc-v2-macros 0.1.0 (git+https://github.com/ChainSafe/jsonrpc-v2)",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "jsonrpc-v2"
+version = "0.7.0"
+dependencies = [
+ "async-trait",
+ "erased-serde",
+ "extensions",
+ "futures 0.3.12",
+ "jsonrpc-v2-macros 0.1.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jsonrpc-v2"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5882905d7011586f3492e02e71c326eba0e088b6592287eec68892f56386d6bb"
+dependencies = [
+ "async-trait",
+ "bytes 0.5.6",
+ "erased-serde",
+ "extensions",
+ "futures 0.3.12",
+ "jsonrpc-v2-macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jsonrpc-v2-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.8",
+ "syn 1.0.60",
+]
+
+[[package]]
+name = "jsonrpc-v2-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ec45934a6e793e0c0e1f4fd1966f5b1c0d2184e0185d6b24e585b6cd1eb96ba"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.8",
+ "syn 1.0.60",
 ]
 
 [[package]]
@@ -3805,9 +3854,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.85"
+version = "0.2.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ccac4b00700875e6a07c6cde370d44d32fa01c5a65cdd2fca6858c479d28bb3"
+checksum = "b7282d924be3275cec7f6756ff4121987bc6481325397dde6ba3e7802b1a8b1c"
 
 [[package]]
 name = "libloading"
@@ -5790,7 +5839,7 @@ dependencies = [
  "interpreter",
  "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ipld_blockstore",
- "jsonrpc-v2",
+ "jsonrpc-v2 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonwebtoken",
  "key_management",
  "libp2p",
@@ -5806,7 +5855,7 @@ dependencies = [
  "state_tree",
  "test_utils",
  "thiserror",
- "tide 0.16.0",
+ "tide",
  "tide-websockets",
  "tokio 1.2.0",
  "utils",
@@ -5821,7 +5870,7 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_message",
- "jsonrpc-v2",
+ "jsonrpc-v2 0.5.2",
  "jsonrpsee",
  "key_management",
  "log",
@@ -6923,29 +6972,6 @@ dependencies = [
 
 [[package]]
 name = "tide"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8889753e7e7b9d1ceb7a67e7df8c3994b4657082219d78eb379f71fe2934e66b"
-dependencies = [
- "async-h1",
- "async-session",
- "async-sse",
- "async-std",
- "async-trait",
- "femme",
- "futures-util",
- "http-client",
- "http-types",
- "kv-log-macro",
- "log",
- "pin-project-lite 0.1.11",
- "route-recognizer",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "tide"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c459573f0dd2cc734b539047f57489ea875af8ee950860ded20cf93a79a1dee0"
@@ -6969,9 +6995,9 @@ dependencies = [
 
 [[package]]
 name = "tide-websockets"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4aee1eac9c3385cd9fe60de592b84f89b5c57f711da604128b9c1ea3377d072c"
+checksum = "ca9eef759bbe19bd62693c01f1ac58207290513096caccafed140dbc81deaa47"
 dependencies = [
  "async-dup",
  "async-std",
@@ -6982,7 +7008,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha-1",
- "tide 0.15.1",
+ "tide",
 ]
 
 [[package]]
@@ -7303,9 +7329,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-normalization"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13e63ab62dbe32aeee58d1c5408d35c36c392bba5d9d3142287219721afe606"
+checksum = "07fbfce1c8a97d547e8b5334978438d9d6ec8c20e38f56d4a4374d181493eaef"
 dependencies = [
  "tinyvec",
 ]
