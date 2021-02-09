@@ -153,7 +153,7 @@ fn to_fil_public_replica_infos(
                 ProofType::Window => sector_info.proof.registered_window_post_proof()?,
             };
             let replica = PublicReplicaInfo::new(proof.try_into()?, commr);
-            Ok((SectorId::from(sector_info.sector_number), replica))
+            Ok((SectorId::from(sector_info.sector_number as u64), replica))
         })
         .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;
     Ok(replicas)

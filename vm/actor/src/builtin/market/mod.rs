@@ -303,7 +303,7 @@ impl Actor {
                 msm.deal_proposals
                     .as_mut()
                     .unwrap()
-                    .set(id, deal.proposal.clone())
+                    .set(id as usize, deal.proposal.clone())
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to set deal")
                     })?;
@@ -450,7 +450,7 @@ impl Actor {
                     .deal_states
                     .as_ref()
                     .unwrap()
-                    .get(deal_id)
+                    .get(deal_id as usize)
                     .map_err(|e| {
                         e.downcast_default(
                             ExitCode::ErrIllegalState,
@@ -466,7 +466,7 @@ impl Actor {
                     .deal_proposals
                     .as_ref()
                     .unwrap()
-                    .get(deal_id)
+                    .get(deal_id as usize)
                     .map_err(|e| {
                         e.downcast_default(
                             ExitCode::ErrIllegalState,
@@ -500,7 +500,7 @@ impl Actor {
                     .as_mut()
                     .unwrap()
                     .set(
-                        deal_id,
+                        deal_id as usize,
                         DealState {
                             sector_start_epoch: curr_epoch,
                             last_updated_epoch: EPOCH_UNDEFINED,
@@ -548,7 +548,7 @@ impl Actor {
                 })?;
 
             for id in params.deal_ids {
-                let deal = msm.deal_proposals.as_ref().unwrap().get(id).map_err(|e| {
+                let deal = msm.deal_proposals.as_ref().unwrap().get(id as usize).map_err(|e| {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to get deal proposal")
                 })?;
                 // deal could have terminated and hence deleted before the sector is terminated.

@@ -640,7 +640,7 @@ impl Partition {
         let mut early_terminated_queue =
             BitFieldQueue::new(store, &self.early_terminated, NO_QUANTIZATION)?;
 
-        let mut processed = Vec::<u64>::new();
+        let mut processed = Vec::<usize>::new();
         let mut remaining: Option<(BitField, ChainEpoch)> = None;
         let mut result = TerminationResult::new();
         result.partitions_processed = 1;
@@ -676,7 +676,7 @@ impl Partition {
         // Update early terminations
         early_terminated_queue
             .amt
-            .batch_delete(processed)
+            .batch_delete(processed, true)
             .map_err(|e| {
                 e.downcast_wrap("failed to remove entries from early terminations queue")
             })?;
@@ -684,7 +684,7 @@ impl Partition {
         if let Some((remaining_sectors, remaining_epoch)) = remaining.take() {
             early_terminated_queue
                 .amt
-                .set(remaining_epoch as u64, remaining_sectors)
+                .set(remaining_epoch as usize, remaining_sectors)
                 .map_err(|e| {
                     e.downcast_wrap("failed to update remaining entry early terminations queue")
                 })?;

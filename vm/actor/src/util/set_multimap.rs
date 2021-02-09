@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{make_map, make_map_with_root, parse_uint_key, u64_key, DealID, Map};
+use crate::{make_map, make_map_with_root, parse_usize_key, usize_key, DealID, Map};
 use cid::Cid;
 use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
@@ -38,13 +38,13 @@ where
         // Get construct amt from retrieved cid or create new
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
-        set.put(u64_key(value))?;
+        set.put(usize_key(value))?;
 
         // Save and calculate new root
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(u64_key(key as u64), new_root)?)
+        Ok(self.0.set(usize_key(key as usize), new_root)?)
     }
 
     /// Puts slice of DealIDs in the hash set of the key.
@@ -57,20 +57,20 @@ where
         let mut set = self.get(key)?.unwrap_or_else(|| Set::new(self.0.store()));
 
         for &v in values {
-            set.put(u64_key(v))?;
+            set.put(usize_key(v))?;
         }
 
         // Save and calculate new root
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(u64_key(key as u64), new_root)?)
+        Ok(self.0.set(usize_key(key as usize), new_root)?)
     }
 
     /// Gets the set at the given index of the `SetMultimap`
     #[inline]
     pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, Box<dyn StdError>> {
-        match self.0.get(&u64_key(key as u64))? {
+        match self.0.get(&usize_key(key as usize))? {
             Some(cid) => Ok(Some(Set::from_root(self.0.store(), &cid)?)),
             None => Ok(None),
         }
@@ -85,19 +85,19 @@ where
             None => return Ok(()),
         };
 
-        set.delete(u64_key(v).borrow())?;
+        set.delete(usize_key(v).borrow())?;
 
         // Save and calculate new root
         let new_root = set.root()?;
 
-        Ok(self.0.set(u64_key(key as u64), new_root)?)
+        Ok(self.0.set(usize_key(key as usize), new_root)?)
     }
 
     /// Removes set at index.
     #[inline]
     pub fn remove_all(&mut self, key: ChainEpoch) -> Result<(), Box<dyn StdError>> {
         // Remove entry from table
-        self.0.delete(&u64_key(key as u64))?;
+        self.0.delete(&usize_key(key as usize))?;
 
         Ok(())
     }
@@ -114,7 +114,7 @@ where
         };
 
         set.for_each(|k| {
-            let v = parse_uint_key(&k)
+            let v = parse_usize_key(&k)
                 .map_err(|e| format!("Could not parse key: {:?}, ({})", &k.0, e))?;
 
             // Run function on all parsed keys
