@@ -294,7 +294,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         &mut self,
         fault_expiration: ChainEpoch,
     ) -> Result<(), Box<dyn StdError>> {
-        let mut rescheduled_epochs = Vec::<u64>::new();
+        let mut rescheduled_epochs = Vec::<usize>::new();
         let mut rescheduled_sectors = BitField::new();
         let mut rescheduled_power = PowerPair::zero();
 
@@ -312,7 +312,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                 expiration_set.active_power = PowerPair::zero();
                 mutated_expiration_sets.push((epoch, expiration_set));
             } else {
-                rescheduled_epochs.push(epoch as u64);
+                rescheduled_epochs.push(epoch as usize);
                 // sanity check to make sure we're not trying to re-schedule already faulty sectors.
                 if !expiration_set.early_sectors.is_empty() {
                     return Err(
@@ -350,7 +350,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         )?;
 
         // Trim the rescheduled epochs from the queue.
-        self.amt.batch_delete(rescheduled_epochs)?;
+        self.amt.batch_delete(rescheduled_epochs, true)?;
 
         Ok(())
     }
@@ -589,7 +589,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         let mut active_power = PowerPair::zero();
         let mut faulty_power = PowerPair::zero();
         let mut on_time_pledge = TokenAmount::zero();
-        let mut popped_keys = Vec::<u64>::new();
+        let mut popped_keys = Vec::<usize>::new();
 
         self.amt.for_each_while(|i, this_value| {
             if i as ChainEpoch > until {
@@ -606,7 +606,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
             Ok(true)
         })?;
 
-        self.amt.batch_delete(popped_keys)?;
+        self.amt.batch_delete(popped_keys, true)?;
 
         Ok(ExpirationSet {
             on_time_sectors,
@@ -653,7 +653,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         let epoch = self.quant.quantize_up(raw_epoch);
         let mut expiration_set = self
             .amt
-            .get(epoch as u64)
+            .get(epoch as usize)
             .map_err(|e| e.downcast_wrap(format!("failed to lookup queue epoch {}", epoch)))?
             .ok_or_else(|| format!("missing expected expiration set at epoch {}", epoch))?
             .clone();
@@ -740,7 +740,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         })?;
 
         self.amt
-            .batch_delete(epochs_emptied.iter().map(|&i| i as u64))?;
+            .batch_delete(epochs_emptied.iter().map(|&i| i as usize), true)?;
 
         Ok(())
     }
@@ -748,7 +748,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
     fn may_get(&self, key: ChainEpoch) -> Result<ExpirationSet, Box<dyn StdError>> {
         Ok(self
             .amt
-            .get(key as u64)
+            .get(key as usize)
             .map_err(|e| e.downcast_wrap(format!("failed to lookup queue epoch {}", key)))?
             .cloned()
             .unwrap_or_default())
@@ -760,7 +760,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         expiration_set: ExpirationSet,
     ) -> Result<(), Box<dyn StdError>> {
         self.amt
-            .set(epoch as u64, expiration_set)
+            .set(epoch as usize, expiration_set)
             .map_err(|e| e.downcast_wrap(format!("failed to set queue epoch {}", epoch)))
     }
 
@@ -772,11 +772,11 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
     ) -> Result<(), Box<dyn StdError>> {
         if expiration_set.is_empty() {
             self.amt
-                .delete(epoch as u64)
+                .delete(epoch as usize)
                 .map_err(|e| e.downcast_wrap(format!("failed to delete queue epoch {}", epoch)))?;
         } else {
             self.amt
-                .set(epoch as u64, expiration_set)
+                .set(epoch as usize, expiration_set)
                 .map_err(|e| e.downcast_wrap(format!("failed to set queue epoch {}", epoch)))?;
         }
 

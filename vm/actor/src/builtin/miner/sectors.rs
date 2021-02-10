@@ -42,7 +42,7 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
         for sector_number in sector_numbers.iter() {
             let sector_on_chain = self
                 .amt
-                .get(sector_number as SectorNumber)
+                .get(sector_number)
                 .map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
@@ -62,7 +62,7 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
     ) -> Result<Option<SectorOnChainInfo>, Box<dyn StdError>> {
         Ok(self
             .amt
-            .get(sector_number)
+            .get(sector_number as usize)
             .map_err(|e| e.downcast_wrap(format!("failed to get sector {}", sector_number)))?
             .cloned())
     }
@@ -75,7 +75,7 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
                 return Err(format!("sector number {} out of range", info.sector_number).into());
             }
 
-            self.amt.set(sector_number, info).map_err(|e| {
+            self.amt.set(sector_number as usize, info).map_err(|e| {
                 e.downcast_wrap(format!("failed to store sector {}", sector_number))
             })?;
         }

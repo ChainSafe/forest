@@ -49,7 +49,8 @@ where
         let new_root = arr.flush()?;
 
         // Set hamt node to array root
-        Ok(self.0.set(key, new_root)?)
+        self.0.set(key, new_root)?;
+        Ok(())
     }
 
     /// Gets the Array of value type `V` using the multimap store.
@@ -79,7 +80,7 @@ where
     pub fn for_each<F, V>(&self, key: &[u8], f: F) -> Result<(), Box<dyn StdError>>
     where
         V: Serialize + DeserializeOwned,
-        F: FnMut(u64, &V) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(usize, &V) -> Result<(), Box<dyn StdError>>,
     {
         if let Some(amt) = self.get::<V>(key)? {
             amt.for_each(f)?;

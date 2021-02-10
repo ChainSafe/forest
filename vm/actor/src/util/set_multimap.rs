@@ -44,7 +44,8 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(u64_key(key as u64), new_root)?)
+        self.0.set(u64_key(key as u64), new_root)?;
+        Ok(())
     }
 
     /// Puts slice of DealIDs in the hash set of the key.
@@ -64,7 +65,8 @@ where
         let new_root = set.root()?;
 
         // Set hamt node to set new root
-        Ok(self.0.set(u64_key(key as u64), new_root)?)
+        self.0.set(u64_key(key as u64), new_root)?;
+        Ok(())
     }
 
     /// Gets the set at the given index of the `SetMultimap`
@@ -89,8 +91,8 @@ where
 
         // Save and calculate new root
         let new_root = set.root()?;
-
-        Ok(self.0.set(u64_key(key as u64), new_root)?)
+        self.0.set(u64_key(key as u64), new_root)?;
+        Ok(())
     }
 
     /// Removes set at index.

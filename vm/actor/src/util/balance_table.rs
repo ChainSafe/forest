@@ -51,7 +51,8 @@ where
             self.0.delete(&key.to_bytes())?;
             Ok(())
         } else {
-            Ok(self.0.set(key.to_bytes().into(), BigIntDe(sum))?)
+            self.0.set(key.to_bytes().into(), BigIntDe(sum))?;
+            Ok(())
         }
     }
 

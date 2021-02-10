@@ -37,9 +37,9 @@ impl Deadlines {
     pub fn load_deadline<BS: BlockStore>(
         &self,
         store: &BS,
-        deadline_idx: u64,
+        deadline_idx: usize,
     ) -> Result<Deadline, ActorError> {
-        if deadline_idx >= WPOST_PERIOD_DEADLINES as u64 {
+        if deadline_idx >= WPOST_PERIOD_DEADLINES as usize {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "invalid deadline {}",
@@ -48,7 +48,7 @@ impl Deadlines {
         }
 
         store
-            .get(&self.due[deadline_idx as usize])
+            .get(&self.due[deadline_idx])
             .ok()
             .flatten()
             .ok_or_else(|| {
@@ -63,10 +63,10 @@ impl Deadlines {
     pub fn for_each<BS: BlockStore>(
         &self,
         store: &BS,
-        mut f: impl FnMut(u64, Deadline) -> Result<(), Box<dyn StdError>>,
+        mut f: impl FnMut(usize, Deadline) -> Result<(), Box<dyn StdError>>,
     ) -> Result<(), Box<dyn StdError>> {
         for i in 0..self.due.len() {
-            let index = i as u64;
+            let index = i;
             let deadline = self.load_deadline(store, index)?;
             f(index, deadline)?;
         }
@@ -76,10 +76,10 @@ impl Deadlines {
     pub fn update_deadline<BS: BlockStore>(
         &mut self,
         store: &BS,
-        deadline_idx: u64,
+        deadline_idx: usize,
         deadline: &Deadline,
     ) -> Result<(), Box<dyn StdError>> {
-        if deadline_idx >= WPOST_PERIOD_DEADLINES as u64 {
+        if deadline_idx >= WPOST_PERIOD_DEADLINES as usize {
             return Err(format!("invalid deadline {}", deadline_idx).into());
         }
 
@@ -147,7 +147,7 @@ impl Deadline {
     pub fn load_partition<BS: BlockStore>(
         &self,
         store: &BS,
-        partition_idx: u64,
+        partition_idx: usize,
     ) -> Result<Partition, Box<dyn StdError>> {
         let partitions = Amt::<Partition, _>::load(&self.partitions, store)?;
 
@@ -169,7 +169,7 @@ impl Deadline {
         &mut self,
         store: &BS,
         expiration_epoch: ChainEpoch,
-        partitions: &[u64],
+        partitions: &[usize],
         quant: QuantSpec,
     ) -> Result<(), Box<dyn StdError>> {
         // Avoid doing any work if there's nothing to reschedule.
@@ -212,11 +212,11 @@ impl Deadline {
         let mut all_on_time_pledge = TokenAmount::zero();
         let mut all_active_power = PowerPair::zero();
         let mut all_faulty_power = PowerPair::zero();
-        let mut partitions_with_early_terminations = Vec::<u64>::new();
+        let mut partitions_with_early_terminations = Vec::<usize>::new();
 
         // For each partition with an expiry, remove and collect expirations from the partition queue.
         for i in expired_partitions.iter() {
-            let partition_idx = i as u64;
+            let partition_idx = i;
             let mut partition = partitions
                 .get(partition_idx)?
                 .cloned()
@@ -289,7 +289,7 @@ impl Deadline {
         }
 
         // First update partitions, consuming the sectors
-        let mut partition_deadline_updates = HashMap::<ChainEpoch, Vec<u64>>::new();
+        let mut partition_deadline_updates = HashMap::<ChainEpoch, Vec<usize>>::new();
         let mut activated_power = PowerPair::zero();
         self.live_sectors += sectors.len() as u64;
         self.total_sectors += sectors.len() as u64;
@@ -367,11 +367,11 @@ impl Deadline {
     ) -> Result<(TerminationResult, /* has more */ bool), Box<dyn StdError>> {
         let mut partitions = self.partitions_amt(store)?;
 
-        let mut partitions_finished = Vec::<u64>::new();
+        let mut partitions_finished = Vec::<usize>::new();
         let mut result = TerminationResult::new();
 
         for i in self.early_terminations.iter() {
-            let partition_idx = i as u64;
+            let partition_idx = i;
 
             let mut partition = match partitions.get(partition_idx).map_err(|e| {
                 e.downcast_wrap(format!("failed to load partition {}", partition_idx))
@@ -534,7 +534,7 @@ impl Deadline {
             return Ok((BitField::new(), BitField::new(), PowerPair::zero()));
         }
 
-        if let Some(partition_idx) = to_remove_set.iter().find(|&&i| i as u64 >= partition_count) {
+        if let Some(partition_idx) = to_remove_set.iter().find(|&&i| i >= partition_count) {
             return Err(
                 actor_error!(ErrIllegalArgument; "partition index {} out of range [0, {})", partition_idx, partition_count).into()
             );
@@ -637,7 +637,7 @@ impl Deadline {
 
         // Record partitions with some fault, for subsequently indexing in the deadline.
         // Duplicate entries don't matter, they'll be stored in a bitfield (a set).
-        let mut partitions_with_fault = Vec::<u64>::with_capacity(partition_sectors.len());
+        let mut partitions_with_fault = Vec::<usize>::with_capacity(partition_sectors.len());
         let mut power_delta = PowerPair::zero();
 
         for (partition_idx, sector_numbers) in partition_sectors.iter() {
@@ -758,11 +758,11 @@ impl Deadline {
             .map_err(|e| e.wrap("failed to load partitions"))?;
 
         let mut detected_any = false;
-        let mut rescheduled_partitions = Vec::<u64>::new();
+        let mut rescheduled_partitions = Vec::<usize>::new();
         let mut power_delta = PowerPair::zero();
         let mut penalized_power = PowerPair::zero();
         for partition_idx in 0..partitions.count() {
-            let proven = self.post_submissions.get(partition_idx as usize);
+            let proven = self.post_submissions.get(partition_idx);
 
             if proven {
                 continue;
@@ -850,7 +850,7 @@ impl Deadline {
     pub fn for_each<BS: BlockStore>(
         &self,
         store: &BS,
-        f: impl FnMut(u64, &Partition) -> Result<(), Box<dyn StdError>>,
+        f: impl FnMut(usize, &Partition) -> Result<(), Box<dyn StdError>>,
     ) -> Result<(), Box<dyn StdError>> {
         let parts = self.partitions_amt(store)?;
         parts.for_each(f)
@@ -915,12 +915,12 @@ impl Deadline {
         let mut new_faulty_power_total = PowerPair::zero();
         let mut retracted_recovery_power_total = PowerPair::zero();
         let mut recovered_power_total = PowerPair::zero();
-        let mut rescheduled_partitions = Vec::<u64>::new();
+        let mut rescheduled_partitions = Vec::<usize>::new();
         let mut power_delta = PowerPair::zero();
 
         // Accumulate sectors info for proof verification.
         for post in post_partitions {
-            let already_proven = self.post_submissions.get(post.index as usize);
+            let already_proven = self.post_submissions.get(post.index);
 
             if already_proven {
                 // Skip partitions already proven for this deadline.
@@ -1044,7 +1044,7 @@ impl Deadline {
         let mut partitions = self.partitions_amt(store)?;
 
         // track partitions with moved expirations.
-        let mut rescheduled_partitions = Vec::<u64>::new();
+        let mut rescheduled_partitions = Vec::<usize>::new();
 
         let mut all_replaced = Vec::new();
         for (partition_idx, sector_numbers) in partition_sectors.iter() {

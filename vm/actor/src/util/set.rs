@@ -41,7 +41,8 @@ where
     #[inline]
     pub fn put(&mut self, key: BytesKey) -> Result<(), Error> {
         // Set hamt node to array root
-        self.0.set(key, ())
+        self.0.set(key, ())?;
+        Ok(())
     }
 
     /// Checks if key exists in the set.

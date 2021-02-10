@@ -41,13 +41,13 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
 
         let bitfield = self
             .amt
-            .get(epoch as u64)
+            .get(epoch as usize)
             .map_err(|e| e.downcast_wrap(format!("failed to lookup queue epoch {}", epoch)))?
             .cloned()
             .unwrap_or_default();
 
         self.amt
-            .set(epoch as u64, &bitfield | values)
+            .set(epoch as usize, &bitfield | values)
             .map_err(|e| e.downcast_wrap(format!("failed to set queue epoch {}", epoch)))?;
 
         Ok(())
@@ -56,12 +56,12 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
     pub fn add_to_queue_values(
         &mut self,
         epoch: ChainEpoch,
-        values: &[u64],
+        values: &[usize],
     ) -> Result<(), Box<dyn StdError>> {
         if values.is_empty() {
             Ok(())
         } else {
-            self.add_to_queue(epoch, &values.iter().map(|&i| i as usize).collect())
+            self.add_to_queue(epoch, &values.iter().copied().collect())
         }
     }
 
@@ -70,7 +70,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
     ///
     /// See the docs on `BitField::cut` to better understand what it does.
     pub fn cut(&mut self, to_cut: &BitField) -> Result<(), Box<dyn StdError>> {
-        let mut epochs_to_remove = Vec::<u64>::new();
+        let mut epochs_to_remove = Vec::<usize>::new();
 
         self.amt
             .for_each_mut(|epoch, bitfield| {
@@ -87,7 +87,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             .map_err(|e| e.downcast_wrap("failed to cut from bitfield queue"))?;
 
         self.amt
-            .batch_delete(epochs_to_remove)
+            .batch_delete(epochs_to_remove, true)
             .map_err(|e| e.downcast_wrap("failed to remove empty epochs from bitfield queue"))?;
 
         Ok(())
@@ -95,12 +95,12 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
 
     pub fn add_many_to_queue_values(
         &mut self,
-        values: &HashMap<ChainEpoch, Vec<u64>>,
+        values: &HashMap<ChainEpoch, Vec<usize>>,
     ) -> Result<(), Box<dyn StdError>> {
         // Update each epoch in-order to be deterministic.
         // Pre-quantize to reduce the number of updates.
 
-        let mut quantized_values = HashMap::<ChainEpoch, Vec<u64>>::with_capacity(values.len());
+        let mut quantized_values = HashMap::<ChainEpoch, Vec<usize>>::with_capacity(values.len());
         let mut updated_epochs = Vec::<ChainEpoch>::with_capacity(values.len());
 
         for (&raw_epoch, entries) in values {
@@ -122,7 +122,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
     /// Modified return value indicates whether this structure has been changed by the call.
     pub fn pop_until(&mut self, until: ChainEpoch) -> Result<(BitField, bool), Box<dyn StdError>> {
         let mut popped_values = BitField::new();
-        let mut popped_keys = Vec::<u64>::new();
+        let mut popped_keys = Vec::<usize>::new();
 
         self.amt.for_each_while(|epoch, bitfield| {
             if epoch as ChainEpoch > until {
@@ -130,7 +130,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
                 return Ok(false);
             }
 
-            popped_keys.push(epoch as u64);
+            popped_keys.push(epoch as usize);
             popped_values |= bitfield;
             Ok(true)
         })?;
@@ -140,7 +140,7 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
             return Ok((BitField::new(), false));
         }
 
-        self.amt.batch_delete(popped_keys)?;
+        self.amt.batch_delete(popped_keys, true)?;
         Ok((popped_values, true))
     }
 }

@@ -217,7 +217,7 @@ impl Actor {
 
         let period_start = current_proving_period_start(current_epoch, offset);
         let deadline_idx = current_deadline_index(current_epoch, period_start);
-        assert!(deadline_idx < WPOST_PERIOD_DEADLINES);
+        assert!(deadline_idx < WPOST_PERIOD_DEADLINES as usize);
 
         let info = MinerInfo::new(
             owner,
@@ -468,7 +468,7 @@ impl Actor {
         let current_epoch = rt.curr_epoch();
         let network_version = rt.network_version();
 
-        if params.deadline >= WPOST_PERIOD_DEADLINES {
+        if params.deadline >= WPOST_PERIOD_DEADLINES as usize {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "invalid deadline {} of {}",
@@ -564,7 +564,7 @@ impl Actor {
             }
 
             // The miner may only submit a proof for the current deadline.
-            if params.deadline != current_deadline.index {
+            if params.deadline != current_deadline.index as usize {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "invalid deadline {} at epoch {}, expected {}",
@@ -792,7 +792,7 @@ impl Actor {
             ));
         }
 
-        if params.replace_sector_deadline >= WPOST_PERIOD_DEADLINES {
+        if params.replace_sector_deadline >= WPOST_PERIOD_DEADLINES as usize {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "invalid deadline {}",
@@ -1171,7 +1171,7 @@ impl Actor {
 
         // This should be enforced by the power actor. We log here just in case
         // something goes wrong.
-        if params.sectors.len() as u64 > MAX_MINER_PROVE_COMMITS_PER_EPOCH {
+        if params.sectors.len() > MAX_MINER_PROVE_COMMITS_PER_EPOCH {
             log::warn!(
                 "confirmed more prove commits in an epoch than permitted: {} > {}",
                 params.sectors.len(),
@@ -1521,7 +1521,7 @@ impl Actor {
         let mut sector_count: u64 = 0;
 
         for decl in &mut params.extensions {
-            if decl.deadline >= WPOST_PERIOD_DEADLINES {
+            if decl.deadline >= WPOST_PERIOD_DEADLINES as usize {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "deadline {} not in range 0..{}",
@@ -1579,8 +1579,8 @@ impl Actor {
                 .map_err(|e| e.wrap("failed to load deadlines"))?;
 
             // Group declarations by deadline, and remember iteration order.
-            let mut decls_by_deadline = HashMap::<u64, Vec<ExpirationExtension>>::new();
-            let mut deadlines_to_load = Vec::<u64>::new();
+            let mut decls_by_deadline = HashMap::<usize, Vec<ExpirationExtension>>::new();
+            let mut deadlines_to_load = Vec::<usize>::new();
 
             for decl in params.extensions {
                 decls_by_deadline
@@ -1614,7 +1614,7 @@ impl Actor {
                 let quant = state.quant_spec_for_deadline(deadline_idx);
 
                 // Group modified partitions by epoch to which they are extended. Duplicates are ok.
-                let mut partitions_by_new_epoch = HashMap::<ChainEpoch, Vec<u64>>::new();
+                let mut partitions_by_new_epoch = HashMap::<ChainEpoch, Vec<usize>>::new();
                 let mut epochs_to_reschedule = Vec::<ChainEpoch>::new();
 
                 for decl in decls_by_deadline.get_mut(&deadline_idx).unwrap() {
@@ -2233,7 +2233,7 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        if params.deadline >= WPOST_PERIOD_DEADLINES {
+        if params.deadline >= WPOST_PERIOD_DEADLINES as usize {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "invalid deadline {}",
@@ -3596,10 +3596,10 @@ fn current_proving_period_start(current_epoch: ChainEpoch, offset: ChainEpoch) -
     period_start
 }
 
-fn current_deadline_index(current_epoch: ChainEpoch, period_start: ChainEpoch) -> u64 {
+fn current_deadline_index(current_epoch: ChainEpoch, period_start: ChainEpoch) -> usize {
     assert!(current_epoch >= period_start);
 
-    ((current_epoch - period_start) / WPOST_CHALLENGE_WINDOW) as u64
+    ((current_epoch - period_start) / WPOST_CHALLENGE_WINDOW) as usize
 }
 
 /// Computes deadline information for a fault or recovery declaration.
@@ -3607,10 +3607,10 @@ fn current_deadline_index(current_epoch: ChainEpoch, period_start: ChainEpoch) -
 /// If the deadline has elapsed, it's instead taken as being for the next proving period after the current epoch.
 fn declaration_deadline_info(
     period_start: ChainEpoch,
-    deadline_idx: u64,
+    deadline_idx: usize,
     current_epoch: ChainEpoch,
 ) -> Result<DeadlineInfo, String> {
-    if deadline_idx >= WPOST_PERIOD_DEADLINES {
+    if deadline_idx >= WPOST_PERIOD_DEADLINES as usize {
         return Err(format!(
             "invalid deadline {}, must be < {}",
             deadline_idx, WPOST_PERIOD_DEADLINES

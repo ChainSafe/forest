@@ -343,7 +343,8 @@ pub fn set_claim<BS: BlockStore>(
 
     claims
         .set(a.to_bytes().into(), claim)
-        .map_err(|e| e.downcast_wrap(format!("failed to set claim for address {}", a)))
+        .map_err(|e| e.downcast_wrap(format!("failed to set claim for address {}", a)))?;
+    Ok(())
 }
 
 pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
@@ -353,7 +354,7 @@ pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
 
 impl Cbor for State {}
 
-#[derive(Debug, Serialize_tuple, Deserialize_tuple, Clone)]
+#[derive(Debug, Serialize_tuple, Deserialize_tuple, Clone, PartialEq)]
 pub struct Claim {
     /// Miner's proof type used to determine minimum miner size
     pub seal_proof_type: RegisteredSealProof,
