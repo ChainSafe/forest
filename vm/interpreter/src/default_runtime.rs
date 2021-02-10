@@ -15,7 +15,9 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
-use fil_types::{verifier::ProofVerifier, DefaultNetworkParams, NetworkParams, NetworkVersion, Randomness};
+use fil_types::{
+    verifier::ProofVerifier, DefaultNetworkParams, NetworkParams, NetworkVersion, Randomness,
+};
 use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use forest_encoding::{blake2b_256, to_vec, Cbor};
 use ipld_blockstore::BlockStore;
