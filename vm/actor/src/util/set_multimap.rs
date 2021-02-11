@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{DealID, Map, make_map, make_map_with_bitwidth, make_map_with_root, parse_uint_key, u64_key};
+use crate::{make_map_with_bitwidth, make_map_with_root, parse_uint_key, u64_key, DealID, Map};
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::HAMT_BIT_WIDTH;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{policy::*, types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
-use crate::{ActorDowncast, BalanceTable, DealID, Set, SetMultimap, make_map, make_map_with_bitwidth};
+use crate::{make_map_with_bitwidth, ActorDowncast, BalanceTable, DealID, Set, SetMultimap};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};

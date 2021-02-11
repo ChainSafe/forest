@@ -6,7 +6,10 @@ mod types;
 
 pub use self::state::State;
 pub use self::types::*;
-use crate::{ActorDowncast, STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, make_map, make_map_with_bitwidth, make_map_with_root, resolve_to_id_addr};
+use crate::{
+    make_map_with_bitwidth, make_map_with_root, resolve_to_id_addr, ActorDowncast,
+    STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+};
 use address::Address;
 use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
@@ -46,9 +49,11 @@ impl Actor {
             .resolve_address(&root_key)?
             .ok_or_else(|| actor_error!(ErrIllegalArgument, "root should be an ID address"))?;
 
-        let empty_root = make_map_with_bitwidth::<_, ()>(rt.store(), HAMT_BIT_WIDTH).flush().map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "Failed to create registry state")
-        })?;
+        let empty_root = make_map_with_bitwidth::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
+            .flush()
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "Failed to create registry state")
+            })?;
 
         let st = State::new(empty_root, id_addr);
         rt.create(&st)?;

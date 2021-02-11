@@ -6,7 +6,10 @@ mod types;
 
 pub use self::state::State;
 pub use self::types::*;
-use crate::{ActorDowncast, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, make_map, make_map_with_bitwidth};
+use crate::{
+    make_map_with_bitwidth, ActorDowncast, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
+    PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
+};
 use address::Address;
 use cid::Cid;
 use fil_types::HAMT_BIT_WIDTH;

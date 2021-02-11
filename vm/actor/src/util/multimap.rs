@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, Map, make_map, make_map_with_bitwidth, make_map_with_root};
+use crate::{make_map_with_bitwidth, make_map_with_root, BytesKey, Map};
 use cid::Cid;
 use fil_types::HAMT_BIT_WIDTH;
 use ipld_amt::Amt;
