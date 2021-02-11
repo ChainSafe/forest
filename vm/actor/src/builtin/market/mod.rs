@@ -917,11 +917,6 @@ impl Actor {
                             ));
                         }
                     } else {
-                        assert!(
-                            next_epoch > curr_epoch && slash_amount.is_zero(),
-                            "deal should not be slashed and should have a schedule for next cron"
-                        );
-
                         if next_epoch <= rt.curr_epoch() {
                             return Err(actor_error!(
                                 ErrIllegalState,
