@@ -1,9 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{
-    make_map, make_map_with_bitwidth, make_map_with_root, make_map_with_root_and_bitwidth, Map,
-};
+use crate::{make_map_with_bitwidth, make_map_with_root_and_bitwidth, Map};
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
