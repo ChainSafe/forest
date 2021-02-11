@@ -178,12 +178,12 @@ where
                 let prev_state = self.flush()?;
                 // new_state is new state root we can from calling the migration function
                 // that will be provided from the actors create (probably).
-                let new_state: Cid =
-                    unimplemented!("Actors V3 Migration will need to be called here");
+                // TODO perform migration here, currently skipping
+                let new_state: Cid = prev_state;
                 if new_state != prev_state {
-                    Ok(None)
-                } else {
                     Ok(Some(new_state))
+                } else {
+                    Ok(None)
                 }
             }
             _ => Ok(None),
