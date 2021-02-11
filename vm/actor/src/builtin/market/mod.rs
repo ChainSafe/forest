@@ -491,7 +491,7 @@ impl Actor {
                     .pending_deals
                     .as_ref()
                     .unwrap()
-                    .contains_key(&propc.to_bytes())
+                    .has(&propc.to_bytes())
                     .map_err(|e| {
                         e.downcast_default(
                             ExitCode::ErrIllegalState,
@@ -571,10 +571,9 @@ impl Actor {
                 }
                 let deal = deal.unwrap();
 
-                assert_eq!(
-                    deal.provider, miner_addr,
-                    "caller is not the provider of the deal"
-                );
+                if deal.provider != miner_addr {
+                    return Err(actor_error!(ErrIllegalState; "caller {} is not the provider {} of deal {}", miner_addr, deal.provider, id));
+                }
 
                 // do not slash expired deals
                 if deal.end_epoch <= params.epoch {
