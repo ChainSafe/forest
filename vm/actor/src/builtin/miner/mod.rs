@@ -728,6 +728,7 @@ impl Actor {
 
     /// Proposals must be posted on chain via sma.PublishStorageDeals before PreCommitSector.
     /// Optimization: PreCommitSector could contain a list of deals that are not published yet.
+    /// TODO: This should NOT WORK. Changes made here are solely to get the Market Actor updated an compiling
     fn pre_commit_sector<BS, RT>(
         rt: &mut RT,
         params: PreCommitSectorParams,
@@ -919,11 +920,11 @@ impl Actor {
             }
 
             // Ensure total deal space does not exceed sector size.
-            if deal_weight.deal_space > info.sector_size as u64 {
+            if deal_weight.sectors[0].deal_space > info.sector_size as u64 {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "deal size too large to fit in sector {} > {}",
-                    deal_weight.deal_space,
+                    deal_weight.sectors[0].deal_space,
                     info.sector_size
                 ));
             }
@@ -983,8 +984,8 @@ impl Actor {
             let sector_weight = qa_power_for_weight(
                 info.sector_size,
                 duration,
-                &deal_weight.deal_weight,
-                &deal_weight.verified_deal_weight,
+                &deal_weight.sectors[0].deal_weight,
+                &deal_weight.sectors[0].verified_deal_weight,
             );
 
             let deposit_req = pre_commit_deposit_for_power(
@@ -1013,8 +1014,8 @@ impl Actor {
                         info: params,
                         pre_commit_deposit: deposit_req,
                         pre_commit_epoch: rt.curr_epoch(),
-                        deal_weight: deal_weight.deal_weight,
-                        verified_deal_weight: deal_weight.verified_deal_weight,
+                        deal_weight: deal_weight.sectors[0].deal_weight.clone(),
+                        verified_deal_weight: deal_weight.sectors[0].deal_weight.clone(),
                     },
                 )
                 .map_err(|e| {

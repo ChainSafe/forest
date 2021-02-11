@@ -66,16 +66,16 @@ pub struct VerifyDealsForActivationParamsRef<'a> {
 
 #[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct VerifyDealsForActivationReturn {
-    sectors: Vec<SectorWeights>,
+    pub sectors: Vec<SectorWeights>,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct SectorWeights {
-    deal_space: u64,
+    pub deal_space: u64,
     #[serde(with = "bigint_ser")]
-    deal_weight: DealWeight,
+    pub deal_weight: DealWeight,
     #[serde(with = "bigint_ser")]
-    verified_deal_weight: DealWeight,
+    pub verified_deal_weight: DealWeight,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]

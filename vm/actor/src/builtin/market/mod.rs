@@ -387,7 +387,7 @@ impl Actor {
             e.downcast_default(ExitCode::ErrIllegalState, "failed to load deal proposals")
         })?;
 
-        let weights = Vec::with_capacity(params.sectors.len());
+        let mut weights = Vec::with_capacity(params.sectors.len());
         for (i, sector) in params.sectors.iter().enumerate() {
             let (deal_weight, verified_deal_weight, deal_space) = validate_and_compute_deal_weight(
                 &proposals,
