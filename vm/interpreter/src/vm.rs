@@ -32,6 +32,7 @@ use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
 
+/// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
 pub struct BlockMessages {
     pub miner: Address,
@@ -110,12 +111,13 @@ where
         })
     }
 
-    /// Registers an actor that is not part of the set of default builtin actors by providing the code cid
+    /// Registers an actor that is not part of the set of default builtin actors by providing the
+    /// code cid.
     pub fn register_actor(&mut self, code_cid: Cid) -> bool {
         self.registered_actors.insert(code_cid)
     }
 
-    /// Gets registered actors that are not part of the set of default builtin actors
+    /// Gets registered actors that are not part of the set of default builtin actors.
     pub fn registered_actors(&self) -> &HashSet<Cid> {
         &self.registered_actors
     }
@@ -125,11 +127,12 @@ where
         self.state.flush()
     }
 
-    /// Returns ChainEpoch
+    /// Returns the epoch the VM is initialized with.
     fn epoch(&self) -> ChainEpoch {
         self.epoch
     }
 
+    /// Returns a reference to the VM's state tree.
     pub fn state(&self) -> &StateTree<'_, DB> {
         &self.state
     }
@@ -287,6 +290,7 @@ where
         Ok(receipts)
     }
 
+    /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         let (return_data, _, act_err) = self.send(msg, None);
 
@@ -306,7 +310,7 @@ where
         }
     }
 
-    /// Applies the state transition for a single message
+    /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
         check_message(msg.message())?;
@@ -316,6 +320,7 @@ where
         let msg_gas_cost = pl.on_chain_message(ser_msg.len());
         let cost_total = msg_gas_cost.total();
 
+        // Verify the cost of the message is not oever the message gas limit.
         if cost_total > msg.gas_limit() {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
@@ -330,6 +335,7 @@ where
             });
         }
 
+        // Load from actor state.
         let miner_penalty_amount = &self.base_fee * msg.gas_limit();
         let from_act = match self.state.get_actor(msg.from()) {
             Ok(Some(from_act)) => from_act,
@@ -347,6 +353,7 @@ where
             }
         };
 
+        // If from actor is not an account actor, return error.
         if !actor::is_account_actor(&from_act.code) {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
@@ -360,6 +367,7 @@ where
             });
         };
 
+        // Check sequence is correct
         if msg.sequence() != from_act.sequence {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
@@ -374,6 +382,7 @@ where
             });
         };
 
+        // Ensure from actor has enough balance to cover the gas cost of the message.
         let gas_cost: TokenAmount = msg.gas_fee_cap() * msg.gas_limit();
         if from_act.balance < gas_cost {
             return Ok(ApplyRet {
@@ -389,6 +398,7 @@ where
             });
         };
 
+        // Deduct gas cost and increment sequence
         self.state
             .mutate_actor(msg.from(), |act| {
                 act.deduct_funds(&gas_cost)?;
@@ -399,6 +409,7 @@ where
 
         self.state.snapshot()?;
 
+        // Perform transaction
         let (mut ret_data, rt, mut act_err) = self.send(msg.message(), Some(msg_gas_cost));
         if let Some(err) = &act_err {
             if err.is_fatal() {
@@ -503,6 +514,7 @@ where
         transfer_to_actor(msg.from(), &refund)?;
 
         if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
+            // Sanity check. This could be a fatal error.
             return Err("Gas handling math is wrong".to_owned());
         }
         self.state.clear_snapshot()?;
@@ -586,14 +598,14 @@ where
 
 #[derive(Clone, Default)]
 struct GasOutputs {
-    pub base_fee_burn: TokenAmount,
-    pub over_estimation_burn: TokenAmount,
-    pub miner_penalty: TokenAmount,
-    pub miner_tip: TokenAmount,
-    pub refund: TokenAmount,
+    base_fee_burn: TokenAmount,
+    over_estimation_burn: TokenAmount,
+    miner_penalty: TokenAmount,
+    miner_tip: TokenAmount,
+    refund: TokenAmount,
 
-    pub gas_refund: i64,
-    pub gas_burned: i64,
+    gas_refund: i64,
+    gas_burned: i64,
 }
 
 fn compute_gas_outputs(
@@ -639,7 +651,7 @@ fn compute_gas_outputs(
     out
 }
 
-pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {
+fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {
     if gas_used == 0 {
         return (0, gas_limit);
     }
@@ -661,12 +673,16 @@ pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i
     (gas_limit - gas_used - gas_to_burn, gas_to_burn)
 }
 
-/// Apply message return data
+/// Apply message return data.
 #[derive(Clone, Debug)]
 pub struct ApplyRet {
+    /// Message receipt for the transaction. This data is stored on chain.
     pub msg_receipt: MessageReceipt,
+    /// Actor error from the transaction, if one exists.
     pub act_error: Option<ActorError>,
+    /// Gas penalty from transaction, if any.
     pub penalty: BigInt,
+    /// Tip given to miner from message.
     pub miner_tip: BigInt,
 }
 

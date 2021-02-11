@@ -340,7 +340,7 @@ where
         Ok(())
     }
 
-    /// Merges last two snap shot layers
+    /// Merges last two snap shot layers.
     pub fn clear_snapshot(&mut self) -> Result<(), String> {
         self.snaps.merge_last_layer()
     }
