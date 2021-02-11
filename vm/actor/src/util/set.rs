@@ -53,7 +53,7 @@ where
     /// Checks if key exists in the set.
     #[inline]
     pub fn has(&self, key: &[u8]) -> Result<bool, Error> {
-        Ok(self.0.get(key)?.is_some())
+        self.0.contains_key(key)
     }
 
     /// Deletes key from set.
