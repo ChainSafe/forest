@@ -123,10 +123,7 @@ fn get_actor_state<DB: BlockStore>(
         .ok_or_else(|| format!("Failed to get Actor for address {}", addr))?)
 }
 
-fn get_fil_vested(
-    genesis_info: &GenesisInfo,
-    height: ChainEpoch,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
     let mut return_value = TokenAmount::default();
 
     let pre_ignition = genesis_info
@@ -172,7 +169,7 @@ fn get_fil_vested(
                 .expect("Genesis info should be initialized");
     }
 
-    Ok(return_value)
+    return_value
 }
 
 fn get_fil_mined<DB: BlockStore>(
@@ -238,7 +235,7 @@ fn get_circulating_supply<'a, DB: BlockStore>(
     height: ChainEpoch,
     state_tree: &StateTree<'a, DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let fil_vested = get_fil_vested(genesis_info, height)?;
+    let fil_vested = get_fil_vested(genesis_info, height);
     let fil_mined = get_fil_mined(&state_tree)?;
     let fil_burnt = get_fil_burnt(&state_tree)?;
     let fil_locked = get_fil_locked(&state_tree)?;

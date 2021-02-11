@@ -26,9 +26,9 @@ use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
 use fil_types::{PieceInfo, StoragePower};
 use ipld_blockstore::BlockStore;
-use num_bigint::{BigInt, Sign};
+use num_bigint::BigInt;
 use num_derive::FromPrimitive;
-use num_traits::{FromPrimitive, Zero};
+use num_traits::{FromPrimitive, Signed, Zero};
 use runtime::{ActorCode, Runtime};
 use std::collections::HashSet;
 use std::error::Error as StdError;
@@ -80,8 +80,11 @@ impl Actor {
         let msg_value = rt.message().value_received().clone();
 
         if msg_value <= TokenAmount::from(0) {
-            return Err(actor_error!(ErrIllegalArgument;
-                "balance to add must be greater than zero was: {}", msg_value));
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "balance to add must be greater than zero was: {}",
+                msg_value
+            ));
         }
 
         // only signing parties can add balance for client AND provider.
@@ -130,7 +133,11 @@ impl Actor {
         RT: Runtime<BS>,
     {
         if params.amount < TokenAmount::from(0) {
-            return Err(actor_error!(ErrIllegalArgument; "negative amount: {}", params.amount));
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "negative amount: {}",
+                params.amount
+            ));
         }
 
         let (nominal, recipient, approved) = escrow_address(rt, &params.provider_or_client)?;
@@ -200,22 +207,27 @@ impl Actor {
         // This allows us to retain and verify only the client's signature in each deal proposal itself.
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         if params.deals.is_empty() {
-            return Err(actor_error!(ErrIllegalArgument; "Empty deals parameter"));
+            return Err(actor_error!(ErrIllegalArgument, "Empty deals parameter"));
         }
 
         // All deals should have the same provider so get worker once
         let provider_raw = params.deals[0].proposal.provider;
-        let provider = rt.resolve_address(&provider_raw)?.ok_or_else(
-            || actor_error!(ErrNotFound; "failed to resolve provider address {}", provider_raw),
-        )?;
+        let provider = rt.resolve_address(&provider_raw)?.ok_or_else(|| {
+            actor_error!(
+                ErrNotFound,
+                "failed to resolve provider address {}",
+                provider_raw
+            )
+        })?;
 
-        let code_id = rt.get_actor_code_cid(&provider)?.ok_or_else(
-            || actor_error!(ErrIllegalArgument; "no code ID for address {}", provider),
-        )?;
+        let code_id = rt.get_actor_code_cid(&provider)?.ok_or_else(|| {
+            actor_error!(ErrIllegalArgument, "no code ID for address {}", provider)
+        })?;
         if code_id != *MINER_ACTOR_CODE_ID {
-            return Err(
-                actor_error!(ErrIllegalArgument; "deal provider is not a storage miner actor"),
-            );
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "deal provider is not a storage miner actor"
+            ));
         }
 
         let (_, worker, controllers) = request_miner_control_addrs(rt, provider)?;
@@ -228,9 +240,12 @@ impl Actor {
             caller_ok = caller == controller;
         }
         if !caller_ok {
-            return Err(
-                actor_error!(ErrForbidden; "caller {} is now worker or control address of provider {}", caller, provider),
-            );
+            return Err(actor_error!(
+                ErrForbidden,
+                "caller {} is now worker or control address of provider {}",
+                caller,
+                provider
+            ));
         }
 
         let baseline_power = request_current_baseline_power(rt)?;
@@ -253,12 +268,18 @@ impl Actor {
                 validate_deal(rt, &deal, &network_raw_power, &baseline_power)?;
 
                 if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
-                    return Err(actor_error!(ErrIllegalArgument;
-                        "cannot publish deals from different providers at the same time."));
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "cannot publish deals from different providers at the same time."
+                    ));
                 }
 
                 let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(|| {
-                    actor_error!(ErrNotFound; "failed to resolve client address {}", provider_raw)
+                    actor_error!(
+                        ErrNotFound,
+                        "failed to resolve client address {}",
+                        provider_raw
+                    )
                 })?;
                 // Normalise provider and client addresses in the proposal stored on chain
                 // (after signature verification).
@@ -388,7 +409,7 @@ impl Actor {
         })?;
 
         let mut weights = Vec::with_capacity(params.sectors.len());
-        for (i, sector) in params.sectors.iter().enumerate() {
+        for sector in params.sectors.iter() {
             let (deal_weight, verified_deal_weight, deal_space) = validate_and_compute_deal_weight(
                 &proposals,
                 &sector.deal_ids,
@@ -402,11 +423,11 @@ impl Actor {
                     "failed to validate deal proposals for activation",
                 )
             })?;
-            weights[i] = SectorWeights {
+            weights.push(SectorWeights {
                 deal_space,
                 deal_weight,
                 verified_deal_weight,
-            }
+            });
         }
 
         Ok(VerifyDealsForActivationReturn { sectors: weights })
@@ -464,8 +485,11 @@ impl Actor {
                         )
                     })?;
                 if s.is_some() {
-                    return Err(actor_error!(ErrIllegalArgument;
-                        "deal {} already included in another sector", deal_id));
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "deal {} already included in another sector",
+                        deal_id
+                    ));
                 }
 
                 let proposal = msm
@@ -479,7 +503,7 @@ impl Actor {
                             format!("failed to get deal_id ({})", deal_id),
                         )
                     })?
-                    .ok_or_else(|| actor_error!(ErrNotFound; "no such deal_id: {}", deal_id))?;
+                    .ok_or_else(|| actor_error!(ErrNotFound, "no such deal_id: {}", deal_id))?;
 
                 let propc = proposal
                     .cid()
@@ -498,8 +522,11 @@ impl Actor {
                     })?;
 
                 if !has {
-                    return Err(actor_error!(ErrIllegalState;
-                        "tried to activate deal that was not in the pending set ({})", propc));
+                    return Err(actor_error!(
+                        ErrIllegalState,
+                        "tried to activate deal that was not in the pending set ({})",
+                        propc
+                    ));
                 }
 
                 msm.deal_states
@@ -570,7 +597,13 @@ impl Actor {
                 let deal = deal.unwrap();
 
                 if deal.provider != miner_addr {
-                    return Err(actor_error!(ErrIllegalState; "caller {} is not the provider {} of deal {}", miner_addr, deal.provider, id));
+                    return Err(actor_error!(
+                        ErrIllegalState,
+                        "caller {} is not the provider {} of deal {}",
+                        miner_addr,
+                        deal.provider,
+                        id
+                    ));
                 }
 
                 // do not slash expired deals
@@ -586,7 +619,7 @@ impl Actor {
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to get deal state")
                     })?
-                    .ok_or_else(|| actor_error!(ErrIllegalArgument; "no state for deal {}", id))?;
+                    .ok_or_else(|| actor_error!(ErrIllegalArgument, "no state for deal {}", id))?;
 
                 // If a deal is already slashed, don't need to do anything
                 if state.slash_epoch != EPOCH_UNDEFINED {
@@ -643,7 +676,7 @@ impl Actor {
                         format!("failed to get deal_id ({})", deal_id),
                     )
                 })?
-                .ok_or_else(|| actor_error!(ErrNotFound; "proposal doesn't exist ({})", deal_id))?;
+                .ok_or_else(|| actor_error!(ErrNotFound, "proposal doesn't exist ({})", deal_id))?;
 
             pieces.push(PieceInfo {
                 cid: deal.piece_cid,
@@ -720,8 +753,7 @@ impl Actor {
                             )
                         })?
                         .ok_or_else(|| {
-                            actor_error!(ErrNotFound;
-                                    "proposal doesn't exist ({})", deal_id)
+                            actor_error!(ErrNotFound, "proposal doesn't exist ({})", deal_id)
                         })?
                         .clone();
 
@@ -748,7 +780,12 @@ impl Actor {
                     if state.is_none() {
                         // Not yet appeared in proven sector; check for timeout.
                         if curr_epoch < deal.start_epoch {
-                            return Err(actor_error!(ErrIllegalState; "deal {} processed before start epoch {}", deal_id, deal.start_epoch));
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                "deal {} processed before start epoch {}",
+                                deal_id,
+                                deal.start_epoch
+                            ));
                         }
 
                         let slashed = msm.process_deal_init_timed_out(&deal)?;
@@ -772,8 +809,13 @@ impl Actor {
                                 )
                             })?;
                         if deleted.is_none() {
-                            return Err(actor_error!(ErrIllegalState;
-                                        format!("failed to delete deal {} proposal {}: does not exist", deal_id, dcid)));
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                format!(
+                                    "failed to delete deal {} proposal {}: does not exist",
+                                    deal_id, dcid
+                                )
+                            ));
                         }
                         msm.pending_deals
                             .as_mut()
@@ -817,13 +859,25 @@ impl Actor {
 
                     let (slash_amount, next_epoch, remove_deal) =
                         msm.update_pending_deal_state(&state, &deal, curr_epoch)?;
-                    if slash_amount.sign() == Sign::Minus {
-                        return Err(actor_error!(ErrIllegalState; format!("computed negative slash amount {} for deal {}", slash_amount, deal_id)));
+                    if slash_amount.is_negative() {
+                        return Err(actor_error!(
+                            ErrIllegalState,
+                            format!(
+                                "computed negative slash amount {} for deal {}",
+                                slash_amount, deal_id
+                            )
+                        ));
                     }
 
                     if remove_deal {
                         if next_epoch != EPOCH_UNDEFINED {
-                            return Err(actor_error!(ErrIllegalState; format!("removed deal {} should have no scheduled epoch (got {})", deal_id, next_epoch)));
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                format!(
+                                    "removed deal {} should have no scheduled epoch (got {})",
+                                    deal_id, next_epoch
+                                )
+                            ));
                         }
 
                         amount_slashed += slash_amount;
@@ -839,8 +893,10 @@ impl Actor {
                                 )
                             })?;
                         if deleted.is_none() {
-                            return Err(actor_error!(ErrIllegalState;
-                                "failed to delete deal proposal: does not exist"));
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                "failed to delete deal proposal: does not exist"
+                            ));
                         }
 
                         let deleted = msm
@@ -855,20 +911,26 @@ impl Actor {
                                 )
                             })?;
                         if deleted.is_none() {
-                            return Err(actor_error!(ErrIllegalState;
-                                    "failed to delete deal state: does not exist"));
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                "failed to delete deal state: does not exist"
+                            ));
                         }
                     } else {
-                        assert!(
-                            next_epoch > curr_epoch && slash_amount.is_zero(),
-                            "deal should not be slashed and should have a schedule for next cron"
-                        );
-
                         if next_epoch <= rt.curr_epoch() {
-                            return Err(actor_error!(ErrIllegalState; "continuing deal {} next epoch {} should be in the future", deal_id, next_epoch));
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                "continuing deal {} next epoch {} should be in the future",
+                                deal_id,
+                                next_epoch
+                            ));
                         }
                         if !slash_amount.is_zero() {
-                            return Err(actor_error!(ErrIllegalState; "continuing deal {} should not be slashed", deal_id));
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                "continuing deal {} should not be slashed",
+                                deal_id
+                            ));
                         }
 
                         state.last_updated_epoch = curr_epoch;
@@ -1063,20 +1125,30 @@ fn validate_deal_can_activate(
     curr_epoch: ChainEpoch,
 ) -> Result<(), ActorError> {
     if &proposal.provider != miner_addr {
-        return Err(actor_error!(ErrForbidden;
-                "proposal has provider {}, must be {}", proposal.provider, miner_addr));
+        return Err(actor_error!(
+            ErrForbidden,
+            "proposal has provider {}, must be {}",
+            proposal.provider,
+            miner_addr
+        ));
     };
 
     if curr_epoch > proposal.start_epoch {
-        return Err(actor_error!(ErrIllegalArgument;
-                "proposal start epoch {} has already elapsed at {}",
-                proposal.start_epoch, curr_epoch));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "proposal start epoch {} has already elapsed at {}",
+            proposal.start_epoch,
+            curr_epoch
+        ));
     };
 
     if proposal.end_epoch > sector_expiration {
-        return Err(actor_error!(ErrIllegalArgument;
-                "proposal expiration {} exceeds sector expiration {}",
-                proposal.end_epoch, sector_expiration));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "proposal expiration {} exceeds sector expiration {}",
+            proposal.end_epoch,
+            sector_expiration
+        ));
     };
 
     Ok(())
@@ -1113,27 +1185,42 @@ where
     // * we are skipping the check for if Cid is defined, but this shouldn't be possible
 
     if Prefix::from(proposal.piece_cid) != PIECE_CID_PREFIX {
-        return Err(actor_error!(ErrIllegalArgument; "proposal PieceCID undefined"));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "proposal PieceCID undefined"
+        ));
     }
 
     if proposal.end_epoch <= proposal.start_epoch {
-        return Err(actor_error!(ErrIllegalArgument; "proposal end before start"));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "proposal end before start"
+        ));
     }
 
     if rt.curr_epoch() > proposal.start_epoch {
-        return Err(actor_error!(ErrIllegalArgument; "Deal start epoch has already elapsed."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Deal start epoch has already elapsed."
+        ));
     };
 
     let (min_dur, max_dur) = deal_duration_bounds(proposal.piece_size);
     if proposal.duration() < min_dur || proposal.duration() > max_dur {
-        return Err(actor_error!(ErrIllegalArgument; "Deal duration out of bounds."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Deal duration out of bounds."
+        ));
     };
 
     let (min_price, max_price) =
         deal_price_per_epoch_bounds(proposal.piece_size, proposal.duration());
     if proposal.storage_price_per_epoch < min_price || &proposal.storage_price_per_epoch > max_price
     {
-        return Err(actor_error!(ErrIllegalArgument; "Storage price out of bounds."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Storage price out of bounds."
+        ));
     };
 
     let (min_provider_collateral, max_provider_collateral) = deal_provider_collateral_bounds(
@@ -1145,7 +1232,10 @@ where
     if proposal.provider_collateral < min_provider_collateral
         || &proposal.provider_collateral > max_provider_collateral
     {
-        return Err(actor_error!(ErrIllegalArgument; "Provider collateral out of bounds."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Provider collateral out of bounds."
+        ));
     };
 
     let (min_client_collateral, max_client_collateral) =
@@ -1153,7 +1243,10 @@ where
     if proposal.provider_collateral < min_client_collateral
         || &proposal.provider_collateral > max_client_collateral
     {
-        return Err(actor_error!(ErrIllegalArgument; "Client collateral out of bounds."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Client collateral out of bounds."
+        ));
     };
 
     Ok(())
@@ -1200,11 +1293,11 @@ where
     // Resolve the provided address to the canonical form against which the balance is held.
     let nominal = rt
         .resolve_address(addr)?
-        .ok_or_else(|| actor_error!(ErrIllegalArgument; "failed to resolve address {}", addr))?;
+        .ok_or_else(|| actor_error!(ErrIllegalArgument, "failed to resolve address {}", addr))?;
 
     let code_id = rt
         .get_actor_code_cid(&nominal)?
-        .ok_or_else(|| actor_error!(ErrIllegalArgument; "no code for address {}", nominal))?;
+        .ok_or_else(|| actor_error!(ErrIllegalArgument, "no code for address {}", nominal))?;
 
     if code_id == *MINER_ACTOR_CODE_ID {
         // Storage miner actor entry; implied funds recipient is the associated owner address.
@@ -1299,7 +1392,7 @@ impl ActorCode for Actor {
                 Self::cron_tick(rt)?;
                 Ok(Serialized::default())
             }
-            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
+            None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),
         }
     }
 }

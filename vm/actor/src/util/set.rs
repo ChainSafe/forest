@@ -1,8 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{make_map, make_map_with_bitwidth, make_map_with_root, BytesKey, Map};
+use crate::{make_map_with_bitwidth, make_map_with_root, BytesKey, Map};
 use cid::Cid;
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
 use std::error::Error as StdError;
@@ -23,7 +24,7 @@ where
 {
     /// Initializes a new empty Set with the default bitwidth.
     pub fn new(bs: &'a BS) -> Self {
-        Self(make_map(bs))
+        Self(make_map_with_bitwidth(bs, HAMT_BIT_WIDTH))
     }
 
     /// Initializes a new empty Set given a bitwidth.
@@ -53,7 +54,7 @@ where
     /// Checks if key exists in the set.
     #[inline]
     pub fn has(&self, key: &[u8]) -> Result<bool, Error> {
-        Ok(self.0.get(key)?.is_some())
+        self.0.contains_key(key)
     }
 
     /// Deletes key from set.

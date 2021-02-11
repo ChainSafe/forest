@@ -182,13 +182,13 @@ where
         })
     }
 
-    /// Adds to amount of used
+    /// Adds to amount of used.
     /// * Will borrow gas tracker RefCell, do not call if any reference to this exists
     pub fn charge_gas(&mut self, gas: GasCharge) -> Result<(), ActorError> {
         self.gas_tracker.borrow_mut().charge_gas(gas)
     }
 
-    /// Returns gas used by runtime
+    /// Returns gas used by runtime.
     /// * Will borrow gas tracker RefCell, do not call if a mutable reference exists
     pub fn gas_used(&self) -> i64 {
         self.gas_tracker.borrow().gas_used()
@@ -198,12 +198,12 @@ where
         self.gas_tracker.borrow().gas_available()
     }
 
-    /// Returns the price list for gas charges within the runtime
+    /// Returns the price list for gas charges within the runtime.
     pub fn price_list(&self) -> &PriceList {
         &self.price_list
     }
 
-    /// Get the balance of a particular Actor from their Address
+    /// Get the balance of a particular Actor from their Address.
     fn get_balance(&self, addr: &Address) -> Result<BigInt, ActorError> {
         Ok(self
             .state
@@ -213,7 +213,7 @@ where
             .unwrap_or_default())
     }
 
-    /// Update the state Cid of the Message receiver
+    /// Update the state Cid of the Message receiver.
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
         let to_addr = *self.message().receiver();
         let mut actor = self

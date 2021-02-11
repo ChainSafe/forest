@@ -32,11 +32,11 @@ pub use types::*;
 pub use vesting_state::*;
 
 use crate::{
-    account::Method as AccountMethod, actor_error, market::ActivateDealsParams,
-    power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
+    account::Method as AccountMethod, actor_error, make_map_with_bitwidth,
+    market::ActivateDealsParams, power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
 use crate::{
-    check_empty_params, is_principal, make_map, smooth::FilterEstimate, ACCOUNT_ACTOR_CODE_ID,
+    check_empty_params, is_principal, smooth::FilterEstimate, ACCOUNT_ACTOR_CODE_ID,
     BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR, REWARD_ACTOR_ADDR,
     STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
 };
@@ -65,7 +65,7 @@ use encoding::{BytesDe, Cbor};
 use fil_types::{
     deadlines::DeadlineInfo, InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness,
     RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
-    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
+    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, HAMT_BIT_WIDTH, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -154,12 +154,14 @@ impl Actor {
             .map(|address| resolve_control_address(rt, address))
             .collect::<Result<_, _>>()?;
 
-        let empty_map = make_map::<_, ()>(rt.store()).flush().map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "failed to construct initial state",
-            )
-        })?;
+        let empty_map = make_map_with_bitwidth::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
+            .flush()
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to construct initial state",
+                )
+            })?;
 
         let empty_array = Amt::<Cid, BS>::new(rt.store()).flush().map_err(|e| {
             e.downcast_default(

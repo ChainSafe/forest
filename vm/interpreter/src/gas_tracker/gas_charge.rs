@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+/// Single gas charge in the VM. Contains information about what gas was for, as well
+/// as the amount of gas needed for computation and storage respectively.
 pub struct GasCharge {
     pub name: &'static str,
     pub compute_gas: i64,
