@@ -3,4 +3,5 @@
 
 use num_bigint::BigInt;
 
+/// Token type to be used within the VM.
 pub type TokenAmount = BigInt;
