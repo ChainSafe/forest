@@ -13,7 +13,7 @@ use num_traits::{Signed, Zero};
 use std::error::Error as StdError;
 use vm::TokenAmount;
 
-const BALANCE_TABLE_BITWIDTH: u32 = 6;
+pub const BALANCE_TABLE_BITWIDTH: u32 = 6;
 
 /// Balance table which handles getting and updating token balances specifically
 pub struct BalanceTable<'a, BS>(Map<'a, BS, BigIntDe>);
