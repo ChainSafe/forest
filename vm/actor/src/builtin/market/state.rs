@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{policy::*, types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
-use crate::{make_map_with_root, ActorDowncast, BalanceTable, DealID, Map, SetMultimap};
+use crate::{
+    make_map, make_map_with_root, ActorDowncast, BalanceTable, DealID, Map, Set, SetMultimap,
+};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::tuple::*;
 use encoding::Cbor;
+use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_bigint::{bigint_ser, Sign};
 use num_traits::Zero;
@@ -54,21 +57,39 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(empty_arr: Cid, empty_map: Cid, empty_mset: Cid) -> Self {
-        Self {
-            proposals: empty_arr,
-            states: empty_arr,
-            pending_proposals: empty_map,
-            escrow_table: empty_map,
-            locked_table: empty_map,
+    pub fn new<'bs, BS: BlockStore>(store: &'bs BS) -> Result<Self, Box<dyn StdError>> {
+        let empty_proposals_array =
+            Amt::<(), BS>::new_with_bit_width(store, PROPOSALS_AMT_BITWIDTH)
+                .flush()
+                .map_err(|e| "Failed to create empty proposals array")?;
+        let empty_states_array = Amt::<(), BS>::new_with_bit_width(store, STATES_AMT_BITWIDTH)
+            .flush()
+            .map_err(|e| "Failed to create empty states array")?;
+
+        let empty_pending_proposals_map = make_map::<_, ()>(store)
+            .flush()
+            .map_err(|e| "Failed to create empty pending proposals map state")?;
+        let empty_balance_table = BalanceTable::new(store)
+            .root()
+            .map_err(|e| "Failed to create empty balance table map")?;
+
+        let empty_deal_ops_hamt = SetMultimap::new(store)
+            .root()
+            .map_err(|e| "Failed to create empty multiset")?;
+        Ok(Self {
+            proposals: empty_proposals_array,
+            states: empty_states_array,
+            pending_proposals: empty_pending_proposals_map,
+            escrow_table: empty_balance_table,
+            locked_table: empty_balance_table,
             next_id: 0,
-            deal_ops_by_epoch: empty_mset,
+            deal_ops_by_epoch: empty_deal_ops_hamt,
             last_cron: EPOCH_UNDEFINED,
 
             total_client_locked_colateral: TokenAmount::default(),
             total_provider_locked_colateral: TokenAmount::default(),
             total_client_storage_fee: TokenAmount::default(),
-        }
+        })
     }
 
     pub fn total_locked(&self) -> TokenAmount {
@@ -129,7 +150,7 @@ pub(super) struct MarketStateMutation<'bs, 's, BS> {
     pub(super) escrow_table: Option<BalanceTable<'bs, BS>>,
 
     pub(super) pending_permit: Permission,
-    pub(super) pending_deals: Option<Map<'bs, BS, DealProposal>>,
+    pub(super) pending_deals: Option<Set<'bs, BS>>,
 
     pub(super) dpe_permit: Permission,
     pub(super) deals_by_epoch: Option<SetMultimap<'bs, BS>>,

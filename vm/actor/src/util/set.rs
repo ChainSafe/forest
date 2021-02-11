@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{make_map, make_map_with_root, BytesKey, Map};
+use crate::{make_map, make_map_with_bitwidth, make_map_with_root, BytesKey, Map};
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
@@ -21,9 +21,14 @@ impl<'a, BS> Set<'a, BS>
 where
     BS: BlockStore,
 {
-    /// Initializes a new empty Set.
+    /// Initializes a new empty Set with the default bitwidth.
     pub fn new(bs: &'a BS) -> Self {
         Self(make_map(bs))
+    }
+
+    /// Initializes a new empty Set given a bitwidth.
+    pub fn new_set_with_bitwidth(bs: &'a BS, bitwidth: u32) -> Self {
+        Self(make_map_with_bitwidth(bs, bitwidth))
     }
 
     /// Initializes a Set from a root Cid.

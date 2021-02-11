@@ -27,6 +27,7 @@ use encoding::{to_vec, Cbor};
 use fil_types::{PieceInfo, StoragePower};
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
+use libp2p::bytes::buf::ext::Chain;
 use num_bigint::{BigInt, Sign};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
@@ -65,19 +66,9 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        let empty_root = Amt::<(), BS>::new(rt.store()).flush().map_err(|e| {
+        let st = State::new(rt.store()).map_err(|e| {
             e.downcast_default(ExitCode::ErrIllegalState, "Failed to create market state")
         })?;
-
-        let empty_map = make_map::<_, ()>(rt.store()).flush().map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "Failed to create market state")
-        })?;
-
-        let empty_m_set = SetMultimap::new(rt.store()).root().map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "Failed to create market state")
-        })?;
-
-        let st = State::new(empty_root, empty_map, empty_m_set);
         rt.create(&st)?;
         Ok(())
     }
@@ -229,9 +220,19 @@ impl Actor {
             );
         }
 
-        let (_, worker, _) = request_miner_control_addrs(rt, provider)?;
-        if &worker != rt.message().caller() {
-            return Err(actor_error!(ErrForbidden; "Caller is not provider {}", worker));
+        let (_, worker, controllers) = request_miner_control_addrs(rt, provider)?;
+        let caller = rt.message().caller();
+        let mut caller_ok = caller == &worker;
+        for controller in controllers.iter() {
+            if caller_ok {
+                break;
+            }
+            caller_ok = caller == controller;
+        }
+        if !caller_ok {
+            return Err(
+                actor_error!(ErrForbidden; "caller {} is now worker or control address of provider {}", caller, provider),
+            );
         }
 
         let baseline_power = request_current_baseline_power(rt)?;
@@ -279,7 +280,7 @@ impl Actor {
                     .pending_deals
                     .as_ref()
                     .unwrap()
-                    .contains_key(&pcid.to_bytes())
+                    .has(&pcid.to_bytes())
                     .map_err(|e| {
                         e.downcast_default(
                             ExitCode::ErrIllegalState,
@@ -296,7 +297,7 @@ impl Actor {
                 msm.pending_deals
                     .as_mut()
                     .unwrap()
-                    .set(pcid.to_bytes().into(), deal.proposal.clone())
+                    .put(pcid.to_bytes().into())
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to set pending deal")
                     })?;
@@ -381,29 +382,36 @@ impl Actor {
     {
         rt.validate_immediate_caller_type(std::iter::once(&*MINER_ACTOR_CODE_ID))?;
         let miner_addr = *rt.message().caller();
+        let curr_epoch = rt.curr_epoch();
 
         let st: State = rt.state()?;
-
-        let (deal_weight, verified_deal_weight, deal_space) = validate_deals_for_activation(
-            &st,
-            rt.store(),
-            &params.deal_ids,
-            &miner_addr,
-            params.sector_expiry,
-            params.sector_start,
-        )
-        .map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "failed to validate deal proposals for activation",
-            )
+        let proposals = DealArray::load(&st.proposals, rt.store()).map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to load deal proposals")
         })?;
 
-        Ok(VerifyDealsForActivationReturn {
-            deal_weight,
-            verified_deal_weight,
-            deal_space,
-        })
+        let weights = Vec::with_capacity(params.sectors.len());
+        for (i, sector) in params.sectors.iter().enumerate() {
+            let (deal_weight, verified_deal_weight, deal_space) = validate_and_compute_deal_weight(
+                &proposals,
+                &sector.deal_ids,
+                miner_addr,
+                sector.sector_expiry,
+                curr_epoch,
+            )
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to validate deal proposals for activation",
+                )
+            })?;
+            weights[i] = SectorWeights {
+                deal_space,
+                deal_weight,
+                verified_deal_weight,
+            }
+        }
+
+        Ok(VerifyDealsForActivationReturn { sectors: weights })
     }
 
     /// Verify that a given set of storage deals is valid for a sector currently being ProveCommitted,
@@ -992,6 +1000,52 @@ where
             .ok_or_else(|| actor_error!(ErrNotFound, "no such deal {}", deal_id))?;
 
         validate_deal_can_activate(&proposal, miner_addr, sector_expiry, curr_epoch)
+            .map_err(|e| e.wrap(&format!("cannot activate deal {}", deal_id)))?;
+
+        total_deal_space += proposal.piece_size.0;
+        let deal_space_time = deal_weight(&proposal);
+        if proposal.verified_deal {
+            total_verified_space_time += deal_space_time;
+        } else {
+            total_deal_space_time += deal_space_time;
+        }
+    }
+
+    Ok((
+        total_deal_space_time,
+        total_verified_space_time,
+        total_deal_space,
+    ))
+}
+
+pub fn validate_and_compute_deal_weight<BS>(
+    proposals: &DealArray<BS>,
+    deal_ids: &[DealID],
+    miner_addr: Address,
+    sector_expiry: ChainEpoch,
+    sector_activation: ChainEpoch,
+) -> Result<(BigInt, BigInt, u64), Box<dyn StdError>>
+where
+    BS: BlockStore,
+{
+    let mut seen_deal_ids = HashSet::new();
+    let mut total_deal_space = 0;
+    let mut total_deal_space_time = BigInt::zero();
+    let mut total_verified_space_time = BigInt::zero();
+    for deal_id in deal_ids {
+        if !seen_deal_ids.insert(deal_id) {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "deal id {} present multiple times",
+                deal_id
+            )
+            .into());
+        }
+        let proposal = proposals
+            .get(*deal_id as usize)?
+            .ok_or_else(|| actor_error!(ErrNotFound, "no such deal {}", deal_id))?;
+
+        validate_deal_can_activate(&proposal, miner_addr, sector_expiry, sector_activation)
             .map_err(|e| e.wrap(&format!("cannot activate deal {}", deal_id)))?;
 
         total_deal_space += proposal.piece_size.0;
