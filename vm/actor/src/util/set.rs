@@ -61,7 +61,7 @@ where
     pub fn delete(&mut self, key: &[u8]) -> Result<Option<()>, Error> {
         match self.0.delete(key)? {
             Some(_) => Ok(Some(())),
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
