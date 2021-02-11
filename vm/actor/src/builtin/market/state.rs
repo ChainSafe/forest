@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{policy::*, types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
-use crate::{make_map, ActorDowncast, BalanceTable, DealID, Map, Set, SetMultimap};
+use crate::{make_map, ActorDowncast, BalanceTable, DealID, Set, SetMultimap};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
@@ -55,25 +55,25 @@ pub struct State {
 }
 
 impl State {
-    pub fn new<'bs, BS: BlockStore>(store: &'bs BS) -> Result<Self, Box<dyn StdError>> {
+    pub fn new<BS: BlockStore>(store: &BS) -> Result<Self, Box<dyn StdError>> {
         let empty_proposals_array =
             Amt::<(), BS>::new_with_bit_width(store, PROPOSALS_AMT_BITWIDTH)
                 .flush()
-                .map_err(|e| "Failed to create empty proposals array")?;
+                .map_err(|e| format!("Failed to create empty proposals array: {}", e))?;
         let empty_states_array = Amt::<(), BS>::new_with_bit_width(store, STATES_AMT_BITWIDTH)
             .flush()
-            .map_err(|e| "Failed to create empty states array")?;
+            .map_err(|e| format!("Failed to create empty states array: {}", e))?;
 
         let empty_pending_proposals_map = make_map::<_, ()>(store)
             .flush()
-            .map_err(|e| "Failed to create empty pending proposals map state")?;
+            .map_err(|e| format!("Failed to create empty pending proposals map state: {}", e))?;
         let empty_balance_table = BalanceTable::new(store)
             .root()
-            .map_err(|e| "Failed to create empty balance table map")?;
+            .map_err(|e| format!("Failed to create empty balance table map: {}", e))?;
 
         let empty_deal_ops_hamt = SetMultimap::new(store)
             .root()
-            .map_err(|e| "Failed to create empty multiset")?;
+            .map_err(|e| format!("Failed to create empty multiset: {}", e))?;
         Ok(Self {
             proposals: empty_proposals_array,
             states: empty_states_array,
