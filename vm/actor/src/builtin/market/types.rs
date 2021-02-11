@@ -11,8 +11,8 @@ use ipld_amt::Amt;
 use num_bigint::bigint_ser;
 use vm::{DealID, TokenAmount};
 
-const PROPOSALS_AMT_BITWIDTH: usize = 5;
-const STATES_AMT_BITWIDTH: usize = 6;
+pub const PROPOSALS_AMT_BITWIDTH: usize = 5;
+pub const STATES_AMT_BITWIDTH: usize = 6;
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct WithdrawBalanceParams {

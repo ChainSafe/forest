@@ -58,10 +58,11 @@ where
 
     /// Deletes key from set.
     #[inline]
-    pub fn delete(&mut self, key: &[u8]) -> Result<(), Error> {
-        self.0.delete(key)?;
-
-        Ok(())
+    pub fn delete(&mut self, key: &[u8]) -> Result<Option<()>, Error> {
+        match self.0.delete(key)? {
+            Some(_) => Ok(Some(())),
+            None => Ok(None)
+        }
     }
 
     /// Iterates through all keys in the set.

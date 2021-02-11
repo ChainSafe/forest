@@ -25,9 +25,7 @@ use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
 use fil_types::{PieceInfo, StoragePower};
-use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use libp2p::bytes::buf::ext::Chain;
 use num_bigint::{BigInt, Sign};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Zero};
@@ -394,7 +392,7 @@ impl Actor {
             let (deal_weight, verified_deal_weight, deal_space) = validate_and_compute_deal_weight(
                 &proposals,
                 &sector.deal_ids,
-                miner_addr,
+                &miner_addr,
                 sector.sector_expiry,
                 curr_epoch,
             )
@@ -749,10 +747,9 @@ impl Actor {
                     // as it has timed out
                     if state.is_none() {
                         // Not yet appeared in proven sector; check for timeout.
-                        assert!(
-                            curr_epoch >= deal.start_epoch,
-                            "if sector start is not set, must be in timed out state"
-                        );
+                        if curr_epoch < deal.start_epoch {
+                            return Err(actor_error!(ErrIllegalState; "deal {} processed before start epoch {}", deal_id, deal.start_epoch));
+                        }
 
                         let slashed = msm.process_deal_init_timed_out(&deal)?;
                         if !slashed.is_zero() {
@@ -771,12 +768,12 @@ impl Actor {
                             .map_err(|e| {
                                 e.downcast_default(
                                     ExitCode::ErrIllegalState,
-                                    "failed to delete deal",
+                                    format!("failed to delete deal {}", deal_id),
                                 )
                             })?;
                         if deleted.is_none() {
                             return Err(actor_error!(ErrIllegalState;
-                                        "failed to delete deal proposal: does not exist"));
+                                        format!("failed to delete deal {} proposal {}: does not exist", deal_id, dcid)));
                         }
                         msm.pending_deals
                             .as_mut()
@@ -785,7 +782,7 @@ impl Actor {
                             .map_err(|e| {
                                 e.downcast_default(
                                     ExitCode::ErrIllegalState,
-                                    "failed to delete pending proposal",
+                                    format!("failed to delete pending proposal {}", deal_id),
                                 )
                             })?
                             .ok_or_else(|| {
@@ -807,7 +804,7 @@ impl Actor {
                             .map_err(|e| {
                                 e.downcast_default(
                                     ExitCode::ErrIllegalState,
-                                    "failed to delete pending proposal",
+                                    format!("failed to delete pending proposal {}", dcid),
                                 )
                             })?
                             .ok_or_else(|| {
@@ -820,17 +817,14 @@ impl Actor {
 
                     let (slash_amount, next_epoch, remove_deal) =
                         msm.update_pending_deal_state(&state, &deal, curr_epoch)?;
-                    assert_ne!(
-                        slash_amount.sign(),
-                        Sign::Minus,
-                        "next scheduled epoch should be undefined as deal has been removed"
-                    );
+                    if slash_amount.sign() == Sign::Minus {
+                        return Err(actor_error!(ErrIllegalState; format!("computed negative slash amount {} for deal {}", slash_amount, deal_id)));
+                    }
 
                     if remove_deal {
-                        assert_eq!(
-                            next_epoch, EPOCH_UNDEFINED,
-                            "next scheduled epoch should be undefined as deal has been removed"
-                        );
+                        if next_epoch != EPOCH_UNDEFINED {
+                            return Err(actor_error!(ErrIllegalState; format!("removed deal {} should have no scheduled epoch (got {})", deal_id, next_epoch)));
+                        }
 
                         amount_slashed += slash_amount;
                         let deleted = msm
@@ -869,6 +863,13 @@ impl Actor {
                             next_epoch > curr_epoch && slash_amount.is_zero(),
                             "deal should not be slashed and should have a schedule for next cron"
                         );
+
+                        if next_epoch <= rt.curr_epoch() {
+                            return Err(actor_error!(ErrIllegalState; "continuing deal {} next epoch {} should be in the future", deal_id, next_epoch));
+                        }
+                        if !slash_amount.is_zero() {
+                            return Err(actor_error!(ErrIllegalState; "continuing deal {} should not be slashed", deal_id));
+                        }
 
                         state.last_updated_epoch = curr_epoch;
                         msm.deal_states
@@ -981,46 +982,13 @@ where
 {
     let proposals = DealArray::load(&st.proposals, store)?;
 
-    let mut seen_deal_ids = HashSet::new();
-    let mut total_deal_space = 0;
-    let mut total_deal_space_time = BigInt::zero();
-    let mut total_verified_space_time = BigInt::zero();
-    for deal_id in deal_ids {
-        if !seen_deal_ids.insert(deal_id) {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "deal id {} present multiple times",
-                deal_id
-            )
-            .into());
-        }
-        let proposal = proposals
-            .get(*deal_id as usize)?
-            .ok_or_else(|| actor_error!(ErrNotFound, "no such deal {}", deal_id))?;
-
-        validate_deal_can_activate(&proposal, miner_addr, sector_expiry, curr_epoch)
-            .map_err(|e| e.wrap(&format!("cannot activate deal {}", deal_id)))?;
-
-        total_deal_space += proposal.piece_size.0;
-        let deal_space_time = deal_weight(&proposal);
-        if proposal.verified_deal {
-            total_verified_space_time += deal_space_time;
-        } else {
-            total_deal_space_time += deal_space_time;
-        }
-    }
-
-    Ok((
-        total_deal_space_time,
-        total_verified_space_time,
-        total_deal_space,
-    ))
+    validate_and_compute_deal_weight(&proposals, deal_ids, miner_addr, sector_expiry, curr_epoch)
 }
 
 pub fn validate_and_compute_deal_weight<BS>(
     proposals: &DealArray<BS>,
     deal_ids: &[DealID],
-    miner_addr: Address,
+    miner_addr: &Address,
     sector_expiry: ChainEpoch,
     sector_activation: ChainEpoch,
 ) -> Result<(BigInt, BigInt, u64), Box<dyn StdError>>

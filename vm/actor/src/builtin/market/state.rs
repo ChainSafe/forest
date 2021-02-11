@@ -3,7 +3,7 @@
 
 use super::{policy::*, types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
 use crate::{
-    make_map, make_map_with_root, ActorDowncast, BalanceTable, DealID, Map, Set, SetMultimap,
+    make_map, ActorDowncast, BalanceTable, DealID, Map, Set, SetMultimap,
 };
 use address::Address;
 use cid::Cid;
@@ -214,7 +214,7 @@ where
         }
 
         if self.pending_permit != Permission::Invalid {
-            self.pending_deals = Some(make_map_with_root(&self.st.pending_proposals, self.store)?);
+            self.pending_deals = Some(Set::from_root(self.store, &self.st.pending_proposals)?);
         }
 
         if self.dpe_permit != Permission::Invalid {
@@ -304,7 +304,7 @@ where
         if self.pending_permit == Permission::Write {
             if let Some(s) = &mut self.pending_deals {
                 self.st.pending_proposals = s
-                    .flush()
+                    .root()
                     .map_err(|e| e.downcast_wrap("failed to flush escrow table"))?;
             }
         }
