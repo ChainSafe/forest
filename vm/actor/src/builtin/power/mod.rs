@@ -8,7 +8,7 @@ mod types;
 pub use self::policy::*;
 pub use self::state::*;
 pub use self::types::*;
-use crate::miner::MinerConstructorParams;
+use crate::{make_map_with_bitwidth, miner::MinerConstructorParams};
 use crate::reward::Method as RewardMethod;
 use crate::{
     check_empty_params, init, make_map, make_map_with_root, miner, ActorDowncast, Multimap,
@@ -17,7 +17,7 @@ use crate::{
 };
 use address::Address;
 use ahash::AHashSet;
-use fil_types::{NetworkVersion, SealVerifyInfo};
+use fil_types::{HAMT_BIT_WIDTH, NetworkVersion, SealVerifyInfo};
 use indexmap::IndexMap;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
@@ -62,7 +62,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        let empty_map = make_map::<_, ()>(rt.store()).flush().map_err(|e| {
+        let empty_map = make_map_with_bitwidth::<_, ()>(rt.store(), HAMT_BIT_WIDTH).flush().map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
                 "Failed to create storage power state",

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Set;
-use crate::{make_map, make_map_with_root, parse_uint_key, u64_key, DealID, Map};
+use crate::{DealID, Map, make_map, make_map_with_bitwidth, make_map_with_root, parse_uint_key, u64_key};
 use cid::Cid;
 use clock::ChainEpoch;
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
 use std::borrow::Borrow;
@@ -19,7 +20,7 @@ where
 {
     /// Initializes a new empty SetMultimap.
     pub fn new(bs: &'a BS) -> Self {
-        Self(make_map(bs))
+        Self(make_map_with_bitwidth(bs, HAMT_BIT_WIDTH))
     }
 
     /// Initializes a SetMultimap from a root Cid.

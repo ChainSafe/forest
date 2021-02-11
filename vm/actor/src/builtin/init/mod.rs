@@ -6,12 +6,10 @@ mod types;
 
 pub use self::state::State;
 pub use self::types::*;
-use crate::{
-    make_map, ActorDowncast, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
-    POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
-};
+use crate::{ActorDowncast, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR, make_map, make_map_with_bitwidth};
 use address::Address;
 use cid::Cid;
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -39,7 +37,7 @@ impl Actor {
     {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
         rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
-        let mut empty_map = make_map::<_, ()>(rt.store());
+        let mut empty_map = make_map_with_bitwidth::<_, ()>(rt.store(), HAMT_BIT_WIDTH);
         let root = empty_map.flush().map_err(|err| {
             err.downcast_default(ExitCode::ErrIllegalState, "failed to construct state")
         })?;

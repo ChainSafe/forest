@@ -3,6 +3,7 @@
 
 use crate::{make_map, make_map_with_bitwidth, make_map_with_root, BytesKey, Map};
 use cid::Cid;
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
 use std::error::Error as StdError;
@@ -23,7 +24,7 @@ where
 {
     /// Initializes a new empty Set with the default bitwidth.
     pub fn new(bs: &'a BS) -> Self {
-        Self(make_map(bs))
+        Self(make_map_with_bitwidth(bs, HAMT_BIT_WIDTH))
     }
 
     /// Initializes a new empty Set given a bitwidth.
