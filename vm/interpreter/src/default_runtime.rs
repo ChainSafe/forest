@@ -15,7 +15,9 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
-use fil_types::{verifier::ProofVerifier, DevnetParams, NetworkParams, NetworkVersion, Randomness};
+use fil_types::{
+    verifier::ProofVerifier, DefaultNetworkParams, NetworkParams, NetworkVersion, Randomness,
+};
 use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use forest_encoding::{blake2b_256, to_vec, Cbor};
 use ipld_blockstore::BlockStore;
@@ -75,7 +77,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DefaultNetworkParams> {
     version: NetworkVersion,
     state: &'vm mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,

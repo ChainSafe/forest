@@ -9,13 +9,13 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 use serde::Serialize;
 const BUILD_VERSION: &str = "0.10.2";
 
-//masks
+// masks
 const MINOR_MASK: u32 = 0xffff00;
 const MAJOR_ONLY_MASK: u32 = 0xff0000;
 const MINOR_ONLY_MASK: u32 = 0x00ff00;
 const PATCH_ONLY_MASK: u32 = 0x0000ff;
 
-//api versions
+// api versions
 const FULL_API_VERSION: Version = new_version(1, 0, 0);
 const MINER_API_VERSION: Version = new_version(0, 15, 0);
 const WORKER_API_VERSION: Version = new_version(0, 15, 0);
@@ -26,7 +26,7 @@ lazy_static! {
     pub static ref RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
 }
 
-/// represents the current version of the api
+/// Represents the current version of the API.
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct APIVersion {
@@ -35,10 +35,12 @@ pub struct APIVersion {
     pub block_delay: u64,
 }
 
-/// integer based value on version information. Highest order bits for Major, Mid order for Minor and lowest for Patch
+/// Integer based value on version information. Highest order bits for Major, Mid order for Minor
+/// and lowest for Patch.
 #[derive(Serialize)]
 pub struct Version(u32);
 
+/// Build type for the node. This shares which build type the node is from the RPC API.
 #[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum BuildType {
@@ -47,7 +49,7 @@ pub enum BuildType {
     BuildDebug = 0x2,
 }
 
-/// the type of node that is running
+/// The type of node that is running.
 #[derive(FromPrimitive)]
 #[repr(u64)]
 pub enum NodeType {
@@ -77,10 +79,11 @@ const fn new_version(major: u32, minor: u32, patch: u32) -> Version {
     Version(major << 16 | minor << 8 | patch)
 }
 
-/// gets current user version
+/// Gets the formatted current user version.
 pub async fn user_version() -> String {
     BUILD_VERSION.to_owned() + &*BUILD_TYPE.read().await.to_str() + &CURRENT_COMMIT
 }
+
 impl Version {
     fn ints(&self) -> (u32, u32, u32) {
         let v = self.0;

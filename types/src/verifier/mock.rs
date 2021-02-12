@@ -5,7 +5,7 @@ use super::ProofVerifier;
 use crate::{PoStProof, Randomness, RegisteredPoStProof, SealVerifyInfo, SectorInfo};
 use std::error::Error as StdError;
 
-/// Verifier implementation
+/// Mock verifier. This does no-op verification of any proofs.
 pub enum MockVerifier {}
 
 impl ProofVerifier for MockVerifier {
