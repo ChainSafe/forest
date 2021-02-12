@@ -53,6 +53,16 @@ where
     Map::<_, V>::new_with_bit_width(store, bitwidth)
 }
 
+/// Create a hamt with a custom bitwidth.
+#[inline]
+pub fn make_map_with_bitwidth<BS, V>(store: &'_ BS, bitwidth: u32) -> Map<'_, BS, V>
+where
+    BS: BlockStore,
+    V: DeserializeOwned + Serialize,
+{
+    Map::<_, V>::new_with_bit_width(store, bitwidth)
+}
+
 /// Create a map with a root cid.
 #[inline]
 pub fn make_map_with_root<'bs, BS, V>(

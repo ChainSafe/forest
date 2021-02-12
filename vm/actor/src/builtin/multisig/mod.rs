@@ -10,9 +10,9 @@ use crate::{
     make_empty_map, make_map_with_root, resolve_to_id_addr, ActorDowncast, Map,
     CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR,
 };
-use address::{Address, Protocol};
+use address::Address;
 use encoding::to_vec;
-use fil_types::{NetworkVersion, HAMT_BIT_WIDTH};
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
@@ -143,7 +143,7 @@ impl Actor {
         }
 
         let (txn_id, txn) = rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&proposer, &st.signers) {
+            if !st.is_signer(&proposer) {
                 return Err(actor_error!(ErrForbidden, "{} is not a signer", proposer));
             }
 
@@ -199,12 +199,12 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
-        let caller_addr: Address = *rt.message().caller();
+        let approver: Address = *rt.message().caller();
 
         let id = params.id;
         let (st, txn) = rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&caller_addr, &st.signers) {
-                return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
+            if !st.is_signer(&approver) {
+                return Err(actor_error!(ErrForbidden; "{} is not a signer", approver));
             }
 
             let ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(|e| {
@@ -242,24 +242,29 @@ impl Actor {
         let caller_addr: Address = *rt.message().caller();
 
         rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&caller_addr, &st.signers) {
+            if !st.is_signer(&caller_addr) {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", caller_addr));
             }
 
-            let mut ptx = make_map_with_root(&st.pending_txs, rt.store()).map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to load pending transactions",
-                )
-            })?;
+            let mut ptx = make_map_with_root::<_, Transaction>(&st.pending_txs, rt.store())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to load pending transactions",
+                    )
+                })?;
 
-            // Get transaction to cancel
-            let tx = get_pending_transaction(&ptx, params.id).map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrNotFound,
-                    "Failed to get transaction for cancel",
-                )
-            })?;
+            let (_, tx) = ptx
+                .delete(&params.id.key())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to pop transaction {:?} for cancel", params.id),
+                    )
+                })?
+                .ok_or_else(|| {
+                    actor_error!(ErrNotFound, "no such transaction {:?} to cancel", params.id)
+                })?;
 
             // Check to make sure transaction proposer is caller address
             if tx.approved.get(0) != Some(&caller_addr) {
@@ -281,20 +286,6 @@ impl Actor {
                     "hash does not match proposal params"
                 ));
             }
-
-            ptx.delete(&params.id.key())
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to delete pending transaction",
-                    )
-                })?
-                .ok_or_else(|| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to delete pending transaction: does not exist"
-                    )
-                })?;
 
             st.pending_txs = ptx.flush().map_err(|e| {
                 e.downcast_default(
@@ -330,7 +321,7 @@ impl Actor {
                     SIGNERS_MAX
                 ));
             }
-            if is_signer(&resolved_new_signer, &st.signers) {
+            if st.is_signer(&resolved_new_signer) {
                 return Err(actor_error!(
                     ErrForbidden,
                     "{} is already a signer",
@@ -364,7 +355,7 @@ impl Actor {
         })?;
 
         rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&resolved_old_signer, &st.signers) {
+            if !st.is_signer(&resolved_old_signer) {
                 return Err(actor_error!(
                     ErrForbidden,
                     "{} is not a signer",
@@ -435,11 +426,11 @@ impl Actor {
         })?;
 
         rt.transaction(|st: &mut State, rt| {
-            if !is_signer(&from_resolved, &st.signers) {
+            if !st.is_signer(&from_resolved) {
                 return Err(actor_error!(ErrForbidden; "{} is not a signer", from_resolved));
             }
 
-            if is_signer(&to_resolved, &st.signers) {
+            if st.is_signer(&to_resolved) {
                 return Err(
                     actor_error!(ErrIllegalArgument; "{} is already a signer", to_resolved),
                 );
@@ -506,7 +497,7 @@ impl Actor {
             ));
         }
 
-        if rt.network_version() >= NetworkVersion::V7 && params.amount.is_negative() {
+        if params.amount.is_negative() {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "amount to lock must be positive"
@@ -646,16 +637,6 @@ where
     Ok((applied, out, code))
 }
 
-fn get_pending_transaction<'bs, 'm, BS: BlockStore>(
-    ptx: &'m Map<'bs, BS, Transaction>,
-    txn_id: TxnID,
-) -> Result<&'m Transaction, Box<dyn StdError>> {
-    Ok(ptx
-        .get(&txn_id.key())
-        .map_err(|e| e.downcast_wrap("failed to read transaction"))?
-        .ok_or_else(|| actor_error!(ErrNotFound, "failed to find transaction: {}", txn_id.0))?)
-}
-
 fn get_transaction<'bs, 'm, BS, RT>(
     rt: &RT,
     ptx: &'m Map<'bs, BS, Transaction>,
@@ -667,12 +648,17 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let txn = get_pending_transaction(ptx, txn_id).map_err(|e| {
-        e.downcast_default(
-            ExitCode::ErrNotFound,
-            "failed to get transaction for approval",
-        )
-    })?;
+    let txn = ptx
+        .get(&txn_id.key())
+        .map_err(|e| {
+            e.downcast_default(
+                ExitCode::ErrIllegalState,
+                format!("failed to load transaction {:?} for approval", txn_id),
+            )
+        })?
+        .ok_or_else(|| {
+            actor_error!(ErrNotFound, "no such transaction {:?} for approval", txn_id)
+        })?;
 
     if check_hash {
         let calculated_hash = compute_proposal_hash(&txn, rt).map_err(|e| {
@@ -691,24 +677,6 @@ where
     }
 
     Ok(txn)
-}
-
-fn is_signer(address: &Address, signers: &[Address]) -> bool {
-    assert_eq!(
-        address.protocol(),
-        Protocol::ID,
-        "address {} passed to is_signer must be a resolved address",
-        address
-    );
-
-    // Signer addresses have already been resolved
-    for signer in signers {
-        if signer == address {
-            return true;
-        }
-    }
-
-    false
 }
 
 /// Computes a digest of a proposed transaction. This digest is used to confirm identity
