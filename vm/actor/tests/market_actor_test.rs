@@ -84,13 +84,9 @@ fn simple_construction() {
     let empty_balance_table = make_map_with_bitwidth::<_, BigIntDe>(store, BALANCE_TABLE_BITWIDTH)
         .flush()
         .unwrap();
-<<<<<<< HEAD
-    let empty_map = make_map::<_, ()>(store).flush().unwrap();
-=======
     let empty_map = make_map_with_bitwidth::<_, ()>(store, HAMT_BIT_WIDTH)
         .flush()
         .unwrap();
->>>>>>> ec2/market-actor-v3
     let empty_proposals_array = Amt::<(), _>::new_with_bit_width(store, PROPOSALS_AMT_BITWIDTH)
         .flush()
         .unwrap();
