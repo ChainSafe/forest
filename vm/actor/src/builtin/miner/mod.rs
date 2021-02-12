@@ -32,8 +32,8 @@ pub use types::*;
 pub use vesting_state::*;
 
 use crate::{
-    account::Method as AccountMethod, actor_error, make_empty_map,
-    market::ActivateDealsParams, power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
+    account::Method as AccountMethod, actor_error, make_empty_map, market::ActivateDealsParams,
+    power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
 use crate::{
     check_empty_params, is_principal, smooth::FilterEstimate, ACCOUNT_ACTOR_CODE_ID,
