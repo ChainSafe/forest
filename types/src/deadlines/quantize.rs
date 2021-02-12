@@ -3,6 +3,7 @@
 
 use clock::ChainEpoch;
 
+/// Constant defining the [QuantSpec] which performs no quantization.
 pub const NO_QUANTIZATION: QuantSpec = QuantSpec { unit: 1, offset: 0 };
 
 /// A spec for quantization.

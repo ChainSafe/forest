@@ -11,17 +11,17 @@ use cid::Cid;
 use encoding::tuple::*;
 use serde::{Deserialize, Serialize};
 
-/// Size of a piece in bytes
+/// Size of a piece in bytes.
 #[derive(PartialEq, Debug, Eq, Clone, Copy)]
 pub struct UnpaddedPieceSize(pub u64);
 
 impl UnpaddedPieceSize {
-    /// Converts unpadded piece size into padded piece size
+    /// Converts unpadded piece size into padded piece size.
     pub fn padded(self) -> PaddedPieceSize {
         PaddedPieceSize(self.0 + (self.0 / 127))
     }
 
-    /// Validates piece size
+    /// Validates piece size.
     pub fn validate(self) -> Result<(), &'static str> {
         if self.0 < 127 {
             return Err("minimum piece size is 127 bytes");
@@ -36,18 +36,18 @@ impl UnpaddedPieceSize {
     }
 }
 
-/// Size of a piece in bytes with padding
+/// Size of a piece in bytes with padding.
 #[derive(PartialEq, Debug, Eq, Clone, Copy, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct PaddedPieceSize(pub u64);
 
 impl PaddedPieceSize {
-    /// Converts padded piece size into an unpadded piece size
+    /// Converts padded piece size into an unpadded piece size.
     pub fn unpadded(self) -> UnpaddedPieceSize {
         UnpaddedPieceSize(self.0 - (self.0 / 128))
     }
 
-    /// Validates piece size
+    /// Validates piece size.
     pub fn validate(self) -> Result<(), &'static str> {
         if self.0 < 128 {
             return Err("minimum piece size is 128 bytes");
@@ -61,12 +61,12 @@ impl PaddedPieceSize {
     }
 }
 
-// Piece information for part or a whole file
+/// Piece information for part or a whole file.
 #[derive(Serialize_tuple, Deserialize_tuple, PartialEq, Clone)]
 pub struct PieceInfo {
-    /// Size in nodes. For BLS12-381 (capacity 254 bits), must be >= 16. (16 * 8 = 128)
+    /// Size in nodes. For BLS12-381 (capacity 254 bits), must be >= 16. (16 * 8 = 128).
     pub size: PaddedPieceSize,
-    /// Content identifier for piece
+    /// Content identifier for piece.
     pub cid: Cid,
 }
 

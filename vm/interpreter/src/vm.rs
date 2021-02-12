@@ -14,7 +14,7 @@ use clock::ChainEpoch;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
-    DevnetParams, NetworkParams, NetworkVersion,
+    DefaultNetworkParams, NetworkParams, NetworkVersion,
 };
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
@@ -60,7 +60,7 @@ pub trait LookbackStateGetter<'db, DB> {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, R, N, C, LB, V = FullVerifier, P = DevnetParams> {
+pub struct VM<'db, 'r, DB, R, N, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,

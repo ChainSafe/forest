@@ -8,6 +8,8 @@ use num_bigint::bigint_ser::json as bigint_json;
 use serde::{Deserialize, Serialize};
 use vm::TokenAmount;
 
+/// Different account variants. This is used with genesis utils to define the possible
+/// genesis allocated actors.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ActorType {
@@ -15,6 +17,7 @@ pub enum ActorType {
     MultiSig,
 }
 
+/// All information needed to initialize an actor in genesis.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Actor {
@@ -26,6 +29,7 @@ pub struct Actor {
     pub owner: Address,
 }
 
+/// Defines all information needed for a miner in genesis.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Miner {
@@ -43,6 +47,7 @@ pub struct Miner {
     pub sector_size: SectorSize,
 }
 
+/// Format of genesis file.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Template {

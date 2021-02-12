@@ -5,6 +5,7 @@ use crate::{ActorID, Randomness, RegisteredPoStProof, RegisteredSealProof, Secto
 use cid::Cid;
 use encoding::{serde_bytes, tuple::*};
 
+/// Randomness type used for generating PoSt proof randomness.
 pub type PoStRandomness = Randomness;
 
 /// Information about a sector necessary for PoSt verification
@@ -16,7 +17,7 @@ pub struct SectorInfo {
     pub sealed_cid: Cid,
 }
 
-// TODO docs
+/// Proof of spacetime data stored on chain.
 #[derive(Debug, PartialEq, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct PoStProof {
     pub post_proof: RegisteredPoStProof,
