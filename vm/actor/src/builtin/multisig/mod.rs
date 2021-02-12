@@ -10,7 +10,7 @@ use crate::{
     make_map_with_bitwidth, make_map_with_root, resolve_to_id_addr, ActorDowncast, Map,
     CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR,
 };
-use address::{Address, Protocol};
+use address::Address;
 use encoding::to_vec;
 use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;

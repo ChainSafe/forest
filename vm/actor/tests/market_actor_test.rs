@@ -8,16 +8,15 @@ use clock::EPOCH_UNDEFINED;
 use common::*;
 use fil_types::HAMT_BIT_WIDTH;
 use forest_actor::{
-    make_map, make_map_with_bitwidth,
+    make_map_with_bitwidth,
     market::{Method, State, WithdrawBalanceParams, PROPOSALS_AMT_BITWIDTH, STATES_AMT_BITWIDTH},
     miner::{GetControlAddressesReturn, Method as MinerMethod},
     util::BALANCE_TABLE_BITWIDTH,
-    BalanceTable, DealID, Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE,
+    BalanceTable, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE,
     INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
     STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use ipld_amt::Amt;
-use libp2p::futures::io::empty;
 use num_bigint::bigint_ser::BigIntDe;
 use runtime::Runtime;
 use std::collections::HashMap;
