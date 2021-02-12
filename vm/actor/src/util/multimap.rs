@@ -1,8 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{make_map, make_map_with_root, BytesKey, Map};
+use crate::{make_empty_map, make_map_with_root, BytesKey, Map};
 use cid::Cid;
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
@@ -18,7 +19,7 @@ where
 {
     /// Initializes a new empty multimap.
     pub fn new(bs: &'a BS) -> Self {
-        Self(make_map(bs))
+        Self(make_empty_map(bs, HAMT_BIT_WIDTH))
     }
 
     /// Initializes a multimap from a root Cid

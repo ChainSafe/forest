@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{make_map, make_map_with_root, Map};
+use crate::{make_empty_map, make_map_with_root_and_bitwidth, Map};
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
@@ -11,6 +11,8 @@ use num_traits::{Signed, Zero};
 use std::error::Error as StdError;
 use vm::TokenAmount;
 
+pub const BALANCE_TABLE_BITWIDTH: u32 = 6;
+
 /// Balance table which handles getting and updating token balances specifically
 pub struct BalanceTable<'a, BS>(Map<'a, BS, BigIntDe>);
 impl<'a, BS> BalanceTable<'a, BS>
@@ -19,12 +21,16 @@ where
 {
     /// Initializes a new empty balance table
     pub fn new(bs: &'a BS) -> Self {
-        Self(make_map(bs))
+        Self(make_empty_map(bs, BALANCE_TABLE_BITWIDTH))
     }
 
     /// Initializes a balance table from a root Cid
     pub fn from_root(bs: &'a BS, cid: &Cid) -> Result<Self, Error> {
-        Ok(Self(make_map_with_root(cid, bs)?))
+        Ok(Self(make_map_with_root_and_bitwidth(
+            cid,
+            bs,
+            BALANCE_TABLE_BITWIDTH,
+        )?))
     }
 
     /// Retrieve root from balance table

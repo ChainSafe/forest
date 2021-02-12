@@ -7,12 +7,12 @@ mod types;
 pub use self::state::*;
 pub use self::types::*;
 use crate::{
-    make_map, make_map_with_root, resolve_to_id_addr, ActorDowncast, Map, CALLER_TYPES_SIGNABLE,
-    INIT_ACTOR_ADDR,
+    make_empty_map, make_map_with_root, resolve_to_id_addr, ActorDowncast, Map,
+    CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR,
 };
 use address::{Address, Protocol};
 use encoding::to_vec;
-use fil_types::NetworkVersion;
+use fil_types::{NetworkVersion, HAMT_BIT_WIDTH};
 use ipld_blockstore::BlockStore;
 use num_bigint::Sign;
 use num_derive::FromPrimitive;
@@ -24,7 +24,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
+// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v3.0.0)
 
 /// Multisig actor methods available
 #[derive(FromPrimitive)]
@@ -97,9 +97,11 @@ impl Actor {
             return Err(actor_error!(ErrIllegalArgument; "negative unlock duration disallowed"));
         }
 
-        let empty_root = make_map::<_, ()>(rt.store()).flush().map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "Failed to create empty map")
-        })?;
+        let empty_root = make_empty_map::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
+            .flush()
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "Failed to create empty map")
+            })?;
 
         let mut st: State = State {
             signers: resolved_signers,

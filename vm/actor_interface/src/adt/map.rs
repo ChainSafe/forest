@@ -3,6 +3,7 @@
 
 use crate::ActorVersion;
 use cid::Cid;
+use fil_types::HAMT_BIT_WIDTH;
 use forest_hash_utils::{BytesKey, Hash};
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize};
@@ -23,7 +24,7 @@ where
         match version {
             ActorVersion::V0 => Map::V0(actorv0::make_map(store)),
             ActorVersion::V2 => Map::V2(actorv2::make_map(store)),
-            ActorVersion::V3 => Map::V3(actorv3::make_map(store)),
+            ActorVersion::V3 => Map::V3(actorv3::make_empty_map(store, HAMT_BIT_WIDTH)),
         }
     }
 
