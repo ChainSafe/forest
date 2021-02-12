@@ -8,6 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "proofs")]
 use std::convert::TryFrom;
 
+/// Seal proof type which defines the version and sector size.
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
 pub enum RegisteredSealProof {
     StackedDRG2KiBV1,
@@ -46,6 +47,7 @@ impl RegisteredSealProof {
         }
     }
 
+    /// Convert the original proof type to the v1 proof added in network version 7.
     pub fn update_to_v1(&mut self) {
         *self = match self {
             Self::StackedDRG2KiBV1 => Self::StackedDRG2KiBV1P1,
@@ -66,6 +68,7 @@ impl RegisteredSealProof {
     }
 }
 
+/// Proof of spacetime type, indicating version and sector size of the proof.
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
 pub enum RegisteredPoStProof {
     StackedDRGWinning2KiBV1,

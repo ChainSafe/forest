@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{policy::*, types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
-use crate::{make_map_with_bitwidth, ActorDowncast, BalanceTable, DealID, Set, SetMultimap};
+use crate::{make_empty_map, ActorDowncast, BalanceTable, DealID, Set, SetMultimap};
 use address::Address;
 use cid::Cid;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
@@ -65,7 +65,7 @@ impl State {
             .flush()
             .map_err(|e| format!("Failed to create empty states array: {}", e))?;
 
-        let empty_pending_proposals_map = make_map_with_bitwidth::<_, ()>(store, HAMT_BIT_WIDTH)
+        let empty_pending_proposals_map = make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH)
             .flush()
             .map_err(|e| format!("Failed to create empty pending proposals map state: {}", e))?;
         let empty_balance_table = BalanceTable::new(store)

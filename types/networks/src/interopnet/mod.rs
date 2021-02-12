@@ -48,4 +48,5 @@ lazy_static! {
     },];
 }
 
+/// Time, in seconds, between each block.
 pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;
