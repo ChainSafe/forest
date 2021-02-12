@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{make_map_with_bitwidth, make_map_with_root_and_bitwidth, Map};
+use crate::{make_empty_map, make_map_with_root_and_bitwidth, Map};
 use address::Address;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
@@ -21,7 +21,7 @@ where
 {
     /// Initializes a new empty balance table
     pub fn new(bs: &'a BS) -> Self {
-        Self(make_map_with_bitwidth(bs, BALANCE_TABLE_BITWIDTH))
+        Self(make_empty_map(bs, BALANCE_TABLE_BITWIDTH))
     }
 
     /// Initializes a balance table from a root Cid

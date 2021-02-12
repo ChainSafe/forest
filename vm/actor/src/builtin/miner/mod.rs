@@ -32,7 +32,7 @@ pub use types::*;
 pub use vesting_state::*;
 
 use crate::{
-    account::Method as AccountMethod, actor_error, make_map_with_bitwidth,
+    account::Method as AccountMethod, actor_error, make_empty_map,
     market::ActivateDealsParams, power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
 use crate::{
@@ -154,7 +154,7 @@ impl Actor {
             .map(|address| resolve_control_address(rt, address))
             .collect::<Result<_, _>>()?;
 
-        let empty_map = make_map_with_bitwidth::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
+        let empty_map = make_empty_map::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
             .flush()
             .map_err(|e| {
                 e.downcast_default(

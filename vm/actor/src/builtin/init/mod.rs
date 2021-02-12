@@ -7,7 +7,7 @@ mod types;
 pub use self::state::State;
 pub use self::types::*;
 use crate::{
-    make_map_with_bitwidth, ActorDowncast, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
+    make_empty_map, ActorDowncast, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
     PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
@@ -40,7 +40,7 @@ impl Actor {
     {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
         rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
-        let mut empty_map = make_map_with_bitwidth::<_, ()>(rt.store(), HAMT_BIT_WIDTH);
+        let mut empty_map = make_empty_map::<_, ()>(rt.store(), HAMT_BIT_WIDTH);
         let root = empty_map.flush().map_err(|err| {
             err.downcast_default(ExitCode::ErrIllegalState, "failed to construct state")
         })?;

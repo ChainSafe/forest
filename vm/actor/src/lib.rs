@@ -43,19 +43,9 @@ pub fn check_empty_params(params: &Serialized) -> Result<(), ActorError> {
     }
 }
 
-/// Create a hamt configured with constant bit width.
-#[inline]
-pub fn make_map<BS, V>(store: &'_ BS) -> Map<'_, BS, V>
-where
-    BS: BlockStore,
-    V: DeserializeOwned + Serialize,
-{
-    Map::<_, V>::new_with_bit_width(store, HAMT_BIT_WIDTH)
-}
-
 /// Create a hamt with a custom bitwidth.
 #[inline]
-pub fn make_map_with_bitwidth<BS, V>(store: &'_ BS, bitwidth: u32) -> Map<'_, BS, V>
+pub fn make_empty_map<BS, V>(store: &'_ BS, bitwidth: u32) -> Map<'_, BS, V>
 where
     BS: BlockStore,
     V: DeserializeOwned + Serialize,
