@@ -9,31 +9,31 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-/// ChainExchange request options
-pub const BLOCKS: u64 = 1;
-pub const MESSAGES: u64 = 2;
-pub const BLOCKS_MESSAGES: u64 = 3;
+/// ChainExchange Filecoin header set bit.
+pub const HEADERS: u64 = 0b01;
+/// ChainExchange Filecoin messages set bit.
+pub const MESSAGES: u64 = 0b10;
 
-/// The payload that gets sent to another node to request for blocks and messages. It get DagCBOR serialized before sending over the wire.
+/// The payload that gets sent to another node to request for blocks and messages.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainExchangeRequest {
-    /// The tipset to start sync from
+    /// The tipset [Cid] to start the request from.
     pub start: Vec<Cid>,
-    /// The amount of epochs to sync by
+    /// The amount of epochs to request.
     pub request_len: u64,
-    /// 1 = Block only, 2 = Messages only, 3 = Blocks and Messages
+    /// 1 = Block only, 2 = Messages only, 3 = Blocks and Messages.
     pub options: u64,
 }
 
 impl ChainExchangeRequest {
-    /// If a request expects blocks to be included in response.
+    /// If a request has the [HEADERS] bit set and requests Filecoin headers.
     pub fn include_blocks(&self) -> bool {
-        self.options == BLOCKS || self.options == BLOCKS_MESSAGES
+        self.options & HEADERS > 0
     }
 
-    /// If a request expects messages to be included in response.
+    /// If a request has the [MESSAGES] bit set and requests messages of a block.
     pub fn include_messages(&self) -> bool {
-        self.options == MESSAGES || self.options == BLOCKS_MESSAGES
+        self.options & MESSAGES > 0
     }
 }
 
@@ -51,7 +51,7 @@ pub enum ChainExchangeResponseStatus {
     GoAway,
     /// Internal error occured.
     InternalError,
-    /// Request was bad
+    /// Request was bad.
     BadRequest,
     /// Other undefined response code.
     Other(i32),
@@ -100,11 +100,11 @@ impl<'de> Deserialize<'de> for ChainExchangeResponseStatus {
 /// The response to a ChainExchange request.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainExchangeResponse {
-    /// Error code
+    /// Status code of the response.
     pub status: ChainExchangeResponseStatus,
-    /// Status message indicating failure reason
+    /// Status message indicating failure reason.
     pub message: String,
-    /// The tipsets requested
+    /// The tipsets requested.
     pub chain: Vec<TipsetBundle>,
 }
 
@@ -128,24 +128,24 @@ impl ChainExchangeResponse {
 /// Contains all bls and secp messages and their indexes per block
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct CompactedMessages {
-    /// Unsigned bls messages
+    /// Unsigned bls messages.
     pub bls_msgs: Vec<UnsignedMessage>,
-    /// Describes which block each message belongs to
+    /// Describes which block each message belongs to.
     pub bls_msg_includes: Vec<Vec<u64>>,
 
-    /// Signed secp messages
+    /// Signed secp messages.
     pub secp_msgs: Vec<SignedMessage>,
-    /// Describes which block each message belongs to
+    /// Describes which block each message belongs to.
     pub secp_msg_includes: Vec<Vec<u64>>,
 }
 
 /// Contains the blocks and messages in a particular tipset
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple, Default)]
 pub struct TipsetBundle {
-    /// The blocks in the tipset
+    /// The blocks in the tipset.
     pub blocks: Vec<BlockHeader>,
 
-    /// Compressed messages format
+    /// Compressed messages format.
     pub messages: Option<CompactedMessages>,
 }
 
@@ -190,6 +190,7 @@ impl TryFrom<&TipsetBundle> for FullTipset {
     }
 }
 
+/// Constructs a [FullTipset] from headers and compacted messages from a bundle.
 fn fts_from_bundle_parts(
     headers: Vec<BlockHeader>,
     messages: Option<&CompactedMessages>,

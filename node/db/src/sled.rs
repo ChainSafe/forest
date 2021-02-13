@@ -6,6 +6,7 @@ use super::Store;
 pub use sled::{Batch, Config, Db, Mode};
 use std::path::Path;
 
+/// Sled instance this satisfies the [Store] interface.
 #[derive(Debug)]
 pub struct SledDb {
     pub db: Db,
