@@ -21,7 +21,8 @@ impl GasTracker {
         }
     }
 
-    /// Safely consumes gas
+    /// Safely consumes gas and returns an out of gas error if there is not sufficient
+    /// enough gas remaining for charge.
     pub fn charge_gas(&mut self, charge: GasCharge) -> Result<(), ActorError> {
         let to_use = charge.total();
         let used = self.gas_used + to_use;
@@ -37,12 +38,12 @@ impl GasTracker {
         }
     }
 
-    /// Getter for gas available
+    /// Getter for gas available.
     pub fn gas_available(&self) -> i64 {
         self.gas_available
     }
 
-    /// Getter for gas used
+    /// Getter for gas used.
     pub fn gas_used(&self) -> i64 {
         self.gas_used
     }

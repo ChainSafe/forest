@@ -10,4 +10,4 @@ pub const CONSENSUS_MINER_MIN_MINERS: i64 = 3;
 /// given epoch to 200.
 ///
 /// To support onboarding 1EiB/year, we need to allow at least 32 prove commits per epoch.
-pub const MAX_MINER_PROVE_COMMITS_PER_EPOCH: u64 = 200;
+pub const MAX_MINER_PROVE_COMMITS_PER_EPOCH: usize = 200;

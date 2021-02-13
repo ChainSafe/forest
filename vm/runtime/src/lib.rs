@@ -272,6 +272,7 @@ fn get_required_padding(
     (pad_pieces, PaddedPieceSize(sum))
 }
 
+/// Computes sector [Cid] from proof type and pieces for verification.
 pub fn compute_unsealed_sector_cid(
     proof_type: RegisteredSealProof,
     pieces: &[PieceInfo],
