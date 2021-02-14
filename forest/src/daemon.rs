@@ -20,7 +20,7 @@ use utils::write_to_file;
 use wallet::{KeyStore, PersistentKeyStore};
 
 /// Starts daemon process
-pub(super) async fn start(config: Config) -> Result<(), std::io::Error> {
+pub(super) async fn start(config: Config) {
     info!("Starting Forest daemon");
     let net_keypair = get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair"))
         .unwrap_or_else(|| {
@@ -40,18 +40,19 @@ pub(super) async fn start(config: Config) -> Result<(), std::io::Error> {
         });
 
     // Initialize keystore
-    let mut ks = PersistentKeyStore::new(config.data_dir.to_string())?;
+    let mut ks = PersistentKeyStore::new(config.data_dir.to_string()).unwrap();
     if ks.get(JWT_IDENTIFIER).is_err() {
-        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
+        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
+            .unwrap();
     }
     let keystore = Arc::new(RwLock::new(ks));
 
     // Initialize database (RocksDb will be default if both features enabled)
     #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(config.data_dir + "/sled")?;
+    let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(config.data_dir + "/db")?;
+    let db = db::rocks::RocksDb::open(config.data_dir + "/db").unwrap();
 
     let db = Arc::new(db);
 
@@ -63,18 +64,22 @@ pub(super) async fn start(config: Config) -> Result<(), std::io::Error> {
 
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
-    let (genesis, network_name) =
-        initialize_genesis(config.genesis_file.as_ref(), &state_manager).await?;
+    let (genesis, network_name) = initialize_genesis(config.genesis_file.as_ref(), &state_manager)
+        .await
+        .unwrap();
 
     let validate_height = if config.snapshot { None } else { Some(0) };
     // Sync from snapshot
     if let Some(path) = &config.snapshot_path {
         import_chain::<FullVerifier, _>(&state_manager, path, validate_height, config.skip_load)
-            .await?;
+            .await
+            .unwrap();
     }
 
     // Fetch and ensure verification keys are downloaded
-    get_params_default(SectorSizeOpt::Keys, false).await?;
+    get_params_default(SectorSizeOpt::Keys, false)
+        .await
+        .unwrap();
 
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
@@ -93,12 +98,17 @@ pub(super) async fn start(config: Config) -> Result<(), std::io::Error> {
             provider,
             network_name.clone(),
             network_send.clone(),
-            MpoolConfig::load_config(db.as_ref())?,
+            MpoolConfig::load_config(db.as_ref()).unwrap(),
         )
-        .await?,
+        .await
+        .unwrap(),
     );
 
-    let beacon = Arc::new(networks::beacon_schedule_default(genesis.min_timestamp()).await?);
+    let beacon = Arc::new(
+        networks::beacon_schedule_default(genesis.min_timestamp())
+            .await
+            .unwrap(),
+    );
 
     // Initialize ChainSyncer
     let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
@@ -109,7 +119,8 @@ pub(super) async fn start(config: Config) -> Result<(), std::io::Error> {
         network_rx,
         Arc::new(genesis),
         config.sync,
-    )?;
+    )
+    .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
     let (worker_tx, worker_rx) = bounded(20);
@@ -145,7 +156,6 @@ pub(super) async fn start(config: Config) -> Result<(), std::io::Error> {
                 &rpc_listen,
             )
             .await
-            .unwrap();
         }))
     } else {
         debug!("RPC disabled");
@@ -156,7 +166,7 @@ pub(super) async fn start(config: Config) -> Result<(), std::io::Error> {
     block_until_sigint().await;
 
     let keystore_write = task::spawn(async move {
-        keystore.read().await.flush()?;
+        keystore.read().await.flush().unwrap();
     });
 
     // Cancel all async services

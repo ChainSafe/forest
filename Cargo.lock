@@ -579,7 +579,7 @@ name = "auth"
 version = "0.1.0"
 dependencies = [
  "forest_crypto",
- "jsonrpc-v2 0.5.2",
+ "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
  "lazy_static",
@@ -2360,7 +2360,7 @@ dependencies = [
  "genesis",
  "hex",
  "ipld_blockstore",
- "jsonrpc-v2 0.7.0",
+ "jsonrpc-v2",
  "key_management",
  "libp2p",
  "log",
@@ -2866,7 +2866,6 @@ version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "632a8cd0f2a4b3fdea1657f08bde063848c3bd00f9bbf6e256b8be78802e624b"
 dependencies = [
- "futures 0.1.30",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -3648,44 +3647,15 @@ dependencies = [
 
 [[package]]
 name = "jsonrpc-v2"
-version = "0.5.2"
-source = "git+https://github.com/ChainSafe/jsonrpc-v2#d1d060576ede0bd76eee173545edbd8bfd698016"
+version = "0.7.0"
+source = "git+https://github.com/ChainSafe/jsonrpc-v2?branch=upstream-public#0aab3b2afdc26ff4c2ba2f22dca276a3a296da20"
 dependencies = [
  "async-trait",
  "bytes 0.5.6",
  "erased-serde",
  "extensions",
  "futures 0.3.12",
- "jsonrpc-v2-macros 0.1.0 (git+https://github.com/ChainSafe/jsonrpc-v2)",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "jsonrpc-v2"
-version = "0.7.0"
-dependencies = [
- "async-trait",
- "erased-serde",
- "extensions",
- "futures 0.3.12",
- "jsonrpc-v2-macros 0.1.0",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "jsonrpc-v2"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5882905d7011586f3492e02e71c326eba0e088b6592287eec68892f56386d6bb"
-dependencies = [
- "async-trait",
- "bytes 0.5.6",
- "erased-serde",
- "extensions",
- "futures 0.3.12",
- "jsonrpc-v2-macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "jsonrpc-v2-macros",
  "serde",
  "serde_json",
 ]
@@ -3693,27 +3663,7 @@ dependencies = [
 [[package]]
 name = "jsonrpc-v2-macros"
 version = "0.1.0"
-dependencies = [
- "proc-macro2 1.0.24",
- "quote 1.0.8",
- "syn 1.0.60",
-]
-
-[[package]]
-name = "jsonrpc-v2-macros"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ec45934a6e793e0c0e1f4fd1966f5b1c0d2184e0185d6b24e585b6cd1eb96ba"
-dependencies = [
- "proc-macro2 1.0.24",
- "quote 1.0.8",
- "syn 1.0.60",
-]
-
-[[package]]
-name = "jsonrpc-v2-macros"
-version = "0.1.0"
-source = "git+https://github.com/ChainSafe/jsonrpc-v2#d1d060576ede0bd76eee173545edbd8bfd698016"
+source = "git+https://github.com/ChainSafe/jsonrpc-v2?branch=upstream-public#0aab3b2afdc26ff4c2ba2f22dca276a3a296da20"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.8",
@@ -5839,7 +5789,7 @@ dependencies = [
  "interpreter",
  "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ipld_blockstore",
- "jsonrpc-v2 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
  "libp2p",
@@ -5870,7 +5820,7 @@ dependencies = [
  "forest_cid",
  "forest_crypto",
  "forest_message",
- "jsonrpc-v2 0.5.2",
+ "jsonrpc-v2",
  "jsonrpsee",
  "key_management",
  "log",

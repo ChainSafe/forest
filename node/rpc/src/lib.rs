@@ -76,7 +76,7 @@ type State<DB, KS, B> = Arc<RpcState<DB, KS, B>>;
 pub async fn start_rpc<DB, KS, B, V>(
     state: Arc<RpcState<DB, KS, B>>,
     rpc_endpoint: &str,
-) -> Result<(), std::io::Error>
+) -> Result<(), JSONRPCError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
