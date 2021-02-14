@@ -5,73 +5,32 @@ mod auth_api;
 mod beacon_api;
 mod chain_api;
 mod common_api;
+mod data_types;
 mod gas_api;
 mod mpool_api;
 mod net_api;
+mod rpc_http_server;
+mod rpc_util;
+mod rpc_ws_handler;
 mod state_api;
 mod sync_api;
 mod wallet_api;
 
-use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
-use ahash::AHashMap;
-use async_log::span;
-use async_std::channel::{Receiver, Sender};
-use async_std::sync::{Arc, RwLock};
-use async_std::task::{self};
-use auth::{has_perms, Error as AuthError, JWT_IDENTIFIER, WRITE_ACCESS};
-use beacon::{Beacon, BeaconSchedule};
-use blocks::Tipset;
+use async_std::sync::Arc;
+use log::info;
+
+use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
+use tide_websockets::WebSocket;
+
+use beacon::Beacon;
 use blockstore::BlockStore;
-use chain::ChainStore;
-use chain::{headchange_json::HeadChangeJson, HeadChange};
-use chain_sync::{BadBlockCache, SyncState};
 use fil_types::verifier::ProofVerifier;
-use forest_libp2p::NetworkMessage;
-use futures::stream::StreamExt;
-use jsonrpc_v2::{
-    Data, Error as JSONRPCError, Id, MapRouter, RequestObject, ResponseObject, ResponseObjects,
-    Server, V2,
-};
-use log::{debug, info, warn};
-use message_pool::{MessagePool, MpoolRpcProvider};
-use serde::Serialize;
-use state_manager::StateManager;
-use tide::Request;
-use tide_websockets::{Message, WebSocket, WebSocketConnection};
 use wallet::KeyStore;
 
-const CHAIN_NOTIFY_METHOD_NAME: &str = "Filecoin.ChainNotify";
-#[derive(Serialize)]
-struct StreamingData<'a> {
-    json_rpc: &'a str,
-    method: &'a str,
-    params: (usize, Vec<HeadChangeJson<'a>>),
-}
-
-/// This is where you store persistent data, or at least access to stateful data.
-pub struct RpcState<DB, KS, B>
-where
-    DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-{
-    pub keystore: Arc<RwLock<KS>>,
-    pub chain_store: Arc<ChainStore<DB>>,
-    pub state_manager: Arc<StateManager<DB>>,
-    pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    pub bad_blocks: Arc<BadBlockCache>,
-    pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
-    pub network_send: Sender<NetworkMessage>,
-    pub new_mined_block_tx: Sender<Arc<Tipset>>,
-    pub network_name: String,
-    pub beacon: Arc<BeaconSchedule<B>>,
-    // TODO in future, these should try to be removed, it currently isn't possible to handle
-    // streaming with the current RPC framework. Should be able to just use subscribed channel.
-    pub chain_notify_streams: AHashMap<usize, Receiver<HeadChange>>,
-    pub chain_notify_count: Arc<RwLock<usize>>,
-}
-
-type State<DB, KS, B> = Arc<RpcState<DB, KS, B>>;
+use crate::data_types::RpcState;
+use crate::rpc_http_server::RpcHttpServer;
+use crate::rpc_ws_handler::rpc_ws_handler;
+use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
 
 pub async fn start_rpc<DB, KS, B, V>(
     state: Arc<RpcState<DB, KS, B>>,
@@ -271,113 +230,38 @@ where
 
     let mut app = tide::with_state(Arc::clone(&state));
 
-    app.at("/rpc/v0").with(WebSocket::new(
-        |request: Request<State<DB, KS, B>>, mut ws_stream: WebSocketConnection| async move {
-            // let mut authorization_header: Arc<Option<String>> = Arc::new(None);
+    app.at("/rpc/v0")
+        .with(RpcHttpServer::new(rpc_server))
+        .with(WebSocket::new(rpc_ws_handler));
 
-            // if let Some(authorization) = request.header("Authorization") {
-            //     // not all methods require authorization
-            //     authorization_header = authorization
-            //         .as_str()
-            //         .map(|s| Some(s.to_string()))
-            //         .unwrap_or_default();
-            // }
-
-            let state = Arc::clone(&request.state());
-            let ks = Arc::clone(&state.keystore);
-            let cs = Arc::clone(&state.chain_store);
-            let chain_notify_count = Arc::clone(&state.chain_notify_count);
-
-            debug!("accepted websocket connection from {:?}", request.remote());
-
-            while let Some(message_result) = ws_stream.next().await {
-                match message_result {
-                    Ok(message) => {
-                        let request_text = message.into_text()?;
-
-                        if request_text.is_empty() {
-                            Ok(())
-                        } else {
-                            info!("RPC Request Received: {:?}", &request_text);
-
-                            match serde_json::from_str(&request_text)
-                                as Result<RequestObject, serde_json::Error>
-                            {
-                                Ok(call) => {
-                                    // hacky but due to the limitations of jsonrpc_v2 impl
-                                    // if this expands, better to implement some sort of middleware
-
-                                    let mut x = chain_notify_count.write().await;
-                                    *x += 1;
-                                    let chain_notify_count_curr = *x;
-                                    drop(x);
-
-                                    let mut head_changes = cs.sub_head_changes().await;
-
-                                    // TODO remove this manually constructed RPC response
-                                    #[derive(Serialize)]
-                                    struct SubscribeChannelIDResponse<'a> {
-                                        json_rpc: &'a str,
-                                        result: usize,
-                                        id: Id,
-                                    }
-
-                                    // First response should be the count serialized.
-                                    // This is based on internal golang channel rpc handling
-                                    // needed to match Lotus.
-                                    let response = SubscribeChannelIDResponse {
-                                        json_rpc: "2.0",
-                                        result: chain_notify_count_curr,
-                                        id: call.id.flatten().unwrap_or_default(),
-                                    };
-
-                                    ws_stream.send_json(&response).await?; // TODO: handle send error
-
-                                    while let Some(event) = head_changes.next().await {
-                                        let response = StreamingData {
-                                            json_rpc: "2.0",
-                                            method: "xrpc.ch.val",
-                                            params: (
-                                                chain_notify_count_curr,
-                                                vec![HeadChangeJson::from(&event)],
-                                            ),
-                                        };
-
-                                        ws_stream.send_json(&response).await?;
-                                    }
-
-                                    Ok(())
-                                }
-                                Err(e) => ws_stream.send_string(get_error(1, e.to_string())).await,
-                            }
-                        }
-                    }
-                    Err(e) => ws_stream.send_string(get_error(2, e.to_string())).await,
-                };
-            }
-
-            Ok(())
-        },
-    ));
+    info!("Ready for RPC connections");
 
     app.listen(rpc_endpoint).await?;
 
-    info!("waiting for web socket connections");
-    // while let Ok((stream, addr)) = listener.accept().await {
-    //     task::spawn(handle_connection_and_log(
-    //         rpc_state.clone(),
-    //         ks.clone(),
-    //         cs.clone(),
-    //         stream,
-    //         addr,
-    //         chain_notify_count.clone(),
-    //     ));
-    // }
-
-    info!("Stopped accepting websocket connections");
+    info!("Stopped accepting RPC connections");
 
     Ok(())
 }
+
+// async fn rpc_http_handler<DB, KS, B>(mut request: Request<State<DB, KS, B>>) -> tide::Result
+// where
+//     DB: BlockStore + Send + Sync + 'static,
+//     KS: KeyStore + Send + Sync + 'static,
+//     B: Beacon + Send + Sync + 'static,
+// {
+//     let (rpc_server, state) = Arc::clone(&request.state());
+//     // let ks = Arc::clone(&state.keystore);
+//     // let cs = Arc::clone(&state.chain_store);
+//     // let chain_notify_count = Arc::clone(&state.chain_notify_count);
+
+//     let response = rpc_server.handle(call).await;
+//     // if let Err(e) = send_response(ws_sender, response).await {
+//     //     let msg = e.message();
+//     //     // send_error(3, &ws_sender, msg).await;
+//     // }
+
+//     Ok(response)
+// }
 
 // async fn handle_rpc<KS: KeyStore>(
 //     ws_sender: &RwLock<WsSink>,
@@ -445,18 +329,3 @@ where
 //         id: Id,
 //     },
 // }
-
-fn get_error(code: i64, message: String) -> String {
-    match serde_json::to_string(&ResponseObject::Error {
-        jsonrpc: V2,
-        error: JSONRPCError::Full {
-            code,
-            message,
-            data: None,
-        },
-        id: Id::Null,
-    }) {
-        Ok(err_str) => err_str,
-        Err(err) => format!("Failed to serialize error data. Error was: {}", err),
-    }
-}

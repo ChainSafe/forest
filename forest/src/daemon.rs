@@ -150,7 +150,6 @@ pub(super) async fn start(config: Config) {
                     beacon,
                     chain_store,
                     new_mined_block_tx: worker_tx,
-                    chain_notify_streams: Default::default(),
                     chain_notify_count: Default::default(),
                 }),
                 &rpc_listen,
