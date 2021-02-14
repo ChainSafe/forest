@@ -6,6 +6,7 @@ use super::Store;
 pub use rocksdb::{Options, WriteBatch, DB};
 use std::path::Path;
 
+/// RocksDB instance this satisfies the [Store] interface.
 #[derive(Debug)]
 pub struct RocksDb {
     pub db: DB,

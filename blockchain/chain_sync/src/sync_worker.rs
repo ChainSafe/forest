@@ -11,7 +11,7 @@ use super::{
     bad_block_cache::BadBlockCache,
     sync::{compute_msg_meta, ChainSyncState},
 };
-use super::{Error, SyncNetworkContext};
+use super::{network_context::SyncNetworkContext, Error};
 use actor::{is_account_actor, power};
 use address::Address;
 use async_std::channel::Receiver;
@@ -404,7 +404,7 @@ where
 
     /// validates tipsets and adds header data to tipset tracker
     async fn validate_tipset(&self, fts: FullTipset) -> Result<(), Error> {
-        if &fts.to_tipset() == self.genesis.as_ref() {
+        if fts.key() == self.genesis.key() {
             debug!("Skipping tipset validation for genesis");
             return Ok(());
         }

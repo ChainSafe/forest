@@ -16,6 +16,7 @@ use crate::{
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
+use git_version::git_version;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{
     error::PublishError, Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, Topic,
@@ -45,9 +46,15 @@ use std::{collections::HashMap, convert::TryInto};
 use std::{task::Context, task::Poll};
 use tiny_cid::Cid as Cid2;
 
+lazy_static! {
+    static ref VERSION: &'static str = env!("CARGO_PKG_VERSION");
+    static ref CURRENT_COMMIT: &'static str = git_version!();
+}
+
+/// Libp2p behaviour for the Forest node. This handles all sub protocols needed for a Filecoin node.
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
-pub struct ForestBehaviour {
+pub(crate) struct ForestBehaviour {
     gossipsub: Gossipsub,
     discovery: DiscoveryBehaviour,
     ping: Ping,
@@ -82,8 +89,9 @@ struct RequestProcessingOutcome {
     response: ChainExchangeResponse,
 }
 
+/// Event type which is emitted from the [ForestBehaviour] into the libp2p service.
 #[derive(Debug)]
-pub enum ForestBehaviourEvent {
+pub(crate) enum ForestBehaviourEvent {
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
     GossipMessage {
@@ -434,9 +442,7 @@ impl ForestBehaviour {
             ping: Ping::default(),
             identify: Identify::new(
                 "ipfs/0.1.0".into(),
-                // TODO update to include actual version
-                // https://github.com/ChainSafe/forest/issues/934
-                format!("forest-{}", "0.1.0"),
+                format!("forest-{}-{}", *VERSION, *CURRENT_COMMIT),
                 local_key.public(),
             ),
             bitswap,
@@ -511,15 +517,6 @@ impl ForestBehaviour {
         let cid = cid.to_bytes();
         let cid = Cid2::try_from(cid)?;
         self.bitswap.want_block(cid, priority);
-        Ok(())
-    }
-
-    /// Cancel a bitswap request
-    pub fn cancel_block(&mut self, cid: &Cid) -> Result<(), Box<dyn Error>> {
-        debug!("cancel {}", cid.to_string());
-        let cid = cid.to_bytes();
-        let cid = Cid2::try_from(cid)?;
-        self.bitswap.cancel_block(&cid);
         Ok(())
     }
 }

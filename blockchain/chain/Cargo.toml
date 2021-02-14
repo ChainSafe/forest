@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-blocks = { package = "forest_blocks", path = "../blocks" }
+blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 db = { package = "forest_db", version = "0.1" }
 cid = { package = "forest_cid", version = "0.3" }
 clock = { package = "fil_clock", path = "../../node/clock" }

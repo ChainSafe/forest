@@ -29,9 +29,13 @@ const MULTIBASE_IDENTITY: u8 = 0;
 #[cfg(feature = "json")]
 pub mod json;
 
+/// Cbor [Cid] codec.
 pub const DAG_CBOR: u64 = 0x71;
+/// Sealed commitment [Cid] codec.
 pub const FIL_COMMITMENT_SEALED: u64 = 0xf102;
+/// Unsealed commitment [Cid] codec.
 pub const FIL_COMMITMENT_UNSEALED: u64 = 0xf101;
+/// Raw [Cid] codec. This represents data that is not encoded using any protocol.
 pub const RAW: u64 = 0x55;
 
 /// Constructs a cid with bytes using default version and codec
@@ -46,6 +50,9 @@ pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
     Cid::new(prefix.version, prefix.codec, hash)
 }
 
+/// Content identifier for any Ipld data. This Cid consists of a version, a codec (or serialization)
+/// protocol and a multihash (hash of the Ipld data). Cids allow for hash linking, where the Cids
+/// are used to resolve any arbitrary data over a network or from local storage.
 #[derive(PartialEq, Eq, Clone, Copy, Default, Hash, PartialOrd, Ord)]
 pub struct Cid(CidGeneric<multihash::U32>);
 

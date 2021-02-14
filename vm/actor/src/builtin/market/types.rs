@@ -11,6 +11,9 @@ use ipld_amt::Amt;
 use num_bigint::bigint_ser;
 use vm::{DealID, TokenAmount};
 
+pub const PROPOSALS_AMT_BITWIDTH: usize = 5;
+pub const STATES_AMT_BITWIDTH: usize = 6;
+
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct WithdrawBalanceParams {
     pub provider_or_client: Address,
@@ -40,11 +43,18 @@ pub struct PublishStorageDealsReturn {
     pub ids: Vec<DealID>,
 }
 
+// Changed since V2:
+// - Array of Sectors rather than just one
+// - Removed SectorStart
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct VerifyDealsForActivationParams {
-    pub deal_ids: Vec<DealID>,
+    pub sectors: Vec<SectorDeals>,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct SectorDeals {
     pub sector_expiry: ChainEpoch,
-    pub sector_start: ChainEpoch,
+    pub deal_ids: Vec<DealID>,
 }
 
 #[derive(Serialize_tuple)]
@@ -56,12 +66,16 @@ pub struct VerifyDealsForActivationParamsRef<'a> {
 
 #[derive(Serialize_tuple, Deserialize_tuple, Default)]
 pub struct VerifyDealsForActivationReturn {
+    pub sectors: Vec<SectorWeights>,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple, Default)]
+pub struct SectorWeights {
+    pub deal_space: u64,
     #[serde(with = "bigint_ser")]
     pub deal_weight: DealWeight,
     #[serde(with = "bigint_ser")]
     pub verified_deal_weight: DealWeight,
-    // * Added in v2
-    pub deal_space: u64,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]

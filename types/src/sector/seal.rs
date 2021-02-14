@@ -7,7 +7,10 @@ use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*};
 use vm::DealID;
 
+/// Randomness used for Seal proofs.
 pub type SealRandomness = Randomness;
+
+/// Randomness used when verifying a seal proof. This is just a seed value.
 pub type InteractiveSealRandomness = Randomness;
 
 /// Information needed to verify a seal proof.

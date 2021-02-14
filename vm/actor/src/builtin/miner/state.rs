@@ -84,7 +84,7 @@ pub struct State {
     /// Index of the deadline within the proving period beginning at ProvingPeriodStart that has not yet been
     /// finalized.
     /// Updated at the end of each deadline window by a cron callback.
-    pub current_deadline: u64,
+    pub current_deadline: usize,
 
     /// The sector numbers due for PoSt at each deadline in the current proving period, frozen at period start.
     /// New sectors are added and expired ones removed at proving period boundary.
@@ -102,7 +102,7 @@ impl State {
     pub fn new(
         info_cid: Cid,
         period_start: ChainEpoch,
-        current_deadline: u64,
+        current_deadline: usize,
         empty_bitfield_cid: Cid,
         empty_array_cid: Cid,
         empty_map_cid: Cid,
@@ -159,7 +159,7 @@ impl State {
     }
 
     /// Returns deadline calculations for the current (according to state) proving period.
-    pub fn quant_spec_for_deadline(&self, deadline_idx: u64) -> QuantSpec {
+    pub fn quant_spec_for_deadline(&self, deadline_idx: usize) -> QuantSpec {
         new_deadline_info(self.proving_period_start, deadline_idx, 0).quant_spec()
     }
 
@@ -364,7 +364,7 @@ impl State {
         for sector_num in sector_nos.iter() {
             sectors
                 .amt
-                .delete(sector_num as u64)
+                .delete(sector_num)
                 .map_err(|e| e.downcast_wrap("could not delete sector number"))?;
         }
 
@@ -389,7 +389,7 @@ impl State {
         &self,
         store: &BS,
         sector_number: SectorNumber,
-    ) -> Result<(u64, u64), Box<dyn StdError>> {
+    ) -> Result<(usize, usize), Box<dyn StdError>> {
         let deadlines = self.load_deadlines(store)?;
         deadlines.find_sector(store, sector_number)
     }
@@ -478,7 +478,7 @@ impl State {
                 continue;
             }
 
-            let quant = self.quant_spec_for_deadline(deadline_idx as u64);
+            let quant = self.quant_spec_for_deadline(deadline_idx);
             let deadline = deadline_vec[deadline_idx].as_mut().unwrap();
 
             let deadline_activated_power = deadline.add_sectors(
@@ -492,7 +492,7 @@ impl State {
 
             activated_power += &deadline_activated_power;
 
-            deadlines.update_deadline(store, deadline_idx as u64, deadline)?;
+            deadlines.update_deadline(store, deadline_idx, deadline)?;
         }
 
         self.save_deadlines(store, deadlines)?;
@@ -522,7 +522,7 @@ impl State {
 
         // Process early terminations.
         for i in self.early_terminations.iter() {
-            let deadline_idx = i as u64;
+            let deadline_idx = i;
 
             // Load deadline + partitions.
             let mut deadline = deadlines.load_deadline(store, deadline_idx)?;
@@ -571,8 +571,8 @@ impl State {
     pub fn check_sector_health<BS: BlockStore>(
         &self,
         store: &BS,
-        deadline_idx: u64,
-        partition_idx: u64,
+        deadline_idx: usize,
+        partition_idx: usize,
         sector_number: SectorNumber,
     ) -> Result<(), Box<dyn StdError>> {
         let deadlines = self.load_deadlines(store)?;
@@ -915,7 +915,7 @@ impl State {
             .map_err(|e| e.downcast_wrap("failed to load pre-commit sector queue"))?;
 
         // add entry for this sector to the queue
-        queue.add_to_queue_values(expire_epoch, &[sector_number])?;
+        queue.add_to_queue_values(expire_epoch, &[sector_number as usize])?;
         self.pre_committed_sectors_expiry = queue.amt.flush()?;
 
         Ok(())
@@ -995,14 +995,14 @@ impl State {
             });
         }
 
-        self.current_deadline = (self.current_deadline + 1) % WPOST_PERIOD_DEADLINES;
+        self.current_deadline = (self.current_deadline + 1) % WPOST_PERIOD_DEADLINES as usize;
         if self.current_deadline == 0 {
             self.proving_period_start += WPOST_PROVING_PERIOD;
         }
 
         let mut deadlines = self.load_deadlines(store)?;
 
-        let mut deadline = deadlines.load_deadline(store, dl_info.index)?;
+        let mut deadline = deadlines.load_deadline(store, dl_info.index as usize)?;
 
         let previously_faulty_power = deadline.faulty_power.clone();
 
@@ -1046,7 +1046,7 @@ impl State {
             self.early_terminations.set(dl_info.index as usize);
         }
 
-        deadlines.update_deadline(store, dl_info.index, &deadline)?;
+        deadlines.update_deadline(store, dl_info.index as usize, &deadline)?;
 
         self.save_deadlines(store, deadlines)?;
 

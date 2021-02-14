@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 /// Maps deadlines to partition maps.
 #[derive(Default)]
-pub struct DeadlineSectorMap(HashMap<u64, PartitionSectorMap>);
+pub struct DeadlineSectorMap(HashMap<usize, PartitionSectorMap>);
 
 impl DeadlineSectorMap {
     pub fn new() -> Self {
@@ -62,11 +62,11 @@ impl DeadlineSectorMap {
     /// Records the given sector bitfield at the given deadline/partition index.
     pub fn add(
         &mut self,
-        deadline_idx: u64,
-        partition_idx: u64,
+        deadline_idx: usize,
+        partition_idx: usize,
         sector_numbers: UnvalidatedBitField,
     ) -> Result<(), String> {
-        if deadline_idx >= WPOST_PERIOD_DEADLINES {
+        if deadline_idx >= WPOST_PERIOD_DEADLINES as usize {
             return Err(format!("invalid deadline {}", deadline_idx));
         }
 
@@ -79,8 +79,8 @@ impl DeadlineSectorMap {
     /// Records the given sectors at the given deadline/partition index.
     pub fn add_values(
         &mut self,
-        deadline_idx: u64,
-        partition_idx: u64,
+        deadline_idx: usize,
+        partition_idx: usize,
         sector_numbers: &[u64],
     ) -> Result<(), String> {
         self.add(
@@ -95,14 +95,14 @@ impl DeadlineSectorMap {
     }
 
     /// Returns a sorted vec of deadlines in the map.
-    pub fn deadlines(&self) -> Vec<u64> {
+    pub fn deadlines(&self) -> Vec<usize> {
         let mut deadlines: Vec<_> = self.0.keys().copied().collect();
         deadlines.sort_unstable();
         deadlines
     }
 
     /// Walks the deadlines in deadline order.
-    pub fn iter(&mut self) -> impl Iterator<Item = (u64, &mut PartitionSectorMap)> + '_ {
+    pub fn iter(&mut self) -> impl Iterator<Item = (usize, &mut PartitionSectorMap)> + '_ {
         let mut vec: Vec<_> = self.0.iter_mut().map(|(&i, x)| (i, x)).collect();
         vec.sort_unstable_by_key(|&(i, _)| i);
         vec.into_iter()
@@ -111,13 +111,13 @@ impl DeadlineSectorMap {
 
 /// Maps partitions to sector bitfields.
 #[derive(Default)]
-pub struct PartitionSectorMap(HashMap<u64, UnvalidatedBitField>);
+pub struct PartitionSectorMap(HashMap<usize, UnvalidatedBitField>);
 
 impl PartitionSectorMap {
     /// Records the given sectors at the given partition.
     pub fn add_values(
         &mut self,
-        partition_idx: u64,
+        partition_idx: usize,
         sector_numbers: Vec<u64>,
     ) -> Result<(), String> {
         self.add(
@@ -133,7 +133,7 @@ impl PartitionSectorMap {
     /// it with any existing bitfields if necessary.
     pub fn add(
         &mut self,
-        partition_idx: u64,
+        partition_idx: usize,
         mut sector_numbers: UnvalidatedBitField,
     ) -> Result<(), String> {
         match self.0.get_mut(&partition_idx) {
@@ -173,14 +173,14 @@ impl PartitionSectorMap {
     }
 
     /// Returns a sorted vec of partitions in the map.
-    pub fn partitions(&self) -> Vec<u64> {
+    pub fn partitions(&self) -> Vec<usize> {
         let mut partitions: Vec<_> = self.0.keys().copied().collect();
         partitions.sort_unstable();
         partitions
     }
 
     /// Walks the partitions in the map, in order of increasing index.
-    pub fn iter(&mut self) -> impl Iterator<Item = (u64, &mut UnvalidatedBitField)> + '_ {
+    pub fn iter(&mut self) -> impl Iterator<Item = (usize, &mut UnvalidatedBitField)> + '_ {
         let mut vec: Vec<_> = self.0.iter_mut().map(|(&i, x)| (i, x)).collect();
         vec.sort_unstable_by_key(|&(i, _)| i);
         vec.into_iter()

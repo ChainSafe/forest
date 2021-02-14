@@ -11,11 +11,11 @@ use interpreter::Rand;
 use std::error::Error;
 use std::sync::Arc;
 
-/// Allows for deriving the randomness from a particular tipset
+/// Allows for deriving the randomness from a particular tipset.
 #[derive(Clone)]
 pub struct ChainRand<DB> {
-    pub blks: TipsetKeys,
-    pub cs: Arc<ChainStore<DB>>,
+    blks: TipsetKeys,
+    cs: Arc<ChainStore<DB>>,
 }
 
 impl<DB> ChainRand<DB> {

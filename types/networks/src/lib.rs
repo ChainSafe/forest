@@ -8,7 +8,6 @@ use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::ChainEpoch;
 use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
-
 mod drand;
 
 #[cfg(not(any(feature = "interopnet")))]
@@ -21,8 +20,11 @@ mod interopnet;
 #[cfg(feature = "interopnet")]
 pub use self::interopnet::*;
 
+/// Defines the different hard fork parameters.
 struct Upgrade {
+    /// When the hard fork will happen
     height: ChainEpoch,
+    /// The version of the fork
     network: NetworkVersion,
 }
 
@@ -31,7 +33,7 @@ struct DrandPoint<'a> {
     pub config: &'a DrandConfig<'a>,
 }
 
-const VERSION_SCHEDULE: [Upgrade; 9] = [
+const VERSION_SCHEDULE: [Upgrade; 10] = [
     Upgrade {
         height: UPGRADE_BREEZE_HEIGHT,
         network: NetworkVersion::V1,
@@ -68,9 +70,13 @@ const VERSION_SCHEDULE: [Upgrade; 9] = [
         height: UPGRADE_ORANGE_HEIGHT,
         network: NetworkVersion::V9,
     },
+    Upgrade {
+        height: UPGRADE_ACTORS_V3_HEIGHT,
+        network: NetworkVersion::V10,
+    },
 ];
 
-/// Gets network version from epoch using default Mainnet schedule
+/// Gets network version from epoch using default Mainnet schedule.
 pub fn get_network_version_default(epoch: ChainEpoch) -> NetworkVersion {
     VERSION_SCHEDULE
         .iter()

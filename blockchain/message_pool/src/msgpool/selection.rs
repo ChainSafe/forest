@@ -255,10 +255,10 @@ mod test_selection {
         let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, types::DevnetParams::from_fil(1));
+            .set_state_balance_raw(&a1, types::DefaultNetworkParams::from_fil(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, types::DevnetParams::from_fil(1));
+            .set_state_balance_raw(&a2, types::DefaultNetworkParams::from_fil(1));
 
         // we create 10 messages from each actor to another, with the first actor paying higher
         // gas prices than the second; we expect message selection to order his messages first
@@ -404,10 +404,10 @@ mod test_selection {
         let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, types::DevnetParams::from_fil(1));
+            .set_state_balance_raw(&a1, types::DefaultNetworkParams::from_fil(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, types::DevnetParams::from_fil(1));
+            .set_state_balance_raw(&a2, types::DefaultNetworkParams::from_fil(1));
 
         let nmsgs = (types::BLOCK_GAS_LIMIT / gas_limit) + 1;
 
@@ -486,10 +486,10 @@ mod test_selection {
         let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, types::DevnetParams::from_fil(1));
+            .set_state_balance_raw(&a1, types::DefaultNetworkParams::from_fil(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, types::DevnetParams::from_fil(1));
+            .set_state_balance_raw(&a2, types::DefaultNetworkParams::from_fil(1));
 
         let nmsgs = 10;
 

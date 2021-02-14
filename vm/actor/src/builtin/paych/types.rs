@@ -42,7 +42,7 @@ pub struct SignedVoucher {
     /// (optional) Specified by `from` to add a verification method to the voucher
     pub extra: Option<ModVerifyParams>,
     /// Specifies which lane the Voucher merges into (will be created if does not exist)
-    pub lane: u64,
+    pub lane: usize,
     /// Set by `from` to prevent redemption of stale vouchers on a lane
     pub nonce: u64,
     /// Amount voucher can be redeemed for
@@ -69,7 +69,7 @@ impl SignedVoucher {
             #[serde(with = "serde_bytes")]
             pub secret_pre_image: &'a [u8],
             pub extra: &'a Option<ModVerifyParams>,
-            pub lane: u64,
+            pub lane: usize,
             pub nonce: u64,
             #[serde(with = "bigint_ser")]
             pub amount: &'a BigInt,

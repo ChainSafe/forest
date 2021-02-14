@@ -26,7 +26,7 @@ Our crates:
 | `vm` | State transition and actors, message and address definitions |
 
 ## Dependencies
-rustc >= 1.40.0
+rustc >= 1.46.0
 
 ## Usage
 ```bash

@@ -175,7 +175,9 @@ where
     pub fn new(store: &'db S, version: StateTreeVersion) -> Result<Self, Box<dyn StdError>> {
         let info = match version {
             StateTreeVersion::V0 => None,
-            StateTreeVersion::V1 => Some(store.put(&StateInfo0::default(), Blake2b256)?),
+            StateTreeVersion::V1 | StateTreeVersion::V2 => {
+                Some(store.put(&StateInfo0::default(), Blake2b256)?)
+            }
         };
 
         let hamt = Map::new(store, ActorVersion::from(version));
@@ -203,7 +205,7 @@ where
         };
 
         match version {
-            StateTreeVersion::V0 | StateTreeVersion::V1 => {
+            StateTreeVersion::V0 | StateTreeVersion::V1 | StateTreeVersion::V2 => {
                 let hamt = Map::load(&actors, store, version.into())?;
 
                 Ok(Self {
@@ -338,7 +340,7 @@ where
         Ok(())
     }
 
-    /// Merges last two snap shot layers
+    /// Merges last two snap shot layers.
     pub fn clear_snapshot(&mut self) -> Result<(), String> {
         self.snaps.merge_last_layer()
     }
@@ -382,7 +384,7 @@ where
                     actors: root,
                     info: self
                         .info
-                        .expect("malformed state tree, version 1 with no info"),
+                        .expect("malformed state tree, version 1 and version 2 require info"),
                 },
                 Blake2b256,
             )?)

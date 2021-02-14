@@ -6,9 +6,13 @@ use ipld_blockstore::{BSStats, BlockStore, TrackingBlockStore};
 use ipld_hamt::BytesKey;
 use ipld_hamt::Hamt;
 use serde_bytes::ByteBuf;
+use std::fmt::Display;
 
 #[cfg(feature = "identity")]
 use ipld_hamt::Identity;
+
+// Redeclaring max array size of Hamt to avoid exposing value
+const BUCKET_SIZE: usize = 3;
 
 #[test]
 fn test_basics() {
@@ -58,37 +62,106 @@ fn test_load() {
 }
 
 #[test]
+fn test_set_if_absent() {
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut hamt: Hamt<_, _> = Hamt::new(&store);
+    assert!(hamt
+        .set_if_absent(tstring("favorite-animal"), tstring("owl bear"))
+        .unwrap());
+
+    // Next two are negatively asserted, shouldn't change
+    assert!(!hamt
+        .set_if_absent(tstring("favorite-animal"), tstring("bright green bear"))
+        .unwrap());
+    assert!(!hamt
+        .set_if_absent(tstring("favorite-animal"), tstring("owl bear"))
+        .unwrap());
+
+    let c = hamt.flush().unwrap();
+
+    let mut h2 = Hamt::<_, BytesKey>::load(&c, &store).unwrap();
+    // Reloading should still have same effect
+    assert!(!h2
+        .set_if_absent(tstring("favorite-animal"), tstring("bright green bear"))
+        .unwrap());
+
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzaced2tgnlsq4n2ioe6ldy75fw3vlrrkyfv4bq6didbwoob2552zvpuk"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 1, w: 1, br: 63, bw: 63});
+}
+
+#[test]
+fn set_with_no_effect_does_not_put() {
+    let mem = db::MemoryDB::default();
+    let store = TrackingBlockStore::new(&mem);
+
+    let mut begn: Hamt<_, _> = Hamt::new_with_bit_width(&store, 1);
+    let entries = 2 * BUCKET_SIZE * 5;
+    for i in 0..entries {
+        begn.set(tstring(i), tstring("filler")).unwrap();
+    }
+
+    let c = begn.flush().unwrap();
+    assert_eq!(
+        c.to_string().as_str(),
+        "bafy2bzacebjilcrsqa4uyxuh36gllup4rlgnvwgeywdm5yqq2ks4jrsj756qq"
+    );
+
+    begn.set(tstring("favorite-animal"), tstring("bright green bear"))
+        .unwrap();
+    let c2 = begn.flush().unwrap();
+    assert_eq!(
+        c2.to_string().as_str(),
+        "bafy2bzacea7biyabzk7v7le2rrlec5tesjbdnymh5sk4lfprxibg4rtudwtku"
+    );
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r: 0, w: 18, br: 0, bw: 1282});
+
+    // This insert should not change value or affect reads or writes
+    begn.set(tstring("favorite-animal"), tstring("bright green bear"))
+        .unwrap();
+    let c3 = begn.flush().unwrap();
+    assert_eq!(
+        c3.to_string().as_str(),
+        "bafy2bzacea7biyabzk7v7le2rrlec5tesjbdnymh5sk4lfprxibg4rtudwtku"
+    );
+
+    #[rustfmt::skip]
+    assert_eq!(*store.stats.borrow(), BSStats {r:0, w:19, br:0, bw:1372});
+}
+
+#[test]
 fn delete() {
     let mem = db::MemoryDB::default();
     let store = TrackingBlockStore::new(&mem);
 
     let mut hamt: Hamt<_, _> = Hamt::new(&store);
-    let (v1, v2, v3): (&[u8], &[u8], &[u8]) = (
-        b"cat dog bear".as_ref(),
-        b"cat dog".as_ref(),
-        b"cat".as_ref(),
-    );
-    hamt.set(b"foo".to_vec().into(), ByteBuf::from(v1)).unwrap();
-    hamt.set(b"bar".to_vec().into(), ByteBuf::from(v2)).unwrap();
-    hamt.set(b"baz".to_vec().into(), ByteBuf::from(v3)).unwrap();
+    hamt.set(tstring("foo"), tstring("cat dog bear")).unwrap();
+    hamt.set(tstring("bar"), tstring("cat dog")).unwrap();
+    hamt.set(tstring("baz"), tstring("cat")).unwrap();
 
     let c = hamt.flush().unwrap();
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzacebhjoag2qmyibmvvzq372pg2evlkchovqdksmna4hm7py5itnrlhg"
+        "bafy2bzacebql36crv4odvxzstx2ubaczmawy2tlljxezvorcsoqeyyojxkrom"
     );
 
-    let mut h2 = Hamt::<_, ByteBuf>::load(&c, &store).unwrap();
+    let mut h2 = Hamt::<_, BytesKey>::load(&c, &store).unwrap();
     assert!(h2.delete(&b"foo".to_vec()).unwrap().is_some());
     assert_eq!(h2.get(&b"foo".to_vec()).unwrap(), None);
 
     let c2 = h2.flush().unwrap();
     assert_eq!(
         c2.to_string().as_str(),
-        "bafy2bzaceczehhtzfhg4ijrkv2omajt5ygwbd6srqhhtkxgd2hjttpihxs5ky"
+        "bafy2bzaced7up7wkm7cirieh5bs4iyula5inrprihmjzozmku3ywvekzzmlyi"
     );
     #[rustfmt::skip]
-    assert_eq!(*store.stats.borrow(), BSStats {r: 1, w: 2, br: 88, bw: 154});
+    assert_eq!(*store.stats.borrow(), BSStats {r:1, w:2, br:79, bw:139});
 }
 
 #[test]
@@ -104,7 +177,7 @@ fn delete_case() {
     let c = hamt.flush().unwrap();
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzacecngbbdw3ut45b3tnsan3fgxwlsnit25unejfmh4ihlhkxr2hutuo"
+        "bafy2bzaceb2hikcc6tfuuuuehjstbiq356oruwx6ejyse77zupq445unranv6"
     );
 
     let mut h2 = Hamt::<_, ByteBuf>::load(&c, &store).unwrap();
@@ -117,7 +190,7 @@ fn delete_case() {
         "bafy2bzaceamp42wmmgr2g2ymg46euououzfyck7szknvfacqscohrvaikwfay"
     );
     #[rustfmt::skip]
-    assert_eq!(*store.stats.borrow(), BSStats {r:1, w:2, br:34, bw:37});
+    assert_eq!(*store.stats.borrow(), BSStats {r: 1, w: 2, br: 31, bw: 34});
 }
 
 #[test]
@@ -145,67 +218,59 @@ fn set_delete_many() {
     let store = TrackingBlockStore::new(&mem);
 
     // Test vectors setup specifically for bit width of 5
-    let mut hamt: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
+    let mut hamt: Hamt<_, BytesKey> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 0..200 {
-        hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
+        hamt.set(tstring(i), tstring(i)).unwrap();
     }
 
     let c1 = hamt.flush().unwrap();
     assert_eq!(
         c1.to_string().as_str(),
-        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
+        "bafy2bzaceczhz54xmmz3xqnbmvxfbaty3qprr6dq7xh5vzwqbirlsnbd36z7a"
     );
 
     for i in 200..400 {
-        hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
+        hamt.set(tstring(i), tstring(i)).unwrap();
     }
 
     let cid_all = hamt.flush().unwrap();
     assert_eq!(
         cid_all.to_string().as_str(),
-        "bafy2bzaceaqmub32nf33s3joo6x2l3schxreuow7jkla7a27l7qcrsb2elzay"
+        "bafy2bzacecxcp736xkl2mcyjlors3tug6vdlbispbzxvb75xlrhthiw2xwxvw"
     );
 
     for i in 200..400 {
-        assert!(hamt
-            .delete(&format!("{}", i).into_bytes())
-            .unwrap()
-            .is_some());
+        assert!(hamt.delete(&tstring(i)).unwrap().is_some());
     }
     // Ensure first 200 keys still exist
     for i in 0..200 {
-        assert_eq!(hamt.get(&format!("{}", i).into_bytes()).unwrap(), Some(&i));
+        assert_eq!(hamt.get(&tstring(i)).unwrap(), Some(&tstring(i)));
     }
 
     let cid_d = hamt.flush().unwrap();
     assert_eq!(
         cid_d.to_string().as_str(),
-        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
+        "bafy2bzaceczhz54xmmz3xqnbmvxfbaty3qprr6dq7xh5vzwqbirlsnbd36z7a"
     );
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*store.stats.borrow(), BSStats { r: 0, w: 93, br: 0, bw: 12849 });
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*store.stats.borrow(), BSStats {r: 87, w: 119, br: 7671, bw: 14042});
+    assert_eq!(*store.stats.borrow(), BSStats {r: 0, w: 93, br: 0, bw: 11734});
 }
 #[test]
 fn for_each() {
     let mem = db::MemoryDB::default();
     let store = TrackingBlockStore::new(&mem);
 
-    let mut hamt: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
+    let mut hamt: Hamt<_, BytesKey> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 0..200 {
-        hamt.set(format!("{}", i).into_bytes().into(), i).unwrap();
+        hamt.set(tstring(i), tstring(i)).unwrap();
     }
 
     // Iterating through hamt with dirty caches.
     let mut count = 0;
     hamt.for_each(|k, v| {
-        assert_eq!(k.0, format!("{}", v).into_bytes());
+        assert_eq!(k, v);
         count += 1;
         Ok(())
     })
@@ -215,15 +280,15 @@ fn for_each() {
     let c = hamt.flush().unwrap();
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
+        "bafy2bzaceczhz54xmmz3xqnbmvxfbaty3qprr6dq7xh5vzwqbirlsnbd36z7a"
     );
 
-    let mut hamt: Hamt<_, i32> = Hamt::load_with_bit_width(&c, &store, 5).unwrap();
+    let mut hamt: Hamt<_, BytesKey> = Hamt::load_with_bit_width(&c, &store, 5).unwrap();
 
     // Iterating through hamt with no cache.
     let mut count = 0;
     hamt.for_each(|k, v| {
-        assert_eq!(k.0, format!("{}", v).into_bytes());
+        assert_eq!(k, v);
         count += 1;
         Ok(())
     })
@@ -233,7 +298,7 @@ fn for_each() {
     // Iterating through hamt with cached nodes.
     let mut count = 0;
     hamt.for_each(|k, v| {
-        assert_eq!(k.0, format!("{}", v).into_bytes());
+        assert_eq!(k, v);
         count += 1;
         Ok(())
     })
@@ -243,16 +308,11 @@ fn for_each() {
     let c = hamt.flush().unwrap();
     assert_eq!(
         c.to_string().as_str(),
-        "bafy2bzaceaneyzybb37pn4rtg2mvn2qxb43rhgmqoojgtz7avdfjw2lhz4dge"
+        "bafy2bzaceczhz54xmmz3xqnbmvxfbaty3qprr6dq7xh5vzwqbirlsnbd36z7a"
     );
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*store.stats.borrow(), BSStats { r: 30, w: 31, br: 3510, bw: 4914 });
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*store.stats.borrow(), BSStats {r: 59, w: 89, br: 4841, bw: 8351});
+    assert_eq!(*store.stats.borrow(), BSStats {r: 30, w: 31, br: 3209, bw: 4529});
 }
 
 #[cfg(feature = "identity")]
@@ -263,11 +323,11 @@ fn add_and_remove_keys(
     expected: &'static str,
     stats: BSStats,
 ) {
-    let all: Vec<(BytesKey, u8)> = keys
+    let all: Vec<(BytesKey, BytesKey)> = keys
         .iter()
         .enumerate()
         // Value doesn't matter for this test, only checking cids against previous
-        .map(|(i, k)| (k.to_vec().into(), i as u8))
+        .map(|(i, k)| (k.to_vec().into(), tstring(i)))
         .collect();
 
     let mem = db::MemoryDB::default();
@@ -276,7 +336,7 @@ fn add_and_remove_keys(
     let mut hamt: Hamt<_, _, _, Identity> = Hamt::new_with_bit_width(&store, bit_width);
 
     for (k, v) in all.iter() {
-        hamt.set(k.clone(), *v).unwrap();
+        hamt.set(k.clone(), v.clone()).unwrap();
     }
     let cid = hamt.flush().unwrap();
 
@@ -289,13 +349,13 @@ fn add_and_remove_keys(
 
     // Set and delete extra keys
     for k in extra_keys.iter() {
-        hamt.set(k.to_vec().into(), 0).unwrap();
+        hamt.set(k.to_vec().into(), tstring(0)).unwrap();
     }
     for k in extra_keys.iter() {
         hamt.delete(*k).unwrap();
     }
     let cid2 = hamt.flush().unwrap();
-    let mut h2: Hamt<_, u8, BytesKey, Identity> =
+    let mut h2: Hamt<_, BytesKey, BytesKey, Identity> =
         Hamt::load_with_bit_width(&cid2, &store, bit_width).unwrap();
 
     let cid1 = h1.flush().unwrap();
@@ -314,24 +374,17 @@ fn canonical_structure() {
         8,
         &[b"K"],
         &[b"B"],
-        "bafy2bzacecdihronbg6gyhpzhuiax3thpv5gxpunwczuanqym3r7wih3bkmb4",
-        BSStats {r: 2, w: 4, br: 42, bw: 84},
+        "bafy2bzacecosy45hp4sz2t4o4flxvntnwjy7yaq43bykci22xycpeuj542lse",
+        BSStats {r: 2, w: 4, br: 38, bw: 76},
     );
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    let stats = BSStats { r: 4, w: 6, br: 228, bw: 346 };
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    let stats = BSStats {r: 7, w: 10, br: 388, bw: 561};
-
     add_and_remove_keys(
         8,
         &[b"K0", b"K1", b"KAA1", b"KAA2", b"KAA3"],
         &[b"KAA4"],
-        "bafy2bzacedrktzj4o7iumailmdzl5gz3uqr4bw2o72qg4zv5q7qhezy4r32bc",
-        stats,
+        "bafy2bzaceaqdaj5aqkwugr7wx4to3fahynoqlxuo5j6xznly3khazgyxihkbo",
+        BSStats {r:3, w:6, br:163, bw:326},
     );
 }
 
@@ -339,38 +392,29 @@ fn canonical_structure() {
 #[cfg(feature = "identity")]
 fn canonical_structure_alt_bit_width() {
     let kb_cases = [
-        "bafy2bzacecnabvcxw7k5hgfcex5ig4jf3nabuxvl35edgnjk5ven2kg4n3ffm",
-        "bafy2bzacec2f6scvfmnyal5pzn43if6e2kls5jbm2jdab2xzuditctd5i3bbi",
-        "bafy2bzacedckymwjxmg35sllfegwrmnr7rxb3x7dh6muec2li2qhqjk5tf63q",
+        "bafy2bzacec3cquclaqkb32cntwtizgij55b7isb4s5hv5hv5ujbbeu6clxkug",
+        "bafy2bzacebj7b2jahw7nxmu6mlhkwzucjmfq7aqlj52jusqtufqtaxcma4pdm",
+        "bafy2bzacedrwwndijql6lmmtyicjwyehxtgey5fhzocc43hrzhetrz25v2k2y",
     ];
 
     let other_cases = [
-        "bafy2bzacedc7hh2tyz66m7n7ricyw2m7whsgoplyux3kbxczla7zuf25wi2og",
-        "bafy2bzacedeeqff3p7n3ogqxvqslb2yrbi4ojz44sp6mvjwyp6u6lktxdo2fg",
-        "bafy2bzaceckigpba3kck23qyuyb2i6vbiprtsmlr2rlyn3o4lmmcvzsh3l6wi",
+        "bafy2bzacedbiipe7l7gbtjandyyl6rqlkuqr2im2nl7d4bljidv5mta22rjqk",
+        "bafy2bzaceb3c76qlbsiv3baogpao3zah56eqonsowpkof33o5hmncfow4seso",
+        "bafy2bzacebhkyrwfexokaoygsx2crydq3fosiyfoa5bthphntmicsco2xf442",
     ];
 
     #[rustfmt::skip]
     let kb_stats = [
-        BSStats { r: 2, w: 4, br: 26, bw: 52 },
-        BSStats { r: 2, w: 4, br: 28, bw: 56 },
-        BSStats { r: 2, w: 4, br: 32, bw: 64 },
+        BSStats {r: 2, w: 4, br: 22, bw: 44},
+        BSStats {r: 2, w: 4, br: 24, bw: 48},
+        BSStats {r: 2, w: 4, br: 28, bw: 56},
     ];
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
     let other_stats = [
-        BSStats { r: 4, w: 6, br: 190, bw: 292 },
-        BSStats { r: 4, w: 6, br: 202, bw: 306 },
-        BSStats { r: 4, w: 6, br: 214, bw: 322 },
-    ];
-
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    let other_stats = [
-        BSStats {r: 9, w: 12, br: 420, bw: 566},
-        BSStats {r: 8, w: 11, br: 385, bw: 538},
-        BSStats {r: 8, w: 11, br: 419, bw: 580},
+        BSStats {r: 3, w: 6, br: 139, bw: 278},
+        BSStats {r: 3, w: 6, br: 146, bw: 292},
+        BSStats {r: 3, w: 6, br: 154, bw: 308},
     ];
 
     for i in 5..8 {
@@ -401,7 +445,7 @@ fn clean_child_ordering() {
         n.to_vec().into()
     };
 
-    let dummy_value = BytesKey(vec![0xaa, 0xbb, 0xcc, 0xdd]);
+    let dummy_value: u8 = 42;
 
     let mem = db::MemoryDB::default();
     let store = TrackingBlockStore::new(&mem);
@@ -415,25 +459,24 @@ fn clean_child_ordering() {
     let root = h.flush().unwrap();
     assert_eq!(
         root.to_string().as_str(),
-        "bafy2bzaced2mfx4zquihmrbqei2ghtbsf7bvupjzaiwkkgfmvpfrbud25gfli"
+        "bafy2bzacebqox3gtng4ytexyacr6zmaliyins3llnhbnfbcrqmhzuhmuuawqk"
     );
-    let mut h = Hamt::<_, BytesKey>::load_with_bit_width(&root, &store, 5).unwrap();
+    let mut h = Hamt::<_, u8>::load_with_bit_width(&root, &store, 5).unwrap();
 
     h.delete(&make_key(104)).unwrap();
     h.delete(&make_key(108)).unwrap();
     let root = h.flush().unwrap();
-    Hamt::<_, BytesKey>::load_with_bit_width(&root, &store, 5).unwrap();
+    Hamt::<_, u8>::load_with_bit_width(&root, &store, 5).unwrap();
 
     assert_eq!(
         root.to_string().as_str(),
-        "bafy2bzacec6ro3q36okye22evifu6h7kwdkjlb4keq6ogpfqivka6myk6wkjo"
+        "bafy2bzacedlyeuub3mo4aweqs7zyxrbldsq2u4a2taswubudgupglu2j4eru6"
     );
 
     #[rustfmt::skip]
-    #[cfg(not(feature = "go-interop"))]
-    assert_eq!(*store.stats.borrow(), BSStats { r: 3, w: 11, br: 1992, bw: 2510 });
+    assert_eq!(*store.stats.borrow(), BSStats {r: 3, w: 11, br: 1449, bw: 1751});
+}
 
-    #[rustfmt::skip]
-    #[cfg(feature = "go-interop")]
-    assert_eq!(*store.stats.borrow(), BSStats {r: 9, w: 17, br: 2327, bw: 2845});
+fn tstring(v: impl Display) -> BytesKey {
+    BytesKey(v.to_string().into_bytes())
 }

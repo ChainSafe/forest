@@ -333,16 +333,16 @@ impl Actor {
 #[inline]
 fn find_lane<'a, BS>(
     ls: &'a Amt<LaneState, BS>,
-    id: u64,
+    id: usize,
 ) -> Result<Option<&'a LaneState>, ActorError>
 where
     BS: BlockStore,
 {
-    if id > MAX_LANE as u64 {
+    if id > MAX_LANE as usize {
         return Err(actor_error!(ErrIllegalArgument; "maximum lane ID is 2^63-1"));
     }
 
-    ls.get(id).map_err(|e| {
+    ls.get(id as usize).map_err(|e| {
         e.downcast_default(
             ExitCode::ErrIllegalState,
             format!("failed to load lane {}", id),

@@ -5,15 +5,16 @@ use encoding::{de, from_slice, ser, serde_bytes, to_vec, Cbor, Error as Encoding
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
-/// Method number indicator for calling actor methods
+/// Method number indicator for calling actor methods.
 pub type MethodNum = u64;
 
-/// Base actor send method
+/// Base actor send method.
 pub const METHOD_SEND: MethodNum = 0;
-/// Base actor constructor method
+/// Base actor constructor method.
 pub const METHOD_CONSTRUCTOR: MethodNum = 1;
 
-/// Serialized bytes to be used as parameters into actor methods
+/// Serialized bytes to be used as parameters into actor methods.
+/// This data is (de)serialized as a byte string.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Hash, Eq, Default)]
 #[serde(transparent)]
 pub struct Serialized {
@@ -36,19 +37,19 @@ impl Serialized {
         Self { bytes }
     }
 
-    /// Contructor for encoding Cbor encodable structure
+    /// Contructor for encoding Cbor encodable structure.
     pub fn serialize<O: ser::Serialize>(obj: O) -> Result<Self, EncodingError> {
         Ok(Self {
             bytes: to_vec(&obj)?,
         })
     }
 
-    /// Returns serialized bytes
+    /// Returns serialized bytes.
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
 
-    /// Deserializes into a defined type
+    /// Deserializes the serialized bytes into a defined type.
     pub fn deserialize<O: de::DeserializeOwned>(&self) -> Result<O, EncodingError> {
         Ok(from_slice(&self.bytes)?)
     }

@@ -1,7 +1,7 @@
 [package]
 name = "ipld_hamt"
 description = "Sharded IPLD HashMap implementation."
-version = "1.0.0"
+version = "2.0.0"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -23,7 +23,6 @@ forest_hash_utils = "0.1"
 
 [features]
 identity = []
-go-interop = []
 # This feature should just be used for testing (ignoring links that don't exist in store)
 ignore-dead-links = []
 
