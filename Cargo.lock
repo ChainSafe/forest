@@ -2454,7 +2454,7 @@ dependencies = [
 name = "forest_actor"
 version = "2.0.0"
 dependencies = [
- "ahash 0.6.2",
+ "ahash 0.6.3",
  "base64 0.13.0",
  "byteorder 1.4.2",
  "commcid",
@@ -3084,7 +3084,7 @@ dependencies = [
  "proc-macro-hack",
  "proc-macro2 1.0.24",
  "quote 1.0.8",
- "syn 1.0.58",
+ "syn 1.0.60",
 ]
 
 [[package]]
