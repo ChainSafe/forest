@@ -5831,6 +5831,7 @@ dependencies = [
  "bls-signatures",
  "chain",
  "chain_sync",
+ "crossbeam 0.8.0",
  "fil_clock",
  "fil_types",
  "forest_address",

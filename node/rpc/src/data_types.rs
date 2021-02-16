@@ -6,6 +6,7 @@ use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use chain::ChainStore;
 use chain_sync::{BadBlockCache, SyncState};
+use crossbeam::atomic::AtomicCell;
 use forest_libp2p::NetworkMessage;
 use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::Serialize;
@@ -40,7 +41,7 @@ where
     pub beacon: Arc<BeaconSchedule<B>>,
     // TODO in future, these should try to be removed, it currently isn't possible to handle
     // streaming with the current RPC framework. Should be able to just use subscribed channel.
-    pub chain_notify_count: Arc<RwLock<usize>>,
+    pub chain_notify_count: Arc<AtomicCell<usize>>,
 }
 
 pub type State<DB, KS, B> = Arc<RpcState<DB, KS, B>>;

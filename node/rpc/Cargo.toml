@@ -59,6 +59,7 @@ networks = { path = "../../types/networks" }
 ahash = "0.6"
 tide = "0.16.0"
 tide-websockets = "0.2.0"
+crossbeam = "0.8.0"
 
 [dependencies.jsonrpc-v2]
 version = "0.8.0"

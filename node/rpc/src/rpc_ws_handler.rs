@@ -41,12 +41,7 @@ where
                         as Result<JsonRpcRequestObject, serde_json::Error>
                     {
                         Ok(call) => {
-                            // hacky but due to the limitations of jsonrpc_v2 impl
-                            // if this expands, better to implement some sort of middleware
-                            let mut x = chain_notify_count.write().await;
-                            *x += 1;
-                            let chain_notify_count_curr = *x;
-                            drop(x);
+                            let chain_notify_count_curr = chain_notify_count.fetch_add(1usize);
 
                             let mut head_changes = cs.sub_head_changes().await;
 
@@ -63,7 +58,7 @@ where
                             // needed to match Lotus.
                             let response = SubscribeChannelIDResponse {
                                 json_rpc: "2.0",
-                                result: chain_notify_count_curr,
+                                result: chain_notify_count.load(),
                                 id: call.id.flatten().unwrap_or(Id::Null),
                             };
 
@@ -74,7 +69,7 @@ where
                                     json_rpc: "2.0",
                                     method: "xrpc.ch.val",
                                     params: (
-                                        chain_notify_count_curr,
+                                        chain_notify_count.load(),
                                         vec![HeadChangeJson::from(&event)],
                                     ),
                                 };
