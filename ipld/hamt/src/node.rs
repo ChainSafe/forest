@@ -7,7 +7,7 @@ use super::pointer::Pointer;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Code::Blake2b256;
 use ipld_blockstore::BlockStore;
-use lazycell::LazyCell;
+use once_cell::unsync::OnceCell;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
@@ -82,9 +82,21 @@ where
         value: V,
         store: &S,
         bit_width: u32,
-    ) -> Result<(), Error> {
+        overwrite: bool,
+    ) -> Result<(Option<V>, bool), Error>
+    where
+        V: PartialEq,
+    {
         let hash = H::hash(&key);
-        self.modify_value(&mut HashBits::new(&hash), bit_width, 0, key, value, store)
+        self.modify_value(
+            &mut HashBits::new(&hash),
+            bit_width,
+            0,
+            key,
+            value,
+            store,
+            overwrite,
+        )
     }
 
     #[inline]
@@ -129,7 +141,7 @@ where
         for p in &self.pointers {
             match p {
                 Pointer::Link { cid, cache } => {
-                    if let Some(cached_node) = cache.borrow() {
+                    if let Some(cached_node) = cache.get() {
                         cached_node.for_each(store, f)?
                     } else {
                         let node = if let Some(node) = store.get(cid)? {
@@ -143,8 +155,7 @@ where
                         };
 
                         // Ignore error intentionally, the cache value will always be the same
-                        let _ = cache.fill(node);
-                        let cache_node = cache.borrow().expect("cache filled on line above");
+                        let cache_node = cache.get_or_init(|| node);
                         cache_node.for_each(store, f)?
                     }
                 }
@@ -196,7 +207,7 @@ where
         let child = self.get_child(cindex);
         match child {
             Pointer::Link { cid, cache } => {
-                if let Some(cached_node) = cache.borrow() {
+                if let Some(cached_node) = cache.get() {
                     // Link node is cached
                     cached_node.get_value(hashed_key, bit_width, depth + 1, key, store)
                 } else {
@@ -204,15 +215,14 @@ where
                         node
                     } else {
                         #[cfg(not(feature = "ignore-dead-links"))]
-                        return Err(Error::CidNotFound(cid.to_string()).into());
+                        return Err(Error::CidNotFound(cid.to_string()));
 
                         #[cfg(feature = "ignore-dead-links")]
                         return Ok(None);
                     };
 
                     // Intentionally ignoring error, cache will always be the same.
-                    let _ = cache.fill(node);
-                    let cache_node = cache.borrow().expect("cache filled on line above");
+                    let cache_node = cache.get_or_init(|| node);
                     cache_node.get_value(hashed_key, bit_width, depth + 1, key, store)
                 }
             }
@@ -222,6 +232,7 @@ where
     }
 
     /// Internal method to modify values.
+    #[allow(clippy::too_many_arguments)]
     fn modify_value<S: BlockStore>(
         &mut self,
         hashed_key: &mut HashBits,
@@ -230,13 +241,17 @@ where
         key: K,
         value: V,
         store: &S,
-    ) -> Result<(), Error> {
+        overwrite: bool,
+    ) -> Result<(Option<V>, bool), Error>
+    where
+        V: PartialEq,
+    {
         let idx = hashed_key.next(bit_width)?;
 
         // No existing values at this point.
         if !self.bitfield.test_bit(idx) {
             self.insert_child(idx, key, value);
-            return Ok(());
+            return Ok((None, true));
         }
 
         let cindex = self.index_for_bit_pos(idx);
@@ -244,34 +259,70 @@ where
 
         match child {
             Pointer::Link { cid, cache } => {
-                let cached_node = std::mem::take(cache);
-                let mut child_node = if let Some(sn) = cached_node.into_inner() {
-                    sn
-                } else {
+                cache.get_or_try_init(|| {
                     store
                         .get(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
-                };
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))
+                })?;
+                let child_node = cache.get_mut().expect("filled line above");
 
-                child_node.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
-                *child = Pointer::Dirty(child_node);
-                Ok(())
+                let (old, modified) = child_node.modify_value(
+                    hashed_key,
+                    bit_width,
+                    depth + 1,
+                    key,
+                    value,
+                    store,
+                    overwrite,
+                )?;
+                if modified {
+                    *child = Pointer::Dirty(std::mem::take(child_node));
+                }
+                Ok((old, modified))
             }
-            Pointer::Dirty(n) => {
-                Ok(n.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?)
-            }
+            Pointer::Dirty(n) => Ok(n.modify_value(
+                hashed_key,
+                bit_width,
+                depth + 1,
+                key,
+                value,
+                store,
+                overwrite,
+            )?),
             Pointer::Values(vals) => {
                 // Update, if the key already exists.
                 if let Some(i) = vals.iter().position(|p| p.key() == &key) {
-                    vals[i].1 = value;
-                    return Ok(());
+                    if overwrite {
+                        // If value changed, the parent nodes need to be marked as dirty.
+                        // ! The assumption here is that `PartialEq` is implemented correctly,
+                        // ! and that if that is true, the serialized bytes are equal.
+                        // ! To be absolutely sure, can serialize each value and compare or
+                        // ! refactor the Hamt to not be type safe and serialize on entry and
+                        // ! exit. These both come at costs, and this isn't a concern.
+                        let value_changed = vals[i].value() != &value;
+                        return Ok((
+                            Some(std::mem::replace(&mut vals[i].1, value)),
+                            value_changed,
+                        ));
+                    } else {
+                        // Can't overwrite, return None and false that the Node was not modified.
+                        return Ok((None, false));
+                    }
                 }
 
                 // If the array is full, create a subshard and insert everything
                 if vals.len() >= MAX_ARRAY_WIDTH {
                     let mut sub = Node::<K, V, H>::default();
                     let consumed = hashed_key.consumed;
-                    sub.modify_value(hashed_key, bit_width, depth + 1, key, value, store)?;
+                    let modified = sub.modify_value(
+                        hashed_key,
+                        bit_width,
+                        depth + 1,
+                        key,
+                        value,
+                        store,
+                        overwrite,
+                    )?;
                     let kvs = std::mem::take(vals);
                     for p in kvs.into_iter() {
                         let hash = H::hash(p.key());
@@ -282,23 +333,13 @@ where
                             p.0,
                             p.1,
                             store,
+                            overwrite,
                         )?;
                     }
 
-                    #[cfg(feature = "go-interop")]
-                    {
-                        sub.flush(store)?;
-                        let cid = store.put(&sub, Blake2b256)?;
-                        *child = Pointer::Link {
-                            cid,
-                            cache: Default::default(),
-                        };
-                    }
-                    #[cfg(not(feature = "go-interop"))]
-                    {
-                        *child = Pointer::Dirty(Box::new(sub));
-                    }
-                    return Ok(());
+                    *child = Pointer::Dirty(Box::new(sub));
+
+                    return Ok(modified);
                 }
 
                 // Otherwise insert the element into the array in order.
@@ -308,7 +349,7 @@ where
                 let np = KeyValuePair::new(key, value);
                 vals.insert(idx, np);
 
-                Ok(())
+                Ok((None, true))
             }
         }
     }
@@ -338,17 +379,17 @@ where
 
         match child {
             Pointer::Link { cid, cache } => {
-                let cached_node = std::mem::take(cache);
-                let mut child_node = if let Some(sn) = cached_node.into_inner() {
-                    sn
-                } else {
+                cache.get_or_try_init(|| {
                     store
                         .get(cid)?
-                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
-                };
+                        .ok_or_else(|| Error::CidNotFound(cid.to_string()))
+                })?;
+                let child_node = cache.get_mut().expect("filled line above");
 
                 let deleted = child_node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
-                *child = Pointer::Dirty(child_node);
+                if deleted.is_some() {
+                    *child = Pointer::Dirty(std::mem::take(child_node));
+                }
 
                 // Clean to retrieve canonical form
                 child.clean()?;
@@ -393,28 +434,11 @@ where
                 // Put node in blockstore and retrieve Cid
                 let cid = store.put(node, Blake2b256)?;
 
-                let cache = LazyCell::new();
-
-                #[cfg(not(feature = "go-interop"))]
-                {
-                    // Can keep the flushed node in link cache
-                    let node = std::mem::take(node);
-                    let _ = cache.fill(node);
-                }
+                // Can keep the flushed node in link cache
+                let cache = OnceCell::from(std::mem::take(node));
 
                 // Replace cached node with Cid link
                 *pointer = Pointer::Link { cid, cache };
-            }
-
-            #[cfg(feature = "go-interop")]
-            if let Pointer::Link { cache, .. } = pointer {
-                let cached = std::mem::take(cache);
-                if let Some(mut cached_node) = cached.into_inner() {
-                    // go implementation flushes all caches, even if the node is a link node.
-                    // Why do they do this? not sure
-                    cached_node.flush(store)?;
-                    store.put(&cached_node, Blake2b256)?;
-                }
             }
         }
 

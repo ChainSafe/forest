@@ -3,6 +3,7 @@
 
 use num_bigint::{BigInt, Sign};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 /// Wrapper for serializing big ints to match filecoin spec. Serializes as bytes.
 #[derive(Serialize)]
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 pub struct BigIntSer<'a>(#[serde(with = "self")] pub &'a BigInt);
 
 /// Wrapper for deserializing as BigInt from bytes.
-#[derive(Deserialize, Serialize, Clone, Default)]
+#[derive(Deserialize, Serialize, Clone, Default, PartialEq)]
 #[serde(transparent)]
 pub struct BigIntDe(#[serde(with = "self")] pub BigInt);
 
@@ -37,7 +38,7 @@ pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let bz: &[u8] = serde_bytes::Deserialize::deserialize(deserializer)?;
+    let bz: Cow<'de, [u8]> = serde_bytes::Deserialize::deserialize(deserializer)?;
     if bz.is_empty() {
         return Ok(BigInt::default());
     }

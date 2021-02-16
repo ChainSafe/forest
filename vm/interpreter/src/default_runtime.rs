@@ -7,7 +7,7 @@ use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
     account, actorv0,
     actorv2::{self, ActorDowncast},
-    ActorVersion,
+    actorv3, ActorVersion,
 };
 use address::{Address, Protocol};
 use blocks::BlockHeader;
@@ -15,11 +15,13 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
-use fil_types::{verifier::ProofVerifier, DevnetParams, NetworkParams, NetworkVersion, Randomness};
+use fil_types::{
+    verifier::ProofVerifier, DefaultNetworkParams, NetworkParams, NetworkVersion, Randomness,
+};
 use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use forest_encoding::{blake2b_256, to_vec, Cbor};
 use ipld_blockstore::BlockStore;
-use log::warn;
+use log::debug;
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -75,7 +77,7 @@ impl MessageInfo for VMMsg {
 }
 
 /// Implementation of the Runtime trait.
-pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DevnetParams> {
+pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DefaultNetworkParams> {
     version: NetworkVersion,
     state: &'vm mut StateTree<'db, BS>,
     store: GasBlockStore<'db, BS>,
@@ -182,13 +184,13 @@ where
         })
     }
 
-    /// Adds to amount of used
+    /// Adds to amount of used.
     /// * Will borrow gas tracker RefCell, do not call if any reference to this exists
     pub fn charge_gas(&mut self, gas: GasCharge) -> Result<(), ActorError> {
         self.gas_tracker.borrow_mut().charge_gas(gas)
     }
 
-    /// Returns gas used by runtime
+    /// Returns gas used by runtime.
     /// * Will borrow gas tracker RefCell, do not call if a mutable reference exists
     pub fn gas_used(&self) -> i64 {
         self.gas_tracker.borrow().gas_used()
@@ -198,12 +200,12 @@ where
         self.gas_tracker.borrow().gas_available()
     }
 
-    /// Returns the price list for gas charges within the runtime
+    /// Returns the price list for gas charges within the runtime.
     pub fn price_list(&self) -> &PriceList {
         &self.price_list
     }
 
-    /// Get the balance of a particular Actor from their Address
+    /// Get the balance of a particular Actor from their Address.
     fn get_balance(&self, addr: &Address) -> Result<BigInt, ActorError> {
         Ok(self
             .state
@@ -213,7 +215,7 @@ where
             .unwrap_or_default())
     }
 
-    /// Update the state Cid of the Message receiver
+    /// Update the state Cid of the Message receiver.
     fn state_commit(&mut self, old_h: &Cid, new_h: Cid) -> Result<(), ActorError> {
         let to_addr = *self.message().receiver();
         let mut actor = self
@@ -273,18 +275,11 @@ where
         value: TokenAmount,
         params: Serialized,
     ) -> Result<Serialized, ActorError> {
-        // ID must be resolved because otherwise would be done in creation of new runtime.
-        // TODO revisit this later, it's possible there are no code paths this is needed.
-        let from_id = self.resolve_address(&from)?.ok_or_else(|| {
-            actor_error!(SysErrInvalidReceiver;
-            "resolving from address in internal send failed")
-        })?;
-
         let msg = UnsignedMessage {
             from,
             to,
             method_num: method,
-            value: value.clone(),
+            value,
             params,
             gas_limit: self.gas_available(),
             version: Default::default(),
@@ -298,31 +293,7 @@ where
             .snapshot()
             .map_err(|e| actor_error!(fatal("failed to create snapshot: {}", e)))?;
 
-        // Since it is unsafe to share a mutable reference to the state tree by copying
-        // the runtime, all variables must be copied and reset at the end of the transition.
-        let prev_val = self.caller_validated;
-        let prev_depth = self.depth;
-        let prev_msg = self.vm_msg.clone();
-        self.vm_msg = VMMsg {
-            caller: from_id,
-            receiver: to,
-            value_received: value,
-        };
-        self.caller_validated = false;
-        self.depth += 1;
-        if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
-            return Err(actor_error!(
-                SysErrForbidden,
-                "message execution exceeds call depth"
-            ));
-        }
-
-        let send_res = vm_send::<BS, R, C, LB, V, P>(self, &msg, None);
-
-        // Reset values back to their values before the call
-        self.vm_msg = prev_msg;
-        self.caller_validated = prev_val;
-        self.depth = prev_depth;
+        let send_res = self.send(&msg, None);
 
         let ret = send_res.map_err(|e| {
             if let Err(e) = self.state.revert_to_snapshot() {
@@ -335,7 +306,150 @@ where
             actor_error!(fatal("failed to clear snapshot: {}", e));
         }
 
-        Ok(ret?)
+        ret
+    }
+
+    /// Shared logic between the DefaultRuntime and the Interpreter.
+    /// It invokes methods on different Actors based on the Message.
+    /// This function is somewhat equivalent to the go implementation's vm send.
+    pub fn send(
+        &mut self,
+        msg: &UnsignedMessage,
+        gas_cost: Option<GasCharge>,
+    ) -> Result<Serialized, ActorError> {
+        // Since it is unsafe to share a mutable reference to the state tree by copying
+        // the runtime, all variables must be copied and reset at the end of the transition.
+        // This logic is the equivalent to the go implementation creating a new runtime with
+        // shared values.
+        // All other fields will be updated from the execution.
+        let prev_val = self.caller_validated;
+        let prev_depth = self.depth;
+        let prev_msg = self.vm_msg.clone();
+
+        let res = self.execute_send(msg, gas_cost);
+
+        // Reset values back to their values before the call
+        self.vm_msg = prev_msg;
+        self.caller_validated = prev_val;
+        self.depth = prev_depth;
+
+        res
+    }
+
+    /// Helper function to handle all of the execution logic folded into single result.
+    /// This is necessary to follow to follow the same control flow of the go implementation
+    /// cleanly without doing anything memory unsafe.
+    fn execute_send(
+        &mut self,
+        msg: &UnsignedMessage,
+        gas_cost: Option<GasCharge>,
+    ) -> Result<Serialized, ActorError> {
+        // * Following logic would be called in the go runtime initialization.
+        // * Since We reuse the runtime, all of these things need to happen on each call
+        self.caller_validated = false;
+        self.depth += 1;
+        if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
+            return Err(actor_error!(
+                SysErrForbidden,
+                "message execution exceeds call depth"
+            ));
+        }
+
+        let caller = self.resolve_address(msg.from())?.ok_or_else(|| {
+            actor_error!(
+                SysErrInvalidReceiver,
+                "resolving from address in internal send failed"
+            )
+        })?;
+
+        let receiver = if self.network_version() <= NetworkVersion::V3 {
+            msg.to
+        } else if let Some(resolved) = self.resolve_address(msg.to())? {
+            resolved
+        } else {
+            msg.to
+        };
+
+        self.vm_msg = VMMsg {
+            caller,
+            receiver,
+            value_received: msg.value().clone(),
+        };
+
+        // * End of logic that is performed on go runtime initialization
+
+        if let Some(cost) = gas_cost {
+            self.charge_gas(cost)?;
+        }
+
+        let to_actor = match self
+            .state
+            .get_actor(msg.to())
+            .map_err(|e| e.downcast_fatal("failed to get actor"))?
+        {
+            Some(act) => act,
+            None => {
+                // Try to create actor if not exist
+                let (to_actor, id_addr) = self.try_create_account_actor(msg.to())?;
+                if self.network_version() > NetworkVersion::V3 {
+                    // Update the receiver to the created ID address
+                    self.vm_msg.receiver = id_addr;
+                }
+                to_actor
+            }
+        };
+
+        self.charge_gas(
+            self.price_list()
+                .on_method_invocation(msg.value(), msg.method_num()),
+        )?;
+
+        if !msg.value().is_zero() {
+            transfer(self.state, &msg.from(), &msg.to(), &msg.value())
+                .map_err(|e| e.wrap("failed to transfer funds"))?;
+        }
+
+        if msg.method_num() != METHOD_SEND {
+            self.charge_gas(ACTOR_EXEC_GAS)?;
+            return self.invoke(to_actor.code, msg.method_num(), msg.params(), msg.to());
+        }
+
+        Ok(Serialized::default())
+    }
+
+    /// Calls actor code with method and parameters.
+    fn invoke(
+        &mut self,
+        code: Cid,
+        method_num: MethodNum,
+        params: &Serialized,
+        to: &Address,
+    ) -> Result<Serialized, ActorError> {
+        let ret = if let Some(ret) = {
+            match actor::ActorVersion::from(self.network_version()) {
+                ActorVersion::V0 => actorv0::invoke_code(&code, self, method_num, params),
+                ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
+                ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
+            }
+        } {
+            ret
+        } else if code == *actorv2::CHAOS_ACTOR_CODE_ID && self.registered_actors.contains(&code) {
+            actorv2::chaos::Actor::invoke_method(self, method_num, params)
+        } else {
+            Err(actor_error!(
+                SysErrIllegalActor,
+                "no code for actor at address {}",
+                to
+            ))
+        }?;
+
+        if !self.caller_validated {
+            Err(
+                actor_error!(SysErrIllegalActor; "Caller must be validated during method execution"),
+            )
+        } else {
+            Ok(ret)
+        }
     }
 
     /// creates account actors from only BLS/SECP256K1 addresses.
@@ -383,17 +497,13 @@ where
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> Result<(), Box<dyn StdError>> {
-        let worker_addr = self.worker_key_at_lookback(bh.epoch(), bh.miner_address())?;
+        let worker_addr = self.worker_key_at_lookback(bh.epoch())?;
 
         bh.check_block_signature(&worker_addr)?;
         Ok(())
     }
 
-    fn worker_key_at_lookback(
-        &self,
-        height: ChainEpoch,
-        address: &Address,
-    ) -> Result<Address, Box<dyn StdError>> {
+    fn worker_key_at_lookback(&self, height: ChainEpoch) -> Result<Address, Box<dyn StdError>> {
         if self.network_version() >= NetworkVersion::V7
             && height < self.epoch - actor::CHAIN_FINALITY
         {
@@ -408,7 +518,7 @@ where
         let actor = lb_state
             // * @austinabell: Yes, this is intentional (should be updated with v3 actors though)
             .get_actor(self.vm_msg.receiver())?
-            .ok_or_else(|| format!("actor not found {:?}", address))?;
+            .ok_or_else(|| format!("actor not found {:?}", self.vm_msg.receiver()))?;
 
         let ms = actor::miner::State::load(self.store(), &actor)?;
 
@@ -539,7 +649,6 @@ where
                 || actor_error!(SysErrIllegalArgument; "Actor readonly state does not exist"),
             )?;
 
-        // TODO revisit as the go impl doesn't handle not exists and nil cases
         self.get(&actor.state)?.ok_or_else(|| {
             actor_error!(fatal(
                 "State does not exist for actor state cid: {}",
@@ -606,7 +715,7 @@ where
         let ret = self
             .internal_send(*self.message().receiver(), to, method, value, params)
             .map_err(|e| {
-                warn!(
+                debug!(
                     "internal send failed: (to: {}) (method: {}) {}",
                     to, method, e
                 );
@@ -793,6 +902,10 @@ where
         let bh_1 = BlockHeader::unmarshal_cbor(h1)?;
         let bh_2 = BlockHeader::unmarshal_cbor(h2)?;
 
+        if bh_1.cid() == bh_2.cid() {
+            return Err("no consensus fault: submitted blocks are the same".into());
+        }
+
         // (1) check conditions necessary to any consensus fault
 
         if bh_1.miner_address() != bh_2.miner_address() {
@@ -804,7 +917,7 @@ where
             .into());
         };
         // block a must be earlier or equal to block b, epoch wise (ie at least as early in the chain).
-        if bh_1.epoch() < bh_2.epoch() {
+        if bh_2.epoch() < bh_1.epoch() {
             return Err(format!(
                 "first block must not be of higher height than second: {:?}, {:?}",
                 bh_1.epoch(),
@@ -812,7 +925,10 @@ where
             )
             .into());
         };
+
+        // (2) check for the consensus faults themselves
         let mut cf: Option<ConsensusFault> = None;
+
         // (a) double-fork mining fault
         if bh_1.epoch() == bh_2.epoch() {
             cf = Some(ConsensusFault {
@@ -821,10 +937,11 @@ where
                 fault_type: ConsensusFaultType::DoubleForkMining,
             })
         };
+
         // (b) time-offset mining fault
         // strictly speaking no need to compare heights based on double fork mining check above,
         // but at same height this would be a different fault.
-        if bh_1.parents() != bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
+        if bh_1.parents() == bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
             cf = Some(ConsensusFault {
                 target: *bh_1.miner_address(),
                 epoch: bh_2.epoch(),
@@ -879,7 +996,7 @@ where
                     .par_iter()
                     .map(|s| {
                         if let Err(err) = V::verify_seal(s) {
-                            warn!(
+                            debug!(
                                 "seal verify in batch failed (miner: {}) (err: {})",
                                 addr, err
                             );
@@ -894,60 +1011,6 @@ where
             .collect();
         Ok(out)
     }
-}
-
-/// Shared logic between the DefaultRuntime and the Interpreter.
-/// It invokes methods on different Actors based on the Message.
-pub fn vm_send<'db, 'vm, BS, R, C, LB, V, P>(
-    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P>,
-    msg: &UnsignedMessage,
-    gas_cost: Option<GasCharge>,
-) -> Result<Serialized, ActorError>
-where
-    BS: BlockStore,
-    V: ProofVerifier,
-    P: NetworkParams,
-    R: Rand,
-    C: CircSupplyCalc,
-    LB: LookbackStateGetter<'db, BS>,
-{
-    if let Some(cost) = gas_cost {
-        rt.charge_gas(cost)?;
-    }
-
-    let to_actor = match rt
-        .state
-        .get_actor(msg.to())
-        .map_err(|e| e.downcast_fatal("failed to get actor"))?
-    {
-        Some(act) => act,
-        None => {
-            // Try to create actor if not exist
-            let (to_actor, id_addr) = rt.try_create_account_actor(msg.to())?;
-            if rt.network_version() > NetworkVersion::V3 {
-                // Update the receiver to the created ID address
-                rt.vm_msg.receiver = id_addr;
-            }
-            to_actor
-        }
-    };
-
-    rt.charge_gas(
-        rt.price_list()
-            .on_method_invocation(msg.value(), msg.method_num()),
-    )?;
-
-    if !msg.value().is_zero() {
-        transfer(rt.state, &msg.from(), &msg.to(), &msg.value())
-            .map_err(|e| e.wrap("failed to transfer funds"))?;
-    }
-
-    if msg.method_num() != METHOD_SEND {
-        rt.charge_gas(ACTOR_EXEC_GAS)?;
-        return invoke(rt, to_actor.code, msg.method_num(), msg.params(), msg.to());
-    }
-
-    Ok(Serialized::default())
 }
 
 /// Transfers funds from one Actor to another Actor
@@ -1012,46 +1075,6 @@ fn transfer<BS: BlockStore>(
     Ok(())
 }
 
-/// Calls actor code with method and parameters.
-fn invoke<'db, 'vm, BS, R, C, LB, V, P>(
-    rt: &mut DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P>,
-    code: Cid,
-    method_num: MethodNum,
-    params: &Serialized,
-    to: &Address,
-) -> Result<Serialized, ActorError>
-where
-    BS: BlockStore,
-    V: ProofVerifier,
-    P: NetworkParams,
-    R: Rand,
-    C: CircSupplyCalc,
-    LB: LookbackStateGetter<'db, BS>,
-{
-    let ret = if let Some(ret) = {
-        match actor::ActorVersion::from(rt.network_version()) {
-            ActorVersion::V0 => actorv0::invoke_code(&code, rt, method_num, params),
-            ActorVersion::V2 => actorv2::invoke_code(&code, rt, method_num, params),
-        }
-    } {
-        ret
-    } else if code == *actorv2::CHAOS_ACTOR_CODE_ID && rt.registered_actors.contains(&code) {
-        actorv2::chaos::Actor::invoke_method(rt, method_num, params)
-    } else {
-        Err(actor_error!(
-            SysErrIllegalActor,
-            "no code for actor at address {}",
-            to
-        ))
-    }?;
-
-    if !rt.caller_validated {
-        Err(actor_error!(SysErrIllegalActor; "Caller must be validated during method execution"))
-    } else {
-        Ok(ret)
-    }
-}
-
 /// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
 /// identified by `addr`.
 pub fn resolve_to_key_addr<'st, 'bs, BS, S>(
@@ -1092,6 +1115,7 @@ fn new_account_actor(version: ActorVersion) -> ActorState {
         code: match version {
             ActorVersion::V0 => *actorv0::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V2 => *actorv2::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V3 => *actorv3::ACCOUNT_ACTOR_CODE_ID,
         },
         balance: TokenAmount::from(0),
         state: *EMPTY_ARR_CID,

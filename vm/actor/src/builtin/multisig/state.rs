@@ -31,6 +31,11 @@ pub struct State {
 }
 
 impl State {
+    /// Checks if `address` is in the list of signers
+    pub fn is_signer(&self, address: &Address) -> bool {
+        self.signers.contains(address)
+    }
+
     /// Set locked amount in multisig state.
     pub fn set_locked(
         &mut self,

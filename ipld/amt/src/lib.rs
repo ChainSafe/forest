@@ -7,34 +7,42 @@
 //! https://github.com/ipld/specs/blob/51fab05b4fe4930d3d851d50cc1e5f1a02092deb/data-structures/vector.md
 
 mod amt;
-mod bitmap;
 mod error;
 mod node;
 mod root;
 mod value_mut;
 
 pub use self::amt::Amt;
-pub use self::bitmap::BitMap;
 pub use self::error::Error;
 pub(crate) use self::node::Node;
 pub(crate) use self::root::Root;
 pub use self::value_mut::ValueMut;
 
-const MAX_INDEX_BITS: u64 = 63;
-const WIDTH_BITS: u64 = 3;
-const WIDTH: usize = 1 << WIDTH_BITS; // 8
-const MAX_HEIGHT: u64 = MAX_INDEX_BITS / WIDTH_BITS - 1;
+const DEFAULT_BIT_WIDTH: usize = 3;
+const MAX_HEIGHT: usize = 64;
 
-// Maximum index for elements in the AMT. This is currently 1^63
-// (max int) because the width is 8. That means every "level" consumes 3 bits
-// from the index, and 63/3 is a nice even 21
-pub const MAX_INDEX: u64 = (1 << MAX_INDEX_BITS) - 1;
+/// MaxIndex is the maximum index for elements in the AMT. This u64::MAX-1 so we
+/// don't overflow u64::MAX when computing the length.
+pub const MAX_INDEX: usize = (std::u64::MAX - 1) as usize;
 
-fn nodes_for_height(height: u64) -> u64 {
-    let height_log_two = WIDTH_BITS * height;
-    assert!(
-        height_log_two < 64,
-        "height overflow, should be checked at all entry points"
-    );
+fn nodes_for_height(bit_width: usize, height: usize) -> usize {
+    let height_log_two = bit_width * height;
+    if height_log_two >= 64 {
+        return std::usize::MAX;
+    }
     1 << height_log_two
+}
+
+fn init_sized_vec<V>(bit_width: usize) -> Vec<Option<V>> {
+    std::iter::repeat_with(|| None)
+        .take(1 << bit_width)
+        .collect()
+}
+
+fn bmap_bytes(bit_width: usize) -> usize {
+    if bit_width <= 3 {
+        1
+    } else {
+        1 << (bit_width - 3)
+    }
 }

@@ -127,7 +127,7 @@ impl State {
         qa_power: &StoragePower,
     ) -> Result<(), Box<dyn StdError>> {
         let old_claim = get_claim(claims, miner)?
-            .ok_or_else(|| actor_error!(ErrNotFound; "no claim for actor {}", miner))?;
+            .ok_or_else(|| actor_error!(ErrNotFound, "no claim for actor {}", miner))?;
 
         self.total_qa_bytes_committed += qa_power;
         self.total_bytes_committed += power;
@@ -139,8 +139,8 @@ impl State {
         };
 
         let min_power: StoragePower = consensus_miner_min_power(old_claim.seal_proof_type)?;
-        let prev_below: bool = old_claim.quality_adj_power < min_power;
-        let still_below: bool = new_claim.quality_adj_power < min_power;
+        let prev_below: bool = old_claim.raw_byte_power < min_power;
+        let still_below: bool = new_claim.raw_byte_power < min_power;
 
         if prev_below && !still_below {
             // Just passed min miner size
@@ -182,7 +182,7 @@ impl State {
             self.miner_above_min_power_count
         );
 
-        Ok(set_claim(claims, miner, new_claim)?)
+        set_claim(claims, miner, new_claim)
     }
 
     pub(super) fn add_pledge_total(&mut self, amount: TokenAmount) {
@@ -328,9 +328,9 @@ fn get_claim<'m, BS: BlockStore>(
     claims: &'m Map<BS, Claim>,
     a: &Address,
 ) -> Result<Option<&'m Claim>, Box<dyn StdError>> {
-    Ok(claims
+    claims
         .get(&a.to_bytes())
-        .map_err(|e| e.downcast_wrap(format!("failed to get claim for address {}", a)))?)
+        .map_err(|e| e.downcast_wrap(format!("failed to get claim for address {}", a)))
 }
 
 pub fn set_claim<BS: BlockStore>(
@@ -341,9 +341,10 @@ pub fn set_claim<BS: BlockStore>(
     assert_ne!(claim.raw_byte_power.sign(), Sign::Minus);
     assert_ne!(claim.quality_adj_power.sign(), Sign::Minus);
 
-    Ok(claims
+    claims
         .set(a.to_bytes().into(), claim)
-        .map_err(|e| e.downcast_wrap(format!("failed to set claim for address {}", a)))?)
+        .map_err(|e| e.downcast_wrap(format!("failed to set claim for address {}", a)))?;
+    Ok(())
 }
 
 pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
@@ -353,7 +354,7 @@ pub(super) fn epoch_key(e: ChainEpoch) -> BytesKey {
 
 impl Cbor for State {}
 
-#[derive(Debug, Serialize_tuple, Deserialize_tuple, Clone)]
+#[derive(Debug, Serialize_tuple, Deserialize_tuple, Clone, PartialEq)]
 pub struct Claim {
     /// Miner's proof type used to determine minimum miner size
     pub seal_proof_type: RegisteredSealProof,

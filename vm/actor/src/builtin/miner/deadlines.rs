@@ -14,14 +14,14 @@ use std::error::Error as StdError;
 
 pub fn new_deadline_info(
     proving_period_start: ChainEpoch,
-    deadline_idx: u64,
+    deadline_idx: usize,
     current_epoch: ChainEpoch,
 ) -> DeadlineInfo {
     DeadlineInfo::new(
         proving_period_start,
-        deadline_idx,
+        deadline_idx as u64,
         current_epoch,
-        WPOST_PERIOD_DEADLINES,
+        WPOST_PERIOD_DEADLINES as u64,
         WPOST_PROVING_PERIOD,
         WPOST_CHALLENGE_WINDOW,
         WPOST_CHALLENGE_LOOKBACK,
@@ -36,9 +36,9 @@ impl Deadlines {
         &self,
         store: &BS,
         sector_number: SectorNumber,
-    ) -> Result<(u64, u64), Box<dyn StdError>> {
+    ) -> Result<(usize, usize), Box<dyn StdError>> {
         for i in 0..self.due.len() {
-            let deadline_idx = i as u64;
+            let deadline_idx = i;
             let deadline = self.load_deadline(store, deadline_idx)?;
             let partitions = Amt::<Partition, _>::load(&deadline.partitions, store)?;
 
@@ -65,7 +65,7 @@ impl Deadlines {
 /// Returns true if the deadline at the given index is currently mutable.
 pub fn deadline_is_mutable(
     proving_period_start: ChainEpoch,
-    deadline_idx: u64,
+    deadline_idx: usize,
     current_epoch: ChainEpoch,
 ) -> bool {
     // Get the next non-elapsed deadline (i.e., the next time we care about

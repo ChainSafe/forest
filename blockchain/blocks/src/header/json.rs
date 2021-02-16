@@ -121,7 +121,7 @@ where
 
     let v: BlockHeaderDe = Deserialize::deserialize(deserializer)?;
 
-    Ok(BlockHeader::builder()
+    BlockHeader::builder()
         .miner_address(v.miner.parse().map_err(de::Error::custom)?)
         .ticket(v.ticket)
         .beacon_entries(v.beacon_entries)
@@ -138,8 +138,8 @@ where
         .bls_aggregate(v.bls_aggregate)
         .election_proof(v.election_proof)
         .parent_base_fee(v.parent_base_fee.parse().map_err(de::Error::custom)?)
-        .build_and_validate()
-        .map_err(de::Error::custom)?)
+        .build()
+        .map_err(de::Error::custom)
 }
 
 pub mod vec {

@@ -6,14 +6,18 @@ mod common;
 use address::Address;
 use clock::EPOCH_UNDEFINED;
 use common::*;
+use fil_types::HAMT_BIT_WIDTH;
 use forest_actor::{
-    market::{Method, State, WithdrawBalanceParams},
+    make_empty_map,
+    market::{Method, State, WithdrawBalanceParams, PROPOSALS_AMT_BITWIDTH, STATES_AMT_BITWIDTH},
     miner::{GetControlAddressesReturn, Method as MinerMethod},
-    BalanceTable, Multimap, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE,
-    INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
-    STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    util::BALANCE_TABLE_BITWIDTH,
+    BalanceTable, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE, INIT_ACTOR_CODE_ID,
+    MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR,
+    SYSTEM_ACTOR_ADDR,
 };
 use ipld_amt::Amt;
+use num_bigint::bigint_ser::BigIntDe;
 use runtime::Runtime;
 use std::collections::HashMap;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
@@ -75,17 +79,30 @@ fn simple_construction() {
     rt.verify();
 
     let store = &rt.store;
-    let empty_map = Multimap::new(store).root().unwrap();
-    let empty_set = SetMultimap::new(store).root().unwrap();
-    let empty_array = Amt::<u64, _>::new(store).flush().unwrap();
+
+    let empty_balance_table = make_empty_map::<_, BigIntDe>(store, BALANCE_TABLE_BITWIDTH)
+        .flush()
+        .unwrap();
+    let empty_map = make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH)
+        .flush()
+        .unwrap();
+    let empty_proposals_array = Amt::<(), _>::new_with_bit_width(store, PROPOSALS_AMT_BITWIDTH)
+        .flush()
+        .unwrap();
+    let empty_states_array = Amt::<(), _>::new_with_bit_width(store, STATES_AMT_BITWIDTH)
+        .flush()
+        .unwrap();
+    let empty_multimap = SetMultimap::new(store).root().unwrap();
 
     let state_data: State = rt.get_state().unwrap();
 
-    assert_eq!(empty_array, state_data.proposals);
-    assert_eq!(empty_array, state_data.states);
-    assert_eq!(empty_map, state_data.escrow_table);
-    assert_eq!(empty_map, state_data.locked_table);
-    assert_eq!(empty_set, state_data.deal_ops_by_epoch);
+    assert_eq!(empty_proposals_array, state_data.proposals);
+    assert_eq!(empty_states_array, state_data.states);
+    assert_eq!(empty_map, state_data.pending_proposals);
+    assert_eq!(empty_balance_table, state_data.escrow_table);
+    assert_eq!(empty_balance_table, state_data.locked_table);
+    assert_eq!(0, state_data.next_id);
+    assert_eq!(empty_multimap, state_data.deal_ops_by_epoch);
     assert_eq!(state_data.last_cron, EPOCH_UNDEFINED);
 }
 

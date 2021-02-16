@@ -4,10 +4,12 @@
 use super::node::Node;
 use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
-use lazycell::LazyCell;
-use serde::de::{self, DeserializeOwned};
+use once_cell::unsync::OnceCell;
+use serde::de::DeserializeOwned;
 use serde::ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::cmp::Ordering;
+use std::convert::TryFrom;
 
 /// Pointer to index values or a link to another child node.
 #[derive(Debug)]
@@ -15,7 +17,7 @@ pub(crate) enum Pointer<K, V, H> {
     Values(Vec<KeyValuePair<K, V>>),
     Link {
         cid: Cid,
-        cache: LazyCell<Box<Node<K, V, H>>>,
+        cache: OnceCell<Box<Node<K, V, H>>>,
     },
     Dirty(Box<Node<K, V, H>>),
 }
@@ -31,6 +33,25 @@ impl<K: PartialEq, V: PartialEq, H> PartialEq for Pointer<K, V, H> {
     }
 }
 
+#[derive(Serialize)]
+#[serde(untagged)]
+enum PointerSer<'a, K, V> {
+    Vals(&'a [KeyValuePair<K, V>]),
+    Link(&'a Cid),
+}
+
+impl<'a, K, V, H> TryFrom<&'a Pointer<K, V, H>> for PointerSer<'a, K, V> {
+    type Error = &'static str;
+
+    fn try_from(pointer: &'a Pointer<K, V, H>) -> Result<Self, Self::Error> {
+        match pointer {
+            Pointer::Values(vals) => Ok(PointerSer::Vals(vals.as_ref())),
+            Pointer::Link { cid, .. } => Ok(PointerSer::Link(cid)),
+            Pointer::Dirty(_) => Err("Cannot serialize cached values"),
+        }
+    }
+}
+
 impl<K, V, H> Serialize for Pointer<K, V, H>
 where
     K: Serialize,
@@ -40,24 +61,27 @@ where
     where
         S: Serializer,
     {
-        match self {
-            Pointer::Values(vals) => {
-                #[derive(Serialize)]
-                struct ValsSer<'a, A, B> {
-                    #[serde(rename = "1")]
-                    vals: &'a [KeyValuePair<A, B>],
-                };
-                ValsSer { vals }.serialize(serializer)
-            }
-            Pointer::Link { cid, .. } => {
-                #[derive(Serialize)]
-                struct LinkSer<'a> {
-                    #[serde(rename = "0")]
-                    cid: &'a Cid,
-                };
-                LinkSer { cid }.serialize(serializer)
-            }
-            Pointer::Dirty(_) => Err(ser::Error::custom("Cannot serialize cached values")),
+        PointerSer::try_from(self)
+            .map_err(ser::Error::custom)?
+            .serialize(serializer)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum PointerDe<K, V> {
+    Vals(Vec<KeyValuePair<K, V>>),
+    Link(Cid),
+}
+
+impl<K, V, H> From<PointerDe<K, V>> for Pointer<K, V, H> {
+    fn from(pointer: PointerDe<K, V>) -> Self {
+        match pointer {
+            PointerDe::Link(cid) => Pointer::Link {
+                cid,
+                cache: Default::default(),
+            },
+            PointerDe::Vals(vals) => Pointer::Values(vals),
         }
     }
 }
@@ -71,23 +95,8 @@ where
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        struct PointerDeser<A, B> {
-            #[serde(rename = "1")]
-            vals: Option<Vec<KeyValuePair<A, B>>>,
-
-            #[serde(rename = "0")]
-            cid: Option<Cid>,
-        }
-        let pointer_map = PointerDeser::deserialize(deserializer)?;
-        match pointer_map {
-            PointerDeser { vals: Some(v), .. } => Ok(Pointer::Values(v)),
-            PointerDeser { cid: Some(cid), .. } => Ok(Pointer::Link {
-                cid,
-                cache: Default::default(),
-            }),
-            _ => Err(de::Error::custom("Unexpected pointer serialization")),
-        }
+        let pointer_de: PointerDe<K, V> = Deserialize::deserialize(deserializer)?;
+        Ok(Pointer::from(pointer_de))
     }
 }
 
@@ -155,15 +164,9 @@ where
 
                     // Sorting by key, values are inserted based on the ordering of the key itself,
                     // so when collapsed, it needs to be ensured that this order is equal.
-                    // ! This was fixed only with the v2 actors upgrade, not used in v1
-                    #[cfg(feature = "v2")]
-                    {
-                        use std::cmp::Ordering;
-
-                        child_vals.sort_unstable_by(|a, b| {
-                            a.key().partial_cmp(b.key()).unwrap_or(Ordering::Equal)
-                        });
-                    }
+                    child_vals.sort_unstable_by(|a, b| {
+                        a.key().partial_cmp(b.key()).unwrap_or(Ordering::Equal)
+                    });
 
                     // Replace link node with child values
                     *self = Pointer::Values(child_vals);

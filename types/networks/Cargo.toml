@@ -10,3 +10,6 @@ clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
 lazy_static = "1.4"
 beacon = { path = "../../blockchain/beacon" }
 serde_json = "1.0"
+
+[features]
+interopnet = []

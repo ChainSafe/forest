@@ -1,8 +1,7 @@
 [package]
 name = "ipld_hamt"
 description = "Sharded IPLD HashMap implementation."
-# TODO bump the major version when releasing v2 actors
-version = "0.1.1"
+version = "2.0.0"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -19,14 +18,11 @@ forest_ipld = "0.1.1"
 serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 thiserror = "1.0"
 sha2 = "0.9.1"
-lazycell = "1.2.1"
+once_cell = "1.5"
 forest_hash_utils = "0.1"
 
 [features]
 identity = []
-go-interop = []
-# TODO would be best to just cut a release with v1 functionality and use that when needed
-v2 = []
 # This feature should just be used for testing (ignoring links that don't exist in store)
 ignore-dead-links = []
 

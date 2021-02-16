@@ -10,9 +10,12 @@ use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::{FILECOIN_PRECISION, FIL_RESERVED};
 use interpreter::CircSupplyCalc;
-use lazycell::AtomicLazyCell;
-use networks::{UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_IGNITION_HEIGHT, UPGRADE_LIFTOFF_HEIGHT};
+use networks::{
+    UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_CALICO_HEIGHT, UPGRADE_IGNITION_HEIGHT,
+    UPGRADE_LIFTOFF_HEIGHT,
+};
 use num_bigint::BigInt;
+use once_cell::sync::OnceCell;
 use state_tree::StateTree;
 use std::error::Error as StdError;
 use vm::{ActorState, TokenAmount};
@@ -43,13 +46,14 @@ lazy_static! {
     ];
 }
 
+/// Genesis information used when calculating circulating supply.
 #[derive(Default)]
-pub struct GenesisInfo {
+pub(crate) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
-    pub genesis_pledge: AtomicLazyCell<TokenAmount>,
-    pub genesis_market_funds: AtomicLazyCell<TokenAmount>,
+    genesis_pledge: OnceCell<TokenAmount>,
+    genesis_market_funds: OnceCell<TokenAmount>,
 }
 
 impl GenesisInfo {
@@ -64,18 +68,20 @@ impl GenesisInfo {
 
         let _ = self
             .genesis_market_funds
-            .fill(get_fil_market_locked(&state_tree)?);
-        let _ = self.genesis_pledge.fill(get_fil_power_locked(&state_tree)?);
+            .set(get_fil_market_locked(&state_tree)?);
+        let _ = self.genesis_pledge.set(get_fil_power_locked(&state_tree)?);
 
         Ok(())
     }
 }
 
+/// Vesting schedule info. These states are lazily filled, to avoid doing until needed
+/// to calculate circulating supply.
 #[derive(Default)]
-pub struct GenesisInfoVesting {
-    pub genesis: AtomicLazyCell<Vec<msig0::State>>,
-    pub ignition: AtomicLazyCell<Vec<msig0::State>>,
-    pub calico: AtomicLazyCell<Vec<msig0::State>>,
+struct GenesisInfoVesting {
+    genesis: OnceCell<Vec<msig0::State>>,
+    ignition: OnceCell<Vec<msig0::State>>,
+    calico: OnceCell<Vec<msig0::State>>,
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -89,19 +95,20 @@ impl CircSupplyCalc for GenesisInfo {
         // but it's not ideal to have the side effect from the VM to modify the genesis info
         // of the state manager. This isn't terrible because it's just caching to avoid
         // recalculating using the store, and it avoids computing until circ_supply is called.
-        if !self.vesting.genesis.filled() {
-            self.init(state_tree.store())?;
-            let _ = self.vesting.genesis.fill(setup_genesis_vesting_schedule());
-        }
-        if !self.vesting.ignition.filled() {
-            let _ = self
-                .vesting
-                .ignition
-                .fill(setup_ignition_vesting_schedule());
-        }
-        if !self.vesting.calico.filled() {
-            let _ = self.vesting.calico.fill(setup_calico_vesting_schedule());
-        }
+        self.vesting
+            .genesis
+            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+                self.init(state_tree.store())?;
+                Ok(setup_genesis_vesting_schedule())
+            })?;
+
+        self.vesting
+            .ignition
+            .get_or_init(setup_ignition_vesting_schedule);
+
+        self.vesting
+            .calico
+            .get_or_init(setup_calico_vesting_schedule);
 
         get_circulating_supply(&self, height, state_tree)
     }
@@ -116,29 +123,36 @@ fn get_actor_state<DB: BlockStore>(
         .ok_or_else(|| format!("Failed to get Actor for address {}", addr))?)
 }
 
-pub fn get_fil_vested(
-    genesis_info: &GenesisInfo,
-    height: ChainEpoch,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
     let mut return_value = TokenAmount::default();
 
     let pre_ignition = genesis_info
         .vesting
         .genesis
-        .borrow()
+        .get()
         .expect("Pre ignition should be initialized");
     let post_ignition = genesis_info
         .vesting
         .ignition
-        .borrow()
+        .get()
         .expect("Post ignition should be initialized");
+    let calico_vesting = genesis_info
+        .vesting
+        .calico
+        .get()
+        .expect("calico vesting should be initialized");
 
     if height <= UPGRADE_IGNITION_HEIGHT {
         for actor in pre_ignition {
             return_value += &actor.initial_balance - actor.amount_locked(height);
         }
-    } else {
+    } else if height <= UPGRADE_CALICO_HEIGHT {
         for actor in post_ignition {
+            return_value +=
+                &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
+        }
+    } else {
+        for actor in calico_vesting {
             return_value +=
                 &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
         }
@@ -147,18 +161,18 @@ pub fn get_fil_vested(
     if height <= UPGRADE_ACTORS_V2_HEIGHT {
         return_value += genesis_info
             .genesis_pledge
-            .borrow()
+            .get()
             .expect("Genesis info should be initialized")
             + genesis_info
                 .genesis_market_funds
-                .borrow()
+                .get()
                 .expect("Genesis info should be initialized");
     }
 
-    Ok(return_value)
+    return_value
 }
 
-pub fn get_fil_mined<DB: BlockStore>(
+fn get_fil_mined<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let actor = state_tree
@@ -169,7 +183,7 @@ pub fn get_fil_mined<DB: BlockStore>(
     Ok(state.into_total_storage_power_reward())
 }
 
-pub fn get_fil_market_locked<DB: BlockStore>(
+fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let actor = state_tree
@@ -180,7 +194,7 @@ pub fn get_fil_market_locked<DB: BlockStore>(
     Ok(state.total_locked())
 }
 
-pub fn get_fil_power_locked<DB: BlockStore>(
+fn get_fil_power_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let actor = state_tree
@@ -191,7 +205,7 @@ pub fn get_fil_power_locked<DB: BlockStore>(
     Ok(state.into_total_locked())
 }
 
-pub fn get_fil_reserve_disbursed<DB: BlockStore>(
+fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
@@ -200,7 +214,7 @@ pub fn get_fil_reserve_disbursed<DB: BlockStore>(
     Ok(&*FIL_RESERVED - reserve_actor.balance)
 }
 
-pub fn get_fil_locked<DB: BlockStore>(
+fn get_fil_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let market_locked = get_fil_market_locked(&state_tree)?;
@@ -208,7 +222,7 @@ pub fn get_fil_locked<DB: BlockStore>(
     Ok(power_locked + market_locked)
 }
 
-pub fn get_fil_burnt<DB: BlockStore>(
+fn get_fil_burnt<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let burnt_actor = get_actor_state(state_tree, &*BURNT_FUNDS_ACTOR_ADDR)?;
@@ -216,12 +230,12 @@ pub fn get_fil_burnt<DB: BlockStore>(
     Ok(burnt_actor.balance)
 }
 
-pub fn get_circulating_supply<'a, DB: BlockStore>(
+fn get_circulating_supply<'a, DB: BlockStore>(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
     state_tree: &StateTree<'a, DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let fil_vested = get_fil_vested(genesis_info, height)?;
+    let fil_vested = get_fil_vested(genesis_info, height);
     let fil_mined = get_fil_mined(&state_tree)?;
     let fil_burnt = get_fil_burnt(&state_tree)?;
     let fil_locked = get_fil_locked(&state_tree)?;

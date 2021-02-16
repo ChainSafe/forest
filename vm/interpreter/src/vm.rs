@@ -3,7 +3,7 @@
 
 use super::{
     gas_tracker::{price_list_by_epoch, GasCharge},
-    vm_send, DefaultRuntime, Rand,
+    DefaultRuntime, Rand,
 };
 use actor::{
     actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
@@ -14,13 +14,13 @@ use clock::ChainEpoch;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
-    DevnetParams, NetworkParams, NetworkVersion,
+    DefaultNetworkParams, NetworkParams, NetworkVersion,
 };
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
-use log::warn;
+use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::UPGRADE_CLAUS_HEIGHT;
+use networks::{UPGRADE_ACTORS_V3_HEIGHT, UPGRADE_CLAUS_HEIGHT};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -29,9 +29,11 @@ use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
+
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
 
+/// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
 pub struct BlockMessages {
     pub miner: Address,
@@ -58,7 +60,7 @@ pub trait LookbackStateGetter<'db, DB> {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, R, N, C, LB, V = FullVerifier, P = DevnetParams> {
+pub struct VM<'db, 'r, DB, R, N, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
@@ -110,12 +112,13 @@ where
         })
     }
 
-    /// Registers an actor that is not part of the set of default builtin actors by providing the code cid
+    /// Registers an actor that is not part of the set of default builtin actors by providing the
+    /// code cid.
     pub fn register_actor(&mut self, code_cid: Cid) -> bool {
         self.registered_actors.insert(code_cid)
     }
 
-    /// Gets registered actors that are not part of the set of default builtin actors
+    /// Gets registered actors that are not part of the set of default builtin actors.
     pub fn registered_actors(&self) -> &HashSet<Cid> {
         &self.registered_actors
     }
@@ -125,11 +128,12 @@ where
         self.state.flush()
     }
 
-    /// Returns ChainEpoch
+    /// Returns the epoch the VM is initialized with.
     fn epoch(&self) -> ChainEpoch {
         self.epoch
     }
 
+    /// Returns a reference to the VM's state tree.
     pub fn state(&self) -> &StateTree<'_, DB> {
         &self.state
     }
@@ -165,6 +169,28 @@ where
         Ok(())
     }
 
+    /// Flushes the StateTree and perform a state migration if there is a migration at this epoch.
+    /// If there is no migration this function will return Ok(None).
+    #[allow(unreachable_code, unused_variables)]
+    pub fn migrate_state(&mut self, epoch: ChainEpoch) -> Result<Option<Cid>, Box<dyn StdError>> {
+        match epoch {
+            x if x == UPGRADE_ACTORS_V3_HEIGHT => {
+                // need to flush since we run_cron before the migration
+                let prev_state = self.flush()?;
+                // new_state is new state root we can from calling the migration function
+                // that will be provided from the actors create (probably).
+                // TODO perform migration here, currently skipping
+                let new_state: Cid = prev_state;
+                if new_state != prev_state {
+                    Ok(Some(new_state))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// Apply block messages from a Tipset.
     /// Returns the receipts from the transactions.
     pub fn apply_block_messages(
@@ -180,6 +206,9 @@ where
         for i in parent_epoch..epoch {
             if i > parent_epoch {
                 self.run_cron(epoch, callback.as_mut())?;
+            }
+            if let Some(new_state) = self.migrate_state(i)? {
+                self.state = StateTree::new_from_root(self.store, &new_state)?
             }
             self.epoch = i + 1;
         }
@@ -262,6 +291,7 @@ where
         Ok(receipts)
     }
 
+    /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         let (return_data, _, act_err) = self.send(msg, None);
 
@@ -281,7 +311,7 @@ where
         }
     }
 
-    /// Applies the state transition for a single message
+    /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
         check_message(msg.message())?;
@@ -291,6 +321,7 @@ where
         let msg_gas_cost = pl.on_chain_message(ser_msg.len());
         let cost_total = msg_gas_cost.total();
 
+        // Verify the cost of the message is not oever the message gas limit.
         if cost_total > msg.gas_limit() {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
@@ -305,6 +336,7 @@ where
             });
         }
 
+        // Load from actor state.
         let miner_penalty_amount = &self.base_fee * msg.gas_limit();
         let from_act = match self.state.get_actor(msg.from()) {
             Ok(Some(from_act)) => from_act,
@@ -322,6 +354,7 @@ where
             }
         };
 
+        // If from actor is not an account actor, return error.
         if !actor::is_account_actor(&from_act.code) {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
@@ -335,6 +368,7 @@ where
             });
         };
 
+        // Check sequence is correct
         if msg.sequence() != from_act.sequence {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
@@ -349,6 +383,7 @@ where
             });
         };
 
+        // Ensure from actor has enough balance to cover the gas cost of the message.
         let gas_cost: TokenAmount = msg.gas_fee_cap() * msg.gas_limit();
         if from_act.balance < gas_cost {
             return Ok(ApplyRet {
@@ -364,6 +399,7 @@ where
             });
         };
 
+        // Deduct gas cost and increment sequence
         self.state
             .mutate_actor(msg.from(), |act| {
                 act.deduct_funds(&gas_cost)?;
@@ -374,6 +410,7 @@ where
 
         self.state.snapshot()?;
 
+        // Perform transaction
         let (mut ret_data, rt, mut act_err) = self.send(msg.message(), Some(msg_gas_cost));
         if let Some(err) = &act_err {
             if err.is_fatal() {
@@ -387,7 +424,7 @@ where
                     err
                 ));
             } else {
-                warn!(
+                debug!(
                     "[from={}, to={}, seq={}, m={}] send error: {}",
                     msg.from(),
                     msg.to(),
@@ -478,6 +515,7 @@ where
         transfer_to_actor(msg.from(), &refund)?;
 
         if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
+            // Sanity check. This could be a fatal error.
             return Err("Gas handling math is wrong".to_owned());
         }
         self.state.clear_snapshot()?;
@@ -523,7 +561,7 @@ where
         );
 
         match res {
-            Ok(mut rt) => match vm_send(&mut rt, msg, gas_cost) {
+            Ok(mut rt) => match rt.send(msg, gas_cost) {
                 Ok(ser) => (ser, Some(rt), None),
                 Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
             },
@@ -561,14 +599,14 @@ where
 
 #[derive(Clone, Default)]
 struct GasOutputs {
-    pub base_fee_burn: TokenAmount,
-    pub over_estimation_burn: TokenAmount,
-    pub miner_penalty: TokenAmount,
-    pub miner_tip: TokenAmount,
-    pub refund: TokenAmount,
+    base_fee_burn: TokenAmount,
+    over_estimation_burn: TokenAmount,
+    miner_penalty: TokenAmount,
+    miner_tip: TokenAmount,
+    refund: TokenAmount,
 
-    pub gas_refund: i64,
-    pub gas_burned: i64,
+    gas_refund: i64,
+    gas_burned: i64,
 }
 
 fn compute_gas_outputs(
@@ -614,7 +652,7 @@ fn compute_gas_outputs(
     out
 }
 
-pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {
+fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {
     if gas_used == 0 {
         return (0, gas_limit);
     }
@@ -636,12 +674,16 @@ pub fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i
     (gas_limit - gas_used - gas_to_burn, gas_to_burn)
 }
 
-/// Apply message return data
+/// Apply message return data.
 #[derive(Clone, Debug)]
 pub struct ApplyRet {
+    /// Message receipt for the transaction. This data is stored on chain.
     pub msg_receipt: MessageReceipt,
+    /// Actor error from the transaction, if one exists.
     pub act_error: Option<ActorError>,
+    /// Gas penalty from transaction, if any.
     pub penalty: BigInt,
+    /// Tip given to miner from message.
     pub miner_tip: BigInt,
 }
 

@@ -70,7 +70,7 @@ lazy_static = "1.4"
 pretty_env_logger = "0.4.0"
 log = "0.4"
 paramfetch = { path = "../../utils/paramfetch" }
-async-std = { version = "1.6", features = ["attributes"] }
+async-std = { version = "1.9", features = ["attributes"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 statediff = { path = "../../utils/statediff" }
 genesis = { path = "../../utils/genesis" }

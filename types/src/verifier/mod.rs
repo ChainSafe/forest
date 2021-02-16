@@ -14,7 +14,8 @@ use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::error::Error as StdError;
 
-/// Verifier implementation
+/// Full verification implementation. This will verify all proofs through `rust-fil-proofs`
+/// using locally fetched parameters.
 pub enum FullVerifier {}
 
 impl ProofVerifier for FullVerifier {}

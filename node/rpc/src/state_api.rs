@@ -669,8 +669,9 @@ pub(crate) async fn miner_create_block<
         }
     }
 
-    let bls_msg_root = Amt::new_from_slice(data.chain_store.blockstore(), &bls_cids)?;
-    let secp_msg_root = Amt::new_from_slice(data.chain_store.blockstore(), &secp_cids)?;
+    let bls_msg_root = Amt::new_from_iter(data.chain_store.blockstore(), bls_cids.iter().copied())?;
+    let secp_msg_root =
+        Amt::new_from_iter(data.chain_store.blockstore(), secp_cids.iter().copied())?;
 
     let mmcid = data.chain_store.blockstore().put(
         &TxMeta {
@@ -714,13 +715,13 @@ pub(crate) async fn miner_create_block<
         .state_root(st)
         .message_receipts(recpts)
         .signature(None)
-        .build_and_validate()?;
+        .build()?;
 
     let key = wallet::find_key(&worker, &*data.keystore.as_ref().write().await)?;
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        &next.to_signing_bytes()?,
+        &next.to_signing_bytes(),
     )?;
     next.signature = Some(sig);
 
@@ -978,7 +979,7 @@ impl From<MiningBaseInfo> for MiningBaseInfoJson {
                 .into_iter()
                 .map(BeaconEntryJson)
                 .collect::<Vec<BeaconEntryJson>>(),
-            eligible_for_mining: info.elligable_for_minning,
+            eligible_for_mining: info.eligible_for_mining,
         }
     }
 }

@@ -68,7 +68,7 @@ impl GenesisCommands {
                 preseal_path,
             } => {
                 if let Err(err) = add_miner(genesis_path.to_string(), preseal_path.to_string()) {
-                    warn!("Cannot add miner(s), error: {}", err)
+                    warn!("Cannot add miner(s), error: {}", err);
                 };
             }
         }

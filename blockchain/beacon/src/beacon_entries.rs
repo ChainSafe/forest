@@ -1,16 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{
-    de::{Deserialize, Deserializer},
-    ser::{Serialize, Serializer},
-    BytesDe, BytesSer,
-};
+use encoding::{serde_bytes, tuple::*};
 
 /// The result from getting an entry from Drand.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+/// The entry contains the round, or epoch as well as the BLS signature for that round of
+/// randomness.
+/// This beacon entry is stored on chain in the block header.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct BeaconEntry {
     round: u64,
+    #[serde(with = "serde_bytes")]
     data: Vec<u8>,
 }
 
@@ -18,7 +18,7 @@ impl BeaconEntry {
     pub fn new(round: u64, data: Vec<u8>) -> Self {
         Self { round, data }
     }
-    /// Returns the current round number
+    /// Returns the current round number.
     pub fn round(&self) -> u64 {
         self.round
     }
@@ -28,32 +28,10 @@ impl BeaconEntry {
     }
 }
 
-impl Serialize for BeaconEntry {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        (&self.round, BytesSer(&self.data)).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for BeaconEntry {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let (round, data): (u64, BytesDe) = Deserialize::deserialize(deserializer)?;
-        Ok(Self {
-            round,
-            data: data.0,
-        })
-    }
-}
-
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a BeaconEntry from JSON.
     #[derive(Deserialize, Serialize)]
@@ -97,7 +75,7 @@ pub mod json {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(BeaconEntry {
             round: m.round,
-            data: base64::decode(m.data).unwrap(),
+            data: base64::decode(m.data).map_err(de::Error::custom)?,
         })
     }
 

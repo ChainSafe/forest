@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-const GAS_STORAGE_MULTI: i64 = 1000;
-const GAS_COMPUTE_MULTI: i64 = 1;
-
+/// Single gas charge in the VM. Contains information about what gas was for, as well
+/// as the amount of gas needed for computation and storage respectively.
 pub struct GasCharge {
     pub name: &'static str,
     pub compute_gas: i64,
@@ -21,6 +20,6 @@ impl GasCharge {
 
     /// Calculates total gas charge based on compute and storage multipliers.
     pub fn total(&self) -> i64 {
-        self.compute_gas * GAS_COMPUTE_MULTI + self.storage_gas * GAS_STORAGE_MULTI
+        self.compute_gas + self.storage_gas
     }
 }

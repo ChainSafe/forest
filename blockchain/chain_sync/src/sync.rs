@@ -8,7 +8,8 @@ use super::bad_block_cache::BadBlockCache;
 use super::bucket::{SyncBucket, SyncBucketSet};
 use super::sync_state::SyncState;
 use super::sync_worker::SyncWorker;
-use super::{Error, SyncNetworkContext};
+use super::{network_context::SyncNetworkContext, Error};
+use crate::network_context::HelloResponseFuture;
 use amt::Amt;
 use async_std::channel::{bounded, Receiver, Sender};
 use async_std::sync::{Mutex, RwLock};
@@ -17,21 +18,28 @@ use beacon::{Beacon, BeaconSchedule};
 use blocks::{Block, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Code::Blake2b256};
+use clock::ChainEpoch;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
-use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage};
-use futures::select;
+use forest_libp2p::{hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage};
 use futures::stream::StreamExt;
 use futures::{future::try_join_all, try_join};
+use futures::{select, stream::FuturesUnordered};
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, error, info, trace, warn};
 use message::{SignedMessage, UnsignedMessage};
 use message_pool::{MessagePool, Provider};
+use networks::BLOCK_DELAY_SECS;
 use serde::Deserialize;
 use state_manager::StateManager;
-use std::marker::PhantomData;
 use std::sync::Arc;
+use std::{
+    marker::PhantomData,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+const MAX_HEIGHT_DRIFT: u64 = 5;
 
 // TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
 // on separate thread and needs to be mutated independently, but the vec needs to be read
@@ -152,7 +160,7 @@ where
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
             sync_queue: SyncBucketSet::default(),
-            active_sync_tipsets: SyncBucketSet::default(),
+            active_sync_tipsets: Default::default(),
             next_sync_target: None,
             verifier: Default::default(),
             mpool,
@@ -174,13 +182,10 @@ where
         &mut self,
         network_event: NetworkEvent,
         new_ts_tx: &Sender<(PeerId, FullTipset)>,
+        hello_futures: &FuturesUnordered<HelloResponseFuture>,
     ) {
         match network_event {
             NetworkEvent::HelloRequest { request, source } => {
-                self.network
-                    .peer_manager()
-                    .update_peer_head(source.clone(), None)
-                    .await;
                 debug!(
                     "Message inbound, heaviest tipset cid: {:?}",
                     request.heaviest_tip_set
@@ -201,28 +206,38 @@ where
                     .await;
                 });
             }
-            NetworkEvent::PeerDialed { peer_id } => {
+            NetworkEvent::PeerConnected(peer_id) => {
                 let heaviest = self
                     .state_manager
                     .chain_store()
                     .heaviest_tipset()
                     .await
                     .unwrap();
-                if let Err(e) = self
-                    .network
-                    .hello_request(
-                        peer_id,
-                        HelloRequest {
-                            heaviest_tip_set: heaviest.cids().to_vec(),
-                            heaviest_tipset_height: heaviest.epoch(),
-                            heaviest_tipset_weight: heaviest.weight().clone(),
-                            genesis_hash: *self.genesis.blocks()[0].cid(),
-                        },
-                    )
-                    .await
-                {
-                    error!("{}", e)
-                };
+                if self.network.peer_manager().is_peer_new(&peer_id).await {
+                    match self
+                        .network
+                        .hello_request(
+                            peer_id,
+                            HelloRequest {
+                                heaviest_tip_set: heaviest.cids().to_vec(),
+                                heaviest_tipset_height: heaviest.epoch(),
+                                heaviest_tipset_weight: heaviest.weight().clone(),
+                                genesis_hash: *self.genesis.blocks()[0].cid(),
+                            },
+                        )
+                        .await
+                    {
+                        Ok(hello_fut) => {
+                            hello_futures.push(hello_fut);
+                        }
+                        Err(e) => {
+                            error!("{}", e);
+                        }
+                    }
+                }
+            }
+            NetworkEvent::PeerDisconnected(peer_id) => {
+                self.network.peer_manager().remove_peer(&peer_id).await;
             }
             NetworkEvent::PubsubMessage { source, message } => {
                 if *self.state.lock().await != ChainSyncState::Follow {
@@ -259,7 +274,8 @@ where
         channel: &Sender<(PeerId, FullTipset)>,
     ) {
         info!(
-            "Received block over GossipSub: {} from {}",
+            "Received block over GossipSub: {} height {} from {}",
+            block.header.cid(),
             block.header.epoch(),
             source
         );
@@ -301,7 +317,6 @@ where
 
     /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self, worker_tx: Sender<Arc<Tipset>>, worker_rx: Receiver<Arc<Tipset>>) {
-        // TODO benchmark (1 is temporary value to avoid overlap)
         for _ in 0..self.sync_config.worker_tasks {
             self.spawn_worker(worker_rx.clone()).await;
         }
@@ -309,6 +324,7 @@ where
         // Channels to handle fetching hello tipsets in separate task and return tipset.
         let (new_ts_tx, new_ts_rx) = bounded(10);
 
+        let mut hello_futures = FuturesUnordered::<HelloResponseFuture>::new();
         let mut fused_handler = self.net_handler.clone().fuse();
         let mut fused_inform_channel = new_ts_rx.fuse();
 
@@ -325,19 +341,48 @@ where
                     }
                 }
             }
+
             select! {
                 network_event = fused_handler.next() => match network_event {
-                    Some(event) => self.handle_network_event(event, &new_ts_tx).await,
+                    Some(event) => self.handle_network_event(
+                        event,
+                        &new_ts_tx,
+                        &hello_futures).await,
                     None => break,
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
-                        if let Err(e) = self.inform_new_head(peer.clone(), &new_head).await {
+                        if let Err(e) = self.inform_new_head(peer.clone(), new_head).await {
                             warn!("failed to inform new head from peer {}: {}", peer, e);
                         }
                     }
                     None => break,
-                }
+                },
+                hello_event = hello_futures.select_next_some() => match hello_event {
+                    (peer_id, sent, Some(Ok(_res))) => {
+                        let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
+                        self.network.peer_manager().log_success(peer_id, lat).await;
+                    },
+                    (peer_id, sent, Some(Err(e))) => {
+                        match e {
+                            RequestResponseError::ConnectionClosed
+                            | RequestResponseError::DialFailure
+                            | RequestResponseError::UnsupportedProtocols => {
+                                self.network.peer_manager().mark_peer_bad(peer_id).await;
+                            }
+                            // Log failure for timeout on remote node.
+                            RequestResponseError::Timeout => {
+                                let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
+                                self.network.peer_manager().log_failure(peer_id, lat).await;
+                            },
+                        }
+                    }
+                    // This is indication of timeout on receiver, log failure.
+                    (peer_id, sent, None) => {
+                        let lat = SystemTime::now().duration_since(sent).unwrap_or_default();
+                        self.network.peer_manager().log_failure(peer_id, lat).await;
+                    },
+                },
             }
         }
     }
@@ -387,12 +432,17 @@ where
     /// informs the syncer about a new potential tipset
     /// This should be called when connecting to new peers, and additionally
     /// when receiving new blocks from the network
-    pub async fn inform_new_head(&mut self, peer: PeerId, ts: &FullTipset) -> Result<(), Error> {
+    pub async fn inform_new_head(&mut self, peer: PeerId, ts: FullTipset) -> Result<(), Error> {
         // check if full block is nil and if so return error
         if ts.blocks().is_empty() {
             return Err(Error::NoBlocks);
         }
-        // TODO: Check if tipset has height that is too far ahead to be possible
+        if self.is_epoch_beyond_curr_max(ts.epoch()) {
+            error!("Received block with impossibly large height {}", ts.epoch());
+            return Err(Error::Validation(
+                "Block has impossibly large height".to_string(),
+            ));
+        }
 
         for block in ts.blocks() {
             if let Some(bad) = self.bad_blocks.peek(block.cid()).await {
@@ -416,7 +466,7 @@ where
             for block in ts.blocks() {
                 self.validate_msg_meta(block)?;
             }
-            self.set_peer_head(peer, Arc::new(ts.to_tipset())).await;
+            self.set_peer_head(peer, Arc::new(ts.into_tipset())).await;
         }
 
         Ok(())
@@ -425,7 +475,7 @@ where
     async fn set_peer_head(&mut self, peer: PeerId, ts: Arc<Tipset>) {
         self.network
             .peer_manager()
-            .update_peer_head(peer, Some(Arc::clone(&ts)))
+            .update_peer_head(peer, Arc::clone(&ts))
             .await;
 
         // Only update target on initial sync
@@ -450,42 +500,54 @@ where
     async fn schedule_tipset(&mut self, tipset: Arc<Tipset>) {
         debug!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
-        let mut related_to_active = false;
+        // TODO check if this is already synced.
+
         for act_state in self.worker_state.read().await.iter() {
             if let Some(target) = act_state.read().await.target() {
+                // Already currently syncing this, so just return
                 if target == &tipset {
                     return;
                 }
-
+                // The new tipset is the successor block of a block being synced, add it to queue.
+                // We might need to check if it is still currently syncing or if it is complete...
                 if tipset.parents() == target.key() {
-                    related_to_active = true;
+                    self.sync_queue.insert(tipset);
+                    if self.next_sync_target.is_none() {
+                        if let Some(target_bucket) = self.sync_queue.pop() {
+                            self.next_sync_target = Some(target_bucket);
+                        }
+                    }
+                    return;
                 }
             }
         }
 
-        // Check if related to active tipset buckets.
-        if !related_to_active && self.active_sync_tipsets.related_to_any(tipset.as_ref()) {
-            related_to_active = true;
-        }
-
-        if related_to_active {
-            self.active_sync_tipsets.insert(tipset);
-            return;
-        }
-
-        // if next_sync_target is from same chain as incoming tipset add it to be synced next
-        if let Some(tar) = &mut self.next_sync_target {
-            if tar.is_same_chain_as(&tipset) {
-                tar.add(tipset);
-            }
-        } else {
-            // add incoming tipset to queue to by synced later
+        if self.sync_queue.related_to_any(&tipset) {
             self.sync_queue.insert(tipset);
-            // update next sync target if none
             if self.next_sync_target.is_none() {
                 if let Some(target_bucket) = self.sync_queue.pop() {
                     self.next_sync_target = Some(target_bucket);
                 }
+            }
+            return;
+        }
+
+        // TODO sync the fork?
+
+        // Check if the incoming tipset is heavier than the heaviest tipset in the queue.
+        // If it isnt, return because we dont want to sync that.
+        let queue_heaviest = self.sync_queue.heaviest();
+        if let Some(qtip) = queue_heaviest {
+            if qtip.weight() > tipset.weight() {
+                return;
+            }
+        }
+        // Heavy enough to be synced. If there is no current thing being synced,
+        // add it to be synced right away. Otherwise, add it to the queue.
+        self.sync_queue.insert(tipset);
+        if self.next_sync_target.is_none() {
+            if let Some(target_bucket) = self.sync_queue.pop() {
+                self.next_sync_target = Some(target_bucket);
             }
         }
     }
@@ -505,6 +567,16 @@ where
         chain::persist_objects(self.state_manager.blockstore(), block.secp_msgs())?;
 
         Ok(())
+    }
+
+    fn is_epoch_beyond_curr_max(&self, epoch: ChainEpoch) -> bool {
+        let genesis = self.genesis.as_ref();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        epoch as u64 > ((now - genesis.min_timestamp()) / BLOCK_DELAY_SECS) + MAX_HEIGHT_DRIFT
     }
 
     /// Returns `FullTipset` from store if `TipsetKeys` exist in key-value store otherwise requests
@@ -547,7 +619,7 @@ where
     }
 }
 
-/// Returns message root CID from bls and secp message contained in the param Block
+/// Returns message root CID from bls and secp message contained in the param Block.
 pub fn compute_msg_meta<DB: BlockStore>(
     blockstore: &DB,
     bls_msgs: &[UnsignedMessage],
@@ -558,8 +630,8 @@ pub fn compute_msg_meta<DB: BlockStore>(
     let secp_cids = cids_from_messages(secp_msgs)?;
 
     // generate Amt and batch set message values
-    let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
-    let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
+    let bls_root = Amt::new_from_iter(blockstore, bls_cids)?;
+    let secp_root = Amt::new_from_iter(blockstore, secp_cids)?;
 
     let meta = TxMeta {
         bls_message_root: bls_root,

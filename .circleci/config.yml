@@ -144,6 +144,22 @@ jobs:
             rustup run nightly cargo --version --verbose
             cargo +nightly check -p forest
             cargo +nightly check
+  msrv-build-check:
+    executor: test-executor
+    description: Check minimum supported rust version
+    steps:
+      - checkout
+      - install_rust
+      - install_deps
+      - env_setup
+      - run:
+          name: Install minimum version
+          command: rustup toolchain install 1.46.0
+      - run:
+          name: Minimum supported rust version check
+          command: |
+            cargo +1.46.0 check -p forest
+            cargo +1.46.0 check
   macos-build-check:
     executor: mac-executor
     description: Check macos build
@@ -249,7 +265,8 @@ jobs:
           command: cargo install cargo-audit
       - run:
           name: Check for known security issues in dependencies
-          command: cargo audit
+          # TODO remove ignore when https://github.com/filecoin-project/rust-fil-proofs/issues/1403 resolved
+          command: cargo audit --ignore RUSTSEC-2021-0011
 
 workflows:
   setup_test:
@@ -268,6 +285,9 @@ workflows:
     jobs:
       - prefetch-crates
       - nightly-build-check:
+          requires:
+            - prefetch-crates
+      - msrv-build-check:
           requires:
             - prefetch-crates
       - macos-build-check:

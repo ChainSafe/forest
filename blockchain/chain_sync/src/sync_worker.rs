@@ -7,31 +7,33 @@ mod full_sync_test;
 mod validate_block_test;
 
 use super::sync_state::{SyncStage, SyncState};
-use super::{bad_block_cache::BadBlockCache, sync::ChainSyncState};
-use super::{Error, SyncNetworkContext};
+use super::{
+    bad_block_cache::BadBlockCache,
+    sync::{compute_msg_meta, ChainSyncState},
+};
+use super::{network_context::SyncNetworkContext, Error};
 use actor::{is_account_actor, power};
 use address::Address;
-use amt::Amt;
 use async_std::channel::Receiver;
 use async_std::sync::{Mutex, RwLock};
 use async_std::task::{self, JoinHandle};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys};
 use chain::{persist_objects, ChainStore};
-use cid::{Cid, Code::Blake2b256};
+use cid::Cid;
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
-use encoding::{Cbor, Error as EncodingError};
+use encoding::Cbor;
 use fil_types::{
-    verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_DELAY_SECS,
-    BLOCK_GAS_LIMIT, TICKET_RANDOMNESS_LOOKBACK,
+    verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
+    TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use log::{debug, info, warn};
-use message::{Message, SignedMessage, UnsignedMessage};
-use networks::{get_network_version_default, UPGRADE_SMOKE_HEIGHT};
+use message::{Message, UnsignedMessage};
+use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
 use state_manager::StateManager;
 use state_tree::StateTree;
 use std::collections::HashMap;
@@ -117,7 +119,7 @@ where
         // Get heaviest tipset from storage to sync toward
         let heaviest = self.chain_store().heaviest_tipset().await.unwrap();
 
-        info!("Starting block sync...");
+        info!("Starting chain sync...");
 
         // Sync headers from network from head to heaviest from storage
         self.state
@@ -171,7 +173,7 @@ where
         let mut accepted_blocks: Vec<Cid> = Vec::new();
 
         let sync_len = head.epoch() - to.epoch();
-        if !sync_len.is_positive() {
+        if sync_len < 0 {
             return Err(Error::Other(
                 "Target tipset must be after heaviest".to_string(),
             ));
@@ -239,15 +241,15 @@ where
         }
 
         let last_ts = return_set.last().unwrap();
+        if last_ts.parents() == to.parents() {
+            // block received part of same tipset as best block
+            // This removes need to sync fork
+            return Ok(return_set);
+        }
 
         // Check if local chain was fork
         if last_ts.key() != to.key() {
             info!("Local chain was fork. Syncing fork...");
-            if last_ts.parents() == to.parents() {
-                // block received part of same tipset as best block
-                // This removes need to sync fork
-                return Ok(return_set);
-            }
             // add fork into return set
             let fork = self.sync_fork(&last_ts, &to).await?;
             info!("Fork Synced");
@@ -283,30 +285,46 @@ where
     /// fork detected, collect tipsets to be included in return_set sync_headers_reverse
     async fn sync_fork(&self, head: &Tipset, to: &Tipset) -> Result<Vec<Arc<Tipset>>, Error> {
         // TODO move to shared parameter (from actors crate most likely)
+        // TODO the threshold should really be 900. Not entirely sure if we can handle a 900
+        // epoch fork, so we set to 500 for now. If we cant, then we can split up requests into 900/N chunks.
         const FORK_LENGTH_THRESHOLD: u64 = 500;
 
-        // TODO make this request more flexible with the window size, shouldn't require a node
-        // to have to request all fork length headers at once.
         let tips = self
             .network
             .chain_exchange_headers(None, head.parents(), FORK_LENGTH_THRESHOLD)
             .await?;
 
         let mut ts = self.chain_store().tipset_from_keys(to.parents()).await?;
+        let mut fork_length = 1;
 
         for (i, tip) in tips.iter().enumerate() {
-            while ts.epoch() > tip.epoch() {
-                if ts.epoch() == 0 {
-                    return Err(Error::Other(
-                        "Synced chain forked at genesis, refusing to sync".to_string(),
-                    ));
+            if ts.epoch() == 0 {
+                if self.genesis != ts {
+                    return Err(
+                        Error::Other(
+                            format!("synced chain that linked back to a different genesis. Our genesis: {:?}, Fork Genesis: {:?}",self.genesis.key(), ts.key())
+                        ));
                 }
-                ts = self.chain_store().tipset_from_keys(ts.parents()).await?;
+                return Err(Error::Other(format!(
+                    "Chain forked at genesis, refusing to sync: {:?}",
+                    head.cids()
+                )));
             }
             if ts == *tip {
                 let mut tips = tips;
                 tips.drain((i + 1)..);
                 return Ok(tips);
+            }
+
+            if ts.epoch() < tip.epoch() {
+                continue;
+            } else {
+                fork_length += 1;
+                if fork_length > FORK_LENGTH_THRESHOLD {
+                    return Err(Error::Other("fork too long".to_string()));
+                }
+                // TODO: Check checkpoint when we have it implemented.
+                ts = self.chain_store().tipset_from_keys(ts.parents()).await?;
             }
         }
 
@@ -386,7 +404,7 @@ where
 
     /// validates tipsets and adds header data to tipset tracker
     async fn validate_tipset(&self, fts: FullTipset) -> Result<(), Error> {
-        if &fts.to_tipset() == self.genesis.as_ref() {
+        if fts.key() == self.genesis.key() {
             debug!("Skipping tipset validation for genesis");
             return Ok(());
         }
@@ -655,14 +673,8 @@ where
         let b_cloned = Arc::clone(&block);
         let p_beacon = Arc::clone(&prev_beacon);
         validations.push(task::spawn_blocking(move || {
-            // TODO switch logic to function attached to block header
-            let block_sig_bytes = b_cloned.header().to_signing_bytes()?;
-
-            // Can unwrap here because verified to be `Some` in the sanity checks.
-            let block_sig = b_cloned.header().signature().as_ref().unwrap();
-            block_sig
-                .verify(&block_sig_bytes, &work_addr)
-                .map_err(|e| Error::Blockchain(blocks::Error::InvalidSignature(e)))
+            b_cloned.header().check_block_signature(&work_addr)?;
+            Ok(())
         }));
 
         // * Beacon values check
@@ -986,38 +998,6 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), &'static str> {
     Ok(())
 }
 
-/// Returns message root CID from bls and secp message contained in the param Block
-pub fn compute_msg_meta<DB: BlockStore>(
-    blockstore: &DB,
-    bls_msgs: &[UnsignedMessage],
-    secp_msgs: &[SignedMessage],
-) -> Result<Cid, Error> {
-    // collect bls and secp cids
-    let bls_cids = cids_from_messages(bls_msgs)?;
-    let secp_cids = cids_from_messages(secp_msgs)?;
-
-    // generate Amt and batch set message values
-    // TODO avoid having to clone all cids (from iter function on Amt)
-    let bls_root = Amt::new_from_slice(blockstore, &bls_cids)?;
-    let secp_root = Amt::new_from_slice(blockstore, &secp_cids)?;
-
-    let meta = TxMeta {
-        bls_message_root: bls_root,
-        secp_message_root: secp_root,
-    };
-
-    // store message roots and receive meta_root cid
-    let meta_root = blockstore
-        .put(&meta, Blake2b256)
-        .map_err(|e| Error::Other(e.to_string()))?;
-
-    Ok(meta_root)
-}
-
-fn cids_from_messages<T: Cbor>(messages: &[T]) -> Result<Vec<Cid>, EncodingError> {
-    messages.iter().map(Cbor::cid).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1073,7 +1053,7 @@ mod tests {
                 NetworkMessage::ChainExchangeRequest {
                     response_channel, ..
                 } => {
-                    response_channel.send(rpc_response).unwrap();
+                    response_channel.send(Ok(rpc_response)).unwrap();
                 }
                 _ => unreachable!(),
             }
@@ -1093,7 +1073,7 @@ mod tests {
         task::block_on(async move {
             sw.network
                 .peer_manager()
-                .update_peer_head(source.clone(), Some(head.clone()))
+                .update_peer_head(source.clone(), head.clone())
                 .await;
             assert_eq!(sw.network.peer_manager().len().await, 1);
             // make chain_exchange request

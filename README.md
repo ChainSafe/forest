@@ -26,7 +26,7 @@ Our crates:
 | `vm` | State transition and actors, message and address definitions |
 
 ## Dependencies
-rustc >= 1.40.0
+rustc >= 1.46.0
 
 ## Usage
 ```bash
@@ -83,6 +83,23 @@ make test-vectors
 
 # To run all tests and all features enabled
 make test-all
+```
+
+### Joining the testnet
+
+Build with the `interopnet` config with:
+
+```bash
+make interopnet
+
+# Run and import past the state migrations to latest network version
+./target/release/forest --import-snapshot ./types/networks/src/interopnet/snapshot.car
+```
+
+Importing the snapshot only needs to happen during the first run. Following this, to restart the daemon run:
+
+```bash
+./target/release/forest
 ```
 
 ### Documentation

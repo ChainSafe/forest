@@ -24,7 +24,7 @@ where
                 response_channel,
                 ..
             }) => response_channel
-                .send(make_chain_exchange_response(&db, &request).await)
+                .send(Ok(make_chain_exchange_response(&db, &request).await))
                 .unwrap(),
             Some(event) => log::warn!("Other request sent to network: {:?}", event),
             None => break,
@@ -57,7 +57,10 @@ async fn space_race_full_sync() {
 
     let peer = PeerId::random();
     let peer_manager = PeerManager::default();
-    peer_manager.update_peer_head(peer, None).await;
+    // Just need to add a peer to be valid to send request
+    peer_manager
+        .update_peer_head(peer, Arc::clone(&genesis))
+        .await;
     let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager), db);
 
     let provider_db = Arc::new(MemoryDB::default());

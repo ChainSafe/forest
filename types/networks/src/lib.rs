@@ -6,16 +6,25 @@ extern crate lazy_static;
 
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::ChainEpoch;
-use fil_types::{NetworkVersion, BLOCK_DELAY_SECS};
+use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
-
 mod drand;
 
+#[cfg(not(any(feature = "interopnet")))]
 mod mainnet;
+#[cfg(not(any(feature = "interopnet")))]
 pub use self::mainnet::*;
 
+#[cfg(feature = "interopnet")]
+mod interopnet;
+#[cfg(feature = "interopnet")]
+pub use self::interopnet::*;
+
+/// Defines the different hard fork parameters.
 struct Upgrade {
+    /// When the hard fork will happen
     height: ChainEpoch,
+    /// The version of the fork
     network: NetworkVersion,
 }
 
@@ -24,7 +33,50 @@ struct DrandPoint<'a> {
     pub config: &'a DrandConfig<'a>,
 }
 
-/// Gets network version from epoch using default Mainnet schedule
+const VERSION_SCHEDULE: [Upgrade; 10] = [
+    Upgrade {
+        height: UPGRADE_BREEZE_HEIGHT,
+        network: NetworkVersion::V1,
+    },
+    Upgrade {
+        height: UPGRADE_SMOKE_HEIGHT,
+        network: NetworkVersion::V2,
+    },
+    Upgrade {
+        height: UPGRADE_IGNITION_HEIGHT,
+        network: NetworkVersion::V3,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V2_HEIGHT,
+        network: NetworkVersion::V4,
+    },
+    Upgrade {
+        height: UPGRADE_TAPE_HEIGHT,
+        network: NetworkVersion::V5,
+    },
+    Upgrade {
+        height: UPGRADE_KUMQUAT_HEIGHT,
+        network: NetworkVersion::V6,
+    },
+    Upgrade {
+        height: UPGRADE_CALICO_HEIGHT,
+        network: NetworkVersion::V7,
+    },
+    Upgrade {
+        height: UPGRADE_PERSIAN_HEIGHT,
+        network: NetworkVersion::V8,
+    },
+    Upgrade {
+        height: UPGRADE_ORANGE_HEIGHT,
+        network: NetworkVersion::V9,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V3_HEIGHT,
+        network: NetworkVersion::V10,
+    },
+];
+
+/// Gets network version from epoch using default Mainnet schedule.
 pub fn get_network_version_default(epoch: ChainEpoch) -> NetworkVersion {
     VERSION_SCHEDULE
         .iter()

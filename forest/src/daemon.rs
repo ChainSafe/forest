@@ -7,7 +7,6 @@ use auth::{generate_priv_key, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainSyncer;
 use fil_types::verifier::FullVerifier;
-use flo_stream::{MessagePublisher, Publisher};
 use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{import_chain, initialize_genesis};
 use libp2p::identity::{ed25519, Keypair};
@@ -69,9 +68,10 @@ pub(super) async fn start(config: Config) {
         .await
         .unwrap();
 
+    let validate_height = if config.snapshot { None } else { Some(0) };
     // Sync from snapshot
     if let Some(path) = &config.snapshot_path {
-        import_chain::<FullVerifier, _>(&state_manager, path, Some(0))
+        import_chain::<FullVerifier, _>(&state_manager, path, validate_height, config.skip_load)
             .await
             .unwrap();
     }
@@ -92,8 +92,7 @@ pub(super) async fn start(config: Config) {
     let network_send = p2p_service.network_sender();
 
     // Initialize mpool
-    let subscriber = publisher.write().await.subscribe();
-    let provider = MpoolRpcProvider::new(subscriber, Arc::clone(&state_manager));
+    let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
     let mpool = Arc::new(
         MessagePool::new(
             provider,
@@ -112,7 +111,6 @@ pub(super) async fn start(config: Config) {
     );
 
     // Initialize ChainSyncer
-    // TODO allow for configuring validation strategy (defaulting to full validation)
     let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
         beacon.clone(),
@@ -149,10 +147,10 @@ pub(super) async fn start(config: Config) {
                     sync_state,
                     network_send,
                     network_name,
-                    events_pubsub: Arc::new(RwLock::new(Publisher::new(1000))),
                     beacon,
                     chain_store,
                     new_mined_block_tx: worker_tx,
+                    chain_notify_streams: Default::default(),
                 },
                 &rpc_listen,
             )
@@ -182,6 +180,7 @@ pub(super) async fn start(config: Config) {
 }
 
 #[cfg(test)]
+#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
     use db::MemoryDB;
@@ -191,7 +190,7 @@ mod test {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
         let sm = Arc::new(StateManager::new(cs));
-        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None)
+        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
             .await
             .expect("Failed to import chain");
     }
@@ -200,7 +199,7 @@ mod test {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
         let sm = Arc::new(StateManager::new(cs));
-        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0))
+        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0), false)
             .await
             .expect("Failed to import chain");
     }

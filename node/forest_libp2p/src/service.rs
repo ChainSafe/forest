@@ -5,7 +5,10 @@ use super::chain_exchange::{
     make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse,
 };
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
-use crate::hello::{HelloRequest, HelloResponse};
+use crate::{
+    hello::{HelloRequest, HelloResponse},
+    rpc::RequestResponseError,
+};
 use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::{stream, task};
 use chain::ChainStore;
@@ -17,33 +20,33 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-pub use libp2p::gossipsub::IdentTopic as Topic;
-use libp2p::request_response::{RequestId, ResponseChannel};
+pub use libp2p::gossipsub::Topic;
+pub use libp2p::gossipsub::IdentTopic;
+use libp2p::request_response::ResponseChannel;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
-    noise, yamux, PeerId, Swarm, Transport,
+    mplex, noise, yamux,
+    yamux::WindowUpdateMode,
+    PeerId, Swarm, Transport,
 };
-use libp2p::{core::Multiaddr, mplex};
+use libp2p::{core::Multiaddr};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
 
+/// Gossipsub Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
+/// Gossipsub Filecoin messages topic identifier.
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
-
-lazy_static! {
-    pub static ref PUBSUB_BLOCK_TOPIC: Topic = Topic::new(PUBSUB_BLOCK_STR.to_owned());
-    pub static ref PUBSUB_MSG_TOPIC: Topic = Topic::new(PUBSUB_MSG_STR.to_owned());
-}
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
-/// Events emitted by this Service
+/// Events emitted by this Service.
 #[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
@@ -54,21 +57,12 @@ pub enum NetworkEvent {
         request: HelloRequest,
         source: PeerId,
     },
-    HelloResponse {
-        request_id: RequestId,
-        response: HelloResponse,
-    },
     ChainExchangeRequest {
         request: ChainExchangeRequest,
         channel: ResponseChannel<ChainExchangeResponse>,
     },
-    ChainExchangeResponse {
-        request_id: RequestId,
-        response: ChainExchangeResponse,
-    },
-    PeerDialed {
-        peer_id: PeerId,
-    },
+    PeerConnected(PeerId),
+    PeerDisconnected(PeerId),
     BitswapBlock {
         cid: Cid,
     },
@@ -83,21 +77,22 @@ pub enum PubsubMessage {
     Message(SignedMessage),
 }
 
-/// Events into this Service
+/// Messages into the service to handle.
 #[derive(Debug)]
 pub enum NetworkMessage {
     PubsubMessage {
-        topic: Topic,
+        topic: IdentTopic,
         message: Vec<u8>,
     },
     ChainExchangeRequest {
         peer_id: PeerId,
         request: ChainExchangeRequest,
-        response_channel: OneShotSender<ChainExchangeResponse>,
+        response_channel: OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>,
     },
     HelloRequest {
         peer_id: PeerId,
         request: HelloRequest,
+        response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
     },
     BitswapRequest {
         cid: Cid,
@@ -107,13 +102,16 @@ pub enum NetworkMessage {
         method: NetRPCMethods,
     },
 }
+
+/// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
     NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
 }
+
 /// The Libp2pService listens to events from the Libp2p swarm.
 pub struct Libp2pService<DB> {
-    pub swarm: Swarm<ForestBehaviour>,
+    swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
 
     network_receiver_in: Receiver<NetworkMessage>,
@@ -128,7 +126,6 @@ impl<DB> Libp2pService<DB>
 where
     DB: BlockStore + Sync + Send + 'static,
 {
-    /// Constructs a Libp2pService
     pub fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
@@ -172,26 +169,26 @@ where
         }
     }
 
-    /// Starts the `Libp2pService` networking stack. This Future resolves when shutdown occurs.
+    /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
     pub async fn run(mut self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
-        let mut interval = stream::interval(Duration::from_secs(10)).fuse();
+        let mut interval = stream::interval(Duration::from_secs(15)).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
+                    // outbound events
                     Some(event) => match event {
-                        ForestBehaviourEvent::PeerDialed(peer_id) => {
-                            debug!("Peer dialed, {:?}", peer_id);
-                            emit_event(&self.network_sender_out, NetworkEvent::PeerDialed {
-                                peer_id
-                            }).await;
+                        ForestBehaviourEvent::PeerConnected(peer_id) => {
+                            debug!("Peer connected, {:?}", peer_id);
+                            emit_event(&self.network_sender_out,
+                                NetworkEvent::PeerConnected(peer_id)).await;
                         }
                         ForestBehaviourEvent::PeerDisconnected(peer_id) => {
-                            debug!("Peer disconnected, {:?}", peer_id);
+                            emit_event(&self.network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
                         }
                         ForestBehaviourEvent::GossipMessage {
                             source,
@@ -208,7 +205,9 @@ where
                                             message: PubsubMessage::Block(b),
                                         }).await;
                                     }
-                                    Err(e) => warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e)
+                                    Err(e) => {
+                                        warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e);
+                                    }
                                 }
                             } else if topic == pubsub_msg_str {
                                 match from_slice::<SignedMessage>(&message) {
@@ -218,7 +217,9 @@ where
                                             message: PubsubMessage::Message(m),
                                         }).await;
                                     }
-                                    Err(e) => warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e)
+                                    Err(e) => {
+                                        warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e);
+                                    }
                                 }
                             } else {
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
@@ -229,13 +230,6 @@ where
                             emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
                                 source: peer,
-                            }).await;
-                        }
-                        ForestBehaviourEvent::HelloResponse { request_id, response, .. } => {
-                            debug!("Received hello response (id: {:?})", request_id);
-                            emit_event(&self.network_sender_out, NetworkEvent::HelloResponse {
-                                request_id,
-                                response,
                             }).await;
                         }
                         ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
@@ -260,7 +254,7 @@ where
                                                 trace!("Saved Bitswap block with cid {:?}", cid);
                                         }
                                     } else {
-                                        warn!("Received Bitswap response, but response channel cannot be found");
+                                        debug!("Received Bitswap response, but response channel cannot be found");
                                     }
                                     emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{cid}).await;
                                 }
@@ -272,8 +266,12 @@ where
                         ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => match self.cs.blockstore().get(&cid) {
                             Ok(Some(data)) => {
                                 match swarm_stream.get_mut().send_block(&peer_id, cid, data) {
-                                    Ok(_) => trace!("Sent bitswap message successfully"),
-                                    Err(e) => warn!("Failed to send Bitswap reply: {}", e.to_string()),
+                                    Ok(_) => {
+                                        trace!("Sent bitswap message successfully");
+                                    },
+                                    Err(e) => {
+                                        warn!("Failed to send Bitswap reply: {}", e.to_string());
+                                    },
                                 }
                             }
                             Ok(None) => {
@@ -287,14 +285,15 @@ where
                     None => { break; }
                 },
                 rpc_message = network_stream.next() => match rpc_message {
+                    // Inbound messages
                     Some(message) =>  match message {
                         NetworkMessage::PubsubMessage { topic, message } => {
                             if let Err(e) = swarm_stream.get_mut().publish(topic, message) {
                                 warn!("Failed to send gossipsub message: {:?}", e);
                             }
                         }
-                        NetworkMessage::HelloRequest { peer_id, request } => {
-                            swarm_stream.get_mut().send_hello_request(&peer_id, request);
+                        NetworkMessage::HelloRequest { peer_id, request, response_channel } => {
+                            swarm_stream.get_mut().send_hello_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
                             swarm_stream.get_mut().send_chain_exchange_request(&peer_id, request, response_channel);
@@ -323,29 +322,31 @@ where
                     None => { break; }
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
-                    info!("Peers connected: {}", swarm_stream.get_ref().peers().len());
+                    // Print peer count on an interval.
+                    info!("Peers connected: {}", swarm_stream.get_mut().peers().len());
                 }
             };
         }
     }
 
-    /// Returns a `Sender` allowing you to send messages over GossipSub
+    /// Returns a sender which allows sending messages to the libp2p service.
     pub fn network_sender(&self) -> Sender<NetworkMessage> {
         self.network_sender_in.clone()
     }
 
-    /// Returns a `Receiver` to listen to network events
+    /// Returns a receiver to listen to network events emitted from the service.
     pub fn network_receiver(&self) -> Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
     }
 }
+
 async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     if sender.send(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }
 }
 
-/// Builds the transport stack that LibP2P will communicate over
+/// Builds the transport stack that LibP2P will communicate over.
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::websocket::WsConfig::new(transport.clone()).or_transport(transport);
@@ -366,7 +367,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
         let mut yamux_config = yamux::YamuxConfig::default();
         yamux_config.set_max_buffer_size(16 * 1024 * 1024);
         yamux_config.set_receive_window_size(16 * 1024 * 1024);
-
+        // yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
         core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
     };
 
@@ -378,7 +379,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
         .boxed()
 }
 
-/// Fetch keypair from disk, returning none if it cannot be decoded
+/// Fetch keypair from disk, returning none if it cannot be decoded.
 pub fn get_keypair(path: &str) -> Option<Keypair> {
     match read_file_to_vec(&path) {
         Err(e) => {

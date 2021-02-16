@@ -19,22 +19,21 @@ use cid::Code::Blake2b256;
 use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
-use flo_stream::Subscriber;
-use forest_libp2p::{NetworkMessage, PUBSUB_MSG_TOPIC};
+use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
-use networks::{NEWEST_NETWORK_VERSION, UPGRADE_BREEZE_HEIGHT};
+use networks::{BLOCK_DELAY_SECS, NEWEST_NETWORK_VERSION};
 use num_bigint::{BigInt, Integer};
 use num_rational::BigRational;
 use num_traits::cast::ToPrimitive;
 use state_manager::StateManager;
 use state_tree::StateTree;
-use std::borrow::BorrowMut;
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
+use std::{borrow::BorrowMut, cmp::Ordering};
+use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use types::verifier::ProofVerifier;
 use vm::ActorState;
 
@@ -45,17 +44,10 @@ const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
-const REPUBLISH_INTERVAL: u64 = 10 * types::BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
-
-// this is *temporary* mutilation until we have implemented uncapped miner penalties -- it will go
-// away in the next fork.
-// TODO: Get rid of this?
-fn allow_negative_chains(epoch: i64) -> bool {
-    epoch < UPGRADE_BREEZE_HEIGHT + 5
-}
+const REPUBLISH_INTERVAL: u64 = 10 * BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
 
 /// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
-/// which corresponds to that address
+/// which corresponds to that address.
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
     msgs: HashMap<u64, SignedMessage>,
@@ -64,7 +56,7 @@ pub struct MsgSet {
 }
 
 impl MsgSet {
-    /// Generate a new MsgSet with an empty hashmap and a default next_sequence of 0
+    /// Generate a new MsgSet with an empty hashmap and setting the sequence specifically.
     pub fn new(sequence: u64) -> Self {
         MsgSet {
             msgs: HashMap::new(),
@@ -73,8 +65,8 @@ impl MsgSet {
         }
     }
 
-    /// Add a signed message to the MsgSet. Increase next_sequence if the message has a sequence greater
-    /// than any existing message sequence.
+    /// Add a signed message to the MsgSet. Increase next_sequence if the message has a
+    /// sequence greater than any existing message sequence.
     pub fn add(&mut self, m: SignedMessage) -> Result<(), Error> {
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
             self.next_sequence = m.sequence() + 1;
@@ -85,17 +77,17 @@ impl MsgSet {
                 let rbf_denom = BigInt::from(RBF_DENOM);
                 let min_price = premium + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
                 if m.message().gas_premium() <= &min_price {
-                    warn!("message gas price is below min gas price");
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
-                warn!("try to add message with duplicate sequence increase gas premium");
                 return Err(Error::DuplicateSequence);
             }
         }
         self.msgs.insert(m.sequence(), m);
         Ok(())
     }
+
+    /// Removes message with the given sequence. If applied, update the set's next sequence.
     pub fn rm(&mut self, sequence: u64, applied: bool) {
         let m = if let Some(m) = self.msgs.remove(&sequence) {
             m
@@ -169,9 +161,9 @@ pub trait Provider {
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
 }
 
-/// This is the Provider implementation that will be used for the mpool RPC
+/// This is the default Provider implementation that will be used for the mpool RPC.
 pub struct MpoolRpcProvider<DB> {
-    subscriber: Subscriber<HeadChange>,
+    subscriber: Publisher<HeadChange>,
     sm: Arc<StateManager<DB>>,
 }
 
@@ -179,7 +171,7 @@ impl<DB> MpoolRpcProvider<DB>
 where
     DB: BlockStore + Sync + Send,
 {
-    pub fn new(subscriber: Subscriber<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
+    pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
     where
         DB: BlockStore,
     {
@@ -193,7 +185,7 @@ where
     DB: BlockStore + Sync + Send + 'static,
 {
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-        self.subscriber.clone()
+        self.subscriber.subscribe()
     }
 
     async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
@@ -247,7 +239,8 @@ where
     }
 }
 
-/// This is the main MessagePool struct
+/// This contains all necessary information needed for the message pool.
+/// Keeps track of messages to apply, as well as context needed for verifying transactions.
 pub struct MessagePool<T> {
     local_addrs: Arc<RwLock<Vec<Address>>>,
     pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
@@ -270,7 +263,6 @@ impl<T> MessagePool<T>
 where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
-    /// Create a new message pool
     pub async fn new(
         mut api: T,
         network_name: String,
@@ -281,11 +273,11 @@ where
         T: Provider,
     {
         let local_addrs = Arc::new(RwLock::new(Vec::new()));
-        // LruCache sizes have been taken from the lotus implementation
         let pending = Arc::new(RwLock::new(HashMap::new()));
         let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().await.ok_or_else(
             || Error::Other("Failed to retrieve heaviest tipset from provider".to_owned()),
         )?));
+        // LruCache sizes have been taken from the lotus implementation
         let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(40000)));
         let sig_val_cache = Arc::new(RwLock::new(LruCache::new(32000)));
         let api_mutex = Arc::new(RwLock::new(api));
@@ -319,39 +311,46 @@ where
         let pending = mp.pending.clone();
         let republished = mp.republished.clone();
 
-        // TODO: Check this
         let cur_tipset = mp.cur_tipset.clone();
         let repub_trigger = Arc::new(mp.repub_trigger.clone());
 
         // Reacts to new HeadChanges
         task::spawn(async move {
             loop {
-                if let Some(ts) = subscriber.next().await {
-                    let (cur, rev, app) = match ts {
-                        HeadChange::Current(_tipset) => continue,
-                        HeadChange::Revert(tipset) => (
-                            cur_tipset.clone(),
-                            vec![tipset.as_ref().clone()],
-                            Vec::new(),
-                        ),
-                        HeadChange::Apply(tipset) => (
-                            cur_tipset.clone(),
-                            Vec::new(),
-                            vec![tipset.as_ref().clone()],
-                        ),
-                    };
-                    head_change(
-                        api.as_ref(),
-                        bls_sig_cache.as_ref(),
-                        repub_trigger.clone(),
-                        republished.as_ref(),
-                        pending.as_ref(),
-                        &cur.as_ref(),
-                        rev,
-                        app,
-                    )
-                    .await
-                    .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
+                match subscriber.recv().await {
+                    Ok(ts) => {
+                        let (cur, rev, app) = match ts {
+                            HeadChange::Current(_tipset) => continue,
+                            HeadChange::Revert(tipset) => (
+                                cur_tipset.clone(),
+                                vec![tipset.as_ref().clone()],
+                                Vec::new(),
+                            ),
+                            HeadChange::Apply(tipset) => (
+                                cur_tipset.clone(),
+                                Vec::new(),
+                                vec![tipset.as_ref().clone()],
+                            ),
+                        };
+                        head_change(
+                            api.as_ref(),
+                            bls_sig_cache.as_ref(),
+                            repub_trigger.clone(),
+                            republished.as_ref(),
+                            pending.as_ref(),
+                            &cur.as_ref(),
+                            rev,
+                            app,
+                        )
+                        .await
+                        .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
+                    }
+                    Err(RecvError::Lagged(e)) => {
+                        log::warn!("Head change subscriber lagged: skipping {} events", e);
+                    }
+                    Err(RecvError::Closed) => {
+                        break;
+                    }
                 }
             }
         });
@@ -362,6 +361,7 @@ where
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
+        let network_name = mp.network_name.clone();
         // Reacts to republishing requests
         task::spawn(async move {
             let mut interval = interval(Duration::from_millis(REPUBLISH_INTERVAL));
@@ -370,6 +370,7 @@ where
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),
+                    network_name.as_ref(),
                     pending.as_ref(),
                     cur_tipset.as_ref(),
                     republished.as_ref(),
@@ -384,14 +385,14 @@ where
         Ok(mp)
     }
 
-    /// Add a signed message to local_addrs and local_msgs
+    /// Add a signed message to local_addrs and local_msgs.
     async fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
         self.local_addrs.write().await.push(*m.from());
         self.local_msgs.write().await.insert(m);
         Ok(())
     }
 
-    /// Push a signed message to the MessagePool
+    /// Push a signed message to the MessagePool.
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
@@ -402,7 +403,7 @@ where
         if publish {
             self.network_sender
                 .send(NetworkMessage::PubsubMessage {
-                    topic: PUBSUB_MSG_TOPIC.clone(),
+                    topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg_ser,
                 })
                 .await
@@ -411,7 +412,7 @@ where
         Ok(cid)
     }
 
-    /// Basic checks on the validity of a message
+    /// Basic checks on the validity of a message.
     async fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
@@ -429,7 +430,7 @@ where
     }
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
-    /// to be pushed to the MessagePool
+    /// to be pushed to the MessagePool.
     pub async fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg).await?;
 
@@ -439,13 +440,13 @@ where
         Ok(())
     }
 
-    /// Add a SignedMessage without doing any of the checks
+    /// Add a SignedMessage without doing any of the checks.
     pub async fn add_skip_checks(&mut self, m: SignedMessage) -> Result<(), Error> {
         self.add_helper(m).await
     }
 
     /// Verify the message signature. first check if it has already been verified and put into
-    /// cache. If it has not, then manually verify it then put it into cache for future use
+    /// cache. If it has not, then manually verify it then put it into cache for future use.
     async fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid()?;
 
@@ -460,8 +461,8 @@ where
         Ok(())
     }
 
-    /// Verify the state_sequence and balance for the sender of the message given then call add_locked
-    /// to finish adding the signed_message to pending
+    /// Verify the state_sequence and balance for the sender of the message given then
+    /// call add_locked to finish adding the signed_message to pending.
     async fn add_tipset(
         &self,
         msg: SignedMessage,
@@ -487,8 +488,8 @@ where
     }
 
     /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
-    /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
-    /// and push it to the pending hashmap
+    /// in the hashmap does not yet exist, create a new mset that will correspond to the from
+    /// message and push it to the pending hashmap.
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
         let cur_ts = self.cur_tipset.read().await.clone();
@@ -502,7 +503,8 @@ where
         .await
     }
 
-    /// Get the sequence for a given address, return Error if there is a failure to retrieve sequence
+    /// Get the sequence for a given address, return Error if there is a failure to retrieve
+    /// the respective sequence.
     pub async fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
 
@@ -522,20 +524,20 @@ where
         }
     }
 
-    /// Get the state of the sequence for a given address in cur_ts
+    /// Get the state of the sequence for a given address in cur_ts.
     async fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         let actor = self.api.read().await.get_actor_after(&addr, cur_ts)?;
         Ok(actor.sequence)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
-    /// if this actor does not exist, return an error
+    /// if this actor does not exist, return an error.
     async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
         let actor = self.api.read().await.get_actor_after(&addr, &ts)?;
         Ok(actor.balance)
     }
 
-    /// Adds a local message returned from the call back function with the current nonce
+    /// Adds a local message returned from the call back function with the current nonce.
     pub async fn push_with_sequence<V>(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
     where
         T: Fn(Address, u64) -> Result<SignedMessage, Error>,
@@ -571,7 +573,7 @@ where
         if publish {
             self.network_sender
                 .send(NetworkMessage::PubsubMessage {
-                    topic: PUBSUB_MSG_TOPIC.clone(),
+                    topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg.marshal_cbor()?,
                 })
                 .await
@@ -599,7 +601,7 @@ where
         Ok(())
     }
 
-    /// Remove a message given a sequence and address from the messagepool
+    /// Remove a message given a sequence and address from the messagepool.
     pub async fn remove(
         &mut self,
         from: &Address,
@@ -631,7 +633,7 @@ where
     }
 
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
-    /// each messsage's sequence. If no corresponding messages found, return None result type
+    /// each messsage's sequence. If no corresponding messages found, return None result type.
     pub async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let pending = self.pending.read().await;
         let mset = pending.get(a)?;
@@ -646,7 +648,7 @@ where
         Some(msg_vec)
     }
 
-    /// Return Vector of signed messages given a block header for self
+    /// Return Vector of signed messages given a block header for self.
     pub async fn messages_for_blocks(
         &self,
         blks: &[BlockHeader],
@@ -667,8 +669,8 @@ where
     }
 
     /// Return gas price estimate this has been translated from lotus, a more smart implementation will
-    /// most likely need to be implemented
-    // TODO: UPDATE
+    /// most likely need to be implemented.
+    // TODO: UPDATE https://github.com/ChainSafe/forest/issues/901
     pub fn estimate_gas_premium(
         &self,
         nblocksincl: u64,
@@ -676,8 +678,6 @@ where
         _gas_limit: u64,
         _tsk: TipsetKeys,
     ) -> Result<BigInt, Error> {
-        // TODO possibly come up with a smarter way to estimate the gas price
-        // TODO a smarter way exists now
         let min_gas_price = 0;
         match nblocksincl {
             0 => Ok(BigInt::from(min_gas_price + 2)),
@@ -686,24 +686,18 @@ where
         }
     }
 
-    /// local_message field
+    /// Loads local messages to the message pool to be applied.
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write().await;
-        let mut rm_vec = Vec::new();
         let msg_vec: Vec<SignedMessage> = local_msgs.iter().cloned().collect();
 
         for k in msg_vec.into_iter() {
-            // TODO no need to clone message, if error, message could be returned in error
             self.add(k.clone()).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
-                    rm_vec.push(k);
+                    local_msgs.remove(&k);
                 }
             })
-        }
-
-        for item in rm_vec {
-            local_msgs.remove(&item);
         }
 
         Ok(())
@@ -772,7 +766,7 @@ fn get_base_fee_lower_bound(base_fee: &BigInt, factor: i64) -> BigInt {
     base_fee_lower_bound
 }
 
-/// Remove a message from pending given the from address and sequence
+/// Remove a message from pending given the from address and sequence.
 pub async fn remove(
     from: &Address,
     pending: &RwLock<HashMap<Address, MsgSet>>,
@@ -795,7 +789,7 @@ pub async fn remove(
     Ok(())
 }
 
-/// Attempt to get a signed message that corresponds to an unsigned message in bls_sig_cache
+/// Attempt to get a signed message that corresponds to an unsigned message in bls_sig_cache.
 async fn recover_sig(
     bls_sig_cache: &mut LruCache<Cid, Signature>,
     msg: UnsignedMessage,
@@ -809,7 +803,7 @@ async fn recover_sig(
 
 /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
 /// in the hashmap does not yet exist, create a new mset that will correspond to the from message
-/// and push it to the pending hashmap
+/// and push it to the pending hashmap.
 async fn add_helper<T>(
     api: &RwLock<T>,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
@@ -854,7 +848,7 @@ where
 
     Ok(())
 }
-/// Get the state of the base_sequence for a given address in cur_ts
+/// Get the state of the base_sequence for a given address in cur_ts.
 async fn get_state_sequence<T>(
     api: &RwLock<T>,
     addr: &Address,
@@ -872,6 +866,7 @@ where
 async fn republish_pending_messages<T>(
     api: &RwLock<T>,
     network_sender: &Sender<NetworkMessage>,
+    network_name: &str,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
@@ -939,7 +934,7 @@ where
             // check the baseFee lower bound -- only republish messages that can be included in the chain
             // within the next 20 blocks.
             for m in chain.msgs.iter() {
-                if !allow_negative_chains(ts.epoch()) && m.gas_fee_cap() < &base_fee_lower_bound {
+                if m.gas_fee_cap() < &base_fee_lower_bound {
                     msg_chain.invalidate();
                     continue 'l;
                 }
@@ -949,7 +944,7 @@ where
             i += 1;
             continue;
         }
-        msg_chain.trim(gas_limit, &base_fee, true);
+        msg_chain.trim(gas_limit, &base_fee);
         let mut j = i;
         while j < chains.len() - 1 {
             if chains[j].compare(&chains[j + 1]) == Ordering::Less {
@@ -964,7 +959,7 @@ where
         let mb = m.marshal_cbor()?;
         network_sender
             .send(NetworkMessage::PubsubMessage {
-                topic: PUBSUB_MSG_TOPIC.clone(),
+                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
                 message: mb,
             })
             .await
@@ -1132,20 +1127,23 @@ where
     // No need to link the chains because its linked for free
     Ok(chains)
 }
-pub fn get_gas_reward(msg: &SignedMessage, base_fee: &BigInt) -> BigInt {
+
+/// Gets the gas reward for the given message.
+pub(crate) fn get_gas_reward(msg: &SignedMessage, base_fee: &BigInt) -> BigInt {
     let mut max_prem = msg.gas_fee_cap() - base_fee;
     if &max_prem < msg.gas_premium() {
         max_prem = msg.gas_premium().clone();
     }
     max_prem * msg.gas_limit()
 }
-pub fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
+
+pub(crate) fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
     let a = BigRational::new(gas_reward * types::BLOCK_GAS_LIMIT, gas_limit.into());
     a.to_f64().unwrap()
 }
 
 /// This function will revert and/or apply tipsets to the message pool. This function should be
-/// called every time that there is a head change in the message pool
+/// called every time that there is a head change in the message pool.
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &RwLock<T>,
@@ -1168,9 +1166,8 @@ where
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
-            let (umsg, mut smsgs) = api.read().await.messages_for_block(&block)?;
-            msgs.append(smsgs.as_mut());
-            // TODO: Unsigned messages
+            let (umsg, smsgs) = api.read().await.messages_for_block(&block)?;
+            msgs.extend(smsgs);
             for msg in umsg {
                 let mut bls_sig_cache = bls_sig_cache.write().await;
                 let smsg = recover_sig(&mut bls_sig_cache, msg).await?;
@@ -1294,7 +1291,8 @@ async fn rm(
     Ok(())
 }
 
-/// This function is a helper method for head_change. This method will add a signed message to the given rmsgs HashMap
+/// This function is a helper method for head_change. This method will add a signed message to
+/// the given rmsgs HashMap.
 fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
     let s = rmsgs.get_mut(m.from());
     if let Some(s) = s {
@@ -1312,9 +1310,9 @@ pub mod test_provider {
     use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use cid::Cid;
     use crypto::VRFProof;
-    use flo_stream::{MessagePublisher, Publisher, Subscriber};
     use message::{SignedMessage, UnsignedMessage};
     use std::convert::TryFrom;
+    use tokio::sync::broadcast;
 
     /// Struct used for creating a provider when writing tests involving message pool
     pub struct TestApi {
@@ -1328,12 +1326,13 @@ pub mod test_provider {
     impl Default for TestApi {
         /// Create a new TestApi
         fn default() -> Self {
+            let (publisher, _) = broadcast::channel(1);
             TestApi {
                 bmsgs: HashMap::new(),
                 state_sequence: HashMap::new(),
                 balances: HashMap::new(),
                 tipsets: Vec::new(),
-                publisher: Publisher::new(1),
+                publisher,
             }
         }
     }
@@ -1357,7 +1356,7 @@ pub mod test_provider {
 
         /// Set the heaviest tipset for TestApi
         pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
-            self.publisher.publish(HeadChange::Apply(ts)).await
+            self.publisher.send(HeadChange::Apply(ts)).unwrap();
         }
 
         pub fn next_block(&mut self) -> BlockHeader {
@@ -1379,9 +1378,7 @@ pub mod test_provider {
         }
 
         async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-            Tipset::new(vec![create_header(1, b"", b"")])
-                .ok()
-                .map(Arc::new)
+            Tipset::new(vec![create_header(1)]).ok().map(Arc::new)
         }
 
         fn put_message(&self, _msg: &ChainMessage) -> Result<Cid, Errors> {
@@ -1470,11 +1467,9 @@ pub mod test_provider {
         }
     }
 
-    pub fn create_header(weight: u64, parent_bz: &[u8], cached_bytes: &[u8]) -> BlockHeader {
+    pub fn create_header(weight: u64) -> BlockHeader {
         BlockHeader::builder()
             .weight(BigInt::from(weight))
-            .cached_bytes(cached_bytes.to_vec())
-            .cached_cid(cid::new_from_cbor(parent_bz, Blake2b256))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap()
@@ -1500,7 +1495,7 @@ pub mod test_provider {
             .messages(c)
             .state_root(c)
             .weight(weight_inc)
-            .build_and_validate()
+            .build()
             .unwrap()
     }
 
@@ -1525,7 +1520,7 @@ pub mod test_provider {
             .state_root(c)
             .weight(weight_inc)
             .epoch(epoch)
-            .build_and_validate()
+            .build()
             .unwrap()
     }
     pub fn mock_block_with_parents(
@@ -1557,7 +1552,7 @@ pub mod test_provider {
             .state_root(*parents.blocks()[0].state_root())
             .weight(weight_inc)
             .epoch(height)
-            .build_and_validate()
+            .build()
             .unwrap()
     }
 }

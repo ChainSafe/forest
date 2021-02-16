@@ -1,10 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{tipset_tracker::TipsetTracker, ChainIndex, Error};
+use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use actor::{miner, power};
 use address::Address;
-use async_std::channel::bounded;
+use async_std::channel::{bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -16,14 +16,13 @@ use cid::Code::Blake2b256;
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
-use flo_stream::{MessagePublisher, Publisher, Subscriber};
 use forest_car::CarHeader;
 use forest_ipld::Ipld;
-use futures::{future, AsyncWrite, StreamExt};
+use futures::AsyncWrite;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{info, warn};
+use log::{debug, info, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
@@ -31,13 +30,17 @@ use num_traits::Zero;
 use rayon::prelude::*;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error as StdError;
 use std::io::Write;
 use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    time::SystemTime,
+};
+use tokio::sync::broadcast::{self, error::RecvError, Sender as Publisher};
 
 const GENESIS_KEY: &str = "gen_block";
-pub const HEAD_KEY: &str = "head";
+const HEAD_KEY: &str = "head";
 const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 
 // constants for Weight calculation
@@ -48,7 +51,7 @@ const W_RATIO_DEN: u64 = 2;
 const BLOCKS_PER_EPOCH: u64 = 5;
 
 // A cap on the size of the future_sink
-const SINK_CAP: usize = 1000;
+const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
 
@@ -60,37 +63,12 @@ pub enum HeadChange {
     Revert(Arc<Tipset>),
 }
 
-#[derive(Debug, Clone)]
-pub struct IndexToHeadChange(pub usize, pub HeadChange);
-
-#[derive(Clone)]
-pub enum EventsPayload {
-    TaskCancel(usize, ()),
-    SubHeadChanges(IndexToHeadChange),
-}
-
-impl EventsPayload {
-    pub fn sub_head_changes(&self) -> Option<&IndexToHeadChange> {
-        match self {
-            EventsPayload::SubHeadChanges(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    pub fn task_cancel(&self) -> Option<(usize, ())> {
-        match self {
-            EventsPayload::TaskCancel(val, _) => Some((*val, ())),
-            _ => None,
-        }
-    }
-}
-
 /// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
 /// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     /// Publisher for head change events
-    publisher: RwLock<Publisher<HeadChange>>,
+    publisher: Publisher<HeadChange>,
 
     /// key-value datastore.
     pub db: Arc<DB>,
@@ -113,9 +91,10 @@ where
     DB: BlockStore + Send + Sync + 'static,
 {
     pub fn new(db: Arc<DB>) -> Self {
+        let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
-            publisher: RwLock::new(Publisher::new(SINK_CAP)),
+            publisher,
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
             tipset_tracker: TipsetTracker::new(db.clone()),
             db,
@@ -133,52 +112,42 @@ where
     pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         *self.heaviest.write().await = Some(ts.clone());
-        self.publisher
-            .write()
-            .await
-            .publish(HeadChange::Apply(ts))
-            .await;
+        if self.publisher.send(HeadChange::Apply(ts)).is_err() {
+            debug!("did not publish head change, no active receivers");
+        }
         Ok(())
     }
 
-    // subscribing returns a future sink that we can essentially iterate over using future streams
-    pub async fn subscribe(&self) -> (Subscriber<HeadChange>, Arc<Tipset>) {
-        let sub = self.publisher.write().await.subscribe();
-        let ts = self.heaviest_tipset().await.unwrap();
-        (sub, ts)
-    }
-
-    /// Sets tip_index tracker
-    // TODO handle managing tipset in tracker
-    pub async fn set_tipset_tracker(&self, _: &BlockHeader) -> Result<(), Error> {
-        Ok(())
-    }
-
-    /// Writes genesis to blockstore
+    /// Writes genesis to blockstore.
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
     }
 
+    /// Adds a [BlockHeader] to the tipset tracker, which tracks valid headers.
     pub async fn add_to_tipset_tracker(&self, header: &BlockHeader) {
         self.tipset_tracker.add(header).await;
     }
 
-    /// Writes tipset block headers to data store and updates heaviest tipset
+    /// Writes tipset block headers to data store and updates heaviest tipset with other
+    /// compatible tracked headers.
     pub async fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         // TODO: we could add the blocks of `ts` to the tipset tracker from here,
         // making `add_to_tipset_tracker` redundant and decreasing the number of
         // blockstore reads
         persist_objects(self.blockstore(), ts.blocks())?;
+
+        // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
-        self.update_heaviest(&expanded).await?;
+        self.update_heaviest(Arc::new(expanded)).await?;
         Ok(())
     }
 
+    /// Expands tipset to tipset with all other headers in the same epoch using the tipset tracker.
     async fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
         self.tipset_tracker.expand(header).await
     }
 
-    /// Loads heaviest tipset from datastore and sets as heaviest in chainstore
+    /// Loads heaviest tipset from datastore and sets as heaviest in chainstore.
     async fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
             Some(bz) => self.tipset_from_keys(&from_slice(&bz)?).await?,
@@ -193,18 +162,19 @@ where
         Ok(())
     }
 
-    /// Returns genesis blockheader from blockstore
+    /// Returns genesis [BlockHeader] from the store based on a static key.
     pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
         genesis(self.blockstore())
     }
 
-    /// Returns the currently tracked heaviest tipset
+    /// Returns the currently tracked heaviest tipset.
     pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         // TODO: Figure out how to remove optional and return something everytime.
         self.heaviest.read().await.clone()
     }
 
-    pub fn publisher(&self) -> &RwLock<Publisher<HeadChange>> {
+    /// Returns a reference to the publisher of head changes.
+    pub fn publisher(&self) -> &Publisher<HeadChange> {
         &self.publisher
     }
 
@@ -227,7 +197,7 @@ where
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    async fn update_heaviest(&self, ts: &Tipset) -> Result<(), Error> {
+    async fn update_heaviest(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = self
             .heaviest
@@ -237,17 +207,17 @@ where
             .map(|ts| weight(self.db.as_ref(), ts.as_ref()));
         match heaviest_weight {
             Some(heaviest) => {
-                let new_weight = weight(self.blockstore(), ts)?;
+                let new_weight = weight(self.blockstore(), ts.as_ref())?;
                 let curr_weight = heaviest?;
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset");
-                    self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
+                    self.set_heaviest_tipset(ts).await?;
                 }
             }
             None => {
                 info!("set heaviest tipset");
-                self.set_heaviest_tipset(Arc::new(ts.clone())).await?;
+                self.set_heaviest_tipset(ts).await?;
             }
         }
         Ok(())
@@ -529,11 +499,15 @@ where
         const CHANNEL_CAP: usize = 1000;
         let (tx, mut rx) = bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
+
+        // Spawns task which receives blocks to write to the car writer.
         let write_task =
             task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
 
-        // TODO add timer for export
+        let global_pre_time = SystemTime::now();
         info!("chain export started");
+
+        // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
                 .blockstore()
@@ -554,11 +528,56 @@ where
         write_task
             .await
             .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))?;
-        info!("export finished");
+
+        let time = SystemTime::now()
+            .duration_since(global_pre_time)
+            .expect("time cannot go backwards");
+        info!("export finished, took {} seconds", time.as_secs());
 
         Ok(())
     }
 
+    /// Subscribes to head changes. This function will send the current tipset through a channel,
+    /// start a task that listens to each head change event and forwards into the channel,
+    /// then returns the receiver of this channel from the function.
+    /// This function is not blocking on events, and does not stall publishing events as it will
+    /// skip over lagged events.
+    pub async fn sub_head_changes(&self) -> Receiver<HeadChange> {
+        let (tx, rx) = bounded(16);
+        let mut subscriber = self.publisher.subscribe();
+
+        // Send current heaviest tipset into receiver as first event.
+        if let Some(ts) = self.heaviest_tipset().await {
+            tx.send(HeadChange::Current(ts))
+                .await
+                .expect("receiver guaranteed to not drop by now")
+        }
+
+        task::spawn(async move {
+            loop {
+                match subscriber.recv().await {
+                    Ok(change) => {
+                        if tx.send(change).await.is_err() {
+                            // Subscriber dropped, no need to keep task alive
+                            break;
+                        }
+                    }
+                    Err(RecvError::Lagged(_)) => {
+                        // Can keep polling, as long as receiver is not dropped
+                        warn!("subscriber lagged, ignored head change events");
+                    }
+                    // This can only happen if chain store is dropped, but fine to exit silently
+                    // if this ever does happen.
+                    Err(RecvError::Closed) => break,
+                }
+            }
+        });
+
+        rx
+    }
+
+    /// Walks over tipset and state data and loads all blocks not yet seen.
+    /// This is tracked based on the callback function loading blocks.
     async fn walk_snapshot<F>(
         tipset: &Tipset,
         recent_roots: ChainEpoch,
@@ -608,6 +627,8 @@ where
     }
 }
 
+// Traverses all Cid links, loading all unique values and using the callback function
+// to interact with the data.
 fn traverse_ipld_links<F>(
     walked: &mut HashSet<Cid>,
     load_block: &mut F,
@@ -642,6 +663,7 @@ where
     Ok(())
 }
 
+// Load cids and call [traverse_ipld_links] to resolve recursively.
 fn recurse_links<F>(walked: &mut HashSet<Cid>, root: Cid, load_block: &mut F) -> Result<(), Error>
 where
     F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
@@ -664,6 +686,7 @@ where
 
 pub(crate) type TipsetCache = RwLock<LruCache<TipsetKeys, Arc<Tipset>>>;
 
+/// Loads a tipset from memory given the tipset keys and cache.
 pub(crate) async fn tipset_from_keys<BS>(
     cache: &TipsetCache,
     store: &BS,
@@ -762,9 +785,8 @@ where
     DB: BlockStore,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    Ok(db
-        .put(&header, Blake2b256)
-        .map_err(|e| Error::Other(e.to_string()))?)
+    db.put(&header, Blake2b256)
+        .map_err(|e| Error::Other(e.to_string()))
 }
 
 /// Persists slice of serializable objects to blockstore.
@@ -780,7 +802,7 @@ where
     Ok(())
 }
 
-/// Computes a pseudorandom 32 byte Vec
+/// Computes a pseudorandom 32 byte Vec.
 pub fn draw_randomness(
     rbase: &[u8],
     pers: DomainSeparationTag,
@@ -815,7 +837,7 @@ where
     Ok(cids)
 }
 
-/// Returns the genesis block
+/// Returns the genesis block from storage.
 pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
 where
     DB: BlockStore,
@@ -826,7 +848,8 @@ where
     })
 }
 
-/// Attempts to deserialize to unsigend message or signed message and then returns it at as a message trait object
+/// Attempts to deserialize to unsigend message or signed message and then returns it at as a
+// [ChainMessage].
 pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: BlockStore,
@@ -836,7 +859,7 @@ where
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
 
-/// given a tipset this function will return all messages
+/// Given a tipset this function will return all unique messages in that tipset.
 pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
     DB: BlockStore,
@@ -894,7 +917,7 @@ where
     })
 }
 
-/// Returns messages from key-value store
+/// Returns messages from key-value store based on a slice of [Cid]s.
 pub fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
     DB: BlockStore,
@@ -909,21 +932,22 @@ where
         .collect()
 }
 
-/// returns message receipt given block_header
+/// Returns parent message receipt given block_header and message index.
 pub fn get_parent_reciept<DB>(
     db: &DB,
     block_header: &BlockHeader,
-    i: u64,
+    i: usize,
 ) -> Result<Option<MessageReceipt>, Error>
 where
     DB: BlockStore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
-    let receipts = amt.get(i)?;
+    let receipts = amt.get(i as u64)?;
     Ok(receipts.cloned())
 }
 
-/// Returns the weight of provided tipset
+/// Returns the weight of provided [Tipset]. This function will load power actor state
+/// and calculate the total weight of the [Tipset].
 pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: BlockStore,
@@ -965,49 +989,6 @@ where
     e_weight = e_weight.div_floor(&(BigInt::from(BLOCKS_PER_EPOCH * W_RATIO_DEN)));
     out += &e_weight;
     Ok(out)
-}
-
-pub async fn sub_head_changes(
-    mut subscribed_head_change: Subscriber<HeadChange>,
-    heaviest_tipset: &Arc<Tipset>,
-    current_index: usize,
-    events_pubsub: Arc<RwLock<Publisher<EventsPayload>>>,
-) -> Result<usize, Error> {
-    (*events_pubsub.write().await)
-        .publish(EventsPayload::SubHeadChanges(IndexToHeadChange(
-            current_index,
-            HeadChange::Current(heaviest_tipset.clone()),
-        )))
-        .await;
-
-    let subhead_sender = events_pubsub.clone();
-    let handle = task::spawn(async move {
-        while let Some(change) = subscribed_head_change.next().await {
-            let index_to_head_change = IndexToHeadChange(current_index, change);
-            subhead_sender
-                .write()
-                .await
-                .publish(EventsPayload::SubHeadChanges(index_to_head_change))
-                .await;
-        }
-    });
-    let cancel_sender = events_pubsub.write().await.subscribe();
-    task::spawn(async move {
-        if let Some(EventsPayload::TaskCancel(_, ())) = cancel_sender
-            .filter(|s| {
-                future::ready(
-                    s.task_cancel()
-                        .map(|s| s.0 == current_index)
-                        .unwrap_or_default(),
-                )
-            })
-            .next()
-            .await
-        {
-            handle.cancel().await;
-        }
-    });
-    Ok(current_index)
 }
 
 #[cfg(feature = "json")]
@@ -1053,7 +1034,7 @@ mod tests {
             .message_receipts(cid::new_from_cbor(&[], Identity))
             .state_root(cid::new_from_cbor(&[], Identity))
             .miner_address(Address::new_id(0))
-            .build_and_validate()
+            .build()
             .unwrap();
 
         assert_eq!(cs.genesis().unwrap(), None);

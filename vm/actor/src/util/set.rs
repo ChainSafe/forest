@@ -1,8 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{make_map, make_map_with_root, BytesKey, Map};
+use crate::{make_empty_map, make_map_with_root, BytesKey, Map};
 use cid::Cid;
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
 use std::error::Error as StdError;
@@ -21,9 +22,14 @@ impl<'a, BS> Set<'a, BS>
 where
     BS: BlockStore,
 {
-    /// Initializes a new empty Set.
+    /// Initializes a new empty Set with the default bitwidth.
     pub fn new(bs: &'a BS) -> Self {
-        Self(make_map(bs))
+        Self(make_empty_map(bs, HAMT_BIT_WIDTH))
+    }
+
+    /// Initializes a new empty Set given a bitwidth.
+    pub fn new_set_with_bitwidth(bs: &'a BS, bitwidth: u32) -> Self {
+        Self(make_empty_map(bs, bitwidth))
     }
 
     /// Initializes a Set from a root Cid.
@@ -41,21 +47,23 @@ where
     #[inline]
     pub fn put(&mut self, key: BytesKey) -> Result<(), Error> {
         // Set hamt node to array root
-        Ok(self.0.set(key, ())?)
+        self.0.set(key, ())?;
+        Ok(())
     }
 
     /// Checks if key exists in the set.
     #[inline]
     pub fn has(&self, key: &[u8]) -> Result<bool, Error> {
-        Ok(self.0.get(key)?.is_some())
+        self.0.contains_key(key)
     }
 
     /// Deletes key from set.
     #[inline]
-    pub fn delete(&mut self, key: &[u8]) -> Result<(), Error> {
-        self.0.delete(key)?;
-
-        Ok(())
+    pub fn delete(&mut self, key: &[u8]) -> Result<Option<()>, Error> {
+        match self.0.delete(key)? {
+            Some(_) => Ok(Some(())),
+            None => Ok(None),
+        }
     }
 
     /// Iterates through all keys in the set.
@@ -64,7 +72,7 @@ where
         F: FnMut(&BytesKey) -> Result<(), Box<dyn StdError>>,
     {
         // Calls the for each function on the hamt with ignoring the value
-        Ok(self.0.for_each(|s, _: &()| f(s))?)
+        self.0.for_each(|s, _: &()| f(s))
     }
 
     /// Collects all keys from the set into a vector.

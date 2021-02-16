@@ -8,13 +8,13 @@ use libfuzzer_sys::fuzz_target;
 
 #[derive(Debug, Arbitrary)]
 struct Operation {
-    idx: u64,
+    idx: usize,
     method: Method,
 }
 
 #[derive(Debug, Arbitrary)]
 enum Method {
-    Insert(u64),
+    Insert(usize),
     Remove,
     Get,
 }
@@ -28,8 +28,9 @@ fuzz_target!(|data: (u8, Vec<Operation>)| {
     let flush_rate = (flush_rate as usize).saturating_add(5);
     for (i, Operation { idx, method }) in operations.into_iter().enumerate() {
         if i % flush_rate == 0 {
-            // Periodic flushing of Amt to fuzz blockstore usage also
-            amt.flush().unwrap();
+            // Periodic flushing and reloading of Amt to fuzz blockstore usage also
+            let cid = amt.flush().unwrap();
+            amt = Amt::load(&cid, &db).unwrap();
         }
         if idx > MAX_INDEX {
             continue;
@@ -43,7 +44,7 @@ fuzz_target!(|data: (u8, Vec<Operation>)| {
             Method::Remove => {
                 let el = elements.remove(&idx);
                 let amt_deleted = amt.delete(idx).unwrap();
-                assert_eq!(amt_deleted, el.is_some());
+                assert_eq!(amt_deleted, el);
             }
             Method::Get => {
                 let ev = elements.get(&idx);
