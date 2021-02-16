@@ -7,20 +7,19 @@ mod types;
 pub use self::state::State;
 pub use self::types::*;
 use crate::{
-    make_empty_map, make_map_with_root, resolve_to_id_addr, ActorDowncast,
-    STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    make_map_with_root_and_bitwidth, resolve_to_id_addr, ActorDowncast, STORAGE_MARKET_ACTOR_ADDR,
+    SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntDe;
-use num_bigint::Sign;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Signed};
 use runtime::{ActorCode, Runtime};
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
-// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
+// * Updated to specs-actors commit: 845089a6d2580e46055c24415a6c32ee688e5186 (v3.0.0)
 
 /// Account actor methods available
 #[derive(FromPrimitive)]
@@ -49,13 +48,10 @@ impl Actor {
             .resolve_address(&root_key)?
             .ok_or_else(|| actor_error!(ErrIllegalArgument, "root should be an ID address"))?;
 
-        let empty_root = make_empty_map::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
-            .flush()
-            .map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "Failed to create registry state")
-            })?;
+        let st = State::new(rt.store(), id_addr).map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "Failed to create verifreg state")
+        })?;
 
-        let st = State::new(empty_root, id_addr);
         rt.create(&st)?;
         Ok(())
     }
@@ -92,12 +88,18 @@ impl Actor {
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
-            })?;
-            let verified_clients = make_map_with_root::<_, BigIntDe>(
+            let mut verifiers =
+                make_map_with_root_and_bitwidth(&st.verifiers, rt.store(), HAMT_BIT_WIDTH)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load verified clients",
+                        )
+                    })?;
+            let verified_clients = make_map_with_root_and_bitwidth::<_, BigIntDe>(
                 &st.verified_clients,
                 rt.store(),
+                HAMT_BIT_WIDTH,
             )
             .map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
@@ -153,17 +155,21 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(&state.root_key))?;
 
         rt.transaction(|st: &mut State, rt| {
-            let mut verifiers = make_map_with_root::<_, BigIntDe>(&st.verifiers, rt.store())
-                .map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
-                })?;
+            let mut verifiers = make_map_with_root_and_bitwidth::<_, BigIntDe>(
+                &st.verifiers,
+                rt.store(),
+                HAMT_BIT_WIDTH,
+            )
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
+            })?;
             verifiers
                 .delete(&verifier.to_bytes())
                 .map_err(|e| {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to remove verifier")
                 })?
                 .ok_or_else(|| {
-                    actor_error!(ErrIllegalState, "failed to remove verifier: not found")
+                    actor_error!(ErrIllegalArgument, "failed to remove verifier: not found")
                 })?;
 
             st.verifiers = verifiers.flush().map_err(|e| {
@@ -211,11 +217,17 @@ impl Actor {
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let mut verifiers = make_map_with_root(&st.verifiers, rt.store()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
-            })?;
-            let mut verified_clients = make_map_with_root(&st.verified_clients, rt.store())
-                .map_err(|e| {
+            let mut verifiers =
+                make_map_with_root_and_bitwidth(&st.verifiers, rt.store(), HAMT_BIT_WIDTH)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load verified clients",
+                        )
+                    })?;
+            let mut verified_clients =
+                make_map_with_root_and_bitwidth(&st.verified_clients, rt.store(), HAMT_BIT_WIDTH)
+                    .map_err(|e| {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
                 })?;
 
@@ -340,8 +352,9 @@ impl Actor {
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let mut verified_clients = make_map_with_root(&st.verified_clients, rt.store())
-                .map_err(|e| {
+            let mut verified_clients =
+                make_map_with_root_and_bitwidth(&st.verified_clients, rt.store(), HAMT_BIT_WIDTH)
+                    .map_err(|e| {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
                 })?;
 
@@ -354,7 +367,14 @@ impl Actor {
                     )
                 })?
                 .ok_or_else(|| actor_error!(ErrNotFound, "no such verified client {}", client))?;
-            assert_ne!(vc_cap.sign(), Sign::Minus);
+            if vc_cap.is_negative() {
+                return Err(actor_error!(
+                    ErrIllegalState,
+                    "negative cap for client {}: {}",
+                    client,
+                    vc_cap
+                ));
+            }
 
             if &params.deal_size > vc_cap {
                 return Err(actor_error!(
@@ -440,12 +460,17 @@ impl Actor {
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let verifiers =
-                make_map_with_root::<_, BigIntDe>(&st.verifiers, rt.store()).map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
-                })?;
-            let mut verified_clients = make_map_with_root(&st.verified_clients, rt.store())
-                .map_err(|e| {
+            let verifiers = make_map_with_root_and_bitwidth::<_, BigIntDe>(
+                &st.verifiers,
+                rt.store(),
+                HAMT_BIT_WIDTH,
+            )
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
+            })?;
+            let mut verified_clients =
+                make_map_with_root_and_bitwidth(&st.verified_clients, rt.store(), HAMT_BIT_WIDTH)
+                    .map_err(|e| {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load verified clients")
                 })?;
 
