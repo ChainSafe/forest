@@ -1,11 +1,10 @@
-use crate::data_types::{State, StreamingData};
+use crate::data_types::{Id, JsonRpcRequestObject, State, StreamingData};
 use crate::rpc_util::get_error;
 use async_std::sync::Arc;
 use beacon::Beacon;
 use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use futures::stream::StreamExt;
-use jsonrpc_v2::{Id, RequestObject};
 use log::{debug, info};
 use serde::Serialize;
 use tide::Request;
@@ -39,7 +38,7 @@ where
                     info!("RPC Request Received: {:?}", &request_text);
 
                     match serde_json::from_str(&request_text)
-                        as Result<RequestObject, serde_json::Error>
+                        as Result<JsonRpcRequestObject, serde_json::Error>
                     {
                         Ok(call) => {
                             // hacky but due to the limitations of jsonrpc_v2 impl
@@ -65,7 +64,7 @@ where
                             let response = SubscribeChannelIDResponse {
                                 json_rpc: "2.0",
                                 result: chain_notify_count_curr,
-                                id: call.id.flatten().unwrap_or_default(),
+                                id: call.id.flatten().unwrap_or(Id::Null),
                             };
 
                             ws_stream.send_json(&response).await?; // TODO: handle send error
