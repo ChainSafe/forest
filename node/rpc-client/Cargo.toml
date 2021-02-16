@@ -20,8 +20,6 @@ wallet = { package = "key_management", path = "../../key_management", features =
 auth = { path = "../../utils/auth" }
 
 [dependencies.jsonrpc-v2]
-version = "0.7.0"
-git = "https://github.com/ChainSafe/jsonrpc-v2"
-branch = "upstream-public"
+version = "0.8.0"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
