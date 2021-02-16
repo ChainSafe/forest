@@ -51,9 +51,9 @@ pub type State<DB, KS, B> = Arc<RpcState<DB, KS, B>>;
 #[serde(default)]
 pub struct JsonRpcRequestObject {
     #[serde(default = "default_jsonrpc")]
-    jsonrpc: String,
-    method: Box<str>,
-    params: Option<InnerParams>,
+    pub jsonrpc: String,
+    pub method: Box<str>,
+    pub params: Option<InnerParams>,
     #[serde(deserialize_with = "JsonRpcRequestObject::deserialize_id")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Option<Id>>,
