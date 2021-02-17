@@ -4,7 +4,7 @@
 use encoding::{Byte32De, BytesSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// String of random bytes
+/// String of random bytes usually generated from a randomness beacon or from tickets on chain.
 #[derive(PartialEq, Eq, Default, Copy, Clone, Debug)]
 pub struct Randomness(pub [u8; 32]);
 

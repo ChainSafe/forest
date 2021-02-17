@@ -5,12 +5,17 @@ use libp2p::Multiaddr;
 use networks::DEFAULT_BOOTSTRAP;
 use serde::Deserialize;
 
+/// Libp2p config for the Forest node.
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct Libp2pConfig {
+    /// Local address.
     pub listening_multiaddr: Multiaddr,
+    /// Bootstrap peer list.
     pub bootstrap_peers: Vec<Multiaddr>,
+    /// Mdns discovery enabled.
     pub mdns: bool,
+    /// Kademlia discovery enabled.
     pub kademlia: bool,
 }
 

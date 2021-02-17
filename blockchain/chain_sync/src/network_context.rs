@@ -9,7 +9,7 @@ use cid::Cid;
 use encoding::de::DeserializeOwned;
 use forest_libp2p::{
     chain_exchange::{
-        ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, BLOCKS,
+        ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
         MESSAGES,
     },
     hello::{HelloRequest, HelloResponse},
@@ -95,7 +95,7 @@ where
         tsk: &TipsetKeys,
         count: u64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, BLOCKS)
+        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS)
             .await
     }
     /// Send a chain_exchange request for only messages (ignore block headers).
@@ -118,7 +118,7 @@ where
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
         let mut fts = self
-            .handle_chain_exchange_request(peer_id, tsk, 1, BLOCKS | MESSAGES)
+            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES)
             .await?;
 
         if fts.len() != 1 {

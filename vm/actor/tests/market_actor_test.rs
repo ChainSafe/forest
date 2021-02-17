@@ -8,13 +8,13 @@ use clock::EPOCH_UNDEFINED;
 use common::*;
 use fil_types::HAMT_BIT_WIDTH;
 use forest_actor::{
-    make_map_with_bitwidth,
+    make_empty_map,
     market::{Method, State, WithdrawBalanceParams, PROPOSALS_AMT_BITWIDTH, STATES_AMT_BITWIDTH},
     miner::{GetControlAddressesReturn, Method as MinerMethod},
     util::BALANCE_TABLE_BITWIDTH,
-    BalanceTable, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE,
-    INIT_ACTOR_CODE_ID, MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
-    STORAGE_MARKET_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    BalanceTable, SetMultimap, ACCOUNT_ACTOR_CODE_ID, CALLER_TYPES_SIGNABLE, INIT_ACTOR_CODE_ID,
+    MARKET_ACTOR_CODE_ID, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, STORAGE_MARKET_ACTOR_ADDR,
+    SYSTEM_ACTOR_ADDR,
 };
 use ipld_amt::Amt;
 use num_bigint::bigint_ser::BigIntDe;
@@ -80,10 +80,10 @@ fn simple_construction() {
 
     let store = &rt.store;
 
-    let empty_balance_table = make_map_with_bitwidth::<_, BigIntDe>(store, BALANCE_TABLE_BITWIDTH)
+    let empty_balance_table = make_empty_map::<_, BigIntDe>(store, BALANCE_TABLE_BITWIDTH)
         .flush()
         .unwrap();
-    let empty_map = make_map_with_bitwidth::<_, ()>(store, HAMT_BIT_WIDTH)
+    let empty_map = make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH)
         .flush()
         .unwrap();
     let empty_proposals_array = Amt::<(), _>::new_with_bit_width(store, PROPOSALS_AMT_BITWIDTH)

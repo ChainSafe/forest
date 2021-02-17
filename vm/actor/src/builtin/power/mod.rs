@@ -14,7 +14,7 @@ use crate::{
     CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
     REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
-use crate::{make_map_with_bitwidth, miner::MinerConstructorParams};
+use crate::{make_empty_map, miner::MinerConstructorParams};
 use address::Address;
 use ahash::AHashSet;
 use fil_types::{NetworkVersion, SealVerifyInfo, HAMT_BIT_WIDTH};

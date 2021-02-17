@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, Map, make_map_with_bitwidth, make_map_with_root, make_map_with_root_and_bitwidth};
+use crate::{BytesKey, Map, make_empty_map, make_map_with_root_and_bitwidth};
 use cid::Cid;
-use fil_types::HAMT_BIT_WIDTH;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
@@ -21,7 +20,7 @@ where
     /// The outer_bitwidth is the width of the HAMT and the 
     /// inner_bitwidth is the width of the AMTs inside of it. 
     pub fn new(bs: &'a BS, outer_bitwidth: u32, inner_bitwidth: usize) -> Self {
-        Self(make_map_with_bitwidth(bs, outer_bitwidth), inner_bitwidth)
+        Self(make_empty_map(bs, outer_bitwidth), inner_bitwidth)
     }
 
     /// Initializes a multimap from a root Cid

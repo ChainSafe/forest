@@ -19,7 +19,7 @@ use cid::Code::Blake2b256;
 use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
-use forest_libp2p::{NetworkMessage, PUBSUB_MSG_TOPIC};
+use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
 use log::{error, warn};
 use lru::LruCache;
@@ -361,6 +361,7 @@ where
         let republished = mp.republished.clone();
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
+        let network_name = mp.network_name.clone();
         // Reacts to republishing requests
         task::spawn(async move {
             let mut interval = interval(Duration::from_millis(REPUBLISH_INTERVAL));
@@ -369,6 +370,7 @@ where
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),
+                    network_name.as_ref(),
                     pending.as_ref(),
                     cur_tipset.as_ref(),
                     republished.as_ref(),
@@ -401,7 +403,7 @@ where
         if publish {
             self.network_sender
                 .send(NetworkMessage::PubsubMessage {
-                    topic: PUBSUB_MSG_TOPIC.clone(),
+                    topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg_ser,
                 })
                 .await
@@ -571,7 +573,7 @@ where
         if publish {
             self.network_sender
                 .send(NetworkMessage::PubsubMessage {
-                    topic: PUBSUB_MSG_TOPIC.clone(),
+                    topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg.marshal_cbor()?,
                 })
                 .await
@@ -864,6 +866,7 @@ where
 async fn republish_pending_messages<T>(
     api: &RwLock<T>,
     network_sender: &Sender<NetworkMessage>,
+    network_name: &str,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
@@ -956,7 +959,7 @@ where
         let mb = m.marshal_cbor()?;
         network_sender
             .send(NetworkMessage::PubsubMessage {
-                topic: PUBSUB_MSG_TOPIC.clone(),
+                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
                 message: mb,
             })
             .await
