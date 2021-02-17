@@ -1,17 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::CONSENSUS_MINER_MIN_MINERS;
-use crate::{
-    consensus_miner_min_power, make_map_with_root,
-    smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA},
-    ActorDowncast, BytesKey, Map, Multimap,
-};
+use super::{CONSENSUS_MINER_MIN_MINERS, CRON_QUEUE_AMT_BITWIDTH, CRON_QUEUE_HAMT_BITWIDTH};
+use crate::{ActorDowncast, BytesKey, Map, Multimap, consensus_miner_min_power, make_map_with_root_and_bitwidth, make_map_with_root, smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA}};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
-use fil_types::{RegisteredSealProof, StoragePower};
+use fil_types::{HAMT_BIT_WIDTH, RegisteredSealProof, StoragePower};
 use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
 use num_bigint::{bigint_ser, BigInt, Sign};
@@ -67,16 +63,28 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(empty_map_cid: Cid, empty_mmap_cid: Cid) -> State {
-        State {
-            cron_event_queue: empty_mmap_cid,
-            claims: empty_map_cid,
+    pub fn new<BS: BlockStore>(store: &BS) -> Result<State, Box<dyn StdError>> {
+        let empty_map = make_map_with_bitwidth::<_, ()>(store, HAMT_BIT_WIDTH)
+        .flush()
+        .map_err(|e| {
+            format!("Failed to create empty map: {}", e)
+        })?;
+
+    let empty_mmap = Multimap::new(store, CRON_QUEUE_HAMT_BITWIDTH, CRON_QUEUE_AMT_BITWIDTH).root().map_err(|e| {
+        e.downcast_default(
+            ExitCode::ErrIllegalState,
+            "Failed to get empty multimap cid",
+        )
+    })?;
+        Ok(State {
+            cron_event_queue: empty_mmap,
+            claims: empty_map,
             this_epoch_qa_power_smoothed: FilterEstimate {
                 position: INITIAL_QA_POWER_ESTIMATE_POSITION.clone(),
                 velocity: INITIAL_QA_POWER_ESTIMATE_VELOCITY.clone(),
             },
             ..Default::default()
-        }
+        })
     }
 
     pub fn into_total_locked(self) -> TokenAmount {
@@ -89,7 +97,7 @@ impl State {
         s: &BS,
         miner: &Address,
     ) -> Result<bool, Box<dyn StdError>> {
-        let claims = make_map_with_root(&self.claims, s)?;
+        let claims = make_map_with_root_and_bitwidth(&self.claims, s, HAMT_BIT_WIDTH)?;
 
         let claim =
             get_claim(&claims, miner)?.ok_or_else(|| format!("no claim for actor: {}", miner))?;

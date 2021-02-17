@@ -18,6 +18,9 @@ pub const SECTOR_TERMINATION_MANUAL: SectorTermination = 1;
 /// Implicit termination due to unrecovered fault
 pub const SECTOR_TERMINATION_FAULTY: SectorTermination = 3;
 
+pub const CRON_QUEUE_HAMT_BITWIDTH: u32 = 6;
+pub const CRON_QUEUE_AMT_BITWIDTH: usize = 6;
+
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CreateMinerParams {
     pub owner: Address,

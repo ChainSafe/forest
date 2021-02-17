@@ -62,23 +62,9 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        let empty_map = make_map_with_bitwidth::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
-            .flush()
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "Failed to create storage power state",
-                )
-            })?;
-
-        let empty_mmap = Multimap::new(rt.store()).root().map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "Failed to get empty multimap cid",
-            )
+        let st = State::new(rt.store()).map_err(|e|{
+            e.downcast_default(ExitCode::ErrIllegalState, "Failed to create power actor state")
         })?;
-
-        let st = State::new(empty_map, empty_mmap);
         rt.create(&st)?;
         Ok(())
     }
