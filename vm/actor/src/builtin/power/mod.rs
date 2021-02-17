@@ -213,7 +213,7 @@ impl Actor {
 
         rt.transaction(|st: &mut State, rt| {
             let mut events =
-                Multimap::from_root(rt.store(), &st.cron_event_queue).map_err(|e| {
+                Multimap::from_root(rt.store(), &st.cron_event_queue, CRON_QUEUE_HAMT_BITWIDTH, CRON_QUEUE_AMT_BITWIDTH).map_err(|e| {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
                 })?;
 
@@ -292,14 +292,14 @@ impl Actor {
             st.validate_miner_has_claim(rt.store(), rt.message().caller())?;
 
             let mut mmap = if let Some(ref batch) = st.proof_validation_batch {
-                Multimap::from_root(rt.store(), batch).map_err(|e| {
+                Multimap::from_root(rt.store(), batch,CRON_QUEUE_HAMT_BITWIDTH, CRON_QUEUE_AMT_BITWIDTH).map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
                         "failed to load proof batching set",
                     )
                 })?
             } else {
-                Multimap::new(rt.store())
+                Multimap::new(rt.store(), CRON_QUEUE_HAMT_BITWIDTH, CRON_QUEUE_AMT_BITWIDTH)
             };
             let miner_addr = rt.message().caller();
             let arr = mmap
@@ -370,7 +370,7 @@ impl Actor {
             if st.proof_validation_batch.is_none() {
                 return Ok(());
             }
-            let mmap = Multimap::from_root(rt.store(), st.proof_validation_batch.as_ref().unwrap())
+            let mmap = Multimap::from_root(rt.store(), st.proof_validation_batch.as_ref().unwrap(), CRON_QUEUE_HAMT_BITWIDTH, CRON_QUEUE_AMT_BITWIDTH)
                 .map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
@@ -465,7 +465,7 @@ impl Actor {
         let mut cron_events = Vec::new();
         rt.transaction(|st: &mut State, rt| {
             let mut events =
-                Multimap::from_root(rt.store(), &st.cron_event_queue).map_err(|e| {
+                Multimap::from_root(rt.store(), &st.cron_event_queue,CRON_QUEUE_HAMT_BITWIDTH, CRON_QUEUE_AMT_BITWIDTH).map_err(|e| {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
                 })?;
 

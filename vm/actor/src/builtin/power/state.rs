@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{CONSENSUS_MINER_MIN_MINERS, CRON_QUEUE_AMT_BITWIDTH, CRON_QUEUE_HAMT_BITWIDTH};
-use crate::{ActorDowncast, BytesKey, Map, Multimap, consensus_miner_min_power, make_map_with_root_and_bitwidth, make_map_with_root, smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA}};
+use crate::{ActorDowncast, BytesKey, Map, Multimap, consensus_miner_min_power, make_empty_map, make_map_with_root, make_map_with_root_and_bitwidth, smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA}};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -64,7 +64,7 @@ pub struct State {
 
 impl State {
     pub fn new<BS: BlockStore>(store: &BS) -> Result<State, Box<dyn StdError>> {
-        let empty_map = make_map_with_bitwidth::<_, ()>(store, HAMT_BIT_WIDTH)
+        let empty_map = make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH)
         .flush()
         .map_err(|e| {
             format!("Failed to create empty map: {}", e)
