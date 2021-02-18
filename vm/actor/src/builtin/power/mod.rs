@@ -8,16 +8,15 @@ mod types;
 pub use self::policy::*;
 pub use self::state::*;
 pub use self::types::*;
+use crate::miner::MinerConstructorParams;
 use crate::{
-    check_empty_params, init, make_map_with_root, miner, ActorDowncast, Multimap,
-    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
-    REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    check_empty_params, init, miner, ActorDowncast, Multimap, CALLER_TYPES_SIGNABLE,
+    CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
-use crate::{make_empty_map, miner::MinerConstructorParams};
 use crate::{make_map_with_root_and_bitwidth, reward::Method as RewardMethod};
 use address::Address;
 use ahash::AHashSet;
-use fil_types::{NetworkVersion, SealVerifyInfo, HAMT_BIT_WIDTH};
+use fil_types::{SealVerifyInfo, HAMT_BIT_WIDTH};
 use indexmap::IndexMap;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};

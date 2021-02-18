@@ -14,7 +14,7 @@ use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
     deadlines::{DeadlineInfo, QuantSpec},
-    RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
+    RegisteredPoStProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;

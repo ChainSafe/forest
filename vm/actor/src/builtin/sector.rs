@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_types::{RegisteredPoStProof, RegisteredSealProof, StoragePower};
+use fil_types::{RegisteredPoStProof, StoragePower};
 
 /// Returns the minimum storage power required for each seal proof types.
 pub fn consensus_miner_min_power(p: RegisteredPoStProof) -> Result<StoragePower, String> {
