@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BytesKey, Map, make_empty_map, make_map_with_root_and_bitwidth};
+use crate::{make_empty_map, make_map_with_root_and_bitwidth, BytesKey, Map};
 use cid::Cid;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -17,15 +17,23 @@ where
     BS: BlockStore,
 {
     /// Initializes a new empty multimap.
-    /// The outer_bitwidth is the width of the HAMT and the 
-    /// inner_bitwidth is the width of the AMTs inside of it. 
+    /// The outer_bitwidth is the width of the HAMT and the
+    /// inner_bitwidth is the width of the AMTs inside of it.
     pub fn new(bs: &'a BS, outer_bitwidth: u32, inner_bitwidth: usize) -> Self {
         Self(make_empty_map(bs, outer_bitwidth), inner_bitwidth)
     }
 
     /// Initializes a multimap from a root Cid
-    pub fn from_root(bs: &'a BS, cid: &Cid, outer_bitwidth: u32, inner_bitwidth: usize) -> Result<Self, Error> {
-        Ok(Self(make_map_with_root_and_bitwidth(cid, bs, outer_bitwidth)?, inner_bitwidth))
+    pub fn from_root(
+        bs: &'a BS,
+        cid: &Cid,
+        outer_bitwidth: u32,
+        inner_bitwidth: usize,
+    ) -> Result<Self, Error> {
+        Ok(Self(
+            make_map_with_root_and_bitwidth(cid, bs, outer_bitwidth)?,
+            inner_bitwidth,
+        ))
     }
 
     /// Retrieve root from the multimap.
