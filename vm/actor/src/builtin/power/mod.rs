@@ -27,7 +27,7 @@ use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
+// * Updated to specs-actors commit: 999e57a151cc7ada020ca2844b651499ab8c0dec (v3.0.1)
 
 /// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
 /// This number is empirically determined
