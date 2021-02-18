@@ -1,9 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{
-    make_empty_map, make_map_with_root, make_map_with_root_and_bitwidth, FIRST_NON_SINGLETON_ADDR,
-};
+use crate::{make_empty_map, make_map_with_root_and_bitwidth, FIRST_NON_SINGLETON_ADDR};
 use address::{Address, Protocol};
 use cid::Cid;
 use encoding::tuple::*;
@@ -26,7 +24,7 @@ impl State {
         store: &BS,
         network_name: String,
     ) -> Result<Self, Box<dyn StdError>> {
-        let mut empty_map = make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH)
+        let empty_map = make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH)
             .flush()
             .map_err(|e| format!("failed to create empty map: {}", e))?;
         Ok(Self {
