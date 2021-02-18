@@ -310,8 +310,8 @@ impl Actor {
                 Multimap::from_root(
                     rt.store(),
                     batch,
-                    CRON_QUEUE_HAMT_BITWIDTH,
-                    CRON_QUEUE_AMT_BITWIDTH,
+                    HAMT_BIT_WIDTH,
+                    PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
                 )
                 .map_err(|e| {
                     e.downcast_default(
@@ -322,8 +322,8 @@ impl Actor {
             } else {
                 Multimap::new(
                     rt.store(),
-                    CRON_QUEUE_HAMT_BITWIDTH,
-                    CRON_QUEUE_AMT_BITWIDTH,
+                    HAMT_BIT_WIDTH,
+                    PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
                 )
             };
             let miner_addr = rt.message().caller();
@@ -398,8 +398,8 @@ impl Actor {
             let mmap = Multimap::from_root(
                 rt.store(),
                 st.proof_validation_batch.as_ref().unwrap(),
-                CRON_QUEUE_HAMT_BITWIDTH,
-                CRON_QUEUE_AMT_BITWIDTH,
+                HAMT_BIT_WIDTH,
+                PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
             )
             .map_err(|e| {
                 e.downcast_default(
