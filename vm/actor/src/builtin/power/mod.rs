@@ -8,27 +8,26 @@ mod types;
 pub use self::policy::*;
 pub use self::state::*;
 pub use self::types::*;
-use crate::reward::Method as RewardMethod;
+use crate::miner::MinerConstructorParams;
 use crate::{
-    check_empty_params, init, make_map_with_root, miner, ActorDowncast, Multimap,
-    CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID,
-    REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    check_empty_params, init, miner, ActorDowncast, Multimap, CALLER_TYPES_SIGNABLE,
+    CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
-use crate::{make_empty_map, miner::MinerConstructorParams};
+use crate::{make_map_with_root_and_bitwidth, reward::Method as RewardMethod};
 use address::Address;
 use ahash::AHashSet;
-use fil_types::{NetworkVersion, SealVerifyInfo, HAMT_BIT_WIDTH};
+use fil_types::{SealVerifyInfo, HAMT_BIT_WIDTH};
 use indexmap::IndexMap;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Signed};
 use runtime::{ActorCode, Runtime};
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
 };
 
-// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
+// * Updated to specs-actors commit: 999e57a151cc7ada020ca2844b651499ab8c0dec (v3.0.1)
 
 /// GasOnSubmitVerifySeal is amount of gas charged for SubmitPoRepForBulkVerify
 /// This number is empirically determined
@@ -62,23 +61,12 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*SYSTEM_ACTOR_ADDR))?;
 
-        let empty_map = make_empty_map::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
-            .flush()
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "Failed to create storage power state",
-                )
-            })?;
-
-        let empty_mmap = Multimap::new(rt.store()).root().map_err(|e| {
+        let st = State::new(rt.store()).map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
-                "Failed to get empty multimap cid",
+                "Failed to create power actor state",
             )
         })?;
-
-        let st = State::new(empty_map, empty_mmap);
         rt.create(&st)?;
         Ok(())
     }
@@ -97,7 +85,7 @@ impl Actor {
         let constructor_params = Serialized::serialize(MinerConstructorParams {
             owner: params.owner,
             worker: params.worker,
-            seal_proof_type: params.seal_proof_type,
+            window_post_proof_type: params.window_post_proof_type,
             peer_id: params.peer,
             multi_addresses: params.multiaddrs,
             control_addresses: Default::default(),
@@ -118,16 +106,17 @@ impl Actor {
             )?
             .deserialize()?;
 
-        let seal_proof_type = params.seal_proof_type;
+        let window_post_proof_type = params.window_post_proof_type;
         rt.transaction(|st: &mut State, rt| {
-            let mut claims = make_map_with_root(&st.claims, rt.store()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
-            })?;
+            let mut claims =
+                make_map_with_root_and_bitwidth(&st.claims, rt.store(), HAMT_BIT_WIDTH).map_err(
+                    |e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims"),
+                )?;
             set_claim(
                 &mut claims,
                 &id_address,
                 Claim {
-                    seal_proof_type,
+                    window_post_proof_type,
                     quality_adj_power: Default::default(),
                     raw_byte_power: Default::default(),
                 },
@@ -140,17 +129,15 @@ impl Actor {
             })?;
             st.miner_count += 1;
 
-            if rt.network_version() >= NetworkVersion::V7 {
-                st.update_stats_for_new_miner(seal_proof_type)
-                    .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to update power stats for new miner {}: {}",
-                            &id_address,
-                            e
-                        )
-                    })?;
-            }
+            st.update_stats_for_new_miner(window_post_proof_type)
+                .map_err(|e| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to update power stats for new miner {}: {}",
+                        &id_address,
+                        e
+                    )
+                })?;
 
             st.claims = claims.flush().map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to flush claims")
@@ -177,9 +164,10 @@ impl Actor {
         let miner_addr = *rt.message().caller();
 
         rt.transaction(|st: &mut State, rt| {
-            let mut claims = make_map_with_root(&st.claims, rt.store()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
-            })?;
+            let mut claims =
+                make_map_with_root_and_bitwidth(&st.claims, rt.store(), HAMT_BIT_WIDTH).map_err(
+                    |e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims"),
+                )?;
 
             st.add_to_claim(
                 &mut claims,
@@ -226,10 +214,15 @@ impl Actor {
         }
 
         rt.transaction(|st: &mut State, rt| {
-            let mut events =
-                Multimap::from_root(rt.store(), &st.cron_event_queue).map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
-                })?;
+            let mut events = Multimap::from_root(
+                rt.store(),
+                &st.cron_event_queue,
+                CRON_QUEUE_HAMT_BITWIDTH,
+                CRON_QUEUE_AMT_BITWIDTH,
+            )
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
+            })?;
 
             st.append_cron_event(&mut events, params.event_epoch, miner_event)
                 .map_err(|e| {
@@ -288,6 +281,13 @@ impl Actor {
         rt.transaction(|st: &mut State, rt| {
             st.validate_miner_has_claim(rt.store(), rt.message().caller())?;
             st.add_pledge_total(pledge_delta);
+            if st.total_pledge_collateral.is_negative() {
+                return Err(actor_error!(
+                    ErrIllegalState,
+                    "negative total pledge collateral {}",
+                    st.total_pledge_collateral
+                ));
+            }
             Ok(())
         })
     }
@@ -306,14 +306,24 @@ impl Actor {
             st.validate_miner_has_claim(rt.store(), rt.message().caller())?;
 
             let mut mmap = if let Some(ref batch) = st.proof_validation_batch {
-                Multimap::from_root(rt.store(), batch).map_err(|e| {
+                Multimap::from_root(
+                    rt.store(),
+                    batch,
+                    HAMT_BIT_WIDTH,
+                    PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
+                )
+                .map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
                         "failed to load proof batching set",
                     )
                 })?
             } else {
-                Multimap::new(rt.store())
+                Multimap::new(
+                    rt.store(),
+                    HAMT_BIT_WIDTH,
+                    PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
+                )
             };
             let miner_addr = rt.message().caller();
             let arr = mmap
@@ -384,17 +394,24 @@ impl Actor {
             if st.proof_validation_batch.is_none() {
                 return Ok(());
             }
-            let mmap = Multimap::from_root(rt.store(), st.proof_validation_batch.as_ref().unwrap())
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to load proofs validation batch",
-                    )
-                })?;
-
-            let claims = make_map_with_root::<_, Claim>(&st.claims, rt.store()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+            let mmap = Multimap::from_root(
+                rt.store(),
+                st.proof_validation_batch.as_ref().unwrap(),
+                HAMT_BIT_WIDTH,
+                PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
+            )
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to load proofs validation batch",
+                )
             })?;
+
+            let claims =
+                make_map_with_root_and_bitwidth::<_, Claim>(&st.claims, rt.store(), HAMT_BIT_WIDTH)
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+                    })?;
             mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
                 let addr = Address::from_bytes(&k.0).map_err(|e| {
                     actor_error!(ErrIllegalState, "failed to parse address key: {}", e)
@@ -458,14 +475,16 @@ impl Actor {
                 }
             }
             // Result intentionally ignored
-            let _ = rt.send(
-                *m,
-                miner::Method::ConfirmSectorProofsValid as MethodNum,
-                Serialized::serialize(&miner::ConfirmSectorProofsParams {
-                    sectors: successful,
-                })?,
-                Default::default(),
-            );
+            if !successful.is_empty() {
+                let _ = rt.send(
+                    *m,
+                    miner::Method::ConfirmSectorProofsValid as MethodNum,
+                    Serialized::serialize(&miner::ConfirmSectorProofsParams {
+                        sectors: successful,
+                    })?,
+                    Default::default(),
+                );
+            }
         }
         Ok(())
     }
@@ -478,14 +497,21 @@ impl Actor {
         let rt_epoch = rt.curr_epoch();
         let mut cron_events = Vec::new();
         rt.transaction(|st: &mut State, rt| {
-            let mut events =
-                Multimap::from_root(rt.store(), &st.cron_event_queue).map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
-                })?;
-
-            let claims = make_map_with_root::<_, Claim>(&st.claims, rt.store()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+            let mut events = Multimap::from_root(
+                rt.store(),
+                &st.cron_event_queue,
+                CRON_QUEUE_HAMT_BITWIDTH,
+                CRON_QUEUE_AMT_BITWIDTH,
+            )
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to load cron events")
             })?;
+
+            let claims =
+                make_map_with_root_and_bitwidth::<_, Claim>(&st.claims, rt.store(), HAMT_BIT_WIDTH)
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+                    })?;
             for epoch in st.first_cron_epoch..=rt_epoch {
                 let epoch_events = load_cron_events(&events, epoch).map_err(|e| {
                     e.downcast_default(
@@ -555,9 +581,11 @@ impl Actor {
 
         if !failed_miner_crons.is_empty() {
             rt.transaction(|st: &mut State, rt| {
-                let mut claims = make_map_with_root(&st.claims, rt.store()).map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
-                })?;
+                let mut claims =
+                    make_map_with_root_and_bitwidth(&st.claims, rt.store(), HAMT_BIT_WIDTH)
+                        .map_err(|e| {
+                            e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+                        })?;
 
                 // Remove power and leave miner frozen
                 for miner_addr in failed_miner_crons {
@@ -569,11 +597,6 @@ impl Actor {
                             e
                         );
                         continue;
-                    }
-
-                    // On version 7, decrement miner count to keep stats consistent.
-                    if rt.network_version() >= NetworkVersion::V7 {
-                        st.miner_count -= 1;
                     }
                 }
 

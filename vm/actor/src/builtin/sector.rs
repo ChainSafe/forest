@@ -1,16 +1,22 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_types::{RegisteredSealProof, StoragePower};
+use fil_types::{RegisteredPoStProof, StoragePower};
 
 /// Returns the minimum storage power required for each seal proof types.
-pub fn consensus_miner_min_power(p: RegisteredSealProof) -> Result<StoragePower, String> {
-    use RegisteredSealProof::*;
+pub fn consensus_miner_min_power(p: RegisteredPoStProof) -> Result<StoragePower, String> {
+    use RegisteredPoStProof::*;
     match p {
-        // Specs actors defaults to other values, these are the mainnet values put in place
-        StackedDRG2KiBV1 | StackedDRG2KiBV1P1 | StackedDRG512MiBV1 | StackedDRG512MiBV1P1
-        | StackedDRG8MiBV1 | StackedDRG8MiBV1P1 | StackedDRG32GiBV1 | StackedDRG32GiBV1P1
-        | StackedDRG64GiBV1 | StackedDRG64GiBV1P1 => {
+        StackedDRGWinning2KiBV1
+        | StackedDRGWinning8MiBV1
+        | StackedDRGWinning512MiBV1
+        | StackedDRGWinning32GiBV1
+        | StackedDRGWinning64GiBV1
+        | StackedDRGWindow2KiBV1
+        | StackedDRGWindow8MiBV1
+        | StackedDRGWindow512MiBV1
+        | StackedDRGWindow32GiBV1
+        | StackedDRGWindow64GiBV1 => {
             if cfg!(feature = "devnet") {
                 return Ok(StoragePower::from(2048));
             }
@@ -20,6 +26,7 @@ pub fn consensus_miner_min_power(p: RegisteredSealProof) -> Result<StoragePower,
 
             Ok(StoragePower::from(10u64 << 40))
         }
+
         Invalid(i) => Err(format!("unsupported proof type: {}", i)),
     }
 }

@@ -6,6 +6,7 @@ mod common;
 use address::Address;
 use cid::Cid;
 use common::*;
+use fil_types::HAMT_BIT_WIDTH;
 use forest_actor::{
     init::{ConstructorParams, ExecParams, ExecReturn, Method, State},
     Multimap, ACCOUNT_ACTOR_CODE_ID, FIRST_NON_SINGLETON_ADDR, INIT_ACTOR_CODE_ID,
@@ -263,7 +264,7 @@ fn construct_and_verify(rt: &mut MockRuntime) {
     let state_data: State = rt.get_state().unwrap();
 
     // Gets the Result(CID)
-    let empty_map = Multimap::from_root(&rt.store, &state_data.address_map)
+    let empty_map = Multimap::from_root(&rt.store, &state_data.address_map, HAMT_BIT_WIDTH, 3)
         .unwrap()
         .root();
 
