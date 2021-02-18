@@ -1,11 +1,13 @@
-use crate::data_types::{Id, JsonRpcRequestObject, State, StreamingData};
+use crate::data_types::{State, StreamingData};
 use crate::rpc_util::get_error;
 use async_std::sync::Arc;
 use beacon::Beacon;
 use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use futures::stream::StreamExt;
+use jsonrpc_v2::Server as JsonRpcServer;
 use log::{debug, info};
+use rpc_types::{Id, JsonRpcRequestObject};
 use serde::Serialize;
 use tide::Request;
 use tide_websockets::WebSocketConnection;
@@ -14,7 +16,7 @@ use wallet::KeyStore;
 const CHAIN_NOTIFY_METHOD_NAME: &str = "Filecoin.ChainNotify";
 
 pub async fn rpc_ws_handler<DB, KS, B>(
-    request: Request<State<DB, KS, B>>,
+    request: Request<JsonRpcServer<State<DB, KS, B>>>,
     mut ws_stream: WebSocketConnection,
 ) -> Result<(), tide::Error>
 where
@@ -22,7 +24,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let state = Arc::clone(&request.state());
+    let rpc_server = request.state();
     let ks = Arc::clone(&state.keystore);
     let cs = Arc::clone(&state.chain_store);
     let chain_notify_count = Arc::clone(&state.chain_notify_count);
@@ -84,7 +86,13 @@ where
 
                                     Ok(())
                                 }
-                                _ => Ok(()),
+                                _ => {
+                                    let rpc_response = rpc_server.handle(call).await;
+
+                                    match rpc_response {}
+
+                                    Ok(())
+                                }
                             }
                         }
                         Err(e) => ws_stream.send_string(get_error(1, e.to_string())).await,

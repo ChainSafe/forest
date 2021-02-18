@@ -28,7 +28,7 @@ tokio = { version = "1.0", features = ["sync"] }
 address = { package = "forest_address", version = "0.3" }
 futures = "0.3.5"
 async-std = { version = "1.9", features = ["tokio1"] }
-types = { package = "fil_types", version = "0.1" }
+types = { package = "fil_types", version = "0.1", path = "../../types" }
 lazy_static = "1.4"
 interpreter = { path = "../../vm/interpreter/" }
 lru = "0.6"
@@ -37,11 +37,20 @@ forest_car = { path = "../../ipld/car" }
 forest_ipld = "0.1.1"
 networks = { path = "../../types/networks" }
 
+[dependencies.jsonrpc-v2]
+version = "0.8.0"
+features = ["easy-errors", "macros", "bytes-v05"]
+default-features = false
+
 [features]
 json = []
 
 [dev-dependencies]
-multihash = { version = "0.13", default-features = false, features = ["std", "blake2b", "derive"] }
+multihash = { version = "0.13", default-features = false, features = [
+    "std",
+    "blake2b",
+    "derive"
+] }
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
     "test_constructors"
 ] }

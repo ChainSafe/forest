@@ -12,7 +12,8 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 
 use beacon::Beacon;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use chain::headchange_json::HeadChangeJson;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
 use message::{
     signed_message,
     unsigned_message::{self, json::UnsignedMessageJson},
@@ -183,6 +184,21 @@ where
         .await
         .ok_or("can't find heaviest tipset")?;
     Ok(TipsetJson(heaviest))
+}
+
+pub(crate) async fn chain_head_next<'a, DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
+    id: Id,
+) -> Result<Option<Vec<HeadChangeJson<'a>>>, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    match data.state_manager.chain_store().sub_head_changes(id).await {
+        Ok(event) => Ok(Some(vec![HeadChangeJson::from(&event)])),
+        Err(e) => Ok(None),
+    }
 }
 
 pub(crate) async fn chain_tipset_weight<DB, KS, B>(

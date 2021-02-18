@@ -4,7 +4,7 @@
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use actor::{miner, power};
 use address::Address;
-use async_std::channel::{bounded, Receiver};
+use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -22,6 +22,7 @@ use futures::AsyncWrite;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
+use jsonrpc_v2::Id;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
@@ -70,6 +71,9 @@ pub struct ChainStore<DB> {
     /// Publisher for head change events
     publisher: Publisher<HeadChange>,
 
+    /// Tracks head change subscription channels
+    subscriptions: HashMap<Id, Receiver<HeadChange>>,
+
     /// key-value datastore.
     pub db: Arc<DB>,
 
@@ -95,6 +99,7 @@ where
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
+            subscriptions: Default::default(),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
             tipset_tracker: TipsetTracker::new(db.clone()),
             db,
@@ -542,9 +547,11 @@ where
     /// then returns the receiver of this channel from the function.
     /// This function is not blocking on events, and does not stall publishing events as it will
     /// skip over lagged events.
-    pub async fn sub_head_changes(&self) -> Receiver<HeadChange> {
-        let (tx, rx) = bounded(16);
+    pub async fn sub_head_changes(&self, sub_id: Id) {
+        let (tx, rx) = channel::unbounded();
         let mut subscriber = self.publisher.subscribe();
+
+        self.subscriptions.insert(sub_id, rx);
 
         // Send current heaviest tipset into receiver as first event.
         if let Some(ts) = self.heaviest_tipset().await {
@@ -572,8 +579,6 @@ where
                 }
             }
         });
-
-        rx
     }
 
     /// Walks over tipset and state data and loads all blocks not yet seen.

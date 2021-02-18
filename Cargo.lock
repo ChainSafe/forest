@@ -1113,6 +1113,7 @@ dependencies = [
  "interpreter",
  "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ipld_blockstore",
+ "jsonrpc-v2",
  "lazy_static",
  "log",
  "lru",
@@ -5861,6 +5862,7 @@ dependencies = [
  "num-traits 0.2.14",
  "rand 0.7.3",
  "rand_distr 0.3.0",
+ "rpc_types",
  "serde",
  "serde_json",
  "state_manager",
@@ -5886,6 +5888,14 @@ dependencies = [
  "jsonrpsee",
  "key_management",
  "log",
+ "serde_json",
+]
+
+[[package]]
+name = "rpc_types"
+version = "0.1.0"
+dependencies = [
+ "serde",
  "serde_json",
 ]
 
