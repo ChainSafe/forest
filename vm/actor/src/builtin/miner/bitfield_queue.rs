@@ -101,14 +101,17 @@ impl<'db, BS: BlockStore> BitFieldQueue<'db, BS> {
         // Pre-quantize to reduce the number of updates.
 
         let mut quantized_values = HashMap::<ChainEpoch, Vec<usize>>::with_capacity(values.len());
-        let mut updated_epochs = Vec::<ChainEpoch>::with_capacity(values.len());
 
         for (&raw_epoch, entries) in values {
             let epoch = self.quant.quantize_up(raw_epoch);
-            updated_epochs.push(epoch);
             quantized_values.entry(epoch).or_default().extend(entries);
         }
 
+        // Update each epoch in order to be deterministic.
+        let mut updated_epochs = Vec::with_capacity(quantized_values.len());
+        for epoch in quantized_values.keys() {
+            updated_epochs.push(*epoch);
+        }
         updated_epochs.sort_unstable();
 
         for epoch in updated_epochs {

@@ -200,7 +200,7 @@ impl Partition {
     /// - The sectors' expirations are rescheduled to the fault expiration epoch, as "early" (if not expiring earlier).
     ///
     /// Returns the power of the now-faulty sectors.
-    pub fn declare_faults<BS: BlockStore>(
+    pub fn record_faults<BS: BlockStore>(
         &mut self,
         store: &BS,
         sectors: &Sectors<'_, BS>,
