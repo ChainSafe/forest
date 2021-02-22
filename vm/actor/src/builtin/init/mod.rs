@@ -12,7 +12,6 @@ use crate::{
 };
 use address::Address;
 use cid::Cid;
-use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;

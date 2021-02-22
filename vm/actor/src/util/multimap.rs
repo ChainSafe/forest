@@ -3,7 +3,6 @@
 
 use crate::{make_empty_map, make_map_with_root_and_bitwidth, BytesKey, Map};
 use cid::Cid;
-use fil_types::HAMT_BIT_WIDTH;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;

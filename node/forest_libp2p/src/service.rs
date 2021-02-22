@@ -29,9 +29,7 @@ use libp2p::{
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
-    mplex, noise, yamux,
-    yamux::WindowUpdateMode,
-    PeerId, Swarm, Transport,
+    mplex, noise, yamux, PeerId, Swarm, Transport,
 };
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
