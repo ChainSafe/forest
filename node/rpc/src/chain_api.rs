@@ -189,14 +189,20 @@ where
 pub(crate) async fn chain_head_next<'a, DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
     id: Id,
-) -> Result<Option<Vec<HeadChangeJson<'a>>>, JsonRpcError>
+) -> Result<Option<HeadChangeJson<'a>>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    match data.state_manager.chain_store().sub_head_changes(id).await {
-        Ok(event) => Ok(Some(vec![HeadChangeJson::from(&event)])),
+    match data
+        .state_manager
+        .chain_store()
+        .sub_head_changes(id)
+        .await
+        .next()
+    {
+        Ok(event) => Ok(Some(HeadChangeJson::from(&event))),
         Err(e) => Ok(None),
     }
 }

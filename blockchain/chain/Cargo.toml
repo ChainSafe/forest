@@ -41,6 +41,8 @@ networks = { path = "../../types/networks" }
 version = "0.8.0"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
+git = "https://github.com/ChainSafe/jsonrpc-v2.git"
+branch = "id-hash-eq"
 
 [features]
 json = []

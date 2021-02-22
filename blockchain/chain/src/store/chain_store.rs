@@ -547,11 +547,12 @@ where
     /// then returns the receiver of this channel from the function.
     /// This function is not blocking on events, and does not stall publishing events as it will
     /// skip over lagged events.
-    pub async fn sub_head_changes(&self, sub_id: Id) {
+    pub async fn sub_head_changes(&mut self) -> Id {
         let (tx, rx) = channel::unbounded();
         let mut subscriber = self.publisher.subscribe();
 
-        self.subscriptions.insert(sub_id, rx);
+        let sub_id = Id::Num(self.subscriptions.len() as i64);
+        self.subscriptions.insert(sub_id.clone(), rx);
 
         // Send current heaviest tipset into receiver as first event.
         if let Some(ts) = self.heaviest_tipset().await {
@@ -579,6 +580,23 @@ where
                 }
             }
         });
+
+        sub_id
+    }
+
+    pub async fn next_head_changes(&mut self, sub_id: &Id) -> Option<HeadChange> {
+        if let Some(rx) = self.subscriptions.get(sub_id) {
+            match rx.try_recv() {
+                Ok(head_change) => Some(head_change),
+                Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub async fn unsub_head_changes(&mut self, sub_id: &Id) {
+        self.subscriptions.remove(sub_id);
     }
 
     /// Walks over tipset and state data and loads all blocks not yet seen.
