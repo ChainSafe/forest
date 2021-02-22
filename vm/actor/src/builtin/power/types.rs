@@ -5,7 +5,7 @@ use crate::smooth::FilterEstimate;
 use address::Address;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
-use fil_types::{RegisteredSealProof, StoragePower};
+use fil_types::{RegisteredPoStProof, StoragePower};
 use num_bigint::bigint_ser;
 use vm::{Serialized, TokenAmount};
 
@@ -18,11 +18,15 @@ pub const SECTOR_TERMINATION_MANUAL: SectorTermination = 1;
 /// Implicit termination due to unrecovered fault
 pub const SECTOR_TERMINATION_FAULTY: SectorTermination = 3;
 
+pub const CRON_QUEUE_HAMT_BITWIDTH: u32 = 6;
+pub const CRON_QUEUE_AMT_BITWIDTH: usize = 6;
+pub const PROOF_VALIDATION_BATCH_AMT_BITWIDTH: usize = 4;
+
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CreateMinerParams {
     pub owner: Address,
     pub worker: Address,
-    pub seal_proof_type: RegisteredSealProof,
+    pub window_post_proof_type: RegisteredPoStProof,
     #[serde(with = "serde_bytes")]
     pub peer: Vec<u8>,
     pub multiaddrs: Vec<BytesDe>,

@@ -33,8 +33,6 @@ use libp2p::request_response::{
 };
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
-// use libp2p::{core::identity::Keypair, gossipsub::error::SubscriptionError};
-// use libp2p::{core::PeerId, gossipsub::GossipsubConfigBuilder};
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};

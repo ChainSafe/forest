@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::CONSENSUS_MINER_MIN_MINERS;
+use super::{CONSENSUS_MINER_MIN_MINERS, CRON_QUEUE_AMT_BITWIDTH, CRON_QUEUE_HAMT_BITWIDTH};
 use crate::{
-    consensus_miner_min_power, make_map_with_root,
+    consensus_miner_min_power, make_empty_map, make_map_with_root, make_map_with_root_and_bitwidth,
     smooth::{AlphaBetaFilter, FilterEstimate, DEFAULT_ALPHA, DEFAULT_BETA},
     ActorDowncast, BytesKey, Map, Multimap,
 };
@@ -11,10 +11,10 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{tuple::*, Cbor};
-use fil_types::{RegisteredSealProof, StoragePower};
+use fil_types::{RegisteredPoStProof, StoragePower, HAMT_BIT_WIDTH};
 use integer_encoding::VarInt;
 use ipld_blockstore::BlockStore;
-use num_bigint::{bigint_ser, BigInt, Sign};
+use num_bigint::{bigint_ser, BigInt};
 use num_traits::Signed;
 use std::error::Error as StdError;
 use std::ops::Neg;
@@ -67,16 +67,28 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(empty_map_cid: Cid, empty_mmap_cid: Cid) -> State {
-        State {
-            cron_event_queue: empty_mmap_cid,
-            claims: empty_map_cid,
+    pub fn new<BS: BlockStore>(store: &BS) -> Result<State, Box<dyn StdError>> {
+        let empty_map = make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH)
+            .flush()
+            .map_err(|e| format!("Failed to create empty map: {}", e))?;
+
+        let empty_mmap = Multimap::new(store, CRON_QUEUE_HAMT_BITWIDTH, CRON_QUEUE_AMT_BITWIDTH)
+            .root()
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "Failed to get empty multimap cid",
+                )
+            })?;
+        Ok(State {
+            cron_event_queue: empty_mmap,
+            claims: empty_map,
             this_epoch_qa_power_smoothed: FilterEstimate {
                 position: INITIAL_QA_POWER_ESTIMATE_POSITION.clone(),
                 velocity: INITIAL_QA_POWER_ESTIMATE_VELOCITY.clone(),
             },
             ..Default::default()
-        }
+        })
     }
 
     pub fn into_total_locked(self) -> TokenAmount {
@@ -89,13 +101,13 @@ impl State {
         s: &BS,
         miner: &Address,
     ) -> Result<bool, Box<dyn StdError>> {
-        let claims = make_map_with_root(&self.claims, s)?;
+        let claims = make_map_with_root_and_bitwidth(&self.claims, s, HAMT_BIT_WIDTH)?;
 
         let claim =
             get_claim(&claims, miner)?.ok_or_else(|| format!("no claim for actor: {}", miner))?;
 
         let miner_nominal_power = &claim.raw_byte_power;
-        let miner_min_power = consensus_miner_min_power(claim.seal_proof_type)
+        let miner_min_power = consensus_miner_min_power(claim.window_post_proof_type)
             .map_err(|e| format!("could not get miner min power from proof type: {}", e))?;
 
         if miner_nominal_power >= &miner_min_power {
@@ -133,12 +145,12 @@ impl State {
         self.total_bytes_committed += power;
 
         let new_claim = Claim {
-            seal_proof_type: old_claim.seal_proof_type,
             raw_byte_power: old_claim.raw_byte_power.clone() + power,
             quality_adj_power: old_claim.quality_adj_power.clone() + qa_power,
+            window_post_proof_type: old_claim.window_post_proof_type,
         };
 
-        let min_power: StoragePower = consensus_miner_min_power(old_claim.seal_proof_type)?;
+        let min_power: StoragePower = consensus_miner_min_power(old_claim.window_post_proof_type)?;
         let prev_below: bool = old_claim.raw_byte_power < min_power;
         let still_below: bool = new_claim.raw_byte_power < min_power;
 
@@ -164,30 +176,33 @@ impl State {
             self.total_raw_byte_power += power;
         }
 
-        assert_ne!(
-            new_claim.raw_byte_power.sign(),
-            Sign::Minus,
-            "negative claimed raw byte power: {}",
-            new_claim.raw_byte_power
-        );
-        assert_ne!(
-            new_claim.quality_adj_power.sign(),
-            Sign::Minus,
-            "negative claimed quality adjusted power: {}",
-            new_claim.quality_adj_power
-        );
-        assert!(
-            self.miner_above_min_power_count >= 0,
-            "negative number of miners larger than min: {}",
-            self.miner_above_min_power_count
-        );
+        if new_claim.raw_byte_power.is_negative() {
+            return Err(Box::new(actor_error!(
+                ErrIllegalState,
+                "negative claimed raw byte power: {}",
+                new_claim.raw_byte_power
+            )));
+        }
+        if new_claim.quality_adj_power.is_negative() {
+            return Err(Box::new(actor_error!(
+                ErrIllegalState,
+                "negative claimed quality adjusted power: {}",
+                new_claim.quality_adj_power
+            )));
+        }
+        if self.miner_above_min_power_count < 0 {
+            return Err(Box::new(actor_error!(
+                ErrIllegalState,
+                "negative amount of miners lather than min: {}",
+                self.miner_above_min_power_count
+            )));
+        }
 
         set_claim(claims, miner, new_claim)
     }
 
     pub(super) fn add_pledge_total(&mut self, amount: TokenAmount) {
         self.total_pledge_collateral += amount;
-        assert_ne!(self.total_pledge_collateral.sign(), Sign::Minus);
     }
 
     pub(super) fn append_cron_event<BS: BlockStore>(
@@ -234,9 +249,9 @@ impl State {
     /// when new added miner starts above the minimum.
     pub(super) fn update_stats_for_new_miner(
         &mut self,
-        seal_proof: RegisteredSealProof,
+        window_post_proof: RegisteredPoStProof,
     ) -> Result<(), String> {
-        let min_power = consensus_miner_min_power(seal_proof)?;
+        let min_power = consensus_miner_min_power(window_post_proof)?;
 
         if !min_power.is_positive() {
             self.miner_above_min_power_count += 1;
@@ -274,8 +289,11 @@ impl State {
         store: &BS,
         miner: &Address,
     ) -> Result<Option<Claim>, Box<dyn StdError>> {
-        let claims = make_map_with_root::<_, Claim>(&self.claims, store)
-            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims"))?;
+        let claims =
+            make_map_with_root_and_bitwidth::<_, Claim>(&self.claims, store, HAMT_BIT_WIDTH)
+                .map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+                })?;
 
         let claim = get_claim(&claims, miner)?;
         Ok(claim.cloned())
@@ -338,8 +356,20 @@ pub fn set_claim<BS: BlockStore>(
     a: &Address,
     claim: Claim,
 ) -> Result<(), Box<dyn StdError>> {
-    assert_ne!(claim.raw_byte_power.sign(), Sign::Minus);
-    assert_ne!(claim.quality_adj_power.sign(), Sign::Minus);
+    if claim.raw_byte_power.is_negative() {
+        return Err(Box::new(actor_error!(
+            ErrIllegalState,
+            "negative claim raw power {}",
+            claim.raw_byte_power
+        )));
+    }
+    if claim.quality_adj_power.is_negative() {
+        return Err(Box::new(actor_error!(
+            ErrIllegalState,
+            "negative claim quality-adjusted power {}",
+            claim.quality_adj_power
+        )));
+    }
 
     claims
         .set(a.to_bytes().into(), claim)
@@ -357,7 +387,7 @@ impl Cbor for State {}
 #[derive(Debug, Serialize_tuple, Deserialize_tuple, Clone, PartialEq)]
 pub struct Claim {
     /// Miner's proof type used to determine minimum miner size
-    pub seal_proof_type: RegisteredSealProof,
+    pub window_post_proof_type: RegisteredPoStProof,
     /// Sum of raw byte power for a miner's sectors.
     #[serde(with = "bigint_ser")]
     pub raw_byte_power: StoragePower,

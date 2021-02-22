@@ -14,7 +14,7 @@ use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
     deadlines::{DeadlineInfo, QuantSpec},
-    RegisteredSealProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
+    RegisteredPoStProof, SectorNumber, SectorSize, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::Error as AmtError;
 use ipld_blockstore::BlockStore;
@@ -1101,7 +1101,7 @@ pub struct MinerInfo {
     pub multi_address: Vec<BytesDe>,
 
     /// The proof type used by this miner for sealing sectors.
-    pub seal_proof_type: RegisteredSealProof,
+    pub window_post_proof_type: RegisteredPoStProof,
 
     /// Amount of space in each sector committed to the network by this miner
     pub sector_size: SectorSize,
@@ -1126,10 +1126,11 @@ impl MinerInfo {
         control_addresses: Vec<Address>,
         peer_id: Vec<u8>,
         multi_address: Vec<BytesDe>,
-        seal_proof_type: RegisteredSealProof,
+        window_post_proof_type: RegisteredPoStProof,
     ) -> Result<Self, String> {
-        let sector_size = seal_proof_type.sector_size()?;
-        let window_post_partition_sectors = seal_proof_type.window_post_partitions_sector()?;
+        let sector_size = window_post_proof_type.sector_size()?;
+        // TODO: THIS NEEDS TO BE UPDATED WHEN UPDATING V3 ACTORS
+        let window_post_partition_sectors = 2349;
 
         Ok(Self {
             owner,
@@ -1138,7 +1139,7 @@ impl MinerInfo {
             pending_worker_key: None,
             peer_id,
             multi_address,
-            seal_proof_type,
+            window_post_proof_type,
             sector_size,
             window_post_partition_sectors,
             consensus_fault_elapsed: EPOCH_UNDEFINED,

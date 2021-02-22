@@ -122,6 +122,8 @@ pub enum Method {
 }
 
 /// Miner Actor
+/// TODO: This is now broken and not v3 ready because of the changes that needed to be made
+/// here in order to update the Power Actor to v3.
 pub struct Actor;
 
 impl Actor {
@@ -137,14 +139,6 @@ impl Actor {
 
         check_control_addresses(&params.control_addresses)?;
         check_peer_info(&params.peer_id, &params.multi_addresses)?;
-
-        if !can_pre_commit_seal_proof(params.seal_proof_type, rt.network_version()) {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "proof type {:?} not allowed for new miner actors",
-                params.seal_proof_type
-            ));
-        }
 
         let owner = resolve_control_address(rt, params.owner)?;
         let worker = resolve_worker_address(rt, params.worker)?;
@@ -227,7 +221,7 @@ impl Actor {
             control_addresses,
             params.peer_id,
             params.multi_addresses,
-            params.seal_proof_type,
+            params.window_post_proof_type,
         )
         .map_err(|e| {
             actor_error!(
@@ -511,18 +505,22 @@ impl Actor {
             //
             // This can be 0 if the miner isn't actually proving anything,
             // just skipping all sectors.
-            let window_post_proof_type = info
-                .seal_proof_type
-                .registered_window_post_proof()
-                .map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to determine window PoSt type: {}",
-                        e
-                    )
-                })?;
+            // TODO: FIX ME FOR v3
+            // let window_post_proof_type = info
+            //     .seal_proof_type
+            //     .registered_window_post_proof()
+            //     .map_err(|e| {
+            //         actor_error!(
+            //             ErrIllegalState,
+            //             "failed to determine window PoSt type: {}",
+            //             e
+            //         )
+            //     })?;
+            let window_post_proof_type = 2349;
             if let Some(proof) = params.proofs.get(0) {
-                if proof.post_proof != window_post_proof_type {
+                if proof.post_proof
+                    != fil_types::RegisteredPoStProof::Invalid(window_post_proof_type)
+                {
                     return Err(actor_error!(
                         ErrIllegalArgument,
                         "expected proof of type {:?}, got {:?}",
@@ -862,29 +860,32 @@ impl Actor {
             }
 
             if rt.network_version() < NetworkVersion::V7 {
-                if params.seal_proof != info.seal_proof_type {
+                // TODO: FIX ME FOR v3
+                if params.seal_proof != fil_types::RegisteredSealProof::Invalid(2349) {
                     return Err(actor_error!(
                         ErrIllegalArgument,
                         "sector seal proof {:?} must match miner seal proof type {:?}",
                         params.seal_proof,
-                        info.seal_proof_type
+                        info.window_post_proof_type
                     ));
                 }
             } else {
                 // From network version 7, the pre-commit seal type must have the same Window PoSt proof type as the miner's
                 // recorded seal type has, rather than be exactly the same seal type.
                 // This permits a transition window from V1 to V1_1 seal types (which share Window PoSt proof type).
-                let miner_wpost_proof = info
-                    .seal_proof_type
-                    .registered_window_post_proof()
-                    .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to lookup window PoSt proof type for miner seal proof {:?}: {}",
-                            info.seal_proof_type,
-                            e
-                        )
-                    })?;
+                // TODO: FIX ME FOR v3
+                // let miner_wpost_proof = info
+                //     .seal_proof_type
+                //     .registered_window_post_proof()
+                //     .map_err(|e| {
+                //         actor_error!(
+                //             ErrIllegalState,
+                //             "failed to lookup window PoSt proof type for miner seal proof {:?}: {}",
+                //             info.seal_proof_type,
+                //             e
+                //         )
+                //     })?;
+                let miner_wpost_proof = 2349;
                 let sector_wpost_proof =
                     params
                         .seal_proof
@@ -898,7 +899,8 @@ impl Actor {
                                 e
                             )
                         })?;
-                if sector_wpost_proof != miner_wpost_proof {
+                if sector_wpost_proof != fil_types::RegisteredPoStProof::Invalid(miner_wpost_proof)
+                {
                     return Err(actor_error!(
                         ErrIllegalArgument,
                         "sector window PoSt proof type {:?} must match miner \

@@ -1,12 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{make_map_with_root, FIRST_NON_SINGLETON_ADDR};
+use crate::{make_empty_map, make_map_with_root_and_bitwidth, FIRST_NON_SINGLETON_ADDR};
 use address::{Address, Protocol};
 use cid::Cid;
 use encoding::tuple::*;
 use encoding::Cbor;
-use fil_types::ActorID;
+use fil_types::{ActorID, HAMT_BIT_WIDTH};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error as HamtError;
 use std::error::Error as StdError;
@@ -20,12 +20,18 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(address_map: Cid, network_name: String) -> Self {
-        Self {
-            address_map,
+    pub fn new<BS: BlockStore>(
+        store: &BS,
+        network_name: String,
+    ) -> Result<Self, Box<dyn StdError>> {
+        let empty_map = make_empty_map::<_, ()>(store, HAMT_BIT_WIDTH)
+            .flush()
+            .map_err(|e| format!("failed to create empty map: {}", e))?;
+        Ok(Self {
+            address_map: empty_map,
             next_id: FIRST_NON_SINGLETON_ADDR,
             network_name,
-        }
+        })
     }
 
     /// Allocates a new ID address and stores a mapping of the argument address to it.
@@ -38,7 +44,7 @@ impl State {
         let id = self.next_id;
         self.next_id += 1;
 
-        let mut map = make_map_with_root(&self.address_map, store)?;
+        let mut map = make_map_with_root_and_bitwidth(&self.address_map, store, HAMT_BIT_WIDTH)?;
         map.set(addr.to_bytes().into(), id)?;
         self.address_map = map.flush()?;
 
@@ -64,7 +70,7 @@ impl State {
             return Ok(Some(*addr));
         }
 
-        let map = make_map_with_root(&self.address_map, store)?;
+        let map = make_map_with_root_and_bitwidth(&self.address_map, store, HAMT_BIT_WIDTH)?;
 
         Ok(map.get(&addr.to_bytes())?.copied().map(Address::new_id))
     }
