@@ -213,7 +213,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    match data.state_manager.chain_store().next_head_change(&id) {
+    match data.state_manager.chain_store().next_head_change(&id).await {
         Some(event) => Ok(Some(HeadChangeJson::from(&event))),
         None => Ok(None),
     }
