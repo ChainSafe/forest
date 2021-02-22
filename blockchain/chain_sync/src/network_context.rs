@@ -245,7 +245,7 @@ where
         if self
             .network_send
             .send(NetworkMessage::ChainExchangeRequest {
-                peer_id: peer_id,
+                peer_id,
                 request,
                 response_channel: tx,
             })
