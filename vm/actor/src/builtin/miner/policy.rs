@@ -19,6 +19,9 @@ pub const WPOST_CHALLENGE_WINDOW: ChainEpoch = 30 * 60 / EPOCH_DURATION_SECONDS;
 pub const WPOST_PERIOD_DEADLINES: u64 = 48;
 /// The maximum distance back that a valid Window PoSt must commit to the current chain.
 pub const WPOST_MAX_CHAIN_COMMIT_AGE: ChainEpoch = WPOST_CHALLENGE_WINDOW;
+// WPoStDisputeWindow is the period after a challenge window ends during which
+// PoSts submitted during that period may be disputed.
+pub const WPOST_DISPUTE_WINDOW: ChainEpoch = 2 * CHAIN_FINALITY;
 
 /// The maximum number of sectors that a miner can have simultaneously active.
 /// This also bounds the number of faults that can be declared, etc.
