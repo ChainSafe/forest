@@ -13,7 +13,7 @@ use crypto::DomainSeparationTag;
 
 use beacon::Beacon;
 use chain::headchange_json::HeadChangeJson;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
+use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params, ResponseObject, V2};
 use message::{
     signed_message,
     unsigned_message::{self, json::UnsignedMessageJson},
@@ -186,6 +186,24 @@ where
     Ok(TipsetJson(heaviest))
 }
 
+pub(crate) async fn chain_head_sub<'a, DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
+    id: Id,
+) -> ResponseObject
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    let id = data.state_manager.chain_store().sub_head_changes().await;
+
+    ResponseObject::Result {
+        jsonrpc: V2,
+        result: Box::new("Subscribed"),
+        id,
+    }
+}
+
 pub(crate) async fn chain_head_next<'a, DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
     id: Id,
@@ -195,15 +213,9 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    match data
-        .state_manager
-        .chain_store()
-        .sub_head_changes(id)
-        .await
-        .next()
-    {
-        Ok(event) => Ok(Some(HeadChangeJson::from(&event))),
-        Err(e) => Ok(None),
+    match data.state_manager.chain_store().next_head_change(&id) {
+        Some(event) => Ok(Some(HeadChangeJson::from(&event))),
+        None => Ok(None),
     }
 }
 

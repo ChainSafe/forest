@@ -25,9 +25,6 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let rpc_server = request.state();
-    let ks = Arc::clone(&state.keystore);
-    let cs = Arc::clone(&state.chain_store);
-    let chain_notify_count = Arc::clone(&state.chain_notify_count);
 
     debug!("accepted websocket connection from {:?}", request.remote());
 
