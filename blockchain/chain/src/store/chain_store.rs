@@ -22,7 +22,6 @@ use futures::AsyncWrite;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use jsonrpc_v2::Id;
 use log::{debug, info, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
@@ -72,7 +71,7 @@ pub struct ChainStore<DB> {
     publisher: Publisher<HeadChange>,
 
     /// Tracks head change subscription channels
-    subscriptions: Arc<RwLock<HashMap<Id, Option<Receiver<HeadChange>>>>>,
+    subscriptions: Arc<RwLock<HashMap<i64, Option<Receiver<HeadChange>>>>>,
 
     /// key-value datastore.
     pub db: Arc<DB>,
@@ -547,11 +546,11 @@ where
     /// then returns an id corresponding to the receiver of this channel from the function.
     /// This function is not blocking on events, and does not stall publishing events as it will
     /// skip over lagged events.
-    pub async fn sub_head_changes(&mut self) -> Id {
+    pub async fn sub_head_changes(&self) -> i64 {
         let (tx, rx) = channel::unbounded();
         let mut subscriber = self.publisher.subscribe();
 
-        let sub_id = Id::Num(self.subscriptions.read().await.len() as i64);
+        let sub_id = self.subscriptions.read().await.len() as i64;
 
         self.subscriptions
             .write()
@@ -569,7 +568,7 @@ where
         let inner_sub_id = sub_id.clone();
 
         task::spawn(async move {
-            // let subscriptions = Arc::clone(&subscriptions);
+            let subscriptions = Arc::clone(&subscriptions);
 
             loop {
                 match subscriber.recv().await {
@@ -594,7 +593,7 @@ where
         sub_id
     }
 
-    pub async fn next_head_change(&mut self, sub_id: &Id) -> Option<HeadChange> {
+    pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
         if let Some(sub) = self.subscriptions.read().await.get(sub_id) {
             if let Some(rx) = sub {
                 match rx.try_recv() {
@@ -1029,24 +1028,24 @@ where
 #[cfg(feature = "json")]
 pub mod headchange_json {
     use super::*;
-    use blocks::tipset_json::TipsetJsonRef;
+    use blocks::tipset_json::TipsetJson;
     use serde::Serialize;
 
     #[derive(Serialize)]
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
-    pub enum HeadChangeJson<'a> {
-        Current(TipsetJsonRef<'a>),
-        Apply(TipsetJsonRef<'a>),
-        Revert(TipsetJsonRef<'a>),
+    pub enum HeadChangeJson {
+        Current(TipsetJson),
+        Apply(TipsetJson),
+        Revert(TipsetJson),
     }
 
-    impl<'a> From<&'a HeadChange> for HeadChangeJson<'a> {
-        fn from(wrapper: &'a HeadChange) -> Self {
+    impl From<HeadChange> for HeadChangeJson {
+        fn from(wrapper: HeadChange) -> Self {
             match wrapper {
-                HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJsonRef(&tipset)),
-                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJsonRef(&tipset)),
-                HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJsonRef(&tipset)),
+                HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
+                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset)),
+                HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
         }
     }

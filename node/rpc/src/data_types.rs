@@ -5,7 +5,7 @@ use serde::Serialize;
 pub struct StreamingData<'a> {
     json_rpc: &'a str,
     method: &'a str,
-    params: (usize, Vec<HeadChangeJson<'a>>),
+    params: (usize, Vec<HeadChangeJson>),
 }
 
 use async_std::channel::Sender;

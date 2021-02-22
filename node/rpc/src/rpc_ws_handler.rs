@@ -1,10 +1,11 @@
 use crate::data_types::{State, StreamingData};
-use crate::rpc_util::get_error;
+use crate::rpc_util::get_error_str;
 use async_std::sync::Arc;
 use beacon::Beacon;
 use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use futures::stream::StreamExt;
+use jsonrpc_v2::RequestObject;
 use jsonrpc_v2::Server as JsonRpcServer;
 use log::{debug, info};
 use rpc_types::{Id, JsonRpcRequestObject};
@@ -44,8 +45,12 @@ where
                         Ok(call) => {
                             match &*call.method {
                                 CHAIN_NOTIFY_METHOD_NAME => {
-                                    let chain_notify_count_curr =
-                                        chain_notify_count.fetch_add(1usize);
+                                    rpc_server
+                                        .handle(
+                                            RequestObject::request()
+                                                .with_method("Filecoin.ChainHeadSubscription"),
+                                        )
+                                        .await;
 
                                     let mut head_changes = cs.sub_head_changes().await;
 
@@ -92,11 +97,11 @@ where
                                 }
                             }
                         }
-                        Err(e) => ws_stream.send_string(get_error(1, e.to_string())).await,
+                        Err(e) => ws_stream.send_string(get_error_str(1, e.to_string())).await,
                     }
                 }
             }
-            Err(e) => ws_stream.send_string(get_error(2, e.to_string())).await,
+            Err(e) => ws_stream.send_string(get_error_str(2, e.to_string())).await,
         };
     }
 

@@ -1113,7 +1113,6 @@ dependencies = [
  "interpreter",
  "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ipld_blockstore",
- "jsonrpc-v2",
  "lazy_static",
  "log",
  "lru",

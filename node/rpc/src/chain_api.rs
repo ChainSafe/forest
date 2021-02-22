@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::rpc_util::get_error;
 use crate::RpcState;
 use blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -186,10 +187,7 @@ where
     Ok(TipsetJson(heaviest))
 }
 
-pub(crate) async fn chain_head_sub<'a, DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
-    id: Id,
-) -> ResponseObject
+pub(crate) async fn chain_head_sub<DB, KS, B>(data: Data<RpcState<DB, KS, B>>) -> ResponseObject
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
@@ -200,22 +198,34 @@ where
     ResponseObject::Result {
         jsonrpc: V2,
         result: Box::new("Subscribed"),
-        id,
+        id: Id::Num(id),
     }
 }
 
-pub(crate) async fn chain_head_next<'a, DB, KS, B>(
+pub(crate) async fn chain_head_sub_next<'a, DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
     id: Id,
-) -> Result<Option<HeadChangeJson<'a>>, JsonRpcError>
+) -> ResponseObject
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    match data.state_manager.chain_store().next_head_change(&id).await {
-        Some(event) => Ok(Some(HeadChangeJson::from(&event))),
-        None => Ok(None),
+    if let Id::Num(id) = id {
+        match data.state_manager.chain_store().next_head_change(&id).await {
+            Some(event) => ResponseObject::Result {
+                jsonrpc: V2,
+                result: Box::new(Some(HeadChangeJson::from(event))),
+                id: Id::Num(id),
+            },
+            None => ResponseObject::Result {
+                jsonrpc: V2,
+                result: Box::new(Option::<HeadChangeJson>::None),
+                id: Id::Num(id),
+            },
+        }
+    } else {
+        get_error(-32600, "Invalid request".to_owned())
     }
 }
 

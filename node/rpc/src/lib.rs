@@ -77,6 +77,14 @@ where
             )
             .with_method("Filecoin.ChainGetTipSet", chain_get_tipset::<DB, KS, B>)
             .with_method(
+                "Filecoin.ChainHeadSubscription",
+                chain_head_sub::<DB, KS, B>,
+            )
+            .with_method(
+                "Filecoin.ChainHeadSubscriptionNext",
+                chain_head_sub_next::<DB, KS, B>,
+            )
+            .with_method(
                 "Filecoin.ChainGetRandomnessFromTickets",
                 chain_get_randomness_from_tickets::<DB, KS, B>,
             )
