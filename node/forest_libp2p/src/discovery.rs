@@ -9,7 +9,7 @@ use libp2p::{
         connection::{ConnectionId, ListenerId},
         ConnectedPoint, Multiaddr, PeerId, PublicKey,
     },
-    kad::{handler::{KademliaHandlerProto, KademliaHandler}, Kademlia, KademliaConfig, KademliaEvent, QueryId},
+    kad::{handler::KademliaHandlerProto, Kademlia, KademliaConfig, KademliaEvent, QueryId},
     mdns::MdnsEvent,
     multiaddr::Protocol,
     swarm::{
@@ -140,9 +140,9 @@ impl<'a> DiscoveryConfig<'a> {
         };
 
         let mdns_opt = if enable_mdns {
-            Some(task::block_on(async{
-                Mdns::new().await.expect("Could not start mDNS")}
-            ))
+            Some(task::block_on(async {
+                Mdns::new().await.expect("Could not start mDNS")
+            }))
         } else {
             None
         };
@@ -388,7 +388,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         })
                     }
                     NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                        return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address, score })
+                        return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                            address,
+                            score,
+                        })
                     }
                 }
             }
@@ -424,7 +427,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 // Nothing to notify handler
                 NetworkBehaviourAction::NotifyHandler { event, .. } => match event {},
                 NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address, score })
+                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                        address,
+                        score,
+                    })
                 }
             }
         }

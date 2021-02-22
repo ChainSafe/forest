@@ -19,8 +19,8 @@ use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{
-    error::PublishError, Gossipsub, GossipsubEvent, IdentTopic as Topic, MessageAuthenticity,
-    MessageId, TopicHash, ValidationMode, error::SubscriptionError, GossipsubConfigBuilder
+    error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
+    GossipsubEvent, IdentTopic as Topic, MessageAuthenticity, MessageId, TopicHash, ValidationMode,
 };
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::ping::{
@@ -253,8 +253,12 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
 
                     // Send hello response immediately, no need to have the overhead of emitting
                     // channel and polling future here.
-                    self.hello
-                        .send_response(channel, HelloResponse { arrival, sent });
+                    if let Err(e) = self
+                        .hello
+                        .send_response(channel, HelloResponse { arrival, sent })
+                    {
+                        debug!("Failed to send HelloResponse: {:?}", e)
+                    };
                     self.events
                         .push(ForestBehaviourEvent::HelloRequest { request, peer });
                 }
@@ -379,7 +383,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                     peer, error
                 );
             }
-            _ =>{}
+            _ => {}
         }
     }
 }
@@ -419,7 +423,6 @@ impl ForestBehaviour {
     }
 
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
-        let local_peer_id = local_key.public().into_peer_id();
         let mut gs_config_builder = GossipsubConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
@@ -447,7 +450,8 @@ impl ForestBehaviour {
             gossipsub: Gossipsub::new(
                 MessageAuthenticity::Signed(local_key.clone()),
                 gossipsub_config,
-            ).unwrap(),
+            )
+            .unwrap(),
             discovery: discovery_config.finish(),
             ping: Ping::default(),
             identify: Identify::new(

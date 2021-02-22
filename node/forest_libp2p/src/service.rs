@@ -20,19 +20,17 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-pub use libp2p::gossipsub::Topic;
+use libp2p::core::Multiaddr;
 pub use libp2p::gossipsub::IdentTopic;
+pub use libp2p::gossipsub::Topic;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
-    mplex, noise, yamux,
-    yamux::WindowUpdateMode,
-    PeerId, Swarm, Transport,
+    mplex, noise, yamux, PeerId, Swarm, Transport,
 };
-use libp2p::{core::Multiaddr};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
