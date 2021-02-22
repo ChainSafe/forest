@@ -118,7 +118,7 @@ impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
     fn inject_event(&mut self, event: DiscoveryOut) {
         match event {
             DiscoveryOut::Connected(peer) => {
-                self.bitswap.connect(peer.clone());
+                self.bitswap.connect(peer);
                 self.events.push(ForestBehaviourEvent::PeerConnected(peer));
             }
             DiscoveryOut::Disconnected(peer) => {

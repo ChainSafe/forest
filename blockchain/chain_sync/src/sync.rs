@@ -352,7 +352,7 @@ where
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
-                        if let Err(e) = self.inform_new_head(peer.clone(), new_head).await {
+                        if let Err(e) = self.inform_new_head(peer, new_head).await {
                             warn!("failed to inform new head from peer {}: {}", peer, e);
                         }
                     }
@@ -396,7 +396,7 @@ where
         tsk: TipsetKeys,
         channel: Sender<(PeerId, FullTipset)>,
     ) {
-        match Self::fetch_full_tipset(cs.as_ref(), &network, peer_id.clone(), &tsk).await {
+        match Self::fetch_full_tipset(cs.as_ref(), &network, peer_id, &tsk).await {
             Ok(fts) => {
                 channel
                     .send((peer_id, fts))
