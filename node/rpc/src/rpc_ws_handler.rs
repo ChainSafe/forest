@@ -1,23 +1,21 @@
-use crate::data_types::{State, StreamingData};
-use crate::rpc_util::get_error_str;
-use async_std::sync::Arc;
-use beacon::Beacon;
-use blockstore::BlockStore;
-use chain::headchange_json::HeadChangeJson;
 use futures::stream::StreamExt;
-use jsonrpc_v2::RequestObject;
-use jsonrpc_v2::Server as JsonRpcServer;
-use log::{debug, info};
-use rpc_types::{Id, JsonRpcRequestObject};
-use serde::Serialize;
+use jsonrpc_v2::{Id as JsonRpcId, RequestObject as JsonRequestObject};
+use log::{debug, error, info};
+use serde::{Deserialize, Serialize};
 use tide::Request;
 use tide_websockets::WebSocketConnection;
+
+use beacon::Beacon;
+use blockstore::BlockStore;
 use wallet::KeyStore;
 
-const CHAIN_NOTIFY_METHOD_NAME: &str = "Filecoin.ChainNotify";
+use crate::data_types::{JsonRpcServerState, StreamingData};
+use crate::rpc_util::{get_error_str, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY};
+use chain::headchange_json::HeadChangeJson;
+use rpc_types::JsonRpcRequestObject;
 
 pub async fn rpc_ws_handler<DB, KS, B>(
-    request: Request<JsonRpcServer<State<DB, KS, B>>>,
+    request: Request<JsonRpcServerState>,
     mut ws_stream: WebSocketConnection,
 ) -> Result<(), tide::Error>
 where
@@ -44,23 +42,37 @@ where
                     {
                         Ok(call) => {
                             match &*call.method {
-                                CHAIN_NOTIFY_METHOD_NAME => {
-                                    rpc_server
-                                        .handle(
-                                            RequestObject::request()
-                                                .with_method("Filecoin.ChainHeadSubscription"),
-                                        )
-                                        .await;
-
-                                    let mut head_changes = cs.sub_head_changes().await;
-
-                                    // TODO remove this manually constructed RPC response
-                                    #[derive(Serialize)]
+                                RPC_METHOD_CHAIN_NOTIFY => {
+                                    #[derive(Deserialize)]
                                     struct SubscribeChannelIDResponse<'a> {
                                         json_rpc: &'a str,
                                         result: usize,
-                                        id: Id,
+                                        id: JsonRpcId,
                                     }
+
+                                    let rpc_sub_response = rpc_server
+                                        .handle(
+                                            JsonRequestObject::request()
+                                                .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
+                                                .finish(),
+                                        )
+                                        .await;
+
+                                    match rpc_sub_response {
+                                        One(rpc_sub_params) => {
+                                            rpc_server
+                                                .handle(
+                                                    JsonRequestObject::request()
+                                                        .with_method(RPC_METHOD_CHAIN_NOTIFY)
+                                                        .with_id(sub_id)
+                                                        .finish(),
+                                                )
+                                                .await;
+                                        }
+                                        _ => Err(()),
+                                    }
+
+                                    let mut head_changes = cs.sub_head_changes().await;
 
                                     // First response should be the count serialized.
                                     // This is based on internal golang channel rpc handling
@@ -68,7 +80,7 @@ where
                                     let response = SubscribeChannelIDResponse {
                                         json_rpc: "2.0",
                                         result: chain_notify_count.load(),
-                                        id: call.id.flatten().unwrap_or(Id::Null),
+                                        id: call.id.flatten().unwrap_or(JsonRpcId::Null),
                                     };
 
                                     ws_stream.send_json(&response).await?; // TODO: handle send error
@@ -89,11 +101,11 @@ where
                                     Ok(())
                                 }
                                 _ => {
-                                    let rpc_response = rpc_server.handle(call).await;
+                                    error!(
+                                        "RPC Websocket tried handling something it shouldn't have."
+                                    );
 
-                                    match rpc_response {}
-
-                                    Ok(())
+                                    Err(())
                                 }
                             }
                         }

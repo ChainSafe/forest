@@ -1,5 +1,7 @@
-use chain::headchange_json::HeadChangeJson;
+use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::Serialize;
+
+use chain::headchange_json::HeadChangeJson;
 
 #[derive(Serialize)]
 pub struct StreamingData<'a> {
@@ -39,4 +41,5 @@ where
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 
-pub type State<DB, KS, B> = Arc<RpcState<DB, KS, B>>;
+// pub type JsonRpcServerState<DB, KS, B> = Arc<JsonRpcServer<RpcState<DB, KS, B>>>;
+pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;

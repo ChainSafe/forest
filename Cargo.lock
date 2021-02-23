@@ -3706,8 +3706,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpc-v2"
-version = "0.8.0"
-source = "git+https://github.com/ChainSafe/jsonrpc-v2.git?branch=id-hash-eq#562edb12838159a483a478d086f354af11cad51b"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1076172c104be6eab1b596a0f51d6cd22879c4afadaed21c09ea1090b7ced4f2"
 dependencies = [
  "async-trait",
  "bytes 0.5.6",
@@ -3722,7 +3723,8 @@ dependencies = [
 [[package]]
 name = "jsonrpc-v2-macros"
 version = "0.1.0"
-source = "git+https://github.com/ChainSafe/jsonrpc-v2.git?branch=id-hash-eq#562edb12838159a483a478d086f354af11cad51b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ec45934a6e793e0c0e1f4fd1966f5b1c0d2184e0185d6b24e585b6cd1eb96ba"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.8",

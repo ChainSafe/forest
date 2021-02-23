@@ -45,11 +45,9 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 networks = { path = "../types/networks" }
 
 [dependencies.jsonrpc-v2]
-version = "0.8.0"
+version = "0.9.1"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
-git = "https://github.com/ChainSafe/jsonrpc-v2.git"
-branch = "id-hash-eq"
 
 [features]
 default = ["rocksdb"]

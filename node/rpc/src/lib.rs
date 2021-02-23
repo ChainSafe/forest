@@ -80,10 +80,7 @@ where
                 "Filecoin.ChainHeadSubscription",
                 chain_head_sub::<DB, KS, B>,
             )
-            .with_method(
-                "Filecoin.ChainHeadSubscriptionNext",
-                chain_head_sub_next::<DB, KS, B>,
-            )
+            .with_method("Filecoin.ChainNotify", chain_notify::<DB, KS, B>)
             .with_method(
                 "Filecoin.ChainGetRandomnessFromTickets",
                 chain_get_randomness_from_tickets::<DB, KS, B>,
@@ -241,8 +238,8 @@ where
     let mut app = tide::with_state(Arc::clone(&rpc_server));
 
     app.at("/rpc/v0")
-        .with(rpc_http_handler)
-        .with(WebSocket::new(rpc_ws_handler));
+        .with(WebSocket::new(rpc_ws_handler))
+        .post(rpc_http_handler);
 
     info!("Ready for RPC connections");
 

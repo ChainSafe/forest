@@ -64,11 +64,9 @@ wallet = { package = "key_management", path = "../../key_management", features =
 ] }
 
 [dependencies.jsonrpc-v2]
-version = "0.8.0"
+version = "0.9.1"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
-git = "https://github.com/ChainSafe/jsonrpc-v2.git"
-branch = "id-hash-eq"
 
 [dev-dependencies]
 db = { package = "forest_db", version = "0.1" }

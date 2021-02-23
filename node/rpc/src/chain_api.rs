@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_util::get_error;
+use crate::rpc_util::get_error_obj;
 use crate::RpcState;
 use blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -14,7 +14,7 @@ use crypto::DomainSeparationTag;
 
 use beacon::Beacon;
 use chain::headchange_json::HeadChangeJson;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params, ResponseObject, V2};
+use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
 use message::{
     signed_message,
     unsigned_message::{self, json::UnsignedMessageJson},
@@ -42,6 +42,12 @@ pub(crate) struct Message {
     cid: Cid,
     #[serde(with = "unsigned_message::json")]
     message: UnsignedMessage,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub(crate) struct Subscription {
+    subscription_id: i64,
 }
 
 pub(crate) async fn chain_get_message<DB, KS, B>(
@@ -187,25 +193,23 @@ where
     Ok(TipsetJson(heaviest))
 }
 
-pub(crate) async fn chain_head_sub<DB, KS, B>(data: Data<RpcState<DB, KS, B>>) -> ResponseObject
+pub(crate) async fn chain_head_sub<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
+) -> Result<Subscription, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let id = data.state_manager.chain_store().sub_head_changes().await;
+    let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
 
-    ResponseObject::Result {
-        jsonrpc: V2,
-        result: Box::new("Subscribed"),
-        id: Id::Num(id),
-    }
+    Ok(Subscription { subscription_id })
 }
 
-pub(crate) async fn chain_head_sub_next<'a, DB, KS, B>(
+pub(crate) async fn chain_notify<'a, DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
     id: Id,
-) -> ResponseObject
+) -> Result<Option<HeadChangeJson>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
@@ -213,19 +217,11 @@ where
 {
     if let Id::Num(id) = id {
         match data.state_manager.chain_store().next_head_change(&id).await {
-            Some(event) => ResponseObject::Result {
-                jsonrpc: V2,
-                result: Box::new(Some(HeadChangeJson::from(event))),
-                id: Id::Num(id),
-            },
-            None => ResponseObject::Result {
-                jsonrpc: V2,
-                result: Box::new(Option::<HeadChangeJson>::None),
-                id: Id::Num(id),
-            },
+            Some(event) => Ok(Some(HeadChangeJson::from(event))),
+            None => Ok(Option::<HeadChangeJson>::None),
         }
     } else {
-        get_error(-32600, "Invalid request".to_owned())
+        Err(get_error_obj(-32600, "Invalid request".to_owned()))
     }
 }
 
