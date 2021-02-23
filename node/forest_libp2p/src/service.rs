@@ -21,20 +21,18 @@ use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 use libp2p::core::Multiaddr;
+pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
-    core::transport::boxed::Boxed,
+    core::transport::Boxed,
     identity::{ed25519, Keypair},
-    mplex, noise, yamux,
-    yamux::WindowUpdateMode,
-    PeerId, Swarm, Transport,
+    mplex, noise, yamux, PeerId, Swarm, Transport,
 };
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
@@ -50,7 +48,7 @@ const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 #[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
-        source: Option<PeerId>,
+        source: PeerId,
         message: PubsubMessage,
     },
     HelloRequest {
@@ -81,7 +79,7 @@ pub enum PubsubMessage {
 #[derive(Debug)]
 pub enum NetworkMessage {
     PubsubMessage {
-        topic: Topic,
+        topic: IdentTopic,
         message: Vec<u8>,
     },
     ChainExchangeRequest {
@@ -146,7 +144,7 @@ where
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
             let t = Topic::new(format!("{}/{}", topic, network_name));
-            swarm.subscribe(t);
+            swarm.subscribe(&t).unwrap();
         }
 
         // Bootstrap with Kademlia
@@ -192,18 +190,11 @@ where
                         }
                         ForestBehaviourEvent::GossipMessage {
                             source,
-                            topics,
+                            topic,
                             message,
                         } => {
                             trace!("Got a Gossip Message from {:?}", source);
-                            // there should only be one topic associated with any particular gossip message
-                            let topic = match topics.get(0) {
-                                Some(t) => t.as_str(),
-                                None => {
-                                    warn!("received gossipsub message without topic from {:?}", source);
-                                    continue;
-                                },
-                            };
+                            let topic = topic.as_str();
                             if topic == pubsub_block_str {
                                 match from_slice::<GossipBlock>(&message) {
                                     Ok(b) => {
@@ -295,7 +286,7 @@ where
                     // Inbound messages
                     Some(message) =>  match message {
                         NetworkMessage::PubsubMessage { topic, message } => {
-                            if let Err(e) = swarm_stream.get_mut().publish(&topic, message) {
+                            if let Err(e) = swarm_stream.get_mut().publish(topic, message) {
                                 warn!("Failed to send gossipsub message: {:?}", e);
                             }
                         }
@@ -319,7 +310,7 @@ where
                                 NetRPCMethods::NetAddrsListen(response_channel) => {
                                 let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
                                 let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
-                                    if response_channel.send((peer_id.clone(), listeners)).is_err() {
+                                    if response_channel.send((*peer_id, listeners)).is_err() {
                                         warn!("Failed to get Libp2p listeners");
                                     }
                                 }
@@ -354,7 +345,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 }
 
 /// Builds the transport stack that LibP2P will communicate over.
-pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Error> {
+pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::websocket::WsConfig::new(transport.clone()).or_transport(transport);
     let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
@@ -369,12 +360,12 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
 
     let mplex_config = {
         let mut mplex_config = mplex::MplexConfig::new();
-        mplex_config.max_buffer_len(usize::MAX);
+        mplex_config.set_max_buffer_size(usize::MAX);
 
-        let mut yamux_config = yamux::Config::default();
+        let mut yamux_config = yamux::YamuxConfig::default();
         yamux_config.set_max_buffer_size(16 * 1024 * 1024);
-        yamux_config.set_receive_window(16 * 1024 * 1024);
-        yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
+        yamux_config.set_receive_window_size(16 * 1024 * 1024);
+        // yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
         core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
     };
 
@@ -382,9 +373,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox), Er
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
         .multiplex(mplex_config)
-        .map(|(peer, muxer), _| (peer, core::muxing::StreamMuxerBox::new(muxer)))
         .timeout(Duration::from_secs(20))
-        .map_err(|err| Error::new(ErrorKind::Other, err))
         .boxed()
 }
 
