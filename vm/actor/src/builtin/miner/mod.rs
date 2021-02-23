@@ -148,59 +148,6 @@ impl Actor {
             .map(|address| resolve_control_address(rt, address))
             .collect::<Result<_, _>>()?;
 
-        let empty_map = make_empty_map::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
-            .flush()
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to construct initial state",
-                )
-            })?;
-
-        let empty_array = Amt::<Cid, BS>::new(rt.store()).flush().map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "failed to construct initial state",
-            )
-        })?;
-
-        let empty_bitfield_cid = rt.store().put(&BitField::new(), Blake2b256).map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "failed to construct illegal state",
-            )
-        })?;
-
-        let empty_deadline_cid = rt
-            .store()
-            .put(&Deadline::new(empty_array), Blake2b256)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to construct illegal state",
-                )
-            })?;
-
-        let empty_deadlines_cid = rt
-            .store()
-            .put(&Deadlines::new(empty_deadline_cid), Blake2b256)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to construct illegal state",
-                )
-            })?;
-
-        let empty_vesting_funds_cid =
-            rt.store()
-                .put(&VestingFunds::new(), Blake2b256)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to construct illegal state",
-                    )
-                })?;
-
         let current_epoch = rt.curr_epoch();
         let blake2b = |b: &[u8]| rt.hash_blake2b(b);
         let offset = assign_proving_period_offset(*rt.message().receiver(), current_epoch, blake2b)
@@ -212,8 +159,23 @@ impl Actor {
             })?;
 
         let period_start = current_proving_period_start(current_epoch, offset);
+        if period_start > current_epoch {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "computed proving period start {} after current epoch {}",
+                period_start,
+                current_epoch
+            ));
+        }
+
         let deadline_idx = current_deadline_index(current_epoch, period_start);
-        assert!(deadline_idx < WPOST_PERIOD_DEADLINES as usize);
+        if deadline_idx >= WPOST_PERIOD_DEADLINES as usize {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "computed proving deadline index {} invalid",
+                deadline_idx
+            ));
+        }
 
         let info = MinerInfo::new(
             owner,
@@ -225,7 +187,7 @@ impl Actor {
         )
         .map_err(|e| {
             actor_error!(
-                ErrIllegalArgument,
+                ErrIllegalState,
                 "failed to construct initial miner info: {}",
                 e
             )
@@ -237,16 +199,9 @@ impl Actor {
             )
         })?;
 
-        let st = State::new(
-            info_cid,
-            period_start,
-            deadline_idx,
-            empty_bitfield_cid,
-            empty_array,
-            empty_map,
-            empty_deadlines_cid,
-            empty_vesting_funds_cid,
-        );
+        let st = State::new(rt.store(), info_cid, period_start, deadline_idx).map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to construct state")
+        })?;
         rt.create(&st)?;
 
         // Register first cron callback for epoch before the next deadline starts.
