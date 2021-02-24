@@ -116,7 +116,8 @@ where
                                         )
                                         .await;
 
-                                    Err(())
+                                    // TODO: ws response
+                                    // Err(())
                                 }
                             }
                         }
