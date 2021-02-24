@@ -1689,9 +1689,8 @@ impl Actor {
     ///     AddressedPartitionsMax per epoch until the queue is empty.
     ///
     /// The sectors are immediately ignored for Window PoSt proofs, and should be
-    /// masked in the same way as faulty sectors. A miner terminating sectors in the
-    /// current deadline must be careful to compute an appropriate Window PoSt proof
-    /// for the sectors that will be active at the time the PoSt is submitted.
+    /// masked in the same way as faulty sectors. A miner may not terminate sectors in the
+    /// current deadline or the next deadline to be proven.
     ///
     /// This function may be invoked with no new sectors to explicitly process the
     /// next batch of sectors.
@@ -1770,6 +1769,16 @@ impl Actor {
             })?;
 
             for (deadline_idx, partition_sectors) in to_process.iter() {
+                // If the deadline the current or next deadline to prove, don't allow terminating sectors.
+                // We assume that deadlines are immutable when being proven.
+                if !deadline_is_mutable(state.proving_period_start, deadline_idx, curr_epoch) {
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "cannot terminate sectors in immutable deadline {}",
+                        deadline_idx
+                    ));
+                }
+
                 let quant = state.quant_spec_for_deadline(deadline_idx);
                 let mut deadline = deadlines
                     .load_deadline(store, deadline_idx)
@@ -1822,6 +1831,15 @@ impl Actor {
             // jobs. However, in practice, that shouldn't be all that bad.
             schedule_early_termination_work(rt)?;
         }
+        let state: State = rt.state()?;
+        state
+            .check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariant broken: {}", e),
+                )
+            })?;
 
         request_update_power(rt, power_delta)?;
         Ok(TerminateSectorsReturn { done: !more })
