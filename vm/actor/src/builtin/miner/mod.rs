@@ -623,22 +623,17 @@ impl Actor {
                 // Note: this is slightly sub-optimal, loading info for the recovering sectors again after they were already
                 // loaded above.
                 let sector_infos = sectors
-                    .load_for_proof(&post_result.sectors, post_result.ignored_sectors)
+                    .load_for_proof(&post_result.sectors, &post_result.ignored_sectors)
                     .map_err(|e| {
                         e.downcast_default(
                             ExitCode::ErrIllegalState,
                             "failed to load sectors for post verification",
                         )
                     })?;
-                verify_windowed_post(
-                    &rt,
-                    current_deadline.challenge,
-                    &sector_infos,
-                    params.proofs,
-                )
-                .map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalArgument, "window post failed")
-                })?;
+                verify_windowed_post(rt, current_deadline.challenge, &sector_infos, params.proofs)
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalArgument, "window post failed")
+                    })?;
             }
 
             let deadline_idx = params.deadline;
@@ -929,8 +924,8 @@ impl Actor {
                         info: params,
                         pre_commit_deposit: deposit_req,
                         pre_commit_epoch: rt.curr_epoch(),
-                        deal_weight: deal_weight.sectors[0].deal_weight.clone(),
-                        verified_deal_weight: deal_weight.sectors[0].deal_weight.clone(),
+                        deal_weight: deal_weight.deal_weight.clone(),
+                        verified_deal_weight: deal_weight.deal_weight.clone(),
                     },
                 )
                 .map_err(|e| {
@@ -993,7 +988,6 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any()?;
-        let nv = rt.network_version();
 
         if params.sector_number > MAX_SECTOR_NUMBER {
             return Err(actor_error!(
@@ -1002,12 +996,23 @@ impl Actor {
             ));
         }
 
-        let max_proof_size = if nv >= NetworkVersion::V5 {
-            MAX_PROVE_COMMIT_SIZE_V5
-        } else {
-            MAX_PROVE_COMMIT_SIZE_V4
-        };
+        let sector_number = params.sector_number;
 
+        let st: State = rt.state()?;
+        let precommit = st
+            .get_precommitted_sector(rt.store(), sector_number)
+            .map_err(|e| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to load pre-committed sector {}",
+                    sector_number
+                )
+            })?
+            .ok_or_else(|| actor_error!(ErrNotFound, "no pre-commited sector {}", sector_number))?;
+
+        // TODO: NEED TO ACTUALLY IMPLEMENT THE PROOFSIZE FUNCTION
+        // let max_proof_size = precommit.info.seal_proof.proof_size()
+        let max_proof_size = 192;
         if params.proof.len() > max_proof_size {
             return Err(actor_error!(
                 ErrIllegalArgument,
@@ -1016,23 +1021,6 @@ impl Actor {
                 max_proof_size
             ));
         }
-
-        let sector_number = params.sector_number;
-        let precommit = rt.transaction(|state: &mut State, rt| {
-            let precommit = state
-                .get_precommitted_sector(rt.store(), sector_number)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to load precommitted sector: {}", sector_number),
-                    )
-                })?
-                .ok_or_else(|| {
-                    actor_error!(ErrNotFound, "no pre-committed sector: {}", sector_number)
-                })?;
-
-            Ok(precommit)
-        })?;
 
         let msd = max_prove_commit_duration(precommit.info.seal_proof).ok_or_else(|| {
             actor_error!(
@@ -1185,7 +1173,7 @@ impl Actor {
             ));
         }
 
-        let (new_power, total_pledge, newly_vested) = rt.transaction(|state: &mut State, rt| {
+        let (total_pledge, newly_vested) = rt.transaction(|state: &mut State, rt| {
             let store = rt.store();
 
             // Schedule expiration for replaced sectors to the end of their next deadline window.
@@ -1305,7 +1293,7 @@ impl Actor {
                     )
                 })?;
 
-            let new_power = state
+            state
                 .assign_sectors_to_deadlines(
                     store,
                     rt.curr_epoch(),
@@ -1320,22 +1308,18 @@ impl Actor {
                     )
                 })?;
 
-            // Stop unlocking funds as of version 7. It's computationally expensive and unlikely to actually unlock anything.
-            let newly_vested = if rt.network_version() < NetworkVersion::V7 {
-                state
-                    .unlock_vested_funds(store, rt.curr_epoch())
-                    .map_err(|e| {
-                        e.downcast_default(
-                            ExitCode::ErrIllegalState,
-                            "failed to assign new sectors to deadlines",
-                        )
-                    })?
-            } else {
-                TokenAmount::zero()
-            };
+            let newly_vested = TokenAmount::zero();
 
             // Unlock deposit for successful proofs, make it available for lock-up as initial pledge.
-            state.add_pre_commit_deposit(&(-deposit_to_unlock));
+            state
+                .add_pre_commit_deposit(&(-deposit_to_unlock))
+                .map_err(|e| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to calculate unlocked balance: {}",
+                        e
+                    )
+                })?;
 
             let unlocked_balance =
                 state
@@ -1356,7 +1340,10 @@ impl Actor {
                 ));
             }
 
-            state.add_initial_pledge(&total_pledge);
+            state.add_initial_pledge(&total_pledge).map_err(|e| {
+                actor_error!(ErrIllegalState, "failed to add initial pledge: {}", e)
+            })?;
+
             state
                 .check_balance_invariants(&rt.current_balance()?)
                 .map_err(|e| {
@@ -1366,11 +1353,10 @@ impl Actor {
                     )
                 })?;
 
-            Ok((new_power, total_pledge, newly_vested))
+            Ok((total_pledge, newly_vested))
         })?;
 
-        // Request power and pledge update for activated sector.
-        request_update_power(rt, new_power)?;
+        // Request pledge update for activated sector.
         notify_pledge_changed(rt, &(total_pledge - newly_vested))?;
 
         Ok(())
