@@ -1612,8 +1612,7 @@ impl Actor {
 
                     // Record the new partition expiration epoch for setting outside this loop
                     // over declarations.
-                    let prev_epoch_partitions =
-                        partitions_by_new_epoch.entry(decl.new_expiration);
+                    let prev_epoch_partitions = partitions_by_new_epoch.entry(decl.new_expiration);
                     let not_exists = matches!(prev_epoch_partitions, Entry::Vacant(_));
 
                     // Add declaration partition
@@ -1634,22 +1633,20 @@ impl Actor {
                 })?;
 
                 // Record partitions in deadline expiration queue
-                if nv >= NetworkVersion::V7 {
-                    for epoch in epochs_to_reschedule {
-                        let p_idxs = partitions_by_new_epoch.get(&epoch).unwrap();
-                        deadline
-                            .add_expiration_partitions(store, epoch, p_idxs, quant)
-                            .map_err(|e| {
-                                e.downcast_default(
-                                    ExitCode::ErrIllegalState,
-                                    format!(
-                                        "failed to add expiration partitions to \
+                for epoch in epochs_to_reschedule {
+                    let p_idxs = partitions_by_new_epoch.get(&epoch).unwrap();
+                    deadline
+                        .add_expiration_partitions(store, epoch, p_idxs, quant)
+                        .map_err(|e| {
+                            e.downcast_default(
+                                ExitCode::ErrIllegalState,
+                                format!(
+                                    "failed to add expiration partitions to \
                                         deadline {} epoch {}",
-                                        deadline_idx, epoch
-                                    ),
-                                )
-                            })?;
-                    }
+                                    deadline_idx, epoch
+                                ),
+                            )
+                        })?;
                 }
 
                 deadlines
