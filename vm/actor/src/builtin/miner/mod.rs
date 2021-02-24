@@ -1314,11 +1314,7 @@ impl Actor {
             state
                 .add_pre_commit_deposit(&(-deposit_to_unlock))
                 .map_err(|e| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to calculate unlocked balance: {}",
-                        e
-                    )
+                    actor_error!(ErrIllegalState, "failed to add precommit deposit: {}", e)
                 })?;
 
             let unlocked_balance =
