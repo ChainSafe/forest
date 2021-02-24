@@ -320,10 +320,7 @@ impl State {
                 e.downcast_wrap(format!("failed to store pre-commitment for {:?}", info))
             })?;
         if !modified {
-            // TODO: FIX
-            return Err(Box::new(
-                format!("sector {} already pre-commited", info.info.sector_number).into(),
-            ));
+            return Err(format!("sector {} already pre-commited", info.info.sector_number).into());
         }
         self.pre_committed_sectors = precommitted.flush()?;
         Ok(())
@@ -556,7 +553,7 @@ impl State {
                 store,
                 partition_size,
                 proven,
-                deadline_sectors,
+                &deadline_sectors,
                 sector_size,
                 quant,
             )?;
@@ -756,6 +753,7 @@ impl State {
             ));
         }
         self.initial_pledge = new_total;
+        Ok(())
     }
 
     pub fn apply_penalty(&mut self, penalty: &TokenAmount) -> Result<(), String> {
@@ -776,7 +774,7 @@ impl State {
         spec: &VestSpec,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         if vesting_sum.is_negative() {
-            return Err(Box::new(format!("negative vesting sum {}", vesting_sum)));
+            return Err(format!("negative vesting sum {}", vesting_sum).into());
         }
 
         let mut vesting_funds = self.load_vesting_funds(store)?;
@@ -785,10 +783,11 @@ impl State {
         let amount_unlocked = vesting_funds.unlock_vested_funds(current_epoch);
         self.locked_funds -= &amount_unlocked;
         if self.locked_funds.is_negative() {
-            return Err(Box::new(format!(
+            return Err(format!(
                 "negative locked funds {} after unlocking {}",
                 self.locked_funds, amount_unlocked
-            )));
+            )
+            .into());
         }
         // add locked funds now
         vesting_funds.add_locked_funds(current_epoch, vesting_sum, self.proving_period_start, spec);
@@ -823,9 +822,9 @@ impl State {
 
         // * It may be possible the go implementation catches a potential panic here
         if from_vesting > self.fee_debt {
-            return Err(Box::new(
-                "should never unlock more than the debt we need to repay",
-            ));
+            return Err("should never unlock more than the debt we need to repay"
+                .to_owned()
+                .into());
         }
         self.fee_debt -= &from_vesting;
 
@@ -873,10 +872,11 @@ impl State {
         let amount_unlocked = vesting_funds.unlock_unvested_funds(current_epoch, target);
         self.locked_funds -= &amount_unlocked;
         if self.locked_funds.is_negative() {
-            return Err(Box::new(format!(
+            return Err(format!(
                 "negative locked funds {} after unlocking {}",
                 self.locked_funds, amount_unlocked
-            )));
+            )
+            .into());
         }
 
         self.save_vesting_funds(store, &vesting_funds)?;

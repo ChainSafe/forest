@@ -32,7 +32,9 @@ pub use types::*;
 pub use vesting_state::*;
 
 use crate::{
-    account::Method as AccountMethod, actor_error, make_empty_map, market::ActivateDealsParams,
+    account::Method as AccountMethod,
+    actor_error, make_empty_map,
+    market::{self, ActivateDealsParams},
     power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
 use crate::{
@@ -417,7 +419,6 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let current_epoch = rt.curr_epoch();
-        let network_version = rt.network_version();
 
         if params.deadline >= WPOST_PERIOD_DEADLINES as usize {
             return Err(actor_error!(
@@ -439,15 +440,11 @@ impl Actor {
         //     ));
         // }
 
-        let mut partition_indexes = BitField::new();
-        if network_version >= NetworkVersion::V7 {
-            for partition in params.partitions.iter() {
-                partition_indexes.set(partition.index as usize);
-            }
-        }
-
         let post_result = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt.store(), state)?;
+            // TODO: NEED TO ACTUALLY HANDLE THIS PROPERLY IN CASE OF DIFFERENT PROOF SIZE
+            // let proof_size = info.window_post_proof_type;
+            let max_proof_size = 192;
 
             rt.validate_immediate_caller_is(
                 info.control_addresses
@@ -460,27 +457,13 @@ impl Actor {
             //
             // This can be 0 if the miner isn't actually proving anything,
             // just skipping all sectors.
-            // TODO: FIX ME FOR v3
-            // let window_post_proof_type = info
-            //     .seal_proof_type
-            //     .registered_window_post_proof()
-            //     .map_err(|e| {
-            //         actor_error!(
-            //             ErrIllegalState,
-            //             "failed to determine window PoSt type: {}",
-            //             e
-            //         )
-            //     })?;
-            let window_post_proof_type = 2349;
             if let Some(proof) = params.proofs.get(0) {
-                if proof.post_proof
-                    != fil_types::RegisteredPoStProof::Invalid(window_post_proof_type)
-                {
+                if proof.post_proof != info.window_post_proof_type {
                     return Err(actor_error!(
                         ErrIllegalArgument,
                         "expected proof of type {:?}, got {:?}",
                         proof.post_proof,
-                        window_post_proof_type
+                        info.window_post_proof_type
                     ));
                 }
             } else {
@@ -488,6 +471,15 @@ impl Actor {
                     ErrIllegalArgument,
                     "expected exactly one proof, got {}",
                     params.proofs.len()
+                ));
+            }
+            // Make sure the proof size doesn't exceed the max. We could probably check for an exact match, but this is safer.
+            let max_size = max_proof_size * params.partitions.len();
+            if params.proofs.get(0).unwrap().proof_bytes.len() > max_size {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "expect proof to be smaller than {} bytes",
+                    max_size
                 ));
             }
 
@@ -574,25 +566,15 @@ impl Actor {
                 .load_deadline(rt.store(), params.deadline)
                 .map_err(|e| e.wrap(format!("failed to load deadline {}", params.deadline)))?;
 
-            if network_version >= NetworkVersion::V7 {
-                let already_proven = &deadline.post_submissions & &partition_indexes;
-                if !already_proven.is_empty() {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "partition already proven: {:?}",
-                        already_proven
-                    ));
-                }
-            }
-
             // Record proven sectors/partitions, returning updates to power and the final set of sectors
             // proven/skipped.
             //
-            // NOTE: This function does not actually check the proofs but does assume that they'll be
-            // successfully validated. The actual proof verification is done below in verifyWindowedPost.
+            // NOTE: This function does not actually check the proofs but does assume that they're correct. Instead,
+            // it snapshots the deadline's state and the submitted proofs at the end of the challenge window and
+            // allows third-parties to dispute these proofs.
             //
-            // If proof verification fails, the this deadline MUST NOT be saved and this function should
-            // be aborted.
+            // While we could perform _all_ operations at the end of challenge window, we do as we can here to avoid
+            // overloading cron.
             let fault_expiration = current_deadline.last() + FAULT_MAX_AGE;
             let post_result = deadline
                 .record_proven_sectors(
@@ -613,24 +595,9 @@ impl Actor {
                     )
                 })?;
 
-            // Skipped sectors (including retracted recoveries) pay nothing at Window PoSt,
-            // but will incur the "ongoing" fault fee at deadline end.
-
-            // Validate proofs
-
-            // Load sector infos for proof, substituting a known-good sector for known-faulty sectors.
-            // Note: this is slightly sub-optimal, loading info for the recovering sectors again after they were already
-            // loaded above.
-            let sector_infos = sectors
-                .load_for_proof(&post_result.sectors, &post_result.ignored_sectors)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to load proven sector info",
-                    )
-                })?;
-
-            if sector_infos.is_empty() {
+            // Make sure we actually proved something.
+            let proven_sectors = &post_result.sectors - &post_result.ignored_sectors;
+            if proven_sectors.len() == 0 {
                 // Abort verification if all sectors are (now) faults. There's nothing to prove.
                 // It's not rational for a miner to submit a Window PoSt marking *all* non-faulty sectors as skipped,
                 // since that will just cause them to pay a penalty at deadline end that would otherwise be zero
@@ -641,9 +608,38 @@ impl Actor {
                 ));
             }
 
-            // Verify the proof.
-            // A failed verification doesn't immediately cause a penalty; the miner can try again.
-            verify_windowed_post(rt, current_deadline.challenge, &sector_infos, params.proofs)?;
+            // If we're not recovering power, record the proof for optimistic verification.
+            if post_result.recovered_power.is_zero() {
+                deadline
+                    .record_post_proofs(rt.store(), post_result.partitions, params.proofs)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to record proof for optimistic verification",
+                        )
+                    })?
+            } else {
+                // Load sector infos for proof, substituting a known-good sector for known-faulty sectors.
+                // Note: this is slightly sub-optimal, loading info for the recovering sectors again after they were already
+                // loaded above.
+                let sector_infos = sectors
+                    .load_for_proof(&post_result.sectors, post_result.ignored_sectors)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load sectors for post verification",
+                        )
+                    })?;
+                verify_windowed_post(
+                    &rt,
+                    current_deadline.challenge,
+                    &sector_infos,
+                    params.proofs,
+                )
+                .map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalArgument, "window post failed")
+                })?;
+            }
 
             let deadline_idx = params.deadline;
             deadlines
@@ -769,21 +765,19 @@ impl Actor {
 
         let reward_stats = request_current_epoch_block_reward(rt)?;
         let power_total = request_current_total_power(rt)?;
-        let deal_weight =
-            request_deal_weight(rt, &params.deal_ids, rt.curr_epoch(), params.expiration)?;
-
+        let deal_weights = request_deal_weights(
+            rt,
+            &[market::SectorDeals {
+                sector_expiry: params.expiration,
+                deal_ids: params.deal_ids,
+            }],
+            rt.curr_epoch(),
+            params.expiration,
+        )?;
+        let deal_weight = deal_weights.sectors[0];
         let mut fee_to_burn = TokenAmount::from(0);
         let newly_vested = rt.transaction(|state: &mut State, rt| {
-            // Stop vesting funds as of version 7. Its computationally expensive and unlikely to release any funds.
-            let newly_vested = if rt.network_version() < NetworkVersion::V7 {
-                state
-                    .unlock_vested_funds(rt.store(), rt.curr_epoch())
-                    .map_err(|e| {
-                        e.downcast_default(ExitCode::ErrIllegalState, "failed to vest funds")
-                    })?
-            } else {
-                TokenAmount::from(0)
-            };
+            let newly_vested = TokenAmount::from(0);
 
             // available balance already accounts for fee debt so it is correct to call
             // this before RepayDebts. We would have to
@@ -814,56 +808,30 @@ impl Actor {
                 ));
             }
 
-            if rt.network_version() < NetworkVersion::V7 {
-                // TODO: FIX ME FOR v3
-                if params.seal_proof != fil_types::RegisteredSealProof::Invalid(2349) {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "sector seal proof {:?} must match miner seal proof type {:?}",
-                        params.seal_proof,
-                        info.window_post_proof_type
-                    ));
-                }
-            } else {
-                // From network version 7, the pre-commit seal type must have the same Window PoSt proof type as the miner's
-                // recorded seal type has, rather than be exactly the same seal type.
-                // This permits a transition window from V1 to V1_1 seal types (which share Window PoSt proof type).
-                // TODO: FIX ME FOR v3
-                // let miner_wpost_proof = info
-                //     .seal_proof_type
-                //     .registered_window_post_proof()
-                //     .map_err(|e| {
-                //         actor_error!(
-                //             ErrIllegalState,
-                //             "failed to lookup window PoSt proof type for miner seal proof {:?}: {}",
-                //             info.seal_proof_type,
-                //             e
-                //         )
-                //     })?;
-                let miner_wpost_proof = 2349;
-                let sector_wpost_proof =
-                    params
-                        .seal_proof
-                        .registered_window_post_proof()
-                        .map_err(|e| {
-                            actor_error!(
-                                ErrIllegalState,
-                                "failed to lookup window PoSt proof type \
-                                for sector seal proof {:?}: {}",
-                                params.seal_proof,
-                                e
-                            )
-                        })?;
-                if sector_wpost_proof != fil_types::RegisteredPoStProof::Invalid(miner_wpost_proof)
-                {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "sector window PoSt proof type {:?} must match miner \
-                            window PoSt proof type {:?}",
-                        sector_wpost_proof,
-                        miner_wpost_proof
-                    ));
-                }
+            // From network version 7, the pre-commit seal type must have the same Window PoSt proof type as the miner's
+            // recorded seal type has, rather than be exactly the same seal type.
+            // This permits a transition window from V1 to V1_1 seal types (which share Window PoSt proof type).
+            let sector_wpost_proof =
+                params
+                    .seal_proof
+                    .registered_window_post_proof()
+                    .map_err(|e| {
+                        actor_error!(
+                            ErrIllegalState,
+                            "failed to lookup window PoSt proof type \
+                            for sector seal proof {:?}: {}",
+                            params.seal_proof,
+                            e
+                        )
+                    })?;
+            if sector_wpost_proof != info.window_post_proof_type {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "sector window PoSt proof type {:?} must match miner \
+                        window PoSt proof type {:?}",
+                    sector_wpost_proof,
+                    info.window_post_proof_type
+                ));
             }
 
             let store = rt.store();
@@ -879,11 +847,11 @@ impl Actor {
             }
 
             // Ensure total deal space does not exceed sector size.
-            if deal_weight.sectors[0].deal_space > info.sector_size as u64 {
+            if deal_weight.deal_space > info.sector_size as u64 {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "deal size too large to fit in sector {} > {}",
-                    deal_weight.sectors[0].deal_space,
+                    deal_weight.deal_space,
                     info.sector_size
                 ));
             }
@@ -897,26 +865,7 @@ impl Actor {
                     ))
                 })?;
 
-            // The following two checks shouldn't be necessary, but it can't
-            // hurt to double-check (unless it's really just too
-            // expensive?).
-            let sector = state
-                .get_precommitted_sector(store, params.sector_number)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to check pre-commit {}", params.sector_number),
-                    )
-                })?;
-
-            if sector.is_some() {
-                return Err(actor_error!(
-                    ErrIllegalState,
-                    "sector {} already pre-committed",
-                    params.sector_number
-                ));
-            }
-
+            // This sector check is redundant given the allocated sectors bitfield, but remains for safety.
             let sector_found = state
                 .has_sector_number(store, params.sector_number)
                 .map_err(|e| {
@@ -943,8 +892,8 @@ impl Actor {
             let sector_weight = qa_power_for_weight(
                 info.sector_size,
                 duration,
-                &deal_weight.sectors[0].deal_weight,
-                &deal_weight.sectors[0].verified_deal_weight,
+                &deal_weight.deal_weight,
+                &deal_weight.verified_deal_weight,
             );
 
             let deposit_req = pre_commit_deposit_for_power(
@@ -961,7 +910,14 @@ impl Actor {
                 ));
             }
 
-            state.add_pre_commit_deposit(&deposit_req);
+            state.add_pre_commit_deposit(&deposit_req).map_err(|e| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to add pre-commit deposit {}: {}",
+                    deposit_req,
+                    e
+                )
+            })?;
 
             let seal_proof = params.seal_proof;
             let sector_number = params.sector_number;
@@ -3343,9 +3299,9 @@ where
     Ok(unsealed_cid)
 }
 
-fn request_deal_weight<BS, RT>(
+fn request_deal_weights<BS, RT>(
     rt: &mut RT,
-    deal_ids: &[DealID],
+    sectors: &[market::SectorDeals],
     sector_start: ChainEpoch,
     sector_expiry: ChainEpoch,
 ) -> Result<VerifyDealsForActivationReturn, ActorError>
@@ -3353,18 +3309,28 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if deal_ids.is_empty() {
-        return Ok(VerifyDealsForActivationReturn::default());
+    // Short-circuit if there are no deals in any of the sectors.
+    let mut deal_count = 0;
+    for sector in sectors {
+        deal_count += sector.deal_ids.len();
     }
-
+    if deal_count == 0 {
+        let mut empty_result = VerifyDealsForActivationReturn {
+            sectors: Vec::with_capacity(sectors.len()),
+        };
+        for i in 0..sectors.len() {
+            empty_result.sectors.push(market::SectorWeights {
+                deal_space: 0,
+                deal_weight: 0.into(),
+                verified_deal_weight: 0.into(),
+            });
+        }
+        return Ok(empty_result);
+    }
     let serialized = rt.send(
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::VerifyDealsForActivation as u64,
-        Serialized::serialize(VerifyDealsForActivationParamsRef {
-            deal_ids,
-            sector_start,
-            sector_expiry,
-        })?,
+        Serialized::serialize(VerifyDealsForActivationParamsRef { sectors: sectors })?,
         TokenAmount::zero(),
     )?;
 

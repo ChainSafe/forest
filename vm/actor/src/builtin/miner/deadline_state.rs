@@ -418,7 +418,7 @@ impl Deadline {
                     // This case will usually happen zero times.
                     // It would require adding more than a full partition in one go
                     // to happen more than once.
-                    Partition::new(Amt::<Cid, BS>::new(store).flush()?)
+                    Partition::new(&Amt::<Cid, BS>::new(&store).flush()?)?
                 }
             };
 
@@ -628,7 +628,7 @@ impl Deadline {
     > {
         let old_partitions = self
             .partitions_amt(store)
-            .map_err(|e| e.wrap("failed to load partitions"))?;
+            .map_err(|e| e.downcast_wrap("failed to load partitions"))?;
 
         let partition_count = old_partitions.count();
         let to_remove_set: HashSet<_> = to_remove
@@ -863,9 +863,9 @@ impl Deadline {
         quant: QuantSpec,
         fault_expiration_epoch: ChainEpoch,
     ) -> Result<(PowerPair, PowerPair), ActorError> {
-        let mut partitions = self
-            .partitions_amt(store)
-            .map_err(|e| e.wrap("failed to load partitions"))?;
+        let mut partitions = self.partitions_amt(store).map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to load partitions")
+        })?;
 
         let mut detected_any = false;
         let mut rescheduled_partitions = Vec::<usize>::new();
@@ -1244,7 +1244,7 @@ impl Deadline {
             .map_err(|e| e.downcast_wrap("failed to load post proofs"))?;
         proof_arr
             .set(
-                proof_arr.len(),
+                proof_arr.count(),
                 WindowedPoSt {
                     partitions: partitions,
                     proofs: proofs,

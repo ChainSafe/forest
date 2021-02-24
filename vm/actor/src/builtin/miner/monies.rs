@@ -181,7 +181,7 @@ pub fn pledge_penalty_for_invalid_windowpost(
         network_qa_power_estimate,
         qa_sector_power,
         INVALID_WINDOW_POST_PROJECTION_PERIOD,
-    ) + BASE_PENALTY_FOR_DISPUTED_WINDOW_POST
+    ) + &*BASE_PENALTY_FOR_DISPUTED_WINDOW_POST
 }
 
 /// Computes the PreCommit deposit given sector qa weight and current network conditions.
