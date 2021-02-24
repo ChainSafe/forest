@@ -68,42 +68,53 @@ where
                                                         .finish(),
                                                 )
                                                 .await;
+
+                                            let mut head_changes = cs.sub_head_changes().await;
+
+                                            // First response should be the count serialized.
+                                            // This is based on internal golang channel rpc handling
+                                            // needed to match Lotus.
+                                            let response = SubscribeChannelIDResponse {
+                                                json_rpc: "2.0",
+                                                result: chain_notify_count.load(),
+                                                id: call.id.flatten().unwrap_or(JsonRpcId::Null),
+                                            };
+
+                                            ws_stream.send_json(&response).await?; // TODO: handle send error
+
+                                            while let Some(event) = head_changes.next().await {
+                                                let response = StreamingData {
+                                                    json_rpc: "2.0",
+                                                    method: "xrpc.ch.val",
+                                                    params: (
+                                                        chain_notify_count.load(),
+                                                        vec![HeadChangeJson::from(&event)],
+                                                    ),
+                                                };
+
+                                                ws_stream.send_json(&response).await?;
+                                            }
+
+                                            Ok(())
                                         }
                                         _ => Err(()),
                                     }
-
-                                    let mut head_changes = cs.sub_head_changes().await;
-
-                                    // First response should be the count serialized.
-                                    // This is based on internal golang channel rpc handling
-                                    // needed to match Lotus.
-                                    let response = SubscribeChannelIDResponse {
-                                        json_rpc: "2.0",
-                                        result: chain_notify_count.load(),
-                                        id: call.id.flatten().unwrap_or(JsonRpcId::Null),
-                                    };
-
-                                    ws_stream.send_json(&response).await?; // TODO: handle send error
-
-                                    while let Some(event) = head_changes.next().await {
-                                        let response = StreamingData {
-                                            json_rpc: "2.0",
-                                            method: "xrpc.ch.val",
-                                            params: (
-                                                chain_notify_count.load(),
-                                                vec![HeadChangeJson::from(&event)],
-                                            ),
-                                        };
-
-                                        ws_stream.send_json(&response).await?;
-                                    }
-
-                                    Ok(())
                                 }
                                 _ => {
                                     error!(
                                         "RPC Websocket tried handling something it shouldn't have."
                                     );
+
+                                    // handle like http rpc
+                                    let rpc_response = rpc_server
+                                        .handle(
+                                            JsonRequestObject::request()
+                                                .with_method(call.method)
+                                                .with_params(call.params)
+                                                .with_id(call.id)
+                                                .finish(),
+                                        )
+                                        .await;
 
                                     Err(())
                                 }

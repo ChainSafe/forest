@@ -552,10 +552,7 @@ where
 
         let sub_id = self.subscriptions.read().await.len() as i64;
 
-        self.subscriptions
-            .write()
-            .await
-            .insert(sub_id.clone(), Some(rx));
+        self.subscriptions.write().await.insert(sub_id, Some(rx));
 
         // Send current heaviest tipset into receiver as first event.
         if let Some(ts) = self.heaviest_tipset().await {
