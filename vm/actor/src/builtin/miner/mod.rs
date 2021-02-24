@@ -670,6 +670,17 @@ impl Actor {
         Ok(())
     }
 
+    fn dispute_windowed_post<BS, RT>(
+        rt: &mut RT,
+        params: DisputeWindowedPoStParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        todo!()
+    }
+
     /// Proposals must be posted on chain via sma.PublishStorageDeals before PreCommitSector.
     /// Optimization: PreCommitSector could contain a list of deals that are not published yet.
     /// TODO: This should NOT WORK. Changes made here are solely to get the Market Actor updated an compiling
