@@ -879,7 +879,7 @@ impl Actor {
             }
 
             if params.replace_capacity {
-                validate_replace_sector(state, store, &params, rt.network_version())?;
+                validate_replace_sector(state, store, &params)?;
             }
 
             let duration = params.expiration - rt.curr_epoch();
@@ -1940,7 +1940,7 @@ impl Actor {
                 let fault_expiration_epoch = target_deadline.last() + FAULT_MAX_AGE;
 
                 let deadline_power_delta = deadline
-                    .declare_faults(
+                    .record_faults(
                         store,
                         &sectors,
                         info.sector_size,
@@ -2173,12 +2173,18 @@ impl Actor {
 
             let store = rt.store();
 
-            if !deadline_is_mutable(state.proving_period_start, params_deadline, rt.curr_epoch()) {
+            if !deadline_available_for_compaction(
+                state.proving_period_start,
+                params_deadline,
+                rt.curr_epoch(),
+            ) {
                 return Err(actor_error!(
                     ErrForbidden,
-                    "cannot compact deadline {} during its challenge window or \
-                    the prior challenge window",
-                    params_deadline
+                    "cannot compact deadline {} during its challenge window, \
+                    or the prior challenge window, 
+                    or before {} epochs have passed since its last challenge window ended",
+                    params_deadline,
+                    WPOST_DISPUTE_WINDOW
                 ));
             }
 
@@ -2221,12 +2227,12 @@ impl Actor {
             let sectors = state.load_sector_infos(store, &live).map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to load moved sectors")
             })?;
-
-            let new_power = deadline
+            let proven = true;
+            let added_power = deadline
                 .add_sectors(
                     store,
                     info.window_post_partition_sectors,
-                    true,
+                    proven,
                     &sectors,
                     info.sector_size,
                     quant,
@@ -2238,12 +2244,12 @@ impl Actor {
                     )
                 })?;
 
-            if removed_power != new_power {
+            if removed_power != added_power {
                 return Err(actor_error!(
                     ErrIllegalState,
                     "power changed when compacting partitions: was {:?}, is now {:?}",
                     removed_power,
-                    new_power
+                    added_power
                 ));
             }
 
@@ -2340,15 +2346,13 @@ impl Actor {
             ));
         }
 
-        let nv = rt.network_version();
-
         let (pledge_delta_total, to_burn) = rt.transaction(|st: &mut State, rt| {
             let mut pledge_delta_total = TokenAmount::zero();
 
             rt.validate_immediate_caller_is(std::iter::once(&*REWARD_ACTOR_ADDR))?;
 
             let (reward_to_lock, locked_reward_vesting_spec) =
-                locked_reward_from_reward(params.reward, nv);
+                locked_reward_from_reward(params.reward);
 
             // This ensures the miner has sufficient funds to lock up amountToLock.
             // This should always be true if reward actor sends reward funds with the message.
@@ -2408,6 +2412,14 @@ impl Actor {
 
         notify_pledge_changed(rt, &pledge_delta_total)?;
         burn_funds(rt, to_burn)?;
+        let st: State = rt.state()?;
+        st.check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariants broken: {}", e),
+                )
+            })?;
         Ok(())
     }
 
@@ -2419,8 +2431,9 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // Note: only the first reporter of any fault is rewarded.
-        // Subsequent invocations fail because the target miner has been removed.
+        // Note: only the first report of any fault is processed because it sets the
+        // ConsensusFaultElapsed state variable to an epoch after the fault, and reports prior to
+        // that epoch are no longer valid
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let reporter = *rt.message().caller();
 
@@ -2428,6 +2441,14 @@ impl Actor {
             .verify_consensus_fault(&params.header1, &params.header2, &params.header_extra)
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalArgument, "fault not verified"))?
             .ok_or_else(|| actor_error!(ErrIllegalArgument, "No consensus fault found"))?;
+        if fault.target != *rt.message().receiver() {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "fault by {} reported to miner {}",
+                fault.target,
+                rt.message().receiver()
+            ));
+        }
 
         // Elapsed since the fault (i.e. since the higher of the two blocks)
         let fault_age = rt.curr_epoch() - fault.epoch;
@@ -2451,7 +2472,7 @@ impl Actor {
 
         let mut pledge_delta = TokenAmount::from(0);
 
-        let (burn_amount, reward_amount) = rt.transaction(|st: &mut State, rt| {
+        let (burn_amount, reward_amount, state) = rt.transaction(|st: &mut State, rt| {
             let mut info = get_miner_info(rt.store(), &st)?;
 
             // Verify miner hasn't already been faulted
@@ -2490,7 +2511,7 @@ impl Actor {
                 e.downcast_default(ExitCode::ErrSerialization, "failed to save miner info")
             })?;
 
-            Ok((burn_amount, reward_amount))
+            Ok((burn_amount, reward_amount, st.clone()))
         })?;
 
         if let Err(e) = rt.send(reporter, METHOD_SEND, Serialized::default(), reward_amount) {
@@ -2500,7 +2521,6 @@ impl Actor {
         burn_funds(rt, burn_amount)?;
         notify_pledge_changed(rt, &pledge_delta)?;
 
-        let state: State = rt.state()?;
         state
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
@@ -2581,6 +2601,21 @@ impl Actor {
 
         let amount_withdrawn = std::cmp::min(available_balance, params.amount_requested);
         assert!(!amount_withdrawn.is_negative());
+        if amount_withdrawn.is_negative() {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "negative amount to withdraw: {}",
+                amount_withdrawn
+            ));
+        }
+        if amount_withdrawn > available_balance {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "amount to withdraw {} < available {}",
+                amount_withdrawn,
+                available_balance
+            ));
+        }
 
         if amount_withdrawn.is_positive() {
             rt.send(
@@ -2666,7 +2701,15 @@ impl Actor {
             }
             _ => {}
         };
-
+        let state: State = rt.state()?;
+        state
+            .check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariants broken: {}", e),
+                )
+            })?;
         Ok(())
     }
 }
@@ -2746,7 +2789,13 @@ where
 
             // Remove pledge requirement.
             let mut pledge_delta = -total_initial_pledge;
-            state.add_initial_pledge(&pledge_delta);
+            state.add_initial_pledge(&pledge_delta).map_err(|e| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to add initial pledge {}",
+                    pledge_delta
+                )
+            });
 
             // Use unlocked pledge to pay down outstanding fee debt
             let (penalty_from_vesting, penalty_from_balance) = state
@@ -2970,7 +3019,6 @@ fn validate_replace_sector<BS>(
     state: &State,
     store: &BS,
     params: &SectorPreCommitInfo,
-    nv: NetworkVersion,
 ) -> Result<(), ActorError>
 where
     BS: BlockStore,
@@ -2999,52 +3047,40 @@ where
         ));
     }
 
-    if nv < NetworkVersion::V7 {
-        if params.seal_proof != replace_sector.seal_proof {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "cannot replace sector {} seal proof {:?} with seal proof {:?}",
-                params.replace_sector_number,
+    // From network version 7, the new sector's seal type must have the same Window PoSt proof type as the one
+    // being replaced, rather than be exactly the same seal type.
+    // This permits replacing sectors with V1 seal types with V1_1 seal types.
+    let replace_w_post_proof = replace_sector
+        .seal_proof
+        .registered_window_post_proof()
+        .map_err(|e| {
+            actor_error!(
+                ErrIllegalState,
+                "failed to lookup Window PoSt proof type for sector seal proof {:?}: {}",
                 replace_sector.seal_proof,
-                params.seal_proof
-            ));
-        }
-    } else {
-        // From network version 7, the new sector's seal type must have the same Window PoSt proof type as the one
-        // being replaced, rather than be exactly the same seal type.
-        // This permits replacing sectors with V1 seal types with V1_1 seal types.
-        let replace_w_post_proof = replace_sector
-            .seal_proof
-            .registered_window_post_proof()
-            .map_err(|e| {
-                actor_error!(
-                    ErrIllegalState,
-                    "failed to lookup Window PoSt proof type for sector seal proof {:?}: {}",
-                    replace_sector.seal_proof,
-                    e
-                )
-            })?;
-        let new_w_post_proof = params
-            .seal_proof
-            .registered_window_post_proof()
-            .map_err(|e| {
-                actor_error!(
-                    ErrIllegalArgument,
-                    "failed to lookup Window PoSt proof type for new seal proof {:?}: {}",
-                    replace_sector.seal_proof,
-                    e
-                )
-            })?;
+                e
+            )
+        })?;
+    let new_w_post_proof = params
+        .seal_proof
+        .registered_window_post_proof()
+        .map_err(|e| {
+            actor_error!(
+                ErrIllegalArgument,
+                "failed to lookup Window PoSt proof type for new seal proof {:?}: {}",
+                replace_sector.seal_proof,
+                e
+            )
+        })?;
 
-        if replace_w_post_proof != new_w_post_proof {
-            return Err(actor_error!(
+    if replace_w_post_proof != new_w_post_proof {
+        return Err(actor_error!(
                 ErrIllegalArgument,
                 "new sector window PoSt proof type {:?} must match replaced proof type {:?} (seal proof type {:?})",
                 replace_w_post_proof,
                 new_w_post_proof,
                 params.seal_proof
             ));
-        }
     }
 
     if params.expiration < replace_sector.expiration {
@@ -3183,7 +3219,11 @@ where
     let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
         *i
     } else {
-        panic!("could not provide ID address");
+        return Err(actor_error!(
+            ErrIllegalState,
+            "runtime provided bad receiver address {}",
+            rt.message().receiver()
+        ));
     };
 
     // Regenerate challenge randomness, which must match that generated for the proof.
@@ -3241,7 +3281,11 @@ where
     let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
         *i
     } else {
-        panic!("could not provide ID address");
+        return Err(actor_error!(
+            ErrIllegalState,
+            "runtime provided non ID receiver address {}",
+            rt.message().receiver()
+        ));
     };
     let entropy =
         rt.message().receiver().marshal_cbor().map_err(|e| {
@@ -3387,7 +3431,6 @@ where
     let resolved = rt
         .resolve_address(&raw)?
         .ok_or_else(|| actor_error!(ErrIllegalArgument, "unable to resolve address: {}", raw))?;
-    assert!(resolved.protocol() == Protocol::ID);
 
     let owner_code = rt
         .get_actor_code_cid(&resolved)?
@@ -3413,7 +3456,6 @@ where
     let resolved = rt
         .resolve_address(&raw)?
         .ok_or_else(|| actor_error!(ErrIllegalArgument, "unable to resolve address: {}", raw))?;
-    assert!(resolved.protocol() == Protocol::ID);
 
     let worker_code = rt
         .get_actor_code_cid(&resolved)?
@@ -3512,13 +3554,10 @@ fn current_proving_period_start(current_epoch: ChainEpoch, offset: ChainEpoch) -
     };
 
     let period_start = current_epoch - period_progress;
-    assert!(period_start <= current_epoch);
     period_start
 }
 
 fn current_deadline_index(current_epoch: ChainEpoch, period_start: ChainEpoch) -> usize {
-    assert!(current_epoch >= period_start);
-
     ((current_epoch - period_start) / WPOST_CHALLENGE_WINDOW) as usize
 }
 

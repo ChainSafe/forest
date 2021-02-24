@@ -245,10 +245,7 @@ pub fn consensus_fault_penalty(this_epoch_reward: TokenAmount) -> TokenAmount {
 }
 
 /// Returns the amount of a reward to vest, and the vesting schedule, for a reward amount.
-pub fn locked_reward_from_reward(
-    reward: TokenAmount,
-    nv: NetworkVersion,
-) -> (TokenAmount, &'static VestSpec) {
+pub fn locked_reward_from_reward(reward: TokenAmount) -> (TokenAmount, &'static VestSpec) {
     let lock_amount = (reward * &*LOCKED_REWARD_FACTOR_NUM).div_floor(&*LOCKED_REWARD_FACTOR_DENOM);
     (lock_amount, &REWARD_VESTING_SPEC)
 }
