@@ -106,14 +106,10 @@ pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof, nv: NetworkVersion)
 }
 
 /// Checks whether a seal proof type is supported for new miners and sectors.
-pub fn can_extend_seal_proof_type(proof: RegisteredSealProof, nv: NetworkVersion) -> bool {
+pub fn can_extend_seal_proof_type(proof: RegisteredSealProof) -> bool {
     use RegisteredSealProof::*;
 
-    if nv >= NetworkVersion::V7 {
-        matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
-    } else {
-        matches!(proof, StackedDRG32GiBV1 | StackedDRG64GiBV1)
-    }
+    matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
 }
 
 /// Maximum duration to allow for the sealing process for seal algorithms.

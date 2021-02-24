@@ -1404,7 +1404,6 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let nv = rt.network_version();
         if params.extensions.len() as u64 > DELCARATIONS_MAX {
             return Err(actor_error!(
                 ErrIllegalArgument,
@@ -1539,7 +1538,7 @@ impl Actor {
                     let new_sectors: Vec<SectorOnChainInfo> = old_sectors
                         .iter()
                         .map(|sector| {
-                            if !can_extend_seal_proof_type(sector.seal_proof, nv) {
+                            if !can_extend_seal_proof_type(sector.seal_proof) {
                                 return Err(actor_error!(
                                     ErrForbidden,
                                     "cannot extend expiration for sector {} with unsupported \
@@ -1613,19 +1612,17 @@ impl Actor {
 
                     // Record the new partition expiration epoch for setting outside this loop
                     // over declarations.
-                    if nv >= NetworkVersion::V7 {
-                        let prev_epoch_partitions =
-                            partitions_by_new_epoch.entry(decl.new_expiration);
-                        let not_exists = matches!(prev_epoch_partitions, Entry::Vacant(_));
+                    let prev_epoch_partitions =
+                        partitions_by_new_epoch.entry(decl.new_expiration);
+                    let not_exists = matches!(prev_epoch_partitions, Entry::Vacant(_));
 
-                        // Add declaration partition
-                        prev_epoch_partitions
-                            .or_insert_with(Vec::new)
-                            .push(decl.partition);
-                        if not_exists {
-                            // reschedule epoch if the partition for new epoch didn't already exist
-                            epochs_to_reschedule.push(decl.new_expiration);
-                        }
+                    // Add declaration partition
+                    prev_epoch_partitions
+                        .or_insert_with(Vec::new)
+                        .push(decl.partition);
+                    if not_exists {
+                        // reschedule epoch if the partition for new epoch didn't already exist
+                        epochs_to_reschedule.push(decl.new_expiration);
                     }
                 }
 
