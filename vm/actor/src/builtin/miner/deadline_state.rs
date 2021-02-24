@@ -418,7 +418,7 @@ impl Deadline {
                     // This case will usually happen zero times.
                     // It would require adding more than a full partition in one go
                     // to happen more than once.
-                    Partition::new(&Amt::<Cid, BS>::new(&store).flush()?)?
+                    Partition::new(store)?
                 }
             };
 
@@ -1010,10 +1010,10 @@ impl Deadline {
                 .ok_or_else(|| format!("failed to find partition {}", part_idx))?;
 
             // Record sectors for proof verification
-            all_sectors.push(partition_snapshot.sectors);
-            all_ignored.push(partition_snapshot.faults);
-            all_ignored.push(partition_snapshot.terminated);
-            all_ignored.push(partition_snapshot.unproven);
+            all_sectors.push(partition_snapshot.sectors.clone());
+            all_ignored.push(partition_snapshot.faults.clone());
+            all_ignored.push(partition_snapshot.terminated.clone());
+            all_ignored.push(partition_snapshot.unproven.clone());
 
             // Record active sectors for marking faults.
             let active = partition_snapshot.active_sectors();
@@ -1101,7 +1101,7 @@ impl Deadline {
         fault_expiration: ChainEpoch,
         post_partitions: &mut [PoStPartition],
     ) -> Result<PoStResult, Box<dyn StdError>> {
-        let partition_indexes = BitField::new();
+        let mut partition_indexes = BitField::new();
         for p in post_partitions.iter() {
             partition_indexes.set(p.index);
         }
@@ -1236,18 +1236,19 @@ impl Deadline {
     pub fn record_post_proofs<BS: BlockStore>(
         &mut self,
         store: &BS,
-        partitions: BitField,
-        proofs: Vec<PoStProof>,
+        partitions: &BitField,
+        proofs: &[PoStProof],
     ) -> Result<(), Box<dyn StdError>> {
-        let proof_arr = self
+        let mut proof_arr = self
             .optimistic_proofs_amt(store)
             .map_err(|e| e.downcast_wrap("failed to load post proofs"))?;
         proof_arr
             .set(
                 proof_arr.count(),
+                // TODO: Can we do this with out cloning?
                 WindowedPoSt {
-                    partitions: partitions,
-                    proofs: proofs,
+                    partitions: partitions.clone(),
+                    proofs: proofs.to_vec(),
                 },
             )
             .map_err(|e| e.downcast_wrap("failed to store proof"))?;
@@ -1266,7 +1267,7 @@ impl Deadline {
         store: &BS,
         idx: u64,
     ) -> Result<(BitField, Vec<PoStProof>), Box<dyn StdError>> {
-        let proof_arr = self
+        let mut proof_arr = self
             .optimistic_proofs_snapshot_amt(store)
             .map_err(|e| e.downcast_wrap("failed to load post proofs snapshot amt"))?;
         // Extract and remove the proof from the proofs array, leaving a hole.

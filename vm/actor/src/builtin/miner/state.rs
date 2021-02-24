@@ -119,7 +119,7 @@ impl State {
                 )
             })?;
         let empty_precommits_expiry_array =
-            Amt::<_, BS>::new_with_bit_width(store, PRECOMMIT_EXPIRY_AMT_BITWIDTH)
+            Amt::<BitField, BS>::new_with_bit_width(store, PRECOMMIT_EXPIRY_AMT_BITWIDTH)
                 .flush()
                 .map_err(|e| {
                     e.downcast_default(
@@ -127,14 +127,15 @@ impl State {
                         "failed to construct empty precommits array",
                     )
                 })?;
-        let empty_sectors_array = Amt::<_, BS>::new_with_bit_width(store, SECTORS_AMT_BITWIDTH)
-            .flush()
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to construct sectors array",
-                )
-            })?;
+        let empty_sectors_array =
+            Amt::<SectorOnChainInfo, BS>::new_with_bit_width(store, SECTORS_AMT_BITWIDTH)
+                .flush()
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to construct sectors array",
+                    )
+                })?;
         let empty_bitfield = store.put(&BitField::new(), Blake2b256).map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
@@ -314,13 +315,17 @@ impl State {
     ) -> Result<(), Box<dyn StdError>> {
         let mut precommitted =
             make_map_with_root_and_bitwidth(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        let sector_number = info.info.sector_number;
         let modified = precommitted
-            .set_if_absent(u64_key(info.info.sector_number), info)
+            .set_if_absent(u64_key(sector_number), info)
             .map_err(|e| {
-                e.downcast_wrap(format!("failed to store pre-commitment for {:?}", info))
+                e.downcast_wrap(format!(
+                    "failed to store pre-commitment for {:?}",
+                    sector_number
+                ))
             })?;
         if !modified {
-            return Err(format!("sector {} already pre-commited", info.info.sector_number).into());
+            return Err(format!("sector {} already pre-commited", sector_number).into());
         }
         self.pre_committed_sectors = precommitted.flush()?;
         Ok(())

@@ -611,7 +611,7 @@ impl Actor {
             // If we're not recovering power, record the proof for optimistic verification.
             if post_result.recovered_power.is_zero() {
                 deadline
-                    .record_post_proofs(rt.store(), post_result.partitions, params.proofs)
+                    .record_post_proofs(rt.store(), &post_result.partitions, &params.proofs)
                     .map_err(|e| {
                         e.downcast_default(
                             ExitCode::ErrIllegalState,
@@ -631,9 +631,7 @@ impl Actor {
                         )
                     })?;
                 verify_windowed_post(rt, current_deadline.challenge, &sector_infos, params.proofs)
-                    .map_err(|e| {
-                        e.downcast_default(ExitCode::ErrIllegalArgument, "window post failed")
-                    })?;
+                    .map_err(|e| e.wrap("window post failed"))?;
             }
 
             let deadline_idx = params.deadline;
@@ -764,12 +762,12 @@ impl Actor {
             rt,
             &[market::SectorDeals {
                 sector_expiry: params.expiration,
-                deal_ids: params.deal_ids,
+                deal_ids: params.deal_ids.clone(),
             }],
             rt.curr_epoch(),
             params.expiration,
         )?;
-        let deal_weight = deal_weights.sectors[0];
+        let deal_weight = &deal_weights.sectors[0];
         let mut fee_to_burn = TokenAmount::from(0);
         let newly_vested = rt.transaction(|state: &mut State, rt| {
             let newly_vested = TokenAmount::from(0);
@@ -1502,10 +1500,10 @@ impl Actor {
                     .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
 
                 let mut partitions = deadline.partitions_amt(store).map_err(|e| {
-                    e.wrap(format!(
-                        "failed to load partitions for deadline {}",
-                        deadline_idx
-                    ))
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load partitions for deadline {}", deadline_idx),
+                    )
                 })?;
 
                 let quant = state.quant_spec_for_deadline(deadline_idx);
@@ -2599,7 +2597,7 @@ impl Actor {
                 ))
             })?;
 
-        let amount_withdrawn = std::cmp::min(available_balance, params.amount_requested);
+        let amount_withdrawn = std::cmp::min(&available_balance, &params.amount_requested);
         assert!(!amount_withdrawn.is_negative());
         if amount_withdrawn.is_negative() {
             return Err(actor_error!(
@@ -2608,7 +2606,7 @@ impl Actor {
                 amount_withdrawn
             ));
         }
-        if amount_withdrawn > available_balance {
+        if amount_withdrawn > &available_balance {
             return Err(actor_error!(
                 ErrIllegalState,
                 "amount to withdraw {} < available {}",
@@ -2622,7 +2620,7 @@ impl Actor {
                 info.owner,
                 METHOD_SEND,
                 Serialized::default(),
-                amount_withdrawn,
+                amount_withdrawn.clone(),
             )?;
         }
 
