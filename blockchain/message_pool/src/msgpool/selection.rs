@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{create_message_chains, MessagePool, Provider};
+use super::{create_message_chains,msg_pool::{MessagePool}, Provider};
 use crate::msg_chain::MsgChain;
 use crate::{run_head_change, Error};
 use address::Address;
@@ -125,6 +125,7 @@ where
         Ok(merge_and_trim(chains, result, base_fee, gas_limit, min_gas))
     }
 }
+
 /// Returns merged and trimmed messages with the gas limit
 fn merge_and_trim(
     chains: Vec<MsgChain>,

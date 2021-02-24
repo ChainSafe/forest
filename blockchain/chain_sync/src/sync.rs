@@ -29,7 +29,7 @@ use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{debug, error, info, trace, warn};
 use message::{SignedMessage, UnsignedMessage};
-use message_pool::{MessagePool, Provider};
+use message_pool::{Provider, MessagePool};
 use networks::BLOCK_DELAY_SECS;
 use serde::Deserialize;
 use state_manager::StateManager;
