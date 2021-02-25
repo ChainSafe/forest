@@ -26,7 +26,6 @@ pub fn consensus_miner_min_power(p: RegisteredPoStProof) -> Result<StoragePower,
 
             Ok(StoragePower::from(10u64 << 40))
         }
-
         Invalid(i) => Err(format!("unsupported proof type: {}", i)),
     }
 }

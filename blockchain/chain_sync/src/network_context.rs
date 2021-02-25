@@ -198,10 +198,7 @@ where
                 let peers = self.peer_manager.top_peers_shuffled().await;
                 let mut res = None;
                 for p in peers.into_iter() {
-                    match self
-                        .chain_exchange_request(p.clone(), request.clone())
-                        .await
-                    {
+                    match self.chain_exchange_request(p, request.clone()).await {
                         Ok(bs_res) => match bs_res.into_result() {
                             Ok(r) => {
                                 res = Some(r);
@@ -248,7 +245,7 @@ where
         if self
             .network_send
             .send(NetworkMessage::ChainExchangeRequest {
-                peer_id: peer_id.clone(),
+                peer_id,
                 request,
                 response_channel: tx,
             })
@@ -309,7 +306,7 @@ where
         // Send request into libp2p service
         self.network_send
             .send(NetworkMessage::HelloRequest {
-                peer_id: peer_id.clone(),
+                peer_id,
                 request,
                 response_channel: tx,
             })

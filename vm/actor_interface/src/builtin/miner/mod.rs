@@ -52,7 +52,7 @@ impl State {
                 let info = st.get_info(store)?;
 
                 // Deserialize into peer id if valid, `None` if not.
-                let peer_id = PeerId::from_bytes(info.peer_id).ok();
+                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
                 Ok(MinerInfo {
                     owner: info.owner,
@@ -75,7 +75,7 @@ impl State {
                 let info = st.get_info(store)?;
 
                 // Deserialize into peer id if valid, `None` if not.
-                let peer_id = PeerId::from_bytes(info.peer_id).ok();
+                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
                 Ok(MinerInfo {
                     owner: info.owner,

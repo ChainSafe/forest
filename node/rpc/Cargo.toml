@@ -50,9 +50,9 @@ fil_types = "0.1"
 futures = "0.3.5"
 async-tungstenite = "0.12"
 async-log = "2.0.0"
+libp2p = { version = "0.35", default-features = false }
 log = "0.4.8"
 tokio = { version = "1.0", features = ["sync"] }
-libp2p = { version = "0.28", default-features = false }
 vm = { package = "forest_vm", version = "0.3.1" }
 base64 = "0.13"
 ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }

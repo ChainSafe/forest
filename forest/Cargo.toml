@@ -9,7 +9,7 @@ address = { package = "forest_address", version = "0.3" }
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
 db = { package = "forest_db", version = "0.1" }
-libp2p = { version = "0.28", default-features = false, features = ["identify"] }
+libp2p = { version = "0.35", default-features = false, features = ["identify"] }
 futures = "0.3.5"
 log = "0.4.8"
 async-log = "2.0.0"
