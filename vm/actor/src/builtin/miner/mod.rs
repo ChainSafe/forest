@@ -716,7 +716,7 @@ impl Actor {
                 }
 
                 let info = get_miner_info(rt.store(), st)?;
-                let mut penalized_power = PowerPair::zero();
+                let mut penalised_power = PowerPair::zero();
 
                 // --- check proof ---
 
@@ -760,7 +760,7 @@ impl Actor {
 
                 // This includes power that is no longer active (e.g., due to sector terminations).
                 // It must only be used for penalty calculations, not power adjustments.
-                let penalised_power = dispute_info.disputed_power.clone();
+                penalised_power = dispute_info.disputed_power.clone();
 
                 // Load sectors for the dispute.
                 let sectors = Sectors::load(rt.store(), &st.sectors).map_err(|e| {
@@ -824,12 +824,12 @@ impl Actor {
                 let penalty_base = pledge_penalty_for_invalid_windowpost(
                     &epoch_reward.this_epoch_reward_smoothed,
                     &power_total.quality_adj_power_smoothed,
-                    &penalized_power.qa,
+                    &penalised_power.qa,
                 );
 
                 // Calculate the target reward.
                 let reward_target =
-                    reward_for_disputed_window_post(info.window_post_proof_type, penalized_power);
+                    reward_for_disputed_window_post(info.window_post_proof_type, penalised_power);
 
                 // Compute the target penalty by adding the
                 // base penalty to the target reward. We don't
@@ -873,7 +873,7 @@ impl Actor {
                 Serialized::default(),
                 to_reward.clone(),
             ) {
-                log::error!("failed to send reward");
+                log::error!("failed to send reward: {}", e);
                 to_burn += to_reward;
             }
         }
@@ -1222,10 +1222,9 @@ impl Actor {
         let precommit = st
             .get_precommitted_sector(rt.store(), sector_number)
             .map_err(|e| {
-                actor_error!(
-                    ErrIllegalState,
-                    "failed to load pre-committed sector {}",
-                    sector_number
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load pre-committed sector {}", sector_number),
                 )
             })?
             .ok_or_else(|| actor_error!(ErrNotFound, "no pre-commited sector {}", sector_number))?;
@@ -3576,7 +3575,7 @@ where
         let mut empty_result = VerifyDealsForActivationReturn {
             sectors: Vec::with_capacity(sectors.len()),
         };
-        for i in 0..sectors.len() {
+        for _ in 0..sectors.len() {
             empty_result.sectors.push(market::SectorWeights {
                 deal_space: 0,
                 deal_weight: 0.into(),
