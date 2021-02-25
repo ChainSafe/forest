@@ -6,9 +6,7 @@ use super::{
     quant_spec_for_deadline, types::*, BitFieldQueue, Deadline, DeadlineSectorMap, Deadlines,
     PowerPair, Sectors, TerminationResult, VestingFunds,
 };
-use crate::{
-    make_empty_map, make_map_with_root, make_map_with_root_and_bitwidth, u64_key, ActorDowncast,
-};
+use crate::{make_empty_map, make_map_with_root_and_bitwidth, u64_key, ActorDowncast};
 use address::Address;
 use bitfield::BitField;
 use cid::{Cid, Code::Blake2b256};
@@ -553,7 +551,7 @@ impl State {
             let deadline = deadline_vec[deadline_idx].as_mut().unwrap();
 
             // The power returned from AddSectors is ignored because it's not activated (proven) yet.
-            let mut proven = false;
+            let proven = false;
             deadline.add_sectors(
                 store,
                 partition_size,
@@ -1208,10 +1206,14 @@ impl MinerInfo {
         peer_id: Vec<u8>,
         multi_address: Vec<BytesDe>,
         window_post_proof_type: RegisteredPoStProof,
-    ) -> Result<Self, String> {
-        let sector_size = window_post_proof_type.sector_size()?;
-        // TODO: THIS NEEDS TO BE UPDATED WHEN UPDATING V3 ACTORS
-        let window_post_partition_sectors = 2349;
+    ) -> Result<Self, ActorError> {
+        let sector_size = window_post_proof_type
+            .sector_size()
+            .map_err(|e| actor_error!(ErrIllegalArgument, "invalid sector size: {}", e))?;
+
+        let window_post_partition_sectors = window_post_proof_type
+            .window_post_partitions_sector()
+            .map_err(|e| actor_error!(ErrIllegalArgument, "invalid sector size: {}", e))?;
 
         Ok(Self {
             owner,

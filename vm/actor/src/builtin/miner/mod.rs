@@ -33,7 +33,7 @@ pub use vesting_state::*;
 
 use crate::{
     account::Method as AccountMethod,
-    actor_error, make_empty_map,
+    actor_error,
     market::{self, ActivateDealsParams},
     power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
@@ -56,7 +56,7 @@ use crate::{
     ActorDowncast,
 };
 use address::{Address, Payload, Protocol};
-use bitfield::{BitField, UnvalidatedBitField, Validate};
+use bitfield::{UnvalidatedBitField, Validate};
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use cid::{Cid, Code::Blake2b256, Prefix};
 use clock::ChainEpoch;
@@ -65,11 +65,10 @@ use crypto::DomainSeparationTag::{
 };
 use encoding::{BytesDe, Cbor};
 use fil_types::{
-    deadlines::DeadlineInfo, InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness,
+    deadlines::DeadlineInfo, InteractiveSealRandomness, PoStProof, PoStRandomness,
     RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
-    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, HAMT_BIT_WIDTH, MAX_SECTOR_NUMBER,
+    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
 };
-use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntSer;
 use num_bigint::BigInt;
@@ -125,7 +124,6 @@ pub enum Method {
 }
 
 /// Miner Actor
-/// TODO: This is now broken and not v3 ready because of the changes that needed to be made
 /// here in order to update the Power Actor to v3.
 pub struct Actor;
 
@@ -443,9 +441,14 @@ impl Actor {
 
         let post_result = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt.store(), state)?;
-            // TODO: NEED TO ACTUALLY HANDLE THIS PROPERLY IN CASE OF DIFFERENT PROOF SIZE
-            // let proof_size = info.window_post_proof_type;
-            let max_proof_size = 192;
+
+            let max_proof_size = info.window_post_proof_type.proof_size().map_err(|e| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to determine max window post proof size: {}",
+                    e
+                )
+            })?;
 
             rt.validate_immediate_caller_is(
                 info.control_addresses
@@ -716,8 +719,6 @@ impl Actor {
                 }
 
                 let info = get_miner_info(rt.store(), st)?;
-                let mut penalised_power = PowerPair::zero();
-
                 // --- check proof ---
 
                 // Find the proving period start for the deadline in question.
@@ -760,7 +761,7 @@ impl Actor {
 
                 // This includes power that is no longer active (e.g., due to sector terminations).
                 // It must only be used for penalty calculations, not power adjustments.
-                penalised_power = dispute_info.disputed_power.clone();
+                let penalised_power = dispute_info.disputed_power.clone();
 
                 // Load sectors for the dispute.
                 let sectors = Sectors::load(rt.store(), &st.sectors).map_err(|e| {
@@ -780,7 +781,7 @@ impl Actor {
 
                 // Check proof, we fail if validation succeeds.
                 verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)
-                    .map_err(|e| {
+                    .map_err(|_e| {
                         actor_error!(ErrIllegalArgument, "failed to dispute valid post")
                     })?;
 
@@ -894,7 +895,6 @@ impl Actor {
 
     /// Proposals must be posted on chain via sma.PublishStorageDeals before PreCommitSector.
     /// Optimization: PreCommitSector could contain a list of deals that are not published yet.
-    /// TODO: This should NOT WORK. Changes made here are solely to get the Market Actor updated an compiling
     fn pre_commit_sector<BS, RT>(
         rt: &mut RT,
         params: PreCommitSectorParams,
@@ -986,8 +986,6 @@ impl Actor {
                 sector_expiry: params.expiration,
                 deal_ids: params.deal_ids.clone(),
             }],
-            rt.curr_epoch(),
-            params.expiration,
         )?;
         let deal_weight = &deal_weights.sectors[0];
         let mut fee_to_burn = TokenAmount::from(0);
@@ -1229,9 +1227,14 @@ impl Actor {
             })?
             .ok_or_else(|| actor_error!(ErrNotFound, "no pre-commited sector {}", sector_number))?;
 
-        // TODO: NEED TO ACTUALLY IMPLEMENT THE PROOFSIZE FUNCTION
-        // let max_proof_size = precommit.info.seal_proof.proof_size()
-        let max_proof_size = 192;
+        let max_proof_size = precommit.info.seal_proof.proof_size().map_err(|e| {
+            actor_error!(
+                ErrIllegalState,
+                "failed to determine max proof size for sector {}: {}",
+                sector_number,
+                e
+            )
+        })?;
         if params.proof.len() > max_proof_size {
             return Err(actor_error!(
                 ErrIllegalArgument,
@@ -3011,8 +3014,9 @@ where
             state.add_initial_pledge(&pledge_delta).map_err(|e| {
                 actor_error!(
                     ErrIllegalState,
-                    "failed to add initial pledge {}",
-                    pledge_delta
+                    "failed to add initial pledge {}: {}",
+                    pledge_delta,
+                    e
                 )
             })?;
 
@@ -3559,8 +3563,6 @@ where
 fn request_deal_weights<BS, RT>(
     rt: &mut RT,
     sectors: &[market::SectorDeals],
-    sector_start: ChainEpoch,
-    sector_expiry: ChainEpoch,
 ) -> Result<VerifyDealsForActivationReturn, ActorError>
 where
     BS: BlockStore,

@@ -9,7 +9,7 @@ use crate::{
     TokenAmount, EXPECTED_LEADERS_PER_EPOCH,
 };
 use clock::ChainEpoch;
-use fil_types::{NetworkVersion, StoragePower, FILECOIN_PRECISION};
+use fil_types::{StoragePower, FILECOIN_PRECISION};
 use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use std::cmp;
