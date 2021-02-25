@@ -601,7 +601,7 @@ impl Actor {
 
             // Make sure we actually proved something.
             let proven_sectors = &post_result.sectors - &post_result.ignored_sectors;
-            if proven_sectors.len() == 0 {
+            if proven_sectors.is_empty() {
                 // Abort verification if all sectors are (now) faults. There's nothing to prove.
                 // It's not rational for a miner to submit a Window PoSt marking *all* non-faulty sectors as skipped,
                 // since that will just cause them to pay a penalty at deadline end that would otherwise be zero
@@ -847,7 +847,7 @@ impl Actor {
                         &rt.current_balance()?,
                     )
                     .map_err(|e| {
-                        e.downcast_default(ExitCode::ErrIllegalState, format!("failed to pay debt"))
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to pay debt")
                     })?;
 
                 let to_burn = &penalty_from_vesting + &penalty_from_balance;
@@ -858,12 +858,7 @@ impl Actor {
                 let to_burn = &to_burn - to_reward;
                 let pledge_delta = -penalty_from_vesting;
 
-                Ok((
-                    pledge_delta,
-                    to_burn.clone(),
-                    power_delta,
-                    to_reward.clone(),
-                ))
+                Ok((pledge_delta, to_burn, power_delta, to_reward.clone()))
             })?;
 
         request_update_power(rt, power_delta)?;
@@ -3589,7 +3584,7 @@ where
     let serialized = rt.send(
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::VerifyDealsForActivation as u64,
-        Serialized::serialize(VerifyDealsForActivationParamsRef { sectors: sectors })?,
+        Serialized::serialize(VerifyDealsForActivationParamsRef { sectors })?,
         TokenAmount::zero(),
     )?;
 
@@ -3774,8 +3769,7 @@ fn current_proving_period_start(current_epoch: ChainEpoch, offset: ChainEpoch) -
         WPOST_PROVING_PERIOD - (offset - curr_modulus)
     };
 
-    let period_start = current_epoch - period_progress;
-    period_start
+    current_epoch - period_progress
 }
 
 fn current_deadline_index(current_epoch: ChainEpoch, period_start: ChainEpoch) -> usize {

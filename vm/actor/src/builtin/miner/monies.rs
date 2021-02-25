@@ -50,7 +50,7 @@ lazy_static! {
 
     /// Base penalty for a successful disputed window post proof.
     pub static ref BASE_PENALTY_FOR_DISPUTED_WINDOW_POST: BigInt =
-        BigInt::from(20 * FILECOIN_PRECISION);
+        BigInt::from(FILECOIN_PRECISION) * 20;
 }
 // FF + 2BR
 const INVALID_WINDOW_POST_PROJECTION_PERIOD: ChainEpoch =

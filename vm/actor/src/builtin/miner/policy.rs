@@ -308,5 +308,5 @@ pub fn reward_for_disputed_window_post(
     _disputed_power: PowerPair,
 ) -> TokenAmount {
     // This is currently just the base. In the future, the fee may scale based on the disputed power.
-    return BASE_REWARD_FOR_DISPUTED_WINDOW_POST.clone();
+    BASE_REWARD_FOR_DISPUTED_WINDOW_POST.clone()
 }

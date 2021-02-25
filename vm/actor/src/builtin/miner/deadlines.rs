@@ -101,8 +101,8 @@ pub fn deadline_available_for_optimistic_post_dispute(
     let dl_info =
         new_deadline_info(proving_period_start, deadline_idx, current_epoch).next_not_elapsed();
 
-    return !dl_info.is_open()
-        && current_epoch < (dl_info.close - WPOST_PROVING_PERIOD) + WPOST_DISPUTE_WINDOW;
+    !dl_info.is_open()
+        && current_epoch < (dl_info.close - WPOST_PROVING_PERIOD) + WPOST_DISPUTE_WINDOW
 }
 
 // Returns true if the given deadline may compacted in the current epoch.
@@ -117,10 +117,10 @@ pub fn deadline_available_for_compaction(
     deadline_idx: usize,
     current_epoch: ChainEpoch,
 ) -> bool {
-    return deadline_is_mutable(proving_period_start, deadline_idx, current_epoch)
+    deadline_is_mutable(proving_period_start, deadline_idx, current_epoch)
         && !deadline_available_for_optimistic_post_dispute(
             proving_period_start,
             deadline_idx,
             current_epoch,
-        );
+        )
 }

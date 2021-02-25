@@ -1032,9 +1032,9 @@ impl Deadline {
         let all_ignored_nos = BitField::union(&all_ignored);
 
         Ok(DisputeInfo {
-            all_sector_nos: all_sector_nos,
-            disputed_sectors: disputed_sectors,
-            disputed_power: disputed_power,
+            all_sector_nos,
+            disputed_sectors,
+            disputed_power,
             ignored_sector_nos: all_ignored_nos,
         })
     }
@@ -1063,7 +1063,7 @@ impl Deadline {
         if self.optimistic_post_submissions != self.optimistic_post_submissions_snapshot {
             return true;
         }
-        return false;
+        false
     }
 }
 
@@ -1117,7 +1117,7 @@ impl Deadline {
         // First check to see if we're proving any already proven partitions.
         // This is faster than checking one by one.
         let already_proven = &self.partitions_posted & &partition_indexes;
-        if already_proven.len() == 0 {
+        if already_proven.is_empty() {
             return Err(format!("parition already proven: {:?}", already_proven).into());
         }
 
