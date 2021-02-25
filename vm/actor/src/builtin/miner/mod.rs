@@ -121,6 +121,7 @@ pub enum Method {
     ConfirmUpdateWorkerKey = 21,
     RepayDebt = 22,
     ChangeOwnerAddress = 23,
+    DisputeWindowedPoSt = 24,
 }
 
 /// Miner Actor
@@ -678,7 +679,217 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        todo!()
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
+        let reporter = *rt.message().caller();
+
+        if params.deadline >= WPOST_PERIOD_DEADLINES as usize {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "invalid deadline {} of {}",
+                params.deadline,
+                WPOST_PERIOD_DEADLINES
+            ));
+        }
+        let current_epoch = rt.curr_epoch();
+
+        // Note: these are going to be slightly inaccurate as time
+        // will have moved on from when the post was actually
+        // submitted.
+        //
+        // However, these are estimates _anyways_.
+        let epoch_reward = request_current_epoch_block_reward(rt)?;
+        let power_total = request_current_total_power(rt)?;
+
+        let (pledge_delta, mut to_burn, power_delta, to_reward) =
+            rt.transaction(|st: &mut State, rt| {
+                if !deadline_available_for_optimistic_post_dispute(
+                    st.proving_period_start,
+                    params.deadline,
+                    current_epoch,
+                ) {
+                    return Err(actor_error!(
+                        ErrIllegalState,
+                        "can only dispute window posts during the dispute window\
+                    ({} epochs after the challenge window closes)",
+                        WPOST_DISPUTE_WINDOW
+                    ));
+                }
+
+                let info = get_miner_info(rt.store(), st)?;
+                let mut penalized_power = PowerPair::zero();
+
+                // --- check proof ---
+
+                // Find the proving period start for the deadline in question.
+                let mut pp_start = st.proving_period_start;
+                if st.current_deadline < params.deadline {
+                    pp_start -= WPOST_PROVING_PERIOD
+                }
+                let target_deadline = new_deadline_info(pp_start, params.deadline, current_epoch);
+                // Load the target deadline
+                let mut deadlines_current = st
+                    .load_deadlines(rt.store())
+                    .map_err(|e| e.wrap("failed to load deadlines"))?;
+
+                let mut dl_current = deadlines_current
+                    .load_deadline(rt.store(), params.deadline)
+                    .map_err(|e| e.wrap("failed to load deadline"))?;
+
+                // Take the post from the snapshot for dispute.
+                // This operation REMOVES the PoSt from the snapshot so
+                // it can't be disputed again. If this method fails,
+                // this operation must be rolled back.
+                let (partitions, proofs) = dl_current
+                    .take_post_proofs(rt.store(), params.post_index)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load proof for dispute",
+                        )
+                    })?;
+
+                // Load the partition info we need for the dispute.
+                let mut dispute_info = dl_current
+                    .load_partitions_for_dispute(rt.store(), partitions)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load partition for dispute",
+                        )
+                    })?;
+
+                // This includes power that is no longer active (e.g., due to sector terminations).
+                // It must only be used for penalty calculations, not power adjustments.
+                let penalised_power = dispute_info.disputed_power.clone();
+
+                // Load sectors for the dispute.
+                let sectors = Sectors::load(rt.store(), &st.sectors).map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load sectors array")
+                })?;
+                let sector_infos = sectors
+                    .load_for_proof(
+                        &dispute_info.all_sector_nos,
+                        &dispute_info.ignored_sector_nos,
+                    )
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load sectors to dispute window post",
+                        )
+                    })?;
+
+                // Check proof, we fail if validation succeeds.
+                verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)
+                    .map_err(|e| {
+                        actor_error!(ErrIllegalArgument, "failed to dispute valid post")
+                    })?;
+
+                // Ok, now we record faults. This always works because
+                // we don't allow compaction/moving sectors during the
+                // challenge window.
+                //
+                // However, some of these sectors may have been
+                // terminated. That's fine, we'll skip them.
+                let fault_expiration_epoch = target_deadline.last() + FAULT_MAX_AGE;
+                let power_delta = dl_current
+                    .record_faults(
+                        rt.store(),
+                        &sectors,
+                        info.sector_size,
+                        quant_spec_for_deadline(&target_deadline),
+                        fault_expiration_epoch,
+                        &mut dispute_info.disputed_sectors,
+                    )
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to declare faults")
+                    })?;
+
+                deadlines_current
+                    .update_deadline(rt.store(), params.deadline, &dl_current)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to update deadline {}", params.deadline),
+                        )
+                    })?;
+
+                st.save_deadlines(rt.store(), deadlines_current)
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to save deadlines")
+                    })?;
+
+                // --- penalties ---
+
+                // Calculate the base penalty.
+                let penalty_base = pledge_penalty_for_invalid_windowpost(
+                    &epoch_reward.this_epoch_reward_smoothed,
+                    &power_total.quality_adj_power_smoothed,
+                    &penalized_power.qa,
+                );
+
+                // Calculate the target reward.
+                let reward_target =
+                    reward_for_disputed_window_post(info.window_post_proof_type, penalized_power);
+
+                // Compute the target penalty by adding the
+                // base penalty to the target reward. We don't
+                // take reward out of the penalty as the miner
+                // could end up receiving a substantial
+                // portion of their fee back as a reward.
+                let penalty_target = &penalty_base + &reward_target;
+                st.apply_penalty(&penalty_target)
+                    .map_err(|e| actor_error!(ErrIllegalState, "failed to apply penalty {}", e))?;
+                let (penalty_from_vesting, penalty_from_balance) = st
+                    .repay_partial_debt_in_priority_order(
+                        rt.store(),
+                        current_epoch,
+                        &rt.current_balance()?,
+                    )
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, format!("failed to pay debt"))
+                    })?;
+
+                let to_burn = &penalty_from_vesting + &penalty_from_balance;
+
+                // Now, move as much of the target reward as
+                // we can from the burn to the reward.
+                let to_reward = std::cmp::min(&to_burn, &reward_target);
+                let to_burn = &to_burn - to_reward;
+                let pledge_delta = -penalty_from_vesting;
+
+                Ok((
+                    pledge_delta,
+                    to_burn.clone(),
+                    power_delta,
+                    to_reward.clone(),
+                ))
+            })?;
+
+        request_update_power(rt, power_delta)?;
+        if !to_reward.is_zero() {
+            if let Err(e) = rt.send(
+                reporter,
+                METHOD_SEND,
+                Serialized::default(),
+                to_reward.clone(),
+            ) {
+                log::error!("failed to send reward");
+                to_burn += to_reward;
+            }
+        }
+
+        burn_funds(rt, to_burn)?;
+        notify_pledge_changed(rt, &pledge_delta)?;
+
+        let st: State = rt.state()?;
+        st.check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariants broken: {}", e),
+                )
+            })?;
+        Ok(())
     }
 
     /// Proposals must be posted on chain via sma.PublishStorageDeals before PreCommitSector.
@@ -2804,7 +3015,7 @@ where
                     "failed to add initial pledge {}",
                     pledge_delta
                 )
-            });
+            })?;
 
             // Use unlocked pledge to pay down outstanding fee debt
             let (penalty_from_vesting, penalty_from_balance) = state
@@ -3902,6 +4113,10 @@ impl ActorCode for Actor {
             }
             Some(Method::ChangeOwnerAddress) => {
                 Self::change_owner_address(rt, rt.deserialize_params(params)?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::DisputeWindowedPoSt) => {
+                Self::dispute_windowed_post(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),

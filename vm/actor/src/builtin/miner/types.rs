@@ -290,6 +290,6 @@ pub struct ApplyRewardParams {
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize_tuple, Deserialize_tuple)]
 pub struct DisputeWindowedPoStParams {
-    deadline: u64,
-    post_index: u64, // only one is allowed at a time to avoid loading too many sector infos.
+    pub deadline: usize,
+    pub post_index: u64, // only one is allowed at a time to avoid loading too many sector infos.
 }

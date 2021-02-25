@@ -166,10 +166,10 @@ pub struct WindowedPoSt {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct DisputeInfo {
-    all_sector_nos: BitField,
-    ignored_sector_nos: BitField,
-    disputed_sectors: PartitionSectorMap,
-    disputed_power: PowerPair,
+    pub all_sector_nos: BitField,
+    pub ignored_sector_nos: BitField,
+    pub disputed_sectors: PartitionSectorMap,
+    pub disputed_power: PowerPair,
 }
 
 impl Deadline {

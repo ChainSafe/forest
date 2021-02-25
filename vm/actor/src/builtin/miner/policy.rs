@@ -1,10 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::types::SectorOnChainInfo;
+use super::{types::SectorOnChainInfo, PowerPair, BASE_REWARD_FOR_DISPUTED_WINDOW_POST};
 use crate::{network::*, DealWeight};
 use clock::ChainEpoch;
-use fil_types::{NetworkVersion, RegisteredSealProof, SectorQuality, SectorSize, StoragePower};
+use fil_types::{
+    NetworkVersion, RegisteredPoStProof, RegisteredSealProof, SectorQuality, SectorSize,
+    StoragePower,
+};
 use num_bigint::BigUint;
 use num_bigint::{BigInt, Integer};
 use num_traits::Pow;
@@ -297,4 +300,13 @@ pub fn reward_for_consensus_slash_report(
         num.div_floor(&denom),
         (collateral * max_reporter_share.numerator).div_floor(&max_reporter_share.denominator),
     )
+}
+
+// The reward given for successfully disputing a window post.
+pub fn reward_for_disputed_window_post(
+    _proof_type: RegisteredPoStProof,
+    _disputed_power: PowerPair,
+) -> TokenAmount {
+    // This is currently just the base. In the future, the fee may scale based on the disputed power.
+    return BASE_REWARD_FOR_DISPUTED_WINDOW_POST.clone();
 }

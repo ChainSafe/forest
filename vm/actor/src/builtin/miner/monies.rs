@@ -45,11 +45,11 @@ lazy_static! {
         BigInt::from(10_u64.pow(18) / (32 << 30));
 
     /// Base reward for successfully disputing a window posts proofs.
-    static ref BASE_REWARD_FOR_DISPUTED_WINDOW_POST: BigInt =
+    pub static ref BASE_REWARD_FOR_DISPUTED_WINDOW_POST: BigInt =
         BigInt::from(4 * FILECOIN_PRECISION);
 
     /// Base penalty for a successful disputed window post proof.
-    static ref BASE_PENALTY_FOR_DISPUTED_WINDOW_POST: BigInt =
+    pub static ref BASE_PENALTY_FOR_DISPUTED_WINDOW_POST: BigInt =
         BigInt::from(20 * FILECOIN_PRECISION);
 }
 // FF + 2BR
