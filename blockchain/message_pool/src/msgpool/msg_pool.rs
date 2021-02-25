@@ -1,6 +1,17 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::config::MpoolConfig;
 use crate::errors::Error;
+use crate::head_change;
 use crate::msg_chain::{MsgChain, MsgChainNode};
+use crate::msgpool::recover_sig;
+use crate::msgpool::republish_pending_messages;
+use crate::msgpool::verify_msg_before_add;
+use crate::msgpool::REPUBLISH_INTERVAL;
+use crate::provider::Provider;
+use crate::remove;
+use crate::MsgSet;
 use address::{Address, Protocol};
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
@@ -32,15 +43,6 @@ use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use types::verifier::ProofVerifier;
 use vm::ActorState;
-use crate::MsgSet;
-use crate::Provider;
-use crate::head_change;
-use crate::msgpool::REPUBLISH_INTERVAL;
-use crate::msgpool::republish_pending_messages;
-use crate::msgpool::verify_msg_before_add;
-use crate::msgpool::add_helper;
-use crate::remove;
-use crate::msgpool::recover_sig;
 
 /// This contains all necessary information needed for the message pool.
 /// Keeps track of messages to apply, as well as context needed for verifying transactions.
@@ -536,4 +538,77 @@ where
         self.config = cfg;
         Ok(())
     }
+}
+
+// Helpers for MessagePool
+
+/// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
+/// in the hashmap does not yet exist, create a new mset that will correspond to the from message
+/// and push it to the pending hashmap.
+pub(crate) async fn add_helper<T>(
+    api: &RwLock<T>,
+    bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
+    msg: SignedMessage,
+    sequence: u64,
+) -> Result<(), Error>
+where
+    T: Provider,
+{
+    if msg.signature().signature_type() == SignatureType::BLS {
+        bls_sig_cache
+            .write()
+            .await
+            .put(msg.cid()?, msg.signature().clone());
+    }
+
+    if msg.message().gas_limit() > 100_000_000 {
+        return Err(Error::Other(
+            "given message has too high of a gas limit".to_string(),
+        ));
+    }
+
+    api.read()
+        .await
+        .put_message(&ChainMessage::Signed(msg.clone()))?;
+    api.read()
+        .await
+        .put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
+
+    let mut pending = pending.write().await;
+    let msett = pending.get_mut(msg.message().from());
+    match msett {
+        Some(mset) => mset.add(msg)?,
+        None => {
+            let mut mset = MsgSet::new(sequence);
+            let from = *msg.message().from();
+            mset.add(msg)?;
+            pending.insert(from, mset);
+        }
+    }
+
+    Ok(())
+}
+
+fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+    let epoch = cur_ts.epoch();
+    let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
+    m.message()
+        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
+        .map_err(Error::Other)?;
+    if !cur_ts.blocks().is_empty() {
+        let base_fee = cur_ts.blocks()[0].parent_base_fee();
+        let base_fee_lower_bound =
+            get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
+        if m.gas_fee_cap() < &base_fee_lower_bound {
+            if local {
+                warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
+                return Ok(false);
+            } else {
+                return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
+					m.gas_fee_cap(), base_fee_lower_bound)));
+            }
+        }
+    }
+    Ok(local)
 }

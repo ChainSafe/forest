@@ -1,5 +1,4 @@
-
-use chain::{MINIMUM_BASE_FEE};
+use chain::MINIMUM_BASE_FEE;
 use message::{Message, SignedMessage};
 use num_bigint::{BigInt, Integer};
 use num_rational::BigRational;

@@ -1,13 +1,21 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{create_message_chains,msg_pool::{MessagePool}, Provider};
+// Contains routines for message selection APIs
+
+use super::provider::Provider;
+use super::{create_message_chains, msg_pool::MessagePool};
 use crate::msg_chain::MsgChain;
-use crate::{run_head_change, Error};
+use crate::remove;
+use crate::Error;
+use crate::MsgSet;
 use address::Address;
+use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
+use message::Message;
 use message::SignedMessage;
 use num_bigint::BigInt;
+use std::borrow::BorrowMut;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -197,6 +205,92 @@ fn merge_and_trim(
     (result, gas_limit)
 }
 
+/// Like head_change, except it doesnt change the state of the MessagePool.
+/// It simulates a head change call.
+pub(crate) async fn run_head_change<T>(
+    api: &RwLock<T>,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
+    from: Tipset,
+    to: Tipset,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+) -> Result<(), Error>
+where
+    T: Provider + 'static,
+{
+    // TODO: This logic should probably be implemented in the ChainStore. It handles reorgs.
+    let mut left = Arc::new(from);
+    let mut right = Arc::new(to);
+    let mut left_chain = Vec::new();
+    let mut right_chain = Vec::new();
+    while left != right {
+        if left.epoch() > right.epoch() {
+            left_chain.push(left.as_ref().clone());
+            let par = api.read().await.load_tipset(left.parents()).await?;
+            left = par;
+        } else {
+            right_chain.push(right.as_ref().clone());
+            let par = api.read().await.load_tipset(right.parents()).await?;
+            right = par;
+        }
+    }
+    for ts in left_chain {
+        let mut msgs: Vec<SignedMessage> = Vec::new();
+        for block in ts.blocks() {
+            let (_, smsgs) = api.read().await.messages_for_block(&block)?;
+            msgs.extend(smsgs);
+        }
+        for msg in msgs {
+            add(msg, rmsgs);
+        }
+    }
+
+    for ts in right_chain {
+        for b in ts.blocks() {
+            let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
+
+            for msg in smsgs {
+                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+            }
+            for msg in msgs {
+                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// This is a helper method for head_change. This method will remove a sequence for a from address
+/// from the rmsgs hashmap. Also remove the from address and sequence from the messagepool.
+pub(crate) async fn rm(
+    from: &Address,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
+    sequence: u64,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+) -> Result<(), Error> {
+    if let Some(temp) = rmsgs.get_mut(from) {
+        if temp.get_mut(&sequence).is_some() {
+            temp.remove(&sequence);
+        } else {
+            remove(from, pending, sequence, true).await?;
+        }
+    } else {
+        remove(from, pending, sequence, true).await?;
+    }
+    Ok(())
+}
+
+/// This function is a helper method for head_change. This method will add a signed message to
+/// the given rmsgs HashMap.
+pub(crate) fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
+    let s = rmsgs.get_mut(m.from());
+    if let Some(s) = s {
+        s.insert(m.sequence(), m);
+    } else {
+        rmsgs.insert(*m.from(), HashMap::new());
+        rmsgs.get_mut(m.from()).unwrap().insert(m.sequence(), m);
+    }
+}
+
 #[cfg(test)]
 mod test_selection {
     use super::*;
@@ -370,7 +464,7 @@ mod test_selection {
     }
 
     #[async_std::test]
-    #[ignore = "test is incredibly slow"]
+    // #[ignore = "test is incredibly slow"]
     // TODO optimize logic tested in this function
     async fn message_selection_trimming() {
         let mpool = make_test_mpool();

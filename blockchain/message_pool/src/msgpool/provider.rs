@@ -1,23 +1,58 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 
-use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
-use chain::{HeadChange, MINIMUM_BASE_FEE};
-use async_std::sync::{Arc, RwLock};
-use blockstore::BlockStore;
-use async_trait::async_trait;
-use state_manager::StateManager;
-use crate::Provider;
-use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
-use cid::Cid;
-use blocks::Tipset;
 use crate::errors::Error;
-use cid::Code::Blake2b256;
 use address::Address;
-use vm::ActorState;
-use state_tree::StateTree;
+use async_std::sync::{Arc, RwLock};
+use async_trait::async_trait;
 use blocks::BlockHeader;
+use blocks::Tipset;
 use blocks::TipsetKeys;
+use blockstore::BlockStore;
+use chain::{HeadChange, MINIMUM_BASE_FEE};
+use cid::Cid;
+use cid::Code::Blake2b256;
+use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
+use state_manager::StateManager;
+use state_tree::StateTree;
+use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use types::verifier::ProofVerifier;
+use vm::ActorState;
+
+/// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
+/// the operations that are listed below that are required for the messagepool.
+#[async_trait]
+pub trait Provider {
+    /// Update Mpool's cur_tipset whenever there is a chnge to the provider
+    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
+    /// Get the heaviest Tipset in the provider
+    async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>>;
+    /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
+    fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error>;
+    /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
+    /// at. Return ActorState or Error depending on whether or not ActorState is found
+    fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
+    /// Return the signed messages for given blockheader
+    fn messages_for_block(
+        &self,
+        h: &BlockHeader,
+    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
+    /// Resolves to the key address
+    async fn state_account_key<V>(
+        &self,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<Address, Error>
+    where
+        V: ProofVerifier;
+    /// Return all messages for a tipset
+    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
+    /// Return a tipset given the tipset keys from the ChainStore
+    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
+    /// Computes the base fee
+    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
+}
 
 /// This is the default Provider implementation that will be used for the mpool RPC.
 pub struct MpoolRpcProvider<DB> {

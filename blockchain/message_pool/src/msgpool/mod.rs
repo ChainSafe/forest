@@ -1,13 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod selection;
 pub(crate) mod msg_pool;
 pub(crate) mod provider;
+mod selection;
+mod test_provider;
 pub(crate) mod utils;
 
 use super::errors::Error;
 use crate::msg_chain::{MsgChain, MsgChainNode};
+use crate::msg_pool::add_helper;
+use crate::msgpool::selection::{add, rm};
+use crate::provider::Provider;
 use address::{Address, Protocol};
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
@@ -38,7 +42,7 @@ use std::time::Duration;
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use types::verifier::ProofVerifier;
-use utils::{get_base_fee_lower_bound, get_gas_reward, get_gas_perf};
+use utils::{get_base_fee_lower_bound, get_gas_perf, get_gas_reward};
 use vm::ActorState;
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
@@ -131,62 +135,7 @@ impl MsgSet {
     }
 }
 
-/// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
-/// the operations that are listed below that are required for the messagepool.
-#[async_trait]
-pub trait Provider {
-    /// Update Mpool's cur_tipset whenever there is a chnge to the provider
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
-    /// Get the heaviest Tipset in the provider
-    async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>>;
-    /// Add a message to the MpoolProvider, return either Cid or Error depending on successful put
-    fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error>;
-    /// Return state actor for given address given the tipset that the a temp StateTree will be rooted
-    /// at. Return ActorState or Error depending on whether or not ActorState is found
-    fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
-    /// Return the signed messages for given blockheader
-    fn messages_for_block(
-        &self,
-        h: &BlockHeader,
-    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
-    /// Resolves to the key address
-    async fn state_account_key<V>(
-        &self,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<Address, Error>
-    where
-        V: ProofVerifier;
-    /// Return all messages for a tipset
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
-    /// Return a tipset given the tipset keys from the ChainStore
-    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
-    /// Computes the base fee
-    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
-}
 
-fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
-    let epoch = cur_ts.epoch();
-    let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
-    m.message()
-        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
-        .map_err(Error::Other)?;
-    if !cur_ts.blocks().is_empty() {
-        let base_fee = cur_ts.blocks()[0].parent_base_fee();
-        let base_fee_lower_bound =
-            get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
-        if m.gas_fee_cap() < &base_fee_lower_bound {
-            if local {
-                warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
-                return Ok(false);
-            } else {
-                return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
-					m.gas_fee_cap(), base_fee_lower_bound)));
-            }
-        }
-    }
-    Ok(local)
-}
 
 /// Remove a message from pending given the from address and sequence.
 pub async fn remove(
@@ -221,54 +170,6 @@ async fn recover_sig(
         .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
     let smsg = SignedMessage::new_from_parts(msg, val.clone()).map_err(Error::Other)?;
     Ok(smsg)
-}
-
-/// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
-/// in the hashmap does not yet exist, create a new mset that will correspond to the from message
-/// and push it to the pending hashmap.
-async fn add_helper<T>(
-    api: &RwLock<T>,
-    bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
-    msg: SignedMessage,
-    sequence: u64,
-) -> Result<(), Error>
-where
-    T: Provider,
-{
-    if msg.signature().signature_type() == SignatureType::BLS {
-        bls_sig_cache
-            .write()
-            .await
-            .put(msg.cid()?, msg.signature().clone());
-    }
-
-    if msg.message().gas_limit() > 100_000_000 {
-        return Err(Error::Other(
-            "given message has too high of a gas limit".to_string(),
-        ));
-    }
-
-    api.read()
-        .await
-        .put_message(&ChainMessage::Signed(msg.clone()))?;
-    api.read()
-        .await
-        .put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
-
-    let mut pending = pending.write().await;
-    let msett = pending.get_mut(msg.message().from());
-    match msett {
-        Some(mset) => mset.add(msg)?,
-        None => {
-            let mut mset = MsgSet::new(sequence);
-            let from = *msg.message().from();
-            mset.add(msg)?;
-            pending.insert(from, mset);
-        }
-    }
-
-    Ok(())
 }
 
 /// Get the state of the base_sequence for a given address in cur_ts.
@@ -627,349 +528,8 @@ where
     Ok(())
 }
 
-/// Like head_change, except it doesnt change the state of the MessagePool.
-/// It simulates a head change call.
-pub(crate) async fn run_head_change<T>(
-    api: &RwLock<T>,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
-    from: Tipset,
-    to: Tipset,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) -> Result<(), Error>
-where
-    T: Provider + 'static,
-{
-    // TODO: This logic should probably be implemented in the ChainStore. It handles reorgs.
-    let mut left = Arc::new(from);
-    let mut right = Arc::new(to);
-    let mut left_chain = Vec::new();
-    let mut right_chain = Vec::new();
-    while left != right {
-        if left.epoch() > right.epoch() {
-            left_chain.push(left.as_ref().clone());
-            let par = api.read().await.load_tipset(left.parents()).await?;
-            left = par;
-        } else {
-            right_chain.push(right.as_ref().clone());
-            let par = api.read().await.load_tipset(right.parents()).await?;
-            right = par;
-        }
-    }
-    for ts in left_chain {
-        let mut msgs: Vec<SignedMessage> = Vec::new();
-        for block in ts.blocks() {
-            let (_, smsgs) = api.read().await.messages_for_block(&block)?;
-            msgs.extend(smsgs);
-        }
-        for msg in msgs {
-            add(msg, rmsgs);
-        }
-    }
-
-    for ts in right_chain {
-        for b in ts.blocks() {
-            let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
-
-            for msg in smsgs {
-                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
-            }
-            for msg in msgs {
-                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
-            }
-        }
-    }
-    Ok(())
-}
-
-/// This is a helper method for head_change. This method will remove a sequence for a from address
-/// from the rmsgs hashmap. Also remove the from address and sequence from the messagepool.
-async fn rm(
-    from: &Address,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
-    sequence: u64,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) -> Result<(), Error> {
-    if let Some(temp) = rmsgs.get_mut(from) {
-        if temp.get_mut(&sequence).is_some() {
-            temp.remove(&sequence);
-        } else {
-            remove(from, pending, sequence, true).await?;
-        }
-    } else {
-        remove(from, pending, sequence, true).await?;
-    }
-    Ok(())
-}
-
-/// This function is a helper method for head_change. This method will add a signed message to
-/// the given rmsgs HashMap.
-fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
-    let s = rmsgs.get_mut(m.from());
-    if let Some(s) = s {
-        s.insert(m.sequence(), m);
-    } else {
-        rmsgs.insert(*m.from(), HashMap::new());
-        rmsgs.get_mut(m.from()).unwrap().insert(m.sequence(), m);
-    }
-}
-
-pub mod test_provider {
-    use super::Error as Errors;
-    use super::*;
-    use address::Address;
-    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use cid::Cid;
-    use crypto::VRFProof;
-    use message::{SignedMessage, UnsignedMessage};
-    use std::convert::TryFrom;
-    use tokio::sync::broadcast;
-
-    /// Struct used for creating a provider when writing tests involving message pool
-    pub struct TestApi {
-        bmsgs: HashMap<Cid, Vec<SignedMessage>>,
-        state_sequence: HashMap<Address, u64>,
-        balances: HashMap<Address, BigInt>,
-        tipsets: Vec<Tipset>,
-        publisher: Publisher<HeadChange>,
-    }
-
-    impl Default for TestApi {
-        /// Create a new TestApi
-        fn default() -> Self {
-            let (publisher, _) = broadcast::channel(1);
-            TestApi {
-                bmsgs: HashMap::new(),
-                state_sequence: HashMap::new(),
-                balances: HashMap::new(),
-                tipsets: Vec::new(),
-                publisher,
-            }
-        }
-    }
-
-    impl TestApi {
-        /// Set the state sequence for an Address for TestApi
-        pub fn set_state_sequence(&mut self, addr: &Address, sequence: u64) {
-            self.state_sequence.insert(*addr, sequence);
-        }
-
-        /// Set the state balance for an Address for TestApi
-        pub fn set_state_balance_raw(&mut self, addr: &Address, bal: BigInt) {
-            self.balances.insert(*addr, bal);
-        }
-
-        /// Set the block messages for TestApi
-        pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
-            self.bmsgs.insert(*h.cid(), msgs);
-            self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
-        }
-
-        /// Set the heaviest tipset for TestApi
-        pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
-            self.publisher.send(HeadChange::Apply(ts)).unwrap();
-        }
-
-        pub fn next_block(&mut self) -> BlockHeader {
-            let new_block = mock_block_with_parents(
-                self.tipsets
-                    .last()
-                    .unwrap_or(&Tipset::new(vec![mock_block(1, 1)]).unwrap()),
-                1,
-                1,
-            );
-            new_block
-        }
-    }
-
-    #[async_trait]
-    impl Provider for TestApi {
-        async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
-            self.publisher.subscribe()
-        }
-
-        async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-            Tipset::new(vec![create_header(1)]).ok().map(Arc::new)
-        }
-
-        fn put_message(&self, _msg: &ChainMessage) -> Result<Cid, Errors> {
-            Ok(Cid::default())
-        }
-
-        fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Errors> {
-            let mut msgs: Vec<SignedMessage> = Vec::new();
-            for b in ts.blocks() {
-                if let Some(ms) = self.bmsgs.get(b.cid()) {
-                    for m in ms {
-                        if m.from() == addr {
-                            msgs.push(m.clone());
-                        }
-                    }
-                }
-            }
-            let balance = match self.balances.get(addr) {
-                Some(b) => b.clone(),
-                None => (10_000_000_000_u64).into(),
-            };
-
-            msgs.sort_by_key(|m| m.sequence());
-            let mut sequence: u64 = self.state_sequence.get(addr).copied().unwrap_or_default();
-            for m in msgs {
-                if m.sequence() != sequence {
-                    break;
-                }
-                sequence += 1;
-            }
-            let actor = ActorState::new(Cid::default(), Cid::default(), balance, sequence);
-            Ok(actor)
-        }
-
-        fn messages_for_block(
-            &self,
-            h: &BlockHeader,
-        ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Errors> {
-            let v: Vec<UnsignedMessage> = Vec::new();
-            let thing = self.bmsgs.get(h.cid());
-
-            match thing {
-                Some(s) => Ok((v, s.clone())),
-                None => {
-                    let temp: Vec<SignedMessage> = Vec::new();
-                    Ok((v, temp))
-                }
-            }
-        }
-
-        async fn state_account_key<V>(
-            &self,
-            addr: &Address,
-            _ts: &Arc<Tipset>,
-        ) -> Result<Address, Error> {
-            match addr.protocol() {
-                Protocol::BLS | Protocol::Secp256k1 => Ok(*addr),
-                _ => Err(Error::Other("given address was not a key addr".to_string())),
-            }
-        }
-
-        fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Errors> {
-            let (us, s) = self.messages_for_block(&h.blocks()[0]).unwrap();
-            let mut msgs = Vec::new();
-
-            for msg in us {
-                msgs.push(ChainMessage::Unsigned(msg));
-            }
-            for smsg in s {
-                msgs.push(ChainMessage::Signed(smsg));
-            }
-            Ok(msgs)
-        }
-
-        async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Errors> {
-            for ts in &self.tipsets {
-                if tsk.cids == ts.cids() {
-                    return Ok(ts.clone().into());
-                }
-            }
-            Err(Errors::InvalidToAddr)
-        }
-
-        fn chain_compute_base_fee(&self, _ts: &Tipset) -> Result<BigInt, Error> {
-            Ok(100.into())
-        }
-    }
-
-    pub fn create_header(weight: u64) -> BlockHeader {
-        BlockHeader::builder()
-            .weight(BigInt::from(weight))
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap()
-    }
-
-    pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
-        let addr = Address::new_id(1234561);
-        let c =
-            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
-
-        let fmt_str = format!("===={}=====", ticket_sequence);
-        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
-        let election_proof = ElectionProof {
-            win_count: 0,
-            vrfproof: VRFProof::new(fmt_str.into_bytes()),
-        };
-        let weight_inc = BigInt::from(weight);
-        BlockHeader::builder()
-            .miner_address(addr)
-            .election_proof(Some(election_proof))
-            .ticket(Some(ticket))
-            .message_receipts(c)
-            .messages(c)
-            .state_root(c)
-            .weight(weight_inc)
-            .build()
-            .unwrap()
-    }
-
-    pub fn mock_block_with_epoch(epoch: i64, weight: u64, ticket_sequence: u64) -> BlockHeader {
-        let addr = Address::new_id(1234561);
-        let c =
-            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
-
-        let fmt_str = format!("===={}=====", ticket_sequence);
-        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
-        let election_proof = ElectionProof {
-            win_count: 0,
-            vrfproof: VRFProof::new(fmt_str.into_bytes()),
-        };
-        let weight_inc = BigInt::from(weight);
-        BlockHeader::builder()
-            .miner_address(addr)
-            .election_proof(Some(election_proof))
-            .ticket(Some(ticket))
-            .message_receipts(c)
-            .messages(c)
-            .state_root(c)
-            .weight(weight_inc)
-            .epoch(epoch)
-            .build()
-            .unwrap()
-    }
-    pub fn mock_block_with_parents(
-        parents: &Tipset,
-        weight: u64,
-        ticket_sequence: u64,
-    ) -> BlockHeader {
-        let addr = Address::new_id(1234561);
-        let c =
-            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
-
-        let height = parents.epoch() + 1;
-
-        let mut weight_inc = BigInt::from(weight);
-        weight_inc = parents.blocks()[0].weight() + weight_inc;
-        let fmt_str = format!("===={}=====", ticket_sequence);
-        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
-        let election_proof = ElectionProof {
-            win_count: 0,
-            vrfproof: VRFProof::new(fmt_str.into_bytes()),
-        };
-        BlockHeader::builder()
-            .miner_address(addr)
-            .election_proof(Some(election_proof))
-            .ticket(Some(ticket))
-            .parents(parents.key().clone())
-            .message_receipts(c)
-            .messages(c)
-            .state_root(*parents.blocks()[0].state_root())
-            .weight(weight_inc)
-            .epoch(height)
-            .build()
-            .unwrap()
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
-    use super::test_provider::*;
     use super::*;
     use crate::msg_pool::MessagePool;
     use address::Address;
@@ -983,6 +543,7 @@ pub mod tests {
     use std::borrow::BorrowMut;
     use std::thread::sleep;
     use std::time::Duration;
+    use test_provider::*;
 
     pub fn create_smsg(
         to: &Address,
