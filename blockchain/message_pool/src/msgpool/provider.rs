@@ -3,20 +3,20 @@
 
 use crate::errors::Error;
 use address::Address;
-use async_std::sync::{Arc, RwLock};
+use async_std::sync::Arc;
 use async_trait::async_trait;
 use blocks::BlockHeader;
 use blocks::Tipset;
 use blocks::TipsetKeys;
 use blockstore::BlockStore;
-use chain::{HeadChange, MINIMUM_BASE_FEE};
+use chain::HeadChange;
 use cid::Cid;
 use cid::Code::Blake2b256;
-use message::{ChainMessage, Message, SignedMessage, UnsignedMessage};
+use message::{ChainMessage, SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use state_manager::StateManager;
 use state_tree::StateTree;
-use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
+use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 use types::verifier::ProofVerifier;
 use vm::ActorState;
 
