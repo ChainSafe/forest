@@ -17,7 +17,7 @@ dependencies = [
  "fil_clock",
  "fil_types",
  "forest_actor 0.1.5",
- "forest_actor 1.0.0",
+ "forest_actor 1.0.2",
  "forest_actor 2.0.0",
  "forest_address",
  "forest_bigint",
@@ -2261,9 +2261,9 @@ dependencies = [
 
 [[package]]
 name = "forest_actor"
-version = "1.0.0"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "772779d4eca15c0ce0da8e22543a2d9eca384bb31c3a0d762137eed46f5fcb10"
+checksum = "1bbded62add26ba31c27e565b663802ca77ad669df593fa1209df868ef3caa74"
 dependencies = [
  "ahash 0.6.2",
  "base64 0.13.0",
