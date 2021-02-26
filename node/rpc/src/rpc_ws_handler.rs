@@ -1,5 +1,8 @@
 use futures::stream::StreamExt;
-use jsonrpc_v2::{Id as JsonRpcId, RequestObject as JsonRequestObject};
+use jsonrpc_v2::{
+    Id as JsonRpcId, RequestObject as JsonRequestObject, ResponseObject as JsonResponseObject,
+    ResponseObjects as JsonResponseObjects,
+};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use tide::Request;
@@ -9,6 +12,7 @@ use beacon::Beacon;
 use blockstore::BlockStore;
 use wallet::KeyStore;
 
+use crate::chain_api::Subscription;
 use crate::data_types::{JsonRpcServerState, StreamingData};
 use crate::rpc_util::{get_error_str, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY};
 use chain::headchange_json::HeadChangeJson;
@@ -50,7 +54,7 @@ where
                                         id: JsonRpcId,
                                     }
 
-                                    let rpc_sub_response = rpc_server
+                                    let rpc_subscription_response = rpc_server
                                         .handle(
                                             JsonRequestObject::request()
                                                 .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
@@ -58,44 +62,67 @@ where
                                         )
                                         .await;
 
-                                    match rpc_sub_response {
-                                        One(rpc_sub_params) => {
-                                            rpc_server
-                                                .handle(
-                                                    JsonRequestObject::request()
-                                                        .with_method(RPC_METHOD_CHAIN_NOTIFY)
-                                                        .with_id(sub_id)
-                                                        .finish(),
-                                                )
-                                                .await;
+                                    match rpc_subscription_response {
+                                        JsonResponseObjects::One(rpc_subscription_params) => {
+                                            match rpc_subscription_params {
+                                                JsonResponseObject::Result { result, .. } => {
+                                                    let subscription_response =
+                                                        serde_json::from_value::<Subscription>(
+                                                            serde_json::to_value(result)?,
+                                                        )?;
 
-                                            let mut head_changes = cs.sub_head_changes().await;
+                                                    let Subscription { subscription_id } =
+                                                        subscription_response;
 
-                                            // First response should be the count serialized.
-                                            // This is based on internal golang channel rpc handling
-                                            // needed to match Lotus.
-                                            let response = SubscribeChannelIDResponse {
-                                                json_rpc: "2.0",
-                                                result: chain_notify_count.load(),
-                                                id: call.id.flatten().unwrap_or(JsonRpcId::Null),
-                                            };
+                                                    rpc_server
+                                                        .handle(
+                                                            JsonRequestObject::request()
+                                                                .with_method(
+                                                                    RPC_METHOD_CHAIN_NOTIFY,
+                                                                )
+                                                                .with_id(JsonRpcId::Num(
+                                                                    subscription_id,
+                                                                ))
+                                                                .finish(),
+                                                        )
+                                                        .await;
 
-                                            ws_stream.send_json(&response).await?; // TODO: handle send error
+                                                    let mut head_changes =
+                                                        cs.sub_head_changes().await;
 
-                                            while let Some(event) = head_changes.next().await {
-                                                let response = StreamingData {
-                                                    json_rpc: "2.0",
-                                                    method: "xrpc.ch.val",
-                                                    params: (
-                                                        chain_notify_count.load(),
-                                                        vec![HeadChangeJson::from(&event)],
-                                                    ),
-                                                };
+                                                    // First response should be the count serialized.
+                                                    // This is based on internal golang channel rpc handling
+                                                    // needed to match Lotus.
+                                                    let response = SubscribeChannelIDResponse {
+                                                        json_rpc: "2.0",
+                                                        result: chain_notify_count.load(),
+                                                        id: call
+                                                            .id
+                                                            .flatten()
+                                                            .unwrap_or(JsonRpcId::Null),
+                                                    };
 
-                                                ws_stream.send_json(&response).await?;
+                                                    ws_stream.send_json(&response).await?; // TODO: handle send error
+
+                                                    while let Some(event) =
+                                                        head_changes.next().await
+                                                    {
+                                                        let response = StreamingData {
+                                                            json_rpc: "2.0",
+                                                            method: "xrpc.ch.val",
+                                                            params: (
+                                                                chain_notify_count.load(),
+                                                                vec![HeadChangeJson::from(&event)],
+                                                            ),
+                                                        };
+
+                                                        ws_stream.send_json(&response).await?;
+                                                    }
+
+                                                    Ok(())
+                                                }
+                                                JsonResponseObject::Error(_) => Err(()),
                                             }
-
-                                            Ok(())
                                         }
                                         _ => Err(()),
                                     }
