@@ -11,7 +11,7 @@ use super::errors::Error;
 use crate::msg_chain::{MsgChain, MsgChainNode};
 use crate::msg_pool::add_helper;
 use crate::msg_pool::MsgSet;
-use crate::msgpool::selection::{add, rm};
+use crate::msgpool::selection::{add_to_selected_msgs, remove_from_selected_msgs};
 use crate::provider::Provider;
 use address::Address;
 use async_std::channel::Sender;
@@ -23,13 +23,13 @@ use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use log::{error, warn};
 use lru::LruCache;
-use message::{Message, SignedMessage, UnsignedMessage};
+use message::{Message, SignedMessage};
 use networks::BLOCK_DELAY_SECS;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
-use utils::{get_base_fee_lower_bound, get_gas_perf, get_gas_reward};
+use utils::{get_base_fee_lower_bound, get_gas_perf, get_gas_reward, recover_sig};
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -39,18 +39,6 @@ const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
 const REPUBLISH_INTERVAL: u64 = 10 * BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
-
-/// Attempt to get a signed message that corresponds to an unsigned message in bls_sig_cache.
-async fn recover_sig(
-    bls_sig_cache: &mut LruCache<Cid, Signature>,
-    msg: UnsignedMessage,
-) -> Result<SignedMessage, Error> {
-    let val = bls_sig_cache
-        .get(&msg.cid()?)
-        .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
-    let smsg = SignedMessage::new_from_parts(msg, val.clone()).map_err(Error::Other)?;
-    Ok(smsg)
-}
 
 /// Get the state of the base_sequence for a given address in the current Tipset
 async fn get_state_sequence<T>(
@@ -367,7 +355,7 @@ where
         }
 
         for msg in msgs {
-            add(msg, rmsgs.borrow_mut());
+            add_to_selected_msgs(msg, rmsgs.borrow_mut());
         }
     }
 
@@ -376,13 +364,15 @@ where
             let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
 
             for msg in smsgs {
-                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                    .await?;
                 if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                    .await?;
                 if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
                 }

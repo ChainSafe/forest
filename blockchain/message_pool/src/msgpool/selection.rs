@@ -1,10 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// Contains routines for message selection APIs.
-// Whenever a miner is ready to create a block for a tipset, it invokes the select_messages API
-// which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
-// See https://docs.filecoin.io/mine/lotus/message-pool/#message-selection for more details
+//! Contains routines for message selection APIs.
+//! Whenever a miner is ready to create a block for a tipset, it invokes the select_messages API
+//! which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
+//! See https://docs.filecoin.io/mine/lotus/message-pool/#message-selection for more details
 
 use super::provider::Provider;
 use super::{create_message_chains, msg_pool::MessagePool};
@@ -243,7 +243,7 @@ where
             msgs.extend(smsgs);
         }
         for msg in msgs {
-            add(msg, rmsgs);
+            add_to_selected_msgs(msg, rmsgs);
         }
     }
 
@@ -252,10 +252,12 @@ where
             let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
 
             for msg in smsgs {
-                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                    .await?;
             }
             for msg in msgs {
-                rm(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut()).await?;
+                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                    .await?;
             }
         }
     }
@@ -263,8 +265,8 @@ where
 }
 
 /// This is a helper method for head_change. This method will remove a sequence for a from address
-/// from the rmsgs hashmap. It also removes the 'from' address and sequence from the MessagePool.
-pub(crate) async fn rm(
+/// from the messages selected by priority hashmap. It also removes the 'from' address and sequence from the MessagePool.
+pub(crate) async fn remove_from_selected_msgs(
     from: &Address,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
@@ -283,8 +285,11 @@ pub(crate) async fn rm(
 }
 
 /// This function is a helper method for head_change. This method will add a signed message to
-/// the given rmsgs HashMap.
-pub(crate) fn add(m: SignedMessage, rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>) {
+/// the given messages selected by priority HashMap.
+pub(crate) fn add_to_selected_msgs(
+    m: SignedMessage,
+    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
+) {
     let s = rmsgs.get_mut(m.from());
     if let Some(s) = s {
         s.insert(m.sequence(), m);
