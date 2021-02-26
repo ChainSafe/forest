@@ -7,7 +7,7 @@ use chain::headchange_json::HeadChangeJson;
 pub struct StreamingData<'a> {
     json_rpc: &'a str,
     method: &'a str,
-    params: (usize, Vec<HeadChangeJson>),
+    params: (i64, Vec<HeadChangeJson>),
 }
 
 use async_std::channel::Sender;
