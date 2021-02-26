@@ -13,9 +13,9 @@ use crate::msgpool::recover_sig;
 use crate::msgpool::republish_pending_messages;
 use crate::msgpool::BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE;
 use crate::msgpool::REPUBLISH_INTERVAL;
+use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
-use crate::MsgSet;
 use address::{Address, Protocol};
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
@@ -34,6 +34,7 @@ use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage};
 use networks::NEWEST_NETWORK_VERSION;
 use num_bigint::BigInt;
+use num_bigint::Integer;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
@@ -42,6 +43,87 @@ use types::verifier::ProofVerifier;
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: usize = 40000;
 const SIG_VAL_CACHE_SIZE: usize = 32000;
+
+/// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
+/// which corresponds to that address.
+#[derive(Clone, Default, Debug)]
+pub struct MsgSet {
+    pub(crate) msgs: HashMap<u64, SignedMessage>,
+    next_sequence: u64,
+    required_funds: BigInt,
+}
+
+impl MsgSet {
+    /// Generate a new MsgSet with an empty hashmap and setting the sequence specifically.
+    pub fn new(sequence: u64) -> Self {
+        MsgSet {
+            msgs: HashMap::new(),
+            next_sequence: sequence,
+            required_funds: Default::default(),
+        }
+    }
+
+    /// Add a signed message to the MsgSet. Increase next_sequence if the message has a
+    /// sequence greater than any existing message sequence.
+    pub fn add(&mut self, m: SignedMessage) -> Result<(), Error> {
+        if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
+            self.next_sequence = m.sequence() + 1;
+        }
+        if let Some(exms) = self.msgs.get(&m.sequence()) {
+            if m.cid()? != exms.cid()? {
+                let premium = exms.message().gas_premium();
+                let rbf_denom = BigInt::from(RBF_DENOM);
+                let min_price = premium + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
+                if m.message().gas_premium() <= &min_price {
+                    return Err(Error::GasPriceTooLow);
+                }
+            } else {
+                return Err(Error::DuplicateSequence);
+            }
+        }
+        self.msgs.insert(m.sequence(), m);
+        Ok(())
+    }
+
+    /// Removes message with the given sequence. If applied, update the set's next sequence.
+    pub fn rm(&mut self, sequence: u64, applied: bool) {
+        let m = if let Some(m) = self.msgs.remove(&sequence) {
+            m
+        } else {
+            if applied && sequence >= self.next_sequence {
+                self.next_sequence = sequence + 1;
+                while self.msgs.get(&self.next_sequence).is_some() {
+                    self.next_sequence += 1;
+                }
+            }
+            return;
+        };
+        self.required_funds -= m.required_funds();
+
+        // adjust next sequence
+        if applied {
+            // we removed a (known) message because it was applied in a tipset
+            // we can't possibly have filled a gap in this case
+            if sequence >= self.next_sequence {
+                self.next_sequence = sequence + 1;
+            }
+            return;
+        }
+        // we removed a message because it was pruned
+        // we have to adjust the sequence if it creates a gap or rewinds state
+        if sequence < self.next_sequence {
+            self.next_sequence = sequence;
+        }
+    }
+
+    fn get_required_funds(&self, sequence: u64) -> BigInt {
+        let required_funds = self.required_funds.clone();
+        match self.msgs.get(&sequence) {
+            Some(m) => required_funds - m.required_funds(),
+            None => required_funds,
+        }
+    }
+}
 
 /// This contains all necessary information needed for the message pool.
 /// Keeps track of messages to apply, as well as context needed for verifying transactions.
