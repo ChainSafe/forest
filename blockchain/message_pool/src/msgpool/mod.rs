@@ -4,7 +4,7 @@
 pub(crate) mod msg_pool;
 pub(crate) mod provider;
 mod selection;
-mod test_provider;
+pub mod test_provider;
 pub(crate) mod utils;
 
 use super::errors::Error;
