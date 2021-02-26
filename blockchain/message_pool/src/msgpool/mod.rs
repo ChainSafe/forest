@@ -23,7 +23,7 @@ use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use log::{error, warn};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
-use networks::{BLOCK_DELAY_SECS};
+use networks::BLOCK_DELAY_SECS;
 use num_bigint::{BigInt, Integer};
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
@@ -120,31 +120,6 @@ impl MsgSet {
     }
 }
 
-
-
-/// Remove a message from pending given the from address and sequence.
-pub async fn remove(
-    from: &Address,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
-    sequence: u64,
-    applied: bool,
-) -> Result<(), Error> {
-    let mut pending = pending.write().await;
-    let mset = if let Some(mset) = pending.get_mut(from) {
-        mset
-    } else {
-        return Ok(());
-    };
-
-    mset.rm(sequence, applied);
-
-    if mset.msgs.is_empty() {
-        pending.remove(from);
-    }
-
-    Ok(())
-}
-
 /// Attempt to get a signed message that corresponds to an unsigned message in bls_sig_cache.
 async fn recover_sig(
     bls_sig_cache: &mut LruCache<Cid, Signature>,
@@ -157,7 +132,7 @@ async fn recover_sig(
     Ok(smsg)
 }
 
-/// Get the state of the base_sequence for a given address in cur_ts.
+/// Get the state of the base_sequence for a given address in the current Tipset
 async fn get_state_sequence<T>(
     api: &RwLock<T>,
     addr: &Address,

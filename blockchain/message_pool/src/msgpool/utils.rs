@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use chain::MINIMUM_BASE_FEE;
 use message::{Message, SignedMessage};
 use num_bigint::{BigInt, Integer};

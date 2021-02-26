@@ -1,15 +1,20 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// Contains the implementation of Message Pool component.
+// The Message Pool is the component of forest that handles pending messages for inclusion
+// in the chain. Messages are added either directly for locally published messages
+// or through pubsub propagation.
+
 use crate::config::MpoolConfig;
 use crate::errors::Error;
 use crate::head_change;
 use crate::msgpool::recover_sig;
 use crate::msgpool::republish_pending_messages;
-use crate::msgpool::get_base_fee_lower_bound;
+use crate::msgpool::BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE;
 use crate::msgpool::REPUBLISH_INTERVAL;
 use crate::provider::Provider;
-use crate::remove;
+use crate::utils::get_base_fee_lower_bound;
 use crate::MsgSet;
 use address::{Address, Protocol};
 use async_std::channel::{bounded, Sender};
@@ -28,30 +33,46 @@ use log::warn;
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage};
 use networks::NEWEST_NETWORK_VERSION;
-use crate::msgpool::BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
-use tokio::sync::broadcast::{error::RecvError};
+use tokio::sync::broadcast::error::RecvError;
 use types::verifier::ProofVerifier;
+
+// LruCache sizes have been taken from the lotus implementation
+const BLS_SIG_CACHE_SIZE: usize = 40000;
+const SIG_VAL_CACHE_SIZE: usize = 32000;
 
 /// This contains all necessary information needed for the message pool.
 /// Keeps track of messages to apply, as well as context needed for verifying transactions.
 pub struct MessagePool<T> {
+    /// The local address of the client
     local_addrs: Arc<RwLock<Vec<Address>>>,
+    /// A map of pending messages where the key is the address
     pub pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
+    /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<RwLock<Arc<Tipset>>>,
+    /// The underlying provider
     pub api: Arc<RwLock<T>>,
+    /// The minimum gas price needed for executing the transaction based on number of included blocks
     pub min_gas_price: BigInt,
+    /// This is max number of messages in the pool.
     pub max_tx_pool_size: i64,
+    /// TODO
     pub network_name: String,
+    /// Sender half to send messages to other components
     pub network_sender: Sender<NetworkMessage>,
+    /// A cache for BLS signature keyed by Cid
     pub bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
+    /// A cache for BLS signature keyed by Cid
     pub sig_val_cache: Arc<RwLock<LruCache<Cid, ()>>>,
+    /// A set of republished messages identified by their Cid
     pub republished: Arc<RwLock<HashSet<Cid>>>,
+    /// Acts as a signal to republish messages from the republished set of messages
     pub repub_trigger: Sender<()>,
-    // TODO look into adding a cap to local_msgs
+    /// TODO look into adding a cap to local_msgs
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
+    /// Configurable parameters of the message pool
     pub config: MpoolConfig,
 }
 
@@ -59,6 +80,7 @@ impl<T> MessagePool<T>
 where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
+    /// Creates a new MessagePool instance.
     pub async fn new(
         mut api: T,
         network_name: String,
@@ -73,9 +95,8 @@ where
         let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().await.ok_or_else(
             || Error::Other("Failed to retrieve heaviest tipset from provider".to_owned()),
         )?));
-        // LruCache sizes have been taken from the lotus implementation
-        let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(40000)));
-        let sig_val_cache = Arc::new(RwLock::new(LruCache::new(32000)));
+        let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
+        let sig_val_cache = Arc::new(RwLock::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
         let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
@@ -181,14 +202,14 @@ where
         Ok(mp)
     }
 
-    /// Add a signed message to local_addrs and local_msgs.
+    /// Add a signed message to the pool and its address.
     async fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
         self.local_addrs.write().await.push(*m.from());
         self.local_msgs.write().await.insert(m);
         Ok(())
     }
 
-    /// Push a signed message to the MessagePool.
+    /// Push a signed message to the MessagePool. Additionally performs
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
@@ -602,4 +623,27 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
         }
     }
     Ok(local)
+}
+
+/// Remove a message from pending given the from address and sequence.
+pub async fn remove(
+    from: &Address,
+    pending: &RwLock<HashMap<Address, MsgSet>>,
+    sequence: u64,
+    applied: bool,
+) -> Result<(), Error> {
+    let mut pending = pending.write().await;
+    let mset = if let Some(mset) = pending.get_mut(from) {
+        mset
+    } else {
+        return Ok(());
+    };
+
+    mset.rm(sequence, applied);
+
+    if mset.msgs.is_empty() {
+        pending.remove(from);
+    }
+
+    Ok(())
 }

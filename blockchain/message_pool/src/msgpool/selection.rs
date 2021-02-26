@@ -1,12 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// Contains routines for message selection APIs
+// Contains routines for message selection APIs.
+// Whenever a miner is ready to create a block for a tipset, it invokes the select_messages API
+// which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
+// See https://docs.filecoin.io/mine/lotus/message-pool/#message-selection for more details
 
 use super::provider::Provider;
 use super::{create_message_chains, msg_pool::MessagePool};
 use crate::msg_chain::MsgChain;
-use crate::remove;
+use crate::msg_pool::remove;
 use crate::Error;
 use crate::MsgSet;
 use address::Address;
@@ -260,7 +263,7 @@ where
 }
 
 /// This is a helper method for head_change. This method will remove a sequence for a from address
-/// from the rmsgs hashmap. Also remove the from address and sequence from the messagepool.
+/// from the rmsgs hashmap. It also removes the 'from' address and sequence from the MessagePool.
 pub(crate) async fn rm(
     from: &Address,
     pending: &RwLock<HashMap<Address, MsgSet>>,
