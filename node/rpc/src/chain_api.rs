@@ -47,7 +47,7 @@ pub(crate) struct Message {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct Subscription {
-    subscription_id: i64,
+    pub subscription_id: i64,
 }
 
 pub(crate) async fn chain_get_message<DB, KS, B>(

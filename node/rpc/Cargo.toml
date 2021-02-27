@@ -64,7 +64,7 @@ wallet = { package = "key_management", path = "../../key_management", features =
 ] }
 
 [dependencies.jsonrpc-v2]
-version = "0.9.1"
+version = "0.10.0"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
 

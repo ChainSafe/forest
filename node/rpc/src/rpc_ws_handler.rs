@@ -1,6 +1,6 @@
 use futures::stream::StreamExt;
 use log::{debug, error, info};
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::de::DeserializeOwned;
 use tide::{Error as HttpError, Request as HttpRequest};
 use tide_websockets::WebSocketConnection;
 
@@ -46,6 +46,10 @@ where
                 },
             }
         }
+        _ => Err(HttpError::from_str(
+            500,
+            format!("Unexpected response type after making RPC call"),
+        )),
     }
 }
 
@@ -67,40 +71,32 @@ where
             Ok(message) => {
                 let request_text = message.into_text()?;
 
-                if request_text.is_empty() {
-                    Ok(())
-                } else {
+                if !request_text.is_empty() {
                     info!("RPC Request Received: {:?}", &request_text);
 
                     match serde_json::from_str(&request_text)
                         as Result<jsonrpc_v2::RequestObject, serde_json::Error>
                     {
-                        Ok(call) => match &*call.method {
+                        Ok(call) => match &*call.method_ref() {
                             RPC_METHOD_CHAIN_NOTIFY => {
-                                #[derive(Deserialize)]
-                                struct SubscribeChannelIDResponse<'a> {
-                                    json_rpc: &'a str,
-                                    result: usize,
-                                    id: jsonrpc_v2::Id,
-                                }
+                                let Subscription { subscription_id } =
+                                    make_rpc_call::<Subscription, DB, KS, B>(
+                                        rpc_server.clone(),
+                                        jsonrpc_v2::RequestObject::request()
+                                            .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
+                                            .finish(),
+                                    )
+                                    .await?;
 
-                                let Subscription { subscription_id } = make_rpc_call(
-                                    rpc_server.clone(),
-                                    jsonrpc_v2::RequestObject::request()
-                                        .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
-                                        .finish(),
-                                )
-                                .await?;
-
-                                while let Some(event) = make_rpc_call(
-                                    rpc_server.clone(),
-                                    jsonrpc_v2::RequestObject::request()
-                                        .with_method(RPC_METHOD_CHAIN_NOTIFY)
-                                        .with_id(jsonrpc_v2::Id::Num(subscription_id))
-                                        .finish(),
-                                )
-                                .await?
-                                    as Option<HeadChangeJson>
+                                while let Some(event) =
+                                    make_rpc_call::<Option<HeadChangeJson>, DB, KS, B>(
+                                        rpc_server.clone(),
+                                        jsonrpc_v2::RequestObject::request()
+                                            .with_method(RPC_METHOD_CHAIN_NOTIFY)
+                                            .with_id(jsonrpc_v2::Id::Num(subscription_id))
+                                            .finish(),
+                                    )
+                                    .await?
                                 {
                                     let response = StreamingData {
                                         json_rpc: "2.0",
@@ -110,25 +106,30 @@ where
 
                                     ws_stream.send_json(&response).await?;
                                 }
-
-                                Ok(())
                             }
                             _ => {
                                 error!("RPC Websocket tried handling something it shouldn't have.");
 
-                                let response = make_rpc_call(rpc_server.clone(), call).await?;
+                                let response =
+                                    make_rpc_call::<_, DB, KS, B>(rpc_server.clone(), call).await?;
 
                                 ws_stream.send_json(&response).await?;
-
-                                Ok(())
                             }
                         },
-                        Err(e) => ws_stream.send_string(get_error_str(1, e.to_string())).await,
+                        Err(e) => {
+                            ws_stream
+                                .send_string(get_error_str(1, e.to_string()))
+                                .await?;
+                        }
                     }
                 }
             }
-            Err(e) => ws_stream.send_string(get_error_str(2, e.to_string())).await,
-        };
+            Err(e) => {
+                ws_stream
+                    .send_string(get_error_str(2, e.to_string()))
+                    .await?;
+            }
+        }
     }
 
     Ok(())

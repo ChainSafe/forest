@@ -5,9 +5,9 @@ use chain::headchange_json::HeadChangeJson;
 
 #[derive(Serialize)]
 pub struct StreamingData<'a> {
-    json_rpc: &'a str,
-    method: &'a str,
-    params: (i64, Vec<HeadChangeJson>),
+    pub json_rpc: &'a str,
+    pub method: &'a str,
+    pub params: (i64, Vec<HeadChangeJson>),
 }
 
 use async_std::channel::Sender;

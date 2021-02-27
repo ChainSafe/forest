@@ -14,6 +14,6 @@ rand = "0.7.3"
 crypto = { package = "forest_crypto", version = "0.4" }
 
 [dependencies.jsonrpc-v2]
-version = "0.9.1"
+version = "0.10.0"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false

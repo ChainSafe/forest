@@ -238,8 +238,8 @@ where
     let mut app = tide::with_state(Arc::clone(&rpc_server));
 
     app.at("/rpc/v0")
-        .with(WebSocket::new(rpc_ws_handler))
-        .post(rpc_http_handler);
+        .with(WebSocket::new(rpc_ws_handler::<DB, KS, B>))
+        .post(rpc_http_handler::<DB, KS, B>);
 
     info!("Ready for RPC connections");
 
