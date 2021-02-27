@@ -7,19 +7,18 @@ mod types;
 pub use self::state::State;
 pub use self::types::*;
 use crate::{
-    make_empty_map, ActorDowncast, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID,
-    PAYCH_ACTOR_CODE_ID, POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
+    ActorDowncast, MINER_ACTOR_CODE_ID, MULTISIG_ACTOR_CODE_ID, PAYCH_ACTOR_CODE_ID,
+    POWER_ACTOR_CODE_ID, SYSTEM_ACTOR_ADDR,
 };
 use address::Address;
 use cid::Cid;
-use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use runtime::{ActorCode, Runtime};
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, METHOD_CONSTRUCTOR};
 
-// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
+// * Updated to specs-actors commit: 999e57a151cc7ada020ca2844b651499ab8c0dec (v3.0.1)
 
 /// Init actor methods available
 #[derive(FromPrimitive)]
@@ -40,12 +39,14 @@ impl Actor {
     {
         let sys_ref: &Address = &SYSTEM_ACTOR_ADDR;
         rt.validate_immediate_caller_is(std::iter::once(sys_ref))?;
-        let mut empty_map = make_empty_map::<_, ()>(rt.store(), HAMT_BIT_WIDTH);
-        let root = empty_map.flush().map_err(|err| {
-            err.downcast_default(ExitCode::ErrIllegalState, "failed to construct state")
+        let state = State::new(rt.store(), params.network_name).map_err(|e| {
+            e.downcast_default(
+                ExitCode::ErrIllegalState,
+                "failed to construct init actor state",
+            )
         })?;
 
-        rt.create(&State::new(root, params.network_name))?;
+        rt.create(&state)?;
 
         Ok(())
     }
@@ -59,7 +60,13 @@ impl Actor {
         rt.validate_immediate_caller_accept_any()?;
         let caller_code = rt
             .get_actor_code_cid(rt.message().caller())?
-            .ok_or_else(|| actor_error!(fatal("No code for actor at {}", rt.message().caller())))?;
+            .ok_or_else(|| {
+                actor_error!(
+                    ErrIllegalState,
+                    "no code for caller as {}",
+                    rt.message().caller()
+                )
+            })?;
         if !can_exec(&caller_code, &params.code_cid) {
             return Err(actor_error!(ErrForbidden;
                     "called type {} cannot exec actor type {}",

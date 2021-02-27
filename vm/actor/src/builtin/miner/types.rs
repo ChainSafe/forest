@@ -7,7 +7,7 @@ use bitfield::UnvalidatedBitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe};
-use fil_types::{PoStProof, Randomness, RegisteredSealProof, SectorNumber};
+use fil_types::{PoStProof, Randomness, RegisteredPoStProof, RegisteredSealProof, SectorNumber};
 use num_bigint::bigint_ser;
 use vm::{DealID, TokenAmount};
 
@@ -23,7 +23,7 @@ pub struct MinerConstructorParams {
     pub owner: Address,
     pub worker: Address,
     pub control_addresses: Vec<Address>,
-    pub seal_proof_type: RegisteredSealProof,
+    pub window_post_proof_type: RegisteredPoStProof,
     #[serde(with = "serde_bytes")]
     pub peer_id: Vec<u8>,
     pub multi_addresses: Vec<BytesDe>,

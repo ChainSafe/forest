@@ -1,9 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{make_empty_map, make_map_with_root, BytesKey, Map};
+use crate::{make_empty_map, make_map_with_root_and_bitwidth, BytesKey, Map};
 use cid::Cid;
-use fil_types::HAMT_BIT_WIDTH;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error;
@@ -12,19 +11,29 @@ use std::error::Error as StdError;
 
 /// Multimap stores multiple values per key in a Hamt of Amts.
 /// The order of insertion of values for each key is retained.
-pub struct Multimap<'a, BS>(Map<'a, BS, Cid>);
+pub struct Multimap<'a, BS>(Map<'a, BS, Cid>, usize);
 impl<'a, BS> Multimap<'a, BS>
 where
     BS: BlockStore,
 {
     /// Initializes a new empty multimap.
-    pub fn new(bs: &'a BS) -> Self {
-        Self(make_empty_map(bs, HAMT_BIT_WIDTH))
+    /// The outer_bitwidth is the width of the HAMT and the
+    /// inner_bitwidth is the width of the AMTs inside of it.
+    pub fn new(bs: &'a BS, outer_bitwidth: u32, inner_bitwidth: usize) -> Self {
+        Self(make_empty_map(bs, outer_bitwidth), inner_bitwidth)
     }
 
     /// Initializes a multimap from a root Cid
-    pub fn from_root(bs: &'a BS, cid: &Cid) -> Result<Self, Error> {
-        Ok(Self(make_map_with_root(cid, bs)?))
+    pub fn from_root(
+        bs: &'a BS,
+        cid: &Cid,
+        outer_bitwidth: u32,
+        inner_bitwidth: usize,
+    ) -> Result<Self, Error> {
+        Ok(Self(
+            make_map_with_root_and_bitwidth(cid, bs, outer_bitwidth)?,
+            inner_bitwidth,
+        ))
     }
 
     /// Retrieve root from the multimap.
@@ -41,7 +50,7 @@ where
         // Get construct amt from retrieved cid or create new
         let mut arr = self
             .get::<V>(&key)?
-            .unwrap_or_else(|| Amt::new(self.0.store()));
+            .unwrap_or_else(|| Amt::new_with_bit_width(self.0.store(), self.1));
 
         // Set value at next index
         arr.set(arr.count(), value)?;

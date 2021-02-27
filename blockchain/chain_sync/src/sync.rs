@@ -195,7 +195,7 @@ where
                 let net_cloned = self.network.clone();
                 // TODO determine if tasks started to fetch and load tipsets should be
                 // limited. Currently no cap on this.
-                task::spawn(async {
+                task::spawn(async move {
                     Self::fetch_and_inform_tipset(
                         cs_cloned,
                         net_cloned,
@@ -269,17 +269,10 @@ where
 
     async fn handle_gossip_block(
         block: GossipBlock,
-        source: Option<PeerId>,
+        source: PeerId,
         network: SyncNetworkContext<DB>,
         channel: &Sender<(PeerId, FullTipset)>,
     ) {
-        let source = match source.clone() {
-            Some(source) => source,
-            None => {
-                warn!("Got a GossipBlock with no Source sender. This should not happen based on Filecoin's GossipSub options");
-                return;
-            }
-        };
         info!(
             "Received block over GossipSub: {} height {} from {}",
             block.header.cid(),
@@ -359,7 +352,7 @@ where
                 },
                 inform_head_event = fused_inform_channel.next() => match inform_head_event {
                     Some((peer, new_head)) => {
-                        if let Err(e) = self.inform_new_head(peer.clone(), new_head).await {
+                        if let Err(e) = self.inform_new_head(peer, new_head).await {
                             warn!("failed to inform new head from peer {}: {}", peer, e);
                         }
                     }
@@ -403,7 +396,7 @@ where
         tsk: TipsetKeys,
         channel: Sender<(PeerId, FullTipset)>,
     ) {
-        match Self::fetch_full_tipset(cs.as_ref(), &network, peer_id.clone(), &tsk).await {
+        match Self::fetch_full_tipset(cs.as_ref(), &network, peer_id, &tsk).await {
             Ok(fts) => {
                 channel
                     .send((peer_id, fts))

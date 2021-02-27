@@ -19,8 +19,8 @@ use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
 use libp2p::core::PeerId;
 use libp2p::gossipsub::{
-    error::PublishError, Gossipsub, GossipsubConfig, GossipsubEvent, MessageAuthenticity, Topic,
-    TopicHash, ValidationMode,
+    error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
+    GossipsubEvent, IdentTopic as Topic, MessageAuthenticity, MessageId, TopicHash, ValidationMode,
 };
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::ping::{
@@ -95,8 +95,8 @@ pub(crate) enum ForestBehaviourEvent {
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
     GossipMessage {
-        source: Option<PeerId>,
-        topics: Vec<TopicHash>,
+        source: PeerId,
+        topic: TopicHash,
         message: Vec<u8>,
     },
     BitswapReceivedBlock(PeerId, Cid, Box<[u8]>),
@@ -116,7 +116,7 @@ impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
     fn inject_event(&mut self, event: DiscoveryOut) {
         match event {
             DiscoveryOut::Connected(peer) => {
-                self.bitswap.connect(peer.clone());
+                self.bitswap.connect(peer);
                 self.events.push(ForestBehaviourEvent::PeerConnected(peer));
             }
             DiscoveryOut::Disconnected(peer) => {
@@ -164,10 +164,15 @@ impl NetworkBehaviourEventProcess<BitswapEvent> for ForestBehaviour {
 
 impl NetworkBehaviourEventProcess<GossipsubEvent> for ForestBehaviour {
     fn inject_event(&mut self, message: GossipsubEvent) {
-        if let GossipsubEvent::Message(_, _, message) = message {
+        if let GossipsubEvent::Message {
+            propagation_source,
+            message,
+            message_id: _,
+        } = message
+        {
             self.events.push(ForestBehaviourEvent::GossipMessage {
-                source: message.source,
-                topics: message.topics,
+                source: propagation_source,
+                topic: message.topic,
                 message: message.data,
             })
         }
@@ -246,8 +251,12 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
 
                     // Send hello response immediately, no need to have the overhead of emitting
                     // channel and polling future here.
-                    self.hello
-                        .send_response(channel, HelloResponse { arrival, sent });
+                    if let Err(e) = self
+                        .hello
+                        .send_response(channel, HelloResponse { arrival, sent })
+                    {
+                        debug!("Failed to send HelloResponse: {:?}", e)
+                    };
                     self.events
                         .push(ForestBehaviourEvent::HelloRequest { request, peer });
                 }
@@ -291,6 +300,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
             } => {
                 warn!("Hello inbound error (peer: {:?}): {:?}", peer, error);
             }
+            RequestResponseEvent::ResponseSent { .. } => (),
         }
     }
 }
@@ -309,12 +319,8 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                     channel,
                     request_id: _,
                 } => {
-                    // This creates a new channel to be used to handle the response from
-                    // outside the libp2p service. This is necessary because libp2p req-res does
-                    // not expose the response channel and this is better to control the interface.
                     let (tx, rx) = oneshot::channel();
                     self.cx_pending_responses.push(Box::pin(async move {
-                        // Await on created channel response
                         rx.await
                             .map(|response| RequestProcessingOutcome {
                                 inner_channel: channel,
@@ -327,8 +333,6 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                         .push(ForestBehaviourEvent::ChainExchangeRequest {
                             peer,
                             request,
-                            // Sender for the channel polled above will be emitted and handled
-                            // by whatever consumes the events
                             channel: tx,
                         })
                 }
@@ -377,6 +381,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                     peer, error
                 );
             }
+            _ => {}
         }
     }
 }
@@ -400,7 +405,14 @@ impl ForestBehaviour {
                 None => continue,
             };
 
-            self.chain_exchange.send_response(inner_channel, response)
+            if self
+                .chain_exchange
+                .send_response(inner_channel, response)
+                .is_err()
+            {
+                // TODO can include request id from RequestProcessingOutcome
+                warn!("failed to send chain exchange response");
+            }
         }
         if !self.events.is_empty() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(self.events.remove(0)));
@@ -409,12 +421,11 @@ impl ForestBehaviour {
     }
 
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
-        let gossipsub_config = GossipsubConfig {
-            validation_mode: ValidationMode::Strict,
-            // Using go gossipsub default, not certain this is intended
-            max_transmit_size: 1 << 20,
-            ..Default::default()
-        };
+        let mut gs_config_builder = GossipsubConfigBuilder::default();
+        gs_config_builder.max_transmit_size(1 << 20);
+        gs_config_builder.validation_mode(ValidationMode::Strict);
+
+        let gossipsub_config = gs_config_builder.build().unwrap();
 
         let bitswap = Bitswap::new();
 
@@ -437,7 +448,8 @@ impl ForestBehaviour {
             gossipsub: Gossipsub::new(
                 MessageAuthenticity::Signed(local_key.clone()),
                 gossipsub_config,
-            ),
+            )
+            .unwrap(),
             discovery: discovery_config.finish(),
             ping: Ping::default(),
             identify: Identify::new(
@@ -461,12 +473,16 @@ impl ForestBehaviour {
     }
 
     /// Publish data over the gossip network.
-    pub fn publish(&mut self, topic: &Topic, data: impl Into<Vec<u8>>) -> Result<(), PublishError> {
+    pub fn publish(
+        &mut self,
+        topic: Topic,
+        data: impl Into<Vec<u8>>,
+    ) -> Result<MessageId, PublishError> {
         self.gossipsub.publish(topic, data)
     }
 
     /// Subscribe to a gossip topic.
-    pub fn subscribe(&mut self, topic: Topic) -> bool {
+    pub fn subscribe(&mut self, topic: &Topic) -> Result<bool, SubscriptionError> {
         self.gossipsub.subscribe(topic)
     }
 

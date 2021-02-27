@@ -18,14 +18,14 @@ use ipld_blockstore::BlockStore;
 use num_bigint::Sign;
 use num_bigint::{bigint_ser::BigIntDe, Integer};
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Signed};
 use runtime::{ActorCode, Runtime};
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
     METHOD_SEND,
 };
 
-// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
+// * Updated to specs-actors commit: 999e57a151cc7ada020ca2844b651499ab8c0dec (v3.0.1)
 
 /// PenaltyMultiplier is the factor miner penaltys are scaled up by
 pub const PENALTY_MULTIPLIER: u64 = 3;
@@ -135,12 +135,13 @@ impl Actor {
                 );
                 total_reward = curr_balance;
                 block_reward = &total_reward - &params.gas_reward;
-                assert_ne!(
-                    block_reward.sign(),
-                    Sign::Minus,
-                    "block reward {} below zero",
-                    block_reward
-                );
+                if block_reward.is_negative() {
+                    return Err(actor_error!(
+                        ErrIllegalState,
+                        "programming error, block reward {} below zero",
+                        block_reward
+                    ));
+                }
             }
             st.total_storage_power_reward += block_reward;
             Ok(total_reward)
@@ -148,12 +149,14 @@ impl Actor {
 
         // * Go implementation added this and removed capping it -- this could potentially panic
         // * as they treat panics as an exit code. Revisit this.
-        assert!(
-            total_reward <= prior_balance,
-            "reward {} exceeds balance {}",
-            total_reward,
-            prior_balance
-        );
+        if total_reward > prior_balance {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "reward {} exceeds balance {}",
+                total_reward,
+                prior_balance
+            ));
+        }
 
         // if this fails, we can assume the miner is responsible and avoid failing here.
         let reward_params = miner::ApplyRewardParams {

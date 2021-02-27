@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::stream::{self, Interval};
+use async_std::task;
 use futures::prelude::*;
 use libp2p::{
     core::{
         connection::{ConnectionId, ListenerId},
         ConnectedPoint, Multiaddr, PeerId, PublicKey,
     },
-    kad::{handler::KademliaHandler, Kademlia, KademliaConfig, KademliaEvent, QueryId},
+    kad::{handler::KademliaHandlerProto, Kademlia, KademliaConfig, KademliaEvent, QueryId},
     mdns::MdnsEvent,
     multiaddr::Protocol,
     swarm::{
@@ -128,7 +129,7 @@ impl<'a> DiscoveryConfig<'a> {
             let mut kademlia = Kademlia::with_config(local_peer_id, store, kad_config);
             for (peer_id, addr) in user_defined.iter() {
                 kademlia.add_address(&peer_id, addr.clone());
-                peers.insert(peer_id.clone());
+                peers.insert(*peer_id);
             }
             if let Err(e) = kademlia.bootstrap() {
                 warn!("Kademlia bootstrap failed: {}", e);
@@ -139,7 +140,9 @@ impl<'a> DiscoveryConfig<'a> {
         };
 
         let mdns_opt = if enable_mdns {
-            Some(Mdns::new().expect("Could not start mDNS"))
+            Some(task::block_on(async {
+                Mdns::new().await.expect("Could not start mDNS")
+            }))
         } else {
             None
         };
@@ -198,7 +201,7 @@ impl DiscoveryBehaviour {
 }
 
 impl NetworkBehaviour for DiscoveryBehaviour {
-    type ProtocolsHandler = ToggleIntoProtoHandler<KademliaHandler<QueryId>>;
+    type ProtocolsHandler = ToggleIntoProtoHandler<KademliaHandlerProto<QueryId>>;
     type OutEvent = DiscoveryOut;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
@@ -241,9 +244,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        self.peers.insert(peer_id.clone());
+        self.peers.insert(*peer_id);
         self.pending_events
-            .push_back(DiscoveryOut::Connected(peer_id.clone()));
+            .push_back(DiscoveryOut::Connected(*peer_id));
 
         self.kademlia.inject_connected(peer_id)
     }
@@ -263,7 +266,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
         self.peers.remove(peer_id);
         self.pending_events
-            .push_back(DiscoveryOut::Disconnected(peer_id.clone()));
+            .push_back(DiscoveryOut::Disconnected(*peer_id));
 
         self.kademlia.inject_disconnected(peer_id)
     }
@@ -340,7 +343,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     random_peer_id
                 );
                 if let Some(k) = self.kademlia.as_mut() {
-                    k.get_closest_peers(random_peer_id.clone());
+                    k.get_closest_peers(random_peer_id);
                 }
             }
 
@@ -384,8 +387,11 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                             event,
                         })
                     }
-                    NetworkBehaviourAction::ReportObservedAddr { address } => {
-                        return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address })
+                    NetworkBehaviourAction::ReportObservedAddr { address, score } => {
+                        return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                            address,
+                            score,
+                        })
                     }
                 }
             }
@@ -420,8 +426,11 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 }
                 // Nothing to notify handler
                 NetworkBehaviourAction::NotifyHandler { event, .. } => match event {},
-                NetworkBehaviourAction::ReportObservedAddr { address } => {
-                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address })
+                NetworkBehaviourAction::ReportObservedAddr { address, score } => {
+                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                        address,
+                        score,
+                    })
                 }
             }
         }
