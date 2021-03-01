@@ -9,9 +9,9 @@
 use super::provider::Provider;
 use super::{create_message_chains, msg_pool::MessagePool};
 use crate::msg_chain::MsgChain;
-use crate::msg_pool::remove;
 use crate::msg_pool::MsgSet;
 use crate::Error;
+use crate::{add_to_selected_msgs, remove_from_selected_msgs};
 use address::Address;
 use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
@@ -262,41 +262,6 @@ where
         }
     }
     Ok(())
-}
-
-/// This is a helper method for head_change. This method will remove a sequence for a from address
-/// from the messages selected by priority hashmap. It also removes the 'from' address and sequence from the MessagePool.
-pub(crate) async fn remove_from_selected_msgs(
-    from: &Address,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
-    sequence: u64,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) -> Result<(), Error> {
-    if let Some(temp) = rmsgs.get_mut(from) {
-        if temp.get_mut(&sequence).is_some() {
-            temp.remove(&sequence);
-        } else {
-            remove(from, pending, sequence, true).await?;
-        }
-    } else {
-        remove(from, pending, sequence, true).await?;
-    }
-    Ok(())
-}
-
-/// This function is a helper method for head_change. This method will add a signed message to
-/// the given messages selected by priority HashMap.
-pub(crate) fn add_to_selected_msgs(
-    m: SignedMessage,
-    rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
-) {
-    let s = rmsgs.get_mut(m.from());
-    if let Some(s) = s {
-        s.insert(m.sequence(), m);
-    } else {
-        rmsgs.insert(*m.from(), HashMap::new());
-        rmsgs.get_mut(m.from()).unwrap().insert(m.sequence(), m);
-    }
 }
 
 #[cfg(test)]
