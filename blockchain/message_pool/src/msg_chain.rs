@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{get_gas_perf, get_gas_reward};
+use crate::utils::{get_gas_perf, get_gas_reward};
 use message::{Message, SignedMessage};
 use num_bigint::BigInt;
 use std::cmp::Ordering;
