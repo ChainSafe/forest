@@ -1,7 +1,6 @@
 use futures::stream::StreamExt;
 use log::{debug, error, info};
-use serde::de::DeserializeOwned;
-use tide::{Error as HttpError, Request as HttpRequest};
+use tide::Request as HttpRequest;
 use tide_websockets::WebSocketConnection;
 
 use beacon::Beacon;
@@ -10,48 +9,10 @@ use wallet::KeyStore;
 
 use crate::chain_api::Subscription;
 use crate::data_types::{JsonRpcServerState, StreamingData};
-use crate::rpc_util::{get_error_str, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY};
+use crate::rpc_util::{
+    get_error_str, make_rpc_call, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
+};
 use chain::headchange_json::HeadChangeJson;
-
-async fn make_rpc_call<T, DB, KS, B>(
-    rpc_server: JsonRpcServerState,
-    rpc_request: jsonrpc_v2::RequestObject,
-) -> Result<T, tide::Error>
-where
-    T: DeserializeOwned,
-    DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-{
-    let rpc_subscription_response = rpc_server.handle(rpc_request).await;
-
-    match rpc_subscription_response {
-        jsonrpc_v2::ResponseObjects::One(rpc_subscription_params) => {
-            match rpc_subscription_params {
-                jsonrpc_v2::ResponseObject::Result { result, .. } => {
-                    Ok(serde_json::from_value::<T>(serde_json::to_value(result)?)?)
-                }
-                jsonrpc_v2::ResponseObject::Error { error, .. } => match error {
-                    jsonrpc_v2::Error::Provided { message, .. } => {
-                        error!("Error after making RPC call: {:?}", &message);
-                        Err(HttpError::from_str(
-                            500,
-                            format!("Error after making RPC call: {:?}", &message),
-                        ))
-                    }
-                    _ => Err(HttpError::from_str(
-                        500,
-                        format!("Unknown error after making RPC call"),
-                    )),
-                },
-            }
-        }
-        _ => Err(HttpError::from_str(
-            500,
-            format!("Unexpected response type after making RPC call"),
-        )),
-    }
-}
 
 pub async fn rpc_ws_handler<DB, KS, B>(
     request: HttpRequest<JsonRpcServerState>,
@@ -64,7 +25,7 @@ where
 {
     let rpc_server = request.state();
 
-    debug!("accepted websocket connection from {:?}", request.remote());
+    debug!("Accepted WS connection from {:?}", request.remote());
 
     while let Some(message_result) = ws_stream.next().await {
         match message_result {
@@ -108,7 +69,7 @@ where
                                 }
                             }
                             _ => {
-                                error!("RPC Websocket tried handling something it shouldn't have.");
+                                error!("RPC WS called method: {}", call.method_ref());
 
                                 let response =
                                     make_rpc_call::<_, DB, KS, B>(rpc_server.clone(), call).await?;
