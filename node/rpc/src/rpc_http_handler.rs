@@ -44,7 +44,7 @@ where
     let rpc_server = http_request.state();
     let rpc_response = make_rpc_call(rpc_server.clone(), rpc_call).await?;
     let http_response = HttpResponse::builder(200)
-        .body(serde_json::to_string(&rpc_response).unwrap())
+        .body(rpc_response)
         .content_type("application/json-rpc;charset=utf-8")
         .build();
 

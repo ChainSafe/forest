@@ -37,5 +37,5 @@ pub async fn make_rpc_call(
     rpc_request: jsonrpc_v2::RequestObject,
 ) -> Result<String, tide::Error> {
     let rpc_subscription_response = rpc_server.handle(rpc_request).await;
-    Ok(serde_json::to_string(&rpc_subscription_response)?)
+    Ok(serde_json::to_string_pretty(&rpc_subscription_response)?)
 }

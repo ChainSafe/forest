@@ -75,7 +75,7 @@ where
 
                                 let response = make_rpc_call(rpc_server.clone(), call).await?;
 
-                                ws_stream.send_json(&response).await?;
+                                ws_stream.send_string(response).await?;
                             }
                         },
                         Err(e) => {
