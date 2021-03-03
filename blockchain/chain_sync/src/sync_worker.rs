@@ -85,9 +85,11 @@ where
         self,
         mut inbound_channel: Receiver<Arc<Tipset>>,
         state: Arc<Mutex<ChainSyncState>>,
+        id: usize,
     ) -> JoinHandle<()> {
         task::spawn(async move {
             while let Some(ts) = inbound_channel.next().await {
+                info!("Worker #{} starting work on: {:?}", id, ts.key());
                 match self.sync(ts).await {
                     Ok(()) => *state.lock().await = ChainSyncState::Follow,
                     Err(e) => {
