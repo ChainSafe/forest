@@ -562,7 +562,6 @@ where
         }
 
         let subscriptions = Arc::clone(&self.subscriptions);
-        let inner_sub_id = sub_id.clone();
 
         task::spawn(async move {
             let subscriptions = Arc::clone(&subscriptions);
@@ -572,7 +571,7 @@ where
                     Ok(change) => {
                         if tx.send(change).await.is_err() {
                             // Subscriber dropped, no need to keep task alive
-                            subscriptions.write().await.insert(inner_sub_id, None);
+                            subscriptions.write().await.insert(sub_id, None);
                             break;
                         }
                     }

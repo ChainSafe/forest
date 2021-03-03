@@ -53,7 +53,6 @@ message = { package = "forest_message", version = "0.6", features = ["json"] }
 message_pool = { path = "../../blockchain/message_pool" }
 networks = { path = "../../types/networks" }
 num-bigint = { version = "0.1.1", package = "forest_bigint" }
-rpc_types = { path = "../../types/rpc" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
 state_tree = { path = "../../vm/state_tree" }
 utils = { path = "../../node/utils" }

@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
 use tide::http::{format_err, Error as HttpError, Method};
 use tide::{Request as HttpRequest, Response as HttpResponse, Result};

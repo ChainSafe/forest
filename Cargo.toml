@@ -34,7 +34,6 @@ members = [
     "tests/serialization_tests",
     "types",
     "types/networks",
-    "types/rpc",
     "utils/auth",
     "utils/bigint",
     "utils/bitfield",

@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::data_types::JsonRpcServerState;
 
 pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
@@ -29,7 +32,7 @@ pub const RPC_METHOD_CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
 const STREAMING_METHODS: [&str; 1] = [RPC_METHOD_CHAIN_NOTIFY];
 
 pub fn is_streaming_method(method_name: &str) -> bool {
-    STREAMING_METHODS.contains(&method_name.as_ref())
+    STREAMING_METHODS.contains(&method_name)
 }
 
 pub async fn make_rpc_call(
