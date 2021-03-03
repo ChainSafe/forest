@@ -410,6 +410,7 @@ where
         }
 
         let epoch = fts.epoch();
+        let fts_key = fts.key().clone();
 
         let mut validations = FuturesUnordered::new();
         for b in fts.into_blocks() {
@@ -435,7 +436,7 @@ where
                 }
             }
         }
-        info!("Successfully validated tipset at epoch: {}", epoch);
+        info!("Successfully validated tipset {:?} at epoch: {}", fts_key, epoch);
         Ok(())
     }
 
