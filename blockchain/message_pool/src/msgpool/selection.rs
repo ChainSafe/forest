@@ -6,8 +6,8 @@
 //! which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
 //! See https://docs.filecoin.io/mine/lotus/message-pool/#message-selection for more details
 
-use super::provider::Provider;
 use super::{create_message_chains, msg_pool::MessagePool};
+use super::{gas_guess, provider::Provider};
 use crate::msg_chain::MsgChain;
 use crate::msg_pool::MsgSet;
 use crate::Error;
@@ -22,6 +22,10 @@ use std::borrow::BorrowMut;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+// A cap on maximum number of message to include in a block
+const MAX_BLOCK_MSGS: usize = 16000;
+const MAX_BLOCKS: usize = 15;
+
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 
 impl<T> MessagePool<T>
@@ -29,14 +33,22 @@ where
     T: Provider + Send + Sync + 'static,
 {
     /// Selects messages for including in a block.
-    pub async fn select_messages(
-        &self,
-        ts: &Tipset,
-        _tq: f64,
-    ) -> Result<Vec<SignedMessage>, Error> {
+    pub async fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
-        // TODO: Implement a more optimal message selection to pack more msgs into a block
-        self.select_messages_greedy(&cur_ts, ts).await
+        // if the ticket quality is high enough that the first block has higher probability
+        // than any other block, then we don't bother with optimal selection because the
+        // first block will always have higher effective performance
+        let mut msgs = if tq > 0.84 {
+            self.select_messages_greedy(&cur_ts, ts).await
+        } else {
+            self.select_messages_optimal(&cur_ts, ts, tq).await
+        }?;
+
+        if msgs.len() > MAX_BLOCK_MSGS {
+            msgs.truncate(MAX_BLOCK_MSGS)
+        }
+
+        Ok(msgs)
     }
 
     async fn select_messages_greedy(
@@ -74,13 +86,70 @@ where
         Ok(msgs)
     }
 
+    async fn select_messages_optimal(
+        &self,
+        cur_ts: &Tipset,
+        ts: &Tipset,
+        _tq: f64,
+    ) -> Result<Vec<SignedMessage>, Error> {
+        let base_fee = self.api.read().await.chain_compute_base_fee(&ts)?;
+
+        // 0. Load messages from the target tipset; if it is the same as the current tipset in
+        //    the mpool, then this is just the pending messages
+        let mut pending = self.get_pending_messages(&cur_ts, &ts).await?;
+
+        if pending.is_empty() {
+            return Ok(Vec::new());
+        }
+        // 0b. Select all priority messages that fit in the block
+        let (result, gas_limit) = self
+            .select_priority_messages(&mut pending, &base_fee, &ts)
+            .await?;
+
+        // check if block has been filled
+        if gas_limit < gas_guess::MIN_GAS {
+            return Ok(result);
+        }
+        // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
+        let mut chains = Vec::new();
+        for (actor, mset) in pending.into_iter() {
+            chains.extend(create_message_chains(&self.api, &actor, &mset, &base_fee, &ts).await?);
+        }
+
+        // 2. Sort the chains
+        chains.sort_by(|a, b| b.compare(&a));
+
+        // 3. Parition chains into blocks (without trimming)
+        //    we use the full blockGasLimit (as opposed to the residual gas limit from the
+        //    priority message selection) as we have to account for what other miners are doing
+        // TODO
+        // let nextChain = 0;
+        // let partitions = vec![vec![];MAX_BLOCKS];
+        // let mut i = 0;
+        // while i < MAX_BLOCKS && nextChain < chains.len() {
+        //     let gas_limit = types::BLOCK_GAS_LIMIT;
+        //     let chain = chains[nextChain];
+        //     nextChain+=1;
+        //     partitions[i] = chain;
+        //     // need total gas limit here.
+        //     gas_limit -= chain.gas_limit;
+
+        // }
+
+        // let (msgs, _) = merge_and_trim(chains, result, &base_fee, gas_limit, gas_guess::MIN_GAS);
+        // Ok(msgs)
+        unimplemented!()
+    }
+
     async fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
         let mut result: Pending = HashMap::new();
         let mut in_sync = false;
+        // are we in sync?
         if cur_ts.epoch() == ts.epoch() && cur_ts == ts {
             in_sync = true;
         }
 
+        // first add our current pending messages
         for (a, mset) in self.pending.read().await.iter() {
             if in_sync {
                 result.insert(*a, mset.msgs.clone());
@@ -93,6 +162,7 @@ where
             }
         }
 
+        // we are in sync, that's the happy path
         if in_sync {
             return Ok(result);
         }

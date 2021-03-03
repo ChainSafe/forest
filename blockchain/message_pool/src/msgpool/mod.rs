@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod gas_guess;
 pub(crate) mod msg_pool;
 pub(crate) mod provider;
 mod selection;
@@ -178,6 +179,7 @@ where
 {
     // collect all messages and sort
     let mut msgs: Vec<SignedMessage> = mset.values().cloned().collect();
+    // sort by nonce
     msgs.sort_by_key(|v| v.sequence());
 
     // sanity checks:
