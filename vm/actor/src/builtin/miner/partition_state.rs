@@ -14,6 +14,7 @@ use fil_types::{
     deadlines::{QuantSpec, NO_QUANTIZATION},
     SectorSize, StoragePower,
 };
+use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
@@ -22,6 +23,10 @@ use std::{
     ops::{self, Neg},
 };
 use vm::{ActorError, ExitCode, TokenAmount};
+
+// Bitwidth of AMTs determined empirically from mutation patterns and projections of mainnet data.
+const PARTITION_EXPIRATION_AMT_BITWIDTH: usize = 4;
+const PARTITION_EARLY_TERMINATION_ARRAY_AMT_BITWIDTH: usize = 3;
 
 #[derive(Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct Partition {
@@ -61,20 +66,28 @@ pub struct Partition {
 }
 
 impl Partition {
-    pub fn new(empty_array_cid: Cid) -> Self {
-        Self {
+    pub fn new<BS: BlockStore>(store: &BS) -> Result<Self, Box<dyn StdError>> {
+        let empty_expiration_array =
+            Amt::<Cid, BS>::new_with_bit_width(store, PARTITION_EXPIRATION_AMT_BITWIDTH).flush()?;
+        let empty_early_termination_array = Amt::<Cid, BS>::new_with_bit_width(
+            store,
+            PARTITION_EARLY_TERMINATION_ARRAY_AMT_BITWIDTH,
+        )
+        .flush()?;
+
+        Ok(Self {
             sectors: BitField::new(),
             unproven: BitField::new(),
             faults: BitField::new(),
             recoveries: BitField::new(),
             terminated: BitField::new(),
-            expirations_epochs: empty_array_cid,
-            early_terminated: empty_array_cid,
+            expirations_epochs: empty_expiration_array,
+            early_terminated: empty_early_termination_array,
             live_power: PowerPair::zero(),
             unproven_power: PowerPair::zero(),
             faulty_power: PowerPair::zero(),
             recovering_power: PowerPair::zero(),
-        }
+        })
     }
 
     /// Live sectors are those that are not terminated (but may be faulty).
@@ -124,22 +137,17 @@ impl Partition {
         self.sectors |= &sector_numbers;
         self.live_power += &power;
 
-        let proven_power = if !proven {
+        if !proven {
             self.unproven_power += &power;
             self.unproven |= &sector_numbers;
-
-            // Only return the power if proven.
-            PowerPair::default()
-        } else {
-            power
-        };
+        }
 
         // check invariants
         self.validate_state()?;
 
         // No change to faults, recoveries, or terminations.
         // No change to faulty or recovering power.
-        Ok(proven_power)
+        Ok(power)
     }
 
     /// marks a set of sectors faulty
@@ -200,7 +208,7 @@ impl Partition {
     /// - The sectors' expirations are rescheduled to the fault expiration epoch, as "early" (if not expiring earlier).
     ///
     /// Returns the power of the now-faulty sectors.
-    pub fn declare_faults<BS: BlockStore>(
+    pub fn record_faults<BS: BlockStore>(
         &mut self,
         store: &BS,
         sectors: &Sectors<'_, BS>,

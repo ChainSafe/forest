@@ -1,10 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::types::SectorOnChainInfo;
+use super::{types::SectorOnChainInfo, PowerPair, BASE_REWARD_FOR_DISPUTED_WINDOW_POST};
 use crate::{network::*, DealWeight};
 use clock::ChainEpoch;
-use fil_types::{NetworkVersion, RegisteredSealProof, SectorQuality, SectorSize, StoragePower};
+use fil_types::{
+    NetworkVersion, RegisteredPoStProof, RegisteredSealProof, SectorQuality, SectorSize,
+    StoragePower,
+};
 use num_bigint::BigUint;
 use num_bigint::{BigInt, Integer};
 use num_traits::Pow;
@@ -19,6 +22,9 @@ pub const WPOST_CHALLENGE_WINDOW: ChainEpoch = 30 * 60 / EPOCH_DURATION_SECONDS;
 pub const WPOST_PERIOD_DEADLINES: u64 = 48;
 /// The maximum distance back that a valid Window PoSt must commit to the current chain.
 pub const WPOST_MAX_CHAIN_COMMIT_AGE: ChainEpoch = WPOST_CHALLENGE_WINDOW;
+// WPoStDisputeWindow is the period after a challenge window ends during which
+// PoSts submitted during that period may be disputed.
+pub const WPOST_DISPUTE_WINDOW: ChainEpoch = 2 * CHAIN_FINALITY;
 
 /// The maximum number of sectors that a miner can have simultaneously active.
 /// This also bounds the number of faults that can be declared, etc.
@@ -103,14 +109,10 @@ pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof, nv: NetworkVersion)
 }
 
 /// Checks whether a seal proof type is supported for new miners and sectors.
-pub fn can_extend_seal_proof_type(proof: RegisteredSealProof, nv: NetworkVersion) -> bool {
+pub fn can_extend_seal_proof_type(proof: RegisteredSealProof) -> bool {
     use RegisteredSealProof::*;
 
-    if nv >= NetworkVersion::V7 {
-        matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
-    } else {
-        matches!(proof, StackedDRG32GiBV1 | StackedDRG64GiBV1)
-    }
+    matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
 }
 
 /// Maximum duration to allow for the sealing process for seal algorithms.
@@ -298,4 +300,13 @@ pub fn reward_for_consensus_slash_report(
         num.div_floor(&denom),
         (collateral * max_reporter_share.numerator).div_floor(&max_reporter_share.denominator),
     )
+}
+
+// The reward given for successfully disputing a window post.
+pub fn reward_for_disputed_window_post(
+    _proof_type: RegisteredPoStProof,
+    _disputed_power: PowerPair,
+) -> TokenAmount {
+    // This is currently just the base. In the future, the fee may scale based on the disputed power.
+    BASE_REWARD_FOR_DISPUTED_WINDOW_POST.clone()
 }

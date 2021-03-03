@@ -32,7 +32,9 @@ pub use types::*;
 pub use vesting_state::*;
 
 use crate::{
-    account::Method as AccountMethod, actor_error, make_empty_map, market::ActivateDealsParams,
+    account::Method as AccountMethod,
+    actor_error,
+    market::{self, ActivateDealsParams},
     power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
 use crate::{
@@ -54,7 +56,7 @@ use crate::{
     ActorDowncast,
 };
 use address::{Address, Payload, Protocol};
-use bitfield::{BitField, UnvalidatedBitField, Validate};
+use bitfield::{UnvalidatedBitField, Validate};
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use cid::{Cid, Code::Blake2b256, Prefix};
 use clock::ChainEpoch;
@@ -63,11 +65,10 @@ use crypto::DomainSeparationTag::{
 };
 use encoding::{BytesDe, Cbor};
 use fil_types::{
-    deadlines::DeadlineInfo, InteractiveSealRandomness, NetworkVersion, PoStProof, PoStRandomness,
+    deadlines::DeadlineInfo, InteractiveSealRandomness, PoStProof, PoStRandomness,
     RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
-    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, HAMT_BIT_WIDTH, MAX_SECTOR_NUMBER,
+    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
 };
-use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntSer;
 use num_bigint::BigInt;
@@ -119,10 +120,10 @@ pub enum Method {
     ConfirmUpdateWorkerKey = 21,
     RepayDebt = 22,
     ChangeOwnerAddress = 23,
+    DisputeWindowedPoSt = 24,
 }
 
 /// Miner Actor
-/// TODO: This is now broken and not v3 ready because of the changes that needed to be made
 /// here in order to update the Power Actor to v3.
 pub struct Actor;
 
@@ -148,59 +149,6 @@ impl Actor {
             .map(|address| resolve_control_address(rt, address))
             .collect::<Result<_, _>>()?;
 
-        let empty_map = make_empty_map::<_, ()>(rt.store(), HAMT_BIT_WIDTH)
-            .flush()
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to construct initial state",
-                )
-            })?;
-
-        let empty_array = Amt::<Cid, BS>::new(rt.store()).flush().map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "failed to construct initial state",
-            )
-        })?;
-
-        let empty_bitfield_cid = rt.store().put(&BitField::new(), Blake2b256).map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalState,
-                "failed to construct illegal state",
-            )
-        })?;
-
-        let empty_deadline_cid = rt
-            .store()
-            .put(&Deadline::new(empty_array), Blake2b256)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to construct illegal state",
-                )
-            })?;
-
-        let empty_deadlines_cid = rt
-            .store()
-            .put(&Deadlines::new(empty_deadline_cid), Blake2b256)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to construct illegal state",
-                )
-            })?;
-
-        let empty_vesting_funds_cid =
-            rt.store()
-                .put(&VestingFunds::new(), Blake2b256)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to construct illegal state",
-                    )
-                })?;
-
         let current_epoch = rt.curr_epoch();
         let blake2b = |b: &[u8]| rt.hash_blake2b(b);
         let offset = assign_proving_period_offset(*rt.message().receiver(), current_epoch, blake2b)
@@ -212,8 +160,23 @@ impl Actor {
             })?;
 
         let period_start = current_proving_period_start(current_epoch, offset);
+        if period_start > current_epoch {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "computed proving period start {} after current epoch {}",
+                period_start,
+                current_epoch
+            ));
+        }
+
         let deadline_idx = current_deadline_index(current_epoch, period_start);
-        assert!(deadline_idx < WPOST_PERIOD_DEADLINES as usize);
+        if deadline_idx >= WPOST_PERIOD_DEADLINES as usize {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "computed proving deadline index {} invalid",
+                deadline_idx
+            ));
+        }
 
         let info = MinerInfo::new(
             owner,
@@ -225,7 +188,7 @@ impl Actor {
         )
         .map_err(|e| {
             actor_error!(
-                ErrIllegalArgument,
+                ErrIllegalState,
                 "failed to construct initial miner info: {}",
                 e
             )
@@ -237,16 +200,9 @@ impl Actor {
             )
         })?;
 
-        let st = State::new(
-            info_cid,
-            period_start,
-            deadline_idx,
-            empty_bitfield_cid,
-            empty_array,
-            empty_map,
-            empty_deadlines_cid,
-            empty_vesting_funds_cid,
-        );
+        let st = State::new(rt.store(), info_cid, period_start, deadline_idx).map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to construct state")
+        })?;
         rt.create(&st)?;
 
         // Register first cron callback for epoch before the next deadline starts.
@@ -462,7 +418,6 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let current_epoch = rt.curr_epoch();
-        let network_version = rt.network_version();
 
         if params.deadline >= WPOST_PERIOD_DEADLINES as usize {
             return Err(actor_error!(
@@ -484,15 +439,16 @@ impl Actor {
         //     ));
         // }
 
-        let mut partition_indexes = BitField::new();
-        if network_version >= NetworkVersion::V7 {
-            for partition in params.partitions.iter() {
-                partition_indexes.set(partition.index as usize);
-            }
-        }
-
         let post_result = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt.store(), state)?;
+
+            let max_proof_size = info.window_post_proof_type.proof_size().map_err(|e| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to determine max window post proof size: {}",
+                    e
+                )
+            })?;
 
             rt.validate_immediate_caller_is(
                 info.control_addresses
@@ -505,27 +461,13 @@ impl Actor {
             //
             // This can be 0 if the miner isn't actually proving anything,
             // just skipping all sectors.
-            // TODO: FIX ME FOR v3
-            // let window_post_proof_type = info
-            //     .seal_proof_type
-            //     .registered_window_post_proof()
-            //     .map_err(|e| {
-            //         actor_error!(
-            //             ErrIllegalState,
-            //             "failed to determine window PoSt type: {}",
-            //             e
-            //         )
-            //     })?;
-            let window_post_proof_type = 2349;
             if let Some(proof) = params.proofs.get(0) {
-                if proof.post_proof
-                    != fil_types::RegisteredPoStProof::Invalid(window_post_proof_type)
-                {
+                if proof.post_proof != info.window_post_proof_type {
                     return Err(actor_error!(
                         ErrIllegalArgument,
                         "expected proof of type {:?}, got {:?}",
                         proof.post_proof,
-                        window_post_proof_type
+                        info.window_post_proof_type
                     ));
                 }
             } else {
@@ -533,6 +475,15 @@ impl Actor {
                     ErrIllegalArgument,
                     "expected exactly one proof, got {}",
                     params.proofs.len()
+                ));
+            }
+            // Make sure the proof size doesn't exceed the max. We could probably check for an exact match, but this is safer.
+            let max_size = max_proof_size * params.partitions.len();
+            if params.proofs.get(0).unwrap().proof_bytes.len() > max_size {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "expect proof to be smaller than {} bytes",
+                    max_size
                 ));
             }
 
@@ -619,25 +570,15 @@ impl Actor {
                 .load_deadline(rt.store(), params.deadline)
                 .map_err(|e| e.wrap(format!("failed to load deadline {}", params.deadline)))?;
 
-            if network_version >= NetworkVersion::V7 {
-                let already_proven = &deadline.post_submissions & &partition_indexes;
-                if !already_proven.is_empty() {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "partition already proven: {:?}",
-                        already_proven
-                    ));
-                }
-            }
-
             // Record proven sectors/partitions, returning updates to power and the final set of sectors
             // proven/skipped.
             //
-            // NOTE: This function does not actually check the proofs but does assume that they'll be
-            // successfully validated. The actual proof verification is done below in verifyWindowedPost.
+            // NOTE: This function does not actually check the proofs but does assume that they're correct. Instead,
+            // it snapshots the deadline's state and the submitted proofs at the end of the challenge window and
+            // allows third-parties to dispute these proofs.
             //
-            // If proof verification fails, the this deadline MUST NOT be saved and this function should
-            // be aborted.
+            // While we could perform _all_ operations at the end of challenge window, we do as we can here to avoid
+            // overloading cron.
             let fault_expiration = current_deadline.last() + FAULT_MAX_AGE;
             let post_result = deadline
                 .record_proven_sectors(
@@ -658,24 +599,9 @@ impl Actor {
                     )
                 })?;
 
-            // Skipped sectors (including retracted recoveries) pay nothing at Window PoSt,
-            // but will incur the "ongoing" fault fee at deadline end.
-
-            // Validate proofs
-
-            // Load sector infos for proof, substituting a known-good sector for known-faulty sectors.
-            // Note: this is slightly sub-optimal, loading info for the recovering sectors again after they were already
-            // loaded above.
-            let sector_infos = sectors
-                .load_for_proof(&post_result.sectors, &post_result.ignored_sectors)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to load proven sector info",
-                    )
-                })?;
-
-            if sector_infos.is_empty() {
+            // Make sure we actually proved something.
+            let proven_sectors = &post_result.sectors - &post_result.ignored_sectors;
+            if proven_sectors.is_empty() {
                 // Abort verification if all sectors are (now) faults. There's nothing to prove.
                 // It's not rational for a miner to submit a Window PoSt marking *all* non-faulty sectors as skipped,
                 // since that will just cause them to pay a penalty at deadline end that would otherwise be zero
@@ -686,9 +612,31 @@ impl Actor {
                 ));
             }
 
-            // Verify the proof.
-            // A failed verification doesn't immediately cause a penalty; the miner can try again.
-            verify_windowed_post(rt, current_deadline.challenge, &sector_infos, params.proofs)?;
+            // If we're not recovering power, record the proof for optimistic verification.
+            if post_result.recovered_power.is_zero() {
+                deadline
+                    .record_post_proofs(rt.store(), &post_result.partitions, &params.proofs)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to record proof for optimistic verification",
+                        )
+                    })?
+            } else {
+                // Load sector infos for proof, substituting a known-good sector for known-faulty sectors.
+                // Note: this is slightly sub-optimal, loading info for the recovering sectors again after they were already
+                // loaded above.
+                let sector_infos = sectors
+                    .load_for_proof(&post_result.sectors, &post_result.ignored_sectors)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load sectors for post verification",
+                        )
+                    })?;
+                verify_windowed_post(rt, current_deadline.challenge, &sector_infos, params.proofs)
+                    .map_err(|e| e.wrap("window post failed"))?;
+            }
 
             let deadline_idx = params.deadline;
             deadlines
@@ -726,9 +674,222 @@ impl Actor {
         Ok(())
     }
 
+    fn dispute_windowed_post<BS, RT>(
+        rt: &mut RT,
+        params: DisputeWindowedPoStParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
+        let reporter = *rt.message().caller();
+
+        if params.deadline >= WPOST_PERIOD_DEADLINES as usize {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "invalid deadline {} of {}",
+                params.deadline,
+                WPOST_PERIOD_DEADLINES
+            ));
+        }
+        let current_epoch = rt.curr_epoch();
+
+        // Note: these are going to be slightly inaccurate as time
+        // will have moved on from when the post was actually
+        // submitted.
+        //
+        // However, these are estimates _anyways_.
+        let epoch_reward = request_current_epoch_block_reward(rt)?;
+        let power_total = request_current_total_power(rt)?;
+
+        let (pledge_delta, mut to_burn, power_delta, to_reward) =
+            rt.transaction(|st: &mut State, rt| {
+                if !deadline_available_for_optimistic_post_dispute(
+                    st.proving_period_start,
+                    params.deadline,
+                    current_epoch,
+                ) {
+                    return Err(actor_error!(
+                        ErrIllegalState,
+                        "can only dispute window posts during the dispute window\
+                    ({} epochs after the challenge window closes)",
+                        WPOST_DISPUTE_WINDOW
+                    ));
+                }
+
+                let info = get_miner_info(rt.store(), st)?;
+                // --- check proof ---
+
+                // Find the proving period start for the deadline in question.
+                let mut pp_start = st.proving_period_start;
+                if st.current_deadline < params.deadline {
+                    pp_start -= WPOST_PROVING_PERIOD
+                }
+                let target_deadline = new_deadline_info(pp_start, params.deadline, current_epoch);
+                // Load the target deadline
+                let mut deadlines_current = st
+                    .load_deadlines(rt.store())
+                    .map_err(|e| e.wrap("failed to load deadlines"))?;
+
+                let mut dl_current = deadlines_current
+                    .load_deadline(rt.store(), params.deadline)
+                    .map_err(|e| e.wrap("failed to load deadline"))?;
+
+                // Take the post from the snapshot for dispute.
+                // This operation REMOVES the PoSt from the snapshot so
+                // it can't be disputed again. If this method fails,
+                // this operation must be rolled back.
+                let (partitions, proofs) = dl_current
+                    .take_post_proofs(rt.store(), params.post_index)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load proof for dispute",
+                        )
+                    })?;
+
+                // Load the partition info we need for the dispute.
+                let mut dispute_info = dl_current
+                    .load_partitions_for_dispute(rt.store(), partitions)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load partition for dispute",
+                        )
+                    })?;
+
+                // This includes power that is no longer active (e.g., due to sector terminations).
+                // It must only be used for penalty calculations, not power adjustments.
+                let penalised_power = dispute_info.disputed_power.clone();
+
+                // Load sectors for the dispute.
+                let sectors = Sectors::load(rt.store(), &st.sectors).map_err(|e| {
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load sectors array")
+                })?;
+                let sector_infos = sectors
+                    .load_for_proof(
+                        &dispute_info.all_sector_nos,
+                        &dispute_info.ignored_sector_nos,
+                    )
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            "failed to load sectors to dispute window post",
+                        )
+                    })?;
+
+                // Check proof, we fail if validation succeeds.
+                verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)
+                    .map_err(|_e| {
+                        actor_error!(ErrIllegalArgument, "failed to dispute valid post")
+                    })?;
+
+                // Ok, now we record faults. This always works because
+                // we don't allow compaction/moving sectors during the
+                // challenge window.
+                //
+                // However, some of these sectors may have been
+                // terminated. That's fine, we'll skip them.
+                let fault_expiration_epoch = target_deadline.last() + FAULT_MAX_AGE;
+                let power_delta = dl_current
+                    .record_faults(
+                        rt.store(),
+                        &sectors,
+                        info.sector_size,
+                        quant_spec_for_deadline(&target_deadline),
+                        fault_expiration_epoch,
+                        &mut dispute_info.disputed_sectors,
+                    )
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to declare faults")
+                    })?;
+
+                deadlines_current
+                    .update_deadline(rt.store(), params.deadline, &dl_current)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to update deadline {}", params.deadline),
+                        )
+                    })?;
+
+                st.save_deadlines(rt.store(), deadlines_current)
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to save deadlines")
+                    })?;
+
+                // --- penalties ---
+
+                // Calculate the base penalty.
+                let penalty_base = pledge_penalty_for_invalid_windowpost(
+                    &epoch_reward.this_epoch_reward_smoothed,
+                    &power_total.quality_adj_power_smoothed,
+                    &penalised_power.qa,
+                );
+
+                // Calculate the target reward.
+                let reward_target =
+                    reward_for_disputed_window_post(info.window_post_proof_type, penalised_power);
+
+                // Compute the target penalty by adding the
+                // base penalty to the target reward. We don't
+                // take reward out of the penalty as the miner
+                // could end up receiving a substantial
+                // portion of their fee back as a reward.
+                let penalty_target = &penalty_base + &reward_target;
+                st.apply_penalty(&penalty_target)
+                    .map_err(|e| actor_error!(ErrIllegalState, "failed to apply penalty {}", e))?;
+                let (penalty_from_vesting, penalty_from_balance) = st
+                    .repay_partial_debt_in_priority_order(
+                        rt.store(),
+                        current_epoch,
+                        &rt.current_balance()?,
+                    )
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to pay debt")
+                    })?;
+
+                let to_burn = &penalty_from_vesting + &penalty_from_balance;
+
+                // Now, move as much of the target reward as
+                // we can from the burn to the reward.
+                let to_reward = std::cmp::min(&to_burn, &reward_target);
+                let to_burn = &to_burn - to_reward;
+                let pledge_delta = -penalty_from_vesting;
+
+                Ok((pledge_delta, to_burn, power_delta, to_reward.clone()))
+            })?;
+
+        request_update_power(rt, power_delta)?;
+        if !to_reward.is_zero() {
+            if let Err(e) = rt.send(
+                reporter,
+                METHOD_SEND,
+                Serialized::default(),
+                to_reward.clone(),
+            ) {
+                log::error!("failed to send reward: {}", e);
+                to_burn += to_reward;
+            }
+        }
+
+        burn_funds(rt, to_burn)?;
+        notify_pledge_changed(rt, &pledge_delta)?;
+
+        let st: State = rt.state()?;
+        st.check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariants broken: {}", e),
+                )
+            })?;
+        Ok(())
+    }
+
     /// Proposals must be posted on chain via sma.PublishStorageDeals before PreCommitSector.
     /// Optimization: PreCommitSector could contain a list of deals that are not published yet.
-    /// TODO: This should NOT WORK. Changes made here are solely to get the Market Actor updated an compiling
     fn pre_commit_sector<BS, RT>(
         rt: &mut RT,
         params: PreCommitSectorParams,
@@ -814,21 +975,17 @@ impl Actor {
 
         let reward_stats = request_current_epoch_block_reward(rt)?;
         let power_total = request_current_total_power(rt)?;
-        let deal_weight =
-            request_deal_weight(rt, &params.deal_ids, rt.curr_epoch(), params.expiration)?;
-
+        let deal_weights = request_deal_weights(
+            rt,
+            &[market::SectorDeals {
+                sector_expiry: params.expiration,
+                deal_ids: params.deal_ids.clone(),
+            }],
+        )?;
+        let deal_weight = &deal_weights.sectors[0];
         let mut fee_to_burn = TokenAmount::from(0);
         let newly_vested = rt.transaction(|state: &mut State, rt| {
-            // Stop vesting funds as of version 7. Its computationally expensive and unlikely to release any funds.
-            let newly_vested = if rt.network_version() < NetworkVersion::V7 {
-                state
-                    .unlock_vested_funds(rt.store(), rt.curr_epoch())
-                    .map_err(|e| {
-                        e.downcast_default(ExitCode::ErrIllegalState, "failed to vest funds")
-                    })?
-            } else {
-                TokenAmount::from(0)
-            };
+            let newly_vested = TokenAmount::from(0);
 
             // available balance already accounts for fee debt so it is correct to call
             // this before RepayDebts. We would have to
@@ -859,56 +1016,30 @@ impl Actor {
                 ));
             }
 
-            if rt.network_version() < NetworkVersion::V7 {
-                // TODO: FIX ME FOR v3
-                if params.seal_proof != fil_types::RegisteredSealProof::Invalid(2349) {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "sector seal proof {:?} must match miner seal proof type {:?}",
-                        params.seal_proof,
-                        info.window_post_proof_type
-                    ));
-                }
-            } else {
-                // From network version 7, the pre-commit seal type must have the same Window PoSt proof type as the miner's
-                // recorded seal type has, rather than be exactly the same seal type.
-                // This permits a transition window from V1 to V1_1 seal types (which share Window PoSt proof type).
-                // TODO: FIX ME FOR v3
-                // let miner_wpost_proof = info
-                //     .seal_proof_type
-                //     .registered_window_post_proof()
-                //     .map_err(|e| {
-                //         actor_error!(
-                //             ErrIllegalState,
-                //             "failed to lookup window PoSt proof type for miner seal proof {:?}: {}",
-                //             info.seal_proof_type,
-                //             e
-                //         )
-                //     })?;
-                let miner_wpost_proof = 2349;
-                let sector_wpost_proof =
-                    params
-                        .seal_proof
-                        .registered_window_post_proof()
-                        .map_err(|e| {
-                            actor_error!(
-                                ErrIllegalState,
-                                "failed to lookup window PoSt proof type \
-                                for sector seal proof {:?}: {}",
-                                params.seal_proof,
-                                e
-                            )
-                        })?;
-                if sector_wpost_proof != fil_types::RegisteredPoStProof::Invalid(miner_wpost_proof)
-                {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "sector window PoSt proof type {:?} must match miner \
-                            window PoSt proof type {:?}",
-                        sector_wpost_proof,
-                        miner_wpost_proof
-                    ));
-                }
+            // From network version 7, the pre-commit seal type must have the same Window PoSt proof type as the miner's
+            // recorded seal type has, rather than be exactly the same seal type.
+            // This permits a transition window from V1 to V1_1 seal types (which share Window PoSt proof type).
+            let sector_wpost_proof =
+                params
+                    .seal_proof
+                    .registered_window_post_proof()
+                    .map_err(|e| {
+                        actor_error!(
+                            ErrIllegalState,
+                            "failed to lookup window PoSt proof type \
+                            for sector seal proof {:?}: {}",
+                            params.seal_proof,
+                            e
+                        )
+                    })?;
+            if sector_wpost_proof != info.window_post_proof_type {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "sector window PoSt proof type {:?} must match miner \
+                        window PoSt proof type {:?}",
+                    sector_wpost_proof,
+                    info.window_post_proof_type
+                ));
             }
 
             let store = rt.store();
@@ -924,11 +1055,11 @@ impl Actor {
             }
 
             // Ensure total deal space does not exceed sector size.
-            if deal_weight.sectors[0].deal_space > info.sector_size as u64 {
+            if deal_weight.deal_space > info.sector_size as u64 {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "deal size too large to fit in sector {} > {}",
-                    deal_weight.sectors[0].deal_space,
+                    deal_weight.deal_space,
                     info.sector_size
                 ));
             }
@@ -942,26 +1073,7 @@ impl Actor {
                     ))
                 })?;
 
-            // The following two checks shouldn't be necessary, but it can't
-            // hurt to double-check (unless it's really just too
-            // expensive?).
-            let sector = state
-                .get_precommitted_sector(store, params.sector_number)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to check pre-commit {}", params.sector_number),
-                    )
-                })?;
-
-            if sector.is_some() {
-                return Err(actor_error!(
-                    ErrIllegalState,
-                    "sector {} already pre-committed",
-                    params.sector_number
-                ));
-            }
-
+            // This sector check is redundant given the allocated sectors bitfield, but remains for safety.
             let sector_found = state
                 .has_sector_number(store, params.sector_number)
                 .map_err(|e| {
@@ -980,7 +1092,7 @@ impl Actor {
             }
 
             if params.replace_capacity {
-                validate_replace_sector(state, store, &params, rt.network_version())?;
+                validate_replace_sector(state, store, &params)?;
             }
 
             let duration = params.expiration - rt.curr_epoch();
@@ -988,8 +1100,8 @@ impl Actor {
             let sector_weight = qa_power_for_weight(
                 info.sector_size,
                 duration,
-                &deal_weight.sectors[0].deal_weight,
-                &deal_weight.sectors[0].verified_deal_weight,
+                &deal_weight.deal_weight,
+                &deal_weight.verified_deal_weight,
             );
 
             let deposit_req = pre_commit_deposit_for_power(
@@ -1006,7 +1118,14 @@ impl Actor {
                 ));
             }
 
-            state.add_pre_commit_deposit(&deposit_req);
+            state.add_pre_commit_deposit(&deposit_req).map_err(|e| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to add pre-commit deposit {}: {}",
+                    deposit_req,
+                    e
+                )
+            })?;
 
             let seal_proof = params.seal_proof;
             let sector_number = params.sector_number;
@@ -1018,8 +1137,8 @@ impl Actor {
                         info: params,
                         pre_commit_deposit: deposit_req,
                         pre_commit_epoch: rt.curr_epoch(),
-                        deal_weight: deal_weight.sectors[0].deal_weight.clone(),
-                        verified_deal_weight: deal_weight.sectors[0].deal_weight.clone(),
+                        deal_weight: deal_weight.deal_weight.clone(),
+                        verified_deal_weight: deal_weight.deal_weight.clone(),
                     },
                 )
                 .map_err(|e| {
@@ -1082,7 +1201,6 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.validate_immediate_caller_accept_any()?;
-        let nv = rt.network_version();
 
         if params.sector_number > MAX_SECTOR_NUMBER {
             return Err(actor_error!(
@@ -1091,12 +1209,27 @@ impl Actor {
             ));
         }
 
-        let max_proof_size = if nv >= NetworkVersion::V5 {
-            MAX_PROVE_COMMIT_SIZE_V5
-        } else {
-            MAX_PROVE_COMMIT_SIZE_V4
-        };
+        let sector_number = params.sector_number;
 
+        let st: State = rt.state()?;
+        let precommit = st
+            .get_precommitted_sector(rt.store(), sector_number)
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("failed to load pre-committed sector {}", sector_number),
+                )
+            })?
+            .ok_or_else(|| actor_error!(ErrNotFound, "no pre-commited sector {}", sector_number))?;
+
+        let max_proof_size = precommit.info.seal_proof.proof_size().map_err(|e| {
+            actor_error!(
+                ErrIllegalState,
+                "failed to determine max proof size for sector {}: {}",
+                sector_number,
+                e
+            )
+        })?;
         if params.proof.len() > max_proof_size {
             return Err(actor_error!(
                 ErrIllegalArgument,
@@ -1105,23 +1238,6 @@ impl Actor {
                 max_proof_size
             ));
         }
-
-        let sector_number = params.sector_number;
-        let precommit = rt.transaction(|state: &mut State, rt| {
-            let precommit = state
-                .get_precommitted_sector(rt.store(), sector_number)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to load precommitted sector: {}", sector_number),
-                    )
-                })?
-                .ok_or_else(|| {
-                    actor_error!(ErrNotFound, "no pre-committed sector: {}", sector_number)
-                })?;
-
-            Ok(precommit)
-        })?;
 
         let msd = max_prove_commit_duration(precommit.info.seal_proof).ok_or_else(|| {
             actor_error!(
@@ -1274,7 +1390,7 @@ impl Actor {
             ));
         }
 
-        let (new_power, total_pledge, newly_vested) = rt.transaction(|state: &mut State, rt| {
+        let (total_pledge, newly_vested) = rt.transaction(|state: &mut State, rt| {
             let store = rt.store();
 
             // Schedule expiration for replaced sectors to the end of their next deadline window.
@@ -1394,7 +1510,7 @@ impl Actor {
                     )
                 })?;
 
-            let new_power = state
+            state
                 .assign_sectors_to_deadlines(
                     store,
                     rt.curr_epoch(),
@@ -1409,22 +1525,14 @@ impl Actor {
                     )
                 })?;
 
-            // Stop unlocking funds as of version 7. It's computationally expensive and unlikely to actually unlock anything.
-            let newly_vested = if rt.network_version() < NetworkVersion::V7 {
-                state
-                    .unlock_vested_funds(store, rt.curr_epoch())
-                    .map_err(|e| {
-                        e.downcast_default(
-                            ExitCode::ErrIllegalState,
-                            "failed to assign new sectors to deadlines",
-                        )
-                    })?
-            } else {
-                TokenAmount::zero()
-            };
+            let newly_vested = TokenAmount::zero();
 
             // Unlock deposit for successful proofs, make it available for lock-up as initial pledge.
-            state.add_pre_commit_deposit(&(-deposit_to_unlock));
+            state
+                .add_pre_commit_deposit(&(-deposit_to_unlock))
+                .map_err(|e| {
+                    actor_error!(ErrIllegalState, "failed to add precommit deposit: {}", e)
+                })?;
 
             let unlocked_balance =
                 state
@@ -1445,7 +1553,10 @@ impl Actor {
                 ));
             }
 
-            state.add_initial_pledge(&total_pledge);
+            state.add_initial_pledge(&total_pledge).map_err(|e| {
+                actor_error!(ErrIllegalState, "failed to add initial pledge: {}", e)
+            })?;
+
             state
                 .check_balance_invariants(&rt.current_balance()?)
                 .map_err(|e| {
@@ -1455,11 +1566,10 @@ impl Actor {
                     )
                 })?;
 
-            Ok((new_power, total_pledge, newly_vested))
+            Ok((total_pledge, newly_vested))
         })?;
 
-        // Request power and pledge update for activated sector.
-        request_update_power(rt, new_power)?;
+        // Request pledge update for activated sector.
         notify_pledge_changed(rt, &(total_pledge - newly_vested))?;
 
         Ok(())
@@ -1511,7 +1621,6 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let nv = rt.network_version();
         if params.extensions.len() as u64 > DELCARATIONS_MAX {
             return Err(actor_error!(
                 ErrIllegalArgument,
@@ -1610,10 +1719,10 @@ impl Actor {
                     .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
 
                 let mut partitions = deadline.partitions_amt(store).map_err(|e| {
-                    e.wrap(format!(
-                        "failed to load partitions for deadline {}",
-                        deadline_idx
-                    ))
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load partitions for deadline {}", deadline_idx),
+                    )
                 })?;
 
                 let quant = state.quant_spec_for_deadline(deadline_idx);
@@ -1646,7 +1755,7 @@ impl Actor {
                     let new_sectors: Vec<SectorOnChainInfo> = old_sectors
                         .iter()
                         .map(|sector| {
-                            if !can_extend_seal_proof_type(sector.seal_proof, nv) {
+                            if !can_extend_seal_proof_type(sector.seal_proof) {
                                 return Err(actor_error!(
                                     ErrForbidden,
                                     "cannot extend expiration for sector {} with unsupported \
@@ -1720,19 +1829,16 @@ impl Actor {
 
                     // Record the new partition expiration epoch for setting outside this loop
                     // over declarations.
-                    if nv >= NetworkVersion::V7 {
-                        let prev_epoch_partitions =
-                            partitions_by_new_epoch.entry(decl.new_expiration);
-                        let not_exists = matches!(prev_epoch_partitions, Entry::Vacant(_));
+                    let prev_epoch_partitions = partitions_by_new_epoch.entry(decl.new_expiration);
+                    let not_exists = matches!(prev_epoch_partitions, Entry::Vacant(_));
 
-                        // Add declaration partition
-                        prev_epoch_partitions
-                            .or_insert_with(Vec::new)
-                            .push(decl.partition);
-                        if not_exists {
-                            // reschedule epoch if the partition for new epoch didn't already exist
-                            epochs_to_reschedule.push(decl.new_expiration);
-                        }
+                    // Add declaration partition
+                    prev_epoch_partitions
+                        .or_insert_with(Vec::new)
+                        .push(decl.partition);
+                    if not_exists {
+                        // reschedule epoch if the partition for new epoch didn't already exist
+                        epochs_to_reschedule.push(decl.new_expiration);
                     }
                 }
 
@@ -1744,22 +1850,20 @@ impl Actor {
                 })?;
 
                 // Record partitions in deadline expiration queue
-                if nv >= NetworkVersion::V7 {
-                    for epoch in epochs_to_reschedule {
-                        let p_idxs = partitions_by_new_epoch.get(&epoch).unwrap();
-                        deadline
-                            .add_expiration_partitions(store, epoch, p_idxs, quant)
-                            .map_err(|e| {
-                                e.downcast_default(
-                                    ExitCode::ErrIllegalState,
-                                    format!(
-                                        "failed to add expiration partitions to \
+                for epoch in epochs_to_reschedule {
+                    let p_idxs = partitions_by_new_epoch.get(&epoch).unwrap();
+                    deadline
+                        .add_expiration_partitions(store, epoch, p_idxs, quant)
+                        .map_err(|e| {
+                            e.downcast_default(
+                                ExitCode::ErrIllegalState,
+                                format!(
+                                    "failed to add expiration partitions to \
                                         deadline {} epoch {}",
-                                        deadline_idx, epoch
-                                    ),
-                                )
-                            })?;
-                    }
+                                    deadline_idx, epoch
+                                ),
+                            )
+                        })?;
                 }
 
                 deadlines
@@ -1802,9 +1906,8 @@ impl Actor {
     ///     AddressedPartitionsMax per epoch until the queue is empty.
     ///
     /// The sectors are immediately ignored for Window PoSt proofs, and should be
-    /// masked in the same way as faulty sectors. A miner terminating sectors in the
-    /// current deadline must be careful to compute an appropriate Window PoSt proof
-    /// for the sectors that will be active at the time the PoSt is submitted.
+    /// masked in the same way as faulty sectors. A miner may not terminate sectors in the
+    /// current deadline or the next deadline to be proven.
     ///
     /// This function may be invoked with no new sectors to explicitly process the
     /// next batch of sectors.
@@ -1883,6 +1986,16 @@ impl Actor {
             })?;
 
             for (deadline_idx, partition_sectors) in to_process.iter() {
+                // If the deadline the current or next deadline to prove, don't allow terminating sectors.
+                // We assume that deadlines are immutable when being proven.
+                if !deadline_is_mutable(state.proving_period_start, deadline_idx, curr_epoch) {
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "cannot terminate sectors in immutable deadline {}",
+                        deadline_idx
+                    ));
+                }
+
                 let quant = state.quant_spec_for_deadline(deadline_idx);
                 let mut deadline = deadlines
                     .load_deadline(store, deadline_idx)
@@ -1935,6 +2048,15 @@ impl Actor {
             // jobs. However, in practice, that shouldn't be all that bad.
             schedule_early_termination_work(rt)?;
         }
+        let state: State = rt.state()?;
+        state
+            .check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariant broken: {}", e),
+                )
+            })?;
 
         request_update_power(rt, power_delta)?;
         Ok(TerminateSectorsReturn { done: !more })
@@ -2035,7 +2157,7 @@ impl Actor {
                 let fault_expiration_epoch = target_deadline.last() + FAULT_MAX_AGE;
 
                 let deadline_power_delta = deadline
-                    .declare_faults(
+                    .record_faults(
                         store,
                         &sectors,
                         info.sector_size,
@@ -2268,12 +2390,18 @@ impl Actor {
 
             let store = rt.store();
 
-            if !deadline_is_mutable(state.proving_period_start, params_deadline, rt.curr_epoch()) {
+            if !deadline_available_for_compaction(
+                state.proving_period_start,
+                params_deadline,
+                rt.curr_epoch(),
+            ) {
                 return Err(actor_error!(
                     ErrForbidden,
-                    "cannot compact deadline {} during its challenge window or \
-                    the prior challenge window",
-                    params_deadline
+                    "cannot compact deadline {} during its challenge window, \
+                    or the prior challenge window, 
+                    or before {} epochs have passed since its last challenge window ended",
+                    params_deadline,
+                    WPOST_DISPUTE_WINDOW
                 ));
             }
 
@@ -2316,12 +2444,12 @@ impl Actor {
             let sectors = state.load_sector_infos(store, &live).map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to load moved sectors")
             })?;
-
-            let new_power = deadline
+            let proven = true;
+            let added_power = deadline
                 .add_sectors(
                     store,
                     info.window_post_partition_sectors,
-                    true,
+                    proven,
                     &sectors,
                     info.sector_size,
                     quant,
@@ -2333,12 +2461,12 @@ impl Actor {
                     )
                 })?;
 
-            if removed_power != new_power {
+            if removed_power != added_power {
                 return Err(actor_error!(
                     ErrIllegalState,
                     "power changed when compacting partitions: was {:?}, is now {:?}",
                     removed_power,
-                    new_power
+                    added_power
                 ));
             }
 
@@ -2435,15 +2563,13 @@ impl Actor {
             ));
         }
 
-        let nv = rt.network_version();
-
         let (pledge_delta_total, to_burn) = rt.transaction(|st: &mut State, rt| {
             let mut pledge_delta_total = TokenAmount::zero();
 
             rt.validate_immediate_caller_is(std::iter::once(&*REWARD_ACTOR_ADDR))?;
 
             let (reward_to_lock, locked_reward_vesting_spec) =
-                locked_reward_from_reward(params.reward, nv);
+                locked_reward_from_reward(params.reward);
 
             // This ensures the miner has sufficient funds to lock up amountToLock.
             // This should always be true if reward actor sends reward funds with the message.
@@ -2503,6 +2629,14 @@ impl Actor {
 
         notify_pledge_changed(rt, &pledge_delta_total)?;
         burn_funds(rt, to_burn)?;
+        let st: State = rt.state()?;
+        st.check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariants broken: {}", e),
+                )
+            })?;
         Ok(())
     }
 
@@ -2514,8 +2648,9 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        // Note: only the first reporter of any fault is rewarded.
-        // Subsequent invocations fail because the target miner has been removed.
+        // Note: only the first report of any fault is processed because it sets the
+        // ConsensusFaultElapsed state variable to an epoch after the fault, and reports prior to
+        // that epoch are no longer valid
         rt.validate_immediate_caller_type(CALLER_TYPES_SIGNABLE.iter())?;
         let reporter = *rt.message().caller();
 
@@ -2523,6 +2658,14 @@ impl Actor {
             .verify_consensus_fault(&params.header1, &params.header2, &params.header_extra)
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalArgument, "fault not verified"))?
             .ok_or_else(|| actor_error!(ErrIllegalArgument, "No consensus fault found"))?;
+        if fault.target != *rt.message().receiver() {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "fault by {} reported to miner {}",
+                fault.target,
+                rt.message().receiver()
+            ));
+        }
 
         // Elapsed since the fault (i.e. since the higher of the two blocks)
         let fault_age = rt.curr_epoch() - fault.epoch;
@@ -2546,7 +2689,7 @@ impl Actor {
 
         let mut pledge_delta = TokenAmount::from(0);
 
-        let (burn_amount, reward_amount) = rt.transaction(|st: &mut State, rt| {
+        let (burn_amount, reward_amount, state) = rt.transaction(|st: &mut State, rt| {
             let mut info = get_miner_info(rt.store(), &st)?;
 
             // Verify miner hasn't already been faulted
@@ -2585,7 +2728,7 @@ impl Actor {
                 e.downcast_default(ExitCode::ErrSerialization, "failed to save miner info")
             })?;
 
-            Ok((burn_amount, reward_amount))
+            Ok((burn_amount, reward_amount, st.clone()))
         })?;
 
         if let Err(e) = rt.send(reporter, METHOD_SEND, Serialized::default(), reward_amount) {
@@ -2595,7 +2738,6 @@ impl Actor {
         burn_funds(rt, burn_amount)?;
         notify_pledge_changed(rt, &pledge_delta)?;
 
-        let state: State = rt.state()?;
         state
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
@@ -2674,15 +2816,30 @@ impl Actor {
                 ))
             })?;
 
-        let amount_withdrawn = std::cmp::min(available_balance, params.amount_requested);
+        let amount_withdrawn = std::cmp::min(&available_balance, &params.amount_requested);
         assert!(!amount_withdrawn.is_negative());
+        if amount_withdrawn.is_negative() {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "negative amount to withdraw: {}",
+                amount_withdrawn
+            ));
+        }
+        if amount_withdrawn > &available_balance {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "amount to withdraw {} < available {}",
+                amount_withdrawn,
+                available_balance
+            ));
+        }
 
         if amount_withdrawn.is_positive() {
             rt.send(
                 info.owner,
                 METHOD_SEND,
                 Serialized::default(),
-                amount_withdrawn,
+                amount_withdrawn.clone(),
             )?;
         }
 
@@ -2761,7 +2918,15 @@ impl Actor {
             }
             _ => {}
         };
-
+        let state: State = rt.state()?;
+        state
+            .check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariants broken: {}", e),
+                )
+            })?;
         Ok(())
     }
 }
@@ -2841,7 +3006,14 @@ where
 
             // Remove pledge requirement.
             let mut pledge_delta = -total_initial_pledge;
-            state.add_initial_pledge(&pledge_delta);
+            state.add_initial_pledge(&pledge_delta).map_err(|e| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to add initial pledge {}: {}",
+                    pledge_delta,
+                    e
+                )
+            })?;
 
             // Use unlocked pledge to pay down outstanding fee debt
             let (penalty_from_vesting, penalty_from_balance) = state
@@ -3065,7 +3237,6 @@ fn validate_replace_sector<BS>(
     state: &State,
     store: &BS,
     params: &SectorPreCommitInfo,
-    nv: NetworkVersion,
 ) -> Result<(), ActorError>
 where
     BS: BlockStore,
@@ -3094,52 +3265,40 @@ where
         ));
     }
 
-    if nv < NetworkVersion::V7 {
-        if params.seal_proof != replace_sector.seal_proof {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "cannot replace sector {} seal proof {:?} with seal proof {:?}",
-                params.replace_sector_number,
+    // From network version 7, the new sector's seal type must have the same Window PoSt proof type as the one
+    // being replaced, rather than be exactly the same seal type.
+    // This permits replacing sectors with V1 seal types with V1_1 seal types.
+    let replace_w_post_proof = replace_sector
+        .seal_proof
+        .registered_window_post_proof()
+        .map_err(|e| {
+            actor_error!(
+                ErrIllegalState,
+                "failed to lookup Window PoSt proof type for sector seal proof {:?}: {}",
                 replace_sector.seal_proof,
-                params.seal_proof
-            ));
-        }
-    } else {
-        // From network version 7, the new sector's seal type must have the same Window PoSt proof type as the one
-        // being replaced, rather than be exactly the same seal type.
-        // This permits replacing sectors with V1 seal types with V1_1 seal types.
-        let replace_w_post_proof = replace_sector
-            .seal_proof
-            .registered_window_post_proof()
-            .map_err(|e| {
-                actor_error!(
-                    ErrIllegalState,
-                    "failed to lookup Window PoSt proof type for sector seal proof {:?}: {}",
-                    replace_sector.seal_proof,
-                    e
-                )
-            })?;
-        let new_w_post_proof = params
-            .seal_proof
-            .registered_window_post_proof()
-            .map_err(|e| {
-                actor_error!(
-                    ErrIllegalArgument,
-                    "failed to lookup Window PoSt proof type for new seal proof {:?}: {}",
-                    replace_sector.seal_proof,
-                    e
-                )
-            })?;
+                e
+            )
+        })?;
+    let new_w_post_proof = params
+        .seal_proof
+        .registered_window_post_proof()
+        .map_err(|e| {
+            actor_error!(
+                ErrIllegalArgument,
+                "failed to lookup Window PoSt proof type for new seal proof {:?}: {}",
+                replace_sector.seal_proof,
+                e
+            )
+        })?;
 
-        if replace_w_post_proof != new_w_post_proof {
-            return Err(actor_error!(
+    if replace_w_post_proof != new_w_post_proof {
+        return Err(actor_error!(
                 ErrIllegalArgument,
                 "new sector window PoSt proof type {:?} must match replaced proof type {:?} (seal proof type {:?})",
                 replace_w_post_proof,
                 new_w_post_proof,
                 params.seal_proof
             ));
-        }
     }
 
     if params.expiration < replace_sector.expiration {
@@ -3278,7 +3437,11 @@ where
     let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
         *i
     } else {
-        panic!("could not provide ID address");
+        return Err(actor_error!(
+            ErrIllegalState,
+            "runtime provided bad receiver address {}",
+            rt.message().receiver()
+        ));
     };
 
     // Regenerate challenge randomness, which must match that generated for the proof.
@@ -3336,7 +3499,11 @@ where
     let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
         *i
     } else {
-        panic!("could not provide ID address");
+        return Err(actor_error!(
+            ErrIllegalState,
+            "runtime provided non ID receiver address {}",
+            rt.message().receiver()
+        ));
     };
     let entropy =
         rt.message().receiver().marshal_cbor().map_err(|e| {
@@ -3388,28 +3555,36 @@ where
     Ok(unsealed_cid)
 }
 
-fn request_deal_weight<BS, RT>(
+fn request_deal_weights<BS, RT>(
     rt: &mut RT,
-    deal_ids: &[DealID],
-    sector_start: ChainEpoch,
-    sector_expiry: ChainEpoch,
+    sectors: &[market::SectorDeals],
 ) -> Result<VerifyDealsForActivationReturn, ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if deal_ids.is_empty() {
-        return Ok(VerifyDealsForActivationReturn::default());
+    // Short-circuit if there are no deals in any of the sectors.
+    let mut deal_count = 0;
+    for sector in sectors {
+        deal_count += sector.deal_ids.len();
     }
-
+    if deal_count == 0 {
+        let mut empty_result = VerifyDealsForActivationReturn {
+            sectors: Vec::with_capacity(sectors.len()),
+        };
+        for _ in 0..sectors.len() {
+            empty_result.sectors.push(market::SectorWeights {
+                deal_space: 0,
+                deal_weight: 0.into(),
+                verified_deal_weight: 0.into(),
+            });
+        }
+        return Ok(empty_result);
+    }
     let serialized = rt.send(
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::VerifyDealsForActivation as u64,
-        Serialized::serialize(VerifyDealsForActivationParamsRef {
-            deal_ids,
-            sector_start,
-            sector_expiry,
-        })?,
+        Serialized::serialize(VerifyDealsForActivationParamsRef { sectors })?,
         TokenAmount::zero(),
     )?;
 
@@ -3472,7 +3647,6 @@ where
     let resolved = rt
         .resolve_address(&raw)?
         .ok_or_else(|| actor_error!(ErrIllegalArgument, "unable to resolve address: {}", raw))?;
-    assert!(resolved.protocol() == Protocol::ID);
 
     let owner_code = rt
         .get_actor_code_cid(&resolved)?
@@ -3498,7 +3672,6 @@ where
     let resolved = rt
         .resolve_address(&raw)?
         .ok_or_else(|| actor_error!(ErrIllegalArgument, "unable to resolve address: {}", raw))?;
-    assert!(resolved.protocol() == Protocol::ID);
 
     let worker_code = rt
         .get_actor_code_cid(&resolved)?
@@ -3596,14 +3769,10 @@ fn current_proving_period_start(current_epoch: ChainEpoch, offset: ChainEpoch) -
         WPOST_PROVING_PERIOD - (offset - curr_modulus)
     };
 
-    let period_start = current_epoch - period_progress;
-    assert!(period_start <= current_epoch);
-    period_start
+    current_epoch - period_progress
 }
 
 fn current_deadline_index(current_epoch: ChainEpoch, period_start: ChainEpoch) -> usize {
-    assert!(current_epoch >= period_start);
-
     ((current_epoch - period_start) / WPOST_CHALLENGE_WINDOW) as usize
 }
 
@@ -3939,6 +4108,10 @@ impl ActorCode for Actor {
             }
             Some(Method::ChangeOwnerAddress) => {
                 Self::change_owner_address(rt, rt.deserialize_params(params)?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::DisputeWindowedPoSt) => {
+                Self::dispute_windowed_post(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),

@@ -66,6 +66,20 @@ impl RegisteredSealProof {
         let epochs_per_year = 1_262_277;
         5 * epochs_per_year
     }
+
+    /// Proof size for each SealProof type
+    pub fn proof_size(self) -> Result<usize, String> {
+        use RegisteredSealProof::*;
+        match self {
+            StackedDRG2KiBV1 | StackedDRG512MiBV1 | StackedDRG8MiBV1 | StackedDRG2KiBV1P1
+            | StackedDRG512MiBV1P1 | StackedDRG8MiBV1P1 => Ok(192),
+
+            StackedDRG32GiBV1 | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1 => {
+                Ok(1920)
+            }
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
+        }
+    }
 }
 
 /// Proof of spacetime type, indicating version and sector size of the proof.
@@ -118,6 +132,38 @@ impl RegisteredPoStProof {
             StackedDRGWindow512MiBV1 | StackedDRGWinning512MiBV1 => {
                 Ok(RegisteredSealProof::StackedDRG512MiBV1)
             }
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
+        }
+    }
+
+    /// Proof size for each PoStProof type
+    pub fn proof_size(self) -> Result<usize, String> {
+        use RegisteredPoStProof::*;
+        match self {
+            StackedDRGWinning2KiBV1
+            | StackedDRGWinning8MiBV1
+            | StackedDRGWinning512MiBV1
+            | StackedDRGWinning32GiBV1
+            | StackedDRGWinning64GiBV1
+            | StackedDRGWindow2KiBV1
+            | StackedDRGWindow8MiBV1
+            | StackedDRGWindow512MiBV1
+            | StackedDRGWindow32GiBV1
+            | StackedDRGWindow64GiBV1 => Ok(192),
+            Invalid(i) => Err(format!("unsupported proof type: {}", i)),
+        }
+    }
+    /// Returns the partition size, in sectors, associated with a proof type.
+    /// The partition size is the number of sectors proven in a single PoSt proof.
+    pub fn window_post_partitions_sector(self) -> Result<u64, String> {
+        // Resolve to post proof and then compute size from that.
+        use RegisteredPoStProof::*;
+        match self {
+            StackedDRGWinning64GiBV1 | StackedDRGWindow64GiBV1 => Ok(2300),
+            StackedDRGWinning32GiBV1 | StackedDRGWindow32GiBV1 => Ok(2349),
+            StackedDRGWinning2KiBV1 | StackedDRGWindow2KiBV1 => Ok(2),
+            StackedDRGWinning8MiBV1 | StackedDRGWindow8MiBV1 => Ok(2),
+            StackedDRGWinning512MiBV1 | StackedDRGWindow512MiBV1 => Ok(2),
             Invalid(i) => Err(format!("unsupported proof type: {}", i)),
         }
     }

@@ -84,3 +84,43 @@ pub fn quant_spec_for_deadline(di: &DeadlineInfo) -> QuantSpec {
         offset: di.last(),
     }
 }
+
+// Returns true if optimistically accepted posts submitted to the given deadline
+// may be disputed. Specifically, this ensures that:
+//
+// 1. Optimistic PoSts may not be disputed while the challenge window is open.
+// 2. Optimistic PoSts may not be disputed after the miner could have compacted the deadline.
+pub fn deadline_available_for_optimistic_post_dispute(
+    proving_period_start: ChainEpoch,
+    deadline_idx: usize,
+    current_epoch: ChainEpoch,
+) -> bool {
+    if proving_period_start > current_epoch {
+        return false;
+    }
+    let dl_info =
+        new_deadline_info(proving_period_start, deadline_idx, current_epoch).next_not_elapsed();
+
+    !dl_info.is_open()
+        && current_epoch < (dl_info.close - WPOST_PROVING_PERIOD) + WPOST_DISPUTE_WINDOW
+}
+
+// Returns true if the given deadline may compacted in the current epoch.
+// Deadlines may not be compacted when:
+//
+// 1. The deadline is currently being challenged.
+// 2. The deadline is to be challenged next.
+// 3. Optimistically accepted posts from the deadline's last challenge window
+//    can currently be disputed.
+pub fn deadline_available_for_compaction(
+    proving_period_start: ChainEpoch,
+    deadline_idx: usize,
+    current_epoch: ChainEpoch,
+) -> bool {
+    deadline_is_mutable(proving_period_start, deadline_idx, current_epoch)
+        && !deadline_available_for_optimistic_post_dispute(
+            proving_period_start,
+            deadline_idx,
+            current_epoch,
+        )
+}
