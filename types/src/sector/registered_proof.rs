@@ -67,6 +67,7 @@ impl RegisteredSealProof {
         5 * epochs_per_year
     }
 
+    /// Proof size for each SealProof type
     pub fn proof_size(self) -> Result<usize, String> {
         use RegisteredSealProof::*;
         match self {
@@ -135,6 +136,7 @@ impl RegisteredPoStProof {
         }
     }
 
+    /// Proof size for each PoStProof type
     pub fn proof_size(self) -> Result<usize, String> {
         use RegisteredPoStProof::*;
         match self {
