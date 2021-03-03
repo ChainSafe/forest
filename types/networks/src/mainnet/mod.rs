@@ -33,11 +33,13 @@ pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 272400;
 pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 336458;
 /// Remove burn on window PoSt fork
 pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 343200;
-/// V10 network upgrade height TBD
-pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 999999999;
+/// V10 network upgrade height
+pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 550321;
+
+pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 
 /// Current network version for the network
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V9;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V10;
 
 /// Bootstrap peer ids
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
