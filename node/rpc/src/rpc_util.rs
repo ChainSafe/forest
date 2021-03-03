@@ -1,27 +1,18 @@
-use jsonrpc_v2::{Error as JSONRPCError, Id, ResponseObject, V2};
-use log::error;
-use serde::de::DeserializeOwned;
-use tide::Error as HttpError;
-
-use beacon::Beacon;
-use blockstore::BlockStore;
-use wallet::KeyStore;
-
 use crate::data_types::JsonRpcServerState;
 
-pub fn get_error_obj(code: i64, message: String) -> JSONRPCError {
-    JSONRPCError::Full {
+pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
+    jsonrpc_v2::Error::Full {
         code,
         message,
         data: None,
     }
 }
 
-pub fn get_error_res(code: i64, message: String) -> ResponseObject {
-    ResponseObject::Error {
-        jsonrpc: V2,
+pub fn get_error_res(code: i64, message: String) -> jsonrpc_v2::ResponseObject {
+    jsonrpc_v2::ResponseObject::Error {
+        jsonrpc: jsonrpc_v2::V2,
         error: get_error_obj(code, message),
-        id: Id::Null,
+        id: jsonrpc_v2::Id::Null,
     }
 }
 
@@ -41,47 +32,10 @@ pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name.as_ref())
 }
 
-pub async fn make_rpc_call<T, DB, KS, B>(
+pub async fn make_rpc_call(
     rpc_server: JsonRpcServerState,
     rpc_request: jsonrpc_v2::RequestObject,
-) -> Result<T, tide::Error>
-where
-    T: DeserializeOwned,
-    DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-{
+) -> Result<String, tide::Error> {
     let rpc_subscription_response = rpc_server.handle(rpc_request).await;
-
-    match rpc_subscription_response {
-        jsonrpc_v2::ResponseObjects::One(rpc_subscription_params) => {
-            match rpc_subscription_params {
-                jsonrpc_v2::ResponseObject::Result { result, .. } => {
-                    Ok(serde_json::from_value::<T>(serde_json::to_value(result)?)?)
-                }
-                jsonrpc_v2::ResponseObject::Error { error, .. } => match error {
-                    jsonrpc_v2::Error::Provided { message, code } => {
-                        let msg = format!(
-                            "Error after making RPC call. Code: {}. Error: {:?}",
-                            code, &message
-                        );
-                        error!("{}", &msg);
-                        Err(HttpError::from_str(500, msg))
-                    }
-                    jsonrpc_v2::Error::Full { code, message, .. } => {
-                        let msg = format!(
-                            "Unknown error after making RPC call. Code: {}. Error: {:?} ",
-                            code, message
-                        );
-                        error!("{}", &msg);
-                        Err(HttpError::from_str(500, msg))
-                    }
-                },
-            }
-        }
-        _ => Err(HttpError::from_str(
-            500,
-            format!("Unexpected response type after making RPC call"),
-        )),
-    }
+    Ok(serde_json::to_string(&rpc_subscription_response)?)
 }

@@ -5844,6 +5844,7 @@ dependencies = [
  "chain",
  "chain_sync",
  "crossbeam 0.8.0",
+ "extensions",
  "fil_clock",
  "fil_types",
  "forest_address",

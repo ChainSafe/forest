@@ -51,7 +51,7 @@ where
 
     let rpc_server = Arc::new(
         Server::new()
-            .with_data(Data::new(Arc::clone(&state)))
+            .with_data(Data::new(state))
             // Auth API
             .with_method("Filecoin.AuthNew", auth_new::<DB, KS, B>)
             .with_method("Filecoin.AuthVerify", auth_verify::<DB, KS, B>)
