@@ -16,7 +16,7 @@ use std::borrow::Cow;
 use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
 /// Miner actor method.
-pub type Method = actorv2::miner::Method;
+pub type Method = actorv3::miner::Method;
 
 /// Miner actor state.
 #[derive(Serialize)]

@@ -9,10 +9,10 @@ use std::error::Error;
 use vm::{ActorState, TokenAmount};
 
 /// Reward actor address.
-pub static ADDRESS: &actorv2::REWARD_ACTOR_ADDR = &actorv2::REWARD_ACTOR_ADDR;
+pub static ADDRESS: &actorv3::REWARD_ACTOR_ADDR = &actorv2::REWARD_ACTOR_ADDR;
 
 /// Reward actor method.
-pub type Method = actorv2::reward::Method;
+pub type Method = actorv3::reward::Method;
 
 /// Reward actor state.
 #[derive(Serialize)]

@@ -7,7 +7,7 @@ use std::error::Error;
 use vm::ActorState;
 
 /// Multisig actor method.
-pub type Method = actorv2::multisig::Method;
+pub type Method = actorv3::multisig::Method;
 
 /// Multisig actor state.
 #[derive(Serialize)]

@@ -13,10 +13,10 @@ use std::error::Error;
 use vm::{ActorState, TokenAmount};
 
 /// Market actor address.
-pub static ADDRESS: &actorv2::STORAGE_MARKET_ACTOR_ADDR = &actorv2::STORAGE_MARKET_ACTOR_ADDR;
+pub static ADDRESS: &actorv3::STORAGE_MARKET_ACTOR_ADDR = &actorv2::STORAGE_MARKET_ACTOR_ADDR;
 
 /// Market actor method.
-pub type Method = actorv2::market::Method;
+pub type Method = actorv3::market::Method;
 
 /// Market actor state.
 #[derive(Serialize)]

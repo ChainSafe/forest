@@ -11,7 +11,7 @@ use vm::ActorState;
 pub static ADDRESS: &actorv3::INIT_ACTOR_ADDR = &actorv3::INIT_ACTOR_ADDR;
 
 /// Init actor method.
-pub type Method = actorv2::init::Method;
+pub type Method = actorv3::init::Method;
 
 /// Init actor state.
 #[derive(Serialize)]

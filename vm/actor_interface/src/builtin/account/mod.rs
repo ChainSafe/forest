@@ -8,7 +8,7 @@ use std::error::Error;
 use vm::ActorState;
 
 /// Account actor method.
-pub type Method = actorv2::account::Method;
+pub type Method = actorv3::account::Method;
 
 /// Account actor state.
 #[derive(Serialize)]
