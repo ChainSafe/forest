@@ -522,9 +522,13 @@ where
 
         let ms = actor::miner::State::load(self.store(), &actor)?;
 
-        let info = ms.info(&self.store)?;
+        let worker = match ms.info(&self.store)? {
+            actor::miner::MinerInfo::V0(info) => info.worker,
+            actor::miner::MinerInfo::V2(info) => info.worker,
+            actor::miner::MinerInfo::V3(info) => info.worker,
+        };
 
-        resolve_to_key_addr(&self.state, &self.store, &info.worker)
+        resolve_to_key_addr(&self.state, &self.store, &worker)
     }
 }
 
