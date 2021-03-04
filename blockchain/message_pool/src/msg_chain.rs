@@ -55,7 +55,7 @@ impl MsgChainNode {
 #[derive(Clone, Debug)]
 pub(crate) struct MsgChain {
     index: usize,
-    chain: Vec<MsgChainNode>,
+    pub(crate) chain: Vec<MsgChainNode>,
 }
 
 impl Default for MsgChain {

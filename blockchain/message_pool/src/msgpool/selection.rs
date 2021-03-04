@@ -32,7 +32,9 @@ impl<T> MessagePool<T>
 where
     T: Provider + Send + Sync + 'static,
 {
-    /// Selects messages for including in a block.
+    /// Forest employs a sophisticated algorithm for selecting messages
+    /// for inclusion from the pool, given the ticket quality of a miner.
+    /// This method selects messages for including in a block.
     pub async fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
         // if the ticket quality is high enough that the first block has higher probability
@@ -123,18 +125,21 @@ where
         //    we use the full blockGasLimit (as opposed to the residual gas limit from the
         //    priority message selection) as we have to account for what other miners are doing
         // TODO
-        // let nextChain = 0;
-        // let partitions = vec![vec![];MAX_BLOCKS];
-        // let mut i = 0;
-        // while i < MAX_BLOCKS && nextChain < chains.len() {
-        //     let gas_limit = types::BLOCK_GAS_LIMIT;
-        //     let chain = chains[nextChain];
-        //     nextChain+=1;
-        //     partitions[i] = chain;
-        //     // need total gas limit here.
-        //     gas_limit -= chain.gas_limit;
-
-        // }
+        let mut next_chain = 0;
+        let mut partitions = vec![vec![]; MAX_BLOCKS];
+        let i = 0;
+        while i < MAX_BLOCKS && next_chain < chains.len() {
+            let mut gas_limit = types::BLOCK_GAS_LIMIT;
+            let chain = chains[next_chain].clone();
+            next_chain += 1;
+            partitions[i] = chain.chain.clone();
+            // need total gas limit here.
+            let chain_gas_limit:i64 = chain.chain.iter().map(|chain_node| chain_node.gas_limit).sum();
+            gas_limit -= chain_gas_limit;
+            if gas_limit < gas_guess::MIN_GAS {
+				break
+			}
+        }
 
         // let (msgs, _) = merge_and_trim(chains, result, &base_fee, gas_limit, gas_guess::MIN_GAS);
         // Ok(msgs)
