@@ -1118,7 +1118,10 @@ impl Deadline {
         // This is faster than checking one by one.
         let already_proven = &self.partitions_posted & &partition_indexes;
         if !already_proven.is_empty() {
-            return Err(format!("parition already proven: {:?}", already_proven).into());
+            return Err(Box::new(actor_error!(
+                ErrIllegalArgument,
+                "parition already proven: {:?}", already_proven
+            )));
         }
 
         let mut partitions = self.partitions_amt(store)?;
