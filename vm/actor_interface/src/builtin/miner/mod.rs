@@ -42,6 +42,11 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V2)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv3::MINER_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V3)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
         }
