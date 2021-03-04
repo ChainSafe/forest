@@ -1117,7 +1117,7 @@ impl Deadline {
         // First check to see if we're proving any already proven partitions.
         // This is faster than checking one by one.
         let already_proven = &self.partitions_posted & &partition_indexes;
-        if already_proven.is_empty() {
+        if !already_proven.is_empty() {
             return Err(format!("parition already proven: {:?}", already_proven).into());
         }
 
