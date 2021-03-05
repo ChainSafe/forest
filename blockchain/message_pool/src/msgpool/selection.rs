@@ -90,22 +90,28 @@ where
 
     async fn select_messages_optimal(
         &self,
-        cur_ts: &Tipset,
-        ts: &Tipset,
-        _tq: f64,
+        current_tipset: &Tipset,
+        target_tipset: &Tipset,
+        ticket_quality: f64,
     ) -> Result<Vec<SignedMessage>, Error> {
-        let base_fee = self.api.read().await.chain_compute_base_fee(&ts)?;
-
+        // Base fee is the sum of the gas limits in the tipset + parent tipset's first block base fee
+        let base_fee = self
+            .api
+            .read()
+            .await
+            .chain_compute_base_fee(&target_tipset)?;
         // 0. Load messages from the target tipset; if it is the same as the current tipset in
         //    the mpool, then this is just the pending messages
-        let mut pending = self.get_pending_messages(&cur_ts, &ts).await?;
-
+        let mut pending = self
+            .get_pending_messages(&current_tipset, &target_tipset)
+            .await?;
         if pending.is_empty() {
             return Ok(Vec::new());
         }
+
         // 0b. Select all priority messages that fit in the block
         let (result, gas_limit) = self
-            .select_priority_messages(&mut pending, &base_fee, &ts)
+            .select_priority_messages(&mut pending, &base_fee, &target_tipset)
             .await?;
 
         // check if block has been filled
@@ -115,42 +121,70 @@ where
         // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
         let mut chains = Vec::new();
         for (actor, mset) in pending.into_iter() {
-            chains.extend(create_message_chains(&self.api, &actor, &mset, &base_fee, &ts).await?);
+            chains.extend(
+                create_message_chains(&self.api, &actor, &mset, &base_fee, &target_tipset).await?,
+            );
         }
 
         // 2. Sort the chains
         chains.sort_by(|a, b| b.compare(&a));
 
         // 3. Parition chains into blocks (without trimming)
-        //    we use the full blockGasLimit (as opposed to the residual gas limit from the
+        //    we use the full blockGasLimit (as opposed to the residual `gas_limit` from the
         //    priority message selection) as we have to account for what other miners are doing
-        // TODO
         let mut next_chain = 0;
         let mut partitions = vec![vec![]; MAX_BLOCKS];
-        let i = 0;
+        let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
             let mut gas_limit = types::BLOCK_GAS_LIMIT;
-            let chain = chains[next_chain].clone();
-            next_chain += 1;
-            partitions[i] = chain.chain.clone();
-            // need total gas limit here.
-            let chain_gas_limit:i64 = chain.chain.iter().map(|chain_node| chain_node.gas_limit).sum();
-            gas_limit -= chain_gas_limit;
-            if gas_limit < gas_guess::MIN_GAS {
-				break
-			}
+            while next_chain < chains.len() {
+                let chain = chains[next_chain].clone();
+                next_chain += 1;
+                partitions[i] = chain.chain.clone();
+                gas_limit -= chain.curr().gas_limit;
+                if gas_limit < gas_guess::MIN_GAS {
+                    break;
+                }
+            }
+            i += 1;
         }
+
+        // 4. Compute effective performance for each chain, based on the partition they fall into
+        //    The effective performance is the gas_perf of the chain * block probability
+        let block_prob = crate::block_probabilities(ticket_quality);
+        let mut eff_chains = 0;
+        let mut i = 0;
+        while i < MAX_BLOCKS {
+            for mut chain in &mut partitions[i] {
+                chain.eff_perf = chain.gas_perf * block_prob[i];
+                // chain.set_eff_perf(block_prob[i]);
+            }
+            eff_chains += partitions[i].len();
+            i += 1;
+        }
+
+        // nullify the effective performance of chains that don't fit in any partition
+        for chain in chains.iter_mut().skip(eff_chains) {
+            chain.set_null_effective_perf();
+        }
+
+        // 5. Resort the chains based on effective performance
+        chains.sort_by(|a, b| a.cmp_effective(b));
 
         // let (msgs, _) = merge_and_trim(chains, result, &base_fee, gas_limit, gas_guess::MIN_GAS);
         // Ok(msgs)
         unimplemented!()
     }
 
-    async fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
+    async fn get_pending_messages(
+        &self,
+        cur_ts: &Tipset,
+        target_tipset: &Tipset,
+    ) -> Result<Pending, Error> {
         let mut result: Pending = HashMap::new();
         let mut in_sync = false;
         // are we in sync?
-        if cur_ts.epoch() == ts.epoch() && cur_ts == ts {
+        if cur_ts.epoch() == target_tipset.epoch() && cur_ts == target_tipset {
             in_sync = true;
         }
 
@@ -159,6 +193,7 @@ where
             if in_sync {
                 result.insert(*a, mset.msgs.clone());
             } else {
+                // we need to copy the map to avoid clobbering it as we load more messages
                 let mut mset_copy = HashMap::new();
                 for (nonce, m) in mset.msgs.iter() {
                     mset_copy.insert(*nonce, m.clone());
@@ -177,7 +212,7 @@ where
             &self.api,
             &self.pending,
             cur_ts.clone(),
-            ts.clone(),
+            target_tipset.clone(),
             &mut result,
         )
         .await?;
@@ -199,6 +234,7 @@ where
         let mut chains = Vec::new();
         let priority = self.config.priority_addrs();
         for actor in priority.iter() {
+            // remove actor from pending set as we are already processed these messages
             if let Some(mset) = pending.remove(actor) {
                 let next = create_message_chains(&self.api, actor, &mset, base_fee, ts).await?;
                 chains.extend(next);
@@ -214,15 +250,12 @@ where
 
 /// Returns merged and trimmed messages with the gas limit
 fn merge_and_trim(
-    chains: Vec<MsgChain>,
-    result: Vec<SignedMessage>,
+    mut chains: Vec<MsgChain>,
+    mut result: Vec<SignedMessage>,
     base_fee: &BigInt,
-    gas_limit: i64,
+    mut gas_limit: i64,
     min_gas: i64,
 ) -> (Vec<SignedMessage>, i64) {
-    let mut chains = chains;
-    let mut result = result;
-    let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort_by(|a, b| b.compare(&a));
 

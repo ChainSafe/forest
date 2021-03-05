@@ -167,12 +167,13 @@ where
     Ok(())
 }
 
+// This helper creates chains of messages for the passed actor
 async fn create_message_chains<T>(
     api: &RwLock<T>,
     actor: &Address,
     mset: &HashMap<u64, SignedMessage>,
     base_fee: &BigInt,
-    ts: &Tipset,
+    tipset: &Tipset,
 ) -> Result<Vec<MsgChain>, Error>
 where
     T: Provider,
@@ -180,7 +181,7 @@ where
     // collect all messages and sort
     let mut msgs: Vec<SignedMessage> = mset.values().cloned().collect();
     // sort by nonce
-    msgs.sort_by_key(|v| v.sequence());
+    msgs.sort_by_key(|msg| msg.sequence());
 
     // sanity checks:
     // - there can be no gaps in nonces, starting from the current actor nonce
@@ -189,7 +190,7 @@ where
     //   cannot exceed the block limit; drop all messages that exceed the limit
     // - the total gasReward cannot exceed the actor's balance; drop all messages that exceed
     //   the balance
-    let a = api.read().await.get_actor_after(&actor, &ts)?;
+    let a = api.read().await.get_actor_after(&actor, &tipset)?;
 
     let mut cur_seq = a.sequence;
     let mut balance = a.balance;
@@ -215,7 +216,7 @@ where
             break;
         }
         cur_seq += 1;
-        let min_gas = interpreter::price_list_by_epoch(ts.epoch())
+        let min_gas = interpreter::price_list_by_epoch(tipset.epoch())
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
         if m.gas_limit() < min_gas {
@@ -240,6 +241,7 @@ where
         rewards.push(gas_reward);
         i += 1;
     }
+
     // check we have a sane set of messages to construct the chains
     let msgs = if i > skip {
         msgs[skip..i].to_vec()

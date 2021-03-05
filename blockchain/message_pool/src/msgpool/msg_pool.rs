@@ -44,7 +44,7 @@ use types::verifier::ProofVerifier;
 const BLS_SIG_CACHE_SIZE: usize = 40000;
 const SIG_VAL_CACHE_SIZE: usize = 32000;
 
-/// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
+/// Simple struct that contains a hashmap of messages where k: the message sequence or nonce, v: a message
 /// which corresponds to that address.
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
