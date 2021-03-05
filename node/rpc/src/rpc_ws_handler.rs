@@ -12,7 +12,8 @@ use wallet::KeyStore;
 use crate::chain_api::Subscription;
 use crate::data_types::{JsonRpcServerState, StreamingData};
 use crate::rpc_util::{
-    get_error_str, make_rpc_call, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
+    get_error_str, get_rpc_call_response, get_rpc_call_result, RPC_METHOD_CHAIN_HEAD_SUB,
+    RPC_METHOD_CHAIN_NOTIFY,
 };
 use chain::headchange_json::HeadChangeJson;
 
@@ -42,27 +43,23 @@ where
                     {
                         Ok(call) => match &*call.method_ref() {
                             RPC_METHOD_CHAIN_NOTIFY => {
-                                let Subscription { subscription_id } = serde_json::from_str(
-                                    &make_rpc_call(
-                                        rpc_server.clone(),
-                                        jsonrpc_v2::RequestObject::request()
-                                            .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
-                                            .finish(),
-                                    )
-                                    .await?,
-                                )?;
+                                let Subscription { subscription_id } = get_rpc_call_result(
+                                    rpc_server.clone(),
+                                    jsonrpc_v2::RequestObject::request()
+                                        .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
+                                        .finish(),
+                                )
+                                .await?;
 
                                 while let Some(event) =
-                                    serde_json::from_str::<Option<HeadChangeJson>>(
-                                        &make_rpc_call(
-                                            rpc_server.clone(),
-                                            jsonrpc_v2::RequestObject::request()
-                                                .with_method(RPC_METHOD_CHAIN_NOTIFY)
-                                                .with_id(jsonrpc_v2::Id::Num(subscription_id))
-                                                .finish(),
-                                        )
-                                        .await?,
-                                    )?
+                                    get_rpc_call_result::<Option<HeadChangeJson>>(
+                                        rpc_server.clone(),
+                                        jsonrpc_v2::RequestObject::request()
+                                            .with_method(RPC_METHOD_CHAIN_NOTIFY)
+                                            .with_id(jsonrpc_v2::Id::Num(subscription_id))
+                                            .finish(),
+                                    )
+                                    .await?
                                 {
                                     let response = StreamingData {
                                         json_rpc: "2.0",
@@ -74,9 +71,10 @@ where
                                 }
                             }
                             _ => {
-                                error!("RPC WS called method: {}", call.method_ref());
+                                info!("RPC WS called method: {}", call.method_ref());
 
-                                let response = make_rpc_call(rpc_server.clone(), call).await?;
+                                let response =
+                                    get_rpc_call_response(rpc_server.clone(), call).await?;
 
                                 ws_stream.send_string(response).await?;
                             }
