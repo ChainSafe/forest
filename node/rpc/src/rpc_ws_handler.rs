@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use futures::stream::StreamExt;
-use log::{debug, error, info};
+use log::{error, info, warn};
 use tide_websockets::WebSocketConnection;
 
 use beacon::Beacon;
@@ -27,8 +27,9 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let rpc_server = request.state();
+    let remote = request.remote();
 
-    debug!("Accepted WS connection from {:?}", request.remote());
+    info!("Accepted WS connection from {:?}", &remote);
 
     while let Some(message_result) = ws_stream.next().await {
         match message_result {
@@ -51,23 +52,35 @@ where
                                 )
                                 .await?;
 
-                                while let Some(event) =
-                                    get_rpc_call_result::<Option<HeadChangeJson>>(
-                                        rpc_server.clone(),
-                                        jsonrpc_v2::RequestObject::request()
-                                            .with_method(RPC_METHOD_CHAIN_NOTIFY)
-                                            .with_id(jsonrpc_v2::Id::Num(subscription_id))
-                                            .finish(),
-                                    )
-                                    .await?
-                                {
-                                    let response = StreamingData {
-                                        json_rpc: "2.0",
-                                        method: "xrpc.ch.val",
-                                        params: (subscription_id, vec![event]),
-                                    };
+                                let mut socket_active = true;
 
-                                    ws_stream.send_json(&response).await?;
+                                while socket_active {
+                                    if let Some(event) =
+                                        get_rpc_call_result::<Option<HeadChangeJson>>(
+                                            rpc_server.clone(),
+                                            jsonrpc_v2::RequestObject::request()
+                                                .with_method(RPC_METHOD_CHAIN_NOTIFY)
+                                                .with_id(jsonrpc_v2::Id::Num(subscription_id))
+                                                .finish(),
+                                        )
+                                        .await?
+                                    {
+                                        let response = StreamingData {
+                                            json_rpc: "2.0",
+                                            method: "xrpc.ch.val",
+                                            params: (subscription_id, vec![event]),
+                                        };
+
+                                        match ws_stream.send_json(&response).await {
+                                            Ok(_) => {
+                                                info!("New WS data sent to {:?}.", &remote);
+                                            }
+                                            Err(_) => {
+                                                warn!("WS connection from {:?} closed.", &remote);
+                                                socket_active = false;
+                                            }
+                                        };
+                                    }
                                 }
                             }
                             _ => {
