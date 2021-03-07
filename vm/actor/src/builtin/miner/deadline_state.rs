@@ -1278,7 +1278,7 @@ impl Deadline {
         let post = proof_arr
             .delete(idx as usize)
             .map_err(|e| e.downcast_wrap(format!("failed to retrieve proof {}", idx)))?
-            .ok_or_else(|| Box::new(actor_error!(ErrIllegalArgument, "proof {} not found", idx)))?;
+            .ok_or_else(|| actor_error!(ErrIllegalArgument, "proof {} not found", idx))?;
 
         let root = proof_arr
             .flush()
