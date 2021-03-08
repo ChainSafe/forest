@@ -59,9 +59,7 @@ pub struct SectorDeals {
 
 #[derive(Serialize_tuple)]
 pub struct VerifyDealsForActivationParamsRef<'a> {
-    pub deal_ids: &'a [DealID],
-    pub sector_expiry: ChainEpoch,
-    pub sector_start: ChainEpoch,
+    pub sectors: &'a [SectorDeals],
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple, Default)]

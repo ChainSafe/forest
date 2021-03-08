@@ -171,7 +171,7 @@ where
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
-        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker)
+        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())
             .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
         Ok(addr)
     }
@@ -680,7 +680,7 @@ where
         let (st, _) = self.tipset_state::<V>(&lbts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
-        let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker)?;
+        let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
 
         let eligible = self.eligible_to_mine(&address, &tipset.as_ref(), &lbts)?;
 
@@ -689,7 +689,7 @@ where
             network_power: Some(tpow.quality_adj_power),
             sectors,
             worker_key,
-            sector_size: info.sector_size,
+            sector_size: info.sector_size(),
             prev_beacon_entry: prev,
             beacon_entries: entries,
             eligible_for_mining: eligible,

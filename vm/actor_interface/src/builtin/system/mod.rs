@@ -7,10 +7,10 @@ use std::error::Error;
 use vm::ActorState;
 
 /// System actor address.
-pub static ADDRESS: &actorv2::SYSTEM_ACTOR_ADDR = &actorv2::SYSTEM_ACTOR_ADDR;
+pub static ADDRESS: &actorv3::SYSTEM_ACTOR_ADDR = &actorv3::SYSTEM_ACTOR_ADDR;
 
 /// System actor method.
-pub type Method = actorv2::system::Method;
+pub type Method = actorv3::system::Method;
 
 /// System actor state.
 #[derive(Serialize)]

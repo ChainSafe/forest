@@ -20,7 +20,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::{UPGRADE_ACTORS_V3_HEIGHT, UPGRADE_CLAUS_HEIGHT};
+use networks::{UPGRADE_CLAUS_HEIGHT, UPGRADE_PLACEHOLDER_HEIGHT};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -174,7 +174,7 @@ where
     #[allow(unreachable_code, unused_variables)]
     pub fn migrate_state(&mut self, epoch: ChainEpoch) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
-            x if x == UPGRADE_ACTORS_V3_HEIGHT => {
+            x if x == UPGRADE_PLACEHOLDER_HEIGHT => {
                 // need to flush since we run_cron before the migration
                 let prev_state = self.flush()?;
                 // new_state is new state root we can from calling the migration function

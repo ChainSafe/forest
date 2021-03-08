@@ -3,6 +3,7 @@
 
 use super::WPOST_PERIOD_DEADLINES;
 use bitfield::{BitField, UnvalidatedBitField, Validate};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Maps deadlines to partition maps.
@@ -110,7 +111,7 @@ impl DeadlineSectorMap {
 }
 
 /// Maps partitions to sector bitfields.
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct PartitionSectorMap(HashMap<usize, UnvalidatedBitField>);
 
 impl PartitionSectorMap {

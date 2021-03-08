@@ -7,10 +7,10 @@ use std::error::Error;
 use vm::ActorState;
 
 /// Cron actor address.
-pub static ADDRESS: &actorv2::CRON_ACTOR_ADDR = &actorv2::CRON_ACTOR_ADDR;
+pub static ADDRESS: &actorv3::CRON_ACTOR_ADDR = &actorv3::CRON_ACTOR_ADDR;
 
 /// Cron actor method.
-pub type Method = actorv2::cron::Method;
+pub type Method = actorv3::cron::Method;
 
 /// Cron actor state.
 #[derive(Serialize)]

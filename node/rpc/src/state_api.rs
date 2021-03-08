@@ -39,7 +39,6 @@ use message::{
     signed_message::{json::SignedMessageJson, SignedMessage},
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
-use networks::get_network_version_default;
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
 use state_manager::{InvocResult, MarketBalance, MiningBaseInfo, StateManager};
@@ -123,6 +122,7 @@ pub(crate) async fn state_call<
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct Deadline {
     post_submissions: BitFieldJson,
+    disputable_proof_count: usize,
 }
 
 /// returns all the proving deadlines for the given miner
@@ -145,9 +145,9 @@ pub(crate) async fn state_miner_deadlines<
 
     let mut out = Vec::with_capacity(mas.num_deadlines() as usize);
     mas.for_each_deadline(data.state_manager.blockstore(), |_, dl| {
-        let ps = dl.into_post_submissions();
         out.push(Deadline {
-            post_submissions: BitFieldJson(ps),
+            post_submissions: dl.partitions_posted().clone().into(),
+            disputable_proof_count: dl.disputable_proof_count(data.state_manager.blockstore())?,
         });
         Ok(())
     })?;
@@ -199,14 +199,10 @@ pub async fn state_miner_info<
 
     let miner_state = miner::State::load(store, &actor)?;
 
-    let mut miner_info = miner_state
+    let miner_info = miner_state
         .info(store)
         .map_err(|e| format!("Could not get info {:?}", e))?;
 
-    // TODO revisit better way of handling (Lotus does here as well)
-    if get_network_version_default(ts.epoch()) >= NetworkVersion::V7 {
-        miner_info.seal_proof_type.update_to_v1();
-    }
     Ok(miner_info)
 }
 
@@ -800,6 +796,12 @@ pub(crate) async fn state_miner_sector_allocated<
             .ok_or("allocated sectors bitfield not found")?
             .get(sector_num as usize),
         miner::State::V2(m) => data
+            .chain_store
+            .db
+            .get::<bitfield::BitField>(&m.allocated_sectors)?
+            .ok_or("allocated sectors bitfield not found")?
+            .get(sector_num as usize),
+        miner::State::V3(m) => data
             .chain_store
             .db
             .get::<bitfield::BitField>(&m.allocated_sectors)?

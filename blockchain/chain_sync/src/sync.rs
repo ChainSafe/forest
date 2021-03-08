@@ -317,8 +317,8 @@ where
 
     /// Spawns a network handler and begins the syncing process.
     pub async fn start(mut self, worker_tx: Sender<Arc<Tipset>>, worker_rx: Receiver<Arc<Tipset>>) {
-        for _ in 0..self.sync_config.worker_tasks {
-            self.spawn_worker(worker_rx.clone()).await;
+        for i in 0..self.sync_config.worker_tasks {
+            self.spawn_worker(worker_rx.clone(), i).await;
         }
 
         // Channels to handle fetching hello tipsets in separate task and return tipset.
@@ -410,7 +410,7 @@ where
     }
 
     /// Spawns a new sync worker and pushes the state to the `ChainSyncer`
-    async fn spawn_worker(&mut self, channel: Receiver<Arc<Tipset>>) -> JoinHandle<()> {
+    async fn spawn_worker(&mut self, channel: Receiver<Arc<Tipset>>, id: usize) -> JoinHandle<()> {
         let state = Arc::new(RwLock::new(SyncState::default()));
 
         // push state to managed states in Syncer.
@@ -425,7 +425,7 @@ where
             verifier: PhantomData::<V>::default(),
             req_window: self.sync_config.req_window,
         }
-        .spawn(channel, Arc::clone(&self.state))
+        .spawn(channel, Arc::clone(&self.state), id)
         .await
     }
 
@@ -459,7 +459,7 @@ where
             .await
             // TODO we should be able to queue a tipset with the same weight on a different chain.
             // Currently needed to go GT because equal tipsets are attempted to be synced.
-            .map(|heaviest| ts.weight() > heaviest.weight())
+            .map(|heaviest| ts.weight() >= heaviest.weight())
             .unwrap_or(true);
         if candidate_ts {
             // Check message meta after all other checks (expensive)

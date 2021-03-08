@@ -273,7 +273,7 @@ pub struct SectorOnChainInfo {
     pub replaced_day_reward: TokenAmount,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct Fault {
     pub miner: Address,
     pub fault: ChainEpoch,
@@ -286,4 +286,10 @@ pub struct ApplyRewardParams {
     pub reward: TokenAmount,
     #[serde(with = "bigint_ser")]
     pub penalty: TokenAmount,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, Serialize_tuple, Deserialize_tuple)]
+pub struct DisputeWindowedPoStParams {
+    pub deadline: usize,
+    pub post_index: u64, // only one is allowed at a time to avoid loading too many sector infos.
 }

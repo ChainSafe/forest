@@ -9,7 +9,7 @@ use crate::{
     TokenAmount, EXPECTED_LEADERS_PER_EPOCH,
 };
 use clock::ChainEpoch;
-use fil_types::{NetworkVersion, StoragePower};
+use fil_types::{StoragePower, FILECOIN_PRECISION};
 use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use std::cmp;
@@ -43,7 +43,18 @@ lazy_static! {
     /// This does not divide evenly, so the result is fractionally smaller.
     static ref INITIAL_PLEDGE_MAX_PER_BYTE: BigInt =
         BigInt::from(10_u64.pow(18) / (32 << 30));
+
+    /// Base reward for successfully disputing a window posts proofs.
+    pub static ref BASE_REWARD_FOR_DISPUTED_WINDOW_POST: BigInt =
+        BigInt::from(4 * FILECOIN_PRECISION);
+
+    /// Base penalty for a successful disputed window post proof.
+    pub static ref BASE_PENALTY_FOR_DISPUTED_WINDOW_POST: BigInt =
+        BigInt::from(FILECOIN_PRECISION) * 20;
 }
+// FF + 2BR
+const INVALID_WINDOW_POST_PROJECTION_PERIOD: ChainEpoch =
+    CONTINUED_FAULT_PROJECTION_PERIOD + 2 * EPOCHS_IN_DAY;
 
 // Projection period of expected daily sector block reward penalised when a fault is continued after initial detection.
 // This guarantees that a miner pays back at least the expected block reward earned since the last successful PoSt.
@@ -159,6 +170,20 @@ pub fn pledge_penalty_for_termination(
     )
 }
 
+// The penalty for optimistically proving a sector with an invalid window PoSt.
+pub fn pledge_penalty_for_invalid_windowpost(
+    reward_estimate: &FilterEstimate,
+    network_qa_power_estimate: &FilterEstimate,
+    qa_sector_power: &StoragePower,
+) -> TokenAmount {
+    expected_reward_for_power(
+        reward_estimate,
+        network_qa_power_estimate,
+        qa_sector_power,
+        INVALID_WINDOW_POST_PROJECTION_PERIOD,
+    ) + &*BASE_PENALTY_FOR_DISPUTED_WINDOW_POST
+}
+
 /// Computes the PreCommit deposit given sector qa weight and current network conditions.
 /// PreCommit Deposit = BR(PreCommitDepositProjectionPeriod)
 pub fn pre_commit_deposit_for_power(
@@ -220,14 +245,7 @@ pub fn consensus_fault_penalty(this_epoch_reward: TokenAmount) -> TokenAmount {
 }
 
 /// Returns the amount of a reward to vest, and the vesting schedule, for a reward amount.
-pub fn locked_reward_from_reward(
-    reward: TokenAmount,
-    nv: NetworkVersion,
-) -> (TokenAmount, &'static VestSpec) {
-    let lock_amount = if nv >= NetworkVersion::V6 {
-        (reward * &*LOCKED_REWARD_FACTOR_NUM).div_floor(&*LOCKED_REWARD_FACTOR_DENOM)
-    } else {
-        reward
-    };
+pub fn locked_reward_from_reward(reward: TokenAmount) -> (TokenAmount, &'static VestSpec) {
+    let lock_amount = (reward * &*LOCKED_REWARD_FACTOR_NUM).div_floor(&*LOCKED_REWARD_FACTOR_DENOM);
     (lock_amount, &REWARD_VESTING_SPEC)
 }
