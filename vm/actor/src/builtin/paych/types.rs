@@ -18,6 +18,7 @@ pub const SETTLE_DELAY: ChainEpoch = EPOCHS_IN_HOUR * 12;
 // Maximum byte length of a secret that can be submitted with a payment channel update.
 pub const MAX_SECRET_SIZE: usize = 256;
 
+pub const LANE_STATES_AMT_BITWIDTH: usize = 3;
 /// Constructor parameters for payment channel actor
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ConstructorParams {

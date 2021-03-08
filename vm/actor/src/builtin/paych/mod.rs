@@ -25,7 +25,7 @@ use vm::{
 // TODO rename to actor exit code to be used ambiguously (requires new releases)
 use vm::ExitCode::ErrTooManyProveCommits as ErrChannelStateUpdateAfterSettled;
 
-// * Updated to specs-actors commit: e195950ba98adb8ce362030356bf4a3809b7ec77 (v2.3.2)
+// * Updated to specs-actors commit: f47f461b0588e9f0c20c999f6f129c85d669a7aa (v3.0.2)
 
 /// Payment Channel actor methods available
 #[derive(FromPrimitive)]
@@ -55,9 +55,11 @@ impl Actor {
 
         let from = Self::resolve_account(rt, &params.from)?;
 
-        let empty_arr_cid = Amt::<(), _>::new(rt.store()).flush().map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "failed to create empty AMT")
-        })?;
+        let empty_arr_cid = Amt::<(), _>::new_with_bit_width(rt.store(), LANE_STATES_AMT_BITWIDTH)
+            .flush()
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to create empty AMT")
+            })?;
 
         rt.create(&State::new(from, to, empty_arr_cid))?;
         Ok(())
