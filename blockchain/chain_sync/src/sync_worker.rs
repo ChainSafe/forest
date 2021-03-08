@@ -438,7 +438,10 @@ where
                 }
             }
         }
-        info!("Successfully validated tipset {:?} at epoch: {}", fts_key, epoch);
+        info!(
+            "Successfully validated tipset {:?} at epoch: {}",
+            fts_key, epoch
+        );
         Ok(())
     }
 

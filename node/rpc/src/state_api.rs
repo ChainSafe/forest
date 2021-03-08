@@ -39,7 +39,6 @@ use message::{
     signed_message::{json::SignedMessageJson, SignedMessage},
     unsigned_message::{json::UnsignedMessageJson, UnsignedMessage},
 };
-use networks::get_network_version_default;
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
 use state_manager::{InvocResult, MarketBalance, MiningBaseInfo, StateManager};
@@ -123,6 +122,7 @@ pub(crate) async fn state_call<
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct Deadline {
     post_submissions: BitFieldJson,
+    disputable_proof_count: usize,
 }
 
 /// returns all the proving deadlines for the given miner
@@ -134,26 +134,25 @@ pub(crate) async fn state_miner_deadlines<
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<Vec<Deadline>, JsonRpcError> {
-    todo!();
-    // let (actor, key) = params;
-    // let actor = actor.into();
-    // let mas = data
-    //     .state_manager
-    //     .chain_store()
-    //     .miner_load_actor_tsk(&actor, &key.into())
-    //     .await
-    //     .map_err(|e| format!("Could not load miner {:?}", e))?;
+    let (actor, key) = params;
+    let actor = actor.into();
+    let mas = data
+        .state_manager
+        .chain_store()
+        .miner_load_actor_tsk(&actor, &key.into())
+        .await
+        .map_err(|e| format!("Could not load miner {:?}", e))?;
 
-    // let mut out = Vec::with_capacity(mas.num_deadlines() as usize);
-    // mas.for_each_deadline(data.state_manager.blockstore(), |_, dl| {
-    //     let ps = dl.into_post_submissions();
-    //     out.push(Deadline {
-    //         post_submissions: BitFieldJson(ps),
-    //     });
-    //     Ok(())
-    // })?;
+    let mut out = Vec::with_capacity(mas.num_deadlines() as usize);
+    mas.for_each_deadline(data.state_manager.blockstore(), |_, dl| {
+        out.push(Deadline {
+            post_submissions: dl.partitions_posted().clone().into(),
+            disputable_proof_count: dl.disputable_proof_count(data.state_manager.blockstore())?,
+        });
+        Ok(())
+    })?;
 
-    // Ok(out)
+    Ok(out)
 }
 
 /// returns the PreCommit info for the specified miner's sector
@@ -187,29 +186,24 @@ pub async fn state_miner_info<
     data: Data<RpcState<DB, KS, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<MinerInfo, JsonRpcError> {
-    todo!()
-    // let state_manager = &data.state_manager;
-    // let store = state_manager.blockstore();
-    // let (AddressJson(addr), TipsetKeysJson(key)) = params;
+    let state_manager = &data.state_manager;
+    let store = state_manager.blockstore();
+    let (AddressJson(addr), TipsetKeysJson(key)) = params;
 
-    // let ts = data.chain_store.tipset_from_keys(&key).await?;
-    // let actor = data
-    //     .state_manager
-    //     .get_actor(&addr, ts.parent_state())
-    //     .map_err(|e| format!("Could not load miner {}: {:?}", addr, e))?
-    //     .ok_or_else(|| format!("miner {} does not exist", addr))?;
+    let ts = data.chain_store.tipset_from_keys(&key).await?;
+    let actor = data
+        .state_manager
+        .get_actor(&addr, ts.parent_state())
+        .map_err(|e| format!("Could not load miner {}: {:?}", addr, e))?
+        .ok_or_else(|| format!("miner {} does not exist", addr))?;
 
-    // let miner_state = miner::State::load(store, &actor)?;
+    let miner_state = miner::State::load(store, &actor)?;
 
-    // let mut miner_info = miner_state
-    //     .info(store)
-    //     .map_err(|e| format!("Could not get info {:?}", e))?;
+    let miner_info = miner_state
+        .info(store)
+        .map_err(|e| format!("Could not get info {:?}", e))?;
 
-    // // TODO revisit better way of handling (Lotus does here as well)
-    // if get_network_version_default(ts.epoch()) >= NetworkVersion::V7 {
-    //     miner_info.seal_proof_type.update_to_v1();
-    // }
-    // Ok(miner_info)
+    Ok(miner_info)
 }
 
 /// returns the on-chain info for the specified miner's sector

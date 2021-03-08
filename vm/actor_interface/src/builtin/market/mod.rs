@@ -359,7 +359,6 @@ impl From<actorv3::market::DealState> for DealState {
     }
 }
 
-
 impl<BS> BalanceTable<'_, BS>
 where
     BS: BlockStore,

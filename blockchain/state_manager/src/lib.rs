@@ -611,7 +611,7 @@ where
         }
 
         // No active consensus faults.
-        if base_tipset.epoch() <= miner_state.info(self.blockstore())?.consensus_fault_elapsed() {
+        if base_tipset.epoch() <= miner_state.info(self.blockstore())?.consensus_fault_elapsed {
             return Ok(false);
         }
 

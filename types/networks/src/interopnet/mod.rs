@@ -32,6 +32,8 @@ pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 180;
 pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 210;
 /// V10 network upgrade height TBD
 pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 999999999;
+pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
+
 /// Current network version for the network
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V9;
 

@@ -5,7 +5,9 @@ use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::BytesDe;
-use fil_types::{deadlines::DeadlineInfo, RegisteredSealProof, SectorNumber, SectorSize};
+use fil_types::{
+    deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
+};
 use forest_bitfield::BitField;
 use forest_json_utils::go_vec_visitor;
 use ipld_blockstore::BlockStore;
@@ -56,15 +58,72 @@ impl State {
         match self {
             State::V0(st) => {
                 let info = st.get_info(store)?;
-                Ok(MinerInfo::V0(info))
+
+                // Deserialize into peer id if valid, `None` if not.
+                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
+
+                Ok(MinerInfo {
+                    owner: info.owner,
+                    worker: info.worker,
+                    control_addresses: info.control_addresses,
+                    new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+                    worker_change_epoch: info
+                        .pending_worker_key
+                        .map(|k| k.effective_at)
+                        .unwrap_or(-1),
+                    peer_id,
+                    multiaddrs: info.multi_address,
+                    window_post_proof_type: info.seal_proof_type.registered_window_post_proof()?,
+                    sector_size: info.sector_size,
+                    window_post_partition_sectors: info.window_post_partition_sectors,
+                    consensus_fault_elapsed: -1,
+                })
             }
             State::V2(st) => {
                 let info = st.get_info(store)?;
-                Ok(MinerInfo::V2(info))
+
+                // Deserialize into peer id if valid, `None` if not.
+                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
+
+                Ok(MinerInfo {
+                    owner: info.owner,
+                    worker: info.worker,
+                    control_addresses: info.control_addresses,
+                    new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+                    worker_change_epoch: info
+                        .pending_worker_key
+                        .map(|k| k.effective_at)
+                        .unwrap_or(-1),
+                    peer_id,
+                    multiaddrs: info.multi_address,
+                    window_post_proof_type: info.seal_proof_type.registered_window_post_proof()?,
+                    sector_size: info.sector_size,
+                    window_post_partition_sectors: info.window_post_partition_sectors,
+                    consensus_fault_elapsed: info.consensus_fault_elapsed,
+                })
             }
             State::V3(st) => {
                 let info = st.get_info(store)?;
-                Ok(MinerInfo::V3(info))
+
+                // Deserialize into peer id if valid, `None` if not.
+                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
+
+                Ok(MinerInfo {
+                    owner: info.owner,
+                    worker: info.worker,
+                    control_addresses: info.control_addresses,
+                    new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+                    worker_change_epoch: info
+                        .pending_worker_key
+                        .map(|k| k.effective_at)
+                        .unwrap_or(-1),
+                    peer_id,
+                    multiaddrs: info.multi_address,
+                    window_post_proof_type: info.window_post_proof_type,
+                    sector_size: info.sector_size,
+                    window_post_partition_sectors: info.window_post_partition_sectors,
+                    consensus_fault_elapsed: info.consensus_fault_elapsed,
+                })
             }
         }
     }
@@ -104,9 +163,9 @@ impl State {
                 .load_deadline(store, idx)
                 .map(Deadline::V2)?),
             State::V3(st) => Ok(st
-                    .load_deadlines(store)?
-                    .load_deadline(store, idx as usize)
-                    .map(Deadline::V3)?),
+                .load_deadlines(store)?
+                .load_deadline(store, idx as usize)
+                .map(Deadline::V3)?),
         }
     }
 
@@ -185,8 +244,8 @@ impl State {
                 .get_precommitted_sector(store, sector_num)?
                 .map(From::from)),
             State::V3(st) => Ok(st
-                    .get_precommitted_sector(store, sector_num)?
-                    .map(From::from)),
+                .get_precommitted_sector(store, sector_num)?
+                .map(From::from)),
         }
     }
 
@@ -233,35 +292,33 @@ impl State {
 
 /// Static information about miner
 #[derive(Debug, PartialEq, Serialize)]
-pub enum MinerInfo {
-    V0(actorv0::miner::MinerInfo),
-    V2(actorv2::miner::MinerInfo),
-    V3(actorv3::miner::MinerInfo),
+#[serde(rename_all = "PascalCase")]
+pub struct MinerInfo {
+    #[serde(with = "address::json")]
+    pub owner: Address,
+    #[serde(with = "address::json")]
+    pub worker: Address,
+    #[serde(with = "address::json::opt")]
+    pub new_worker: Option<Address>,
+    #[serde(with = "address::json::vec")]
+    pub control_addresses: Vec<Address>, // Must all be ID addresses.
+    pub worker_change_epoch: ChainEpoch,
+    #[serde(with = "peer_id_json")]
+    pub peer_id: Option<PeerId>,
+    pub multiaddrs: Vec<BytesDe>,
+    pub window_post_proof_type: RegisteredPoStProof,
+    pub sector_size: SectorSize,
+    pub window_post_partition_sectors: u64,
+    pub consensus_fault_elapsed: ChainEpoch,
 }
 
 impl MinerInfo {
     pub fn worker(&self) -> Address {
-        match self {
-            Self::V0(info) => info.worker,
-            Self::V2(info) => info.worker,
-            Self::V3(info) => info.worker,
-        }
+        self.worker
     }
 
     pub fn sector_size(&self) -> SectorSize {
-        match self {
-            Self::V0(info) => info.sector_size,
-            Self::V2(info) => info.sector_size,
-            Self::V3(info) => info.sector_size,
-        }
-    }
-
-    pub fn consensus_fault_elapsed(&self) -> ChainEpoch {
-        match self {
-            Self::V0(_info) => -1,
-            Self::V2(info) => info.consensus_fault_elapsed,
-            Self::V3(info) => info.consensus_fault_elapsed,
-        }
+        self.sector_size
     }
 }
 
@@ -273,15 +330,6 @@ pub enum Deadline {
 }
 
 impl Deadline {
-    /// Consume state to return the deadline post submissions
-    // pub fn into_post_submissions(self) -> BitField {
-    //     match self {
-    //         Deadline::V0(dl) => dl.post_submissions,
-    //         Deadline::V2(dl) => dl.post_submissions,
-    //         Deadline::V3(dl) => dl.post_submissions,
-    //     }
-    // }
-
     /// For each partition of the deadline
     pub fn for_each<BS: BlockStore>(
         &self,
@@ -298,6 +346,25 @@ impl Deadline {
             Deadline::V3(dl) => dl.for_each(store, |idx, part| {
                 f(idx as u64, Partition::V3(Cow::Borrowed(part)))
             }),
+        }
+    }
+
+    pub fn disputable_proof_count<BS: BlockStore>(
+        &self,
+        store: &BS,
+    ) -> Result<usize, Box<dyn Error>> {
+        Ok(match self {
+            // Field did not exist in v0 or v2
+            Deadline::V0(_) | Deadline::V2(_) => 0,
+            Deadline::V3(dl) => dl.optimistic_proofs_snapshot_amt(store)?.count(),
+        })
+    }
+
+    pub fn partitions_posted(&self) -> &BitField {
+        match self {
+            Deadline::V0(dl) => &dl.post_submissions,
+            Deadline::V2(dl) => &dl.post_submissions,
+            Deadline::V3(dl) => &dl.partitions_posted,
         }
     }
 }
@@ -565,4 +632,3 @@ impl From<actorv3::miner::SectorPreCommitInfo> for SectorPreCommitInfo {
         }
     }
 }
-

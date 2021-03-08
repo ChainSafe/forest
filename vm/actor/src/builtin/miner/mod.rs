@@ -782,10 +782,13 @@ impl Actor {
                 // Check proof, we fail if validation succeeds.
                 match verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs) {
                     Ok(()) => {
-                        return Err(actor_error!(ErrIllegalArgument, "failed to dispute valid post"));
+                        return Err(actor_error!(
+                            ErrIllegalArgument,
+                            "failed to dispute valid post"
+                        ));
                     }
                     Err(e) => {
-                        log::info!("Successfully disputed: {}",e);
+                        log::info!("Successfully disputed: {}", e);
                     }
                 }
 

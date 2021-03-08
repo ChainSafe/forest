@@ -33,8 +33,7 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V2)
                 .ok_or("Actor state doesn't exist in store")?)
-        }
-        else if actor.code == *actorv3::MULTISIG_ACTOR_CODE_ID {
+        } else if actor.code == *actorv3::MULTISIG_ACTOR_CODE_ID {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V3)

@@ -1120,7 +1120,8 @@ impl Deadline {
         if !already_proven.is_empty() {
             return Err(Box::new(actor_error!(
                 ErrIllegalArgument,
-                "parition already proven: {:?}", already_proven
+                "parition already proven: {:?}",
+                already_proven
             )));
         }
 
