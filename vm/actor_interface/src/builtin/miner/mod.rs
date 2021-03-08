@@ -60,18 +60,10 @@ impl State {
             }
             State::V2(st) => {
                 let info = st.get_info(store)?;
-
-                // Deserialize into peer id if valid, `None` if not.
-                // let peer_id = PeerId::from_bytes(&info.peer_id).ok();
-
                 Ok(MinerInfo::V2(info))
             }
             State::V3(st) => {
                 let info = st.get_info(store)?;
-
-                // Deserialize into peer id if valid, `None` if not.
-                // let peer_id = PeerId::from_bytes(&info.peer_id).ok();
-
                 Ok(MinerInfo::V3(info))
             }
         }
@@ -266,7 +258,7 @@ impl MinerInfo {
 
     pub fn consensus_fault_elapsed(&self) -> ChainEpoch {
         match self {
-            Self::V0(info) => -1,
+            Self::V0(_info) => -1,
             Self::V2(info) => info.consensus_fault_elapsed,
             Self::V3(info) => info.consensus_fault_elapsed,
         }

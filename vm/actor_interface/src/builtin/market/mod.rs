@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actorv0::market;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
