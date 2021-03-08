@@ -79,7 +79,7 @@ where
 
         let info = mas.info(store)?;
 
-        let spt = RegisteredSealProof::from_sector_size(info.sector_size, nv);
+        let spt = RegisteredSealProof::from_sector_size(info.sector_size(), nv);
 
         let wpt = spt.registered_winning_post_proof()?;
 
@@ -191,29 +191,6 @@ where
         mas.info(self.blockstore())
     }
 
-    /// Get all deadlines for a miner.
-    pub fn get_miner_deadlines<V>(
-        &self,
-        tipset: &Tipset,
-        address: &Address,
-    ) -> Result<Vec<Deadline>, Error>
-    where
-        V: ProofVerifier,
-    {
-        let actor = self
-            .get_actor(address, tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor)?;
-        let mut out = Vec::with_capacity(mas.num_deadlines() as usize);
-        mas.for_each_deadline(self.blockstore(), |_, dl| {
-            let post_submissions = dl.into_post_submissions();
-
-            out.push(Deadline { post_submissions });
-            Ok(())
-        })?;
-        Ok(out)
-    }
-
     fn for_each_deadline_partition<V, F>(
         &self,
         tipset: &Tipset,
@@ -311,7 +288,7 @@ where
                 err
             ))
         })?;
-        resolve_to_key_addr(&st, self.blockstore(), &info.worker).map_err(|e| {
+        resolve_to_key_addr(&st, self.blockstore(), &info.worker()).map_err(|e| {
             Error::State(format!(
                 "(get miner worker raw) failed to resolve key addr: {}",
                 e

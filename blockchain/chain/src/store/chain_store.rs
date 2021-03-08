@@ -211,7 +211,7 @@ where
                 let curr_weight = heaviest?;
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
-                    info!("New heaviest tipset");
+                    info!("New heaviest tipset: {:?}", ts.key());
                     self.set_heaviest_tipset(ts).await?;
                 }
             }

@@ -1117,8 +1117,12 @@ impl Deadline {
         // First check to see if we're proving any already proven partitions.
         // This is faster than checking one by one.
         let already_proven = &self.partitions_posted & &partition_indexes;
-        if already_proven.is_empty() {
-            return Err(format!("parition already proven: {:?}", already_proven).into());
+        if !already_proven.is_empty() {
+            return Err(Box::new(actor_error!(
+                ErrIllegalArgument,
+                "parition already proven: {:?}",
+                already_proven
+            )));
         }
 
         let mut partitions = self.partitions_amt(store)?;
@@ -1275,7 +1279,7 @@ impl Deadline {
         let post = proof_arr
             .delete(idx as usize)
             .map_err(|e| e.downcast_wrap(format!("failed to retrieve proof {}", idx)))?
-            .ok_or_else(|| Box::new(actor_error!(ErrIllegalArgument, "proof {} not found", idx)))?;
+            .ok_or_else(|| actor_error!(ErrIllegalArgument, "proof {} not found", idx))?;
 
         let root = proof_arr
             .flush()

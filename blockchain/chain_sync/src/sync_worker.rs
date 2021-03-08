@@ -85,9 +85,11 @@ where
         self,
         mut inbound_channel: Receiver<Arc<Tipset>>,
         state: Arc<Mutex<ChainSyncState>>,
+        id: usize,
     ) -> JoinHandle<()> {
         task::spawn(async move {
             while let Some(ts) = inbound_channel.next().await {
+                info!("Worker #{} starting work on: {:?}", id, ts.key());
                 match self.sync(ts).await {
                     Ok(()) => *state.lock().await = ChainSyncState::Follow,
                     Err(e) => {
@@ -410,6 +412,7 @@ where
         }
 
         let epoch = fts.epoch();
+        let fts_key = fts.key().clone();
 
         let mut validations = FuturesUnordered::new();
         for b in fts.into_blocks() {
@@ -435,7 +438,10 @@ where
                 }
             }
         }
-        info!("Successfully validated tipset at epoch: {}", epoch);
+        info!(
+            "Successfully validated tipset {:?} at epoch: {}",
+            fts_key, epoch
+        );
         Ok(())
     }
 

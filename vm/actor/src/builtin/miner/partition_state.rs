@@ -237,7 +237,7 @@ impl Partition {
             .load_sector(&new_faults)
             .map_err(|e| e.wrap("failed to load fault sectors"))?;
 
-        let (new_faulty_power, power_delta) = if !new_fault_sectors.is_empty() {
+        let (power_delta, new_faulty_power) = if !new_fault_sectors.is_empty() {
             self.add_faults(
                 store,
                 &new_faults,

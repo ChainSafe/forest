@@ -711,7 +711,7 @@ impl Actor {
                     current_epoch,
                 ) {
                     return Err(actor_error!(
-                        ErrIllegalState,
+                        ErrForbidden,
                         "can only dispute window posts during the dispute window\
                     ({} epochs after the challenge window closes)",
                         WPOST_DISPUTE_WINDOW
@@ -780,10 +780,17 @@ impl Actor {
                     })?;
 
                 // Check proof, we fail if validation succeeds.
-                verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)
-                    .map_err(|_e| {
-                        actor_error!(ErrIllegalArgument, "failed to dispute valid post")
-                    })?;
+                match verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs) {
+                    Ok(()) => {
+                        return Err(actor_error!(
+                            ErrIllegalArgument,
+                            "failed to dispute valid post"
+                        ));
+                    }
+                    Err(e) => {
+                        log::info!("Successfully disputed: {}", e);
+                    }
+                }
 
                 // Ok, now we record faults. This always works because
                 // we don't allow compaction/moving sectors during the
@@ -856,7 +863,7 @@ impl Actor {
                 // we can from the burn to the reward.
                 let to_reward = std::cmp::min(&to_burn, &reward_target);
                 let to_burn = &to_burn - to_reward;
-                let pledge_delta = -penalty_from_vesting;
+                let pledge_delta = penalty_from_vesting.neg();
 
                 Ok((pledge_delta, to_burn, power_delta, to_reward.clone()))
             })?;
@@ -1138,7 +1145,7 @@ impl Actor {
                         pre_commit_deposit: deposit_req,
                         pre_commit_epoch: rt.curr_epoch(),
                         deal_weight: deal_weight.deal_weight.clone(),
-                        verified_deal_weight: deal_weight.deal_weight.clone(),
+                        verified_deal_weight: deal_weight.verified_deal_weight.clone(),
                     },
                 )
                 .map_err(|e| {
