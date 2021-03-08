@@ -459,7 +459,7 @@ where
             .await
             // TODO we should be able to queue a tipset with the same weight on a different chain.
             // Currently needed to go GT because equal tipsets are attempted to be synced.
-            .map(|heaviest| ts.weight() > heaviest.weight())
+            .map(|heaviest| ts.weight() >= heaviest.weight())
             .unwrap_or(true);
         if candidate_ts {
             // Check message meta after all other checks (expensive)
