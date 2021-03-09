@@ -35,6 +35,7 @@ num-traits = "0.2"
 statrs = "0.13.0"
 num-rational = "0.3.2"
 networks = { path = "../../types/networks" }
+rand = "0.7.3"
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }

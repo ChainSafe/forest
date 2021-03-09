@@ -238,3 +238,10 @@ fn approx_cmp(a: f64, b: f64) -> Ordering {
         a.partial_cmp(&b).unwrap()
     }
 }
+
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+
+pub(crate) fn shuffle_chains(chains: &mut Vec<MsgChain>) {
+    chains.shuffle(&mut thread_rng());
+}
