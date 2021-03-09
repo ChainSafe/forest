@@ -325,7 +325,6 @@ where
         let prev_val = self.caller_validated;
         let prev_depth = self.depth;
         let prev_msg = self.vm_msg.clone();
-
         let res = self.execute_send(msg, gas_cost);
 
         // Reset values back to their values before the call
@@ -520,9 +519,9 @@ where
             .get_actor(self.vm_msg.receiver())?
             .ok_or_else(|| format!("actor not found {:?}", self.vm_msg.receiver()))?;
 
-        let ms = actor::miner::State::load(self.store(), &actor)?;
+        let ms = actor::miner::State::load(&self.store, &actor)?;
 
-        let worker = ms.info(self.store())?.worker;
+        let worker = ms.info(&self.store)?.worker;
 
         resolve_to_key_addr(&self.state, &self.store, &worker)
     }
@@ -884,7 +883,6 @@ where
         self.gas_tracker
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_consensus_fault())?;
-
         // Note that block syntax is not validated. Any validly signed block will be accepted pursuant to the below conditions.
         // Whether or not it could ever have been accepted in a chain is not checked/does not matter here.
         // for that reason when checking block parent relationships, rather than instantiating a Tipset to do so
