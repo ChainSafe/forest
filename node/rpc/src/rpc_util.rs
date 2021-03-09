@@ -82,7 +82,7 @@ where
         }
         _ => Err(tide::Error::from_str(
             500,
-            format!("Unexpected response type after making RPC call"),
+            "Unexpected response type after making RPC call",
         )),
     }
 }
