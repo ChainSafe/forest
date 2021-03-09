@@ -280,7 +280,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                 request_id,
                 error,
             } => {
-                warn!(
+                debug!(
                     "Hello outbound error (peer: {:?}) (id: {:?}): {:?}",
                     peer, request_id, error
                 );
@@ -402,7 +402,7 @@ impl ForestBehaviour {
                 Some(outcome) => outcome,
                 // The response builder was too busy and thus the request was dropped. This is
                 // later on reported as a `InboundFailure::Omission`.
-                None => continue,
+                None => break,
             };
 
             if self
