@@ -2696,7 +2696,7 @@ impl Actor {
 
         let mut pledge_delta = TokenAmount::from(0);
 
-        let (burn_amount, reward_amount, state) = rt.transaction(|st: &mut State, rt| {
+        let (burn_amount, reward_amount) = rt.transaction(|st: &mut State, rt| {
             let mut info = get_miner_info(rt.store(), &st)?;
 
             // Verify miner hasn't already been faulted
@@ -2735,7 +2735,7 @@ impl Actor {
                 e.downcast_default(ExitCode::ErrSerialization, "failed to save miner info")
             })?;
 
-            Ok((burn_amount, reward_amount, st.clone()))
+            Ok((burn_amount, reward_amount))
         })?;
 
         if let Err(e) = rt.send(reporter, METHOD_SEND, Serialized::default(), reward_amount) {
@@ -2745,6 +2745,7 @@ impl Actor {
         burn_funds(rt, burn_amount)?;
         notify_pledge_changed(rt, &pledge_delta)?;
 
+        let state: State = rt.state()?;
         state
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
@@ -2753,7 +2754,6 @@ impl Actor {
                     format!("balance invariants broken: {}", e),
                 )
             })?;
-
         Ok(())
     }
 

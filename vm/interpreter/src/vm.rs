@@ -224,6 +224,7 @@ where
                     return Ok(());
                 }
                 let ret = self.apply_message(msg)?;
+
                 if let Some(cb) = &mut callback {
                     cb(&cid, msg, &ret)?;
                 }
