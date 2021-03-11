@@ -41,7 +41,7 @@ where
     /// This will recursively traverse the cache and write all data connected by links to this
     /// root Cid.
     pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError>> {
-        let guard = pprof::ProfilerGuard::new(100).unwrap();
+        // let guard = pprof::ProfilerGuard::new(100).unwrap();
         let now = SystemTime::now();
         println!("--------------- The cache has: {} items -----------------", self.write.borrow().len());
 
@@ -63,26 +63,23 @@ where
 
 
         println!("------- Start DB write START: {:?}", now.elapsed());
-        let mut counter = 0;
-        for (raw_cid_bz, raw_bz) in self.buffer1.borrow().iter() {
-            // if self.base.exists(raw_cid_bz)? {
-            //     continue;
-            // }
-            counter += 1;
-            self.base.write(raw_cid_bz, raw_bz)?;
-        }
+        // let mut counter = 0;
+        // for (raw_cid_bz, raw_bz) in self.buffer1.borrow().iter() {
+        //     counter += 1;
+        //     self.base.write(raw_cid_bz, raw_bz)?;
+        // }
         self.write = Default::default();
 
-        match guard.report().build() {
-            Ok(report) => {
-                let file = File::create("flamegraph.svg").unwrap();
-                report.flamegraph(file).unwrap();
+        // match guard.report().build() {
+        //     Ok(report) => {
+        //         let file = File::create("flamegraph.svg").unwrap();
+        //         report.flamegraph(file).unwrap();
     
-                // println!("report: {:?}", &report);
-            }
-            Err(_) => {}
-        };
-        println!("------- Ended up writing: {} iterms", counter);
+        //         // println!("report: {:?}", &report);
+        //     }
+        //     Err(_) => {}
+        // };
+        // println!("------- Ended up writing: {} iterms", counter);
 
         println!("--------------- FLUSH TOTAL TOOK: {:?} ---------------------------------", now.elapsed());
         Ok(())
@@ -206,9 +203,9 @@ BS: BlockStore,
         }
         copy_rec(base,cache,buffer, *link)?;
     }
-    // base.write(&root.to_bytes(), block)?;
+    base.write(&root.to_bytes(), block)?;
     // cb(&root.to_bytes(), block)?;
-    buffer.insert(root.to_bytes(), block.to_vec());
+    // buffer.insert(root.to_bytes(), block.to_vec());
     Ok(())
 }
 
