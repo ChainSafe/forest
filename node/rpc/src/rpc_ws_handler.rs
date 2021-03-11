@@ -85,14 +85,22 @@ where
                                                 params: (subscription_id, vec![event]),
                                             };
 
-                                            handler_ws_sender
+                                            match handler_ws_sender
                                                 .lock()
                                                 .await
                                                 .send(Message::Text(
                                                     serde_json::to_string(&response).unwrap(),
                                                 ))
                                                 .await
-                                                .unwrap();
+                                            {
+                                                Ok(_) => {
+                                                    info!("New WS data sent.");
+                                                }
+                                                Err(msg) => {
+                                                    warn!("WS connection closed. {:?}", msg);
+                                                    handler_socket_active.store(false);
+                                                }
+                                            }
                                         }
                                     }
                                 })
