@@ -7025,9 +7025,7 @@ dependencies = [
 
 [[package]]
 name = "tide-websockets"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca9eef759bbe19bd62693c01f1ac58207290513096caccafed140dbc81deaa47"
+version = "0.3.0"
 dependencies = [
  "async-dup",
  "async-std",

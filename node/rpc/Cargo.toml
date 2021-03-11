@@ -24,7 +24,7 @@ serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 serde_json = "1.0.48"
 thiserror = "1.0"
 tide = "0.16.0"
-tide-websockets = "0.2.0"
+tide-websockets = { version = "0.3.0", path = "../../../../cryptoquick/tide-websockets" }
 extensions = "0.2.0"
 ##
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }

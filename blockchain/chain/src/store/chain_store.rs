@@ -592,7 +592,7 @@ where
     pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
         if let Some(sub) = self.subscriptions.read().await.get(sub_id) {
             if let Some(rx) = sub {
-                match rx.try_recv() {
+                match rx.recv().await {
                     Ok(head_change) => Some(head_change),
                     Err(_) => None,
                 }

@@ -1,12 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::channel;
 use async_std::sync::{Arc, Mutex};
 use crossbeam::atomic::AtomicCell;
 use futures::stream::StreamExt;
+use futures::SinkExt;
 use log::{error, info, warn};
-use tide_websockets::WebSocketConnection;
+use tide_websockets::{Message, WebSocketConnection};
 
 use beacon::Beacon;
 use blockstore::BlockStore;
@@ -30,33 +30,13 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let rpc_server = request.state();
-    // let remote = Arc::new(request.remote().clone());
-    let (ws_sender, mut ws_receiver) = channel::unbounded::<String>();
-    let ws_sender = Arc::new(ws_sender);
+    let (ws_sender, mut ws_receiver) = ws_stream.split();
+    let ws_sender = Arc::new(Mutex::new(ws_sender));
     let socket_active = Arc::new(AtomicCell::new(true));
-    let ws_stream = Arc::new(Mutex::new(ws_stream));
-
-    // let poller_remote = remote.clone();
-    let poller_ws_stream = ws_stream.clone();
-    let poller_socket_active = socket_active.clone();
-
-    async_std::task::spawn(async move {
-        while let Some(msg) = ws_receiver.next().await {
-            match poller_ws_stream.lock().await.send_string(msg).await {
-                Ok(msg) => {
-                    info!("New WS data sent. {:?}", msg);
-                }
-                Err(msg) => {
-                    warn!("WS connection closed. {:?}", msg);
-                    poller_socket_active.store(false);
-                }
-            };
-        }
-    });
 
     info!("Accepted WS connection!");
 
-    while let Some(message_result) = ws_stream.lock().await.next().await {
+    while let Some(message_result) = ws_receiver.next().await {
         match message_result {
             Ok(message) => {
                 let request_text = message.into_text()?;
@@ -76,6 +56,11 @@ where
                                         .finish(),
                                 )
                                 .await?;
+
+                                info!(
+                                    "RPC WS ChainNotify for subscription ID: {}",
+                                    subscription_id
+                                );
 
                                 let handler_rpc_server = rpc_server.clone();
                                 let handler_socket_active = socket_active.clone();
@@ -101,7 +86,11 @@ where
                                             };
 
                                             handler_ws_sender
-                                                .send(serde_json::to_string(&response).unwrap())
+                                                .lock()
+                                                .await
+                                                .send(Message::Text(
+                                                    serde_json::to_string(&response).unwrap(),
+                                                ))
                                                 .await
                                                 .unwrap();
                                         }
@@ -115,15 +104,15 @@ where
                                 let response =
                                     get_rpc_call_response(rpc_server.clone(), call).await?;
 
-                                ws_stream.lock().await.send_string(response).await?;
+                                ws_sender.lock().await.send(Message::Text(response)).await?;
                             }
                         },
                         Err(e) => {
                             error!("Error deserializing WS request payload.");
-                            ws_stream
+                            ws_sender
                                 .lock()
                                 .await
-                                .send_string(get_error_str(1, e.to_string()))
+                                .send(Message::Text(get_error_str(1, e.to_string())))
                                 .await?;
                         }
                     }
@@ -131,10 +120,10 @@ where
             }
             Err(e) => {
                 error!("Error in WS socket stream. (Client possibly disconnected)");
-                ws_stream
+                ws_sender
                     .lock()
                     .await
-                    .send_string(get_error_str(2, e.to_string()))
+                    .send(Message::Text(get_error_str(2, e.to_string())))
                     .await?;
             }
         }
