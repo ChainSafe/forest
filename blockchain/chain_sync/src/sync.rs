@@ -77,7 +77,7 @@ impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             req_window: 200,
-            worker_tasks: 1,
+            worker_tasks: 3,
         }
     }
 }
