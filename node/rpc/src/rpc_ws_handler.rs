@@ -3,8 +3,7 @@
 
 use async_std::sync::{Arc, Mutex};
 use crossbeam::atomic::AtomicCell;
-use futures::stream::StreamExt;
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use log::{error, info, warn};
 use tide_websockets::{Message, WebSocketConnection};
 
