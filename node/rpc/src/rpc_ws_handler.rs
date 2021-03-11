@@ -102,8 +102,7 @@ where
                                             }
                                         }
                                     }
-                                })
-                                .await;
+                                });
                             }
                             _ => {
                                 info!("RPC WS called method: {}", call.method_ref());
