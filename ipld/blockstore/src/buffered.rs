@@ -7,7 +7,7 @@ use super::BlockStore;
 use cid::{Cid, Code, DAG_CBOR};
 use db::{Error, Store};
 use std::{cell::RefCell, convert::TryFrom, io::Cursor};
-use std::collections::{BTreeMap,HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error as StdError;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use std::io::Seek;
@@ -71,7 +71,6 @@ fn cbor_read_header_buf<'a, B: std::io::BufRead>(br: &mut B, scratch: &'a mut [u
             return Err(format!("cbor input was not canonical (lval 26 with value <= MaxUint16)").into());
         }
         return Ok((maj, val as u64))
-
     } else if low == 27 {
         br.read_exact(&mut scratch[..8])?;
         let val = BigEndian::read_u64(&scratch[..8]);
@@ -79,7 +78,6 @@ fn cbor_read_header_buf<'a, B: std::io::BufRead>(br: &mut B, scratch: &'a mut [u
             return Err(format!("cbor input was not canonical (lval 27 with value <= MaxUint32)").into());
         }
         return Ok((maj, val))
-
     } else {
         return Err(format!("invalid header cbor_read_header_buf").into());
     }
@@ -163,6 +161,7 @@ BS: BlockStore,
         if !cache.contains_key(&link) && base.exists(link.to_bytes())? {
             continue;
         }
+        // Recursively find more links under the links we're iterating over.
         copy_rec(base,cache, *link)?;
     }
     base.write(&root.to_bytes(), block)?;
