@@ -81,6 +81,7 @@ where
                 chain_head_sub::<DB, KS, B>,
             )
             .with_method("Filecoin.ChainNotify", chain_notify::<DB, KS, B>)
+            .with_method("xrpc.ch.val", chain_notify::<DB, KS, B>)
             .with_method(
                 "Filecoin.ChainGetRandomnessFromTickets",
                 chain_get_randomness_from_tickets::<DB, KS, B>,
@@ -249,90 +250,3 @@ where
 
     Ok(())
 }
-
-// async fn rpc_http_handler<DB, KS, B>(mut request: Request<State<DB, KS, B>>) -> tide::Result
-// where
-//     DB: BlockStore + Send + Sync + 'static,
-//     KS: KeyStore + Send + Sync + 'static,
-//     B: Beacon + Send + Sync + 'static,
-// {
-//     let (rpc_server, state) = Arc::clone(&request.state());
-//     // let ks = Arc::clone(&state.keystore);
-//     // let cs = Arc::clone(&state.chain_store);
-//     // let chain_notify_count = Arc::clone(&state.chain_notify_count);
-
-//     let response = rpc_server.handle(call).await;
-//     // if let Err(e) = send_response(ws_sender, response).await {
-//     //     let msg = e.message();
-//     //     // send_error(3, &ws_sender, msg).await;
-//     // }
-
-//     Ok(response)
-// }
-
-// async fn handle_rpc<KS: KeyStore>(
-//     ws_sender: &RwLock<WsSink>,
-//     state: &Arc<Server<MapRouter>>,
-//     ks: &Arc<RwLock<KS>>,
-//     call: RequestObject,
-//     authorization_header: &Option<String>,
-// ) {
-//     if WRITE_ACCESS.contains(&&*call.method) {
-//         if let Some(header) = authorization_header {
-//             match ks
-//                 .read()
-//                 .await
-//                 .get(JWT_IDENTIFIER)
-//                 .map_err(|_| AuthError::Other("No JWT private key found".to_owned()))
-//             {
-//                 Ok(key) => {
-//                     if let Err(e) = has_perms(header.to_string(), "write", key.private_key()) {
-//                         let msg = e.message();
-//                         send_error(3, ws_sender, msg).await;
-//                         return;
-//                     }
-//                 }
-//                 Err(e) => {
-//                     send_error(3, ws_sender, e.to_string()).await;
-//                 }
-//             }
-//         } else {
-//             send_error(200, ws_sender, AuthError::NoAuthHeader.to_string()).await;
-//         }
-//     };
-
-//     let response = state.handle(call).await;
-//     if let Err(e) = send_response(ws_sender, response).await {
-//         let msg = e.message();
-//         send_error(3, &ws_sender, msg).await;
-//     }
-// }
-
-// Ported from JSON-RPC-v2 because it lacks support for generics.
-
-// /// Error object in a response
-// #[derive(Serialize)]
-// #[serde(untagged)]
-// pub enum JSONRPCError {
-//     Full {
-//         code: i64,
-//         message: String,
-//         #[serde(skip_serializing_if = "Option::is_none")]
-//         data: Option<()>,
-//     },
-//     Provided {
-//         code: i64,
-//         message: &'static str,
-//     },
-// }
-
-// /// The individual response object
-// #[derive(Serialize)]
-// #[serde(untagged)]
-// pub enum ResponseObject {
-//     Error {
-//         jsonrpc: V2,
-//         error: JSONRPCError,
-//         id: Id,
-//     },
-// }

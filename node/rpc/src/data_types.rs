@@ -2,16 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
-use serde::Serialize;
-
-use chain::headchange_json::HeadChangeJson;
-
-#[derive(Serialize)]
-pub struct StreamingData<'a> {
-    pub json_rpc: &'a str,
-    pub method: &'a str,
-    pub params: (i64, Vec<HeadChangeJson>),
-}
 
 use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
@@ -44,5 +34,4 @@ where
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 
-// pub type JsonRpcServerState<DB, KS, B> = Arc<JsonRpcServer<RpcState<DB, KS, B>>>;
 pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;

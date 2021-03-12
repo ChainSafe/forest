@@ -561,11 +561,9 @@ where
                 .expect("receiver guaranteed to not drop by now")
         }
 
-        let subscriptions = Arc::clone(&self.subscriptions);
+        let subscriptions = self.subscriptions.clone();
 
         task::spawn(async move {
-            let subscriptions = Arc::clone(&subscriptions);
-
             loop {
                 match subscriber.recv().await {
                     Ok(change) => {

@@ -11,13 +11,11 @@ use beacon::Beacon;
 use blockstore::BlockStore;
 use wallet::KeyStore;
 
-use crate::chain_api::Subscription;
-use crate::data_types::{JsonRpcServerState, StreamingData};
+use crate::data_types::JsonRpcServerState;
 use crate::rpc_util::{
-    get_error_str, get_rpc_call_response, get_rpc_call_result, RPC_METHOD_CHAIN_HEAD_SUB,
-    RPC_METHOD_CHAIN_NOTIFY,
+    call_rpc, call_rpc_str, get_error_str, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
+    RPC_METHOD_CHAIN_NOTIFY_RESPONSE,
 };
-use chain::headchange_json::HeadChangeJson;
 
 pub async fn rpc_ws_handler<DB, KS, B>(
     request: tide::Request<JsonRpcServerState>,
@@ -48,13 +46,19 @@ where
                     {
                         Ok(call) => match &*call.method_ref() {
                             RPC_METHOD_CHAIN_NOTIFY => {
-                                let Subscription { subscription_id } = get_rpc_call_result(
+                                let (subscription_response, subscription_id) = call_rpc::<i64>(
                                     rpc_server.clone(),
                                     jsonrpc_v2::RequestObject::request()
                                         .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
                                         .finish(),
                                 )
                                 .await?;
+
+                                ws_sender
+                                    .lock()
+                                    .await
+                                    .send(Message::Text(subscription_response))
+                                    .await?;
 
                                 info!(
                                     "RPC WS ChainNotify for subscription ID: {}",
@@ -67,38 +71,28 @@ where
 
                                 async_std::task::spawn(async move {
                                     while handler_socket_active.load() {
-                                        if let Some(event) =
-                                            get_rpc_call_result::<Option<HeadChangeJson>>(
-                                                handler_rpc_server.clone(),
-                                                jsonrpc_v2::RequestObject::request()
-                                                    .with_method(RPC_METHOD_CHAIN_NOTIFY)
-                                                    .with_id(jsonrpc_v2::Id::Num(subscription_id))
-                                                    .finish(),
-                                            )
-                                            .await
-                                            .unwrap()
-                                        {
-                                            let response = StreamingData {
-                                                json_rpc: "2.0",
-                                                method: "xrpc.ch.val",
-                                                params: (subscription_id, vec![event]),
-                                            };
+                                        let event_response = call_rpc_str(
+                                            handler_rpc_server.clone(),
+                                            jsonrpc_v2::RequestObject::request()
+                                                .with_method(RPC_METHOD_CHAIN_NOTIFY_RESPONSE)
+                                                .with_id(jsonrpc_v2::Id::Num(subscription_id))
+                                                .finish(),
+                                        )
+                                        .await
+                                        .unwrap();
 
-                                            match handler_ws_sender
-                                                .lock()
-                                                .await
-                                                .send(Message::Text(
-                                                    serde_json::to_string(&response).unwrap(),
-                                                ))
-                                                .await
-                                            {
-                                                Ok(_) => {
-                                                    info!("New WS data sent.");
-                                                }
-                                                Err(msg) => {
-                                                    warn!("WS connection closed. {:?}", msg);
-                                                    handler_socket_active.store(false);
-                                                }
+                                        match handler_ws_sender
+                                            .lock()
+                                            .await
+                                            .send(Message::Text(event_response))
+                                            .await
+                                        {
+                                            Ok(_) => {
+                                                info!("New WS data sent.");
+                                            }
+                                            Err(msg) => {
+                                                warn!("WS connection closed. {:?}", msg);
+                                                handler_socket_active.store(false);
                                             }
                                         }
                                     }
@@ -106,10 +100,7 @@ where
                             }
                             _ => {
                                 info!("RPC WS called method: {}", call.method_ref());
-
-                                let response =
-                                    get_rpc_call_response(rpc_server.clone(), call).await?;
-
+                                let response = call_rpc_str(rpc_server.clone(), call).await?;
                                 ws_sender.lock().await.send(Message::Text(response)).await?;
                             }
                         },

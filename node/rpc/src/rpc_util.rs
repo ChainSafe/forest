@@ -30,6 +30,7 @@ pub fn get_error_str(code: i64, message: String) -> String {
 
 pub const RPC_METHOD_CHAIN_HEAD_SUB: &str = "Filecoin.ChainHeadSubscription";
 pub const RPC_METHOD_CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
+pub const RPC_METHOD_CHAIN_NOTIFY_RESPONSE: &str = "xrpc.ch.val";
 
 const STREAMING_METHODS: [&str; 1] = [RPC_METHOD_CHAIN_NOTIFY];
 
@@ -37,7 +38,7 @@ pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
 }
 
-pub async fn get_rpc_call_response(
+pub async fn call_rpc_str(
     rpc_server: JsonRpcServerState,
     rpc_request: jsonrpc_v2::RequestObject,
 ) -> Result<String, tide::Error> {
@@ -45,21 +46,22 @@ pub async fn get_rpc_call_response(
     Ok(serde_json::to_string(&rpc_subscription_response)?)
 }
 
-pub async fn get_rpc_call_result<T>(
+pub async fn call_rpc<T>(
     rpc_server: JsonRpcServerState,
     rpc_request: jsonrpc_v2::RequestObject,
-) -> Result<T, tide::Error>
+) -> Result<(String, T), tide::Error>
 where
     T: DeserializeOwned,
 {
     let rpc_subscription_response = rpc_server.handle(rpc_request).await;
 
-    match rpc_subscription_response {
+    match &rpc_subscription_response {
         jsonrpc_v2::ResponseObjects::One(rpc_subscription_params) => {
             match rpc_subscription_params {
-                jsonrpc_v2::ResponseObject::Result { result, .. } => {
-                    Ok(serde_json::from_value::<T>(serde_json::to_value(result)?)?)
-                }
+                jsonrpc_v2::ResponseObject::Result { result, .. } => Ok((
+                    serde_json::to_string(&rpc_subscription_response)?,
+                    serde_json::from_value::<T>(serde_json::to_value(result)?)?,
+                )),
                 jsonrpc_v2::ResponseObject::Error { error, .. } => match error {
                     jsonrpc_v2::Error::Provided { message, code } => {
                         let msg = format!(

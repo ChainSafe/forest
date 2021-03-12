@@ -10,7 +10,7 @@ use blockstore::BlockStore;
 use wallet::KeyStore;
 
 use crate::data_types::JsonRpcServerState;
-use crate::rpc_util::{get_rpc_call_response, is_streaming_method};
+use crate::rpc_util::{call_rpc_str, is_streaming_method};
 
 pub async fn rpc_http_handler<DB, KS, B>(
     mut http_request: HttpRequest<JsonRpcServerState>,
@@ -45,7 +45,7 @@ where
     }
 
     let rpc_server = http_request.state();
-    let rpc_response = get_rpc_call_response(rpc_server.clone(), rpc_call).await?;
+    let rpc_response = call_rpc_str(rpc_server.clone(), rpc_call).await?;
     let http_response = HttpResponse::builder(200)
         .body(rpc_response)
         .content_type("application/json-rpc;charset=utf-8")
