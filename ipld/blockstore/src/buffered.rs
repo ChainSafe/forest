@@ -7,7 +7,7 @@ use super::BlockStore;
 use cid::{Cid, Code, DAG_CBOR};
 use db::{Error, Store};
 use std::{cell::RefCell, convert::TryFrom, io::Cursor};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::error::Error as StdError;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use std::io::Seek;
