@@ -38,6 +38,7 @@ pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
 }
 
+// Calls an RPC method and returns the full response as a string.
 pub async fn call_rpc_str(
     rpc_server: JsonRpcServerState,
     rpc_request: jsonrpc_v2::RequestObject,
@@ -46,6 +47,7 @@ pub async fn call_rpc_str(
     Ok(serde_json::to_string(&rpc_subscription_response)?)
 }
 
+// Returns both the RPC response string and the result value in a tuple.
 pub async fn call_rpc<T>(
     rpc_server: JsonRpcServerState,
     rpc_request: jsonrpc_v2::RequestObject,

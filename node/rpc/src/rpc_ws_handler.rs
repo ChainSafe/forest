@@ -11,7 +11,7 @@ use beacon::Beacon;
 use blockstore::BlockStore;
 use wallet::KeyStore;
 
-use crate::data_types::JsonRpcServerState;
+use crate::data_types::{JsonRpcServerState, StreamingData};
 use crate::rpc_util::{
     call_rpc, call_rpc_str, get_error_str, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
     RPC_METHOD_CHAIN_NOTIFY_RESPONSE,
@@ -50,6 +50,10 @@ where
                                     rpc_server.clone(),
                                     jsonrpc_v2::RequestObject::request()
                                         .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
+                                        .with_id(match call.id_ref() {
+                                            Some(id) => id.clone(),
+                                            None => jsonrpc_v2::Id::Null,
+                                        })
                                         .finish(),
                                 )
                                 .await?;
@@ -71,20 +75,31 @@ where
 
                                 async_std::task::spawn(async move {
                                     while handler_socket_active.load() {
-                                        let event_response = call_rpc_str(
+                                        let (_, event) = call_rpc(
                                             handler_rpc_server.clone(),
                                             jsonrpc_v2::RequestObject::request()
                                                 .with_method(RPC_METHOD_CHAIN_NOTIFY_RESPONSE)
-                                                .with_id(jsonrpc_v2::Id::Num(subscription_id))
+                                                .with_id(match call.id_ref() {
+                                                    Some(id) => id.to_owned(),
+                                                    None => jsonrpc_v2::Id::Null,
+                                                })
                                                 .finish(),
                                         )
                                         .await
                                         .unwrap();
 
+                                        let event_response = StreamingData {
+                                            json_rpc: "2.0",
+                                            method: "xrpc.ch.val",
+                                            params: (subscription_id, vec![event]),
+                                        };
+
                                         match handler_ws_sender
                                             .lock()
                                             .await
-                                            .send(Message::Text(event_response))
+                                            .send(Message::Text(
+                                                serde_json::to_string(&event_response).unwrap(),
+                                            ))
                                             .await
                                         {
                                             Ok(_) => {

@@ -1,19 +1,28 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
-
 use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
+use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
+use serde::Serialize;
+
 use beacon::{Beacon, BeaconSchedule};
 use blocks::Tipset;
 use blockstore::BlockStore;
+use chain::headchange_json::HeadChangeJson;
 use chain::ChainStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
 use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::StateManager;
 use wallet::KeyStore;
+
+#[derive(Serialize)]
+pub struct StreamingData<'a> {
+    pub json_rpc: &'a str,
+    pub method: &'a str,
+    pub params: (i64, Vec<HeadChangeJson>),
+}
 
 /// This is where you store persistent data, or at least access to stateful data.
 pub struct RpcState<DB, KS, B>
