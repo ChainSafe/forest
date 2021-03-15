@@ -43,51 +43,48 @@ where
 }
 
 /// Given a CBOR encoded Buffer, get the type of the CBOR object.
-fn cbor_read_header_buf<'a, B: std::io::BufRead>(
+/// This was implemented because the CBOR library we use does not expose low
+/// methods like this, requiring us to deserialize the whole CBOR payload, which
+/// is unnecessary and quite inefficient for our usecase here.
+fn cbor_read_header_buf<B: std::io::BufRead>(
     br: &mut B,
-    scratch: &'a mut [u8],
+    scratch: &mut [u8],
 ) -> Result<(u8, u64), Box<dyn StdError>> {
     let first = br.read_u8()?;
     let maj = (first & 0xe0) >> 5;
     let low = first & 0x1f;
 
     if low < 24 {
-        return Ok((maj, low as u64));
+        Ok((maj, low as u64))
     } else if low == 24 {
         let next = br.read_u8()?;
         if next < 24 {
-            return Err(format!("cbor input was not canonical (lval 24 with value < 24)").into());
+            return Err("cbor input was not canonical (lval 24 with value < 24)".into());
         }
-        return Ok((maj, next as u64));
+        Ok((maj, next as u64))
     } else if low == 25 {
         br.read_exact(&mut scratch[..2])?;
         let val = BigEndian::read_u16(&scratch[..2]);
         if val <= u8::MAX as u16 {
-            return Err(
-                format!("cbor input was not canonical (lval 25 with value <= MaxUint8)").into(),
-            );
+            return Err("cbor input was not canonical (lval 25 with value <= MaxUint8)".into());
         }
-        return Ok((maj, val as u64));
+        Ok((maj, val as u64))
     } else if low == 26 {
         br.read_exact(&mut scratch[..4])?;
         let val = BigEndian::read_u32(&scratch[..4]);
         if val <= u16::MAX as u32 {
-            return Err(
-                format!("cbor input was not canonical (lval 26 with value <= MaxUint16)").into(),
-            );
+            return Err("cbor input was not canonical (lval 26 with value <= MaxUint16)".into());
         }
-        return Ok((maj, val as u64));
+        Ok((maj, val as u64))
     } else if low == 27 {
         br.read_exact(&mut scratch[..8])?;
         let val = BigEndian::read_u64(&scratch[..8]);
         if val <= u32::MAX as u64 {
-            return Err(
-                format!("cbor input was not canonical (lval 27 with value <= MaxUint32)").into(),
-            );
+            return Err("cbor input was not canonical (lval 27 with value <= MaxUint32)".into());
         }
-        return Ok((maj, val));
+        Ok((maj, val))
     } else {
-        return Err(format!("invalid header cbor_read_header_buf").into());
+        Err("invalid header cbor_read_header_buf".into())
     }
 }
 
@@ -114,10 +111,10 @@ fn scan_for_links<B: std::io::BufRead + Seek>(br: &mut B) -> Result<Vec<Cid>, Bo
                     let (maj, extra) = cbor_read_header_buf(br, &mut scratch)?;
                     // The actual CiID is expected to be a byte string
                     if maj != 2 {
-                        return Err(format!("expected cbor type byte string in input").into());
+                        return Err("expected cbor type byte string in input".into());
                     }
                     if extra > 100 {
-                        return Err(format!("string in cbor input too long").into());
+                        return Err("string in cbor input too long".into());
                     }
                     br.read_exact(&mut scratch[..extra as usize])?;
                     let c = Cid::try_from(&scratch[1..extra as usize])?;
