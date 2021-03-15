@@ -9,7 +9,7 @@ use cid::{Cid, Code, DAG_CBOR};
 use db::{Error, Store};
 use std::collections::HashMap;
 use std::error::Error as StdError;
-use std::io::Seek;
+use std::io::{BufRead, Seek};
 use std::{cell::RefCell, convert::TryFrom, io::Cursor};
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
@@ -42,11 +42,14 @@ where
     }
 }
 
-/// Given a CBOR encoded Buffer, get the type of the CBOR object.
+/// Given a CBOR encoded Buffer, returns a tuple of:
+/// the type of the CBOR object along with extra
+/// elements we expect to read. More info on this can be found in
+/// Appendix C. of RFC 7049 which defines the CBOR specification.
 /// This was implemented because the CBOR library we use does not expose low
 /// methods like this, requiring us to deserialize the whole CBOR payload, which
 /// is unnecessary and quite inefficient for our usecase here.
-fn cbor_read_header_buf<B: std::io::BufRead>(
+fn cbor_read_header_buf<B: BufRead>(
     br: &mut B,
     scratch: &mut [u8],
 ) -> Result<(u8, u64), Box<dyn StdError>> {
@@ -57,11 +60,11 @@ fn cbor_read_header_buf<B: std::io::BufRead>(
     if low < 24 {
         Ok((maj, low as u64))
     } else if low == 24 {
-        let next = br.read_u8()?;
-        if next < 24 {
+        let val = br.read_u8()?;
+        if val < 24 {
             return Err("cbor input was not canonical (lval 24 with value < 24)".into());
         }
-        Ok((maj, next as u64))
+        Ok((maj, val as u64))
     } else if low == 25 {
         br.read_exact(&mut scratch[..2])?;
         let val = BigEndian::read_u16(&scratch[..2]);
@@ -91,24 +94,24 @@ fn cbor_read_header_buf<B: std::io::BufRead>(
 /// Given a CBOR serialized IPLD buffer, read through all of it and return all the Links.
 /// This function is useful because it is quite a bit more fast than doing this recursively on a
 /// deserialized IPLD object.
-fn scan_for_links<B: std::io::BufRead + Seek>(br: &mut B) -> Result<Vec<Cid>, Box<dyn StdError>> {
+fn scan_for_links<B: BufRead + Seek>(buf: &mut B) -> Result<Vec<Cid>, Box<dyn StdError>> {
     let mut scratch: [u8; 100] = [0; 100];
     let mut remaining = 1;
     let mut ret = Vec::new();
     while remaining > 0 {
-        let (maj, extra) = cbor_read_header_buf(br, &mut scratch)?;
+        let (maj, extra) = cbor_read_header_buf(buf, &mut scratch)?;
         match maj {
             // MajUnsignedInt, MajNegativeInt, MajOther
             0 | 1 | 7 => {}
             // MajByteString, MajTextString
             2 | 3 => {
-                br.seek(std::io::SeekFrom::Current(extra as i64))?;
+                buf.seek(std::io::SeekFrom::Current(extra as i64))?;
             }
             // MajTag
             6 => {
                 // Check if the tag refers to a CID
                 if extra == 42 {
-                    let (maj, extra) = cbor_read_header_buf(br, &mut scratch)?;
+                    let (maj, extra) = cbor_read_header_buf(buf, &mut scratch)?;
                     // The actual CiID is expected to be a byte string
                     if maj != 2 {
                         return Err("expected cbor type byte string in input".into());
@@ -116,7 +119,7 @@ fn scan_for_links<B: std::io::BufRead + Seek>(br: &mut B) -> Result<Vec<Cid>, Bo
                     if extra > 100 {
                         return Err("string in cbor input too long".into());
                     }
-                    br.read_exact(&mut scratch[..extra as usize])?;
+                    buf.read_exact(&mut scratch[..extra as usize])?;
                     let c = Cid::try_from(&scratch[1..extra as usize])?;
                     ret.push(c);
                 } else {
@@ -149,6 +152,7 @@ fn copy_rec<BS>(
 where
     BS: BlockStore,
 {
+    // Skip identity and Filecoin commitment Cids
     if root.codec() != DAG_CBOR {
         return Ok(());
     }
