@@ -3399,6 +3399,7 @@ dependencies = [
 name = "ipld_blockstore"
 version = "0.1.1"
 dependencies = [
+ "byteorder 1.4.2",
  "commcid",
  "forest_cid",
  "forest_db",
