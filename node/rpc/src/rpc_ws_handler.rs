@@ -46,14 +46,16 @@ where
                     {
                         Ok(call) => match &*call.method_ref() {
                             RPC_METHOD_CHAIN_NOTIFY => {
+                                let request_id = match call.id_ref() {
+                                    Some(id) => id.to_owned(),
+                                    None => jsonrpc_v2::Id::Null,
+                                };
+
                                 let (subscription_response, subscription_id) = call_rpc::<i64>(
                                     rpc_server.clone(),
                                     jsonrpc_v2::RequestObject::request()
                                         .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
-                                        .with_id(match call.id_ref() {
-                                            Some(id) => id.clone(),
-                                            None => jsonrpc_v2::Id::Null,
-                                        })
+                                        .with_id(request_id.clone())
                                         .finish(),
                                 )
                                 .await?;
@@ -79,10 +81,7 @@ where
                                             handler_rpc_server.clone(),
                                             jsonrpc_v2::RequestObject::request()
                                                 .with_method(RPC_METHOD_CHAIN_NOTIFY_RESPONSE)
-                                                .with_id(match call.id_ref() {
-                                                    Some(id) => id.to_owned(),
-                                                    None => jsonrpc_v2::Id::Null,
-                                                })
+                                                .with_id(request_id.clone())
                                                 .finish(),
                                         )
                                         .await
