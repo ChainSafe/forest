@@ -952,8 +952,8 @@ where
         // Specifically, since A is of lower height, it must be that B was mined omitting A from its tipset
         if !extra.is_empty() {
             let bh_3 = BlockHeader::unmarshal_cbor(extra)?;
-            if bh_1.parents() != bh_3.parents()
-                && bh_1.epoch() != bh_3.epoch()
+            if bh_1.parents() == bh_3.parents()
+                && bh_1.epoch() == bh_3.epoch()
                 && bh_2.parents().cids().contains(bh_3.cid())
                 && !bh_2.parents().cids().contains(bh_1.cid())
             {
