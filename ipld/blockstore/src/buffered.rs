@@ -4,13 +4,13 @@
 #![cfg(feature = "buffered")]
 
 use super::BlockStore;
+use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use cid::{Cid, Code, DAG_CBOR};
 use db::{Error, Store};
-use std::{cell::RefCell, convert::TryFrom, io::Cursor};
 use std::collections::HashMap;
 use std::error::Error as StdError;
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use std::io::Seek;
+use std::{cell::RefCell, convert::TryFrom, io::Cursor};
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.
@@ -42,9 +42,11 @@ where
     }
 }
 
-/// Given a CBOR encoded Buffer, get the type of the CBOR object. 
-fn cbor_read_header_buf<'a, B: std::io::BufRead>(br: &mut B, scratch: &'a mut [u8]) -> Result<(u8, u64), Box<dyn StdError>> 
-{
+/// Given a CBOR encoded Buffer, get the type of the CBOR object.
+fn cbor_read_header_buf<'a, B: std::io::BufRead>(
+    br: &mut B,
+    scratch: &'a mut [u8],
+) -> Result<(u8, u64), Box<dyn StdError>> {
     let first = br.read_u8()?;
     let maj = (first & 0xe0) >> 5;
     let low = first & 0x1f;
@@ -61,40 +63,46 @@ fn cbor_read_header_buf<'a, B: std::io::BufRead>(br: &mut B, scratch: &'a mut [u
         br.read_exact(&mut scratch[..2])?;
         let val = BigEndian::read_u16(&scratch[..2]);
         if val <= u8::MAX as u16 {
-            return Err(format!("cbor input was not canonical (lval 25 with value <= MaxUint8)").into());
+            return Err(
+                format!("cbor input was not canonical (lval 25 with value <= MaxUint8)").into(),
+            );
         }
-        return Ok((maj, val as u64))
+        return Ok((maj, val as u64));
     } else if low == 26 {
         br.read_exact(&mut scratch[..4])?;
         let val = BigEndian::read_u32(&scratch[..4]);
         if val <= u16::MAX as u32 {
-            return Err(format!("cbor input was not canonical (lval 26 with value <= MaxUint16)").into());
+            return Err(
+                format!("cbor input was not canonical (lval 26 with value <= MaxUint16)").into(),
+            );
         }
-        return Ok((maj, val as u64))
+        return Ok((maj, val as u64));
     } else if low == 27 {
         br.read_exact(&mut scratch[..8])?;
         let val = BigEndian::read_u64(&scratch[..8]);
         if val <= u32::MAX as u64 {
-            return Err(format!("cbor input was not canonical (lval 27 with value <= MaxUint32)").into());
+            return Err(
+                format!("cbor input was not canonical (lval 27 with value <= MaxUint32)").into(),
+            );
         }
-        return Ok((maj, val))
+        return Ok((maj, val));
     } else {
         return Err(format!("invalid header cbor_read_header_buf").into());
     }
 }
 
 /// Given a CBOR serialized IPLD buffer, read through all of it and return all the Links.
-/// This function is useful because it is quite a bit more fast than doing this recursively on a 
+/// This function is useful because it is quite a bit more fast than doing this recursively on a
 /// deserialized IPLD object.
 fn scan_for_links<B: std::io::BufRead + Seek>(br: &mut B) -> Result<Vec<Cid>, Box<dyn StdError>> {
-    let mut scratch : [u8; 100] = [0;100];
+    let mut scratch: [u8; 100] = [0; 100];
     let mut remaining = 1;
     let mut ret = Vec::new();
     while remaining > 0 {
         let (maj, extra) = cbor_read_header_buf(br, &mut scratch)?;
         match maj {
             // MajUnsignedInt, MajNegativeInt, MajOther
-            0 | 1 | 7 => {},
+            0 | 1 | 7 => {}
             // MajByteString, MajTextString
             2 | 3 => {
                 br.seek(std::io::SeekFrom::Current(extra as i64))?;
@@ -140,14 +148,16 @@ fn copy_rec<BS>(
     base: &BS,
     cache: &HashMap<Cid, Vec<u8>>,
     root: Cid,
-) -> Result<(), Box<dyn StdError>> 
-where 
-BS: BlockStore,
+) -> Result<(), Box<dyn StdError>>
+where
+    BS: BlockStore,
 {
     if root.codec() != DAG_CBOR {
         return Ok(());
     }
-    let block = cache.get(&root).ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
+    let block = cache
+        .get(&root)
+        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
     let links = scan_for_links(&mut std::io::BufReader::new(Cursor::new(block)))?;
 
     // Go through all the links recursively
@@ -162,7 +172,7 @@ BS: BlockStore,
             continue;
         }
         // Recursively find more links under the links we're iterating over.
-        copy_rec(base,cache, *link)?;
+        copy_rec(base, cache, *link)?;
     }
     base.write(&root.to_bytes(), block)?;
 
