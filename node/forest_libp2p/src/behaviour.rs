@@ -280,7 +280,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                 request_id,
                 error,
             } => {
-                warn!(
+                debug!(
                     "Hello outbound error (peer: {:?}) (id: {:?}): {:?}",
                     peer, request_id, error
                 );
@@ -298,7 +298,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<HelloRequest, HelloRespon
                 error,
                 request_id: _,
             } => {
-                warn!("Hello inbound error (peer: {:?}): {:?}", peer, error);
+                debug!("Hello inbound error (peer: {:?}): {:?}", peer, error);
             }
             RequestResponseEvent::ResponseSent { .. } => (),
         }
@@ -345,10 +345,10 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                     // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
                         if tx.send(Ok(response)).is_err() {
-                            debug!("RPCResponse receive timed out")
+                            warn!("RPCResponse receive timed out")
                         }
                     } else {
-                        debug!("RPCResponse receive failed: channel not found");
+                        warn!("RPCResponse receive failed: channel not found");
                     };
                 }
             },
@@ -357,7 +357,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                 request_id,
                 error,
             } => {
-                warn!(
+                debug!(
                     "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
                     peer, request_id, error
                 );
@@ -376,7 +376,7 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                 error,
                 request_id: _,
             } => {
-                warn!(
+                debug!(
                     "ChainExchange inbound error (peer: {:?}): {:?}",
                     peer, error
                 );
