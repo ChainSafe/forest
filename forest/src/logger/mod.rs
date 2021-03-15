@@ -10,7 +10,7 @@ pub(crate) fn setup_logger() {
         logger_builder.parse_filters(&s);
     } else {
         // If no ENV variable specified, default to info
-        logger_builder.filter(Some("libp2p_gossipsub"), LevelFilter::Warn);
+        logger_builder.filter(Some("libp2p_gossipsub"), LevelFilter::Error);
         logger_builder.filter(Some("filecoin_proofs"), LevelFilter::Warn);
         logger_builder.filter(Some("storage_proofs_core"), LevelFilter::Warn);
         logger_builder.filter(Some("surf::middleware"), LevelFilter::Warn);

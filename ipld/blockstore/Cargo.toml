@@ -12,7 +12,7 @@ cid = { package = "forest_cid", features = ["cbor"], version = "0.3" }
 db = { package = "forest_db", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 forest_ipld = { optional = true, version = "0.1" }
-
+byteorder = "1.3.2"
 [dev-dependencies]
 commcid = { path = "../../utils/commcid" }
 

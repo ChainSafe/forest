@@ -4,13 +4,13 @@
 #![cfg(feature = "buffered")]
 
 use super::BlockStore;
+use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use cid::{Cid, Code, DAG_CBOR};
 use db::{Error, Store};
-use encoding::from_slice;
-use forest_ipld::Ipld;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error as StdError;
+use std::io::{BufRead, Seek};
+use std::{cell::RefCell, convert::TryFrom, io::Cursor};
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.
@@ -34,70 +34,149 @@ where
     /// This will recursively traverse the cache and write all data connected by links to this
     /// root Cid.
     pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError>> {
-        write_recursive(self.base, &self.write.borrow(), root)?;
+        copy_rec(self.base, &self.write.borrow(), *root)?;
 
         self.write = Default::default();
+
         Ok(())
     }
 }
 
-/// Recursively traverses cache through Cid links.
-fn write_recursive<BS>(
+/// Given a CBOR encoded Buffer, returns a tuple of:
+/// the type of the CBOR object along with extra
+/// elements we expect to read. More info on this can be found in
+/// Appendix C. of RFC 7049 which defines the CBOR specification.
+/// This was implemented because the CBOR library we use does not expose low
+/// methods like this, requiring us to deserialize the whole CBOR payload, which
+/// is unnecessary and quite inefficient for our usecase here.
+fn cbor_read_header_buf<B: BufRead>(
+    br: &mut B,
+    scratch: &mut [u8],
+) -> Result<(u8, u64), Box<dyn StdError>> {
+    let first = br.read_u8()?;
+    let maj = (first & 0xe0) >> 5;
+    let low = first & 0x1f;
+
+    if low < 24 {
+        Ok((maj, low as u64))
+    } else if low == 24 {
+        let val = br.read_u8()?;
+        if val < 24 {
+            return Err("cbor input was not canonical (lval 24 with value < 24)".into());
+        }
+        Ok((maj, val as u64))
+    } else if low == 25 {
+        br.read_exact(&mut scratch[..2])?;
+        let val = BigEndian::read_u16(&scratch[..2]);
+        if val <= u8::MAX as u16 {
+            return Err("cbor input was not canonical (lval 25 with value <= MaxUint8)".into());
+        }
+        Ok((maj, val as u64))
+    } else if low == 26 {
+        br.read_exact(&mut scratch[..4])?;
+        let val = BigEndian::read_u32(&scratch[..4]);
+        if val <= u16::MAX as u32 {
+            return Err("cbor input was not canonical (lval 26 with value <= MaxUint16)".into());
+        }
+        Ok((maj, val as u64))
+    } else if low == 27 {
+        br.read_exact(&mut scratch[..8])?;
+        let val = BigEndian::read_u64(&scratch[..8]);
+        if val <= u32::MAX as u64 {
+            return Err("cbor input was not canonical (lval 27 with value <= MaxUint32)".into());
+        }
+        Ok((maj, val))
+    } else {
+        Err("invalid header cbor_read_header_buf".into())
+    }
+}
+
+/// Given a CBOR serialized IPLD buffer, read through all of it and return all the Links.
+/// This function is useful because it is quite a bit more fast than doing this recursively on a
+/// deserialized IPLD object.
+fn scan_for_links<B: BufRead + Seek>(buf: &mut B) -> Result<Vec<Cid>, Box<dyn StdError>> {
+    let mut scratch: [u8; 100] = [0; 100];
+    let mut remaining = 1;
+    let mut ret = Vec::new();
+    while remaining > 0 {
+        let (maj, extra) = cbor_read_header_buf(buf, &mut scratch)?;
+        match maj {
+            // MajUnsignedInt, MajNegativeInt, MajOther
+            0 | 1 | 7 => {}
+            // MajByteString, MajTextString
+            2 | 3 => {
+                buf.seek(std::io::SeekFrom::Current(extra as i64))?;
+            }
+            // MajTag
+            6 => {
+                // Check if the tag refers to a CID
+                if extra == 42 {
+                    let (maj, extra) = cbor_read_header_buf(buf, &mut scratch)?;
+                    // The actual CiID is expected to be a byte string
+                    if maj != 2 {
+                        return Err("expected cbor type byte string in input".into());
+                    }
+                    if extra > 100 {
+                        return Err("string in cbor input too long".into());
+                    }
+                    buf.read_exact(&mut scratch[..extra as usize])?;
+                    let c = Cid::try_from(&scratch[1..extra as usize])?;
+                    ret.push(c);
+                } else {
+                    remaining += 1;
+                }
+            }
+            // MajArray
+            4 => {
+                remaining += extra;
+            }
+            // MajMap
+            5 => {
+                remaining += extra * 2;
+            }
+            _ => {
+                return Err(format!("unhandled cbor type: {}", maj).into());
+            }
+        }
+        remaining -= 1;
+    }
+    Ok(ret)
+}
+
+/// Copies the IPLD DAG under `root` from the cache to the base store.
+fn copy_rec<BS>(
     base: &BS,
     cache: &HashMap<Cid, Vec<u8>>,
-    cid: &Cid,
+    root: Cid,
 ) -> Result<(), Box<dyn StdError>>
 where
     BS: BlockStore,
 {
     // Skip identity and Filecoin commitment Cids
-    if cid.codec() != DAG_CBOR {
+    if root.codec() != DAG_CBOR {
         return Ok(());
     }
+    let block = cache
+        .get(&root)
+        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
+    let links = scan_for_links(&mut std::io::BufReader::new(Cursor::new(block)))?;
 
-    let raw_cid_bz = cid.to_bytes();
-
-    // If root exists in base store already, can skip
-    if base.exists(&raw_cid_bz)? {
-        return Ok(());
-    }
-
-    let raw_bz = cache
-        .get(cid)
-        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", cid))?;
-
-    // Deserialize the bytes to Ipld to traverse links.
-    // This is safer than finding links in place,
-    // but slightly slower to copy and potentially allocate non Cid data.
-    let block: Ipld = from_slice(raw_bz)?;
-
-    // Traverse and write linked data recursively
-    for_each_link(&block, &|c| write_recursive(base, cache, c))?;
-
-    // Write the root node to base storage
-    base.write(&raw_cid_bz, raw_bz)?;
-    Ok(())
-}
-
-/// Recursively explores Ipld for links and calls a function with a reference to the Cid.
-fn for_each_link<F>(ipld: &Ipld, cb: &F) -> Result<(), Box<dyn StdError>>
-where
-    F: Fn(&Cid) -> Result<(), Box<dyn StdError>>,
-{
-    match ipld {
-        Ipld::Link(c) => cb(&c)?,
-        Ipld::List(arr) => {
-            for item in arr {
-                for_each_link(item, cb)?
-            }
+    // Go through all the links recursively
+    for link in links.iter() {
+        if link.codec() != DAG_CBOR {
+            continue;
         }
-        Ipld::Map(map) => {
-            for v in map.values() {
-                for_each_link(v, cb)?
-            }
+        // DB reads are expensive. So we check if it exists in the cache.
+        // If it doesnt exist in the DB, which is likely, we proceed with using the cache.
+        // So makes sense to check the cache and then check the DB if needed.
+        if !cache.contains_key(&link) && base.exists(link.to_bytes())? {
+            continue;
         }
-        _ => (),
+        // Recursively find more links under the links we're iterating over.
+        copy_rec(base, cache, *link)?;
     }
+    base.write(&root.to_bytes(), block)?;
+
     Ok(())
 }
 
