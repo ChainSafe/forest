@@ -245,7 +245,7 @@ where
                         .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
                     }
                     Err(RecvError::Lagged(e)) => {
-                        log::warn!("Head change subscriber lagged: skipping {} events", e);
+                        warn!("Head change subscriber lagged: skipping {} events", e);
                     }
                     Err(RecvError::Closed) => {
                         break;

@@ -15,6 +15,7 @@ use crate::{
 };
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
+use log::{error, warn};
 use num_bigint::Sign;
 use num_bigint::{bigint_ser::BigIntDe, Integer};
 use num_derive::FromPrimitive;
@@ -127,11 +128,10 @@ impl Actor {
             let mut total_reward = &params.gas_reward + &block_reward;
             let curr_balance = rt.current_balance()?;
             if total_reward > curr_balance {
-                log::warn!(
+                warn!(
                     "reward actor balance {} below totalReward expected {},\
                     paying out rest of balance",
-                    curr_balance,
-                    total_reward
+                    curr_balance, total_reward
                 );
                 total_reward = curr_balance;
                 block_reward = &total_reward - &params.gas_reward;
@@ -170,7 +170,7 @@ impl Actor {
             total_reward.clone(),
         );
         if let Err(e) = res {
-            log::error!(
+            error!(
                 "failed to send ApplyRewards call to the miner actor with funds {}, code: {:?}",
                 total_reward,
                 e.exit_code()
@@ -182,7 +182,7 @@ impl Actor {
                 total_reward,
             );
             if let Err(e) = res {
-                log::error!(
+                error!(
                     "failed to send unsent reward to the burnt funds actor, code: {:?}",
                     e.exit_code()
                 );

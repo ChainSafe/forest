@@ -1,9 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use async_std::sync::RwLock;
+use log::{debug, warn};
 use std::{collections::HashMap, sync::Arc};
 
-use async_std::sync::RwLock;
 use blocks::{BlockHeader, Tipset};
 use cid::Cid;
 use clock::ChainEpoch;
@@ -36,7 +37,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
 
         for cid in cids.iter() {
             if cid == header.cid() {
-                log::debug!("tried to add block to tipset tracker that was already there");
+                debug!("tried to add block to tipset tracker that was already there");
                 return;
             }
         }
@@ -45,7 +46,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
             // TODO: maybe cache the miner address to avoid having to do a blockstore lookup here
             if let Ok(Some(block)) = self.db.get::<BlockHeader>(cid) {
                 if header.miner_address() == block.miner_address() {
-                    log::warn!(
+                    warn!(
                         "Have multiple blocks from miner {} at height {} in our tipset cache {}-{}",
                         header.miner_address(),
                         header.epoch(),

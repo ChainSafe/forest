@@ -22,7 +22,7 @@ use futures::AsyncWrite;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
@@ -268,7 +268,7 @@ where
             .await?;
 
         if lbts.epoch() < height {
-            log::warn!(
+            warn!(
                 "chain index returned the wrong tipset at height {}, using slow retrieval",
                 height
             );
@@ -394,7 +394,7 @@ where
         {
             Ok(m) => m,
             Err(e) => {
-                log::trace!("failed to fill tipset: {}", e);
+                trace!("failed to fill tipset: {}", e);
                 return None;
             }
         };
