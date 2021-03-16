@@ -17,11 +17,13 @@ use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::StateManager;
 use wallet::KeyStore;
 
+pub type SubscriptionHeadChange = (i64, HeadChangeJson);
+
 #[derive(Serialize)]
 pub struct StreamingData<'a> {
     pub json_rpc: &'a str,
     pub method: &'a str,
-    pub params: (i64, Vec<HeadChangeJson>),
+    pub params: SubscriptionHeadChange,
 }
 
 /// This is where you store persistent data, or at least access to stateful data.

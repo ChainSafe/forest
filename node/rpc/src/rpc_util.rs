@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use log::{debug, error};
 use serde::de::DeserializeOwned;
 
 use crate::data_types::JsonRpcServerState;
@@ -60,17 +61,21 @@ where
     match &rpc_subscription_response {
         jsonrpc_v2::ResponseObjects::One(rpc_subscription_params) => {
             match rpc_subscription_params {
-                jsonrpc_v2::ResponseObject::Result { result, .. } => Ok((
-                    serde_json::to_string(&rpc_subscription_response)?,
-                    serde_json::from_value::<T>(serde_json::to_value(result)?)?,
-                )),
+                jsonrpc_v2::ResponseObject::Result { result, .. } => {
+                    let response_str = serde_json::to_string(&rpc_subscription_response)?;
+                    debug!("RPC Response: {:?}", response_str);
+                    Ok((
+                        response_str,
+                        serde_json::from_value::<T>(serde_json::to_value(result)?)?,
+                    ))
+                }
                 jsonrpc_v2::ResponseObject::Error { error, .. } => match error {
                     jsonrpc_v2::Error::Provided { message, code } => {
                         let msg = format!(
                             "Error after making RPC call. Code: {}. Error: {:?}",
                             code, &message
                         );
-
+                        error!("RPC call error: {}", msg);
                         Err(tide::Error::from_str(500, msg))
                     }
                     jsonrpc_v2::Error::Full { code, message, .. } => {
@@ -78,7 +83,7 @@ where
                             "Unknown error after making RPC call. Code: {}. Error: {:?} ",
                             code, message
                         );
-
+                        error!("RPC call error: {}", msg);
                         Err(tide::Error::from_str(500, msg))
                     }
                 },

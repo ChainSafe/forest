@@ -4,14 +4,14 @@
 use async_std::sync::{Arc, Mutex};
 use crossbeam::atomic::AtomicCell;
 use futures::{SinkExt, StreamExt};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use tide_websockets::{Message, WebSocketConnection};
 
 use beacon::Beacon;
 use blockstore::BlockStore;
 use wallet::KeyStore;
 
-use crate::data_types::{JsonRpcServerState, StreamingData};
+use crate::data_types::{JsonRpcServerState, StreamingData, SubscriptionHeadChange};
 use crate::rpc_util::{
     call_rpc, call_rpc_str, get_error_str, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
     RPC_METHOD_CHAIN_NOTIFY_RESPONSE,
@@ -37,6 +37,8 @@ where
         match message_result {
             Ok(message) => {
                 let request_text = message.into_text()?;
+
+                debug!("WS RPC Request: {}", request_text);
 
                 if !request_text.is_empty() {
                     info!("RPC Request Received: {:?}", &request_text);
@@ -77,20 +79,22 @@ where
 
                                 async_std::task::spawn(async move {
                                     while handler_socket_active.load() {
-                                        let (_, event) = call_rpc(
+                                        let (_, event) = call_rpc::<SubscriptionHeadChange>(
                                             handler_rpc_server.clone(),
                                             jsonrpc_v2::RequestObject::request()
                                                 .with_method(RPC_METHOD_CHAIN_NOTIFY_RESPONSE)
-                                                .with_id(request_id.clone())
+                                                .with_id(subscription_id.clone())
                                                 .finish(),
                                         )
                                         .await
                                         .unwrap();
 
+                                        debug!("RPC WS ChainNotify event: {:?}", event);
+
                                         let event_response = StreamingData {
                                             json_rpc: "2.0",
                                             method: "xrpc.ch.val",
-                                            params: (subscription_id, vec![event]),
+                                            params: event,
                                         };
 
                                         match handler_ws_sender
