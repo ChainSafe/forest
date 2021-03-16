@@ -83,7 +83,7 @@ where
                                             handler_rpc_server.clone(),
                                             jsonrpc_v2::RequestObject::request()
                                                 .with_method(RPC_METHOD_CHAIN_NOTIFY_RESPONSE)
-                                                .with_id(subscription_id.clone())
+                                                .with_id(subscription_id)
                                                 .finish(),
                                         )
                                         .await
