@@ -14,7 +14,6 @@ use wallet::KeyStore;
 use crate::data_types::{JsonRpcServerState, StreamingData, SubscriptionHeadChange};
 use crate::rpc_util::{
     call_rpc, call_rpc_str, get_error_str, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
-    RPC_METHOD_CHAIN_NOTIFY_RESPONSE,
 };
 
 pub async fn rpc_ws_handler<DB, KS, B>(
@@ -82,7 +81,7 @@ where
                                         let (_, event) = call_rpc::<SubscriptionHeadChange>(
                                             handler_rpc_server.clone(),
                                             jsonrpc_v2::RequestObject::request()
-                                                .with_method(RPC_METHOD_CHAIN_NOTIFY_RESPONSE)
+                                                .with_method(RPC_METHOD_CHAIN_NOTIFY)
                                                 .with_id(subscription_id)
                                                 .finish(),
                                         )

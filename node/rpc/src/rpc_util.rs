@@ -31,7 +31,6 @@ pub fn get_error_str(code: i64, message: String) -> String {
 
 pub const RPC_METHOD_CHAIN_HEAD_SUB: &str = "Filecoin.ChainHeadSubscription";
 pub const RPC_METHOD_CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
-pub const RPC_METHOD_CHAIN_NOTIFY_RESPONSE: &str = "xrpc.ch.val";
 
 const STREAMING_METHODS: [&str; 1] = [RPC_METHOD_CHAIN_NOTIFY];
 

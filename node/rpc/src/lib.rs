@@ -81,7 +81,6 @@ where
                 chain_head_sub::<DB, KS, B>,
             )
             .with_method("Filecoin.ChainNotify", chain_notify::<DB, KS, B>)
-            .with_method("xrpc.ch.val", chain_notify::<DB, KS, B>)
             .with_method(
                 "Filecoin.ChainGetRandomnessFromTickets",
                 chain_get_randomness_from_tickets::<DB, KS, B>,

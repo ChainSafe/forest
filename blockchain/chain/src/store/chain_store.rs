@@ -547,18 +547,16 @@ where
     /// This function is not blocking on events, and does not stall publishing events as it will
     /// skip over lagged events.
     pub async fn sub_head_changes(&self) -> i64 {
-        let (tx, rx) = channel::unbounded();
+        let (tx, rx) = channel::bounded(16);
         let mut subscriber = self.publisher.subscribe();
-
         let sub_id = self.subscriptions.read().await.len() as i64;
-
         self.subscriptions.write().await.insert(sub_id, Some(rx));
 
         // Send current heaviest tipset into receiver as first event.
         if let Some(ts) = self.heaviest_tipset().await {
             tx.send(HeadChange::Current(ts))
                 .await
-                .expect("receiver guaranteed to not drop by now")
+                .expect("Receiver guaranteed to not drop by now")
         }
 
         let subscriptions = self.subscriptions.clone();
@@ -567,6 +565,7 @@ where
             loop {
                 match subscriber.recv().await {
                     Ok(change) => {
+                        debug!("Received head changes for subscription ID: {}", sub_id);
                         if tx.send(change).await.is_err() {
                             // Subscriber dropped, no need to keep task alive
                             subscriptions.write().await.insert(sub_id, None);
@@ -575,7 +574,7 @@ where
                     }
                     Err(RecvError::Lagged(_)) => {
                         // Can keep polling, as long as receiver is not dropped
-                        warn!("subscriber lagged, ignored head change events");
+                        warn!("Subscriber lagged, ignored head change events");
                     }
                     // This can only happen if chain store is dropped, but fine to exit silently
                     // if this ever does happen.
