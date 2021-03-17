@@ -32,7 +32,7 @@ pub fn get_error_str(code: i64, message: String) -> String {
 pub const RPC_METHOD_CHAIN_HEAD_SUB: &str = "Filecoin.ChainHeadSubscription";
 pub const RPC_METHOD_CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
 
-const STREAMING_METHODS: [&str; 1] = [RPC_METHOD_CHAIN_NOTIFY];
+const STREAMING_METHODS: [&str; 2] = [RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY];
 
 pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
