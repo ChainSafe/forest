@@ -138,13 +138,13 @@ where
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(5))
             .with_max_pending_outgoing(Some(16))
-            .with_max_established_incoming(Some((30 as f64 * 1.2) as u32))
-            .with_max_established_outgoing(Some((30 as f64 * 1.2) as u32))
+            .with_max_established_incoming(Some(config.target_peer_count))
+            .with_max_established_outgoing(Some(config.target_peer_count))
             .with_max_established_per_peer(Some(3));
 
         let mut swarm = SwarmBuilder::new(transport, ForestBehaviour::new(&net_keypair, &config, network_name), peer_id)
             .connection_limits(limits)
-            .notify_handler_buffer_size(std::num::NonZeroUsize::new(7).expect("Not zero"))
+            .notify_handler_buffer_size(std::num::NonZeroUsize::new(15).expect("Not zero"))
             .connection_event_buffer_size(64)
             .build();
 
@@ -155,6 +155,7 @@ where
             let t = Topic::new(format!("{}/{}", topic, network_name));
             swarm.subscribe(&t).unwrap();
         }
+
 
         // Bootstrap with Kademlia
         if let Err(e) = swarm.bootstrap() {

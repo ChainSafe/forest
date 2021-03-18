@@ -13,6 +13,7 @@ use crate::{
     discovery::DiscoveryConfig,
     hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse},
 };
+use crate::gossip_params::{build_peer_score_params, build_peer_score_threshold};
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
@@ -426,6 +427,14 @@ impl ForestBehaviour {
         gs_config_builder.validation_mode(ValidationMode::Strict);
 
         let gossipsub_config = gs_config_builder.build().unwrap();
+        let gossipsub = Gossipsub::new(
+            MessageAuthenticity::Signed(local_key.clone()),
+            gossipsub_config,
+        )
+        .unwrap();
+
+        // TODO: Figure out why this delays incoming blocks. See gossip_params.rs for the params settings.
+        // gossipsub.with_peer_score(build_peer_score_params(network_name), build_peer_score_threshold()).unwrap();
 
         let bitswap = Bitswap::new();
 
@@ -445,11 +454,7 @@ impl ForestBehaviour {
         req_res_config.set_connection_keep_alive(Duration::from_secs(20));
 
         ForestBehaviour {
-            gossipsub: Gossipsub::new(
-                MessageAuthenticity::Signed(local_key.clone()),
-                gossipsub_config,
-            )
-            .unwrap(),
+            gossipsub,
             discovery: discovery_config.finish(),
             ping: Ping::default(),
             identify: Identify::new(
