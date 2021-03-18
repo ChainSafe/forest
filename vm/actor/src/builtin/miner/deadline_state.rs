@@ -46,7 +46,7 @@ impl Deadlines {
         &self,
         store: &BS,
         deadline_idx: usize,
-    ) -> Result<Deadline, Box <dyn StdError>> {
+    ) -> Result<Deadline, Box<dyn StdError>> {
         if deadline_idx >= WPOST_PERIOD_DEADLINES as usize {
             return Err(Box::new(actor_error!(
                 ErrIllegalArgument,
@@ -55,15 +55,13 @@ impl Deadlines {
             )));
         }
 
-        Ok(store
-            .get(&self.due[deadline_idx])?
-            .ok_or_else(|| {
-                Box::new(actor_error!(
-                    ErrIllegalState,
-                    "failed to lookup deadline {}",
-                    deadline_idx
-                ))
-            })?)
+        Ok(store.get(&self.due[deadline_idx])?.ok_or_else(|| {
+            Box::new(actor_error!(
+                ErrIllegalState,
+                "failed to lookup deadline {}",
+                deadline_idx
+            ))
+        })?)
     }
 
     pub fn for_each<BS: BlockStore>(
