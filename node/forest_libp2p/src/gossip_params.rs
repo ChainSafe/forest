@@ -11,73 +11,74 @@ use std::{collections::HashMap, time::Duration};
 
 #[allow(dead_code)]
 fn build_msg_topic_config() -> TopicScoreParams {
-    let mut t_params = TopicScoreParams::default();
-    // expected 10 blocks/min
-    t_params.topic_weight = 0.1;
+    TopicScoreParams {
+        // expected 10 blocks/min
+        topic_weight: 0.1,
 
-    // 1 tick per second, maxes at 1 after 1 hour
-    t_params.time_in_mesh_weight = 0.00027;
-    t_params.time_in_mesh_quantum = Duration::from_secs(1);
-    t_params.time_in_mesh_cap = 1.0;
+        // 1 tick per second, maxes at 1 after 1 hour
+        time_in_mesh_weight: 0.00027,
+        time_in_mesh_quantum: Duration::from_secs(1),
+        time_in_mesh_cap: 1.0,
 
-    // deliveries decay after 10min, cap at 100 tx
-    t_params.first_message_deliveries_weight = 5.0;
-    t_params.first_message_deliveries_decay = score_parameter_decay(Duration::from_secs(10 * 60)); // 10mins
-                                                                                                   // 100 blocks in an hour
-    t_params.first_message_deliveries_cap = 100.0;
-    // invalid messages decay after 1 hour
-    t_params.invalid_message_deliveries_weight = -1000.0;
-    t_params.invalid_message_deliveries_decay = score_parameter_decay(Duration::from_secs(60 * 60));
-    t_params
+        // deliveries decay after 10min, cap at 100 tx
+        first_message_deliveries_weight: 5.0,
+        first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(10 * 60)), // 10mins
+        // 100 blocks in an hour
+        first_message_deliveries_cap: 100.0,
+        // invalid messages decay after 1 hour
+        invalid_message_deliveries_weight: -1000.0,
+        invalid_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)),
+        ..Default::default()
+    }
 }
 
 #[allow(dead_code)]
 fn build_block_topic_config() -> TopicScoreParams {
-    let mut t_params = TopicScoreParams::default();
-    t_params.topic_weight = 0.1;
+    TopicScoreParams {
+        topic_weight: 0.1,
 
-    // 1 tick per second, maxes at 1 hours (-1/3600)
-    t_params.time_in_mesh_weight = 0.0002778;
-    t_params.time_in_mesh_quantum = Duration::from_secs(1);
-    t_params.time_in_mesh_cap = 1.0;
+        // 1 tick per second, maxes at 1 hours (-1/3600)
+        time_in_mesh_weight: 0.0002778,
+        time_in_mesh_quantum: Duration::from_secs(1),
+        time_in_mesh_cap: 1.0,
 
-    // deliveries decay after 10min, cap at 100 tx
-    t_params.first_message_deliveries_weight = 0.5;
-    t_params.first_message_deliveries_decay = score_parameter_decay(Duration::from_secs(10 * 60)); // 10mins
-                                                                                                   // 100 messages in 10 minutes
-    t_params.first_message_deliveries_cap = 100.0;
-    // invalid messages decay after 1 hour
-    t_params.invalid_message_deliveries_weight = -1000.0;
-    t_params.invalid_message_deliveries_decay = score_parameter_decay(Duration::from_secs(60 * 60));
-    t_params
+        // deliveries decay after 10min, cap at 100 tx
+        first_message_deliveries_weight: 0.5,
+        first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(10 * 60)), // 10mins
+        // 100 messages in 10 minutes
+        first_message_deliveries_cap: 100.0,
+        // invalid messages decay after 1 hour
+        invalid_message_deliveries_weight: -1000.0,
+        invalid_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)),
+        ..Default::default()
+    }
 }
 
 #[allow(dead_code)]
 pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
-    let mut psp = PeerScoreParams::default();
-    psp.app_specific_weight = 1.0;
-
-    psp.ip_colocation_factor_threshold = 5.0;
-    psp.ip_colocation_factor_weight = -100.0;
-
-    psp.behaviour_penalty_threshold = 6.0;
-    psp.behaviour_penalty_weight = -10.0;
-    psp.behaviour_penalty_decay = score_parameter_decay(Duration::from_secs(60 * 60));
-
-    psp.retain_score = Duration::from_secs(6 * 60 * 60);
-
-    psp.topics = HashMap::new();
+    let mut psp_topics = HashMap::new();
 
     // msg topic
     let msg_topic = IdentTopic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name));
-    psp.topics
-        .insert(msg_topic.hash(), build_msg_topic_config());
+    psp_topics.insert(msg_topic.hash(), build_msg_topic_config());
     // block topic
     let block_topic = IdentTopic::new(format!("{}/{}", PUBSUB_BLOCK_STR, network_name));
-    psp.topics
-        .insert(block_topic.hash(), build_block_topic_config());
+    psp_topics.insert(block_topic.hash(), build_block_topic_config());
 
-    psp
+    PeerScoreParams {
+        app_specific_weight: 1.0,
+
+        ip_colocation_factor_threshold: 5.0,
+        ip_colocation_factor_weight: -100.0,
+
+        behaviour_penalty_threshold: 6.0,
+        behaviour_penalty_weight: -10.0,
+        behaviour_penalty_decay: score_parameter_decay(Duration::from_secs(60 * 60)),
+
+        retain_score: Duration::from_secs(6 * 60 * 60),
+        topics: psp_topics,
+        ..Default::default()
+    }
 }
 
 #[allow(dead_code)]
