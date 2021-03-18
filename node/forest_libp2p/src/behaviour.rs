@@ -13,7 +13,6 @@ use crate::{
     discovery::DiscoveryConfig,
     hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse},
 };
-use crate::gossip_params::{build_peer_score_params, build_peer_score_threshold};
 use forest_cid::Cid;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};

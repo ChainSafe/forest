@@ -20,7 +20,6 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::request_response::ResponseChannel;
@@ -32,6 +31,7 @@ use libp2p::{
     identity::{ed25519, Keypair},
     mplex, noise, yamux, PeerId, Swarm, Transport,
 };
+use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -142,11 +142,15 @@ where
             .with_max_established_outgoing(Some(config.target_peer_count))
             .with_max_established_per_peer(Some(3));
 
-        let mut swarm = SwarmBuilder::new(transport, ForestBehaviour::new(&net_keypair, &config, network_name), peer_id)
-            .connection_limits(limits)
-            .notify_handler_buffer_size(std::num::NonZeroUsize::new(15).expect("Not zero"))
-            .connection_event_buffer_size(64)
-            .build();
+        let mut swarm = SwarmBuilder::new(
+            transport,
+            ForestBehaviour::new(&net_keypair, &config, network_name),
+            peer_id,
+        )
+        .connection_limits(limits)
+        .notify_handler_buffer_size(std::num::NonZeroUsize::new(15).expect("Not zero"))
+        .connection_event_buffer_size(64)
+        .build();
 
         Swarm::listen_on(&mut swarm, config.listening_multiaddr).unwrap();
 
@@ -155,7 +159,6 @@ where
             let t = Topic::new(format!("{}/{}", topic, network_name));
             swarm.subscribe(&t).unwrap();
         }
-
 
         // Bootstrap with Kademlia
         if let Err(e) = swarm.bootstrap() {

@@ -89,7 +89,10 @@ pub struct DaemonOpts {
         help = "Number of tipsets requested over chain exchange (default is 200)"
     )]
     pub req_window: Option<i64>,
-    #[structopt(long, help = "Amount of Peers we want to be connected to (default is 75)")]
+    #[structopt(
+        long,
+        help = "Amount of Peers we want to be connected to (default is 75)"
+    )]
     pub target_peer_count: Option<u32>,
 }
 

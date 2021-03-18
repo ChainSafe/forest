@@ -1,12 +1,15 @@
-use libp2p::gossipsub::{PeerScoreParams, IdentTopic, PeerScoreThresholds, TopicScoreParams, score_parameter_decay};
-use std::{collections::HashMap, time::Duration};
 use crate::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
+use libp2p::gossipsub::{
+    score_parameter_decay, IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams,
+};
+use std::{collections::HashMap, time::Duration};
 
-// All these parameters are copied from what Lotus has set for their Topic scores. 
-// They are currently unused because enabling them causes GossipSub blocks to come 
+// All these parameters are copied from what Lotus has set for their Topic scores.
+// They are currently unused because enabling them causes GossipSub blocks to come
 // delayed usually by 1 second compared to when we have these parameters disabled.
 // Leaving these here so that we can enable and fix these parameters when they are needed.
 
+#[allow(dead_code)]
 fn build_msg_topic_config() -> TopicScoreParams {
     let mut t_params = TopicScoreParams::default();
     // expected 10 blocks/min
@@ -20,15 +23,15 @@ fn build_msg_topic_config() -> TopicScoreParams {
     // deliveries decay after 10min, cap at 100 tx
     t_params.first_message_deliveries_weight = 5.0;
     t_params.first_message_deliveries_decay = score_parameter_decay(Duration::from_secs(10 * 60)); // 10mins
-    // 100 blocks in an hour
+                                                                                                   // 100 blocks in an hour
     t_params.first_message_deliveries_cap = 100.0;
     // invalid messages decay after 1 hour
     t_params.invalid_message_deliveries_weight = -1000.0;
-    t_params.invalid_message_deliveries_decay = score_parameter_decay(Duration::from_secs(60*60));
+    t_params.invalid_message_deliveries_decay = score_parameter_decay(Duration::from_secs(60 * 60));
     t_params
 }
 
-
+#[allow(dead_code)]
 fn build_block_topic_config() -> TopicScoreParams {
     let mut t_params = TopicScoreParams::default();
     t_params.topic_weight = 0.1;
@@ -41,47 +44,49 @@ fn build_block_topic_config() -> TopicScoreParams {
     // deliveries decay after 10min, cap at 100 tx
     t_params.first_message_deliveries_weight = 0.5;
     t_params.first_message_deliveries_decay = score_parameter_decay(Duration::from_secs(10 * 60)); // 10mins
-    // 100 messages in 10 minutes
+                                                                                                   // 100 messages in 10 minutes
     t_params.first_message_deliveries_cap = 100.0;
     // invalid messages decay after 1 hour
     t_params.invalid_message_deliveries_weight = -1000.0;
-    t_params.invalid_message_deliveries_decay = score_parameter_decay(Duration::from_secs(60*60));
+    t_params.invalid_message_deliveries_decay = score_parameter_decay(Duration::from_secs(60 * 60));
     t_params
 }
 
-pub(crate)fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
+#[allow(dead_code)]
+pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
     let mut psp = PeerScoreParams::default();
     psp.app_specific_weight = 1.0;
 
     psp.ip_colocation_factor_threshold = 5.0;
     psp.ip_colocation_factor_weight = -100.0;
 
-
     psp.behaviour_penalty_threshold = 6.0;
     psp.behaviour_penalty_weight = -10.0;
-    psp.behaviour_penalty_decay = score_parameter_decay(Duration::from_secs(60*60));
+    psp.behaviour_penalty_decay = score_parameter_decay(Duration::from_secs(60 * 60));
 
-    psp.retain_score = Duration::from_secs(6 *60 * 60);
+    psp.retain_score = Duration::from_secs(6 * 60 * 60);
 
     psp.topics = HashMap::new();
 
     // msg topic
     let msg_topic = IdentTopic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name));
-    psp.topics.insert(msg_topic.hash(), build_msg_topic_config());
+    psp.topics
+        .insert(msg_topic.hash(), build_msg_topic_config());
     // block topic
     let block_topic = IdentTopic::new(format!("{}/{}", PUBSUB_BLOCK_STR, network_name));
-    psp.topics.insert(block_topic.hash(), build_block_topic_config());
+    psp.topics
+        .insert(block_topic.hash(), build_block_topic_config());
 
     psp
 }
 
-pub(crate)fn build_peer_score_threshold() -> PeerScoreThresholds {
+#[allow(dead_code)]
+pub(crate) fn build_peer_score_threshold() -> PeerScoreThresholds {
     PeerScoreThresholds {
         gossip_threshold: -500.0,
         publish_threshold: -1000.0,
         graylist_threshold: -2500.0,
         accept_px_threshold: 1000.0,
         opportunistic_graft_threshold: 3.5,
-        
     }
 }
