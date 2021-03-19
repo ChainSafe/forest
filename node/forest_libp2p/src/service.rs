@@ -136,11 +136,11 @@ where
         let transport = build_transport(net_keypair.clone());
 
         let limits = ConnectionLimits::default()
-            .with_max_pending_incoming(Some(5))
-            .with_max_pending_outgoing(Some(16))
+            .with_max_pending_incoming(Some(10))
+            .with_max_pending_outgoing(Some(30))
             .with_max_established_incoming(Some(config.target_peer_count))
             .with_max_established_outgoing(Some(config.target_peer_count))
-            .with_max_established_per_peer(Some(3));
+            .with_max_established_per_peer(Some(5));
 
         let mut swarm = SwarmBuilder::new(
             transport,
@@ -148,7 +148,7 @@ where
             peer_id,
         )
         .connection_limits(limits)
-        .notify_handler_buffer_size(std::num::NonZeroUsize::new(15).expect("Not zero"))
+        .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
         .connection_event_buffer_size(64)
         .build();
 
