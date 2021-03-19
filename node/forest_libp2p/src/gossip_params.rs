@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
 use libp2p::gossipsub::{
     score_parameter_decay, IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams,
