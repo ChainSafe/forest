@@ -31,7 +31,7 @@ use forest_libp2p::chain_exchange::TipsetBundle;
 use futures::stream::{FuturesUnordered, StreamExt};
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use message::{Message, UnsignedMessage};
 use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
 use state_manager::StateManager;
@@ -94,7 +94,7 @@ where
                     Ok(()) => *state.lock().await = ChainSyncState::Follow,
                     Err(e) => {
                         let err = e.to_string();
-                        warn!("failed to sync tipset: {}", &err);
+                        error!("failed to sync tipset: {}", &err);
                         self.state.write().await.error(err);
                     }
                 }

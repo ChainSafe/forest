@@ -568,7 +568,12 @@ impl Actor {
 
             let mut deadline = deadlines
                 .load_deadline(rt.store(), params.deadline)
-                .map_err(|e| e.wrap(format!("failed to load deadline {}", params.deadline)))?;
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}", params.deadline),
+                    )
+                })?;
 
             // Record proven sectors/partitions, returning updates to power and the final set of sectors
             // proven/skipped.
@@ -734,7 +739,9 @@ impl Actor {
 
                 let mut dl_current = deadlines_current
                     .load_deadline(rt.store(), params.deadline)
-                    .map_err(|e| e.wrap("failed to load deadline"))?;
+                    .map_err(|e| {
+                        e.downcast_default(ExitCode::ErrIllegalState, "failed to load deadline")
+                    })?;
 
                 // Take the post from the snapshot for dispute.
                 // This operation REMOVES the PoSt from the snapshot so
@@ -1721,9 +1728,12 @@ impl Actor {
             let mut pledge_delta = TokenAmount::zero();
 
             for deadline_idx in deadlines_to_load {
-                let mut deadline = deadlines
-                    .load_deadline(store, deadline_idx)
-                    .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
+                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}", deadline_idx),
+                    )
+                })?;
 
                 let mut partitions = deadline.partitions_amt(store).map_err(|e| {
                     e.downcast_default(
@@ -2004,9 +2014,12 @@ impl Actor {
                 }
 
                 let quant = state.quant_spec_for_deadline(deadline_idx);
-                let mut deadline = deadlines
-                    .load_deadline(store, deadline_idx)
-                    .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
+                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}", deadline_idx),
+                    )
+                })?;
 
                 let removed_power = deadline
                     .terminate_sectors(
@@ -2157,9 +2170,12 @@ impl Actor {
                     )
                 })?;
 
-                let mut deadline = deadlines
-                    .load_deadline(store, deadline_idx)
-                    .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
+                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}", deadline_idx),
+                    )
+                })?;
 
                 let fault_expiration_epoch = target_deadline.last() + FAULT_MAX_AGE;
 
@@ -2308,9 +2324,12 @@ impl Actor {
                     )
                 })?;
 
-                let mut deadline = deadlines
-                    .load_deadline(store, deadline_idx)
-                    .map_err(|e| e.wrap(format!("failed to load deadline {}", deadline_idx)))?;
+                let mut deadline = deadlines.load_deadline(store, deadline_idx).map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}", deadline_idx),
+                    )
+                })?;
 
                 deadline
                     .declare_faults_recovered(store, &sectors, info.sector_size, partition_map)
@@ -2430,7 +2449,12 @@ impl Actor {
 
             let mut deadline = deadlines
                 .load_deadline(store, params_deadline)
-                .map_err(|e| e.wrap(format!("failed to load deadline {}", params_deadline)))?;
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        format!("failed to load deadline {}", params_deadline),
+                    )
+                })?;
 
             let (live, dead, removed_power) = deadline
                 .remove_partitions(store, partitions, quant)
