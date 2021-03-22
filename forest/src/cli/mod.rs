@@ -89,6 +89,11 @@ pub struct DaemonOpts {
         help = "Number of tipsets requested over chain exchange (default is 200)"
     )]
     pub req_window: Option<i64>,
+    #[structopt(
+        long,
+        help = "Amount of Peers we want to be connected to (default is 75)"
+    )]
+    pub target_peer_count: Option<u32>,
 }
 
 impl DaemonOpts {
@@ -128,6 +133,9 @@ impl DaemonOpts {
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
+        if let Some(target_peer_count) = self.target_peer_count {
+            cfg.network.target_peer_count = target_peer_count;
+        }
         // (where to find these flags, should be easy to do with structops)
 
         // check and set syncing configurations

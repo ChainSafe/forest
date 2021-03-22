@@ -20,17 +20,18 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-use libp2p::core::Multiaddr;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{
     core,
+    core::connection::ConnectionLimits,
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
     mplex, noise, yamux, PeerId, Swarm, Transport,
 };
+use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -134,10 +135,22 @@ where
 
         let transport = build_transport(net_keypair.clone());
 
-        let mut swarm = {
-            let be = ForestBehaviour::new(&net_keypair, &config, network_name);
-            Swarm::new(transport, be, peer_id)
-        };
+        let limits = ConnectionLimits::default()
+            .with_max_pending_incoming(Some(10))
+            .with_max_pending_outgoing(Some(30))
+            .with_max_established_incoming(Some(config.target_peer_count))
+            .with_max_established_outgoing(Some(config.target_peer_count))
+            .with_max_established_per_peer(Some(5));
+
+        let mut swarm = SwarmBuilder::new(
+            transport,
+            ForestBehaviour::new(&net_keypair, &config, network_name),
+            peer_id,
+        )
+        .connection_limits(limits)
+        .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
+        .connection_event_buffer_size(64)
+        .build();
 
         Swarm::listen_on(&mut swarm, config.listening_multiaddr).unwrap();
 

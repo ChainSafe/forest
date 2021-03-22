@@ -17,6 +17,8 @@ pub struct Libp2pConfig {
     pub mdns: bool,
     /// Kademlia discovery enabled.
     pub kademlia: bool,
+    /// Target peer count.
+    pub target_peer_count: u32,
 }
 
 impl Default for Libp2pConfig {
@@ -30,6 +32,7 @@ impl Default for Libp2pConfig {
             bootstrap_peers,
             mdns: false,
             kademlia: true,
+            target_peer_count: 75,
         }
     }
 }
