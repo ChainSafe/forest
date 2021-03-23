@@ -7,6 +7,10 @@ use serde::de::DeserializeOwned;
 use crate::data_types::JsonRpcServerState;
 
 pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
+    debug!(
+        "Error object created with code {} and message {}",
+        code, message
+    );
     jsonrpc_v2::Error::Full {
         code,
         message,
@@ -55,7 +59,11 @@ pub async fn call_rpc<T>(
 where
     T: DeserializeOwned,
 {
+    debug!("RPC invoked");
+
     let rpc_subscription_response = rpc_server.handle(rpc_request).await;
+
+    debug!("RPC request received");
 
     match &rpc_subscription_response {
         jsonrpc_v2::ResponseObjects::One(rpc_subscription_params) => {
@@ -88,9 +96,10 @@ where
                 },
             }
         }
-        _ => Err(tide::Error::from_str(
-            500,
-            "Unexpected response type after making RPC call",
-        )),
+        _ => {
+            let msg = "Unexpected response type after making RPC call";
+            error!("RPC call error: {}", msg);
+            Err(tide::Error::from_str(500, msg))
+        }
     }
 }

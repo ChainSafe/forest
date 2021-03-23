@@ -551,15 +551,18 @@ where
         let mut subscriber = self.publisher.subscribe();
         let sub_id = self.subscriptions.read().await.len() as i64;
         self.subscriptions.write().await.insert(sub_id, Some(rx));
+        debug!("Subscription ID {} created", sub_id);
 
         // Send current heaviest tipset into receiver as first event.
         if let Some(ts) = self.heaviest_tipset().await {
+            debug!("Tipset published");
             tx.send(HeadChange::Current(ts))
                 .await
                 .expect("Receiver guaranteed to not drop by now")
         }
 
         let subscriptions = self.subscriptions.clone();
+        debug!("Spawning subscription task");
 
         task::spawn(async move {
             loop {
@@ -583,6 +586,7 @@ where
             }
         });
 
+        debug!("Returning subscription ID {}", sub_id);
         sub_id
     }
 

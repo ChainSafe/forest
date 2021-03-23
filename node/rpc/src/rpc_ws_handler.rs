@@ -33,6 +33,8 @@ async fn rpc_ws_task<DB, KS, B>(
                 None => jsonrpc_v2::Id::Null,
             };
 
+            debug!("Received ChainNotify request with RPC ID: {:?}", request_id);
+
             let (subscription_response, subscription_id) = call_rpc::<i64>(
                 rpc_server.clone(),
                 jsonrpc_v2::RequestObject::request()
@@ -41,6 +43,11 @@ async fn rpc_ws_task<DB, KS, B>(
                     .finish(),
             )
             .await?;
+
+            debug!(
+                "Called ChainNotify RPC, got subscription ID {}",
+                subscription_id
+            );
 
             ws_sender
                 .lock()
@@ -63,7 +70,7 @@ async fn rpc_ws_task<DB, KS, B>(
                 )
                 .await?;
 
-                debug!("RPC WS ChainNotify event: {:?}", event);
+                debug!("Sending RPC WS ChainNotify event response");
 
                 let event_response = StreamingData {
                     json_rpc: "2.0",
@@ -117,6 +124,8 @@ where
     info!("Accepted WS connection!");
 
     while let Some(message_result) = ws_receiver.next().await {
+        debug!("Received new WS RPC message: {:?}", message_result);
+
         match message_result {
             Ok(message) => {
                 let request_text = message.into_text()?;

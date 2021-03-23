@@ -1,28 +1,30 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
+use log::debug;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
 use crate::rpc_util::get_error_obj;
 use crate::RpcState;
+use beacon::Beacon;
 use blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset, TipsetKeys,
 };
 use blockstore::BlockStore;
+use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 
-use beacon::Beacon;
-use chain::headchange_json::HeadChangeJson;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
 use message::{
     signed_message,
     unsigned_message::{self, json::UnsignedMessageJson},
     SignedMessage, UnsignedMessage,
 };
 use num_traits::FromPrimitive;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use wallet::KeyStore;
 
 #[derive(Serialize, Deserialize)]
@@ -209,12 +211,17 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     if let Id::Num(id) = id {
+        debug!("Requested ChainNotify from id: {}", id);
+
         let event = data
             .state_manager
             .chain_store()
             .next_head_change(&id)
             .await
             .unwrap();
+
+        debug!("Responding to ChainNotify from id: {}", id);
+
         Ok((id, HeadChangeJson::from(event)))
     } else {
         Err(get_error_obj(-32600, "Invalid request".to_owned()))
