@@ -1058,6 +1058,7 @@ dependencies = [
  "beacon",
  "blake2b_simd",
  "byteorder 1.4.2",
+ "crossbeam 0.8.0",
  "fil_clock",
  "fil_types",
  "forest_address",
@@ -1075,6 +1076,7 @@ dependencies = [
  "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ipld_blockstore",
  "lazy_static",
+ "lockfree",
  "log",
  "lru",
  "multihash",
@@ -4277,6 +4279,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lockfree"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74ee94b5ad113c7cb98c5a040f783d0952ee4fe100993881d1673c2cb002dd23"
+dependencies = [
+ "owned-alloc",
+]
+
+[[package]]
 name = "log"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4966,6 +4977,12 @@ checksum = "53cdc5b785b7a58c5aad8216b3dfa114df64b0b06ae6e1501cef91df2fbdf8f9"
 dependencies = [
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "owned-alloc"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30fceb411f9a12ff9222c5f824026be368ff15dc2f13468d850c7d3f502205d6"
 
 [[package]]
 name = "paramfetch"

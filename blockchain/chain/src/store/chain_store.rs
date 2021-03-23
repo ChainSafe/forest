@@ -14,6 +14,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::Cid;
 use cid::Code::Blake2b256;
 use clock::ChainEpoch;
+use crossbeam::atomic::AtomicCell;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
@@ -22,6 +23,7 @@ use futures::AsyncWrite;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
+use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
@@ -71,7 +73,10 @@ pub struct ChainStore<DB> {
     publisher: Publisher<HeadChange>,
 
     /// Tracks head change subscription channels
-    subscriptions: Arc<RwLock<HashMap<i64, Option<Receiver<HeadChange>>>>>,
+    subscriptions: Arc<LockfreeMap<i64, Option<Receiver<HeadChange>>>>,
+
+    /// Keeps track of how many subscriptions there are in order to auto-increment the subscription ID
+    subscriptions_count: AtomicCell<usize>,
 
     /// key-value datastore.
     pub db: Arc<DB>,
@@ -99,6 +104,7 @@ where
         let cs = Self {
             publisher,
             subscriptions: Default::default(),
+            subscriptions_count: Default::default(),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
             tipset_tracker: TipsetTracker::new(db.clone()),
             db,
@@ -549,8 +555,16 @@ where
     pub async fn sub_head_changes(&self) -> i64 {
         let (tx, rx) = channel::bounded(16);
         let mut subscriber = self.publisher.subscribe();
-        let sub_id = self.subscriptions.read().await.len() as i64;
-        self.subscriptions.write().await.insert(sub_id, Some(rx));
+
+        debug!("Reading subscription length");
+        let sub_id = self.subscriptions_count.load() as i64 + 1;
+
+        debug!("Incrementing subscriptions count");
+        self.subscriptions_count.fetch_add(1);
+
+        debug!("Writing subscription receiver");
+        self.subscriptions.insert(sub_id, Some(rx));
+
         debug!("Subscription ID {} created", sub_id);
 
         // Send current heaviest tipset into receiver as first event.
@@ -571,7 +585,7 @@ where
                         debug!("Received head changes for subscription ID: {}", sub_id);
                         if tx.send(change).await.is_err() {
                             // Subscriber dropped, no need to keep task alive
-                            subscriptions.write().await.insert(sub_id, None);
+                            subscriptions.insert(sub_id, None);
                             break;
                         }
                     }
@@ -591,10 +605,18 @@ where
     }
 
     pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
-        if let Some(sub) = self.subscriptions.read().await.get(sub_id) {
-            if let Some(rx) = sub {
+        debug!(
+            "Getting subscription receiver for subscription ID: {}",
+            sub_id
+        );
+        if let Some(sub) = self.subscriptions.get(sub_id) {
+            if let Some(rx) = sub.val() {
+                debug!("Polling receiver for subscription ID: {}", sub_id);
                 match rx.recv().await {
-                    Ok(head_change) => Some(head_change),
+                    Ok(head_change) => {
+                        debug!("Got head change for subscription ID: {}", sub_id);
+                        Some(head_change)
+                    }
                     Err(_) => None,
                 }
             } else {
