@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use log::{error, info, warn};
+
 mod bitfield_queue;
 mod deadline_assignment;
 mod deadline_state;
@@ -795,7 +797,7 @@ impl Actor {
                         ));
                     }
                     Err(e) => {
-                        log::info!("Successfully disputed: {}", e);
+                        info!("Successfully disputed: {}", e);
                     }
                 }
 
@@ -883,7 +885,7 @@ impl Actor {
                 Serialized::default(),
                 to_reward.clone(),
             ) {
-                log::error!("failed to send reward: {}", e);
+                error!("failed to send reward: {}", e);
                 to_burn += to_reward;
             }
         }
@@ -1307,7 +1309,7 @@ impl Actor {
         // This should be enforced by the power actor. We log here just in case
         // something goes wrong.
         if params.sectors.len() > MAX_MINER_PROVE_COMMITS_PER_EPOCH {
-            log::warn!(
+            warn!(
                 "confirmed more prove commits in an epoch than permitted: {} > {}",
                 params.sectors.len(),
                 MAX_MINER_PROVE_COMMITS_PER_EPOCH
@@ -1368,7 +1370,7 @@ impl Actor {
                 );
 
                 if let Err(e) = res {
-                    log::info!(
+                    info!(
                         "failed to activate deals on sector {}, dropping from prove commit set: {}",
                         pre_commit.info.sector_number,
                         e.msg()
@@ -1438,11 +1440,9 @@ impl Actor {
 
                 // This should have been caught in precommit, but don't let other sectors fail because of it.
                 if duration < MIN_SECTOR_EXPIRATION {
-                    log::warn!(
+                    warn!(
                         "precommit {} has lifetime {} less than minimum {}. ignoring",
-                        pre_commit.info.sector_number,
-                        duration,
-                        MIN_SECTOR_EXPIRATION,
+                        pre_commit.info.sector_number, duration, MIN_SECTOR_EXPIRATION,
                     );
                 }
 
@@ -2424,7 +2424,7 @@ impl Actor {
                 return Err(actor_error!(
                     ErrForbidden,
                     "cannot compact deadline {} during its challenge window, \
-                    or the prior challenge window, 
+                    or the prior challenge window,
                     or before {} epochs have passed since its last challenge window ended",
                     params_deadline,
                     WPOST_DISPUTE_WINDOW
@@ -2765,7 +2765,7 @@ impl Actor {
         })?;
 
         if let Err(e) = rt.send(reporter, METHOD_SEND, Serialized::default(), reward_amount) {
-            log::error!("failed to send reward: {}", e);
+            error!("failed to send reward: {}", e);
         }
 
         burn_funds(rt, burn_amount)?;

@@ -16,6 +16,7 @@ pub(crate) fn setup_logger() {
         logger_builder.filter(Some("surf::middleware"), LevelFilter::Warn);
         logger_builder.filter(Some("tide"), LevelFilter::Warn);
         logger_builder.filter(Some("libp2p_bitswap"), LevelFilter::Warn);
+        logger_builder.filter(Some("rpc"), LevelFilter::Info);
         logger_builder.filter(None, LevelFilter::Info);
     }
     let logger = logger_builder.build();

@@ -190,7 +190,6 @@ mod tests {
             chain_store: cs_for_chain,
             beacon,
             new_mined_block_tx,
-            chain_notify_streams: Default::default(),
         });
         (state, network_rx)
     }

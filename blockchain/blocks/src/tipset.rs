@@ -278,7 +278,7 @@ pub mod tipset_json {
     use std::sync::Arc;
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-    #[derive(Deserialize, Serialize)]
+    #[derive(Debug, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct TipsetJson(#[serde(with = "self")] pub Arc<Tipset>);
 

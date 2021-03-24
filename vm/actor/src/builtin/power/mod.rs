@@ -19,6 +19,7 @@ use ahash::AHashSet;
 use fil_types::{SealVerifyInfo, HAMT_BIT_WIDTH};
 use indexmap::IndexMap;
 use ipld_blockstore::BlockStore;
+use log::{debug, error};
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Signed};
@@ -421,7 +422,7 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to look up claim")
                 })?;
                 if !contains_claim {
-                    log::debug!("skipping batch verifies for unknown miner: {}", addr);
+                    debug!("skipping batch verifies for unknown miner: {}", addr);
                     return Ok(());
                 }
 
@@ -535,7 +536,7 @@ impl Actor {
                                 )
                             })?;
                     if !miner_has_claim {
-                        log::debug!("skipping cron event for unknown miner: {}", evt.miner_addr);
+                        debug!("skipping cron event for unknown miner: {}", evt.miner_addr);
                         continue;
                     }
                     cron_events.push(evt);
@@ -570,10 +571,9 @@ impl Actor {
             // Failures are unexpected here but will result in removal of miner power
             // A log message would really help here.
             if let Err(e) = res {
-                log::debug!(
+                debug!(
                     "OnDeferredCronEvent failed for miner {}: res {}",
-                    event.miner_addr,
-                    e
+                    event.miner_addr, e
                 );
                 failed_miner_crons.push(event.miner_addr)
             }
@@ -590,11 +590,10 @@ impl Actor {
                 // Remove power and leave miner frozen
                 for miner_addr in failed_miner_crons {
                     if let Err(e) = st.delete_claim(&mut claims, &miner_addr) {
-                        log::error!(
+                        error!(
                             "failed to delete claim for miner {} after\
                             failing on deferred cron event: {}",
-                            miner_addr,
-                            e
+                            miner_addr, e
                         );
                         continue;
                     }

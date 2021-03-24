@@ -139,7 +139,7 @@ pub(super) async fn start(config: Config) {
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc::<_, _, _, FullVerifier>(
-                RpcState {
+                Arc::new(RpcState {
                     state_manager,
                     keystore: keystore_rpc,
                     mpool,
@@ -150,11 +150,10 @@ pub(super) async fn start(config: Config) {
                     beacon,
                     chain_store,
                     new_mined_block_tx: worker_tx,
-                    chain_notify_streams: Default::default(),
-                },
+                }),
                 &rpc_listen,
             )
-            .await;
+            .await
         }))
     } else {
         debug!("RPC disabled");

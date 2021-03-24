@@ -5,11 +5,15 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-jsonrpc-v2 = { version = "0.5.2", git = "https://github.com/ChainSafe/jsonrpc-v2", features = ["easy-errors", "macros"], default-features = false }
 jsonwebtoken = "7.2.0"
 lazy_static = "1.4.0"
 serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 thiserror = "1.0"
-wallet = {package = "key_management", path = "../../key_management" }
+wallet = { package = "key_management", path = "../../key_management" }
 rand = "0.7.3"
 crypto = { package = "forest_crypto", version = "0.4" }
+
+[dependencies.jsonrpc-v2]
+version = "0.10.0"
+features = ["easy-errors", "macros", "bytes-v05"]
+default-features = false

@@ -36,12 +36,12 @@ rayon = "1.3"
 forest_car = { path = "../../ipld/car" }
 forest_ipld = "0.1.1"
 networks = { path = "../../types/networks" }
+lockfree = "0.5.1"
+crossbeam = "0.8.0"
 
 [features]
 json = []
 
 [dev-dependencies]
 multihash = { version = "0.13", default-features = false, features = ["std", "blake2b", "derive"] }
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
-    "test_constructors"
-] }
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }

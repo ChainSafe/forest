@@ -1,26 +1,31 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
+use log::debug;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+use crate::data_types::SubscriptionHeadChange;
+use crate::rpc_util::get_error_obj;
 use crate::RpcState;
+use beacon::Beacon;
 use blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset, TipsetKeys,
 };
 use blockstore::BlockStore;
+use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 
-use beacon::Beacon;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     signed_message,
     unsigned_message::{self, json::UnsignedMessageJson},
     SignedMessage, UnsignedMessage,
 };
 use num_traits::FromPrimitive;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use wallet::KeyStore;
 
 #[derive(Serialize, Deserialize)]
@@ -183,6 +188,45 @@ where
         .await
         .ok_or("can't find heaviest tipset")?;
     Ok(TipsetJson(heaviest))
+}
+
+pub(crate) async fn chain_head_sub<DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
+) -> Result<i64, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
+    Ok(subscription_id)
+}
+
+pub(crate) async fn chain_notify<'a, DB, KS, B>(
+    data: Data<RpcState<DB, KS, B>>,
+    id: Id,
+) -> Result<SubscriptionHeadChange, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    if let Id::Num(id) = id {
+        debug!("Requested ChainNotify from id: {}", id);
+
+        let event = data
+            .state_manager
+            .chain_store()
+            .next_head_change(&id)
+            .await
+            .unwrap();
+
+        debug!("Responding to ChainNotify from id: {}", id);
+
+        Ok((id, vec![HeadChangeJson::from(event)]))
+    } else {
+        Err(get_error_obj(-32600, "Invalid request".to_owned()))
+    }
 }
 
 pub(crate) async fn chain_tipset_weight<DB, KS, B>(

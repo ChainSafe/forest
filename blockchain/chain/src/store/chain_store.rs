@@ -4,7 +4,7 @@
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use actor::{miner, power};
 use address::Address;
-use async_std::channel::{bounded, Receiver};
+use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -14,6 +14,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 use cid::Cid;
 use cid::Code::Blake2b256;
 use clock::ChainEpoch;
+use crossbeam::atomic::AtomicCell;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
@@ -22,7 +23,8 @@ use futures::AsyncWrite;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
-use log::{debug, info, warn};
+use lockfree::map::Map as LockfreeMap;
+use log::{debug, info, trace, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
@@ -70,6 +72,12 @@ pub struct ChainStore<DB> {
     /// Publisher for head change events
     publisher: Publisher<HeadChange>,
 
+    /// Tracks head change subscription channels
+    subscriptions: Arc<LockfreeMap<i64, Option<Receiver<HeadChange>>>>,
+
+    /// Keeps track of how many subscriptions there are in order to auto-increment the subscription ID
+    subscriptions_count: AtomicCell<usize>,
+
     /// key-value datastore.
     pub db: Arc<DB>,
 
@@ -95,6 +103,8 @@ where
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
+            subscriptions: Default::default(),
+            subscriptions_count: Default::default(),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
             tipset_tracker: TipsetTracker::new(db.clone()),
             db,
@@ -264,7 +274,7 @@ where
             .await?;
 
         if lbts.epoch() < height {
-            log::warn!(
+            warn!(
                 "chain index returned the wrong tipset at height {}, using slow retrieval",
                 height
             );
@@ -390,7 +400,7 @@ where
         {
             Ok(m) => m,
             Err(e) => {
-                log::trace!("failed to fill tipset: {}", e);
+                trace!("failed to fill tipset: {}", e);
                 return None;
             }
         };
@@ -539,32 +549,49 @@ where
 
     /// Subscribes to head changes. This function will send the current tipset through a channel,
     /// start a task that listens to each head change event and forwards into the channel,
-    /// then returns the receiver of this channel from the function.
+    /// then returns an id corresponding to the receiver of this channel from the function.
     /// This function is not blocking on events, and does not stall publishing events as it will
     /// skip over lagged events.
-    pub async fn sub_head_changes(&self) -> Receiver<HeadChange> {
-        let (tx, rx) = bounded(16);
+    pub async fn sub_head_changes(&self) -> i64 {
+        let (tx, rx) = channel::bounded(16);
         let mut subscriber = self.publisher.subscribe();
+
+        debug!("Reading subscription length");
+        let sub_id = self.subscriptions_count.load() as i64 + 1;
+
+        debug!("Incrementing subscriptions count");
+        self.subscriptions_count.fetch_add(1);
+
+        debug!("Writing subscription receiver");
+        self.subscriptions.insert(sub_id, Some(rx));
+
+        debug!("Subscription ID {} created", sub_id);
 
         // Send current heaviest tipset into receiver as first event.
         if let Some(ts) = self.heaviest_tipset().await {
+            debug!("Tipset published");
             tx.send(HeadChange::Current(ts))
                 .await
-                .expect("receiver guaranteed to not drop by now")
+                .expect("Receiver guaranteed to not drop by now")
         }
+
+        let subscriptions = self.subscriptions.clone();
+        debug!("Spawning subscription task");
 
         task::spawn(async move {
             loop {
                 match subscriber.recv().await {
                     Ok(change) => {
+                        debug!("Received head changes for subscription ID: {}", sub_id);
                         if tx.send(change).await.is_err() {
                             // Subscriber dropped, no need to keep task alive
+                            subscriptions.insert(sub_id, None);
                             break;
                         }
                     }
                     Err(RecvError::Lagged(_)) => {
                         // Can keep polling, as long as receiver is not dropped
-                        warn!("subscriber lagged, ignored head change events");
+                        warn!("Subscriber lagged, ignored head change events");
                     }
                     // This can only happen if chain store is dropped, but fine to exit silently
                     // if this ever does happen.
@@ -573,7 +600,33 @@ where
             }
         });
 
-        rx
+        debug!("Returning subscription ID {}", sub_id);
+        sub_id
+    }
+
+    pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
+        debug!(
+            "Getting subscription receiver for subscription ID: {}",
+            sub_id
+        );
+        if let Some(sub) = self.subscriptions.get(sub_id) {
+            if let Some(rx) = sub.val() {
+                debug!("Polling receiver for subscription ID: {}", sub_id);
+                match rx.recv().await {
+                    Ok(head_change) => {
+                        debug!("Got head change for subscription ID: {}", sub_id);
+                        Some(head_change)
+                    }
+                    Err(_) => None,
+                }
+            } else {
+                warn!("A subscription with this ID no longer exists");
+                None
+            }
+        } else {
+            warn!("No subscription with this ID");
+            None
+        }
     }
 
     /// Walks over tipset and state data and loads all blocks not yet seen.
@@ -994,28 +1047,29 @@ where
 #[cfg(feature = "json")]
 pub mod headchange_json {
     use super::*;
-    use blocks::tipset_json::TipsetJsonRef;
-    use serde::Serialize;
+    use blocks::tipset_json::TipsetJson;
+    use serde::{Deserialize, Serialize};
 
-    #[derive(Serialize)]
+    #[derive(Debug, Deserialize, Serialize)]
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
-    pub enum HeadChangeJson<'a> {
-        Current(TipsetJsonRef<'a>),
-        Apply(TipsetJsonRef<'a>),
-        Revert(TipsetJsonRef<'a>),
+    pub enum HeadChangeJson {
+        Current(TipsetJson),
+        Apply(TipsetJson),
+        Revert(TipsetJson),
     }
 
-    impl<'a> From<&'a HeadChange> for HeadChangeJson<'a> {
-        fn from(wrapper: &'a HeadChange) -> Self {
+    impl From<HeadChange> for HeadChangeJson {
+        fn from(wrapper: HeadChange) -> Self {
             match wrapper {
-                HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJsonRef(&tipset)),
-                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJsonRef(&tipset)),
-                HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJsonRef(&tipset)),
+                HeadChange::Current(tipset) => HeadChangeJson::Current(TipsetJson(tipset)),
+                HeadChange::Apply(tipset) => HeadChangeJson::Apply(TipsetJson(tipset)),
+                HeadChange::Revert(tipset) => HeadChangeJson::Revert(TipsetJson(tipset)),
             }
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

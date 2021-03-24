@@ -1021,7 +1021,7 @@ where
                         _ => (),
                     },
                     Err(RecvError::Lagged(i)) => {
-                        log::warn!(
+                        warn!(
                             "wait for message head change subscriber lagged, skipped {} events",
                             i
                         );
