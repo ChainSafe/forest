@@ -426,6 +426,14 @@ impl ForestBehaviour {
         gs_config_builder.validation_mode(ValidationMode::Strict);
 
         let gossipsub_config = gs_config_builder.build().unwrap();
+        let gossipsub = Gossipsub::new(
+            MessageAuthenticity::Signed(local_key.clone()),
+            gossipsub_config,
+        )
+        .unwrap();
+
+        // TODO: Figure out why this delays incoming blocks. See gossip_params.rs for the params settings.
+        // gossipsub.with_peer_score(build_peer_score_params(network_name), build_peer_score_threshold()).unwrap();
 
         let bitswap = Bitswap::new();
 
@@ -435,7 +443,7 @@ impl ForestBehaviour {
             .with_kademlia(config.kademlia)
             .with_user_defined(config.bootstrap_peers.clone())
             // TODO allow configuring this through config.
-            .discovery_limit(50);
+            .discovery_limit(config.target_peer_count as u64);
 
         let hp = std::iter::once((HelloProtocolName, ProtocolSupport::Full));
         let cp = std::iter::once((ChainExchangeProtocolName, ProtocolSupport::Full));
@@ -445,11 +453,7 @@ impl ForestBehaviour {
         req_res_config.set_connection_keep_alive(Duration::from_secs(20));
 
         ForestBehaviour {
-            gossipsub: Gossipsub::new(
-                MessageAuthenticity::Signed(local_key.clone()),
-                gossipsub_config,
-            )
-            .unwrap(),
+            gossipsub,
             discovery: discovery_config.finish(),
             ping: Ping::default(),
             identify: Identify::new(
