@@ -17,7 +17,7 @@ use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::StateManager;
 use wallet::KeyStore;
 
-pub type SubscriptionHeadChange = (i64, HeadChangeJson);
+pub type SubscriptionHeadChange = (i64, Vec<HeadChangeJson>);
 
 #[derive(Serialize)]
 pub struct StreamingData<'a> {

@@ -6,6 +6,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use crate::data_types::SubscriptionHeadChange;
 use crate::rpc_util::get_error_obj;
 use crate::RpcState;
 use beacon::Beacon;
@@ -204,7 +205,7 @@ where
 pub(crate) async fn chain_notify<'a, DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
     id: Id,
-) -> Result<(i64, HeadChangeJson), JsonRpcError>
+) -> Result<SubscriptionHeadChange, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
@@ -222,7 +223,7 @@ where
 
         debug!("Responding to ChainNotify from id: {}", id);
 
-        Ok((id, HeadChangeJson::from(event)))
+        Ok((id, vec![HeadChangeJson::from(event)]))
     } else {
         Err(get_error_obj(-32600, "Invalid request".to_owned()))
     }
