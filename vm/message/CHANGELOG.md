@@ -1,3 +1,6 @@
+# 0.7.0 [2021-03-25]
+
+- Upgrade to to forest_crypto 0.5
 # 0.5.0 [2020-10-02]
 
 - Fixes message verification for `new_from_parts` function.

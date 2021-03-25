@@ -2,7 +2,7 @@
 name = "forest_message"
 description = "Filecoin message types"
 license = "MIT OR Apache-2.0"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
@@ -16,7 +16,7 @@ address = { package = "forest_address", version = "0.3" }
 cid = { package = "forest_cid", version = "0.3" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
-crypto = { package = "forest_crypto", version = "0.4" }
+crypto = { package = "forest_crypto", version = "0.5" }
 derive_builder = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 base64 = { version = "0.13", optional = true }
