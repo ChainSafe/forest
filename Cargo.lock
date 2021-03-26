@@ -2688,7 +2688,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "base64 0.13.0",
  "derive_builder",
