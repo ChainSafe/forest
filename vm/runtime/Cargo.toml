@@ -1,7 +1,7 @@
 [package]
 name = "forest_runtime"
 description = "Runtime for use in Filecoin protocol"
-version = "0.1.1"
+version = "0.1.2"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -16,10 +16,15 @@ ipld_blockstore = "0.1"
 clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
 forest_encoding = "0.2.1"
 commcid = { path = "../../utils/commcid", version = "0.1.1" }
-filecoin-proofs-api = { version = "5.4.1", features = ["blst"], default_features = false }
+filecoin-proofs-api = { version = "= 5.4.1", features = ["blst"], default_features = false }
 base64 = "0.13"
 fil_types = { features = ["proofs"], version = "0.1.3" }
 log = "0.4.8"
+
+storage-proofs = {version = "=5.4.0", default-features = false, features= ["blst"]} 
+neptune = {version = "=2.4", default-features = false, features = ["blst"]}
+bellperson = {version = "=0.12.2", default-features = false, features = ["blst"]}
+filecoin-hashers = { version = "=1.0.0", default-features = false, features = ["blst", "poseidon"]}
 
 [dev-dependencies]
 interpreter = { path = "../interpreter/" }

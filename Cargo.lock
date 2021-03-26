@@ -2170,6 +2170,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "filecoin-hashers"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "951f69578de78461b656328578801605bf0f0067169ddf4c95798bfdbb2719cf"
+dependencies = [
+ "anyhow",
+ "bellperson",
+ "fff",
+ "generic-array 0.14.4",
+ "hex",
+ "lazy_static",
+ "merkletree",
+ "neptune",
+ "rand 0.7.3",
+ "serde",
+]
+
+[[package]]
 name = "filecoin-proofs"
 version = "5.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2685,12 +2703,14 @@ dependencies = [
 
 [[package]]
 name = "forest_runtime"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.13.0",
+ "bellperson",
  "commcid",
  "fil_clock",
  "fil_types",
+ "filecoin-hashers",
  "filecoin-proofs-api",
  "forest_address",
  "forest_cid",
@@ -2701,6 +2721,8 @@ dependencies = [
  "interpreter",
  "ipld_blockstore",
  "log",
+ "neptune",
+ "storage-proofs",
 ]
 
 [[package]]
