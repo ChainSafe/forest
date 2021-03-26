@@ -49,7 +49,7 @@ forest_libp2p = { path = "../forest_libp2p" }
 interpreter = { path = "../../vm/interpreter/" }
 ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
 ipld_amt = "0.2"
-message = { package = "forest_message", version = "0.7", features = ["json"] }
+message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
 networks = { path = "../../types/networks" }
 num-bigint = { version = "0.1.1", package = "forest_bigint" }

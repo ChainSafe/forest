@@ -8,7 +8,7 @@ edition = "2018"
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
 blocks = { package = "forest_blocks", path = "../blocks" }
-message = { package = "forest_message", version = "0.7", features = ["proofs", "json"] }
+message = { package = "forest_message", version = "0.7", features = ["proofs", "json", "blst"] }
 thiserror = "1.0"
 cid = { package = "forest_cid", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }

@@ -870,19 +870,16 @@ dependencies = [
 
 [[package]]
 name = "bls-signatures"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c304bf630458ef603e5a98c430562aa40ea50f1acedb8ecf2366fe3f73919d71"
+checksum = "2a1f770b1f05de85e079fa775dee8b5025c36cff5b4d8bd2c9ad9c134d16de5b"
 dependencies = [
  "blst",
  "blstrs",
  "fff",
  "groupy",
- "hkdf",
- "paired",
  "rand_core 0.5.1",
  "rayon",
- "sha2 0.9.2",
  "thiserror",
 ]
 
@@ -899,9 +896,9 @@ dependencies = [
 
 [[package]]
 name = "blstrs"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b109d2bfceb784992223b60cd6f631081a99d7f84c195b4a26611343dee7bef"
+checksum = "3772c44fcecaa3a00fda7707507d9363e6edd21f6d66cbcc0ef6f908f43dda27"
 dependencies = [
  "blst",
  "fff",
@@ -2078,23 +2075,8 @@ checksum = "2544d325b4870bd803d371a7df3c6845e84dcfcb6ebe7ffcae0eac6d5d676133"
 dependencies = [
  "byteorder 1.4.2",
  "cc",
- "fff_derive",
  "lazy_static",
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "fff_derive"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "844b389fbe323d3b35ed1b3b119e75b11dca536d291d31342acea5b4c8984558"
-dependencies = [
- "num-bigint 0.2.6",
- "num-integer",
- "num-traits 0.2.14",
- "proc-macro2 1.0.24",
- "quote 1.0.8",
- "syn 1.0.58",
 ]
 
 [[package]]
@@ -5025,21 +5007,6 @@ name = "owned-alloc"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30fceb411f9a12ff9222c5f824026be368ff15dc2f13468d850c7d3f502205d6"
-
-[[package]]
-name = "paired"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42fc2daf8d5a8e22a9833f798e72c0d6862b5f0288f0a2d289b37cd03fa5e283"
-dependencies = [
- "blake2b_simd",
- "byteorder 1.4.2",
- "digest 0.9.0",
- "fff",
- "groupy",
- "hkdf",
- "rand_core 0.5.1",
-]
 
 [[package]]
 name = "paramfetch"

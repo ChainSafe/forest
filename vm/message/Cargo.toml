@@ -30,7 +30,7 @@ serde_json = "1.0"
 [features]
 default = ["blst"]
 blst = ["crypto/blst"]
-pairing = ["crypto/pairing"]
+blst-portable = ["crypto/blst-portable"]
 
 json = ["base64", "crypto/json", "forest_json_utils", "cid/json", "num-bigint/json"]
 # TODO try to prune out this dependency before releasing

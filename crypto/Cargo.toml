@@ -29,4 +29,4 @@ rand_chacha = "0.2.2"
 default = ["blst"]
 json = ["base64"]
 blst = ["bls-signatures/blst"]
-pairing = ["bls-signatures/pairing"]
+blst-portable = ["bls-signatures/blst-portable"]

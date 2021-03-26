@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../actor_interface" }
-message = { package = "forest_message", version = "0.7" }
+message = { package = "forest_message", version = "0.7", features = ["blst"] }
 runtime = { package = "forest_runtime", version = "0.1" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 clock = { package = "fil_clock", path = "../../node/clock" }
