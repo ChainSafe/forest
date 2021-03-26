@@ -9,7 +9,7 @@ repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 vm = { package = "forest_vm", version = "0.3" }
-crypto = { package = "forest_crypto", version = "0.4" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 address = { package = "forest_address", version = "0.3" }
 cid = { package = "forest_cid", version = "0.3" }
 ipld_blockstore = "0.1"
