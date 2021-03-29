@@ -1,3 +1,6 @@
+# 0.5.2
+
+- `pairing` feature doesn't use Rayon anymore so it can compile to wasm
 # 0.5.1
 
 - Changed `blst` to a default feature, and added `pairing` flag to use pairings instead.
