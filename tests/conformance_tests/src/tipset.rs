@@ -26,8 +26,7 @@ mod block_messages_json {
         D: Deserializer<'de>,
     {
         let bm: Vec<BlockMessageJson> = Deserialize::deserialize(deserializer)?;
-        Ok(bm
-            .into_iter()
+        bm.into_iter()
             .map(|m| {
                 let mut secpk_messages = Vec::new();
                 let mut bls_messages = Vec::new();
@@ -51,7 +50,7 @@ mod block_messages_json {
                     messages: bls_messages,
                 })
             })
-            .collect::<Result<Vec<BlockMessages>, _>>()?)
+            .collect::<Result<Vec<BlockMessages>, _>>()
     }
 }
 
