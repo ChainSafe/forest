@@ -211,7 +211,7 @@ jobs:
           command: make license
       - run:
           name: cargo clippy
-          command: cargo clippy -- -D warnings
+          command: cargo clippy -- -D warnings -A clippy::upper_case_acronyms
       - run:
           name: cargo fmt
           command: cargo fmt --all -- --check
