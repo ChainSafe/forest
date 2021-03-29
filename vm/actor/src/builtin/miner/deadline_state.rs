@@ -173,17 +173,17 @@ impl Deadline {
         let empty_partitions_array =
             Amt::<(), BS>::new_with_bit_width(store, DEADLINE_PARTITIONS_AMT_BITWIDTH)
                 .flush()
-                .map_err(|e| format!("Failed to create empty states array: {}", e))?;
+                .map_err(|e| e.downcast_wrap("Failed to create empty states array"))?;
         let empty_deadline_expiration_array =
             Amt::<(), BS>::new_with_bit_width(store, DEADLINE_EXPIRATIONS_AMT_BITWIDTH)
                 .flush()
-                .map_err(|e| format!("Failed to create empty states array: {}", e))?;
+                .map_err(|e| e.downcast_wrap("Failed to create empty states array"))?;
         let empty_post_submissions_array = Amt::<(), BS>::new_with_bit_width(
             store,
             DEADLINE_OPTIMISTIC_POST_SUBMISSIONS_AMT_BITWIDTH,
         )
         .flush()
-        .map_err(|e| format!("Failed to create empty states array: {}", e))?;
+        .map_err(|e| e.downcast_wrap("Failed to create empty states array"))?;
         Ok(Self {
             partitions: empty_partitions_array,
             expirations_epochs: empty_deadline_expiration_array,
