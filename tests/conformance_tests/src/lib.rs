@@ -37,7 +37,7 @@ mod base64_bytes {
         D: Deserializer<'de>,
     {
         let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Ok(base64::decode(s.as_ref()).map_err(de::Error::custom)?)
+        base64::decode(s.as_ref()).map_err(de::Error::custom)
     }
 
     pub mod vec {
@@ -48,10 +48,10 @@ mod base64_bytes {
             D: Deserializer<'de>,
         {
             let v: Vec<Cow<'de, str>> = Deserialize::deserialize(deserializer)?;
-            Ok(v.into_iter()
+            v.into_iter()
                 .map(|s| base64::decode(s.as_ref()))
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(de::Error::custom)?)
+                .map_err(de::Error::custom)
         }
     }
 }

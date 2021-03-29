@@ -295,7 +295,7 @@ pub(crate) fn to_leb_bytes(id: u64) -> Result<Vec<u8>, Error> {
 }
 
 pub(crate) fn from_leb_bytes(bz: &[u8]) -> Result<u64, Error> {
-    let mut readable = &bz[..];
+    let mut readable = bz;
 
     // write id to buffer in leb128 format
     Ok(leb128::read::unsigned(&mut readable)?)
