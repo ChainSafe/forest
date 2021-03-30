@@ -3249,13 +3249,14 @@ where
     }
 
     // total sector lifetime cannot exceed SectorMaximumLifetime for the sector's seal proof
-    let max_lifetime = seal_proof_sector_maximum_lifetime(seal_proof, rt.network_version()).ok_or_else(|| {
-        actor_error!(
-            ErrIllegalArgument,
-            "unrecognized seal proof type {:?}",
-            seal_proof
-        )
-    })?;
+    let max_lifetime = seal_proof_sector_maximum_lifetime(seal_proof, rt.network_version())
+        .ok_or_else(|| {
+            actor_error!(
+                ErrIllegalArgument,
+                "unrecognized seal proof type {:?}",
+                seal_proof
+            )
+        })?;
     if expiration - activation > max_lifetime {
         return Err(actor_error!(
             ErrIllegalArgument,
