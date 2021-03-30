@@ -253,7 +253,6 @@ where
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_iter(self.blockstore(), receipts)?;
-
         // Flush changes to blockstore
         let state_root = vm.flush()?;
         // Persist changes connected to root
