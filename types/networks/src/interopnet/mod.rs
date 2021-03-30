@@ -31,7 +31,10 @@ pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 180;
 /// Remove burn on window PoSt fork
 pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 210;
 /// V10 network upgrade height TBD
-pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 999999999;
+pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 999999998;
+/// V11 network upgrade
+pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 999999999;
+
 pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 
 /// Current network version for the network
