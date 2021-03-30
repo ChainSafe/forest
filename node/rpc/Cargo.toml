@@ -9,7 +9,7 @@ ahash = "0.6"
 async-log = "2.0.0"
 async-std = { version = "1.9", features = ["attributes"] }
 base64 = "0.13"
-bls-signatures = { version = "0.7", default-features = false, features = [
+bls-signatures = { version = "0.9", default-features = false, features = [
     "blst"
 ] }
 crossbeam = "0.8.0"
