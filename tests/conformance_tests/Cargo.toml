@@ -50,10 +50,10 @@ interpreter = { path = "../../vm/interpreter/", optional = true }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }
 vm = { package = "forest_vm", version = "0.3.1", optional = true }
 blockstore = { package = "ipld_blockstore", version = "0.1", features = ["resolve"], optional = true }
-crypto = { package = "forest_crypto", version = "0.4", optional = true }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"], optional = true }
 encoding = { package = "forest_encoding", version = "0.2.1", optional = true }
 fil_types = { version = "0.1", optional = true }
-forest_message = { version = "0.6", features = ["json"], optional = true }
+forest_message = { version = "0.7", features = ["json", "blst"], optional = true }
 state_tree = { path = "../../vm/state_tree/", optional = true }
 chain = { path = "../../blockchain/chain", optional = true }
 futures = { version = "0.3.5", optional = true }

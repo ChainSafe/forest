@@ -9,12 +9,12 @@ blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 db = { package = "forest_db", version = "0.1" }
 cid = { package = "forest_cid", version = "0.3" }
 clock = { package = "fil_clock", path = "../../node/clock" }
-crypto = { package = "forest_crypto", version = "0.4" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 serde = { version = "1.0", features = ["derive"] }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 num-traits = "0.2"
-message = { package = "forest_message", version = "0.6" }
+message = { package = "forest_message", version = "0.7", features = ["blst"] }
 ipld_blockstore = "0.1"
 ipld_amt = "0.2"
 thiserror = "1.0"

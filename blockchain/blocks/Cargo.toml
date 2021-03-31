@@ -11,8 +11,8 @@ features = ["json"]
 address = { package = "forest_address", version = "0.3" }
 beacon = { path = "../beacon" }
 byteorder = "1.3.4"
-crypto = { package = "forest_crypto", version = "0.4" }
-message = { package = "forest_message", version = "0.6" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
+message = { package = "forest_message", version = "0.7", features = ["blst"] }
 clock = { package = "fil_clock", path = "../../node/clock" }
 cid = { package = "forest_cid", version = "0.3", features = ["cbor"] }
 derive_builder = "0.9"
