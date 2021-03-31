@@ -109,10 +109,13 @@ pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof, nv: NetworkVersion)
 }
 
 /// Checks whether a seal proof type is supported for new miners and sectors.
-pub fn can_extend_seal_proof_type(proof: RegisteredSealProof) -> bool {
+pub fn can_extend_seal_proof_type(proof: RegisteredSealProof, nv: NetworkVersion) -> bool {
     use RegisteredSealProof::*;
-
-    matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
+    // Between V7 and V11, older seal proof types could not be extended (see FIP 0014).
+    if nv >= NetworkVersion::V7 && nv <= NetworkVersion::V10 {
+        return matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1);
+    }
+    true
 }
 
 /// Maximum duration to allow for the sealing process for seal algorithms.
@@ -131,12 +134,25 @@ pub fn max_prove_commit_duration(proof: RegisteredSealProof) -> Option<ChainEpoc
 
 /// Maximum duration to allow for the sealing process for seal algorithms.
 /// Dependent on algorithm and sector size
-pub fn seal_proof_sector_maximum_lifetime(proof: RegisteredSealProof) -> Option<ChainEpoch> {
+pub fn seal_proof_sector_maximum_lifetime(
+    proof: RegisteredSealProof,
+    nv: NetworkVersion,
+) -> Option<ChainEpoch> {
     use RegisteredSealProof::*;
+    if nv < NetworkVersion::V11 {
+        return match proof {
+            StackedDRG32GiBV1 | StackedDRG2KiBV1 | StackedDRG8MiBV1 | StackedDRG512MiBV1
+            | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG2KiBV1P1 | StackedDRG8MiBV1P1
+            | StackedDRG512MiBV1P1 | StackedDRG64GiBV1P1 => Some(EPOCHS_IN_YEAR * 5),
+            _ => None,
+        };
+    }
+    // In NetworkVersion 11, we allow for sectors using the old proofs to be extended by 540 days.
     match proof {
         StackedDRG32GiBV1 | StackedDRG2KiBV1 | StackedDRG8MiBV1 | StackedDRG512MiBV1
-        | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG2KiBV1P1 | StackedDRG8MiBV1P1
-        | StackedDRG512MiBV1P1 | StackedDRG64GiBV1P1 => Some(EPOCHS_IN_YEAR * 5),
+        | StackedDRG64GiBV1 => Some(EPOCHS_IN_DAY * 540),
+        StackedDRG32GiBV1P1 | StackedDRG2KiBV1P1 | StackedDRG8MiBV1P1 | StackedDRG512MiBV1P1
+        | StackedDRG64GiBV1P1 => Some(EPOCHS_IN_YEAR * 5),
         _ => None,
     }
 }

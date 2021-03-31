@@ -29,6 +29,8 @@ pub enum NetworkVersion {
     V9,
     /// actors v3 (specs-actors v3.0.x)
     V10,
-    /// reserved
+    /// norwegian (specs-actor v3.1.x)
     V11,
+    /// reserved
+    V12,
 }
