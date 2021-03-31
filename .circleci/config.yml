@@ -246,7 +246,7 @@ jobs:
             - restore_cargo_package_cache
             - run:
                 name: Build Docs
-                command: cargo doc --no-deps --all-features
+                command: cargo doc --no-deps
             - run:
                 name: Publish Docs
                 command: bash ./scripts/build-rust-docs.sh
