@@ -42,14 +42,14 @@ chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 clock = { package = "fil_clock", path = "../clock" }
-crypto = { package = "forest_crypto", version = "0.4", features = ["json"] }
+crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst"] }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 fil_types = "0.1"
 forest_libp2p = { path = "../forest_libp2p" }
 interpreter = { path = "../../vm/interpreter/" }
 ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
 ipld_amt = "0.2"
-message = { package = "forest_message", version = "0.6", features = ["json"] }
+message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
 networks = { path = "../../types/networks" }
 num-bigint = { version = "0.1.1", package = "forest_bigint" }

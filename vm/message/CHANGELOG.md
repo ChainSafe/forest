@@ -1,3 +1,9 @@
+# 0.7.1 [2021-03-25]
+
+- Changed `blst` to default, and added `pairing` flag to use pairings instead of blst.
+# 0.7.0 [2021-03-25]
+
+- Upgrade to forest_crypto 0.5
 # 0.5.0 [2020-10-02]
 
 - Fixes message verification for `new_from_parts` function.

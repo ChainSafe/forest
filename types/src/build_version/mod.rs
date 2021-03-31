@@ -21,7 +21,7 @@ const MINER_API_VERSION: Version = new_version(0, 15, 0);
 const WORKER_API_VERSION: Version = new_version(0, 15, 0);
 
 lazy_static! {
-    pub static ref CURRENT_COMMIT: String = git_version!().to_string();
+    pub static ref CURRENT_COMMIT: String = git_version!(fallback = "unknown").to_string();
     pub static ref BUILD_TYPE: RwLock<BuildType> = RwLock::new(BuildType::BuildDefault);
     pub static ref RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
 }

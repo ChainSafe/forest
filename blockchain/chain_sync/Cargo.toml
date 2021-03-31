@@ -17,11 +17,11 @@ libp2p = { version = "0.35", default-features = false }
 cid = { package = "forest_cid", version = "0.3" }
 ipld_blockstore = "0.1"
 chain = { path = "../chain" }
-message = { package = "forest_message", version = "0.6", features = ["proofs"] }
+message = { package = "forest_message", version = "0.7", features = ["proofs", "blst"] }
 state_tree = { path = "../../vm/state_tree/" }
 state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-crypto = { package = "forest_crypto", version = "0.4" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 log = "0.4.8"
 async-std = { version = "1.9", features = ["tokio1", "unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }

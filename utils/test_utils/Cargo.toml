@@ -13,9 +13,9 @@ blocks = { package = "forest_blocks", path = "../../blockchain/blocks/", optiona
 cid = { package = "forest_cid", version = "0.3", optional = true }
 ipld_blockstore = "0.1"
 chain = { path = "../../blockchain/chain/", optional = true }
-message = { package = "forest_message", version = "0.6", optional = true }
+message = { package = "forest_message", version = "0.7", optional = true, features = ["blst"] }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-crypto = { package = "forest_crypto", version = "0.4" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 async-std = "1.9"
 forest_libp2p = { path = "../../node/forest_libp2p/", optional = true }
 encoding = { package = "forest_encoding", version = "0.2.1" }
