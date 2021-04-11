@@ -96,10 +96,12 @@ fn cbor_read_header_buf<B: Read>(
 /// Given a CBOR serialized IPLD buffer, read through all of it and return all the Links.
 /// This function is useful because it is quite a bit more fast than doing this recursively on a
 /// deserialized IPLD object.
-fn scan_for_links<B: Read + Seek>(buf: &mut B) -> Result<Vec<Cid>, Box<dyn StdError>> {
+fn scan_for_links<B: Read + Seek, F>(buf: &mut B, mut callback: F) -> Result<(), Box<dyn StdError>>
+where
+    F: FnMut(Cid) -> Result<(), Box<dyn StdError>>,
+{
     let mut scratch: [u8; 100] = [0; 100];
     let mut remaining = 1;
-    let mut ret = Vec::new();
     while remaining > 0 {
         let (maj, extra) = cbor_read_header_buf(buf, &mut scratch)?;
         match maj {
@@ -123,7 +125,7 @@ fn scan_for_links<B: Read + Seek>(buf: &mut B) -> Result<Vec<Cid>, Box<dyn StdEr
                     }
                     buf.read_exact(&mut scratch[..extra])?;
                     let c = Cid::try_from(&scratch[1..extra])?;
-                    ret.push(c);
+                    callback(c)?;
                 } else {
                     remaining += 1;
                 }
@@ -142,7 +144,7 @@ fn scan_for_links<B: Read + Seek>(buf: &mut B) -> Result<Vec<Cid>, Box<dyn StdEr
         }
         remaining -= 1;
     }
-    Ok(ret)
+    Ok(())
 }
 
 /// Copies the IPLD DAG under `root` from the cache to the base store.
@@ -162,23 +164,23 @@ where
     let block = cache
         .get(&root)
         .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
-    let links = scan_for_links(&mut Cursor::new(block))?;
 
-    // Go through all the links recursively
-    for link in links.iter() {
+    scan_for_links(&mut Cursor::new(block), |link| {
         if link.codec() != DAG_CBOR {
-            continue;
+            return Ok(());
         }
         // DB reads are expensive. So we check if it exists in the cache.
         // If it doesnt exist in the DB, which is likely, we proceed with using the cache.
         if !cache.contains_key(&link) {
-            continue;
+            return Ok(());
         }
         // Recursively find more links under the links we're iterating over.
-        copy_rec(base, cache, *link, buffer)?;
-    }
+        copy_rec(base, cache, link, buffer)?;
 
-    buffer.push((root.to_bytes(), block.to_vec()));
+        Ok(())
+    })?;
+
+    buffer.push((root.to_bytes(), block.clone()));
 
     Ok(())
 }
