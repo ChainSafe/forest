@@ -10,7 +10,7 @@ use blockstore::BlockStore;
 use wallet::KeyStore;
 
 use crate::data_types::JsonRpcServerState;
-use crate::rpc_util::{call_rpc_str, is_streaming_method};
+use crate::rpc_util::{call_rpc_str, check_permissions, is_streaming_method};
 
 pub async fn rpc_http_handler<DB, KS, B>(
     mut http_request: HttpRequest<JsonRpcServerState>,
@@ -20,6 +20,8 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
+    let rpc_server = http_request.state();
+
     if http_request.method() != Method::Post {
         return Err(format_err!("HTTP JSON RPC calls must use POST HTTP method"));
     } else if let Some(content_type) = http_request.content_type() {
@@ -37,6 +39,13 @@ where
 
     let rpc_call: JsonRpcRequestObject = http_request.body_json().await?;
 
+    check_permissions(
+        rpc_server.clone(),
+        rpc_call.method_ref(),
+        http_request.header("Authorization"),
+    )
+    .await?;
+
     if is_streaming_method(rpc_call.method_ref()) {
         return Err(HttpError::from_str(
             500,
@@ -44,7 +53,6 @@ where
         ));
     }
 
-    let rpc_server = http_request.state();
     let rpc_response = call_rpc_str(rpc_server.clone(), rpc_call).await?;
     let http_response = HttpResponse::builder(200)
         .body(rpc_response)
