@@ -23,5 +23,5 @@ forest_hash_utils = "0.1"
 forest_json_utils = "0.1.1"
 
 [features]
-devnet = ["actorv0/devnet", "actorv2/devnet"]
-interopnet = ["actorv0/interopnet", "actorv2/interopnet"]
+devnet = ["actorv0/devnet", "actorv2/devnet", "actorv3/devnet"]
+interopnet = ["actorv0/interopnet", "actorv2/interopnet", "actorv3/interopnet"]

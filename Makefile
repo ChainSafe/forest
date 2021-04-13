@@ -57,6 +57,9 @@ release:
 interopnet:
 	cargo build --release --manifest-path=forest/Cargo.toml --features "interopnet"
 
+devnet:
+	cargo build  --manifest-path=forest/Cargo.toml --features "devnet"
+
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 

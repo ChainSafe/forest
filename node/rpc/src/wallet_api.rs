@@ -122,6 +122,7 @@ where
     let key = Key::try_from(key_info)?;
 
     let addr = format!("wallet-{}", key.address.to_string());
+
     let mut keystore = data.keystore.write().await;
     keystore.put(addr, key.key_info)?;
 

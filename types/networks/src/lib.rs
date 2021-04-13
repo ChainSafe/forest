@@ -10,15 +10,22 @@ use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 mod drand;
 
-#[cfg(not(any(feature = "interopnet")))]
+#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod mainnet;
-#[cfg(not(any(feature = "interopnet")))]
+#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 pub use self::mainnet::*;
 
 #[cfg(feature = "interopnet")]
 mod interopnet;
 #[cfg(feature = "interopnet")]
 pub use self::interopnet::*;
+
+#[cfg(feature = "devnet")]
+mod devnet;
+#[cfg(feature = "devnet")]
+pub use self::devnet::*;
+
+
 
 /// Defines the different hard fork parameters.
 struct Upgrade {
