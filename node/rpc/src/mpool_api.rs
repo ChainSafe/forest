@@ -18,8 +18,8 @@ use message::{
 };
 use num_bigint::bigint_ser;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, convert::TryFrom};
 use std::str::FromStr;
+use std::{collections::HashSet, convert::TryFrom};
 use vm::TokenAmount;
 use wallet::KeyStore;
 

@@ -71,7 +71,11 @@ impl Address {
             Err(Error::InvalidLength)
         } else {
             let protocol = Protocol::from_byte(bz[0]).ok_or(Error::UnknownProtocol)?;
-            Self::new(*NETWORK_DEFAULT.get_or_init(|| Network::Mainnet), protocol, &bz[1..])
+            Self::new(
+                *NETWORK_DEFAULT.get_or_init(|| Network::Mainnet),
+                protocol,
+                &bz[1..],
+            )
         }
     }
 

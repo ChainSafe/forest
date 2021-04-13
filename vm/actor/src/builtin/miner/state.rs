@@ -690,7 +690,7 @@ impl State {
     pub fn load_deadlines<BS: BlockStore>(&self, store: &BS) -> Result<Deadlines, ActorError> {
         store
             .get::<Deadlines>(&self.deadlines)
-            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load deadlines"))?            
+            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load deadlines"))?
             .ok_or_else(
                 || actor_error!(ErrIllegalState; "failed to load deadlines {}", self.deadlines),
             )

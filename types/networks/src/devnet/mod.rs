@@ -1,16 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{
-    drand::DRAND_MAINNET,
-    DrandPoint,
-};
+use super::{drand::DRAND_MAINNET, DrandPoint};
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
 
 /// Default genesis car file bytes.
 /// Note: This is only specified in the devnet config so it is compilable.
-/// In practice, devnet genesis' should be generated and loaded every time. 
+/// In practice, devnet genesis' should be generated and loaded every time.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 
 /// V1 network upgrade
@@ -49,12 +46,10 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V11;
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[];
 
 lazy_static! {
-    pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [
-        DrandPoint {
-            height: 0,
-            config: &*DRAND_MAINNET,
-        },
-    ];
+    pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
+        height: 0,
+        config: &*DRAND_MAINNET,
+    },];
 }
 
 /// Time, in seconds, between each block.

@@ -25,8 +25,6 @@ mod devnet;
 #[cfg(feature = "devnet")]
 pub use self::devnet::*;
 
-
-
 /// Defines the different hard fork parameters.
 struct Upgrade {
     /// When the hard fork will happen
