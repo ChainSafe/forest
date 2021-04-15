@@ -1,14 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use log::{debug, error};
+use log::{debug, error, info};
 use serde::de::DeserializeOwned;
 use tide::http::headers::HeaderValues;
 
 use crate::data_types::JsonRpcServerState;
-use auth::{
-    get_authorization, has_perms, Authorization, Error as AuthError, JWT_IDENTIFIER, WRITE_ACCESS,
-};
+use auth::WRITE_ACCESS;
 use beacon::Beacon;
 use blockstore::BlockStore;
 use wallet::KeyStore;
@@ -49,77 +47,46 @@ pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
 }
 
-pub const RPC_METHOD_AUTH_NEW: &str = "Filecoin.AuthNew";
 pub const RPC_METHOD_AUTH_VERIFY: &str = "Filecoin.AuthVerify";
 
 pub async fn check_permissions<DB, KS, B>(
     rpc_server: JsonRpcServerState,
     method_name: &str,
-    authorization_header: &Option<HeaderValues>,
+    authorization_header: Option<&HeaderValues>,
 ) -> Result<(), tide::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    if authorization_header.is_none() {
-        return Err(tide::Error::from_str(
+    let token = match authorization_header {
+        None => Err(tide::Error::from_str(
             401,
             "Failed to find request authorization header",
-        ));
-    }
+        )),
+        Some(header) => Ok(header.to_string()),
+    }?;
 
-    let (_, auth_verification_response) = call_rpc::<Vec<String>>(
+    info!("JWT from HTTP Header: {}", token);
+
+    let (_, claims) = call_rpc::<Vec<String>>(
         rpc_server,
         jsonrpc_v2::RequestObject::request()
             .with_method(RPC_METHOD_AUTH_VERIFY)
-            .with_params(),
+            .with_params(token)
+            .finish(),
     )
     .await?;
 
-    let auth = get_authorization(auth_verification_response);
-
-    auth = match auth {
-        Authorization::None => {
-            let (_, auth_verification_response) = call_rpc::<Vec<String>>(
-                rpc_server,
-                jsonrpc_v2::RequestObject::request()
-                    .with_method(RPC_METHOD_AUTH_NEW)
-                    .with_params(),
-            )
-            .await?;
-
-            Authorization::Read
+    if WRITE_ACCESS.contains(&method_name) {
+        if claims.contains(&"write".to_string()) {
+            Ok(())
+        } else {
+            Err(tide::Error::from_str(403, "Forbidden"))
         }
-        .. => {
-            info!("Request already has authorization: {}", auth);
-            auth
-        }
+    } else {
+        Err(tide::Error::from_str(403, "Forbidden"))
     }
-
-    // if WRITE_ACCESS.contains(&method_name) {
-    //     if let Some(header) = authorization_header {
-    //         match ks
-    //             .read()
-    //             .await
-    //             .get(JWT_IDENTIFIER)
-    //             .map_err(|_| AuthError::Other("No JWT private key found".to_owned()))
-    //         {
-    //             Ok(key) => {
-    //                 if let Err(e) = has_perms(header.to_string(), "write", key.private_key()) {
-    //                     let msg = e.message();
-    //                     send_error(3, ws_sender, msg).await;
-    //                     return;
-    //                 }
-    //             }
-    //             Err(e) => {
-    //                 send_error(3, ws_sender, e.to_string()).await;
-    //             }
-    //         }
-    //     } else {
-    //         send_error(200, ws_sender, AuthError::NoAuthHeader.to_string()).await;
-    //     }
-    // };
 }
 
 // Calls an RPC method and returns the full response as a string.

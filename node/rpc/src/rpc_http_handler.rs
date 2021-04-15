@@ -20,6 +20,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
+    let rpc_call: JsonRpcRequestObject = http_request.body_json().await?;
     let rpc_server = http_request.state();
 
     if http_request.method() != Method::Post {
@@ -37,9 +38,7 @@ where
         }
     }
 
-    let rpc_call: JsonRpcRequestObject = http_request.body_json().await?;
-
-    check_permissions(
+    check_permissions::<DB, KS, B>(
         rpc_server.clone(),
         rpc_call.method_ref(),
         http_request.header("Authorization"),

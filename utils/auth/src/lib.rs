@@ -46,29 +46,6 @@ pub enum Error {
     Other(String),
 }
 
-/// Permission Enum for Authorization
-pub enum Authorization {
-    Admin,
-    Sign,
-    Write,
-    Read,
-    None,
-}
-
-/// Check claims to provide authorization enum
-/// Defaults to read permissions if no claims are found
-pub fn get_authorization(claims: Vec<String>) -> Authorization {
-    if claims.contains(&"admin".to_string()) {
-        Authorization::Admin
-    } else if claims.contains(&"sign".to_string()) {
-        Authorization::Sign
-    } else if claims.contains(&"write".to_string()) {
-        Authorization::Write
-    } else {
-        Authorization::Read
-    }
-}
-
 /// Claim struct for JWT Tokens
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
