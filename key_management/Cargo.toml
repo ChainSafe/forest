@@ -10,8 +10,8 @@ features = ["json"]
 [dependencies]
 thiserror = "1.0"
 address = { package = "forest_address", version = "0.3" }
-crypto = { package = "forest_crypto", version = "0.4", features = ["json"] }
-bls-signatures = { version = "0.7", default-features = false, features = ["blst"] }
+crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst"] }
+bls-signatures = { version = "0.9", default-features = false, features = ["blst"] }
 libsecp256k1 = "0.3.4"
 rand = "0.7.3"
 encoding = { package = "forest_encoding", version = "0.2.1" }

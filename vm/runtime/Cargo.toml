@@ -1,7 +1,7 @@
 [package]
 name = "forest_runtime"
 description = "Runtime for use in Filecoin protocol"
-version = "0.1.1"
+version = "0.1.2"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -9,16 +9,16 @@ repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 vm = { package = "forest_vm", version = "0.3" }
-crypto = { package = "forest_crypto", version = "0.4" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 address = { package = "forest_address", version = "0.3" }
 cid = { package = "forest_cid", version = "0.3" }
 ipld_blockstore = "0.1"
 clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
 forest_encoding = "0.2.1"
 commcid = { path = "../../utils/commcid", version = "0.1.1" }
-filecoin-proofs-api = { version = "5.4.1", features = ["blst"], default_features = false }
+filecoin-proofs-api = { version = "6.1", features = ["blst"], default_features = false }
 base64 = "0.13"
-fil_types = { features = ["proofs"], version = "0.1.3" }
+fil_types = { features = ["proofs"], version = "0.1.10" }
 log = "0.4.8"
 
 [dev-dependencies]

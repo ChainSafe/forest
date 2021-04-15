@@ -29,17 +29,17 @@ async-std = { version = "1.9", features = ["unstable", "tokio1"] }
 async-log = "2.0.0"
 log = "0.4.8"
 fil_types = "0.1"
-message = { package = "forest_message", version = "0.6", features = ["json"] }
+message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
 vm = { package = "forest_vm", version = "0.3.1" }
 bitfield = { package = "forest_bitfield", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2.11"
 tokio = { version = "1.0", features = ["sync"] }
-filecoin-proofs-api = { version = "5.4.1", features = ["blst"], default_features = false }
+filecoin-proofs-api = { version = "6.1", features = ["blst"], default_features = false }
 futures = "0.3.5"
 runtime = { package = "forest_runtime", version = "0.1" }
 lazy_static = "1.4"
 once_cell = "1.5"
-forest_crypto = { version = "0.4" }
+forest_crypto = { version = "0.5", features = ["blst"] }
 networks = { path = "../../types/networks" }
 statediff = { path = "../../utils/statediff", optional = true }

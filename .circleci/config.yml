@@ -211,7 +211,7 @@ jobs:
           command: make license
       - run:
           name: cargo clippy
-          command: cargo clippy -- -D warnings
+          command: cargo clippy -- -D warnings -A clippy::upper_case_acronyms
       - run:
           name: cargo fmt
           command: cargo fmt --all -- --check
@@ -246,7 +246,7 @@ jobs:
             - restore_cargo_package_cache
             - run:
                 name: Build Docs
-                command: cargo doc --no-deps --all-features
+                command: cargo doc --no-deps
             - run:
                 name: Publish Docs
                 command: bash ./scripts/build-rust-docs.sh

@@ -10,10 +10,10 @@ cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = [
     "json"
 ] }
-message = { package = "forest_message", version = "0.6", features = ["json"] }
+message = { package = "forest_message", version = "0.7", features = ["json"] }
 serde_json = "1.0"
 log = "0.4.8"
-crypto = { package = "forest_crypto", version = "0.4", features = ["json"] }
+crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst"] }
 wallet = { package = "key_management", path = "../../key_management", features = [
     "json"
 ] }

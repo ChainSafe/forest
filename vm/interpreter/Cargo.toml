@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../actor_interface" }
-message = { package = "forest_message", version = "0.6" }
+message = { package = "forest_message", default_features = false, version = "0.7", features = ["blst"] }
 runtime = { package = "forest_runtime", version = "0.1" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 clock = { package = "fil_clock", path = "../../node/clock" }
@@ -16,7 +16,7 @@ ipld_blockstore = "0.1"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 forest_encoding = "0.2.1"
 cid = { package = "forest_cid", version = "0.3" }
-crypto = { package = "forest_crypto", version = "0.4" }
+crypto = { package = "forest_crypto", default_features = false, version = "0.5", features = ["blst"] }
 num-traits = "0.2.11"
 byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }

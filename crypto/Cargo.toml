@@ -2,7 +2,7 @@
 name = "forest_crypto"
 description = "Filecoin crypto utilities for use in Forest"
 license = "MIT OR Apache-2.0"
-version = "0.4.1"
+version = "0.5.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
@@ -14,7 +14,7 @@ features = ["json"]
 address = { package = "forest_address", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 libsecp256k1 = "0.3.4"
-bls-signatures = { version = "0.7", default-features = false, features = ["blst"] }
+bls-signatures = { version = "0.9", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2"
 num-derive = "0.3.0"
@@ -26,4 +26,7 @@ rand = "0.7.3"
 rand_chacha = "0.2.2"
 
 [features]
+default = ["blst"]
 json = ["base64"]
+blst = ["bls-signatures/blst"]
+pairing = ["bls-signatures/pairing"]

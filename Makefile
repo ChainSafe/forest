@@ -46,7 +46,7 @@ clean:
 
 lint: license clean
 	cargo fmt --all
-	cargo clippy --all-features -- -D warnings
+	cargo clippy --all-features -- -D warnings -A clippy::upper_case_acronyms
 
 build:
 	cargo build --bin forest
@@ -76,10 +76,18 @@ test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo test --all --all-features --exclude serialization_tests --exclude conformance_tests
+	cargo test --all --all-features --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto
+	cargo test -p forest_crypto --features blst --no-default-features
+	cargo test -p forest_crypto --features pairing --no-default-features
+	cargo test -p forest_message --features blst --no-default-features
+	cargo test -p forest_message --features pairing --no-default-features
 
 test-release:
-	cargo test --release --all --all-features --exclude serialization_tests --exclude conformance_tests
+	cargo test --release --all --all-features --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto
+	cargo test --release -p forest_crypto --features blst --no-default-features
+	cargo test --release -p forest_crypto --features pairing --no-default-features
+	cargo test --release -p forest_message --features blst --no-default-features
+	cargo test --release -p forest_message --features pairing --no-default-features
 
 test-all: test-release run-vectors
 
@@ -88,6 +96,6 @@ license:
 	./scripts/add_license.sh
 
 docs:
-	cargo doc --no-deps --all-features
+	cargo doc --no-deps
 
 .PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors

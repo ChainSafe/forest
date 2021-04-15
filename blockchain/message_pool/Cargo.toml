@@ -8,14 +8,14 @@ edition = "2018"
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
 blocks = { package = "forest_blocks", path = "../blocks" }
-message = { package = "forest_message", version = "0.6", features = ["proofs", "json"] }
+message = { package = "forest_message", version = "0.7", features = ["proofs", "json", "blst"] }
 thiserror = "1.0"
 cid = { package = "forest_cid", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 blockstore = { package = "ipld_blockstore", version = "0.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 lru = "0.6"
-crypto = { package = "forest_crypto", version = "0.4" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 chain = { path = "../chain" }
 state_tree = { path = "../../vm/state_tree/" }
 serde = { version = "1.0", features = ["derive"] }
