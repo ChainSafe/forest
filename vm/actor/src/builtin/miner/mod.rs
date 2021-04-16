@@ -3583,10 +3583,7 @@ where
     let ret = rt.send(
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::ComputeDataCommitment as u64,
-        Serialized::serialize(ComputeDataCommitmentParamsRef {
-            sector_type,
-            deal_ids,
-        })?,
+        Serialized::serialize(ComputeDataCommitmentParamsRef { deal_ids, sector_type })?,
         TokenAmount::zero(),
     )?;
     let unsealed_cid: Cid = ret.deserialize()?;

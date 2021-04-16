@@ -64,7 +64,7 @@ async fn space_race_full_sync() {
     let network = SyncNetworkContext::new(network_send, Arc::new(peer_manager), db);
 
     let provider_db = Arc::new(MemoryDB::default());
-    let cids: Vec<Cid> = load_car(provider_db.as_ref(), EXPORT_SR_40.as_ref())
+    let cids: Vec<Cid> = load_car(provider_db.as_ref(), EXPORT_SR_40)
         .await
         .unwrap();
     let prov_cs = ChainStore::new(provider_db);

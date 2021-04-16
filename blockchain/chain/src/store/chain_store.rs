@@ -1080,7 +1080,7 @@ mod tests {
         let cs = ChainStore::new(Arc::new(db));
         let gen_block = BlockHeader::builder()
             .epoch(1)
-            .weight((2 as u32).into())
+            .weight(2_u32.into())
             .messages(cid::new_from_cbor(&[], Identity))
             .message_receipts(cid::new_from_cbor(&[], Identity))
             .state_root(cid::new_from_cbor(&[], Identity))

@@ -43,31 +43,30 @@ where
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
 
-        let proving_sectors = if nv < NetworkVersion::V7 {
+        let proving_sectors = {
             let mut proving_sectors = BitField::new();
-            mas.for_each_deadline(store, |_, deadline| {
-                let mut fault_sectors = BitField::new();
-                deadline.for_each(store, |_, partition: miner::Partition| {
-                    proving_sectors |= &partition.all_sectors();
-                    fault_sectors |= &partition.faulty_sectors();
+
+            if nv < NetworkVersion::V7 {
+                mas.for_each_deadline(store, |_, deadline| {
+                    let mut fault_sectors = BitField::new();
+                    deadline.for_each(store, |_, partition: miner::Partition| {
+                        proving_sectors |= &partition.all_sectors();
+                        fault_sectors |= &partition.faulty_sectors();
+                        Ok(())
+                    })?;
+
+                    proving_sectors -= &fault_sectors;
                     Ok(())
                 })?;
-
-                proving_sectors -= &fault_sectors;
-                Ok(())
-            })?;
-
-            proving_sectors
-        } else {
-            let mut proving_sectors = BitField::new();
-            mas.for_each_deadline(store, |_, deadline| {
-                deadline.for_each(store, |_, partition: miner::Partition| {
-                    proving_sectors |= &partition.active_sectors();
+            } else {
+                mas.for_each_deadline(store, |_, deadline| {
+                    deadline.for_each(store, |_, partition: miner::Partition| {
+                        proving_sectors |= &partition.active_sectors();
+                        Ok(())
+                    })?;
                     Ok(())
                 })?;
-                Ok(())
-            })?;
-
+            }
             proving_sectors
         };
 

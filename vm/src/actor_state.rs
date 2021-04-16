@@ -23,12 +23,7 @@ pub struct ActorState {
 impl ActorState {
     /// Constructor for actor state
     pub fn new(code: Cid, state: Cid, balance: TokenAmount, sequence: u64) -> Self {
-        Self {
-            code,
-            state,
-            balance,
-            sequence,
-        }
+        Self { code, state, sequence, balance }
     }
     /// Safely deducts funds from an Actor
     pub fn deduct_funds(&mut self, amt: &TokenAmount) -> Result<(), String> {
