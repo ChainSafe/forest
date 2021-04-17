@@ -574,9 +574,7 @@ impl Runtime<MemoryDB> for MockRuntime {
 
         match expected_msg.exit_code {
             ExitCode::Ok => Ok(expected_msg.send_return),
-            x => {
-                Err(ActorError::new(x, "Expected message Fail".to_string()))
-            }
+            x => Err(ActorError::new(x, "Expected message Fail".to_string())),
         }
     }
 

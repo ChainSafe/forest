@@ -34,8 +34,8 @@ fn abort_cant_call_exec() {
 
     rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, anne);
 
-    let err = exec_and_verify(&mut rt, *POWER_ACTOR_CODE_ID, &"")
-        .expect_err("Exec should have failed");
+    let err =
+        exec_and_verify(&mut rt, *POWER_ACTOR_CODE_ID, &"").expect_err("Exec should have failed");
     assert_eq!(err.exit_code(), ExitCode::ErrForbidden);
 }
 
@@ -103,10 +103,7 @@ fn create_storage_miner() {
     construct_and_verify(&mut rt);
 
     // only the storage power actor can create a miner
-    rt.set_caller(
-        *POWER_ACTOR_CODE_ID,
-        *STORAGE_POWER_ACTOR_ADDR,
-    );
+    rt.set_caller(*POWER_ACTOR_CODE_ID, *STORAGE_POWER_ACTOR_ADDR);
 
     let unique_address = Address::new_actor(b"miner");
     rt.new_actor_addr = Some(unique_address);
@@ -200,10 +197,7 @@ fn sending_constructor_failure() {
     construct_and_verify(&mut rt);
 
     // Only the storage power actor can create a miner
-    rt.set_caller(
-        *POWER_ACTOR_CODE_ID,
-        *STORAGE_POWER_ACTOR_ADDR,
-    );
+    rt.set_caller(*POWER_ACTOR_CODE_ID, *STORAGE_POWER_ACTOR_ADDR);
 
     // Assign new address for the storage actor miner
     let unique_address = Address::new_actor(b"miner");

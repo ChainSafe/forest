@@ -895,7 +895,10 @@ pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
 where
     DB: BlockStore,
 {
-    Ok(db.read(GENESIS_KEY)?.map(|bz| { BlockHeader::unmarshal_cbor(&bz) }).transpose()?)
+    Ok(db
+        .read(GENESIS_KEY)?
+        .map(|bz| BlockHeader::unmarshal_cbor(&bz))
+        .transpose()?)
 }
 
 /// Attempts to deserialize to unsigend message or signed message and then returns it at as a

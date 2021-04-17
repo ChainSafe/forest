@@ -68,12 +68,7 @@ fn get_set_non_id() {
         .map_err(|e| e.to_string())
         .unwrap();
 
-    let act_s = ActorState::new(
-        *INIT_ACTOR_CODE_ID,
-        state_cid,
-        Default::default(),
-        1,
-    );
+    let act_s = ActorState::new(*INIT_ACTOR_CODE_ID, state_cid, Default::default(), 1);
 
     tree.snapshot().unwrap();
     tree.set_actor(&INIT_ACTOR_ADDR, act_s).unwrap();

@@ -214,7 +214,10 @@ pub mod json {
             vrfproof,
             win_count,
         } = Deserialize::deserialize(deserializer)?;
-        Ok(ElectionProof { win_count, vrfproof })
+        Ok(ElectionProof {
+            win_count,
+            vrfproof,
+        })
     }
 
     pub mod opt {

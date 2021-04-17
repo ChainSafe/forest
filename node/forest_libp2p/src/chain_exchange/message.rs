@@ -234,7 +234,11 @@ fn fts_from_bundle_parts(
             let bls_messages = values_from_indexes(&bls_msg_includes[i], &bls_msgs)?;
             let secp_messages = values_from_indexes(&secp_msg_includes[i], &secp_msgs)?;
 
-            Ok(Block { header, bls_messages, secp_messages })
+            Ok(Block {
+                header,
+                bls_messages,
+                secp_messages,
+            })
         })
         .collect::<Result<_, _>>()?;
 

@@ -307,9 +307,7 @@ mod tests {
         });
         let map_cid = buf_store.put(&map, Code::Blake2b256).unwrap();
 
-        let root_cid = buf_store
-            .put(&(map_cid, 1u8), Code::Blake2b256)
-            .unwrap();
+        let root_cid = buf_store.put(&(map_cid, 1u8), Code::Blake2b256).unwrap();
 
         // Make sure a block not connected to the root does not get written
         let unconnected = buf_store.put(&27u8, Code::Blake2b256).unwrap();

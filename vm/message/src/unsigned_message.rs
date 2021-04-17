@@ -156,7 +156,18 @@ impl<'de> Deserialize<'de> for UnsignedMessage {
             method_num,
             params,
         ) = Deserialize::deserialize(deserializer)?;
-        Ok(Self { version, from, to, sequence, value, method_num, params, gas_limit, gas_fee_cap, gas_premium })
+        Ok(Self {
+            version,
+            from,
+            to,
+            sequence,
+            value,
+            method_num,
+            params,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+        })
     }
 }
 

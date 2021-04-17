@@ -189,18 +189,9 @@ fn values_in_range() {
         (tens_of_ei_bs.clone(), one_byte_per_epoch_velocity.clone()),
         (tens_of_ei_bs.clone(), ten_pi_bs_per_day_velocity.clone()),
         (tens_of_ei_bs, one_ei_bs_per_day_velocity.clone()),
-        (
-            thousands_of_ei_bs.clone(),
-            one_byte_per_epoch_velocity,
-        ),
-        (
-            thousands_of_ei_bs.clone(),
-            ten_pi_bs_per_day_velocity,
-        ),
-        (
-            thousands_of_ei_bs,
-            one_ei_bs_per_day_velocity,
-        ),
+        (thousands_of_ei_bs.clone(), one_byte_per_epoch_velocity),
+        (thousands_of_ei_bs.clone(), ten_pi_bs_per_day_velocity),
+        (thousands_of_ei_bs, one_ei_bs_per_day_velocity),
     ];
 
     for test_case in test_cases {

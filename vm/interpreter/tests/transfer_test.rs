@@ -73,12 +73,7 @@ fn transfer_test() {
         .map_err(|e| e.to_string())
         .unwrap();
 
-    let act_s = ActorState::new(
-        *INIT_ACTOR_CODE_ID,
-        state_cid,
-        Default::default(),
-        1,
-    );
+    let act_s = ActorState::new(*INIT_ACTOR_CODE_ID, state_cid, Default::default(), 1);
     state.set_actor(&INIT_ACTOR_ADDR, act_s).unwrap();
 
     let actor_addr_1 = Address::new_id(100);
@@ -111,12 +106,7 @@ fn transfer_test() {
         10000u64.into(),
         0,
     );
-    let actor_state_2 = ActorState::new(
-        *ACCOUNT_ACTOR_CODE_ID,
-        actor_state_cid_2,
-        1u64.into(),
-        0,
-    );
+    let actor_state_2 = ActorState::new(*ACCOUNT_ACTOR_CODE_ID, actor_state_cid_2, 1u64.into(), 0);
 
     let actor_addr_1 = state.register_new_address(&actor_addr_1).unwrap();
     let actor_addr_2 = state.register_new_address(&actor_addr_2).unwrap();
