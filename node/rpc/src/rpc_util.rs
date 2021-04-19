@@ -59,33 +59,32 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let token = match authorization_header {
-        None => Err(tide::Error::from_str(
-            401,
-            "Failed to find request authorization header",
-        )),
-        Some(header) => Ok(header.to_string()),
-    }?;
+    match authorization_header {
+        None => return Ok(()),
+        Some(header) => {
+            let token = header.to_string();
 
-    info!("JWT from HTTP Header: {}", token);
+            info!("JWT from HTTP Header: {}", token);
 
-    let (_, claims) = call_rpc::<Vec<String>>(
-        rpc_server,
-        jsonrpc_v2::RequestObject::request()
-            .with_method(RPC_METHOD_AUTH_VERIFY)
-            .with_params(token)
-            .finish(),
-    )
-    .await?;
+            let (_, claims) = call_rpc::<Vec<String>>(
+                rpc_server,
+                jsonrpc_v2::RequestObject::request()
+                    .with_method(RPC_METHOD_AUTH_VERIFY)
+                    .with_params(token)
+                    .finish(),
+            )
+            .await?;
 
-    if WRITE_ACCESS.contains(&method_name) {
-        if claims.contains(&"write".to_string()) {
-            Ok(())
-        } else {
-            Err(tide::Error::from_str(403, "Forbidden"))
+            if WRITE_ACCESS.contains(&method_name) {
+                if claims.contains(&"write".to_string()) {
+                    Ok(())
+                } else {
+                    Err(tide::Error::from_str(403, "Forbidden"))
+                }
+            } else {
+                Err(tide::Error::from_str(403, "Forbidden"))
+            }
         }
-    } else {
-        Err(tide::Error::from_str(403, "Forbidden"))
     }
 }
 
