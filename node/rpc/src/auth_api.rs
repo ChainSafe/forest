@@ -39,7 +39,7 @@ where
 {
     let ks = data.keystore.read().await;
     let (header_raw,) = params;
-    let token = header_raw.trim_start_matches("Bearer: ");
+    let token = header_raw.trim_start_matches("Bearer ");
     info!("Auth verify token: {}", token);
     let ki = ks.get(JWT_IDENTIFIER)?;
     let perms = verify_token(&token, ki.private_key())?;

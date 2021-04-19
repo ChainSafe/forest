@@ -61,30 +61,36 @@ where
 {
     match authorization_header {
         None => return Ok(()),
-        Some(header) => {
-            let token = header.to_string();
+        Some(header_values) => match header_values.get(0) {
+            None => return Ok(()),
+            Some(token) => {
+                let token = token.to_string();
+                info!("JWT from HTTP Header: {}", token);
 
-            info!("JWT from HTTP Header: {}", token);
+                let (_, claims) = call_rpc::<Vec<String>>(
+                    rpc_server,
+                    jsonrpc_v2::RequestObject::request()
+                        .with_method(RPC_METHOD_AUTH_VERIFY)
+                        .with_params(vec![token])
+                        .finish(),
+                )
+                .await?;
 
-            let (_, claims) = call_rpc::<Vec<String>>(
-                rpc_server,
-                jsonrpc_v2::RequestObject::request()
-                    .with_method(RPC_METHOD_AUTH_VERIFY)
-                    .with_params(token)
-                    .finish(),
-            )
-            .await?;
+                info!("Decoded JWT Claims: {:?}", claims);
 
-            if WRITE_ACCESS.contains(&method_name) {
-                if claims.contains(&"write".to_string()) {
-                    Ok(())
+                // Checks to see if the method is within the array of methods that require write access
+                if WRITE_ACCESS.contains(&method_name) {
+                    if claims.contains(&"write".to_string()) {
+                        Ok(())
+                    } else {
+                        Err(tide::Error::from_str(403, "Forbidden"))
+                    }
                 } else {
-                    Err(tide::Error::from_str(403, "Forbidden"))
+                    // If write access is not required, allow this to run
+                    Ok(())
                 }
-            } else {
-                Err(tide::Error::from_str(403, "Forbidden"))
             }
-        }
+        },
     }
 }
 
