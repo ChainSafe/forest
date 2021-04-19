@@ -3,29 +3,27 @@
 
 use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
 use tide::http::{format_err, Error as HttpError, Method};
-use tide::{Request as HttpRequest, Response as HttpResponse, Result};
 
 use beacon::Beacon;
 use blockstore::BlockStore;
 use wallet::KeyStore;
 
 use crate::data_types::JsonRpcServerState;
-use crate::rpc_util::{call_rpc_str, check_permissions, is_streaming_method};
+use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 
-pub async fn rpc_http_handler<DB, KS, B>(
-    mut http_request: HttpRequest<JsonRpcServerState>,
-) -> Result
+pub async fn rpc_http_handler<DB, KS, B>(request: tide::Request<JsonRpcServerState>) -> tide::Result
 where
     DB: BlockStore + Send + Sync + 'static,
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let rpc_call: JsonRpcRequestObject = http_request.body_json().await?;
-    let rpc_server = http_request.state();
+    let (auth_header, mut request) = get_auth_header(request);
+    let rpc_call: JsonRpcRequestObject = request.body_json().await?;
+    let rpc_server = request.state();
 
-    if http_request.method() != Method::Post {
+    if request.method() != Method::Post {
         return Err(format_err!("HTTP JSON RPC calls must use POST HTTP method"));
-    } else if let Some(content_type) = http_request.content_type() {
+    } else if let Some(content_type) = request.content_type() {
         match content_type.essence() {
             "application/json-rpc" => {}
             "application/json" => {}
@@ -38,12 +36,7 @@ where
         }
     }
 
-    check_permissions::<DB, KS, B>(
-        rpc_server.clone(),
-        rpc_call.method_ref(),
-        http_request.header("Authorization"),
-    )
-    .await?;
+    check_permissions::<DB, KS, B>(rpc_server.clone(), rpc_call.method_ref(), auth_header).await?;
 
     if is_streaming_method(rpc_call.method_ref()) {
         return Err(HttpError::from_str(
@@ -52,11 +45,11 @@ where
         ));
     }
 
-    let rpc_response = call_rpc_str(rpc_server.clone(), rpc_call).await?;
-    let http_response = HttpResponse::builder(200)
-        .body(rpc_response)
+    let result = call_rpc_str(rpc_server.clone(), rpc_call).await?;
+    let response = tide::Response::builder(200)
+        .body(result)
         .content_type("application/json-rpc;charset=utf-8")
         .build();
 
-    Ok(http_response)
+    Ok(response)
 }

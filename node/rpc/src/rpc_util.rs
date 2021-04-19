@@ -52,7 +52,7 @@ pub const RPC_METHOD_AUTH_VERIFY: &str = "Filecoin.AuthVerify";
 pub async fn check_permissions<DB, KS, B>(
     rpc_server: JsonRpcServerState,
     method_name: &str,
-    authorization_header: Option<&HeaderValues>,
+    authorization_header: Option<HeaderValues>,
 ) -> Result<(), tide::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -86,6 +86,15 @@ where
         }
     } else {
         Err(tide::Error::from_str(403, "Forbidden"))
+    }
+}
+
+pub fn get_auth_header(
+    request: tide::Request<JsonRpcServerState>,
+) -> (Option<HeaderValues>, tide::Request<JsonRpcServerState>) {
+    match request.header("Authorization") {
+        Some(header) => (Some(header.to_owned()), request),
+        None => (None, request),
     }
 }
 
