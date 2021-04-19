@@ -20,7 +20,6 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (perms,) = params;
-    info!("Auth new requested for permissions: {:?}", perms);
     let ks = data.keystore.read().await;
     let ki = ks.get(JWT_IDENTIFIER)?;
     let token = create_token(perms, ki.private_key())?;
@@ -40,7 +39,6 @@ where
     let ks = data.keystore.read().await;
     let (header_raw,) = params;
     let token = header_raw.trim_start_matches("Bearer ");
-    info!("Auth verify token: {}", token);
     let ki = ks.get(JWT_IDENTIFIER)?;
     let perms = verify_token(&token, ki.private_key())?;
     Ok(perms)

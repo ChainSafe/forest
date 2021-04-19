@@ -65,7 +65,7 @@ where
             None => return Ok(()),
             Some(token) => {
                 let token = token.to_string();
-                info!("JWT from HTTP Header: {}", token);
+                debug!("JWT from HTTP Header: {}", token);
 
                 let (_, claims) = call_rpc::<Vec<String>>(
                     rpc_server,
@@ -76,7 +76,7 @@ where
                 )
                 .await?;
 
-                info!("Decoded JWT Claims: {:?}", claims);
+                debug!("Decoded JWT Claims: {:?}", claims);
 
                 // Checks to see if the method is within the array of methods that require write access
                 if WRITE_ACCESS.contains(&method_name) {
