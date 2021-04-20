@@ -1069,7 +1069,7 @@ dependencies = [
  "forest_message",
  "futures",
  "interpreter",
- "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "lazy_static",
  "lockfree",
@@ -1114,7 +1114,7 @@ dependencies = [
  "genesis",
  "hex",
  "interpreter",
- "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "ipld_hamt 2.0.0",
  "libp2p 0.35.1",
@@ -2154,7 +2154,7 @@ dependencies = [
  "forest_vm",
  "indexmap",
  "integer-encoding 2.1.2",
- "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "ipld_hamt 0.1.1",
  "lazy_static",
@@ -2188,7 +2188,7 @@ dependencies = [
  "forest_vm",
  "indexmap",
  "integer-encoding 3.0.1",
- "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "ipld_hamt 1.0.0",
  "lazy_static",
@@ -2223,7 +2223,7 @@ dependencies = [
  "hex",
  "indexmap",
  "integer-encoding 3.0.1",
- "ipld_amt 0.2.1",
+ "ipld_amt 1.0.0",
  "ipld_blockstore",
  "ipld_hamt 2.0.0",
  "lazy_static",
@@ -3258,22 +3258,6 @@ dependencies = [
 [[package]]
 name = "ipld_amt"
 version = "0.2.1"
-dependencies = [
- "ahash 0.6.2",
- "criterion",
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "ipld_blockstore",
- "itertools 0.10.0",
- "once_cell",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "ipld_amt"
-version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dde92f9f67932f831a0137be87f60370cfb107b3664b6bcca2703311e32c3d46"
 dependencies = [
@@ -3282,6 +3266,22 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "ipld_blockstore",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "ipld_amt"
+version = "1.0.0"
+dependencies = [
+ "ahash 0.6.2",
+ "criterion",
+ "forest_cid",
+ "forest_db",
+ "forest_encoding",
+ "ipld_blockstore",
+ "itertools 0.10.0",
  "once_cell",
  "serde",
  "thiserror",
@@ -5490,7 +5490,7 @@ dependencies = [
  "futures",
  "hex",
  "interpreter",
- "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "jsonrpc-v2",
  "jsonwebtoken",
@@ -6087,7 +6087,7 @@ dependencies = [
  "forest_vm",
  "futures",
  "interpreter",
- "ipld_amt 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "lazy_static",
  "log",
