@@ -10,9 +10,9 @@ use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 mod drand;
 
-#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
+#[cfg(feature = "mainnet")]
 mod mainnet;
-#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
+#[cfg(feature = "mainnet")]
 pub use self::mainnet::*;
 
 #[cfg(all(feature = "interopnet", not(feature = "devnet")))]
