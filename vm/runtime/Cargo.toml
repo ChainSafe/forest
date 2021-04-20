@@ -1,7 +1,7 @@
 [package]
 name = "forest_runtime"
 description = "Runtime for use in Filecoin protocol"
-version = "0.1.2"
+version = "0.2.0"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
@@ -18,7 +18,7 @@ forest_encoding = "0.2.1"
 commcid = { path = "../../utils/commcid", version = "0.1.1" }
 filecoin-proofs-api = { version = "6.1", features = ["blst"], default_features = false }
 base64 = "0.13"
-fil_types = { features = ["proofs"], version = "0.1.10" }
+fil_types = { features = ["proofs"], version = "0.2" }
 log = "0.4.8"
 
 [dev-dependencies]
