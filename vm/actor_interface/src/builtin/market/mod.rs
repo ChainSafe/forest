@@ -355,7 +355,6 @@ impl From<actorv4::market::DealProposal> for DealProposal {
     }
 }
 
-
 pub enum DealStates<'a, BS> {
     V0(actorv0::market::DealMetaArray<'a, BS>),
     V2(actorv2::market::DealMetaArray<'a, BS>),

@@ -664,7 +664,6 @@ impl From<actorv4::miner::SectorPreCommitOnChainInfo> for SectorPreCommitOnChain
     }
 }
 
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitInfo {

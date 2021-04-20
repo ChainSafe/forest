@@ -7,8 +7,7 @@ use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
     account, actorv0,
     actorv2::{self, ActorDowncast},
-    actorv3, ActorVersion,
-    actorv4,
+    actorv3, actorv4, ActorVersion,
 };
 use address::{Address, Protocol};
 use blocks::BlockHeader;
