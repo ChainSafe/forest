@@ -6,7 +6,6 @@ use auth::*;
 use beacon::Beacon;
 use blockstore::BlockStore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use log::info;
 use wallet::KeyStore;
 
 /// RPC call to create a new JWT Token
