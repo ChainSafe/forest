@@ -2252,7 +2252,7 @@ dependencies = [
 
 [[package]]
 name = "forest_bigint"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "cs_serde_bytes",
  "num-bigint 0.3.1",
