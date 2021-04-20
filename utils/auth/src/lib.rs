@@ -30,7 +30,7 @@ pub const WRITE_ACCESS: [&str; 6] = [
     "Filecoin.WalletList",
 ];
 
-/// Error Enum for Authentification
+/// Error Enum for Authentication
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum Error {
     /// Filecoin Method does not exist

@@ -3,8 +3,13 @@
 
 use log::{debug, error};
 use serde::de::DeserializeOwned;
+use tide::http::headers::HeaderValues;
 
 use crate::data_types::JsonRpcServerState;
+use auth::WRITE_ACCESS;
+use beacon::Beacon;
+use blockstore::BlockStore;
+use wallet::KeyStore;
 
 pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
     debug!(
@@ -40,6 +45,65 @@ const STREAMING_METHODS: [&str; 2] = [RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAI
 
 pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
+}
+
+pub const RPC_METHOD_AUTH_VERIFY: &str = "Filecoin.AuthVerify";
+
+pub async fn check_permissions<DB, KS, B>(
+    rpc_server: JsonRpcServerState,
+    method_name: &str,
+    authorization_header: Option<HeaderValues>,
+) -> Result<(), tide::Error>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    match authorization_header
+        .and_then(|header_values| header_values.get(0).cloned())
+        .map(|token| token.to_string())
+    {
+        Some(token) => {
+            debug!("JWT from HTTP Header: {}", token);
+
+            let (_, claims) = call_rpc::<Vec<String>>(
+                rpc_server,
+                jsonrpc_v2::RequestObject::request()
+                    .with_method(RPC_METHOD_AUTH_VERIFY)
+                    .with_params(vec![token])
+                    .finish(),
+            )
+            .await?;
+
+            debug!("Decoded JWT Claims: {:?}", claims);
+
+            // Checks to see if the method is within the array of methods that require write access
+            if WRITE_ACCESS.contains(&method_name) {
+                if claims.contains(&"write".to_string()) {
+                    Ok(())
+                } else {
+                    Err(tide::Error::from_str(403, "Forbidden"))
+                }
+            } else {
+                // If write access is not required, allow this to run
+                Ok(())
+            }
+        }
+        // If no token is passed, assume read behavior
+        None => {
+            if WRITE_ACCESS.contains(&method_name) {
+                Err(tide::Error::from_str(403, "Forbidden"))
+            } else {
+                Ok(())
+            }
+        }
+    }
+}
+
+pub fn get_auth_header(
+    request: tide::Request<JsonRpcServerState>,
+) -> (Option<HeaderValues>, tide::Request<JsonRpcServerState>) {
+    (request.header("Authorization").cloned(), request)
 }
 
 // Calls an RPC method and returns the full response as a string.
