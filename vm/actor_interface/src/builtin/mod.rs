@@ -83,3 +83,12 @@ impl From<actorv3::util::smooth::FilterEstimate> for FilterEstimate {
         }
     }
 }
+
+impl From<actorv4::util::smooth::FilterEstimate> for FilterEstimate {
+    fn from(filter_est: actorv4::util::smooth::FilterEstimate) -> Self {
+        Self {
+            position: filter_est.position,
+            velocity: filter_est.velocity,
+        }
+    }
+}
