@@ -5,6 +5,7 @@ extern crate serde_json;
 
 use super::errors::Error;
 use crypto::SignatureType;
+use ecies::{decrypt, encrypt, utils::generate_keypair, PublicKey, SecpError, SecretKey};
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -111,6 +112,15 @@ pub trait KeyStore {
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
     fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
+}
+
+pub trait EncryptedKeyStore {
+    /// Create a new set of keys
+    fn generate_keys() -> (SecretKey, PublicKey);
+    /// Encrypt a message using a public key
+    fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError>;
+    /// Decrypt a message using a secret key
+    fn decrypt(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError>;
 }
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
@@ -236,4 +246,29 @@ impl KeyStore for PersistentKeyStore {
         serde_json::to_writer(file, &self.key_info).map_err(|err| Error::Other(err.to_string()))?;
         Ok(key_out)
     }
+}
+
+impl EncryptedKeyStore for PersistentKeyStore {
+    fn generate_keys() -> (SecretKey, PublicKey) {
+        generate_keypair()
+    }
+
+    fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError> {
+        encrypt(pk, msg)
+    }
+
+    fn decrypt(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError> {
+        decrypt(sk, msg)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use ecies::{decrypt, encrypt, utils::generate_keypair};
+
+    const PRIVATE_KEY_TO_ENCRYPT: &'static str = "foobarbaz";
+
+    #[test]
+    fn test_encrypt_key() {}
 }

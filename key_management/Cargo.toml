@@ -19,6 +19,8 @@ serde = { version = "1.0", features = ["derive"] }
 base64 = { version = "0.13", optional = true }
 serde_json = "1.0.57"
 log = "0.4.8"
+ecies = {version = "0.2", default-features = false, features = ["pure"]}
+
 
 [features]
 json = ["base64", "crypto/json"]

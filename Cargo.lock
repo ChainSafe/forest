@@ -1759,6 +1759,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ecies"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "237cf9020116e7de13553362afcae6b681f97b58e6a69e41ef359174d84a46d5"
+dependencies = [
+ "aes-gcm 0.8.0",
+ "hkdf",
+ "libsecp256k1",
+ "rand 0.7.3",
+ "sha2 0.9.3",
+ "typenum",
+]
+
+[[package]]
 name = "ed25519"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2774,8 +2788,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.9.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3550,6 +3566,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "bls-signatures",
+ "ecies",
  "forest_address",
  "forest_crypto",
  "forest_encoding",
