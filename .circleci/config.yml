@@ -290,9 +290,9 @@ workflows:
       - msrv-build-check:
           requires:
             - prefetch-crates
-      - macos-build-check:
-          requires:
-            - prefetch-crates
+      # - macos-build-check:
+      #     requires:
+      #       - prefetch-crates
   daily-check:
     triggers:
       - schedule:

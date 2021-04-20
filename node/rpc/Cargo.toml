@@ -9,9 +9,7 @@ ahash = "0.6"
 async-log = "2.0.0"
 async-std = { version = "1.9", features = ["attributes"] }
 base64 = "0.13"
-bls-signatures = { version = "0.9", default-features = false, features = [
-    "blst"
-] }
+bls-signatures = { version = "0.9", default-features = false, features = ["blst"] }
 crossbeam = "0.8.0"
 futures = "0.3.5"
 jsonwebtoken = "7.2.0"
@@ -30,13 +28,9 @@ extensions = "0.2.0"
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 address = { package = "forest_address", version = "0.3", features = ["json"] }
 auth = { path = "../../utils/auth" }
-beacon = { package = "beacon", path = "../../blockchain/beacon", features = [
-    "json"
-] }
+beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
 bitfield = { package = "forest_bitfield", version = "0.1", features = ["json"] }
-blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = [
-    "json"
-] }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 blockstore = { package = "ipld_blockstore", version = "0.1" }
 chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
@@ -57,9 +51,7 @@ state_manager = { package = "state_manager", path = "../../blockchain/state_mana
 state_tree = { path = "../../vm/state_tree" }
 utils = { path = "../../node/utils" }
 vm = { package = "forest_vm", version = "0.3.1" }
-wallet = { package = "key_management", path = "../../key_management", features = [
-    "json"
-] }
+wallet = { package = "key_management", path = "../../key_management", features = ["json"] }
 
 [dependencies.jsonrpc-v2]
 version = "0.10.0"
@@ -70,6 +62,4 @@ default-features = false
 db = { package = "forest_db", version = "0.1" }
 futures = "0.3.5"
 hex = "0.4.2"
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
-    "test_constructors"
-] }
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }

@@ -20,7 +20,7 @@ impl Encoder for GraphSyncCodec {
     type Item = GraphSyncMessage;
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        let proto_msg = proto::Message::try_from(item).unwrap();
+        let proto_msg = proto::Message::try_from(item)?;
         let buf: Vec<u8> = proto_msg.write_to_bytes()?;
 
         self.length_codec.encode(Bytes::from(buf), dst)
