@@ -18,9 +18,9 @@ version = "0.1.0"
 dependencies = [
  "fil_clock",
  "fil_types",
- "forest_actor 0.1.6",
- "forest_actor 1.0.3",
- "forest_actor 2.0.0",
+ "forest_actor 0.1.7",
+ "forest_actor 1.0.4",
+ "forest_actor 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -1942,7 +1942,7 @@ dependencies = [
 
 [[package]]
 name = "fil_types"
-version = "0.1.11"
+version = "0.2.0"
 dependencies = [
  "async-std",
  "base64 0.13.0",
@@ -2133,9 +2133,9 @@ dependencies = [
 
 [[package]]
 name = "forest_actor"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "019551a0cca03107884ea3255f0aaf4282106093213000442a40d68457f56a9b"
+checksum = "4404fce2d4f06c84d34f3a9c54c2dd1578bc86890a1fb290dbb231f2a0404fc1"
 dependencies = [
  "ahash 0.5.10",
  "base64 0.13.0",
@@ -2167,9 +2167,9 @@ dependencies = [
 
 [[package]]
 name = "forest_actor"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d77b7e93eae654e2b2dec102e28d00d2254f5850ae7c963d5987467830b42a6"
+checksum = "5cadf7cacd910125aa4a7cb46b4a28453bacda2f6a32dd18455da77bd1f125bf"
 dependencies = [
  "ahash 0.6.2",
  "base64 0.13.0",
@@ -2228,6 +2228,40 @@ dependencies = [
  "ipld_hamt 2.0.0",
  "lazy_static",
  "libp2p 0.35.1",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "unsigned-varint 0.6.0",
+]
+
+[[package]]
+name = "forest_actor"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9118b157078e5a607c98cc1dfeac09a1fc8957d8e7a9a4ab2f7168d4a8ddc26"
+dependencies = [
+ "ahash 0.6.2",
+ "base64 0.13.0",
+ "byteorder 1.4.2",
+ "commcid",
+ "fil_clock",
+ "fil_types",
+ "forest_address",
+ "forest_bigint",
+ "forest_bitfield",
+ "forest_cid",
+ "forest_crypto",
+ "forest_encoding",
+ "forest_ipld",
+ "forest_runtime",
+ "forest_vm",
+ "indexmap",
+ "integer-encoding 3.0.1",
+ "ipld_amt 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_blockstore",
+ "ipld_hamt 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static",
  "log",
  "num-derive",
  "num-traits",
@@ -2468,7 +2502,7 @@ dependencies = [
 
 [[package]]
 name = "forest_runtime"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "base64 0.13.0",
  "commcid",
@@ -3288,6 +3322,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipld_amt"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "278ba2fa369fae45884276f68784750a81bd48a9973615195f0138b8d1fa9436"
+dependencies = [
+ "ahash 0.6.2",
+ "forest_cid",
+ "forest_db",
+ "forest_encoding",
+ "ipld_blockstore",
+ "itertools 0.10.0",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "ipld_blockstore"
 version = "0.1.1"
 dependencies = [
@@ -3358,6 +3409,26 @@ dependencies = [
  "sha2 0.9.3",
  "thiserror",
  "unsigned-varint 0.6.0",
+]
+
+[[package]]
+name = "ipld_hamt"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b23677971e5e87c6718edc315f03fe10675113b4bfd9e78d6a508c90c32ec4cd"
+dependencies = [
+ "byteorder 1.4.2",
+ "cs_serde_bytes",
+ "forest_cid",
+ "forest_db",
+ "forest_encoding",
+ "forest_hash_utils",
+ "forest_ipld",
+ "ipld_blockstore",
+ "once_cell",
+ "serde",
+ "sha2 0.9.3",
+ "thiserror",
 ]
 
 [[package]]

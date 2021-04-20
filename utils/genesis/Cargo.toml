@@ -16,7 +16,7 @@ state_manager = { path = "../../blockchain/state_manager" }
 cid = { package = "forest_cid", version = "0.3" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 chain = { path = "../../blockchain/chain" }
-fil_types = "0.1"
+fil_types = "0.2"
 encoding = { package = "forest_encoding", version = "0.2.1" }
 net_utils = { path = "../net_utils" }
 url = "2.1.1"
