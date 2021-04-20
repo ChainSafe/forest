@@ -150,7 +150,7 @@ impl Provider for TestApi {
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let (us, s) = self.messages_for_block(&h.blocks()[0]).unwrap();
+        let (us, s) = self.messages_for_block(&h.blocks()[0])?;
         let mut msgs = Vec::new();
 
         for msg in us {
