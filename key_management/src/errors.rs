@@ -22,6 +22,8 @@ pub enum Error {
     Other(String),
     #[error("Could not convert from KeyInfo to Key")]
     KeyInfoConversion,
+    #[error("Could not get hostname for private key generation")]
+    PrivateKeyGeneration,
 }
 
 impl From<io::Error> for Error {

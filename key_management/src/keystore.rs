@@ -7,13 +7,20 @@ use super::errors::Error;
 use crypto::SignatureType;
 use ecies::{decrypt, encrypt, utils::generate_keypair, PublicKey, SecpError, SecretKey};
 use log::{error, warn};
+use ring::{digest, pbkdf2};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, ErrorKind};
 use std::path::Path;
+use std::{collections::HashMap, num::NonZeroU32};
+use std::{
+    fs::{self, File, OpenOptions},
+    os::unix::prelude::OsStrExt,
+};
 
 const KEYSTORE_NAME: &str = "/keystore.json";
+const GENERATED_KEY_LEN: usize = digest::SHA256_OUTPUT_LEN;
+type GeneratedKey = [u8; GENERATED_KEY_LEN];
+static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA256;
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
@@ -116,7 +123,7 @@ pub trait KeyStore {
 
 pub trait EncryptedKeyStore {
     /// Create a new set of keys
-    fn generate_keys() -> (SecretKey, PublicKey);
+    fn generate_key(passphrase: &str) -> Result<Vec<u8>, Error>;
     /// Encrypt a message using a public key
     fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError>;
     /// Decrypt a message using a secret key
@@ -249,8 +256,20 @@ impl KeyStore for PersistentKeyStore {
 }
 
 impl EncryptedKeyStore for PersistentKeyStore {
-    fn generate_keys() -> (SecretKey, PublicKey) {
-        generate_keypair()
+    fn generate_key(passphrase: &str) -> Result<Vec<u8>, Error> {
+        let hostname = hostname::get()?;
+
+        let mut to_store: GeneratedKey = [0u8; GENERATED_KEY_LEN];
+
+        pbkdf2::derive(
+            PBKDF2_ALG,
+            NonZeroU32::new(5).unwrap(),
+            hostname.as_bytes(),
+            passphrase.as_bytes(),
+            &mut to_store,
+        );
+
+        Ok(to_store.to_vec())
     }
 
     fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError> {
@@ -265,10 +284,13 @@ impl EncryptedKeyStore for PersistentKeyStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ecies::{decrypt, encrypt, utils::generate_keypair};
 
-    const PRIVATE_KEY_TO_ENCRYPT: &'static str = "foobarbaz";
+    const PASSPHRASE: &'static str = "foobarbaz";
 
     #[test]
-    fn test_encrypt_key() {}
+    fn test_encrypt_key() {
+        let private_key = PersistentKeyStore::generate_key(PASSPHRASE);
+        // 73aacf339794e99990321923d4fafbac12b202d9c9ed2e702eacc25c2328ca46
+        assert!(private_key.is_ok());
+    }
 }
