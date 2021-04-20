@@ -61,7 +61,7 @@ where
 {
     match authorization_header
         .and_then(|header_values| header_values.get(0).cloned())
-        .and_then(|token| Some(token.to_string()))
+        .map(|token| token.to_string())
     {
         Some(token) => {
             debug!("JWT from HTTP Header: {}", token);
