@@ -1205,14 +1205,14 @@ impl Actor {
                 )
             })?;
         if needs_cron {
-            let new_dl_info = state.deadline_info(current_epoch);
+            let new_dl_info = state.deadline_info(rt.curr_epoch());
             enroll_cron_event(
                 rt,
                 new_dl_info.last(),
                 CronEventPayload {
-                    event_type: CronEventProvingDeadline,
+                    event_type: CRON_EVENT_PROVING_DEADLINE,
                 },
-            )
+            )?;
         }
         notify_pledge_changed(rt, &-newly_vested)?;
         Ok(())
