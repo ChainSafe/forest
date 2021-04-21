@@ -150,7 +150,7 @@ pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
 pub fn construct_tipset_bundle(epoch: i64, weight: u64) -> TipsetBundle {
     let headers = construct_headers(epoch, weight);
     let (bls, secp) = construct_messages();
-    let includes: Vec<Vec<u64>> = (0..headers.len()).map(|_| vec![]).collect();
+    let includes: Vec<Vec<u64>> = (0..headers.len()).map(|_| Vec::new()).collect();
 
     TipsetBundle {
         blocks: headers,

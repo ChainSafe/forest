@@ -458,8 +458,8 @@ pub mod tests {
         gas_price: u64,
     ) -> SignedMessage {
         let umsg: UnsignedMessage = UnsignedMessage::builder()
-            .to(to.clone())
-            .from(from.clone())
+            .to(*to)
+            .from(*from)
             .sequence(sequence)
             .gas_limit(gas_limit)
             .gas_fee_cap((gas_price + 100).into())
@@ -860,7 +860,7 @@ pub mod tests {
             let mut smsg_vec = Vec::new();
             tma.write()
                 .await
-                .set_state_balance_raw(&a1, BigInt::from(1_000_000_000_000_000_000 as u64));
+                .set_state_balance_raw(&a1, BigInt::from(1_000_000_000_000_000_000_u64));
             for i in 0..10 {
                 let msg = if i != 5 {
                     create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)

@@ -78,15 +78,14 @@ where
         .unwrap_or_default()
     {
         debug!("Genesis from config matches Genesis from store");
-        Ok(genesis_block)
     } else {
         debug!("Initialize ChainSyncer with new genesis from config");
         chain_store.set_genesis(&genesis_block)?;
         async_std::task::block_on(
             chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?)),
         )?;
-        Ok(genesis_block)
     }
+    Ok(genesis_block)
 }
 
 /// Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain

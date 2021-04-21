@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn array_symmetric_serialization() {
-        let vec: Vec<u8> = (0..32).map(|x| x).collect::<Vec<u8>>();
+        let vec: Vec<u8> = (0..32).collect::<Vec<u8>>();
         let slice_bz = to_vec(&BytesSer(&vec)).unwrap();
         let Byte32De(arr) = from_slice(&slice_bz).unwrap();
         // Check decoded array against slice

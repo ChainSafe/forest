@@ -46,7 +46,7 @@ fn generate_validate_checksum() {
     let cksm = checksum(&data);
     assert_eq!(cksm.len(), 4);
     assert_eq!(validate_checksum(&data, cksm.clone()), true);
-    assert_eq!(validate_checksum(&other_data, cksm.clone()), false);
+    assert_eq!(validate_checksum(&other_data, cksm), false);
 }
 
 struct AddressTestVec<'a> {
@@ -344,19 +344,19 @@ fn invalid_byte_addresses() {
     let secp_vec = vec![1];
     let mut secp_l = secp_vec.clone();
     secp_l.resize(PAYLOAD_HASH_LEN + 2, 0);
-    let mut secp_s = secp_vec.clone();
+    let mut secp_s = secp_vec;
     secp_s.resize(PAYLOAD_HASH_LEN, 0);
 
     let actor_vec = vec![2];
     let mut actor_l = actor_vec.clone();
     actor_l.resize(PAYLOAD_HASH_LEN + 2, 0);
-    let mut actor_s = actor_vec.clone();
+    let mut actor_s = actor_vec;
     actor_s.resize(PAYLOAD_HASH_LEN, 0);
 
     let bls_vec = vec![3];
     let mut bls_l = bls_vec.clone();
     bls_l.resize(BLS_PUB_LEN + 2, 0);
-    let mut bls_s = bls_vec.clone();
+    let mut bls_s = bls_vec;
     bls_s.resize(BLS_PUB_LEN, 0);
 
     let test_vectors = &[
@@ -532,13 +532,13 @@ fn address_hashmap() {
     // insert and validate value set
     let mut hm: HashMap<Address, u8> = HashMap::new();
     let h1 = Address::new_id(1);
-    hm.insert(h1.clone(), 1);
+    hm.insert(h1, 1);
     assert_eq!(hm.get(&h1).unwrap(), &1);
 
     // insert other value
     let h2 = Address::new_id(2);
     assert!(hm.get(&h2).is_none());
-    hm.insert(h2.clone(), 2);
+    hm.insert(h2, 2);
     assert_eq!(hm.get(&h2).unwrap(), &2);
 
     // validate original value was not overriden
@@ -586,7 +586,7 @@ fn invalid_strings_tests() {
         b"f\xF0\x90\x80mk3zcefvlgpay4f32c5vmruk5gqig6dumc7pz6q",
     ];
     for s in non_utf8_unchecked {
-        let st = unsafe { std::str::from_utf8_unchecked(s.as_ref()) };
+        let st = unsafe { std::str::from_utf8_unchecked(s) };
         assert!(Address::from_str(st).is_err());
     }
 }

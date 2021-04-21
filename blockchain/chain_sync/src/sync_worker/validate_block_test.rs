@@ -21,7 +21,7 @@ async fn validate_specific_block() {
 
     let db = Arc::new(MemoryDB::default());
 
-    let cids = load_car(db.as_ref(), EXPORT_SR_40.as_ref()).await.unwrap();
+    let cids = load_car(db.as_ref(), EXPORT_SR_40).await.unwrap();
 
     let chain_store = Arc::new(ChainStore::new(db.clone()));
     let state_manager = Arc::new(StateManager::new(chain_store.clone()));

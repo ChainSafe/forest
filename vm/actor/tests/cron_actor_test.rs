@@ -13,8 +13,8 @@ use vm::{ExitCode, Serialized};
 fn construct_runtime() -> MockRuntime {
     MockRuntime {
         receiver: Address::new_id(100),
-        caller: SYSTEM_ACTOR_ADDR.clone(),
-        caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
+        caller: *SYSTEM_ACTOR_ADDR,
+        caller_type: *SYSTEM_ACTOR_CODE_ID,
         ..Default::default()
     }
 }
@@ -101,7 +101,7 @@ fn epoch_tick_with_entries() {
 
     // ExitCodes dont matter here
     rt.expect_send(
-        entry1.receiver.clone(),
+        entry1.receiver,
         entry1.method_num,
         Serialized::default(),
         0u8.into(),
@@ -109,7 +109,7 @@ fn epoch_tick_with_entries() {
         ExitCode::Ok,
     );
     rt.expect_send(
-        entry2.receiver.clone(),
+        entry2.receiver,
         entry2.method_num,
         Serialized::default(),
         0u8.into(),
@@ -117,7 +117,7 @@ fn epoch_tick_with_entries() {
         ExitCode::ErrIllegalArgument,
     );
     rt.expect_send(
-        entry3.receiver.clone(),
+        entry3.receiver,
         entry3.method_num,
         Serialized::default(),
         0u8.into(),
@@ -125,7 +125,7 @@ fn epoch_tick_with_entries() {
         ExitCode::Ok,
     );
     rt.expect_send(
-        entry4.receiver.clone(),
+        entry4.receiver,
         entry4.method_num,
         Serialized::default(),
         0u8.into(),
