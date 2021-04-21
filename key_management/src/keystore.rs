@@ -5,7 +5,6 @@ extern crate serde_json;
 
 use super::errors::Error;
 use crypto::SignatureType;
-use ecies::{decrypt, encrypt, utils::generate_keypair, PublicKey, SecpError, SecretKey};
 use log::{error, warn};
 use ring::{digest, pbkdf2};
 use serde::{Deserialize, Serialize};
@@ -125,9 +124,9 @@ pub trait EncryptedKeyStore {
     /// Create a new set of keys
     fn generate_key(passphrase: &str) -> Result<Vec<u8>, Error>;
     /// Encrypt a message using a public key
-    fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError>;
+    fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
     /// Decrypt a message using a secret key
-    fn decrypt(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError>;
+    fn decrypt(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
 }
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
@@ -272,12 +271,12 @@ impl EncryptedKeyStore for PersistentKeyStore {
         Ok(to_store.to_vec())
     }
 
-    fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError> {
-        encrypt(pk, msg)
+    fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
+        todo!()
     }
 
-    fn decrypt(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SecpError> {
-        decrypt(sk, msg)
+    fn decrypt(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
+        todo!()
     }
 }
 

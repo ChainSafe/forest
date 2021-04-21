@@ -24,6 +24,10 @@ pub enum Error {
     KeyInfoConversion,
     #[error("Could not get hostname for private key generation")]
     PrivateKeyGeneration,
+    #[error("Error encrypting payload")]
+    Encrypt,
+    #[error("Error decrypting payload")]
+    Decrypt,
 }
 
 impl From<io::Error> for Error {
