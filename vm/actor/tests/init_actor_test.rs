@@ -20,7 +20,7 @@ fn construct_runtime() -> MockRuntime {
     MockRuntime {
         receiver: Address::new_id(1000),
         caller: *SYSTEM_ACTOR_ADDR,
-        caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
+        caller_type: *SYSTEM_ACTOR_CODE_ID,
         ..Default::default()
     }
 }
@@ -32,10 +32,10 @@ fn abort_cant_call_exec() {
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001);
 
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne);
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, anne);
 
-    let err = exec_and_verify(&mut rt, POWER_ACTOR_CODE_ID.clone(), &"")
-        .expect_err("Exec should have failed");
+    let err =
+        exec_and_verify(&mut rt, *POWER_ACTOR_CODE_ID, &"").expect_err("Exec should have failed");
     assert_eq!(err.exit_code(), ExitCode::ErrForbidden);
 }
 
@@ -45,7 +45,7 @@ fn create_2_payment_channels() {
     construct_and_verify(&mut rt);
     let anne = Address::new_id(1001);
 
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), anne);
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, anne);
 
     for n in 0..2 {
         let pay_channel_string = format!("paych_{}", n);
@@ -58,7 +58,7 @@ fn create_2_payment_channels() {
         rt.new_actor_addr = Some(Address::new_actor(paych));
 
         let expected_id_addr = Address::new_id(100 + n);
-        rt.expect_create_actor(PAYCH_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
+        rt.expect_create_actor(*PAYCH_ACTOR_CODE_ID, expected_id_addr);
 
         let fake_params = ConstructorParams {
             network_name: String::from("fake_param"),
@@ -68,7 +68,7 @@ fn create_2_payment_channels() {
         let balance = TokenAmount::from(100u8);
 
         rt.expect_send(
-            expected_id_addr.clone(),
+            expected_id_addr,
             METHOD_CONSTRUCTOR,
             Serialized::serialize(&fake_params).unwrap(),
             balance,
@@ -76,7 +76,7 @@ fn create_2_payment_channels() {
             ExitCode::Ok,
         );
 
-        let exec_ret = exec_and_verify(&mut rt, PAYCH_ACTOR_CODE_ID.clone(), &fake_params).unwrap();
+        let exec_ret = exec_and_verify(&mut rt, *PAYCH_ACTOR_CODE_ID, &fake_params).unwrap();
         let exec_ret: ExecReturn = Serialized::deserialize(&exec_ret).unwrap();
         assert_eq!(
             unique_address, exec_ret.robust_address,
@@ -103,23 +103,20 @@ fn create_storage_miner() {
     construct_and_verify(&mut rt);
 
     // only the storage power actor can create a miner
-    rt.set_caller(
-        POWER_ACTOR_CODE_ID.clone(),
-        STORAGE_POWER_ACTOR_ADDR.clone(),
-    );
+    rt.set_caller(*POWER_ACTOR_CODE_ID, *STORAGE_POWER_ACTOR_ADDR);
 
     let unique_address = Address::new_actor(b"miner");
-    rt.new_actor_addr = Some(unique_address.clone());
+    rt.new_actor_addr = Some(unique_address);
 
     let expected_id_addr = Address::new_id(100);
-    rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
+    rt.expect_create_actor(*MINER_ACTOR_CODE_ID, expected_id_addr);
 
     let fake_params = ConstructorParams {
         network_name: String::from("fake_param"),
     };
 
     rt.expect_send(
-        expected_id_addr.clone(),
+        expected_id_addr,
         METHOD_CONSTRUCTOR,
         Serialized::serialize(&fake_params).unwrap(),
         0u8.into(),
@@ -127,7 +124,7 @@ fn create_storage_miner() {
         ExitCode::Ok,
     );
 
-    let exec_ret = exec_and_verify(&mut rt, MINER_ACTOR_CODE_ID.clone(), &fake_params).unwrap();
+    let exec_ret = exec_and_verify(&mut rt, *MINER_ACTOR_CODE_ID, &fake_params).unwrap();
 
     let exec_ret: ExecReturn = Serialized::deserialize(&exec_ret).unwrap();
     assert_eq!(unique_address, exec_ret.robust_address);
@@ -158,22 +155,22 @@ fn create_multisig_actor() {
 
     // Actor creating multisig actor
     let some_acc_actor = Address::new_id(1234);
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), some_acc_actor);
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, some_acc_actor);
 
     // Assign addresses
     let unique_address = Address::new_actor(b"multisig");
-    rt.new_actor_addr = Some(unique_address.clone());
+    rt.new_actor_addr = Some(unique_address);
 
     // Next id
     let expected_id_addr = Address::new_id(100);
-    rt.expect_create_actor(MULTISIG_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
+    rt.expect_create_actor(*MULTISIG_ACTOR_CODE_ID, expected_id_addr);
 
     let fake_params = ConstructorParams {
         network_name: String::from("fake_param"),
     };
     // Expect a send to the multisig actor constructor
     rt.expect_send(
-        expected_id_addr.clone(),
+        expected_id_addr,
         METHOD_CONSTRUCTOR,
         Serialized::serialize(&fake_params).unwrap(),
         0u8.into(),
@@ -182,7 +179,7 @@ fn create_multisig_actor() {
     );
 
     // Return should have been successful. Check the returned addresses
-    let exec_ret = exec_and_verify(&mut rt, MULTISIG_ACTOR_CODE_ID.clone(), &fake_params).unwrap();
+    let exec_ret = exec_and_verify(&mut rt, *MULTISIG_ACTOR_CODE_ID, &fake_params).unwrap();
     let exec_ret: ExecReturn = Serialized::deserialize(&exec_ret).unwrap();
     assert_eq!(
         unique_address, exec_ret.robust_address,
@@ -200,32 +197,29 @@ fn sending_constructor_failure() {
     construct_and_verify(&mut rt);
 
     // Only the storage power actor can create a miner
-    rt.set_caller(
-        POWER_ACTOR_CODE_ID.clone(),
-        STORAGE_POWER_ACTOR_ADDR.clone(),
-    );
+    rt.set_caller(*POWER_ACTOR_CODE_ID, *STORAGE_POWER_ACTOR_ADDR);
 
     // Assign new address for the storage actor miner
     let unique_address = Address::new_actor(b"miner");
-    rt.new_actor_addr = Some(unique_address.clone());
+    rt.new_actor_addr = Some(unique_address);
 
     // Create the next id address
     let expected_id_addr = Address::new_id(100);
-    rt.expect_create_actor(MINER_ACTOR_CODE_ID.clone(), expected_id_addr.clone());
+    rt.expect_create_actor(*MINER_ACTOR_CODE_ID, expected_id_addr);
 
     let fake_params = ConstructorParams {
         network_name: String::from("fake_param"),
     };
     rt.expect_send(
-        expected_id_addr.clone(),
+        expected_id_addr,
         METHOD_CONSTRUCTOR,
         Serialized::serialize(&fake_params).unwrap(),
         0u8.into(),
         Serialized::default(),
-        ExitCode::ErrIllegalState.clone(),
+        ExitCode::ErrIllegalState,
     );
 
-    let error = exec_and_verify(&mut rt, MINER_ACTOR_CODE_ID.clone(), &fake_params)
+    let error = exec_and_verify(&mut rt, *MINER_ACTOR_CODE_ID, &fake_params)
         .expect_err("sending constructor should have failed");
 
     let error_exit_code = error.exit_code();
@@ -246,7 +240,7 @@ fn sending_constructor_failure() {
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
     let params = ConstructorParams {
         network_name: "mock".to_string(),
     };

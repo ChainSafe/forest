@@ -26,8 +26,8 @@ impl ActorState {
         Self {
             code,
             state,
-            balance,
             sequence,
+            balance,
         }
     }
     /// Safely deducts funds from an Actor

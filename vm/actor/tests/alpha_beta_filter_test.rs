@@ -23,7 +23,7 @@ fn per_million_error(val_1: &BigInt, val_2: &BigInt) -> BigInt {
 
     let diff_per_million = (ratio * million).abs();
 
-    diff_per_million >> 2 * PRECISION
+    diff_per_million >> (2 * PRECISION)
 }
 
 fn iterative_cum_sum_of_ratio(
@@ -135,7 +135,7 @@ fn constant_estimate() {
     // note: this is a bit sensative to input, lots of numbers approach from below
     // (...99999) and so truncating division takes us off by one
     let product = csr_frac * (BigInt::from(10_000) << PRECISION); // Q.256
-    assert_eq!(BigInt::from(5000), product >> 2 * PRECISION);
+    assert_eq!(BigInt::from(5000), product >> (2 * PRECISION));
 }
 
 #[test]
@@ -171,7 +171,7 @@ fn values_in_range() {
     let four_fil_per_second = BigInt::from(100);
 
     let slow_money = testing_estimate(tens_of_fil.clone(), one_fil_per_sec);
-    let fast_money = testing_estimate(tens_of_fil.clone(), four_fil_per_second);
+    let fast_money = testing_estimate(tens_of_fil, four_fil_per_second);
 
     let tens_of_ei_bs = StoragePower::from(10_i128.pow(19));
     let thousands_of_ei_bs = StoragePower::from(2 * 10_i128.pow(22));
@@ -188,19 +188,10 @@ fn values_in_range() {
     let test_cases: Vec<(StoragePower, BigInt)> = vec![
         (tens_of_ei_bs.clone(), one_byte_per_epoch_velocity.clone()),
         (tens_of_ei_bs.clone(), ten_pi_bs_per_day_velocity.clone()),
-        (tens_of_ei_bs.clone(), one_ei_bs_per_day_velocity.clone()),
-        (
-            thousands_of_ei_bs.clone(),
-            one_byte_per_epoch_velocity.clone(),
-        ),
-        (
-            thousands_of_ei_bs.clone(),
-            ten_pi_bs_per_day_velocity.clone(),
-        ),
-        (
-            thousands_of_ei_bs.clone(),
-            one_ei_bs_per_day_velocity.clone(),
-        ),
+        (tens_of_ei_bs, one_ei_bs_per_day_velocity.clone()),
+        (thousands_of_ei_bs.clone(), one_byte_per_epoch_velocity),
+        (thousands_of_ei_bs.clone(), ten_pi_bs_per_day_velocity),
+        (thousands_of_ei_bs, one_ei_bs_per_day_velocity),
     ];
 
     for test_case in test_cases {

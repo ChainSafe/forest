@@ -18,7 +18,7 @@ where
 {
     let key = [0];
     let value = [1];
-    db.write(key.clone(), value.clone()).unwrap();
+    db.write(key, value).unwrap();
     let res = db.read(key).unwrap().unwrap();
     assert_eq!(value.as_ref(), res.as_slice());
 }
@@ -29,7 +29,7 @@ where
 {
     let key = [0];
     let value = [1];
-    db.write(key.clone(), value.clone()).unwrap();
+    db.write(key, value).unwrap();
     let res = db.exists(key).unwrap();
     assert_eq!(res, true);
 }
@@ -49,11 +49,11 @@ where
 {
     let key = [0];
     let value = [1];
-    db.write(key.clone(), value.clone()).unwrap();
-    let res = db.exists(key.clone()).unwrap();
+    db.write(key, value).unwrap();
+    let res = db.exists(key).unwrap();
     assert_eq!(res, true);
-    db.delete(key.clone()).unwrap();
-    let res = db.exists(key.clone()).unwrap();
+    db.delete(key).unwrap();
+    let res = db.exists(key).unwrap();
     assert_eq!(res, false);
 }
 
@@ -64,7 +64,7 @@ where
     let values = [([0], [0]), ([1], [1]), ([2], [2])];
     db.bulk_write(&values).unwrap();
     for (k, _) in values.iter() {
-        let res = db.exists(k.clone()).unwrap();
+        let res = db.exists(*k).unwrap();
         assert_eq!(res, true);
     }
 }
@@ -96,7 +96,7 @@ where
     db.bulk_write(&kvs).unwrap();
     db.bulk_delete(&keys).unwrap();
     for k in keys.iter() {
-        let res = db.exists(k.clone()).unwrap();
+        let res = db.exists(*k).unwrap();
         assert_eq!(res, false);
     }
 }

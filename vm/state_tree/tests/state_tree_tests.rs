@@ -29,7 +29,7 @@ fn get_set_cache() {
     // test address not in cache
     assert_eq!(tree.get_actor(&addr).unwrap(), None);
     // test successful insert
-    assert!(tree.set_actor(&addr, act_s.clone()).is_ok());
+    assert!(tree.set_actor(&addr, act_s).is_ok());
     // test inserting with different data
     assert!(tree.set_actor(&addr, act_a.clone()).is_ok());
     // Assert insert with same data returns ok
@@ -61,22 +61,17 @@ fn get_set_non_id() {
         .flush()
         .unwrap();
 
-    let init_state = init::State::new(e_cid.clone(), "test".to_owned());
+    let init_state = init::State::new(e_cid, "test".to_owned());
     let state_cid = tree
         .store()
         .put(&init_state, Blake2b256)
         .map_err(|e| e.to_string())
         .unwrap();
 
-    let act_s = ActorState::new(
-        *INIT_ACTOR_CODE_ID,
-        state_cid.clone(),
-        Default::default(),
-        1,
-    );
+    let act_s = ActorState::new(*INIT_ACTOR_CODE_ID, state_cid, Default::default(), 1);
 
     tree.snapshot().unwrap();
-    tree.set_actor(&INIT_ACTOR_ADDR, act_s.clone()).unwrap();
+    tree.set_actor(&INIT_ACTOR_ADDR, act_s).unwrap();
 
     // Test mutate function
     tree.mutate_actor(&INIT_ACTOR_ADDR, |mut actor| {
@@ -118,8 +113,8 @@ fn test_snapshots() {
     tree.set_actor(
         &addresses[0],
         ActorState::new(
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            ACCOUNT_ACTOR_CODE_ID.clone(),
+            *ACCOUNT_ACTOR_CODE_ID,
+            *ACCOUNT_ACTOR_CODE_ID,
             BigInt::from(55),
             1,
         ),
@@ -129,8 +124,8 @@ fn test_snapshots() {
     tree.set_actor(
         &addresses[1],
         ActorState::new(
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            ACCOUNT_ACTOR_CODE_ID.clone(),
+            *ACCOUNT_ACTOR_CODE_ID,
+            *ACCOUNT_ACTOR_CODE_ID,
             BigInt::from(55),
             1,
         ),
@@ -139,8 +134,8 @@ fn test_snapshots() {
     tree.set_actor(
         &addresses[2],
         ActorState::new(
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            ACCOUNT_ACTOR_CODE_ID.clone(),
+            *ACCOUNT_ACTOR_CODE_ID,
+            *ACCOUNT_ACTOR_CODE_ID,
             BigInt::from(55),
             1,
         ),
@@ -152,8 +147,8 @@ fn test_snapshots() {
     assert_eq!(
         tree.get_actor(&addresses[0]).unwrap().unwrap(),
         ActorState::new(
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            ACCOUNT_ACTOR_CODE_ID.clone(),
+            *ACCOUNT_ACTOR_CODE_ID,
+            *ACCOUNT_ACTOR_CODE_ID,
             BigInt::from(55),
             1
         )
@@ -161,8 +156,8 @@ fn test_snapshots() {
     assert_eq!(
         tree.get_actor(&addresses[1]).unwrap().unwrap(),
         ActorState::new(
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            ACCOUNT_ACTOR_CODE_ID.clone(),
+            *ACCOUNT_ACTOR_CODE_ID,
+            *ACCOUNT_ACTOR_CODE_ID,
             BigInt::from(55),
             1
         )
@@ -171,8 +166,8 @@ fn test_snapshots() {
     assert_eq!(
         tree.get_actor(&addresses[2]).unwrap().unwrap(),
         ActorState::new(
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            ACCOUNT_ACTOR_CODE_ID.clone(),
+            *ACCOUNT_ACTOR_CODE_ID,
+            *ACCOUNT_ACTOR_CODE_ID,
             BigInt::from(55),
             1
         )
@@ -192,8 +187,8 @@ fn revert_snapshot() {
     tree.set_actor(
         &addr,
         ActorState::new(
-            ACCOUNT_ACTOR_CODE_ID.clone(),
-            ACCOUNT_ACTOR_CODE_ID.clone(),
+            *ACCOUNT_ACTOR_CODE_ID,
+            *ACCOUNT_ACTOR_CODE_ID,
             BigInt::from(55),
             1,
         ),

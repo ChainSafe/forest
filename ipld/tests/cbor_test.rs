@@ -21,7 +21,7 @@ fn encode_new_type() {
     let name = "Test".to_string();
     let t_struct = TestStruct {
         name: name.clone(),
-        details: details.clone(),
+        details,
     };
     let struct_encoded = to_vec(&t_struct).unwrap();
 
@@ -43,14 +43,14 @@ fn cid_conversions_ipld() {
     let cid = cid::new_from_cbor(&[1, 2, 3], Blake2b256);
     let m_s = TestStruct {
         name: "s".to_owned(),
-        details: cid.clone(),
+        details: cid,
     };
     assert_eq!(
         to_ipld(&m_s).unwrap(),
-        ipld!({"name": "s", "details": Link(cid.clone()) })
+        ipld!({"name": "s", "details": Link(cid) })
     );
     let serialized = to_vec(&cid).unwrap();
-    let ipld = ipld!(Link(cid.clone()));
+    let ipld = ipld!(Link(cid));
     let ipld2 = to_ipld(&cid).unwrap();
     assert_eq!(ipld, ipld2);
     assert_eq!(to_vec(&ipld).unwrap(), serialized);
@@ -58,7 +58,7 @@ fn cid_conversions_ipld() {
 
     // Test with identity hash (different length prefix for cbor)
     let cid = cid::new_from_cbor(&[1, 2], Identity);
-    let ipld = ipld!(Link(cid.clone()));
+    let ipld = ipld!(Link(cid));
     let ipld2 = to_ipld(&cid).unwrap();
     assert_eq!(ipld, ipld2);
 }

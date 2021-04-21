@@ -965,10 +965,8 @@ where
             }
         };
 
-        // (3) return if no consensus fault by now
-        if cf.is_none() {
-            Ok(cf)
-        } else {
+        // (3) return if no consensus fault
+        if cf.is_some() {
             // (4) expensive final checks
 
             // check blocks are properly signed by their respective miner
@@ -976,9 +974,8 @@ where
             // which itself is signed, so it was willingly included by the miner
             self.verify_block_signature(&bh_1)?;
             self.verify_block_signature(&bh_2)?;
-
-            Ok(cf)
         }
+        Ok(cf)
     }
 
     fn batch_verify_seals(
