@@ -8,6 +8,7 @@ use crypto::SignatureType;
 use log::{error, warn};
 use ring::{digest, pbkdf2};
 use serde::{Deserialize, Serialize};
+use sodiumoxide::crypto::secretbox;
 use std::io::{BufReader, BufWriter, ErrorKind};
 use std::path::Path;
 use std::{collections::HashMap, num::NonZeroU32};
@@ -124,9 +125,9 @@ pub trait EncryptedKeyStore {
     /// Create a new set of keys
     fn generate_key(passphrase: &str) -> Result<Vec<u8>, Error>;
     /// Encrypt a message using a public key
-    fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
+    fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
     /// Decrypt a message using a secret key
-    fn decrypt(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
+    fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
 }
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
@@ -271,11 +272,23 @@ impl EncryptedKeyStore for PersistentKeyStore {
         Ok(to_store.to_vec())
     }
 
-    fn encrypt(pk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
-        todo!()
+    fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
+        let nonce = secretbox::gen_nonce();
+
+        let key = match secretbox::Key::from_slice(key) {
+            Some(value) => value,
+            None => return Err(Error::Encrypt),
+        };
+
+        let mut ciphertext = secretbox::seal(msg, &nonce, &key);
+        println!("ciphertext {}", hex::encode(&ciphertext));
+        println!("nonce {}", hex::encode(nonce));
+        println!("len nonce {}", nonce.as_ref().to_vec().len());
+        ciphertext.append(&mut nonce.as_ref().to_vec());
+        Ok(ciphertext)
     }
 
-    fn decrypt(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
+    fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
         todo!()
     }
 }
@@ -287,12 +300,28 @@ mod test {
     const PASSPHRASE: &'static str = "foobarbaz";
 
     #[test]
-    fn test_encrypt_key() {
+    fn test_generate_key() {
         let private_key = PersistentKeyStore::generate_key(PASSPHRASE);
         // with connor's hostname (desk-arch) and passphrase above produces the following key
         // 73aacf339794e99990321923d4fafbac12b202d9c9ed2e702eacc25c2328ca46
         // due to the salt needing to be unique, this test just checks for OK as a concrete value
         // would differ between machines with different hostnames
         assert!(private_key.is_ok());
+    }
+
+    #[test]
+    fn test_encrypt_message() {
+        let private_key = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
+
+        let message = "foo is coming";
+
+        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
+        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
+        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
+        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
+
+        println!("encrypted {}", hex::encode(ciphertext));
+
+        assert!(true);
     }
 }
