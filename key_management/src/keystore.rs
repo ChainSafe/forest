@@ -281,9 +281,6 @@ impl EncryptedKeyStore for PersistentKeyStore {
         };
 
         let mut ciphertext = secretbox::seal(msg, &nonce, &key);
-        println!("ciphertext {}", hex::encode(&ciphertext));
-        println!("nonce {}", hex::encode(nonce));
-        println!("len nonce {}", nonce.as_ref().to_vec().len());
         ciphertext.append(&mut nonce.as_ref().to_vec());
         Ok(ciphertext)
     }
@@ -312,16 +309,8 @@ mod test {
     #[test]
     fn test_encrypt_message() {
         let private_key = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
-
         let message = "foo is coming";
-
-        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
-        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
-        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
-        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
-
-        println!("encrypted {}", hex::encode(ciphertext));
-
-        assert!(true);
+        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes());
+        assert!(ciphertext.is_ok());
     }
 }
