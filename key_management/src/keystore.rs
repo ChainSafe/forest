@@ -313,12 +313,9 @@ mod test {
 
     #[test]
     fn test_generate_key() {
-        let private_key = PersistentKeyStore::generate_key(PASSPHRASE);
-        // with connor's hostname (desk-arch) and passphrase above produces the following key
-        // 73aacf339794e99990321923d4fafbac12b202d9c9ed2e702eacc25c2328ca46
-        // due to the salt needing to be unique, this test just checks for OK as a concrete value
-        // would differ between machines with different hostnames
-        assert!(private_key.is_ok());
+        let private_key = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
+        let second_pass = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
+        assert_eq!(private_key, second_pass);
     }
 
     #[test]
