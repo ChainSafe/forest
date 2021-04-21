@@ -286,7 +286,22 @@ impl EncryptedKeyStore for PersistentKeyStore {
     }
 
     fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
-        todo!()
+        let ciphertext = &msg[..msg.len() - 24];
+
+        let nonce = match secretbox::Nonce::from_slice(&msg[msg.len() - 24..]) {
+            Some(value) => value,
+            None => return Err(Error::Decrypt),
+        };
+
+        let key = match secretbox::Key::from_slice(&key) {
+            Some(value) => value,
+            None => return Err(Error::Decrypt),
+        };
+
+        let plaintext =
+            secretbox::open(&ciphertext, &nonce, &key).map_err(|_| return Error::Decrypt)?;
+
+        Ok(plaintext)
     }
 }
 
@@ -312,5 +327,15 @@ mod test {
         let message = "foo is coming";
         let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes());
         assert!(ciphertext.is_ok());
+    }
+
+    #[test]
+    fn test_decrypt_message() {
+        let private_key = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
+        let message = "foo is coming";
+        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
+        let plaintext = PersistentKeyStore::decrypt(&private_key, &ciphertext).unwrap();
+
+        assert_eq!(plaintext, message.as_bytes());
     }
 }
