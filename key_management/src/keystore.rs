@@ -32,6 +32,7 @@ pub struct KeyInfo {
     key_type: SignatureType,
     // Vec<u8> is used because The private keys for BLS and SECP256K1 are not of the same type
     private_key: Vec<u8>,
+    is_encrypted: bool,
 }
 
 impl KeyInfo {
@@ -40,6 +41,7 @@ impl KeyInfo {
         KeyInfo {
             key_type,
             private_key,
+            is_encrypted: false,
         }
     }
 
@@ -81,6 +83,8 @@ pub mod json {
         sig_type: SignatureTypeJson,
         #[serde(rename = "PrivateKey")]
         private_key: String,
+        #[serde(rename = "IsEncrypted")]
+        is_encrypted: bool,
     }
 
     pub fn serialize<S>(k: &KeyInfo, serializer: S) -> Result<S::Ok, S::Error>
@@ -90,6 +94,7 @@ pub mod json {
         JsonHelper {
             sig_type: SignatureTypeJson(k.key_type),
             private_key: base64::encode(&k.private_key),
+            is_encrypted: k.is_encrypted,
         }
         .serialize(serializer)
     }
@@ -101,10 +106,12 @@ pub mod json {
         let JsonHelper {
             sig_type,
             private_key,
+            is_encrypted,
         } = Deserialize::deserialize(deserializer)?;
         Ok(KeyInfo {
             key_type: sig_type.0,
             private_key: base64::decode(private_key).map_err(de::Error::custom)?,
+            is_encrypted,
         })
     }
 }
@@ -122,11 +129,11 @@ pub trait KeyStore {
 }
 
 pub trait EncryptedKeyStore {
-    /// Create a new set of keys
+    /// Generate a private key from a passphrase for encryption
     fn generate_key(passphrase: &str) -> Result<Vec<u8>, Error>;
-    /// Encrypt a message using a public key
+    /// Encrypt a message using a symmetric key
     fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
-    /// Decrypt a message using a secret key
+    /// Decrypt a message using a symmetric key
     fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
 }
 
@@ -228,10 +235,17 @@ impl KeyStore for PersistentKeyStore {
         self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
     }
 
-    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
+    fn put(&mut self, key: String, mut key_info: KeyInfo) -> Result<(), Error> {
         if self.key_info.contains_key(&key) {
             return Err(Error::KeyExists);
         }
+
+        let passphrase = String::from("default");
+
+        let generated_key = PersistentKeyStore::generate_key(&passphrase)?;
+        let encrypted_key = PersistentKeyStore::encrypt(&generated_key, key.as_bytes())?;
+        key_info.private_key = encrypted_key;
+
         self.key_info.insert(key, key_info);
         let file = OpenOptions::new()
             .write(true)
