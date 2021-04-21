@@ -10,8 +10,8 @@ pub use self::state::*;
 pub use self::types::*;
 use crate::miner::MinerConstructorParams;
 use crate::{
-    check_empty_params, init, miner, ActorDowncast, Multimap, CALLER_TYPES_SIGNABLE,
-    CRON_ACTOR_ADDR, INIT_ACTOR_ADDR, MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
+    init, miner, ActorDowncast, Multimap, CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR, INIT_ACTOR_ADDR,
+    MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
 };
 use crate::{make_map_with_root_and_bitwidth, reward::Method as RewardMethod};
 use address::Address;
@@ -621,7 +621,6 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                check_empty_params(params)?;
                 Self::constructor(rt)?;
                 Ok(Serialized::default())
             }
@@ -638,7 +637,6 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::OnEpochTickEnd) => {
-                check_empty_params(params)?;
                 Self::on_epoch_tick_end(rt)?;
                 Ok(Serialized::default())
             }
@@ -652,7 +650,6 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::CurrentTotalPower) => {
-                check_empty_params(params)?;
                 let res = Self::current_total_power(rt)?;
                 Ok(Serialized::serialize(res)?)
             }

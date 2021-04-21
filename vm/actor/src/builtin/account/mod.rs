@@ -4,7 +4,7 @@
 mod state;
 
 pub use self::state::State;
-use crate::{builtin::singletons::SYSTEM_ACTOR_ADDR, check_empty_params};
+use crate::builtin::singletons::SYSTEM_ACTOR_ADDR;
 use address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
@@ -71,7 +71,6 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::PubkeyAddress) => {
-                check_empty_params(params)?;
                 let addr = Self::pubkey_address(rt)?;
                 Ok(Serialized::serialize(addr)?)
             }
