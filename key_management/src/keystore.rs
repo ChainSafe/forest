@@ -174,6 +174,10 @@ impl KeyStore for MemKeyStore {
     fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
         self.key_info.remove(&key).ok_or(Error::KeyInfo)
     }
+
+    fn unlock(&mut self, passphrase: &str) -> Result<(), EncryptedKeyStoreError> {
+        todo!()
+    }
 }
 
 /// KeyStore that persists data in KEYSTORE_LOCATION
@@ -273,6 +277,10 @@ impl KeyStore for PersistentKeyStore {
         let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
         self.flush()?;
         Ok(key_out)
+    }
+
+    fn unlock(&mut self, passphrase: &str) -> Result<(), EncryptedKeyStoreError> {
+        todo!()
     }
 }
 
