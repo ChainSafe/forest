@@ -9,7 +9,7 @@ use log::{error, warn};
 use ring::{digest, pbkdf2};
 use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::secretbox;
-use std::io::{BufReader, BufWriter, ErrorKind, Write};
+use std::io::{BufReader, BufWriter, ErrorKind};
 use std::path::Path;
 use std::{collections::HashMap, num::NonZeroU32};
 use std::{
@@ -173,10 +173,15 @@ pub struct PersistentKeyStore {
     pub key_info: HashMap<String, KeyInfo>,
     location: String,
     is_encrypted: bool,
+    passphrase: Option<String>,
 }
 
 impl PersistentKeyStore {
-    pub fn new(location: String, encrypt_keystore: bool) -> Result<Self, Error> {
+    pub fn new(
+        location: String,
+        encrypt_keystore: bool,
+        passphrase: Option<String>,
+    ) -> Result<Self, Error> {
         let loc = if let true = encrypt_keystore {
             format!("{}{}", location, ENCRYPTED_KEYSTORE_NAME)
         } else {
@@ -197,6 +202,7 @@ impl PersistentKeyStore {
                     key_info: data,
                     location: loc,
                     is_encrypted: encrypt_keystore,
+                    passphrase,
                 })
             }
             Err(e) => {
@@ -206,6 +212,7 @@ impl PersistentKeyStore {
                         key_info: HashMap::new(),
                         location: loc,
                         is_encrypted: encrypt_keystore,
+                        passphrase,
                     })
                 } else {
                     Err(Error::Other(e.to_string()))
@@ -242,19 +249,14 @@ impl KeyStore for PersistentKeyStore {
             return Err(Error::KeyExists);
         }
 
-        let passphrase = String::from("default");
-        let generated_key = PersistentKeyStore::generate_key(&passphrase)?;
-
         self.key_info.insert(key, key_info);
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .write(true)
             .create(true)
             .open(&self.location)
             .map_err(|err| Error::Other(err.to_string()))?;
-        let json =
-            serde_json::to_string(&self.key_info).map_err(|err| Error::Other(err.to_string()))?;
-        let encrypted_json = PersistentKeyStore::encrypt(&generated_key, json.as_bytes())?;
-        file.write_all(&encrypted_json)?;
+        serde_json::to_writer(&file, &self.key_info)
+            .map_err(|e| Error::Other(format!("failed to serialize and write key info: {}", e)))?;
         Ok(())
     }
 

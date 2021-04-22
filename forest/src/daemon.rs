@@ -13,8 +13,10 @@ use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
+use rpassword::read_password;
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
+use std::io::prelude::*;
 use std::sync::Arc;
 use utils::write_to_file;
 use wallet::{KeyStore, PersistentKeyStore};
@@ -40,8 +42,20 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize keystore
-    let mut ks =
-        PersistentKeyStore::new(config.data_dir.to_string(), config.encrypt_keystore).unwrap();
+    let passphrase = if let true = config.encrypt_keystore {
+        print!("Keystore passphrase: ");
+        std::io::stdout().flush().unwrap();
+        Some(read_password().expect("Error reading passphrase"))
+    } else {
+        None
+    };
+
+    let mut ks = PersistentKeyStore::new(
+        config.data_dir.to_string(),
+        config.encrypt_keystore,
+        passphrase,
+    )
+    .unwrap();
 
     if ks.get(JWT_IDENTIFIER).is_err() {
         ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
