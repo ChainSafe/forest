@@ -90,7 +90,7 @@ impl Cid {
     }
 
     /// Returns the encoded bytes of the `Cid`.
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(self) -> Vec<u8> {
         self.0.to_bytes()
     }
 }

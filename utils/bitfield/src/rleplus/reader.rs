@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn read_len() {
-        let bytes = &[0b0_001010_1, 0b110_10111, 0b01100_111, 0b00110010];
+        let bytes = &[0b0001_0101, 0b1101_0111, 0b0110_0111, 0b00110010];
         let mut reader = BitReader::new(bytes);
 
         assert_eq!(reader.read_len().unwrap(), Some(1)); // prefix: 1

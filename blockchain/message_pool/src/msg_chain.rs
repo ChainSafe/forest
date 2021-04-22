@@ -143,10 +143,7 @@ impl MsgChain {
 
     pub(crate) fn trim(&mut self, gas_limit: i64, base_fee: &BigInt) {
         let mut i = self.chain.len() as i64 - 1;
-        let prev = match self.prev() {
-            Some(prev) => Some((prev.eff_perf, prev.gas_limit)),
-            None => None,
-        };
+        let prev = self.prev().map(|prev| (prev.eff_perf, prev.gas_limit));
         let mut mc = self.curr_mut();
         while i >= 0 && (mc.gas_limit > gas_limit || (mc.gas_perf < 0.0)) {
             let gas_reward = get_gas_reward(&mc.msgs[i as usize], base_fee);
@@ -189,10 +186,7 @@ impl MsgChain {
     }
     #[allow(dead_code)]
     pub(crate) fn set_eff_perf(&mut self) {
-        let prev = match self.prev() {
-            Some(prev) => Some((prev.eff_perf, prev.gas_limit)),
-            None => None,
-        };
+        let prev = self.prev().map(|prev| (prev.eff_perf, prev.gas_limit));
 
         let mc = self.curr_mut();
         let mut eff_perf = mc.gas_perf * mc.bp;

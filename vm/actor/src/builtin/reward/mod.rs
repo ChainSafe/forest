@@ -10,9 +10,7 @@ pub use self::logic::*;
 pub use self::state::{Reward, State, VestingFunction};
 pub use self::types::*;
 use crate::network::EXPECTED_LEADERS_PER_EPOCH;
-use crate::{
-    check_empty_params, miner, BURNT_FUNDS_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
-};
+use crate::{miner, BURNT_FUNDS_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR};
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use log::{error, warn};
@@ -261,7 +259,6 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::ThisEpochReward) => {
-                check_empty_params(params)?;
                 let res = Self::this_epoch_reward(rt)?;
                 Ok(Serialized::serialize(&res)?)
             }

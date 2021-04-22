@@ -203,7 +203,7 @@ mod tests {
                 .unwrap();
         match sync_check_bad(Data(state.clone()), Params((cid.clone(),))).await {
             Ok(reason) => assert_eq!(reason, ""),
-            Err(e) => panic!(e),
+            Err(e) => std::panic::panic_any(e),
         }
 
         // Mark that block as bad manually and check again to verify
@@ -212,7 +212,7 @@ mod tests {
             .is_ok());
         match sync_check_bad(Data(state), Params((cid,))).await {
             Ok(reason) => assert_eq!(reason, "Marked bad manually through RPC API"),
-            Err(e) => panic!(e),
+            Err(e) => std::panic::panic_any(e),
         }
     }
 
@@ -224,7 +224,7 @@ mod tests {
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await),
-            Err(e) => panic!(e),
+            Err(e) => std::panic::panic_any(e),
         }
 
         // update cloned state
@@ -239,7 +239,7 @@ mod tests {
                 assert_ne!(ret.active_syncs, vec![]);
                 assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await);
             }
-            Err(e) => panic!(e),
+            Err(e) => std::panic::panic_any(e),
         }
     }
 }

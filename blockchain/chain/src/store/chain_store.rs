@@ -895,10 +895,10 @@ pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
 where
     DB: BlockStore,
 {
-    Ok(match db.read(GENESIS_KEY)? {
-        Some(bz) => Some(BlockHeader::unmarshal_cbor(&bz)?),
-        None => None,
-    })
+    Ok(db
+        .read(GENESIS_KEY)?
+        .map(|bz| BlockHeader::unmarshal_cbor(&bz))
+        .transpose()?)
 }
 
 /// Attempts to deserialize to unsigend message or signed message and then returns it at as a
@@ -1083,7 +1083,7 @@ mod tests {
         let cs = ChainStore::new(Arc::new(db));
         let gen_block = BlockHeader::builder()
             .epoch(1)
-            .weight((2 as u32).into())
+            .weight(2_u32.into())
             .messages(cid::new_from_cbor(&[], Identity))
             .message_receipts(cid::new_from_cbor(&[], Identity))
             .state_root(cid::new_from_cbor(&[], Identity))

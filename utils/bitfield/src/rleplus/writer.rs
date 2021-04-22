@@ -131,7 +131,7 @@ mod tests {
 
         writer.write_len(147); // prefix: 00, value: 11001001 10000000
         assert_eq!(
-            writer.clone().finish(),
+            writer.finish(),
             &[
                 0b0001_0101,
                 0b1101_0111,

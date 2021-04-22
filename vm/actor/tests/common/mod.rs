@@ -173,7 +173,7 @@ impl MockRuntime {
 
     #[allow(dead_code)]
     pub fn expect_validate_caller_addr(&mut self, addr: Vec<Address>) {
-        assert!(addr.len() > 0, "addrs must be non-empty");
+        assert!(!addr.is_empty(), "addrs must be non-empty");
         self.expect_validate_caller_addr = Some(addr);
     }
 
@@ -201,8 +201,8 @@ impl MockRuntime {
             block_header_1: h1,
             block_header_2: h2,
             block_header_extra: extra,
-            fault: fault,
-            exit_code: exit_code,
+            fault,
+            exit_code,
         });
     }
 
@@ -213,7 +213,7 @@ impl MockRuntime {
 
     #[allow(dead_code)]
     pub fn expect_validate_caller_type(&mut self, types: Vec<Cid>) {
-        assert!(types.len() > 0, "addrs must be non-empty");
+        assert!(!types.is_empty(), "addrs must be non-empty");
         self.expect_validate_caller_type = Some(types);
     }
 
@@ -234,7 +234,7 @@ impl MockRuntime {
         params: &Serialized,
     ) -> Result<Serialized, ActorError> {
         self.in_call = true;
-        let prev_state = self.state.clone();
+        let prev_state = self.state;
         let res = forest_actor::invoke_code(to_code, self, method_num, params)
             .unwrap_or_else(|| Err(actor_error!(SysErrForbidden, "invalid method id")));
 
@@ -242,7 +242,7 @@ impl MockRuntime {
             self.state = prev_state;
         }
         self.in_call = false;
-        return res;
+        res
     }
     pub fn verify(&mut self) {
         assert!(
@@ -345,7 +345,7 @@ impl MockRuntime {
     #[allow(dead_code)]
     pub fn set_caller(&mut self, code_id: Cid, address: Address) {
         self.caller = address;
-        self.caller_type = code_id.clone();
+        self.caller_type = code_id;
         self.actor_code_cids.insert(address, code_id);
     }
 
@@ -405,7 +405,7 @@ impl Runtime<MemoryDB> for MockRuntime {
 
         let addrs: Vec<Address> = addresses.into_iter().cloned().collect();
 
-        self.check_argument(addrs.len() > 0, "addrs must be non-empty".to_owned())?;
+        self.check_argument(!addrs.is_empty(), "addrs must be non-empty".to_owned())?;
 
         assert!(
             self.expect_validate_caller_addr.is_some(),
@@ -437,7 +437,7 @@ impl Runtime<MemoryDB> for MockRuntime {
         self.require_in_call();
         let types: Vec<Cid> = types.into_iter().cloned().collect();
 
-        self.check_argument(types.len() > 0, "types must be non-empty".to_owned())?;
+        self.check_argument(!types.is_empty(), "types must be non-empty".to_owned())?;
 
         assert!(
             self.expect_validate_caller_type.is_some(),
@@ -473,7 +473,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
         self.require_in_call();
         if address.protocol() == address::Protocol::ID {
-            return Ok(Some(address.clone()));
+            return Ok(Some(*address));
         }
 
         Ok(self.id_addresses.get(&address).cloned())
@@ -504,7 +504,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
-        if self.state.is_some() == true {
+        if self.state.is_some() {
             return Err(actor_error!(SysErrIllegalActor; "state already constructed"));
         }
         self.state = Some(self.store.put(obj, Blake2b256).unwrap());
@@ -573,22 +573,19 @@ impl Runtime<MemoryDB> for MockRuntime {
         self.balance -= value;
 
         match expected_msg.exit_code {
-            ExitCode::Ok => return Ok(expected_msg.send_return),
-            x => {
-                return Err(ActorError::new(x, "Expected message Fail".to_string()));
-            }
+            ExitCode::Ok => Ok(expected_msg.send_return),
+            x => Err(ActorError::new(x, "Expected message Fail".to_string())),
         }
     }
 
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
         self.require_in_call();
-        let ret = self
+        let ret = *self
             .new_actor_addr
             .as_ref()
-            .expect("unexpected call to new actor address")
-            .clone();
+            .expect("unexpected call to new actor address");
         self.new_actor_addr = None;
-        return Ok(ret);
+        Ok(ret)
     }
 
     fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {

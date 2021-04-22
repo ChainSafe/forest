@@ -21,7 +21,7 @@ fn bits(c: &mut Criterion) {
 }
 
 fn new(c: &mut Criterion) {
-    c.bench_function("new", |b| b.iter(|| example1()));
+    c.bench_function("new", |b| b.iter(example1));
 }
 
 fn decode_encode(c: &mut Criterion) {

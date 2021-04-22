@@ -1079,7 +1079,7 @@ mod tests {
         task::block_on(async move {
             sw.network
                 .peer_manager()
-                .update_peer_head(source.clone(), head.clone())
+                .update_peer_head(source, head.clone())
                 .await;
             assert_eq!(sw.network.peer_manager().len().await, 1);
             // make chain_exchange request
