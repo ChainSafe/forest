@@ -160,7 +160,7 @@ where
 
     let addr = format!("wallet-{}", key.address.to_string());
     keystore.put(addr, key.key_info.clone())?;
-    let value = keystore.get(&"default".to_string(), None);
+    let value = keystore.get(&"default".to_string());
     if value.is_err() {
         keystore.put("default".to_string(), key.key_info)?
     }
@@ -182,7 +182,7 @@ where
     let mut keystore = data.keystore.write().await;
 
     let addr_string = format!("wallet-{}", address.0);
-    let key_info = keystore.get(&addr_string, None)?;
+    let key_info = keystore.get(&addr_string)?;
     keystore.remove("default".to_string())?; // This line should unregister current default key then continue
     keystore.put("default".to_string(), key_info)?;
     Ok(())

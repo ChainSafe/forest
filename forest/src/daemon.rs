@@ -41,7 +41,7 @@ pub(super) async fn start(config: Config) {
 
     // Initialize keystore
     let mut ks = PersistentKeyStore::new(config.data_dir.to_string()).unwrap();
-    if ks.get(JWT_IDENTIFIER, None).is_err() {
+    if ks.get(JWT_IDENTIFIER).is_err() {
         ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
             .unwrap();
     }

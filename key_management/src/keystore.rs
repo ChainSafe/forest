@@ -9,7 +9,7 @@ use log::{error, warn};
 use ring::{digest, pbkdf2};
 use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::secretbox;
-use std::io::{BufReader, BufWriter, ErrorKind};
+use std::io::{BufReader, BufWriter, ErrorKind, Write};
 use std::path::Path;
 use std::{collections::HashMap, num::NonZeroU32};
 use std::{
@@ -125,7 +125,7 @@ pub trait KeyStore {
     /// Return all of the keys that are stored in the KeyStore
     fn list(&self) -> Vec<String>;
     /// Return Keyinfo that corresponds to a given key
-    fn get(&self, k: &str, passphrase: Option<&str>) -> Result<KeyInfo, Error>;
+    fn get(&self, k: &str) -> Result<KeyInfo, Error>;
     /// Save a key key_info pair to the KeyStore
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
@@ -160,7 +160,7 @@ impl KeyStore for MemKeyStore {
         self.key_info.iter().map(|(key, _)| key.clone()).collect()
     }
 
-    fn get(&self, k: &str, passphrase: Option<&str>) -> Result<KeyInfo, Error> {
+    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
         self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
     }
 
@@ -235,43 +235,28 @@ impl KeyStore for PersistentKeyStore {
         self.key_info.iter().map(|(key, _)| key.clone()).collect()
     }
 
-    fn get(&self, k: &str, passphrase: Option<&str>) -> Result<KeyInfo, Error> {
-        let mut key_info = self.key_info.get(k).cloned().ok_or(Error::KeyInfo)?;
-
-        match passphrase {
-            Some(passphrase) if key_info.is_encrypted => {
-                let generated_key = PersistentKeyStore::generate_key(passphrase)?;
-                let decrypted_key =
-                    PersistentKeyStore::decrypt(&generated_key, &key_info.private_key)?;
-                key_info.private_key = decrypted_key;
-                key_info.is_encrypted = false;
-            }
-            _ => {}
-        };
-
-        Ok(key_info)
+    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
+        self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
     }
 
-    fn put(&mut self, key: String, mut key_info: KeyInfo) -> Result<(), Error> {
+    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
         if self.key_info.contains_key(&key) {
             return Err(Error::KeyExists);
         }
 
         let passphrase = String::from("default");
-
         let generated_key = PersistentKeyStore::generate_key(&passphrase)?;
-        let encrypted_key = PersistentKeyStore::encrypt(&generated_key, key.as_bytes())?;
-        key_info.is_encrypted = true;
-        key_info.private_key = encrypted_key;
 
         self.key_info.insert(key, key_info);
-        let file = OpenOptions::new()
+        let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .open(&self.location)
             .map_err(|err| Error::Other(err.to_string()))?;
-        serde_json::to_writer(&file, &self.key_info)
-            .map_err(|err| Error::Other(err.to_string()))?;
+        let json =
+            serde_json::to_string(&self.key_info).map_err(|err| Error::Other(err.to_string()))?;
+        let encrypted_json = PersistentKeyStore::encrypt(&generated_key, json.as_bytes())?;
+        file.write_all(&encrypted_json)?;
         Ok(())
     }
 
