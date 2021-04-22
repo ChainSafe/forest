@@ -110,6 +110,13 @@ pub mod json {
     }
 }
 
+enum EncryptedKeyStoreError {
+    /// Possibly indicates incorrect passphrase
+    DecryptionError,
+    /// Unlock called without `encrypted_keystore` being enabled in config.toml
+    ConfigurationError,
+}
+
 /// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
 pub trait KeyStore {
     /// Return all of the keys that are stored in the KeyStore
@@ -120,6 +127,8 @@ pub trait KeyStore {
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
     fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
+    /// Unlock keystore by deriving an encryption key from a passphrase
+    fn unlock(&mut self, passphrase: &str) -> Result<(), EncryptedKeyStoreError>;
 }
 
 pub trait EncryptedKeyStore {
