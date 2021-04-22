@@ -6,6 +6,7 @@ mod beacon_api;
 mod chain_api;
 mod common_api;
 mod data_types;
+mod enc_api;
 mod gas_api;
 mod mpool_api;
 mod net_api;
@@ -232,6 +233,8 @@ where
                 "Filecoin.NetAddrsListen",
                 net_api::net_addrs_listen::<DB, KS, B>,
             )
+            // Encryption
+            .with_method("Filecoin.EncUnlock", enc_api::enc_unlock::<DB, KS, B>)
             .finish_unwrapped(),
     );
 
