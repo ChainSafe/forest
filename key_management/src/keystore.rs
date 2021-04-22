@@ -315,8 +315,7 @@ impl EncryptedKeyStore for PersistentKeyStore {
             None => return Err(Error::Decrypt),
         };
 
-        let plaintext =
-            secretbox::open(&ciphertext, &nonce, &key).map_err(|_| return Error::Decrypt)?;
+        let plaintext = secretbox::open(&ciphertext, &nonce, &key).map_err(|_| Error::Decrypt)?;
 
         Ok(plaintext)
     }
