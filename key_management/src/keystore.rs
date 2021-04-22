@@ -212,12 +212,21 @@ impl PersistentKeyStore {
         match file_op {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                let data: HashMap<String, KeyInfo> = serde_json::from_reader(reader)
-                    .map_err(|e| {
-                        error!("failed to deserialize keyfile, initializing new");
-                        e
-                    })
-                    .unwrap_or_default();
+                let data = if let true = encrypt_keystore {
+                    serde_cbor::from_reader(reader)
+                        .map_err(|e| {
+                            error!("failed to deserialize keyfile, initializing new");
+                            e
+                        })
+                        .unwrap_or_default()
+                } else {
+                    serde_json::from_reader(reader)
+                        .map_err(|e| {
+                            error!("failed to deserialize keyfile, initializing new");
+                            e
+                        })
+                        .unwrap_or_default()
+                };
                 Ok(Self {
                     key_info: data,
                     location: loc,
@@ -370,5 +379,19 @@ mod test {
         let plaintext = PersistentKeyStore::decrypt(&private_key, &ciphertext).unwrap();
 
         assert_eq!(plaintext, message.as_bytes());
+    }
+
+    #[test]
+    fn test_read_encrypted_keystore() {
+        let ks = PersistentKeyStore::new(
+            String::from(ENCRYPTED_KEYSTORE_NAME),
+            true,
+            Some(String::from(PASSPHRASE)),
+        )
+        .unwrap();
+
+        println!("ks {:#?}", ks);
+
+        assert!(true);
     }
 }

@@ -42,12 +42,13 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize keystore
-    let passphrase = if let true = config.encrypt_keystore {
-        print!("Keystore passphrase: ");
-        std::io::stdout().flush().unwrap();
-        Some(read_password().expect("Error reading passphrase"))
-    } else {
-        None
+    let passphrase = match config.encrypt_keystore {
+        true => {
+            print!("Keystore passphrase: ");
+            std::io::stdout().flush().unwrap();
+            Some(read_password().expect("Error reading passphrase"))
+        }
+        false => None,
     };
 
     let mut ks = PersistentKeyStore::new(
@@ -55,7 +56,7 @@ pub(super) async fn start(config: Config) {
         config.encrypt_keystore,
         passphrase,
     )
-    .unwrap();
+    .expect("error creating keystore, check your configuration");
 
     if ks.get(JWT_IDENTIFIER).is_err() {
         ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
