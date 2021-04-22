@@ -297,7 +297,14 @@ where
         &self,
         peer_id: PeerId,
         request: HelloRequest,
-    ) -> Result<HelloResponseFuture, &'static str> {
+    ) -> Result<
+        (
+            PeerId,
+            SystemTime,
+            Option<Result<HelloResponse, RequestResponseError>>,
+        ),
+        &'static str,
+    > {
         trace!("Sending Hello Message to {}", peer_id);
 
         // Create oneshot channel for receiving response from sent hello.
@@ -317,14 +324,12 @@ where
 
         // Add timeout and create future to be polled asynchronously.
         let rx = future::timeout(Duration::from_secs(10), rx);
-        Ok(Box::pin(async move {
-            let res = rx.await;
-            match res {
-                // Convert timeout error into `Option` and wrap `Ok` with the PeerId and sent time.
-                Ok(received) => (peer_id, sent, received.ok()),
-                // Timeout on response, this doesn't matter to us, can safely ignore.
-                Err(_) => (peer_id, sent, None),
-            }
-        }))
+        let res = rx.await;
+        match res {
+            // Convert timeout error into `Option` and wrap `Ok` with the PeerId and sent time.
+            Ok(received) => Ok((peer_id, sent, received.ok())),
+            // Timeout on response, this doesn't matter to us, can safely ignore.
+            Err(_) => Ok((peer_id, sent, None)),
+        }
     }
 }

@@ -86,8 +86,11 @@ where
         chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
     let secp_msgs: Vec<SignedMessage> =
         chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
-    let sm_root =
-        chain_sync::compute_msg_meta(data.state_manager.blockstore(), &bls_msgs, &secp_msgs)?;
+    let sm_root = chain_sync::TipsetValidator::compute_msg_root(
+        data.state_manager.blockstore(),
+        &bls_msgs,
+        &secp_msgs,
+    )?;
     if blk.header.messages() != &sm_root {
         return Err(format!(
             "Block message root does not match the computed: Actual: {}, Computed: {}",

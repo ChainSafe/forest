@@ -158,6 +158,8 @@ pub(super) async fn start(config: Config) {
     );
 
     // Initialize ChainSyncer
+    let (tipset_sink, tipset_stream) = bounded(20);
+    let chain_syncer_tipset_sink = tipset_sink.clone();
     let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
         beacon.clone(),
@@ -165,16 +167,14 @@ pub(super) async fn start(config: Config) {
         network_send.clone(),
         network_rx,
         Arc::new(genesis),
+        chain_syncer_tipset_sink,
+        tipset_stream,
         config.sync,
     )
     .unwrap();
     let bad_blocks = chain_syncer.bad_blocks_cloned();
     let sync_state = chain_syncer.sync_state_cloned();
-    let (worker_tx, worker_rx) = bounded(20);
-    let worker_tx_clone = worker_tx.clone();
-    let sync_task = task::spawn(async move {
-        chain_syncer.start(worker_tx_clone, worker_rx).await;
-    });
+    let sync_task = task::spawn(chain_syncer);
 
     // Start services
     let p2p_task = task::spawn(async {
@@ -196,7 +196,7 @@ pub(super) async fn start(config: Config) {
                     network_name,
                     beacon,
                     chain_store,
-                    new_mined_block_tx: worker_tx,
+                    new_mined_block_tx: tipset_sink,
                 }),
                 &rpc_listen,
             )

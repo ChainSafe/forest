@@ -27,7 +27,7 @@ impl SyncBucket {
     }
     /// Returns true if tipset is from same chain
     pub fn is_same_chain_as(&self, ts: &Tipset) -> bool {
-        // TODO can maybe short circuit when keys equivalent, instead of checking on add
+        // TODO: Maybe short circuit when keys equivalent, instead of checking on add
         #[allow(clippy::all)]
         self.tips
             .iter()
@@ -63,6 +63,7 @@ impl SyncBucketSet {
     }
     /// Removes the [SyncBucket] with heaviest weighted Tipset from [SyncBucketSet]
     pub(crate) fn pop(&mut self) -> Option<SyncBucket> {
+        // TODO: Double check that there is a memory leak here because non weighty SyncBuckets can get left behind
         let (i, _) = self
             .buckets()
             .iter()

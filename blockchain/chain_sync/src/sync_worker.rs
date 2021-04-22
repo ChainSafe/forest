@@ -119,6 +119,7 @@ where
         // }
 
         // Get heaviest tipset from storage to sync toward
+
         let heaviest = self.chain_store().heaviest_tipset().await.unwrap();
 
         info!("Starting chain sync...");
@@ -206,13 +207,17 @@ where
                 continue;
             }
 
-            let epoch_diff = cur_ts.epoch() - to.epoch();
-            debug!("ChainExchange from: {} to {}", cur_ts.epoch(), to.epoch());
             // TODO tweak request window when socket frame is tested
+            let epoch_diff = cur_ts.epoch() - to.epoch();
             let window = min(epoch_diff, self.req_window);
+            debug!(
+                "ChainExchange for TipSet range: {} to {}",
+                cur_ts.epoch(),
+                cur_ts.epoch() - window
+            );
 
             // Load blocks from network using chain_exchange
-            // TODO consider altering window size before returning error for failed sync.
+            // TODO Consider altering window size before returning error for failed sync.
             let tipsets = self
                 .network
                 .chain_exchange_headers(None, cur_ts.parents(), window as u64)
@@ -338,6 +343,7 @@ where
     /// Syncs messages by first checking state for message existence otherwise fetches messages from
     /// chain exchange.
     async fn sync_messages_check_state(&self, tipsets: Vec<Arc<Tipset>>) -> Result<(), Error> {
+        // Iterate through tipsets in chronological order
         let mut ts_iter = tipsets.into_iter().rev();
         // Currently syncing 1 height at a time, no reason for us to sync more
         const REQUEST_WINDOW: usize = 1;

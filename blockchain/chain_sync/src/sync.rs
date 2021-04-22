@@ -100,6 +100,7 @@ pub struct ChainSyncer<DB, TBeacon, V, M> {
 
     /// Bucket queue for incoming tipsets
     sync_queue: SyncBucketSet,
+
     /// Represents tipsets related to ones already being synced to avoid duplicate work.
     active_sync_tipsets: SyncBucketSet,
 
@@ -214,26 +215,26 @@ where
                     .await
                     .unwrap();
                 if self.network.peer_manager().is_peer_new(&peer_id).await {
-                    match self
-                        .network
-                        .hello_request(
-                            peer_id,
-                            HelloRequest {
-                                heaviest_tip_set: heaviest.cids().to_vec(),
-                                heaviest_tipset_height: heaviest.epoch(),
-                                heaviest_tipset_weight: heaviest.weight().clone(),
-                                genesis_hash: *self.genesis.blocks()[0].cid(),
-                            },
-                        )
-                        .await
-                    {
-                        Ok(hello_fut) => {
-                            hello_futures.push(hello_fut);
-                        }
-                        Err(e) => {
-                            error!("{}", e);
-                        }
-                    }
+                    // match self
+                    //     .network
+                    //     .hello_request(
+                    //         peer_id,
+                    //         HelloRequest {
+                    //             heaviest_tip_set: heaviest.cids().to_vec(),
+                    //             heaviest_tipset_height: heaviest.epoch(),
+                    //             heaviest_tipset_weight: heaviest.weight().clone(),
+                    //             genesis_hash: *self.genesis.blocks()[0].cid(),
+                    //         },
+                    //     )
+                    //     .await
+                    // {
+                    //     Ok(hello_fut) => {
+                    //         hello_futures.push(hello_fut);
+                    //     }
+                    //     Err(e) => {
+                    //         error!("{}", e);
+                    //     }
+                    // }
                 }
             }
             NetworkEvent::PeerDisconnected(peer_id) => {
@@ -333,7 +334,7 @@ where
             if worker_tx.is_empty() {
                 if let Some(tar) = self.next_sync_target.take() {
                     if let Some(ts) = tar.heaviest_tipset() {
-                        self.active_sync_tipsets.insert(ts.clone());
+                        // self.active_sync_tipsets.insert(ts.clone());
                         worker_tx
                             .send(ts)
                             .await
@@ -501,7 +502,6 @@ where
         debug!("Scheduling incoming tipset to sync: {:?}", tipset.cids());
 
         // TODO check if this is already synced.
-
         for act_state in self.worker_state.read().await.iter() {
             if let Some(target) = act_state.read().await.target() {
                 // Already currently syncing this, so just return
