@@ -65,16 +65,6 @@ impl<'a> TipsetValidator<'a> {
         // Tipset epoch must not be behind current max
         self.validate_epoch(genesis_tipset)?;
 
-        // // Ensure the proposed Tipset is heavier than the heaviest in the store
-        // if !chainstore
-        //     .heaviest_tipset()
-        //     .await
-        //     .map(|heaviest| self.0.weight() >= heaviest.weight())
-        //     .unwrap_or(true)
-        // {
-        //     return Err(TipsetValidationError::InsufficientWeight);
-        // }
-
         // Validate each block in the tipset by:
         // 1. Calculating the message root using all of the messages to ensure it matches the mst root in the block header
         // 2. Ensuring it has not previously been seen in the bad blocks cache
