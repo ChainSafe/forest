@@ -54,6 +54,10 @@ impl KeyInfo {
     pub fn private_key(&self) -> &Vec<u8> {
         &self.private_key
     }
+
+    pub fn is_encrypted(&self) -> bool {
+        self.is_encrypted
+    }
 }
 
 #[cfg(feature = "json")]
@@ -121,7 +125,7 @@ pub trait KeyStore {
     /// Return all of the keys that are stored in the KeyStore
     fn list(&self) -> Vec<String>;
     /// Return Keyinfo that corresponds to a given key
-    fn get(&self, k: &str) -> Result<KeyInfo, Error>;
+    fn get(&self, k: &str, passphrase: Option<&str>) -> Result<KeyInfo, Error>;
     /// Save a key key_info pair to the KeyStore
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
@@ -156,7 +160,7 @@ impl KeyStore for MemKeyStore {
         self.key_info.iter().map(|(key, _)| key.clone()).collect()
     }
 
-    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
+    fn get(&self, k: &str, passphrase: Option<&str>) -> Result<KeyInfo, Error> {
         self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
     }
 
@@ -231,8 +235,21 @@ impl KeyStore for PersistentKeyStore {
         self.key_info.iter().map(|(key, _)| key.clone()).collect()
     }
 
-    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
-        self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
+    fn get(&self, k: &str, passphrase: Option<&str>) -> Result<KeyInfo, Error> {
+        let mut key_info = self.key_info.get(k).cloned().ok_or(Error::KeyInfo)?;
+
+        match passphrase {
+            Some(passphrase) if key_info.is_encrypted => {
+                let generated_key = PersistentKeyStore::generate_key(passphrase)?;
+                let decrypted_key =
+                    PersistentKeyStore::decrypt(&generated_key, &key_info.private_key)?;
+                key_info.private_key = decrypted_key;
+                key_info.is_encrypted = false;
+            }
+            _ => {}
+        };
+
+        Ok(key_info)
     }
 
     fn put(&mut self, key: String, mut key_info: KeyInfo) -> Result<(), Error> {
@@ -244,6 +261,7 @@ impl KeyStore for PersistentKeyStore {
 
         let generated_key = PersistentKeyStore::generate_key(&passphrase)?;
         let encrypted_key = PersistentKeyStore::encrypt(&generated_key, key.as_bytes())?;
+        key_info.is_encrypted = true;
         key_info.private_key = encrypted_key;
 
         self.key_info.insert(key, key_info);

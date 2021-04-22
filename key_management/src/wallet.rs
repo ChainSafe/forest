@@ -72,7 +72,7 @@ where
             return Ok(k.clone());
         }
         let key_string = format!("wallet-{}", addr.to_string());
-        let key_info = self.keystore.get(&key_string)?;
+        let key_info = self.keystore.get(&key_string, None)?;
         let new_key = Key::try_from(key_info)?;
         self.keys.insert(*addr, new_key.clone());
         Ok(new_key)
@@ -107,7 +107,7 @@ where
 
     /// Return the Address of the default KeyInfo in the Wallet
     pub fn get_default(&self) -> Result<Address, Error> {
-        let key_info = self.keystore.get(&"default".to_string())?;
+        let key_info = self.keystore.get(&"default".to_string(), None)?;
         let k = Key::try_from(key_info)?;
         Ok(k.address)
     }
@@ -115,8 +115,8 @@ where
     /// Set a default KeyInfo to the Wallet
     pub fn set_default(&mut self, addr: Address) -> Result<(), Error> {
         let addr_string = format!("wallet-{}", addr.to_string());
-        let key_info = self.keystore.get(&addr_string)?;
-        if self.keystore.get("default").is_ok() {
+        let key_info = self.keystore.get(&addr_string, None)?;
+        if self.keystore.get("default", None).is_ok() {
             self.keystore.remove("default".to_string())?; // This line should unregister current default key then continue
         }
         self.keystore.put("default".to_string(), key_info)?;
@@ -129,7 +129,7 @@ where
         let addr = format!("wallet-{}", key.address.to_string());
         self.keystore.put(addr, key.key_info.clone())?;
         self.keys.insert(key.address, key.clone());
-        let value = self.keystore.get(&"default".to_string());
+        let value = self.keystore.get(&"default".to_string(), None);
         if value.is_err() {
             self.keystore
                 .put("default".to_string(), key.key_info.clone())
@@ -147,7 +147,7 @@ where
 
 /// Return the default Address for KeyStore
 pub fn get_default<T: KeyStore>(keystore: &T) -> Result<Address, Error> {
-    let key_info = keystore.get(&"default".to_string())?;
+    let key_info = keystore.get(&"default".to_string(), None)?;
     let k = Key::try_from(key_info)?;
     Ok(k.address)
 }
@@ -171,14 +171,14 @@ pub fn list_addrs<T: KeyStore>(keystore: &T) -> Result<Vec<Address>, Error> {
 /// Return Key corresponding to given Address in KeyStore
 pub fn find_key<T: KeyStore>(addr: &Address, keystore: &T) -> Result<Key, Error> {
     let key_string = format!("wallet-{}", addr.to_string());
-    let key_info = keystore.get(&key_string)?;
+    let key_info = keystore.get(&key_string, None)?;
     let new_key = Key::try_from(key_info)?;
     Ok(new_key)
 }
 
 pub fn try_find<T: KeyStore>(addr: &Address, keystore: &mut T) -> Result<KeyInfo, Error> {
     let key_string = format!("wallet-{}", addr.to_string());
-    match keystore.get(&key_string) {
+    match keystore.get(&key_string, None) {
         Ok(k) => Ok(k),
         Err(_) => {
             let mut new_addr = addr.to_string();
@@ -187,7 +187,7 @@ pub fn try_find<T: KeyStore>(addr: &Address, keystore: &mut T) -> Result<KeyInfo
             // * We might be able to remove this, look into variants
             new_addr.replace_range(0..1, "t");
             let key_string = format!("wallet-{}", new_addr);
-            let key_info = keystore.get(&key_string)?;
+            let key_info = keystore.get(&key_string, None)?;
             keystore.put(addr.to_string(), key_info.clone())?;
             Ok(key_info)
         }
@@ -360,13 +360,13 @@ mod tests {
     fn generate_new_key() {
         let mut wallet = generate_wallet();
         let addr = wallet.generate_addr(SignatureType::BLS).unwrap();
-        let key = wallet.keystore.get("default").unwrap();
+        let key = wallet.keystore.get("default", None).unwrap();
         // make sure that the newly generated key is the default key - checking by key type
         assert_eq!(&SignatureType::BLS, key.key_type());
 
         let address = format!("wallet-{}", addr.to_string());
 
-        let key_info = wallet.keystore.get(&address).unwrap();
+        let key_info = wallet.keystore.get(&address, None).unwrap();
         let key = wallet.keys.get(&addr).unwrap();
 
         // these assertions will make sure that the key has actually been added to the wallet

@@ -20,7 +20,7 @@ where
 {
     let (perms,) = params;
     let ks = data.keystore.read().await;
-    let ki = ks.get(JWT_IDENTIFIER)?;
+    let ki = ks.get(JWT_IDENTIFIER, None)?;
     let token = create_token(perms, ki.private_key())?;
     Ok(token.as_bytes().to_vec())
 }
@@ -38,7 +38,7 @@ where
     let ks = data.keystore.read().await;
     let (header_raw,) = params;
     let token = header_raw.trim_start_matches("Bearer ");
-    let ki = ks.get(JWT_IDENTIFIER)?;
+    let ki = ks.get(JWT_IDENTIFIER, None)?;
     let perms = verify_token(&token, ki.private_key())?;
     Ok(perms)
 }
