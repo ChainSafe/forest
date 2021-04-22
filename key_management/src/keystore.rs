@@ -16,6 +16,7 @@ use std::{
     fs::{self, File},
     os::unix::prelude::OsStrExt,
 };
+use thiserror::Error;
 
 const KEYSTORE_NAME: &str = "/keystore.json";
 const ENCRYPTED_KEYSTORE_NAME: &str = "/keystore";
@@ -110,10 +111,16 @@ pub mod json {
     }
 }
 
-enum EncryptedKeyStoreError {
+#[derive(Debug, Error)]
+pub enum EncryptedKeyStoreError {
     /// Possibly indicates incorrect passphrase
+    #[error("Error decrypting data")]
     DecryptionError,
+    /// An error occured while encrypting keys
+    #[error("Error encrypting data")]
+    EncryptionError,
     /// Unlock called without `encrypted_keystore` being enabled in config.toml
+    #[error("Error with forest configuration")]
     ConfigurationError,
 }
 
@@ -133,11 +140,11 @@ pub trait KeyStore {
 
 pub trait EncryptedKeyStore {
     /// Generate a private key from a passphrase for encryption
-    fn generate_key(passphrase: &str) -> Result<Vec<u8>, Error>;
+    fn generate_key(passphrase: &str) -> Result<Vec<u8>, EncryptedKeyStoreError>;
     /// Encrypt a message using a symmetric key
-    fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
+    fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError>;
     /// Decrypt a message using a symmetric key
-    fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
+    fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError>;
 }
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
@@ -175,7 +182,7 @@ impl KeyStore for MemKeyStore {
         self.key_info.remove(&key).ok_or(Error::KeyInfo)
     }
 
-    fn unlock(&mut self, passphrase: &str) -> Result<(), EncryptedKeyStoreError> {
+    fn unlock(&mut self, _passphrase: &str) -> Result<(), EncryptedKeyStoreError> {
         todo!()
     }
 }
@@ -279,14 +286,14 @@ impl KeyStore for PersistentKeyStore {
         Ok(key_out)
     }
 
-    fn unlock(&mut self, passphrase: &str) -> Result<(), EncryptedKeyStoreError> {
+    fn unlock(&mut self, _passphrase: &str) -> Result<(), EncryptedKeyStoreError> {
         todo!()
     }
 }
 
 impl EncryptedKeyStore for PersistentKeyStore {
-    fn generate_key(passphrase: &str) -> Result<Vec<u8>, Error> {
-        let hostname = hostname::get()?;
+    fn generate_key(passphrase: &str) -> Result<Vec<u8>, EncryptedKeyStoreError> {
+        let hostname = hostname::get().map_err(|_| EncryptedKeyStoreError::ConfigurationError)?;
 
         let mut to_store: GeneratedKey = [0u8; GENERATED_KEY_LEN];
 
@@ -301,12 +308,12 @@ impl EncryptedKeyStore for PersistentKeyStore {
         Ok(to_store.to_vec())
     }
 
-    fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
+    fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError> {
         let nonce = secretbox::gen_nonce();
 
         let key = match secretbox::Key::from_slice(key) {
             Some(value) => value,
-            None => return Err(Error::Encrypt),
+            None => return Err(EncryptedKeyStoreError::EncryptionError),
         };
 
         let mut ciphertext = secretbox::seal(msg, &nonce, &key);
@@ -314,20 +321,21 @@ impl EncryptedKeyStore for PersistentKeyStore {
         Ok(ciphertext)
     }
 
-    fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
+    fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError> {
         let ciphertext = &msg[..msg.len() - 24];
 
         let nonce = match secretbox::Nonce::from_slice(&msg[msg.len() - 24..]) {
             Some(value) => value,
-            None => return Err(Error::Decrypt),
+            None => return Err(EncryptedKeyStoreError::DecryptionError),
         };
 
         let key = match secretbox::Key::from_slice(&key) {
             Some(value) => value,
-            None => return Err(Error::Decrypt),
+            None => return Err(EncryptedKeyStoreError::DecryptionError),
         };
 
-        let plaintext = secretbox::open(&ciphertext, &nonce, &key).map_err(|_| Error::Decrypt)?;
+        let plaintext = secretbox::open(&ciphertext, &nonce, &key)
+            .map_err(|_| EncryptedKeyStoreError::DecryptionError)?;
 
         Ok(plaintext)
     }

@@ -19,6 +19,6 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (passphrase,) = params;
-    let ks = data.keystore.write().await;
-    ks.unlock(&passphrase)?
+    let mut ks = data.keystore.write().await;
+    Ok(ks.unlock(&passphrase)?)
 }
