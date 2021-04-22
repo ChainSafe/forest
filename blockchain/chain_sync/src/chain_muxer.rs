@@ -331,13 +331,6 @@ where
         Ok(FullTipset::new(vec![block]).unwrap())
     }
 
-    fn handle_pubsub_block(
-        network: SyncNetworkContext<DB>,
-        block: GossipBlock,
-    ) -> Result<(), String> {
-        unimplemented!()
-    }
-
     async fn handle_pubsub_message(
         mem_pool: Arc<MessagePool<M>>,
         message: SignedMessage,
