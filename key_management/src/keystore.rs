@@ -18,6 +18,7 @@ use std::{
 };
 
 const KEYSTORE_NAME: &str = "/keystore.json";
+const ENCRYPTED_KEYSTORE_NAME: &str = "/keystore";
 const GENERATED_KEY_LEN: usize = digest::SHA256_OUTPUT_LEN;
 type GeneratedKey = [u8; GENERATED_KEY_LEN];
 static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA256;
@@ -32,7 +33,6 @@ pub struct KeyInfo {
     key_type: SignatureType,
     // Vec<u8> is used because The private keys for BLS and SECP256K1 are not of the same type
     private_key: Vec<u8>,
-    is_encrypted: bool,
 }
 
 impl KeyInfo {
@@ -41,22 +41,17 @@ impl KeyInfo {
         KeyInfo {
             key_type,
             private_key,
-            is_encrypted: false,
         }
     }
 
-    /// Return a clone of the key_type
+    /// Return a reference to the key_type
     pub fn key_type(&self) -> &SignatureType {
         &self.key_type
     }
 
-    /// Return a clone of the private_key
+    /// Return a reference to the private_key
     pub fn private_key(&self) -> &Vec<u8> {
         &self.private_key
-    }
-
-    pub fn is_encrypted(&self) -> bool {
-        self.is_encrypted
     }
 }
 
@@ -87,8 +82,6 @@ pub mod json {
         sig_type: SignatureTypeJson,
         #[serde(rename = "PrivateKey")]
         private_key: String,
-        #[serde(rename = "IsEncrypted")]
-        is_encrypted: bool,
     }
 
     pub fn serialize<S>(k: &KeyInfo, serializer: S) -> Result<S::Ok, S::Error>
@@ -98,7 +91,6 @@ pub mod json {
         JsonHelper {
             sig_type: SignatureTypeJson(k.key_type),
             private_key: base64::encode(&k.private_key),
-            is_encrypted: k.is_encrypted,
         }
         .serialize(serializer)
     }
@@ -110,12 +102,10 @@ pub mod json {
         let JsonHelper {
             sig_type,
             private_key,
-            is_encrypted,
         } = Deserialize::deserialize(deserializer)?;
         Ok(KeyInfo {
             key_type: sig_type.0,
             private_key: base64::decode(private_key).map_err(de::Error::custom)?,
-            is_encrypted,
         })
     }
 }
@@ -182,11 +172,17 @@ impl KeyStore for MemKeyStore {
 pub struct PersistentKeyStore {
     pub key_info: HashMap<String, KeyInfo>,
     location: String,
+    is_encrypted: bool,
 }
 
 impl PersistentKeyStore {
-    pub fn new(location: String) -> Result<Self, Error> {
-        let loc = format!("{}{}", location, KEYSTORE_NAME);
+    pub fn new(location: String, encrypt_keystore: bool) -> Result<Self, Error> {
+        let loc = if let true = encrypt_keystore {
+            format!("{}{}", location, ENCRYPTED_KEYSTORE_NAME)
+        } else {
+            format!("{}{}", location, KEYSTORE_NAME)
+        };
+
         let file_op = File::open(&loc);
         match file_op {
             Ok(file) => {
@@ -200,6 +196,7 @@ impl PersistentKeyStore {
                 Ok(Self {
                     key_info: data,
                     location: loc,
+                    is_encrypted: encrypt_keystore,
                 })
             }
             Err(e) => {
@@ -208,6 +205,7 @@ impl PersistentKeyStore {
                     Ok(Self {
                         key_info: HashMap::new(),
                         location: loc,
+                        is_encrypted: encrypt_keystore,
                     })
                 } else {
                     Err(Error::Other(e.to_string()))
