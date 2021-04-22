@@ -3584,8 +3584,8 @@ where
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::ComputeDataCommitment as u64,
         Serialized::serialize(ComputeDataCommitmentParamsRef {
-            sector_type,
             deal_ids,
+            sector_type,
         })?,
         TokenAmount::zero(),
     )?;

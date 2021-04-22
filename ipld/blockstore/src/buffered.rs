@@ -299,17 +299,15 @@ mod tests {
         )
         .unwrap();
         let map = ipld!({
-            "array": Link(arr_cid.clone()),
-            "sealed": Link(sealed_comm_cid.clone()),
-            "unsealed": Link(unsealed_comm_cid.clone()),
-            "identity": Link(identity_cid.clone()),
+            "array": Link(arr_cid),
+            "sealed": Link(sealed_comm_cid),
+            "unsealed": Link(unsealed_comm_cid),
+            "identity": Link(identity_cid),
             "value": str_val,
         });
         let map_cid = buf_store.put(&map, Code::Blake2b256).unwrap();
 
-        let root_cid = buf_store
-            .put(&(map_cid.clone(), 1u8), Code::Blake2b256)
-            .unwrap();
+        let root_cid = buf_store.put(&(map_cid, 1u8), Code::Blake2b256).unwrap();
 
         // Make sure a block not connected to the root does not get written
         let unconnected = buf_store.put(&27u8, Code::Blake2b256).unwrap();

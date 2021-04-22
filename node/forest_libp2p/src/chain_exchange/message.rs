@@ -236,8 +236,8 @@ fn fts_from_bundle_parts(
 
             Ok(Block {
                 header,
-                secp_messages,
                 bls_messages,
+                secp_messages,
             })
         })
         .collect::<Result<_, _>>()?;

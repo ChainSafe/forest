@@ -453,7 +453,7 @@ fn clean_child_ordering() {
     let mut h: Hamt<_, _> = Hamt::new_with_bit_width(&store, 5);
 
     for i in 100..195 {
-        h.set(make_key(i), dummy_value.clone()).unwrap();
+        h.set(make_key(i), dummy_value).unwrap();
     }
 
     let root = h.flush().unwrap();

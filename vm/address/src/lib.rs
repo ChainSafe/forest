@@ -148,7 +148,7 @@ impl Address {
     }
 
     /// Returns encoded bytes of Address
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(self) -> Vec<u8> {
         self.payload.to_bytes()
     }
 

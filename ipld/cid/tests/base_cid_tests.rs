@@ -100,7 +100,7 @@ fn test_hash() {
     };
     let mut map = HashMap::new();
     let cid = forest_cid::new_from_prefix(&prefix, &data).unwrap();
-    map.insert(cid.clone(), data.clone());
+    map.insert(cid, data.clone());
     assert_eq!(&data, map.get(&cid).unwrap());
 }
 
