@@ -336,7 +336,7 @@ where
         message: SignedMessage,
     ) -> Result<(), String> {
         if let Err(why) = mem_pool.add(message).await {
-            debug!(
+            warn!(
                 "GossipSub message could not be added to the mem pool: {}",
                 why
             );
@@ -355,17 +355,20 @@ where
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
                 let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
-                // Handle hello requests serially.
-                // This is OK because we are not yet processing PubSub messages.
-                let tipset = Self::get_full_tipset(
+                let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
                     source,
                     tipset_keys,
                 )
                 .await
-                .unwrap();
-
+                {
+                    Ok(tipset) => tipset,
+                    Err(why) => {
+                        warn!("Querying full tipset failed: {}", why);
+                        return Err(why);
+                    }
+                };
                 (tipset, source)
             }
             NetworkEvent::PeerConnected(peer_id) => {
@@ -389,7 +392,6 @@ where
             NetworkEvent::PubsubMessage { source, message } => match message {
                 PubsubMessage::Block(b) => {
                     // Assemble full tipset from block
-                    // Messages will be persisted when they are pulled from the network
                     let tipset =
                         Self::gossipsub_block_to_full_tipset(b, source, network.clone()).await?;
                     (tipset, source)
@@ -415,7 +417,7 @@ where
             )
             .await
         {
-            error!(
+            warn!(
                 "Validating tipset received through GossipSub failed: {}",
                 why
             );
@@ -431,7 +433,7 @@ where
         }
 
         // Update the peer head
-        // TODO: Determine if this can be executed asynchronously
+        // TODO: Determine if this can be executed concurrently
         network
             .peer_manager()
             .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
@@ -454,7 +456,7 @@ where
             loop {
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
-                    Err(e) => {
+                    Err(why) => {
                         // TODO: Return typed error
                         unimplemented!()
                     }
@@ -480,7 +482,7 @@ where
 
                 // Add to tipset sample
                 tipsets.push(tipset);
-                if tipsets.len() > tipset_sample_size {
+                if tipsets.len() >= tipset_sample_size {
                     break;
                 }
             }
@@ -492,10 +494,11 @@ where
                 .max_by_key(|ts| ts.weight().clone())
                 .unwrap();
             // Query the heaviest tipset in the store
+            // Unwrapping is fine because the store always has at least one tipset
             let local_head = chain_store.heaviest_tipset().await.unwrap();
 
-            // We are in sync in the local head weight more or
-            // as much as the network head
+            // We are in sync if the local head weight is heavier or
+            // as heavy as much as the network head
             if local_head.weight() >= network_head.weight() {
                 return Ok(NetworkHeadEvaluation::InSync);
             }
@@ -504,7 +507,7 @@ where
             if (network_head.epoch() - local_head.epoch()) == 1 {
                 return Ok(NetworkHeadEvaluation::InRange { network_head });
             }
-            // Otherwise, we are behind
+            // Local node is behind the network and we need to do an initial sync
             return Ok(NetworkHeadEvaluation::Behind {
                 network_head,
                 local_head,
