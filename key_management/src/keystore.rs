@@ -120,7 +120,7 @@ pub mod json {
     }
 }
 
-enum EncKsError {
+enum EncryptedKeyStoreError {
     /// Possibly indicates incorrect passphrase
     DecryptionError,
     /// Unlock called without `encrypted_keystore` being enabled in config.toml
@@ -138,7 +138,7 @@ pub trait KeyStore {
     /// Remove the Key and corresponding key_info from the KeyStore
     fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
     /// Unlock keystore by deriving an encryption key from a passphrase
-    fn unlock(&mut self, passphrase: &str) -> Result<(), EncKsError>;
+    fn unlock(&mut self, passphrase: &str) -> Result<(), EncryptedKeyStoreError>;
 }
 
 pub trait EncryptedKeyStore {

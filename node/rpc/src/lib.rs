@@ -234,7 +234,7 @@ where
                 net_api::net_addrs_listen::<DB, KS, B>,
             )
             // Encryption
-            .with_method("Filecoin.EncUnlock", enc_api::enc_unlock::<DB, KS, B>)
+            .with_method("Forest.EncUnlock", enc_api::enc_unlock::<DB, KS, B>)
             .finish_unwrapped(),
     );
 
