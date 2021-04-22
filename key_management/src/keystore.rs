@@ -13,7 +13,7 @@ use std::io::{BufReader, BufWriter, ErrorKind};
 use std::path::Path;
 use std::{collections::HashMap, num::NonZeroU32};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     os::unix::prelude::OsStrExt,
 };
 
@@ -226,11 +226,17 @@ impl PersistentKeyStore {
             .parent()
             .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
         fs::create_dir_all(dir)?;
-
         let file = File::create(&self.location)?;
         let writer = BufWriter::new(file);
-        serde_json::to_writer(writer, &self.key_info)
-            .map_err(|e| Error::Other(format!("failed to serialize and write key info: {}", e)))?;
+        if let true = self.is_encrypted {
+            serde_cbor::to_writer(writer, &self.key_info).map_err(|e| {
+                Error::Other(format!("failed to serialize and write key info: {}", e))
+            })?;
+        } else {
+            serde_json::to_writer(writer, &self.key_info).map_err(|e| {
+                Error::Other(format!("failed to serialize and write key info: {}", e))
+            })?;
+        }
         Ok(())
     }
 }
@@ -250,24 +256,13 @@ impl KeyStore for PersistentKeyStore {
         }
 
         self.key_info.insert(key, key_info);
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(&self.location)
-            .map_err(|err| Error::Other(err.to_string()))?;
-        serde_json::to_writer(&file, &self.key_info)
-            .map_err(|e| Error::Other(format!("failed to serialize and write key info: {}", e)))?;
+        self.flush()?;
         Ok(())
     }
 
     fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
         let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(&self.location)
-            .map_err(|err| Error::Other(err.to_string()))?;
-        serde_json::to_writer(file, &self.key_info).map_err(|err| Error::Other(err.to_string()))?;
+        self.flush()?;
         Ok(key_out)
     }
 }

@@ -3572,6 +3572,7 @@ dependencies = [
  "rand 0.7.3",
  "ring",
  "serde",
+ "serde_cbor",
  "serde_json",
  "sodiumoxide",
  "thiserror",
