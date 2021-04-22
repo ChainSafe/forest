@@ -218,7 +218,7 @@ where
         // Retrieve tipset from store based on passed in TipsetKeys
         let ts = chain_store.tipset_from_keys(tipset_keys).await?;
         for header in ts.blocks() {
-            // retrieve bls and secp messages from specified BlockHeader
+            // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) = chain::block_messages(chain_store.blockstore(), &header)?;
             // Construct a full block
             blocks.push(Block {
