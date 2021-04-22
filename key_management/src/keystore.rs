@@ -3,6 +3,8 @@
 
 extern crate serde_json;
 
+use crate::generate_key;
+
 use super::errors::Error;
 use crypto::SignatureType;
 use log::{error, warn};
@@ -212,13 +214,22 @@ impl PersistentKeyStore {
         match file_op {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                let data = if let true = encrypt_keystore {
-                    serde_cbor::from_reader(reader)
+                let data = if encrypt_keystore {
+                    // todo 4/23 :: read encrypted data, decrypt, serialize to hashmap
+                    let key = match &passphrase {
+                        Some(pw) => PersistentKeyStore::generate_key(&pw)
+                            .map_err(|error| Error::Other(error.to_string())),
+                        None => Err(Error::Other(
+                            "No password given to encrypt keystore".to_string(),
+                        )),
+                    }?;
+                    let data = serde_cbor::from_reader(reader)
                         .map_err(|e| {
                             error!("failed to deserialize keyfile, initializing new");
                             e
                         })
-                        .unwrap_or_default()
+                        .unwrap_or_default();
+                    data
                 } else {
                     serde_json::from_reader(reader)
                         .map_err(|e| {
