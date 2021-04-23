@@ -231,7 +231,7 @@ impl PersistentKeyStore {
                 let data = if encrypt_keystore {
                     let read_bytes = reader.read_to_end(&mut buf)?;
 
-                    if read_bytes <= 0 {
+                    if read_bytes == 0 {
                         // store is new
                         return Ok(Self {
                             key_info: HashMap::new(),
