@@ -134,13 +134,13 @@ pub trait KeyStore {
     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
     /// Remove the Key and corresponding key_info from the KeyStore
     fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
-    /// Unlock keystore by deriving an encryption key from a passphrase
-    fn unlock(&mut self, passphrase: &str) -> Result<(), EncryptedKeyStoreError>;
+    /// Derive a key from passphrase
+    fn unlock(&mut self, passphrase: &str) -> Result<(), Error>;
 }
 
 pub trait EncryptedKeyStore {
     /// Generate a private key from a passphrase for encryption
-    fn generate_key(passphrase: &str) -> Result<Vec<u8>, EncryptedKeyStoreError>;
+    fn derive_key(passphrase: &str) -> Result<Vec<u8>, EncryptedKeyStoreError>;
     /// Encrypt a message using a symmetric key
     fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError>;
     /// Decrypt a message using a symmetric key
@@ -150,6 +150,8 @@ pub trait EncryptedKeyStore {
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
 pub struct MemKeyStore {
     pub key_info: HashMap<String, KeyInfo>,
+    is_encrypted: bool,
+    key: Option<Vec<u8>>,
 }
 
 impl MemKeyStore {
@@ -157,6 +159,8 @@ impl MemKeyStore {
     pub fn new() -> Self {
         MemKeyStore {
             key_info: HashMap::new(),
+            is_encrypted: false,
+            key: None,
         }
     }
 }
@@ -182,8 +186,11 @@ impl KeyStore for MemKeyStore {
         self.key_info.remove(&key).ok_or(Error::KeyInfo)
     }
 
-    fn unlock(&mut self, _passphrase: &str) -> Result<(), EncryptedKeyStoreError> {
-        todo!()
+    fn unlock(&mut self, passphrase: &str) -> Result<(), Error> {
+        let key = PersistentKeyStore::derive_key(passphrase)
+            .map_err(|error| Error::Other(error.to_string()))?;
+        self.key = Some(key);
+        Ok(())
     }
 }
 
@@ -193,7 +200,7 @@ pub struct PersistentKeyStore {
     pub key_info: HashMap<String, KeyInfo>,
     location: String,
     is_encrypted: bool,
-    passphrase: Option<String>,
+    key: Option<Vec<u8>>,
 }
 
 impl PersistentKeyStore {
@@ -207,23 +214,37 @@ impl PersistentKeyStore {
         } else {
             format!("{}{}", location, KEYSTORE_NAME)
         };
+        let key = match passphrase {
+            Some(value) => Some(PersistentKeyStore::derive_key(&value).map_err(|error| {
+                error!("failed to create key from passphrase");
+                Error::Other(error.to_string())
+            })?),
+            None => None,
+        };
 
         let file_op = File::open(&loc);
         match file_op {
             Ok(file) => {
                 let mut reader = BufReader::new(file);
-                let data = if encrypt_keystore {
-                    // todo 4/23 :: read encrypted data, decrypt, serialize to hashmap
-                    let key = match &passphrase {
-                        Some(pw) => PersistentKeyStore::generate_key(&pw)
-                            .map_err(|error| Error::Other(error.to_string())),
-                        None => Err(Error::Other(
-                            "No password given to encrypt keystore".to_string(),
-                        )),
-                    }?;
 
-                    let mut buf: Vec<u8> = Vec::new();
-                    let _ = reader.read_to_end(&mut buf)?;
+                let mut buf = Vec::new();
+                let data = if encrypt_keystore {
+                    let read_bytes = reader.read_to_end(&mut buf)?;
+
+                    if read_bytes <= 0 {
+                        // store is new
+                        return Ok(Self {
+                            key_info: HashMap::new(),
+                            location: loc,
+                            is_encrypted: encrypt_keystore,
+                            key,
+                        });
+                    }
+
+                    let key = match &key {
+                        Some(value) => value,
+                        None => return Err(Error::Other("this shouldn't happen".to_string())),
+                    };
 
                     let decrypted_data = PersistentKeyStore::decrypt(&key, &buf)
                         .map_err(|error| Error::Other(error.to_string()))?;
@@ -246,7 +267,7 @@ impl PersistentKeyStore {
                     key_info: data,
                     location: loc,
                     is_encrypted: encrypt_keystore,
-                    passphrase,
+                    key,
                 })
             }
             Err(e) => {
@@ -256,7 +277,7 @@ impl PersistentKeyStore {
                         key_info: HashMap::new(),
                         location: loc,
                         is_encrypted: encrypt_keystore,
-                        passphrase,
+                        key,
                     })
                 } else {
                     Err(Error::Other(e.to_string()))
@@ -277,12 +298,10 @@ impl PersistentKeyStore {
                 Error::Other(format!("failed to serialize and write key info: {}", e))
             })?;
 
-            let key = match &self.passphrase {
-                Some(passphrase) => PersistentKeyStore::generate_key(passphrase).map_err(|_| {
-                    Error::Other("Failed to create private key from passphrase".to_string())
-                }),
-                None => return Err(Error::Other("Couldn't find a passphrase".to_string())),
-            }?;
+            let key = match &self.key {
+                Some(key) => key,
+                None => return Err(Error::Other("Keystore is not unlocked".to_string())),
+            };
 
             let encrypted_data = PersistentKeyStore::encrypt(&key, &data)
                 .map_err(|error| Error::Other(error.to_string()))?;
@@ -322,13 +341,16 @@ impl KeyStore for PersistentKeyStore {
         Ok(key_out)
     }
 
-    fn unlock(&mut self, _passphrase: &str) -> Result<(), EncryptedKeyStoreError> {
-        todo!()
+    fn unlock(&mut self, passphrase: &str) -> Result<(), Error> {
+        let key = PersistentKeyStore::derive_key(passphrase)
+            .map_err(|error| Error::Other(error.to_string()))?;
+        self.key = Some(key);
+        Ok(())
     }
 }
 
 impl EncryptedKeyStore for PersistentKeyStore {
-    fn generate_key(passphrase: &str) -> Result<Vec<u8>, EncryptedKeyStoreError> {
+    fn derive_key(passphrase: &str) -> Result<Vec<u8>, EncryptedKeyStoreError> {
         let hostname = hostname::get().map_err(|_| EncryptedKeyStoreError::ConfigurationError)?;
 
         let mut to_store: GeneratedKey = [0u8; GENERATED_KEY_LEN];
@@ -385,14 +407,14 @@ mod test {
 
     #[test]
     fn test_generate_key() {
-        let private_key = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
-        let second_pass = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
+        let private_key = PersistentKeyStore::derive_key(PASSPHRASE).unwrap();
+        let second_pass = PersistentKeyStore::derive_key(PASSPHRASE).unwrap();
         assert_eq!(private_key, second_pass);
     }
 
     #[test]
     fn test_encrypt_message() {
-        let private_key = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
+        let private_key = PersistentKeyStore::derive_key(PASSPHRASE).unwrap();
         let message = "foo is coming";
         let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes());
         assert!(ciphertext.is_ok());
@@ -400,7 +422,7 @@ mod test {
 
     #[test]
     fn test_decrypt_message() {
-        let private_key = PersistentKeyStore::generate_key(PASSPHRASE).unwrap();
+        let private_key = PersistentKeyStore::derive_key(PASSPHRASE).unwrap();
         let message = "foo is coming";
         let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
         let plaintext = PersistentKeyStore::decrypt(&private_key, &ciphertext).unwrap();
