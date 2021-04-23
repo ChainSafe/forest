@@ -409,7 +409,7 @@ mod test {
     }
 
     #[test]
-    #[ignore = "should be ran under specific conditions described in the comments below"]
+    #[ignore = "fragile test, requires encrypted keystore to exist"]
     fn test_read_encrypted_keystore() {
         // todo: change this to read config.toml
         // this test requires an encrypted keystore
@@ -419,6 +419,16 @@ mod test {
         let keystore_location = String::from("/home/connor/chainsafe/forest-db");
         let ks = PersistentKeyStore::new(keystore_location, true, Some(String::from(PASSPHRASE)))
             .unwrap();
+        ks.flush().unwrap();
+
+        assert!(true);
+    }
+
+    #[test]
+    #[ignore = "fragile test, requires keystore.json"]
+    fn test_read_unencrypted_keystore() {
+        let keystore_location = String::from("/home/connor/chainsafe/forest-db");
+        let ks = PersistentKeyStore::new(keystore_location, false, None).unwrap();
         ks.flush().unwrap();
 
         assert!(true);
