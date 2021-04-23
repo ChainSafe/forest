@@ -121,9 +121,9 @@ impl TipsetGroup {
     }
 }
 
-/// The StreamingTipsetSyncer receives and triages a stream of Tipsets
-/// from the ChainMuxer and the Miner. Each unique Tipset, by epoch and parents, is mapped
-/// into a Tipset range which should be synced into the Chain Store.
+/// The StreamingTipsetSyncer receives and prioritizes a stream of Tipsets
+/// from the ChainMuxer and the SyncSubmitBlock API before syncing.
+/// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which should be synced into the Chain Store.
 pub(crate) struct TipsetProcessor<DB, TBeacon, V> {
     state: TipsetProcessorState<DB, TBeacon, V>,
     // Tipsets pushed into this stream _must_ be validated
@@ -332,7 +332,7 @@ where
                     })
                 }
 
-                // Update or relace the next sync
+                // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
                     .map(|(_, group)| group)
