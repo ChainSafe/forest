@@ -9,9 +9,7 @@ mod chain_muxer;
 mod errors;
 mod network_context;
 mod peer_manager;
-// mod sync;
 mod sync_state;
-// mod sync_worker;
 mod tipset_syncer;
 mod validation;
 
