@@ -168,7 +168,7 @@ where
         let network = self.network.clone();
         let bad_block_cache = self.bad_block_cache.clone();
         Box::pin(async move {
-            // Define the low end of the
+            // Define the low end of the range
             // Unwrapping is safe here because the store always has at least one tipset
             let current_head = chain_store.heaviest_tipset().await.unwrap();
             // Unwrapping is safe here because we assume that the
@@ -198,9 +198,9 @@ type TipsetProcessorFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + S
 enum TipsetProcessorState<DB, TBeacon, V> {
     Idle,
     FindRange {
+        range_finder: TipsetProcessorFuture<TipsetRangeSyncer<DB, TBeacon, V>, String>,
         epoch: i64,
         parents: TipsetKeys,
-        range_finder: TipsetProcessorFuture<TipsetRangeSyncer<DB, TBeacon, V>, String>,
         current_sync: Option<TipsetGroup>,
         next_sync: Option<TipsetGroup>,
     },
@@ -399,15 +399,6 @@ where
                     ref mut next_sync,
                 } => {
                     // Drive the range_syncer to completion
-                    // If the TipsetRangeSyncer completes:
-                    // - If the result is an error and the next_sync is none, log the error
-                    //    and move to the idle state.
-                    // - If the result is an error and the next_sync is Some, log the error
-                    //    and move to the presyncing state with the tipset group.
-                    // - If the result is ok and the next_sync is none, log the success and move
-                    //    to the idle state.
-                    // - If the result is ok and the next_sync is some, log the suuccess and
-                    //    move to the presyncing state with the tipset group
                     match range_syncer.as_mut().poll(cx) {
                         Poll::Ready(Ok(_)) => match next_sync.take() {
                             Some(tipset_group) => {
