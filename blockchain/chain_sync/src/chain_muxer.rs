@@ -647,18 +647,18 @@ where
                     }
                 };
 
+                // Validate that the tipset is heavier that the heaviest
+                // tipset in the store
                 if !chain_store
                     .heaviest_tipset()
                     .await
                     .map(|heaviest| tipset.weight() >= heaviest.weight())
                     .unwrap_or(true)
                 {
-                    // Only send heavier Tipset to the TipsetProcessor
+                    // Only send heavier Tipsets to the TipsetProcessor
                     continue;
                 }
 
-                // Validate that the tipset is heavier that the heaviest
-                // tipset in the store
                 if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
                     error!("Sending tipset to TipsetProcessor failed: {}", why);
                 };
