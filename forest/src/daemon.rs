@@ -56,7 +56,7 @@ pub(super) async fn start(config: Config) {
         config.encrypt_keystore,
         passphrase,
     )
-    .expect("error creating keystore, check your configuration");
+    .expect("Error initializing keystore: incorrect passphrase");
 
     if ks.get(JWT_IDENTIFIER).is_err() {
         ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())

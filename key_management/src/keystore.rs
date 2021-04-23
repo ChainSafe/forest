@@ -3,15 +3,13 @@
 
 extern crate serde_json;
 
-use crate::generate_key;
-
 use super::errors::Error;
 use crypto::SignatureType;
 use log::{error, warn};
 use ring::{digest, pbkdf2};
 use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::secretbox;
-use std::io::{BufReader, BufWriter, ErrorKind};
+use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::Path;
 use std::{collections::HashMap, num::NonZeroU32};
 use std::{
@@ -204,7 +202,7 @@ impl PersistentKeyStore {
         encrypt_keystore: bool,
         passphrase: Option<String>,
     ) -> Result<Self, Error> {
-        let loc = if let true = encrypt_keystore {
+        let loc = if encrypt_keystore {
             format!("{}{}", location, ENCRYPTED_KEYSTORE_NAME)
         } else {
             format!("{}{}", location, KEYSTORE_NAME)
@@ -213,7 +211,7 @@ impl PersistentKeyStore {
         let file_op = File::open(&loc);
         match file_op {
             Ok(file) => {
-                let reader = BufReader::new(file);
+                let mut reader = BufReader::new(file);
                 let data = if encrypt_keystore {
                     // todo 4/23 :: read encrypted data, decrypt, serialize to hashmap
                     let key = match &passphrase {
@@ -223,13 +221,19 @@ impl PersistentKeyStore {
                             "No password given to encrypt keystore".to_string(),
                         )),
                     }?;
-                    let data = serde_cbor::from_reader(reader)
+
+                    let mut buf: Vec<u8> = Vec::new();
+                    let _ = reader.read_to_end(&mut buf)?;
+
+                    let decrypted_data = PersistentKeyStore::decrypt(&key, &buf)
+                        .map_err(|error| Error::Other(error.to_string()))?;
+
+                    serde_cbor::from_slice(&decrypted_data)
                         .map_err(|e| {
                             error!("failed to deserialize keyfile, initializing new");
                             e
                         })
-                        .unwrap_or_default();
-                    data
+                        .unwrap_or_default()
                 } else {
                     serde_json::from_reader(reader)
                         .map_err(|e| {
@@ -247,7 +251,7 @@ impl PersistentKeyStore {
             }
             Err(e) => {
                 if e.kind() == ErrorKind::NotFound {
-                    warn!("keystore.json does not exist, initializing new keystore");
+                    warn!("keystore does not exist, initializing new keystore");
                     Ok(Self {
                         key_info: HashMap::new(),
                         location: loc,
@@ -267,11 +271,23 @@ impl PersistentKeyStore {
             .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
         fs::create_dir_all(dir)?;
         let file = File::create(&self.location)?;
-        let writer = BufWriter::new(file);
-        if let true = self.is_encrypted {
-            serde_cbor::to_writer(writer, &self.key_info).map_err(|e| {
+        let mut writer = BufWriter::new(file);
+        if self.is_encrypted {
+            let data = serde_cbor::to_vec(&self.key_info).map_err(|e| {
                 Error::Other(format!("failed to serialize and write key info: {}", e))
             })?;
+
+            let key = match &self.passphrase {
+                Some(passphrase) => PersistentKeyStore::generate_key(passphrase).map_err(|_| {
+                    Error::Other("Failed to create private key from passphrase".to_string())
+                }),
+                None => return Err(Error::Other("Couldn't find a passphrase".to_string())),
+            }?;
+
+            let encrypted_data = PersistentKeyStore::encrypt(&key, &data)
+                .map_err(|error| Error::Other(error.to_string()))?;
+
+            writer.write_all(&encrypted_data)?;
         } else {
             serde_json::to_writer(writer, &self.key_info).map_err(|e| {
                 Error::Other(format!("failed to serialize and write key info: {}", e))
@@ -393,15 +409,17 @@ mod test {
     }
 
     #[test]
+    #[ignore = "should be ran under specific conditions described in the comments below"]
     fn test_read_encrypted_keystore() {
-        let ks = PersistentKeyStore::new(
-            String::from(ENCRYPTED_KEYSTORE_NAME),
-            true,
-            Some(String::from(PASSPHRASE)),
-        )
-        .unwrap();
-
-        println!("ks {:#?}", ks);
+        // todo: change this to read config.toml
+        // this test requires an encrypted keystore
+        // current way to run this test:
+        // add encrypt_keystore = true to config.toml
+        // change keystore_location to your location
+        let keystore_location = String::from("/home/connor/chainsafe/forest-db");
+        let ks = PersistentKeyStore::new(keystore_location, true, Some(String::from(PASSPHRASE)))
+            .unwrap();
+        ks.flush().unwrap();
 
         assert!(true);
     }
