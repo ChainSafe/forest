@@ -275,7 +275,7 @@ mod test_selection {
     use async_std::task;
     use crypto::SignatureType;
     use db::MemoryDB;
-    use key_management::{MemKeyStore, Wallet};
+    use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
     use std::sync::Arc;
     use types::NetworkParams;
@@ -293,10 +293,12 @@ mod test_selection {
     async fn basic_message_selection() {
         let mpool = make_test_mpool();
 
-        let mut w1 = Wallet::new(MemKeyStore::new());
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut w2 = Wallet::new(MemKeyStore::new());
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let b1 = mock_block(1, 1);
@@ -442,10 +444,12 @@ mod test_selection {
     async fn message_selection_trimming() {
         let mpool = make_test_mpool();
 
-        let mut w1 = Wallet::new(MemKeyStore::new());
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut w2 = Wallet::new(MemKeyStore::new());
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let b1 = mock_block(1, 1);
@@ -519,10 +523,12 @@ mod test_selection {
 
         let mut mpool = make_test_mpool();
 
-        let mut w1 = Wallet::new(MemKeyStore::new());
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut w2 = Wallet::new(MemKeyStore::new());
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         // set priority addrs to a1

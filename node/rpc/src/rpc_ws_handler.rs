@@ -11,7 +11,6 @@ use tide_websockets::{Message, WebSocketConnection};
 
 use beacon::Beacon;
 use blockstore::BlockStore;
-use wallet::KeyStore;
 
 use crate::data_types::{JsonRpcServerState, StreamingData, SubscriptionHeadChange};
 use crate::rpc_util::{
@@ -19,7 +18,7 @@ use crate::rpc_util::{
     RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
 };
 
-async fn rpc_ws_task<DB, KS, B>(
+async fn rpc_ws_task<DB, B>(
     authorization_header: Option<HeaderValues>,
     rpc_call: jsonrpc_v2::RequestObject,
     rpc_server: JsonRpcServerState,
@@ -28,13 +27,12 @@ async fn rpc_ws_task<DB, KS, B>(
 ) -> Result<(), tide::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let call_method = rpc_call.method_ref();
     let call_id = rpc_call.id_ref();
 
-    check_permissions::<DB, KS, B>(rpc_server.clone(), call_method, authorization_header).await?;
+    check_permissions::<DB, B>(rpc_server.clone(), call_method, authorization_header).await?;
 
     match call_method {
         RPC_METHOD_CHAIN_NOTIFY => {
@@ -117,13 +115,12 @@ where
     Ok(())
 }
 
-pub async fn rpc_ws_handler<DB, KS, B>(
+pub async fn rpc_ws_handler<DB, B>(
     request: tide::Request<JsonRpcServerState>,
     ws_stream: WebSocketConnection,
 ) -> Result<(), tide::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (authorization_header, request) = get_auth_header(request);
@@ -156,7 +153,7 @@ where
                     {
                         Ok(rpc_call) => {
                             async_std::task::spawn(async move {
-                                match rpc_ws_task::<DB, KS, B>(
+                                match rpc_ws_task::<DB, B>(
                                     authorization_header,
                                     rpc_call,
                                     task_rpc_server,

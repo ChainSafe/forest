@@ -8,7 +8,6 @@ use forest_libp2p::{Multiaddr, NetRPCMethods, NetworkMessage};
 use futures::channel::oneshot;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
 use serde::Serialize;
-use wallet::KeyStore;
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -19,10 +18,9 @@ pub(crate) struct AddrInfo {
 }
 pub(crate) async fn net_addrs_listen<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
 ) -> Result<AddrInfo, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {

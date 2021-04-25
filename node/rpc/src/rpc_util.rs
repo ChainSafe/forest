@@ -9,7 +9,6 @@ use crate::data_types::JsonRpcServerState;
 use auth::WRITE_ACCESS;
 use beacon::Beacon;
 use blockstore::BlockStore;
-use wallet::KeyStore;
 
 pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
     debug!(
@@ -49,14 +48,13 @@ pub fn is_streaming_method(method_name: &str) -> bool {
 
 pub const RPC_METHOD_AUTH_VERIFY: &str = "Filecoin.AuthVerify";
 
-pub async fn check_permissions<DB, KS, B>(
+pub async fn check_permissions<DB, B>(
     rpc_server: JsonRpcServerState,
     method_name: &str,
     authorization_header: Option<HeaderValues>,
 ) -> Result<(), tide::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     match authorization_header

@@ -27,13 +27,12 @@ pub struct StreamingData<'a> {
 }
 
 /// This is where you store persistent data, or at least access to stateful data.
-pub struct RpcState<DB, KS, B>
+pub struct RpcState<DB, B>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    pub keystore: Arc<RwLock<KS>>,
+    pub keystore: Arc<RwLock<KeyStore>>,
     pub chain_store: Arc<ChainStore<DB>>,
     pub state_manager: Arc<StateManager<DB>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,

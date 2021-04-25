@@ -1,28 +1,22 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-extern crate serde_json;
+use log::{error, warn};
+use serde::{Deserialize, Serialize};
+use sodiumoxide::crypto::pwhash::argon2id13 as pwhash;
+use sodiumoxide::crypto::secretbox;
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use thiserror::Error;
 
 use super::errors::Error;
 use crypto::SignatureType;
-use log::{error, warn};
-use ring::{digest, pbkdf2};
-use serde::{Deserialize, Serialize};
-use sodiumoxide::crypto::secretbox;
-use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
-use std::path::Path;
-use std::{collections::HashMap, num::NonZeroU32};
-use std::{
-    fs::{self, File},
-    os::unix::prelude::OsStrExt,
-};
-use thiserror::Error;
 
 const KEYSTORE_NAME: &str = "/keystore.json";
 const ENCRYPTED_KEYSTORE_NAME: &str = "/keystore";
-const GENERATED_KEY_LEN: usize = digest::SHA256_OUTPUT_LEN;
-type GeneratedKey = [u8; GENERATED_KEY_LEN];
-static PBKDF2_ALG: pbkdf2::Algorithm = pbkdf2::PBKDF2_HMAC_SHA256;
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
@@ -111,6 +105,53 @@ pub mod json {
     }
 }
 
+/// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
+pub trait Store {
+    /// Return all of the keys that are stored in the KeyStore
+    fn list(&self) -> Vec<String>;
+    /// Return Keyinfo that corresponds to a given key
+    fn get(&self, k: &str) -> Result<KeyInfo, Error>;
+    /// Save a key key_info pair to the KeyStore
+    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
+    /// Remove the Key and corresponding key_info from the KeyStore
+    fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
+}
+
+// struct KeyStore {
+//     key_info: HashMap<String, KeyInfo>,
+//     // store_config: KeyStoreConfig,
+// }
+
+/// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
+#[derive(Clone, PartialEq, Debug, Eq)]
+pub struct KeyStore {
+    key_info: HashMap<String, KeyInfo>,
+    persistence: Option<PersistentKeyStore>,
+    encryption: Option<EncryptedKeyStore>,
+}
+
+pub enum KeyStoreConfig {
+    Memory(),
+    Persistent(PathBuf),
+    Encrypted(PathBuf, String),
+}
+
+/// Persistent KeyStore in JSON cleartext in KEYSTORE_LOCATION
+#[derive(Clone, PartialEq, Debug, Eq)]
+struct PersistentKeyStore {
+    file_path: PathBuf,
+}
+
+/// Encrypted KeyStore
+/// Argon2id hash key derivation
+/// XSalsa20Poly1305 authenticated encryption
+/// CBOR encoding
+#[derive(Clone, PartialEq, Debug, Eq)]
+struct EncryptedKeyStore {
+    salt: pwhash::Salt,
+    encryption_key: Arc<secretbox::Key>,
+}
+
 #[derive(Debug, Error)]
 pub enum EncryptedKeyStoreError {
     /// Possibly indicates incorrect passphrase
@@ -124,262 +165,261 @@ pub enum EncryptedKeyStoreError {
     ConfigurationError,
 }
 
-/// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
-pub trait KeyStore {
-    /// Return all of the keys that are stored in the KeyStore
-    fn list(&self) -> Vec<String>;
-    /// Return Keyinfo that corresponds to a given key
-    fn get(&self, k: &str) -> Result<KeyInfo, Error>;
-    /// Save a key key_info pair to the KeyStore
-    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
-    /// Remove the Key and corresponding key_info from the KeyStore
-    fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
-    /// Derive a key from passphrase
-    fn unlock(&mut self, passphrase: &str) -> Result<(), Error>;
-}
+impl KeyStore {
+    pub fn new(config: KeyStoreConfig) -> Result<Self, Error> {
+        match config {
+            KeyStoreConfig::Memory() => Ok(Self {
+                key_info: HashMap::new(),
+                persistence: None,
+                encryption: None,
+            }),
+            KeyStoreConfig::Persistent(location) => {
+                let file_path = location.join(Path::new(KEYSTORE_NAME));
 
-pub trait EncryptedKeyStore {
-    /// Generate a private key from a passphrase for encryption
-    fn derive_key(passphrase: &str) -> Result<Vec<u8>, EncryptedKeyStoreError>;
-    /// Encrypt a message using a symmetric key
-    fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError>;
-    /// Decrypt a message using a symmetric key
-    fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError>;
-}
+                match File::open(&file_path) {
+                    Ok(file) => {
+                        let reader = BufReader::new(file);
 
-#[derive(Default, Clone, PartialEq, Debug, Eq)]
-pub struct MemKeyStore {
-    pub key_info: HashMap<String, KeyInfo>,
-    is_encrypted: bool,
-    key: Option<Vec<u8>>,
-}
+                        // Existing cleartext JSON keystore
+                        let key_info = serde_json::from_reader(reader)
+                            .map_err(|e| {
+                                error!("failed to deserialize keyfile, initializing new");
+                                e
+                            })
+                            .unwrap_or_default();
 
-impl MemKeyStore {
-    /// Return a new empty KeyStore
-    pub fn new() -> Self {
-        MemKeyStore {
-            key_info: HashMap::new(),
-            is_encrypted: false,
-            key: None,
-        }
-    }
-}
-
-impl KeyStore for MemKeyStore {
-    fn list(&self) -> Vec<String> {
-        self.key_info.iter().map(|(key, _)| key.clone()).collect()
-    }
-
-    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
-        self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
-    }
-
-    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
-        if self.key_info.contains_key(&key) {
-            return Err(Error::KeyExists);
-        }
-        self.key_info.insert(key, key_info);
-        Ok(())
-    }
-
-    fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
-        self.key_info.remove(&key).ok_or(Error::KeyInfo)
-    }
-
-    fn unlock(&mut self, passphrase: &str) -> Result<(), Error> {
-        let key = PersistentKeyStore::derive_key(passphrase)
-            .map_err(|error| Error::Other(error.to_string()))?;
-        self.key = Some(key);
-        Ok(())
-    }
-}
-
-/// KeyStore that persists data in KEYSTORE_LOCATION
-#[derive(Default, Clone, PartialEq, Debug, Eq)]
-pub struct PersistentKeyStore {
-    pub key_info: HashMap<String, KeyInfo>,
-    location: String,
-    is_encrypted: bool,
-    key: Option<Vec<u8>>,
-}
-
-impl PersistentKeyStore {
-    pub fn new(
-        location: String,
-        encrypt_keystore: bool,
-        passphrase: Option<String>,
-    ) -> Result<Self, Error> {
-        let loc = if encrypt_keystore {
-            format!("{}{}", location, ENCRYPTED_KEYSTORE_NAME)
-        } else {
-            format!("{}{}", location, KEYSTORE_NAME)
-        };
-        let key = match passphrase {
-            Some(value) => Some(PersistentKeyStore::derive_key(&value).map_err(|error| {
-                error!("failed to create key from passphrase");
-                Error::Other(error.to_string())
-            })?),
-            None => None,
-        };
-
-        let file_op = File::open(&loc);
-        match file_op {
-            Ok(file) => {
-                let mut reader = BufReader::new(file);
-
-                let mut buf = Vec::new();
-                let data = if encrypt_keystore {
-                    let read_bytes = reader.read_to_end(&mut buf)?;
-
-                    if read_bytes == 0 {
-                        // store is new
-                        return Ok(Self {
-                            key_info: HashMap::new(),
-                            location: loc,
-                            is_encrypted: encrypt_keystore,
-                            key,
-                        });
+                        Ok(Self {
+                            key_info,
+                            persistence: Some(PersistentKeyStore { file_path }),
+                            encryption: None,
+                        })
                     }
-
-                    let key = match &key {
-                        Some(value) => value,
-                        None => return Err(Error::Other("this shouldn't happen".to_string())),
-                    };
-
-                    let decrypted_data = PersistentKeyStore::decrypt(&key, &buf)
-                        .map_err(|error| Error::Other(error.to_string()))?;
-
-                    serde_cbor::from_slice(&decrypted_data)
-                        .map_err(|e| {
-                            error!("failed to deserialize keyfile, initializing new");
-                            e
-                        })
-                        .unwrap_or_default()
-                } else {
-                    serde_json::from_reader(reader)
-                        .map_err(|e| {
-                            error!("failed to deserialize keyfile, initializing new");
-                            e
-                        })
-                        .unwrap_or_default()
-                };
-                Ok(Self {
-                    key_info: data,
-                    location: loc,
-                    is_encrypted: encrypt_keystore,
-                    key,
-                })
+                    Err(e) => {
+                        if e.kind() == ErrorKind::NotFound {
+                            warn!("Keystore does not exist, initializing new keystore");
+                            Ok(Self {
+                                key_info: HashMap::new(),
+                                persistence: Some(PersistentKeyStore { file_path }),
+                                encryption: None,
+                            })
+                        } else {
+                            Err(Error::Other(e.to_string()))
+                        }
+                    }
+                }
             }
-            Err(e) => {
-                if e.kind() == ErrorKind::NotFound {
-                    warn!("keystore does not exist, initializing new keystore");
-                    Ok(Self {
-                        key_info: HashMap::new(),
-                        location: loc,
-                        is_encrypted: encrypt_keystore,
-                        key,
-                    })
-                } else {
-                    Err(Error::Other(e.to_string()))
+            KeyStoreConfig::Encrypted(location, passphrase) => {
+                let file_path = location.join(Path::new(ENCRYPTED_KEYSTORE_NAME));
+
+                match File::open(&file_path) {
+                    Ok(file) => {
+                        let mut reader = BufReader::new(file);
+                        let mut buf = vec![];
+                        let read_bytes = reader.read_to_end(&mut buf)?;
+
+                        if read_bytes == 0 {
+                            // New encrypted keystore if file exists but is zero bytes (i.e., touch)
+                            warn!(
+                                "Keystore does not exist, initializing new keystore at {:?}",
+                                file_path
+                            );
+
+                            let (salt, encryption_key) =
+                                EncryptedKeyStore::derive_key(&passphrase, None).map_err(
+                                    |error| {
+                                        error!("Failed to create key from passphrase");
+                                        Error::Other(error.to_string())
+                                    },
+                                )?;
+
+                            Ok(Self {
+                                key_info: HashMap::new(),
+                                persistence: Some(PersistentKeyStore { file_path }),
+                                encryption: Some(EncryptedKeyStore {
+                                    salt,
+                                    encryption_key,
+                                }),
+                            })
+                        } else {
+                            // Existing encrypted keystore
+                            // Split off data from prepended salt
+                            let data = buf.split_off(pwhash::SALTBYTES);
+
+                            let (salt, encryption_key) =
+                                EncryptedKeyStore::derive_key(&passphrase, Some(buf)).map_err(
+                                    |error| {
+                                        error!("Failed to create key from passphrase");
+                                        Error::Other(error.to_string())
+                                    },
+                                )?;
+
+                            let decrypted_data =
+                                EncryptedKeyStore::decrypt(encryption_key.clone(), &data)
+                                    .map_err(|error| Error::Other(error.to_string()))?;
+
+                            let key_info = serde_cbor::from_slice(&decrypted_data)
+                                .map_err(|e| {
+                                    error!("Failed to deserialize keyfile, initializing new");
+                                    e
+                                })
+                                .unwrap_or_default();
+
+                            Ok(Self {
+                                key_info,
+                                persistence: Some(PersistentKeyStore { file_path }),
+                                encryption: Some(EncryptedKeyStore {
+                                    salt,
+                                    encryption_key,
+                                }),
+                            })
+                        }
+                    }
+                    Err(_) => {
+                        warn!("Encrypted keystore does not exist, initializing new keystore");
+
+                        let (salt, encryption_key) =
+                            EncryptedKeyStore::derive_key(&passphrase, None).map_err(|error| {
+                                error!("Failed to create key from passphrase");
+                                Error::Other(error.to_string())
+                            })?;
+
+                        Ok(Self {
+                            key_info: HashMap::new(),
+                            persistence: Some(PersistentKeyStore { file_path }),
+                            encryption: Some(EncryptedKeyStore {
+                                salt,
+                                encryption_key,
+                            }),
+                        })
+                    }
                 }
             }
         }
     }
 
     pub fn flush(&self) -> Result<(), Error> {
-        let dir = Path::new(&self.location)
-            .parent()
-            .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
-        fs::create_dir_all(dir)?;
-        let file = File::create(&self.location)?;
-        let mut writer = BufWriter::new(file);
-        if self.is_encrypted {
-            let data = serde_cbor::to_vec(&self.key_info).map_err(|e| {
-                Error::Other(format!("failed to serialize and write key info: {}", e))
-            })?;
+        match &self.persistence {
+            Some(persistent_keystore) => {
+                let dir = persistent_keystore
+                    .file_path
+                    .parent()
+                    .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
+                fs::create_dir_all(dir)?;
+                let file = File::create(&persistent_keystore.file_path)?;
+                let mut writer = BufWriter::new(file);
 
-            let key = match &self.key {
-                Some(key) => key,
-                None => return Err(Error::Other("Keystore is not unlocked".to_string())),
-            };
+                match &self.encryption {
+                    Some(encrypted_keystore) => {
+                        // Flush For EncryptedKeyStore
+                        let data = serde_cbor::to_vec(&self.key_info).map_err(|e| {
+                            Error::Other(format!("failed to serialize and write key info: {}", e))
+                        })?;
 
-            let encrypted_data = PersistentKeyStore::encrypt(&key, &data)
-                .map_err(|error| Error::Other(error.to_string()))?;
+                        let encrypted_data = EncryptedKeyStore::encrypt(
+                            encrypted_keystore.encryption_key.clone(),
+                            &data,
+                        )
+                        .map_err(|error| Error::Other(error.to_string()))?;
 
-            writer.write_all(&encrypted_data)?;
-        } else {
-            serde_json::to_writer(writer, &self.key_info).map_err(|e| {
-                Error::Other(format!("failed to serialize and write key info: {}", e))
-            })?;
+                        writer.write_all(&encrypted_data)?;
+
+                        Ok(())
+                    }
+                    None => {
+                        // Flush for PersistentKeyStore
+                        serde_json::to_writer(writer, &self.key_info).map_err(|e| {
+                            Error::Other(format!("failed to serialize and write key info: {}", e))
+                        })?;
+
+                        Ok(())
+                    }
+                }
+            }
+            None => {
+                // NoOp for MemKeyStore
+                Ok(())
+            }
         }
-        Ok(())
     }
-}
 
-impl KeyStore for PersistentKeyStore {
-    fn list(&self) -> Vec<String> {
+    /// Return all of the keys that are stored in the KeyStore
+    pub fn list(&self) -> Vec<String> {
         self.key_info.iter().map(|(key, _)| key.clone()).collect()
     }
 
-    fn get(&self, k: &str) -> Result<KeyInfo, Error> {
+    /// Return Keyinfo that corresponds to a given key
+    pub fn get(&self, k: &str) -> Result<KeyInfo, Error> {
         self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
     }
 
-    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
+    /// Save a key key_info pair to the KeyStore
+    pub fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
         if self.key_info.contains_key(&key) {
             return Err(Error::KeyExists);
         }
-
         self.key_info.insert(key, key_info);
-        self.flush()?;
+
+        if self.persistence.is_some() {
+            self.flush()?;
+        }
+
         Ok(())
     }
 
-    fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
+    /// Remove the Key and corresponding key_info from the KeyStore
+    pub fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
         let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
-        self.flush()?;
-        Ok(key_out)
-    }
 
-    fn unlock(&mut self, passphrase: &str) -> Result<(), Error> {
-        let key = PersistentKeyStore::derive_key(passphrase)
-            .map_err(|error| Error::Other(error.to_string()))?;
-        self.key = Some(key);
-        Ok(())
+        if self.persistence.is_some() {
+            self.flush()?;
+        }
+
+        Ok(key_out)
     }
 }
 
-impl EncryptedKeyStore for PersistentKeyStore {
-    fn derive_key(passphrase: &str) -> Result<Vec<u8>, EncryptedKeyStoreError> {
-        let hostname = hostname::get().map_err(|_| EncryptedKeyStoreError::ConfigurationError)?;
+impl EncryptedKeyStore {
+    fn derive_key(
+        passphrase: &str,
+        prev_salt: Option<Vec<u8>>,
+    ) -> Result<(pwhash::Salt, Arc<secretbox::Key>), EncryptedKeyStoreError> {
+        let salt = match prev_salt {
+            Some(prev_salt) => match pwhash::Salt::from_slice(&prev_salt) {
+                Some(salt) => salt,
+                None => return Err(EncryptedKeyStoreError::ConfigurationError),
+            },
+            None => pwhash::gen_salt(),
+        };
+        let mut key = secretbox::Key([0; secretbox::KEYBYTES]);
 
-        let mut to_store: GeneratedKey = [0u8; GENERATED_KEY_LEN];
-
-        pbkdf2::derive(
-            PBKDF2_ALG,
-            NonZeroU32::new(5).unwrap(),
-            hostname.as_bytes(),
+        let secretbox::Key(ref mut kb) = key;
+        pwhash::derive_key(
+            kb,
             passphrase.as_bytes(),
-            &mut to_store,
-        );
+            &salt,
+            pwhash::OPSLIMIT_INTERACTIVE,
+            pwhash::MEMLIMIT_INTERACTIVE,
+        )
+        .unwrap();
 
-        Ok(to_store.to_vec())
+        Ok((salt, Arc::new(key)))
     }
 
-    fn encrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError> {
+    fn encrypt(
+        encryption_key: Arc<secretbox::Key>,
+        msg: &[u8],
+    ) -> Result<Vec<u8>, EncryptedKeyStoreError> {
         let nonce = secretbox::gen_nonce();
 
-        let key = match secretbox::Key::from_slice(key) {
-            Some(value) => value,
-            None => return Err(EncryptedKeyStoreError::EncryptionError),
-        };
-
-        let mut ciphertext = secretbox::seal(msg, &nonce, &key);
+        let mut ciphertext = secretbox::seal(msg, &nonce, &encryption_key);
         ciphertext.append(&mut nonce.as_ref().to_vec());
         Ok(ciphertext)
     }
 
-    fn decrypt(key: &[u8], msg: &[u8]) -> Result<Vec<u8>, EncryptedKeyStoreError> {
+    fn decrypt(
+        encryption_key: Arc<secretbox::Key>,
+        msg: &[u8],
+    ) -> Result<Vec<u8>, EncryptedKeyStoreError> {
         let ciphertext = &msg[..msg.len() - 24];
 
         let nonce = match secretbox::Nonce::from_slice(&msg[msg.len() - 24..]) {
@@ -387,17 +427,269 @@ impl EncryptedKeyStore for PersistentKeyStore {
             None => return Err(EncryptedKeyStoreError::DecryptionError),
         };
 
-        let key = match secretbox::Key::from_slice(&key) {
-            Some(value) => value,
-            None => return Err(EncryptedKeyStoreError::DecryptionError),
-        };
-
-        let plaintext = secretbox::open(&ciphertext, &nonce, &key)
+        let plaintext = secretbox::open(&ciphertext, &nonce, &encryption_key)
             .map_err(|_| EncryptedKeyStoreError::DecryptionError)?;
 
         Ok(plaintext)
     }
 }
+
+// impl Store for PersistentKeyStore {
+//     fn new(config: KeyStoreConfig) -> Result<Self, Error> {
+//         let path = location.join(Path::new(KEYSTORE_NAME));
+
+//         match File::open(&path) {
+//             Ok(file) => {
+//                 let reader = BufReader::new(file);
+
+//                 // Existing cleartext JSON keystore
+//                 let key_info = serde_json::from_reader(reader)
+//                     .map_err(|e| {
+//                         error!("failed to deserialize keyfile, initializing new");
+//                         e
+//                     })
+//                     .unwrap_or_default();
+
+//                 Ok(Self { key_info, path })
+//             }
+//             Err(e) => {
+//                 if e.kind() == ErrorKind::NotFound {
+//                     warn!("Keystore does not exist, initializing new keystore");
+//                     Ok(Self {
+//                         key_info: HashMap::new(),
+//                         path,
+//                     })
+//                 } else {
+//                     Err(Error::Other(e.to_string()))
+//                 }
+//             }
+//         }
+//     }
+
+//     pub fn flush(&self) -> Result<(), Error> {
+//         let dir = &self
+//             .path
+//             .parent()
+//             .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
+//         fs::create_dir_all(dir)?;
+//         let file = File::create(&self.path)?;
+//         let writer = BufWriter::new(file);
+
+//         serde_json::to_writer(writer, &self.key_info)
+//             .map_err(|e| Error::Other(format!("failed to serialize and write key info: {}", e)))?;
+
+//         Ok(())
+//     }
+// }
+
+// impl<T: KeyStore> KeyStore<PersistentKeyStore> for T {
+//     fn list(&self) -> Vec<String> {
+//         self.key_info.iter().map(|(key, _)| key.clone()).collect()
+//     }
+
+//     fn get(&self, k: &str) -> Result<KeyInfo, Error> {
+//         self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
+//     }
+
+//     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
+//         if self.key_info.contains_key(&key) {
+//             return Err(Error::KeyExists);
+//         }
+
+//         self.key_info.insert(key, key_info);
+//         self.flush()?;
+//         Ok(())
+//     }
+
+//     fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
+//         let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
+//         self.flush()?;
+//         Ok(key_out)
+//     }
+// }
+
+// #[derive(Clone, PartialEq, Debug, Eq)]
+// pub struct EncryptedKeyStore {
+//     pub key_info: HashMap<String, KeyInfo>,
+//     path: PathBuf,
+//     encryption_key: Arc<secretbox::Key>,
+//     salt: pwhash::Salt,
+// }
+
+// impl EncryptedKeyStore {
+//     pub fn new(location: PathBuf, passphrase: String) -> Result<Self, Error> {
+//         let path = location.join(Path::new(ENCRYPTED_KEYSTORE_NAME));
+
+//         match File::open(&path) {
+//             Ok(file) => {
+//                 let mut reader = BufReader::new(file);
+//                 let mut buf = vec![];
+//                 let read_bytes = reader.read_to_end(&mut buf)?;
+
+//                 if read_bytes == 0 {
+//                     // New encrypted keystore if file exists but is zero bytes (i.e., touch)
+//                     warn!("Keystore does not exist, initializing new keystore");
+
+//                     let (salt, encryption_key) = EncryptedKeyStore::derive_key(&passphrase, None)
+//                         .map_err(|error| {
+//                         error!("Failed to create key from passphrase");
+//                         Error::Other(error.to_string())
+//                     })?;
+
+//                     Ok(Self {
+//                         key_info: HashMap::new(),
+//                         path,
+//                         encryption_key,
+//                         salt,
+//                     })
+//                 } else {
+//                     // Existing encrypted keystore
+//                     // Split off data from prepended salt
+//                     let data = buf.split_off(pwhash::SALTBYTES);
+
+//                     let (salt, encryption_key) =
+//                         EncryptedKeyStore::derive_key(&passphrase, Some(buf)).map_err(|error| {
+//                             error!("Failed to create key from passphrase");
+//                             Error::Other(error.to_string())
+//                         })?;
+
+//                     let decrypted_data = EncryptedKeyStore::decrypt(encryption_key.clone(), &data)
+//                         .map_err(|error| Error::Other(error.to_string()))?;
+
+//                     let key_info = serde_cbor::from_slice(&decrypted_data)
+//                         .map_err(|e| {
+//                             error!("Failed to deserialize keyfile, initializing new");
+//                             e
+//                         })
+//                         .unwrap_or_default();
+
+//                     Ok(Self {
+//                         key_info,
+//                         path,
+//                         encryption_key,
+//                         salt,
+//                     })
+//                 }
+//             }
+//             Err(e) => {
+//                 warn!("Encrypted keystore does not exist, initializing new keystore");
+
+//                 let (salt, encryption_key) = EncryptedKeyStore::derive_key(&passphrase, None)
+//                     .map_err(|error| {
+//                         error!("Failed to create key from passphrase");
+//                         Error::Other(error.to_string())
+//                     })?;
+
+//                 Ok(Self {
+//                     key_info: HashMap::new(),
+//                     path,
+//                     encryption_key,
+//                     salt,
+//                 })
+//             }
+//         }
+//     }
+
+//     pub fn flush(&self) -> Result<(), Error> {
+//         let dir = &self
+//             .path
+//             .parent()
+//             .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
+//         fs::create_dir_all(dir)?;
+//         let file = File::create(&self.path)?;
+//         let mut writer = BufWriter::new(file);
+
+//         let data = serde_cbor::to_vec(&self.key_info)
+//             .map_err(|e| Error::Other(format!("failed to serialize and write key info: {}", e)))?;
+
+//         let encrypted_data = EncryptedKeyStore::encrypt(self.encryption_key.clone(), &data)
+//             .map_err(|error| Error::Other(error.to_string()))?;
+
+//         writer.write_all(&encrypted_data)?;
+
+//         Ok(())
+//     }
+
+//     fn derive_key(
+//         passphrase: &str,
+//         prev_salt: Option<Vec<u8>>,
+//     ) -> Result<(pwhash::Salt, Arc<secretbox::Key>), EncryptedKeyStoreError> {
+//         let salt = match prev_salt {
+//             Some(prev_salt) => match pwhash::Salt::from_slice(&prev_salt) {
+//                 Some(salt) => salt,
+//                 None => return Err(EncryptedKeyStoreError::ConfigurationError),
+//             },
+//             None => pwhash::gen_salt(),
+//         };
+//         let mut key = secretbox::Key([0; secretbox::KEYBYTES]);
+
+//         let secretbox::Key(ref mut kb) = key;
+//         pwhash::derive_key(
+//             kb,
+//             passphrase.as_bytes(),
+//             &salt,
+//             pwhash::OPSLIMIT_INTERACTIVE,
+//             pwhash::MEMLIMIT_INTERACTIVE,
+//         )
+//         .unwrap();
+
+//         Ok((salt, Arc::new(key)))
+//     }
+
+//     fn encrypt(
+//         encryption_key: Arc<secretbox::Key>,
+//         msg: &[u8],
+//     ) -> Result<Vec<u8>, EncryptedKeyStoreError> {
+//         let nonce = secretbox::gen_nonce();
+
+//         let mut ciphertext = secretbox::seal(msg, &nonce, &encryption_key);
+//         ciphertext.append(&mut nonce.as_ref().to_vec());
+//         Ok(ciphertext)
+//     }
+
+//     fn decrypt(
+//         encryption_key: Arc<secretbox::Key>,
+//         msg: &[u8],
+//     ) -> Result<Vec<u8>, EncryptedKeyStoreError> {
+//         let ciphertext = &msg[..msg.len() - 24];
+
+//         let nonce = match secretbox::Nonce::from_slice(&msg[msg.len() - 24..]) {
+//             Some(value) => value,
+//             None => return Err(EncryptedKeyStoreError::DecryptionError),
+//         };
+
+//         let plaintext = secretbox::open(&ciphertext, &nonce, &encryption_key)
+//             .map_err(|_| EncryptedKeyStoreError::DecryptionError)?;
+
+//         Ok(plaintext)
+//     }
+// }
+
+// impl KeyStore<EncryptedKeyStore> {
+//     fn list(&self) -> Vec<String> {
+//         self.key_info.iter().map(|(key, _)| key.clone()).collect()
+//     }
+
+//     fn get(&self, k: &str) -> Result<KeyInfo, Error> {
+//         self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
+//     }
+
+//     fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
+//         if self.key_info.contains_key(&key) {
+//             return Err(Error::KeyExists);
+//         }
+
+//         self.key_info.insert(key, key_info);
+//         self.flush()?;
+//         Ok(())
+//     }
+
+//     fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
+//         let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
+//         self.flush()?;
+//         Ok(key_out)
+//     }
+// }
 
 #[cfg(test)]
 mod test {
@@ -407,25 +699,39 @@ mod test {
 
     #[test]
     fn test_generate_key() {
-        let private_key = PersistentKeyStore::derive_key(PASSPHRASE).unwrap();
-        let second_pass = PersistentKeyStore::derive_key(PASSPHRASE).unwrap();
-        assert_eq!(private_key, second_pass);
+        let (salt, encryption_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
+        let (second_salt, second_key) =
+            EncryptedKeyStore::derive_key(PASSPHRASE, Some(salt.as_ref().to_vec())).unwrap();
+
+        assert_eq!(
+            encryption_key, second_key,
+            "Derived key must be deterministic"
+        );
+        assert_eq!(salt, second_salt, "Salts must match");
     }
 
     #[test]
     fn test_encrypt_message() {
-        let private_key = PersistentKeyStore::derive_key(PASSPHRASE).unwrap();
+        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let message = "foo is coming";
-        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes());
-        assert!(ciphertext.is_ok());
+        let ciphertext =
+            EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes()).unwrap();
+        let second_pass =
+            EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes()).unwrap();
+
+        assert_ne!(
+            ciphertext, second_pass,
+            "Ciphertexts use secure initialization vectors"
+        );
     }
 
     #[test]
     fn test_decrypt_message() {
-        let private_key = PersistentKeyStore::derive_key(PASSPHRASE).unwrap();
+        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let message = "foo is coming";
-        let ciphertext = PersistentKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
-        let plaintext = PersistentKeyStore::decrypt(&private_key, &ciphertext).unwrap();
+        let ciphertext =
+            EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes()).unwrap();
+        let plaintext = EncryptedKeyStore::decrypt(private_key.clone(), &ciphertext).unwrap();
 
         assert_eq!(plaintext, message.as_bytes());
     }
@@ -438,9 +744,12 @@ mod test {
         // current way to run this test:
         // add encrypt_keystore = true to config.toml
         // change keystore_location to your location
-        let keystore_location = String::from("/home/connor/chainsafe/forest-db");
-        let ks = PersistentKeyStore::new(keystore_location, true, Some(String::from(PASSPHRASE)))
-            .unwrap();
+        let keystore_location = PathBuf::from("/home/connor/chainsafe/forest-db");
+        let ks = KeyStore::new(KeyStoreConfig::Encrypted(
+            keystore_location,
+            PASSPHRASE.to_string(),
+        ))
+        .unwrap();
         ks.flush().unwrap();
 
         assert!(true);
@@ -449,8 +758,8 @@ mod test {
     #[test]
     #[ignore = "fragile test, requires keystore.json"]
     fn test_read_unencrypted_keystore() {
-        let keystore_location = String::from("/home/connor/chainsafe/forest-db");
-        let ks = PersistentKeyStore::new(keystore_location, false, None).unwrap();
+        let keystore_location = PathBuf::from("/home/connor/chainsafe/forest-db");
+        let ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
         ks.flush().unwrap();
 
         assert!(true);

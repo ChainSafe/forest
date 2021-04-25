@@ -6,15 +6,13 @@ use tide::http::{format_err, Error as HttpError, Method};
 
 use beacon::Beacon;
 use blockstore::BlockStore;
-use wallet::KeyStore;
 
 use crate::data_types::JsonRpcServerState;
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 
-pub async fn rpc_http_handler<DB, KS, B>(request: tide::Request<JsonRpcServerState>) -> tide::Result
+pub async fn rpc_http_handler<DB, B>(request: tide::Request<JsonRpcServerState>) -> tide::Result
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (auth_header, mut request) = get_auth_header(request);
@@ -36,7 +34,7 @@ where
         }
     }
 
-    check_permissions::<DB, KS, B>(rpc_server.clone(), rpc_call.method_ref(), auth_header).await?;
+    check_permissions::<DB, B>(rpc_server.clone(), rpc_call.method_ref(), auth_header).await?;
 
     if is_streaming_method(rpc_call.method_ref()) {
         return Err(HttpError::from_str(

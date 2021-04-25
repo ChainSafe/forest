@@ -17,9 +17,10 @@ use rpassword::read_password;
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
 use std::io::prelude::*;
+use std::path::PathBuf;
 use std::sync::Arc;
 use utils::write_to_file;
-use wallet::{KeyStore, PersistentKeyStore};
+use wallet::{KeyStore, KeyStoreConfig};
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -42,21 +43,19 @@ pub(super) async fn start(config: Config) {
         });
 
     // Initialize keystore
-    let passphrase = match config.encrypt_keystore {
-        true => {
-            print!("Keystore passphrase: ");
-            std::io::stdout().flush().unwrap();
-            Some(read_password().expect("Error reading passphrase"))
-        }
-        false => None,
+    let mut ks = if config.encrypt_keystore {
+        print!("Keystore passphrase: ");
+        std::io::stdout().flush().unwrap();
+        let passphrase = read_password().expect("Error reading passphrase");
+        KeyStore::new(KeyStoreConfig::Encrypted(
+            PathBuf::from(&config.data_dir),
+            passphrase,
+        ))
+        .expect("Error initializing keystore: incorrect passphrase")
+    } else {
+        KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(&config.data_dir)))
+            .expect("Error initializing keystore")
     };
-
-    let mut ks = PersistentKeyStore::new(
-        config.data_dir.to_string(),
-        config.encrypt_keystore,
-        passphrase,
-    )
-    .expect("Error initializing keystore: incorrect passphrase");
 
     if ks.get(JWT_IDENTIFIER).is_err() {
         ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
@@ -68,7 +67,7 @@ pub(super) async fn start(config: Config) {
     #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
     let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
 
-    #[cfg(feature = "rocksdb")]
+    #[cfg(all(feature = "rocksdb", not(feature = "sled")))]
     let db = db::rocks::RocksDb::open(config.data_dir + "/db").unwrap();
 
     let db = Arc::new(db);
@@ -155,7 +154,7 @@ pub(super) async fn start(config: Config) {
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
-            start_rpc::<_, _, _, FullVerifier>(
+            start_rpc::<_, _, FullVerifier>(
                 Arc::new(RpcState {
                     state_manager,
                     keystore: keystore_rpc,
