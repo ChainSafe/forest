@@ -12,7 +12,6 @@ use structopt::StructOpt;
 #[async_std::main]
 async fn main() {
     logger::setup_logger();
-
     // Capture CLI inputs
     match CLI::from_args() {
         CLI {

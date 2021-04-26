@@ -18,8 +18,8 @@ use message::{
 };
 use num_bigint::bigint_ser;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::str::FromStr;
+use std::{collections::HashSet, convert::TryFrom};
 use vm::TokenAmount;
 use wallet::KeyStore;
 
@@ -162,7 +162,7 @@ where
 
     let from = *umsg.from();
 
-    let keystore = data.keystore.as_ref().write().await;
+    let mut keystore = data.keystore.as_ref().write().await;
     let heaviest_tipset = data
         .state_manager
         .chain_store()
@@ -190,7 +190,7 @@ where
     }
     let nonce = data.mpool.get_sequence(&from).await?;
     umsg.sequence = nonce;
-    let key = wallet::find_key(&key_addr, &*keystore)?;
+    let key = wallet::Key::try_from(wallet::try_find(&key_addr, &mut *keystore)?)?;
     let sig = wallet::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
