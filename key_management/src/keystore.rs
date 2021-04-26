@@ -319,7 +319,9 @@ impl KeyStore {
                         )
                         .map_err(|error| Error::Other(error.to_string()))?;
 
-                        writer.write_all(&encrypted_data)?;
+                        let mut salt_vec = encrypted_keystore.salt.as_ref().to_vec();
+                        salt_vec.extend(encrypted_data);
+                        writer.write_all(&salt_vec)?;
 
                         Ok(())
                     }
