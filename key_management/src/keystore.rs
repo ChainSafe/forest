@@ -15,8 +15,8 @@ use thiserror::Error;
 use super::errors::Error;
 use crypto::SignatureType;
 
-const KEYSTORE_NAME: &str = "/keystore.json";
-const ENCRYPTED_KEYSTORE_NAME: &str = "/keystore";
+const KEYSTORE_NAME: &str = "keystore.json";
+const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector
@@ -316,8 +316,7 @@ impl KeyStore {
                         let encrypted_data = EncryptedKeyStore::encrypt(
                             encrypted_keystore.encryption_key.clone(),
                             &data,
-                        )
-                        .map_err(|error| Error::Other(error.to_string()))?;
+                        );
 
                         let mut salt_vec = encrypted_keystore.salt.as_ref().to_vec();
                         salt_vec.extend(encrypted_data);
@@ -405,15 +404,12 @@ impl EncryptedKeyStore {
         Ok((salt, Arc::new(key)))
     }
 
-    fn encrypt(
-        encryption_key: Arc<secretbox::Key>,
-        msg: &[u8],
-    ) -> Result<Vec<u8>, EncryptedKeyStoreError> {
+    fn encrypt(encryption_key: Arc<secretbox::Key>, msg: &[u8]) -> Vec<u8> {
         let nonce = secretbox::gen_nonce();
 
         let mut ciphertext = secretbox::seal(msg, &nonce, &encryption_key);
         ciphertext.append(&mut nonce.as_ref().to_vec());
-        Ok(ciphertext)
+        ciphertext
     }
 
     fn decrypt(
@@ -457,10 +453,8 @@ mod test {
     fn test_encrypt_message() {
         let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let message = "foo is coming";
-        let ciphertext =
-            EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes()).unwrap();
-        let second_pass =
-            EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes()).unwrap();
+        let ciphertext = EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes());
+        let second_pass = EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes());
 
         assert_ne!(
             ciphertext, second_pass,
@@ -472,8 +466,7 @@ mod test {
     fn test_decrypt_message() {
         let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let message = "foo is coming";
-        let ciphertext =
-            EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes()).unwrap();
+        let ciphertext = EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes());
         let plaintext = EncryptedKeyStore::decrypt(private_key.clone(), &ciphertext).unwrap();
 
         assert_eq!(plaintext, message.as_bytes());
