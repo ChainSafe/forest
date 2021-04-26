@@ -129,12 +129,12 @@ impl Chains {
     }
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
-    pub(crate) fn get_from(&self, i: usize, vec: &Vec<NodeKey>) -> &MsgChainNode {
+    pub(crate) fn get_from(&self, i: usize, vec: &[NodeKey]) -> &MsgChainNode {
         self.map.get(vec[i]).unwrap()
     }
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
-    pub(crate) fn get_mut_from(&mut self, i: usize, vec: &Vec<NodeKey>) -> &mut MsgChainNode {
+    pub(crate) fn get_mut_from(&mut self, i: usize, vec: &[NodeKey]) -> &mut MsgChainNode {
         self.map.get_mut(vec[i]).unwrap()
     }
 
@@ -266,7 +266,7 @@ pub struct MsgChainNode {
 
 impl MsgChainNode {
     pub fn compare(&self, other: &Self) -> Ordering {
-        if self.gas_perf > other.gas_perf
+        if approx_cmp(self.gas_perf, other.gas_perf).eq(&Ordering::Greater)
             || self.gas_perf == other.gas_perf
                 && self
                     .gas_reward
@@ -528,4 +528,12 @@ where
     chains.key_vec.extend(node_vec.iter());
 
     Ok(())
+}
+
+fn approx_cmp(a: f64, b: f64) -> Ordering {
+    if (a - b).abs() < std::f64::EPSILON {
+        Ordering::Equal
+    } else {
+        a.partial_cmp(&b).unwrap()
+    }
 }
