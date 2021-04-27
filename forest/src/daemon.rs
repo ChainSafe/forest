@@ -21,6 +21,16 @@ use wallet::{KeyStore, PersistentKeyStore};
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
+    // Set the Address network prefix
+    #[cfg(feature = "testnet")]
+    address::NETWORK_DEFAULT
+        .set(address::Network::Testnet)
+        .unwrap();
+    #[cfg(not(feature = "testnet"))]
+    address::NETWORK_DEFAULT
+        .set(address::Network::Mainnet)
+        .unwrap();
+
     info!("Starting Forest daemon");
     let net_keypair = get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair"))
         .unwrap_or_else(|| {

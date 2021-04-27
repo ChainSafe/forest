@@ -45,6 +45,7 @@ members = [
     "utils/statediff",
     "utils/test_utils",
 ]
+resolver = "2"
 
 [patch.crates-io]
 ipld_blockstore = { path = "./ipld/blockstore" }

@@ -72,7 +72,14 @@ where
             return Ok(k.clone());
         }
         let key_string = format!("wallet-{}", addr.to_string());
-        let key_info = self.keystore.get(&key_string)?;
+        let key_info = match self.keystore.get(&key_string) {
+            Ok(k) => k,
+            Err(_) => {
+                // replace with testnet prefix
+                self.keystore
+                    .get(&format!("wallet-t{}", &addr.to_string()[1..]))?
+            }
+        };
         let new_key = Key::try_from(key_info)?;
         self.keys.insert(*addr, new_key.clone());
         Ok(new_key)
@@ -187,8 +194,10 @@ pub fn try_find<T: KeyStore>(addr: &Address, keystore: &mut T) -> Result<KeyInfo
             // * We might be able to remove this, look into variants
             new_addr.replace_range(0..1, "t");
             let key_string = format!("wallet-{}", new_addr);
-            let key_info = keystore.get(&key_string)?;
-            keystore.put(addr.to_string(), key_info.clone())?;
+            let key_info = match keystore.get(&key_string) {
+                Ok(k) => k,
+                Err(_) => keystore.get(&format!("wallet-f{}", &new_addr[1..]))?,
+            };
             Ok(key_info)
         }
     }
