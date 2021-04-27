@@ -4,7 +4,7 @@
 mod state;
 
 pub use self::state::{Entry, State};
-use crate::{check_empty_params, SYSTEM_ACTOR_ADDR};
+use crate::SYSTEM_ACTOR_ADDR;
 use encoding::tuple::*;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
@@ -87,7 +87,6 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::EpochTick) => {
-                check_empty_params(params)?;
                 Self::epoch_tick(rt)?;
                 Ok(Serialized::default())
             }

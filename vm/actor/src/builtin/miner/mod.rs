@@ -40,9 +40,9 @@ use crate::{
     power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
 use crate::{
-    check_empty_params, is_principal, smooth::FilterEstimate, ACCOUNT_ACTOR_CODE_ID,
-    BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR, REWARD_ACTOR_ADDR,
-    STORAGE_MARKET_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR,
+    is_principal, smooth::FilterEstimate, ACCOUNT_ACTOR_CODE_ID, BURNT_FUNDS_ACTOR_ADDR,
+    CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR, REWARD_ACTOR_ADDR, STORAGE_MARKET_ACTOR_ADDR,
+    STORAGE_POWER_ACTOR_ADDR,
 };
 use crate::{
     market::{
@@ -3615,8 +3615,8 @@ where
         *STORAGE_MARKET_ACTOR_ADDR,
         MarketMethod::ComputeDataCommitment as u64,
         Serialized::serialize(ComputeDataCommitmentParamsRef {
-            sector_type,
             deal_ids,
+            sector_type,
         })?,
         TokenAmount::zero(),
     )?;
@@ -4089,7 +4089,6 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::ControlAddresses) => {
-                check_empty_params(params)?;
                 let res = Self::control_addresses(rt)?;
                 Ok(Serialized::serialize(&res)?)
             }
@@ -4166,12 +4165,10 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::ConfirmUpdateWorkerKey) => {
-                check_empty_params(params)?;
                 Self::confirm_update_worker_key(rt)?;
                 Ok(Serialized::default())
             }
             Some(Method::RepayDebt) => {
-                check_empty_params(params)?;
                 Self::repay_debt(rt)?;
                 Ok(Serialized::default())
             }

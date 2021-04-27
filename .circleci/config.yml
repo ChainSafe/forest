@@ -1,5 +1,10 @@
 version: 2.1
 
+parameters:
+  rustc-version:
+    type: string
+    default: "1.51.0"
+
 executors:
   test-executor:
     machine:
@@ -154,12 +159,12 @@ jobs:
       - env_setup
       - run:
           name: Install minimum version
-          command: rustup toolchain install 1.46.0
+          command: rustup toolchain install << pipeline.parameters.rustc-version >>
       - run:
           name: Minimum supported rust version check
           command: |
-            cargo +1.46.0 check -p forest
-            cargo +1.46.0 check
+            cargo +<< pipeline.parameters.rustc-version >> check -p forest
+            cargo +<< pipeline.parameters.rustc-version >> check
   macos-build-check:
     executor: mac-executor
     description: Check macos build
@@ -290,9 +295,9 @@ workflows:
       - msrv-build-check:
           requires:
             - prefetch-crates
-      - macos-build-check:
-          requires:
-            - prefetch-crates
+      # - macos-build-check:
+      #     requires:
+      #       - prefetch-crates
   daily-check:
     triggers:
       - schedule:

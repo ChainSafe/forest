@@ -321,10 +321,10 @@ fn construct_and_verify(curr_power: &StoragePower) -> MockRuntime {
     let mut rt = MockRuntime {
         receiver: *REWARD_ACTOR_ADDR,
         caller: *SYSTEM_ACTOR_ADDR,
-        caller_type: SYSTEM_ACTOR_CODE_ID.clone(),
+        caller_type: *SYSTEM_ACTOR_CODE_ID,
         ..Default::default()
     };
-    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
     let ret = rt
         .call(
             &*REWARD_ACTOR_CODE_ID,
@@ -405,7 +405,7 @@ fn this_epoch_reward(rt: &mut MockRuntime) -> ThisEpochRewardReturn {
 }
 
 fn update_network_kpi(rt: &mut MockRuntime, curr_raw_power: &StoragePower) {
-    rt.set_caller(POWER_ACTOR_CODE_ID.clone(), *STORAGE_POWER_ACTOR_ADDR);
+    rt.set_caller(*POWER_ACTOR_CODE_ID, *STORAGE_POWER_ACTOR_ADDR);
     rt.expect_validate_caller_addr(vec![*STORAGE_POWER_ACTOR_ADDR]);
 
     let params = &Serialized::serialize(BigIntSer(&curr_raw_power)).unwrap();

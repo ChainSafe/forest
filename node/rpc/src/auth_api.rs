@@ -7,6 +7,7 @@ use beacon::Beacon;
 use blockstore::BlockStore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use wallet::KeyStore;
+
 /// RPC call to create a new JWT Token
 pub(crate) async fn auth_new<'a, DB, KS, B>(
     data: Data<RpcState<DB, KS, B>>,
@@ -35,7 +36,8 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let ks = data.keystore.read().await;
-    let (token,) = params;
+    let (header_raw,) = params;
+    let token = header_raw.trim_start_matches("Bearer ");
     let ki = ks.get(JWT_IDENTIFIER)?;
     let perms = verify_token(&token, ki.private_key())?;
     Ok(perms)

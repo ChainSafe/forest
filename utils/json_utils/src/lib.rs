@@ -167,7 +167,7 @@ mod tests {
         struct BasicJson {
             #[serde(with = "go_vec_visitor")]
             ints: Vec<u8>,
-        };
+        }
 
         let null_json = r#"null"#;
         let BasicJson { ints } = from_str(null_json).unwrap();

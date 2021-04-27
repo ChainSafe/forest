@@ -6,6 +6,7 @@ use crossbeam::atomic::AtomicCell;
 use futures::stream::SplitSink;
 use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
+use tide::http::headers::HeaderValues;
 use tide_websockets::{Message, WebSocketConnection};
 
 use beacon::Beacon;
@@ -14,17 +15,26 @@ use wallet::KeyStore;
 
 use crate::data_types::{JsonRpcServerState, StreamingData, SubscriptionHeadChange};
 use crate::rpc_util::{
-    call_rpc, call_rpc_str, get_error_str, RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
+    call_rpc, call_rpc_str, check_permissions, get_auth_header, get_error_str,
+    RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
 };
 
 async fn rpc_ws_task<DB, KS, B>(
+    authorization_header: Option<HeaderValues>,
     rpc_call: jsonrpc_v2::RequestObject,
     rpc_server: JsonRpcServerState,
     is_socket_active: Arc<AtomicCell<bool>>,
     ws_sender: Arc<Mutex<SplitSink<WebSocketConnection, Message>>>,
-) -> Result<(), tide::Error> {
+) -> Result<(), tide::Error>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    KS: KeyStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
     let call_method = rpc_call.method_ref();
     let call_id = rpc_call.id_ref();
+
+    check_permissions::<DB, KS, B>(rpc_server.clone(), call_method, authorization_header).await?;
 
     match call_method {
         RPC_METHOD_CHAIN_NOTIFY => {
@@ -116,6 +126,7 @@ where
     KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
+    let (authorization_header, request) = get_auth_header(request);
     let rpc_server = request.state();
     let socket_active = Arc::new(AtomicCell::new(true));
     let (ws_sender, mut ws_receiver) = ws_stream.split();
@@ -135,6 +146,7 @@ where
                 if !request_text.is_empty() {
                     info!("RPC Request Received: {:?}", &request_text);
 
+                    let authorization_header = authorization_header.clone();
                     let task_rpc_server = rpc_server.clone();
                     let task_socket_active = socket_active.clone();
                     let task_ws_sender = ws_sender.clone();
@@ -145,6 +157,7 @@ where
                         Ok(rpc_call) => {
                             async_std::task::spawn(async move {
                                 match rpc_ws_task::<DB, KS, B>(
+                                    authorization_header,
                                     rpc_call,
                                     task_rpc_server,
                                     task_socket_active,

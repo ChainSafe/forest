@@ -16,7 +16,7 @@ const MINOR_ONLY_MASK: u32 = 0x00ff00;
 const PATCH_ONLY_MASK: u32 = 0x0000ff;
 
 // api versions
-const FULL_API_VERSION: Version = new_version(1, 0, 0);
+const FULL_API_VERSION: Version = new_version(1, 1, 0);
 const MINER_API_VERSION: Version = new_version(0, 15, 0);
 const WORKER_API_VERSION: Version = new_version(0, 15, 0);
 

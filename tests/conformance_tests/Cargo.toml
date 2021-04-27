@@ -58,7 +58,7 @@ state_tree = { path = "../../vm/state_tree/", optional = true }
 chain = { path = "../../blockchain/chain", optional = true }
 futures = { version = "0.3.5", optional = true }
 forest_blocks = { path = "../../blockchain/blocks", optional = true }
-networks = { path = "../../types/networks", optional = true }
+networks = { path = "../../types/networks", features = ["mainnet"], optional = true }
 
 [dev-dependencies]
 regex = { version = "1.0" }

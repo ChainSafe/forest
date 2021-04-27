@@ -11,7 +11,7 @@ use self::policy::*;
 pub use self::state::*;
 pub use self::types::*;
 use crate::{
-    check_empty_params, power, request_miner_control_addrs, reward,
+    power, request_miner_control_addrs, reward,
     verifreg::{Method as VerifregMethod, RestoreBytesParams, UseBytesParams},
     ActorDowncast, DealID, BURNT_FUNDS_ACTOR_ADDR, CALLER_TYPES_SIGNABLE, CRON_ACTOR_ADDR,
     MINER_ACTOR_CODE_ID, REWARD_ACTOR_ADDR, STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR,
@@ -1355,7 +1355,6 @@ impl ActorCode for Actor {
     {
         match FromPrimitive::from_u64(method) {
             Some(Method::Constructor) => {
-                check_empty_params(params)?;
                 Self::constructor(rt)?;
                 Ok(Serialized::default())
             }
@@ -1388,7 +1387,6 @@ impl ActorCode for Actor {
                 Ok(Serialized::serialize(res)?)
             }
             Some(Method::CronTick) => {
-                check_empty_params(params)?;
                 Self::cron_tick(rt)?;
                 Ok(Serialized::default())
             }

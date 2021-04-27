@@ -72,7 +72,14 @@ where
             return Ok(k.clone());
         }
         let key_string = format!("wallet-{}", addr.to_string());
-        let key_info = self.keystore.get(&key_string)?;
+        let key_info = match self.keystore.get(&key_string) {
+            Ok(k) => k,
+            Err(_) => {
+                // replace with testnet prefix
+                self.keystore
+                    .get(&format!("wallet-t{}", &addr.to_string()[1..]))?
+            }
+        };
         let new_key = Key::try_from(key_info)?;
         self.keys.insert(*addr, new_key.clone());
         Ok(new_key)
@@ -187,8 +194,10 @@ pub fn try_find<T: KeyStore>(addr: &Address, keystore: &mut T) -> Result<KeyInfo
             // * We might be able to remove this, look into variants
             new_addr.replace_range(0..1, "t");
             let key_string = format!("wallet-{}", new_addr);
-            let key_info = keystore.get(&key_string)?;
-            keystore.put(addr.to_string(), key_info.clone())?;
+            let key_info = match keystore.get(&key_string) {
+                Ok(k) => k,
+                Err(_) => keystore.get(&format!("wallet-f{}", &new_addr[1..]))?,
+            };
             Ok(key_info)
         }
     }
@@ -254,7 +263,7 @@ mod tests {
     fn contains_key() {
         let key_vec = construct_priv_keys();
         let found_key = key_vec[0].clone();
-        let addr = key_vec[0].address.clone();
+        let addr = key_vec[0].address;
 
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
 
@@ -281,7 +290,7 @@ mod tests {
     fn sign() {
         let key_vec = construct_priv_keys();
         let priv_key_bytes = key_vec[2].key_info.private_key().clone();
-        let addr = key_vec[2].address.clone();
+        let addr = key_vec[2].address;
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
         let msg = [0u8; 64];
 
@@ -306,7 +315,7 @@ mod tests {
 
         let key_info = wallet.export(&key.address).unwrap();
         // test to see if export returns the correct key_info
-        assert_eq!(key_info, key.key_info.clone());
+        assert_eq!(key_info, key.key_info);
 
         let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
         let pub_key =
@@ -391,7 +400,7 @@ mod tests {
         wallet.keystore.put(test_addr_string, key_info).unwrap();
 
         // check to make sure that the set_default function completed without error
-        assert!(wallet.set_default(test_addr.clone()).is_ok());
+        assert!(wallet.set_default(test_addr).is_ok());
 
         // check to make sure that the test_addr is actually the default addr for the wallet
         assert_eq!(wallet.get_default().unwrap(), test_addr);
@@ -402,7 +411,7 @@ mod tests {
         let secp_priv_key = generate(SignatureType::Secp256k1).unwrap();
         let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
         let secp_key = Key::try_from(secp_key_info).unwrap();
-        let addr = secp_key.address.clone();
+        let addr = secp_key.address;
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), vec![secp_key]);
 
         let msg = [0u8; 64];
@@ -420,7 +429,7 @@ mod tests {
         let bls_priv_key = generate(SignatureType::BLS).unwrap();
         let bls_key_info = KeyInfo::new(SignatureType::BLS, bls_priv_key);
         let bls_key = Key::try_from(bls_key_info).unwrap();
-        let addr = bls_key.address.clone();
+        let addr = bls_key.address;
         let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), vec![bls_key]);
 
         let msg = [0u8; 64];

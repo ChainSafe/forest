@@ -673,7 +673,7 @@ mod tests {
         Sender<NetworkEvent>,
         Receiver<NetworkMessage>,
     ) {
-        let chain_store = Arc::new(ChainStore::new(db.clone()));
+        let chain_store = Arc::new(ChainStore::new(db));
         let test_provider = TestApi::default();
         let (tx, _rx) = bounded(10);
         let mpool = task::block_on(MessagePool::new(
