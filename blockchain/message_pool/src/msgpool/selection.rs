@@ -108,7 +108,6 @@ where
         let mut pending = self.get_pending_messages(&cur_ts, &target_tipset).await?;
 
         if pending.is_empty() {
-            // FIXME: lotus returns a nil, shouldn't we return an Err?
             return Ok(Vec::new());
         }
 
@@ -524,8 +523,6 @@ fn merge_and_trim(
     chains.sort(true);
 
     let first_chain_gas_perf = chains[0].gas_perf;
-    // NOTE: replace this taken chain back into slot_chain with `place_key_vec_back`
-    // let mut key_vec = chains.take_chain_vec();
 
     if !chains.is_empty() && first_chain_gas_perf < 0.0 {
         log::warn!(
@@ -1021,7 +1018,6 @@ mod test_selection {
 
     #[async_std::test]
     async fn test_optimal_msg_selection1() {
-        const TEST_GAS_LIMIT: i64 = 6955002;
         // this test uses just a single actor sending messages with a low tq
         // the chain depenent merging algorithm should pick messages from the actor
         // from the start
@@ -1150,9 +1146,7 @@ mod test_selection {
             .await
             .set_state_balance_raw(&a2, types::DefaultNetworkParams::from_fil(1)); // in FIL
 
-        // TODO: change 1 back to 5
         let n_msgs = 5 * types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
-        dbg!(n_msgs);
         for i in 0..n_msgs as usize {
             let bias = (n_msgs as usize - i) / 3;
             let m = create_smsg(

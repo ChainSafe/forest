@@ -28,7 +28,7 @@ new_key_type! {
 /// Each MsgChainNode contains only pointers as `NodeKey` to the entries in the map
 /// With this design, we get around the borrow checker rule issues when
 /// implementing the optimal selection algorithm.
-pub struct Chains {
+pub(crate) struct Chains {
     pub map: SlotMap<NodeKey, MsgChainNode>,
     pub key_vec: Vec<NodeKey>,
 }
@@ -266,12 +266,11 @@ pub struct MsgChainNode {
 
 impl MsgChainNode {
     pub fn compare(&self, other: &Self) -> Ordering {
-        if approx_cmp(self.gas_perf, other.gas_perf).eq(&Ordering::Greater)
-            || self.gas_perf == other.gas_perf
+        if approx_cmp(self.gas_perf, other.gas_perf) == Ordering::Greater
+            || approx_cmp(self.gas_perf,other.gas_perf) == Ordering::Equal
                 && self
                     .gas_reward
-                    .cmp(&other.gas_reward)
-                    .eq(&Ordering::Greater)
+                    .cmp(&other.gas_reward) == Ordering::Greater
         {
             return Ordering::Greater;
         }
@@ -279,7 +278,6 @@ impl MsgChainNode {
         Ordering::Less
     }
 
-    #[allow(dead_code)]
     pub(crate) fn cmp_effective(&self, other: &Self) -> Ordering {
         if self.merged && !other.merged
             || self.gas_perf >= 0.0 && other.gas_perf < 0.0
@@ -338,7 +336,7 @@ impl std::default::Default for MsgChainNode {
     }
 }
 
-pub async fn create_message_chains<T>(
+pub(crate) async fn create_message_chains<T>(
     api: &RwLock<T>,
     actor: &Address,
     mset: &HashMap<u64, SignedMessage>,

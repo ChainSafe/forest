@@ -323,7 +323,6 @@ pub mod tests {
         let msg_signing_bytes = umsg.to_signing_bytes();
         let sig = wallet.sign(&from, msg_signing_bytes.as_slice()).unwrap();
         let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap();
-        // smsg.verify().unwrap();
         smsg
     }
 
@@ -627,10 +626,8 @@ pub mod tests {
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 2, "expected 2 chains");
-            // dbg!(&chains[0].msgs.len());
-            // dbg!(&chains[1].msgs.len());
-            assert_eq!(chains[1].msgs.len(), 1);
             assert_eq!(chains[0].msgs.len(), 9);
+            assert_eq!(chains[1].msgs.len(), 1);
             let mut next_nonce = 0;
             for i in 0..chains.len() {
                 for m in chains[i].msgs.iter() {
