@@ -20,7 +20,7 @@ dependencies = [
  "fil_types",
  "forest_actor 0.1.7",
  "forest_actor 1.0.4",
- "forest_actor 2.0.0",
+ "forest_actor 2.0.1",
  "forest_actor 3.0.0",
  "forest_address",
  "forest_bigint",
@@ -2202,9 +2202,9 @@ dependencies = [
 
 [[package]]
 name = "forest_actor"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9118b157078e5a607c98cc1dfeac09a1fc8957d8e7a9a4ab2f7168d4a8ddc26"
+checksum = "f73bdb34a70dba934f3e6afb66618ecb7058d07609194fe9f13733e5098622f7"
 dependencies = [
  "ahash 0.6.2",
  "base64 0.13.0",
