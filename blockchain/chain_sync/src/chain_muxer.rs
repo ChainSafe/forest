@@ -6,16 +6,19 @@ use crate::bucket::{SyncBucket, SyncBucketSet};
 use crate::network_context::HelloResponseFuture;
 use crate::sync_state::SyncState;
 // use crate::sync_worker::SyncWorker;
-use crate::tipset_syncer::{TipsetProcessor, TipsetRangeSyncer};
-use crate::validation::TipsetValidator;
+use crate::tipset_syncer::{
+    TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
+};
+use crate::validation::{TipsetValidationError, TipsetValidator};
 use crate::{network_context::SyncNetworkContext, Error};
 
 use amt::Amt;
 use beacon::{Beacon, BeaconSchedule};
-use blocks::{Block, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta};
-use chain::ChainStore;
+use blocks::{
+    Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta,
+};
+use chain::{ChainStore, Error as ChainStoreError};
 use cid::{Cid, Code::Blake2b256};
-use clock::ChainEpoch;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
@@ -41,9 +44,10 @@ use futures::{
     try_join, Stream,
 };
 use futures::{select, stream::FuturesUnordered};
-
 use log::{debug, error, info, trace, warn};
 use serde::Deserialize;
+use thiserror::Error;
+
 use std::sync::Arc;
 use std::{
     marker::PhantomData,
@@ -57,7 +61,29 @@ const MAX_HEIGHT_DRIFT: u64 = 5;
 // on the RPC API thread and mutated on this thread.
 type WorkerState = Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>;
 
-type ChainSyncerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
+type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
+
+#[derive(Debug, Error)]
+pub enum ChainMuxerError {
+    #[error("Tipset processor error: {0}")]
+    TipsetProcessor(#[from] TipsetProcessorError),
+    #[error("Tipset range syncer error: {0}")]
+    TipsetRangeSyncer(#[from] TipsetRangeSyncerError),
+    #[error("Tipset validation error: {0}")]
+    TipsetValidator(#[from] TipsetValidationError),
+    #[error("Sending tipset on channel failed: {0}")]
+    TipsetChannelSend(String),
+    #[error("Receiving p2p network event failed: {0}")]
+    P2PEventStreamReceive(String),
+    #[error("Chain store error: {0}")]
+    ChainStore(#[from] ChainStoreError),
+    #[error("Chain exchange: {0}")]
+    ChainExchange(String),
+    #[error("Bitswap: {0}")]
+    Bitswap(String),
+    #[error("Block error: {0}")]
+    Block(#[from] ForestBlockError),
+}
 
 /// Struct that defines syncing configuration options
 #[derive(Debug, Deserialize, Clone)]
@@ -76,6 +102,7 @@ impl SyncConfig {
         }
     }
 }
+
 impl Default for SyncConfig {
     // TODO benchmark (1 is temporary value to avoid overlap)
     fn default() -> Self {
@@ -100,9 +127,9 @@ enum NetworkHeadEvaluation {
 /// Struct that handles the ChainSync logic. This handles incoming network events such as
 /// gossipsub messages, Hello protocol requests, as well as sending and receiving ChainExchange
 /// messages to be able to do the initial sync.
-pub struct ChainSyncer<DB, TBeacon, V, M> {
+pub struct ChainMuxer<DB, TBeacon, V, M> {
     /// State of the ChainSyncer Future implementation
-    chain_syncer_state: ChainSyncerState,
+    state: ChainMuxerState,
 
     /// Syncing state of chain sync workers.
     worker_state: WorkerState,
@@ -142,7 +169,7 @@ pub struct ChainSyncer<DB, TBeacon, V, M> {
     sync_config: SyncConfig,
 }
 
-impl<DB, TBeacon, V, M> ChainSyncer<DB, TBeacon, V, M>
+impl<DB, TBeacon, V, M> ChainMuxer<DB, TBeacon, V, M>
 where
     TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
@@ -159,15 +186,15 @@ where
         tipset_sender: Sender<Arc<Tipset>>,
         tipset_receiver: Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
-    ) -> Result<Self, Error> {
+    ) -> Self {
         let network = SyncNetworkContext::new(
             network_send,
             Default::default(),
             state_manager.blockstore_cloned(),
         );
 
-        Ok(Self {
-            chain_syncer_state: ChainSyncerState::Idle,
+        Self {
+            state: ChainMuxerState::Idle,
             worker_state: Default::default(),
             beacon,
             network,
@@ -180,7 +207,7 @@ where
             tipset_sender,
             tipset_receiver,
             sync_config: cfg,
-        })
+        }
     }
 
     /// Returns a clone of the bad blocks cache to be used outside of chain sync.
@@ -198,25 +225,25 @@ where
         chain_store: Arc<ChainStore<DB>>,
         peer_id: PeerId,
         tipset_keys: TipsetKeys,
-    ) -> Result<FullTipset, String> {
-        let full_tipset = match Self::load_full_tipset(chain_store, &tipset_keys).await {
-            Ok(full_tipset) => full_tipset,
-            Err(_) => {
-                network
-                    .chain_exchange_fts(Some(peer_id), &tipset_keys)
-                    .await?
-            }
-        };
-        Ok(full_tipset)
+    ) -> Result<FullTipset, ChainMuxerError> {
+        // Attempt to load from the store
+        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()).await {
+            return Ok(full_tipset);
+        }
+        // Load from the network
+        network
+            .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
+            .await
+            .map_err(|err| ChainMuxerError::ChainExchange(err.to_string()))
     }
 
     async fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
-        tipset_keys: &TipsetKeys,
-    ) -> Result<FullTipset, Error> {
+        tipset_keys: TipsetKeys,
+    ) -> Result<FullTipset, ChainMuxerError> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
-        let ts = chain_store.tipset_from_keys(tipset_keys).await?;
+        let ts = chain_store.tipset_from_keys(&tipset_keys).await?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) = chain::block_messages(chain_store.blockstore(), &header)?;
@@ -238,7 +265,7 @@ where
         chain_store: Arc<ChainStore<DB>>,
         peer_id: PeerId,
         genesis_block_cid: Cid,
-    ) -> Result<(), String> {
+    ) {
         // Query the heaviest TipSet from the store
         let heaviest = chain_store.heaviest_tipset().await.unwrap();
         // If the peer is new, send them a hello request
@@ -254,7 +281,7 @@ where
                     Ok(response) => response,
                     Err(e) => {
                         error!("{}", e);
-                        return Ok(());
+                        return;
                     }
                 };
             let dur = SystemTime::now()
@@ -279,22 +306,17 @@ where
                 }
             }
         }
-        Ok(())
     }
 
-    async fn handle_peer_disconnected_event(
-        network: SyncNetworkContext<DB>,
-        peer_id: PeerId,
-    ) -> Result<(), String> {
+    async fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
         network.peer_manager().remove_peer(&peer_id).await;
-        Ok(())
     }
 
     async fn gossipsub_block_to_full_tipset(
         block: GossipBlock,
         source: PeerId,
         network: SyncNetworkContext<DB>,
-    ) -> Result<FullTipset, String> {
+    ) -> Result<FullTipset, ChainMuxerError> {
         info!(
             "Received block over GossipSub: {} height {} from {}",
             block.header.cid(),
@@ -319,7 +341,7 @@ where
         let (bls_messages, secp_messages) =
             match try_join!(try_join_all(bls_messages), try_join_all(secp_messages)) {
                 Ok(msgs) => msgs,
-                Err(e) => return Err(e.to_string()),
+                Err(e) => return Err(ChainMuxerError::Bitswap(e.to_string())),
             };
 
         // From block
@@ -331,17 +353,13 @@ where
         Ok(FullTipset::new(vec![block]).unwrap())
     }
 
-    async fn handle_pubsub_message(
-        mem_pool: Arc<MessagePool<M>>,
-        message: SignedMessage,
-    ) -> Result<(), String> {
+    async fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
         if let Err(why) = mem_pool.add(message).await {
             warn!(
                 "GossipSub message could not be added to the mem pool: {}",
                 why
             );
         }
-        Ok(())
     }
 
     async fn process_gossipsub_event(
@@ -351,7 +369,7 @@ where
         bad_block_cache: Arc<BadBlockCache>,
         mem_pool: Arc<MessagePool<M>>,
         genesis: Arc<Tipset>,
-    ) -> Result<Option<(FullTipset, PeerId)>, String> {
+    ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
                 let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
@@ -421,15 +439,13 @@ where
                 "Validating tipset received through GossipSub failed: {}",
                 why
             );
-            return Err(why.to_string());
+            return Err(why.into());
         }
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            chain::persist_objects(chain_store.db.as_ref(), block.bls_msgs())
-                .map_err(|err| err.to_string())?;
-            chain::persist_objects(chain_store.db.as_ref(), block.secp_msgs())
-                .map_err(|err| err.to_string())?;
+            chain::persist_objects(chain_store.db.as_ref(), block.bls_msgs())?;
+            chain::persist_objects(chain_store.db.as_ref(), block.secp_msgs())?;
         }
 
         // Update the peer head
@@ -442,7 +458,7 @@ where
         return Ok(Some((tipset, source)));
     }
 
-    fn evaluate_network_head(&self) -> ChainSyncerFuture<NetworkHeadEvaluation, String> {
+    fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
         let p2p_messages = self.net_handler.clone();
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
@@ -457,8 +473,8 @@ where
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
-                        // TODO: Return typed error
-                        unimplemented!()
+                        error!("Receiving event from p2p event stream failed: {}", why);
+                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
 
@@ -475,7 +491,7 @@ where
                     Ok(Some((tipset, source))) => (tipset, source),
                     Ok(None) => continue,
                     Err(why) => {
-                        error!("Processing GossipSub event failed: {}", why);
+                        error!("Processing GossipSub event failed: {:?}", why);
                         continue;
                     }
                 };
@@ -521,35 +537,44 @@ where
         &self,
         network_head: FullTipset,
         local_head: Arc<Tipset>,
-    ) -> ChainSyncerFuture<(), String> {
+    ) -> ChainMuxerFuture<(), ChainMuxerError> {
+        // Instantiate a TipsetRangeSyncer
+        let trs_bad_block_cache = self.bad_blocks.clone();
+        let trs_chain_store = self.state_manager.chain_store().clone();
+        let trs_network = self.network.clone();
+        let trs_beacon = self.beacon.clone();
+        let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
+            let tipset_range_syncer = match TipsetRangeSyncer::<DB, TBeacon, V>::new(
+                Arc::new(network_head.into_tipset()),
+                local_head,
+                trs_beacon,
+                trs_network.clone(),
+                trs_chain_store.clone(),
+                trs_bad_block_cache.clone(),
+            ) {
+                Ok(tipset_range_syncer) => tipset_range_syncer,
+                Err(why) => return Err(ChainMuxerError::TipsetRangeSyncer(why)),
+            };
+
+            tipset_range_syncer
+                .await
+                .map_err(|err| ChainMuxerError::TipsetRangeSyncer(err))
+        });
+
+        // The stream processor _must_ only error if the stream ends
         let p2p_messages = self.net_handler.clone();
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
         let genesis = self.genesis.clone();
-        let beacon = self.beacon.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        type BootstrapFuture = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
-
-        // Instantiate a TipsetRangeSyncer
-        let tipset_range_syncer: BootstrapFuture =
-            Box::pin(TipsetRangeSyncer::<DB, TBeacon, V>::new(
-                Arc::new(network_head.into_tipset()),
-                local_head,
-                beacon,
-                network.clone(),
-                chain_store.clone(),
-                bad_block_cache.clone(),
-            ));
-
-        // The stream processor _must_ only error if the stream ends
-        let stream_processor: BootstrapFuture = Box::pin(async move {
+        let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
-                        // TODO: Return typed error
-                        unimplemented!()
+                        error!("Receiving event from p2p event stream failed: {}", why);
+                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
 
@@ -566,7 +591,7 @@ where
                     Ok(Some((tipset, source))) => (tipset, source),
                     Ok(None) => continue,
                     Err(why) => {
-                        error!("Processing GossipSub event failed: {}", why);
+                        error!("Processing GossipSub event failed: {:?}", why);
                         continue;
                     }
                 };
@@ -590,42 +615,47 @@ where
         })
     }
 
-    fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainSyncerFuture<(), String> {
+    fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainMuxerFuture<(), ChainMuxerError> {
+        // Instantiate a TipsetProcessor
+        let tp_beacon = self.beacon.clone();
+        let tp_network = self.network.clone();
+        let tp_chain_store = self.state_manager.chain_store().clone();
+        let tp_bad_block_cache = self.bad_blocks.clone();
+        let tipset_receiver = self.tipset_receiver.clone();
+        let tipset_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
+            TipsetProcessor::<_, _, V>::new(
+                Box::pin(tipset_receiver),
+                tp_beacon,
+                tp_network,
+                tp_chain_store,
+                tp_bad_block_cache,
+            )
+            .await
+            .map_err(|err| ChainMuxerError::TipsetProcessor(err))
+        });
+
+        // The stream processor _must_ only error if the stream ends
         let p2p_messages = self.net_handler.clone();
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
         let genesis = self.genesis.clone();
-        let beacon = self.beacon.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
-        let tipset_receiver = self.tipset_receiver.clone();
-
-        type FollowFuture = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
-
-        // Instantiate a TipsetProcessor
-        let tipset_processor: FollowFuture = Box::pin(TipsetProcessor::<_, _, V>::new(
-            Box::pin(tipset_receiver),
-            beacon.clone(),
-            network.clone(),
-            chain_store.clone(),
-            bad_block_cache.clone(),
-        ));
-
-        // The stream processor _must_ only error if the stream ends
-        let stream_processor: FollowFuture = Box::pin(async move {
+        let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             // If a tipset has been provided, pass it to the tipset processor
             if let Some(tipset) = tipset_opt {
                 if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
                     error!("Sending tipset to TipsetProcessor failed: {}", why);
+                    return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                 };
             }
             loop {
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
-                        // TODO: Return typed error
-                        unimplemented!()
+                        error!("Receiving event from p2p event stream failed: {}", why);
+                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
 
@@ -642,7 +672,7 @@ where
                     Ok(Some((tipset, source))) => (tipset, source),
                     Ok(None) => continue,
                     Err(why) => {
-                        error!("Processing GossipSub event failed: {}", why);
+                        error!("Processing GossipSub event failed: {:?}", why);
                         continue;
                     }
                 };
@@ -661,6 +691,7 @@ where
 
                 if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
                     error!("Sending tipset to TipsetProcessor failed: {}", why);
+                    return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                 };
             }
         });
@@ -675,11 +706,11 @@ where
                 // Both of these should be long running, so we have to return control
                 // back to caller in order to direct the next action.
                 Some(Ok(_)) => {
-                    // Log & return custom error
+                    // TODO: Log & return custom error
                     Ok(())
                 }
                 Some(Err(e)) => {
-                    // Log & return custom error
+                    // TODO: Log & return custom error
                     Err(e)
                 }
                 // This arm is reliably unreachable because the FuturesUnordered
@@ -690,49 +721,47 @@ where
     }
 }
 
-enum ChainSyncerState {
+enum ChainMuxerState {
     Idle,
-    Connect(ChainSyncerFuture<NetworkHeadEvaluation, String>),
-    Bootstrap(ChainSyncerFuture<(), String>),
-    Follow(ChainSyncerFuture<(), String>),
+    Connect(ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError>),
+    Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
+    Follow(ChainMuxerFuture<(), ChainMuxerError>),
 }
 
-impl<DB, TBeacon, V, M> Future for ChainSyncer<DB, TBeacon, V, M>
+impl<DB, TBeacon, V, M> Future for ChainMuxer<DB, TBeacon, V, M>
 where
     TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static + Unpin,
     M: Provider + Sync + Send + 'static,
 {
-    type Output = Result<(), String>;
+    type Output = ChainMuxerError;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
-            match self.chain_syncer_state {
-                ChainSyncerState::Idle => {
+            match self.state {
+                ChainMuxerState::Idle => {
                     // Create the connect future and set the state to connect
-                    self.chain_syncer_state =
-                        ChainSyncerState::Connect(self.evaluate_network_head());
+                    self.state = ChainMuxerState::Connect(self.evaluate_network_head());
                 }
-                ChainSyncerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
+                ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
                     Poll::Ready(Ok(evaluation)) => match evaluation {
                         NetworkHeadEvaluation::Behind {
                             network_head,
                             local_head,
                         } => {
                             // TODO: Log
-                            self.chain_syncer_state = ChainSyncerState::Bootstrap(
+                            self.state = ChainMuxerState::Bootstrap(
                                 self.bootstrap(network_head, local_head),
                             );
                         }
                         NetworkHeadEvaluation::InRange { network_head } => {
                             // TODO: Log
-                            self.chain_syncer_state =
-                                ChainSyncerState::Follow(self.follow(Some(network_head)));
+                            self.state = ChainMuxerState::Follow(self.follow(Some(network_head)));
                         }
                         NetworkHeadEvaluation::InSync => {
                             // TODO: Log
-                            self.chain_syncer_state = ChainSyncerState::Follow(self.follow(None));
+                            self.state = ChainMuxerState::Follow(self.follow(None));
                         }
                     },
                     Poll::Ready(Err(_why)) => {
@@ -740,29 +769,30 @@ where
                     }
                     Poll::Pending => return Poll::Pending,
                 },
-                ChainSyncerState::Bootstrap(ref mut bootstrap) => match bootstrap.as_mut().poll(cx)
-                {
-                    Poll::Ready(Ok(_)) => {
-                        // TODO: Log
-                        self.chain_syncer_state = ChainSyncerState::Idle;
+                ChainMuxerState::Bootstrap(ref mut bootstrap) => {
+                    match bootstrap.as_mut().poll(cx) {
+                        Poll::Ready(Ok(_)) => {
+                            // TODO: Log
+                            self.state = ChainMuxerState::Idle;
+                        }
+                        Poll::Ready(Err(_why)) => {
+                            // TODO: Determine error handling strategy here
+                            // TODO: Log
+                            self.state = ChainMuxerState::Idle;
+                        }
+                        Poll::Pending => return Poll::Pending,
                     }
-                    Poll::Ready(Err(_why)) => {
-                        // TODO: Determine error handling strategy here
-                        // TODO: Log
-                        self.chain_syncer_state = ChainSyncerState::Idle;
-                    }
-                    Poll::Pending => return Poll::Pending,
-                },
-                ChainSyncerState::Follow(ref mut follow) => match follow.as_mut().poll(cx) {
+                }
+                ChainMuxerState::Follow(ref mut follow) => match follow.as_mut().poll(cx) {
                     Poll::Ready(Ok(_)) => {
                         // TODO: Figure out what to do when the follow future completes
                         // TODO: Log
-                        self.chain_syncer_state = ChainSyncerState::Idle;
+                        self.state = ChainMuxerState::Idle;
                     }
                     Poll::Ready(Err(_why)) => {
                         // TODO: Determine error handling strategy here
                         // TODO: Log
-                        self.chain_syncer_state = ChainSyncerState::Idle;
+                        self.state = ChainMuxerState::Idle;
                     }
                     Poll::Pending => return Poll::Pending,
                 },

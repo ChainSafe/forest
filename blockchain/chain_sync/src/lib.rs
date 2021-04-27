@@ -17,8 +17,7 @@ mod validation;
 extern crate serde;
 
 pub use self::bad_block_cache::BadBlockCache;
+pub use self::chain_muxer::{ChainMuxer, SyncConfig};
 pub use self::errors::Error;
-// pub use self::sync::{compute_msg_meta, ChainSyncer, SyncConfig};
-pub use self::chain_muxer::{ChainSyncer, SyncConfig};
 pub use self::sync_state::{SyncStage, SyncState};
 pub use self::validation::TipsetValidator;

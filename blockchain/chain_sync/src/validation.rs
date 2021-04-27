@@ -29,7 +29,7 @@ pub enum TipsetValidationError {
     #[error("Tipset headers are invalid")]
     InvalidRoots,
     #[error("Tipset IPLD error: {0}")]
-    IpldAmt(IpldAmtError),
+    IpldAmt(String),
     #[error("Block store error while validating tipset: {0}")]
     Blockstore(String),
     #[error("Encoding error while validating tipset: {0}")]
@@ -37,14 +37,14 @@ pub enum TipsetValidationError {
 }
 
 impl From<IpldAmtError> for TipsetValidationError {
-    fn from(error: IpldAmtError) -> Self {
-        Self::IpldAmt(error)
+    fn from(err: IpldAmtError) -> Self {
+        Self::IpldAmt(err.to_string())
     }
 }
 
 impl From<EncodingError> for TipsetValidationError {
-    fn from(error: EncodingError) -> Self {
-        Self::Encoding(error)
+    fn from(err: EncodingError) -> Self {
+        Self::Encoding(err)
     }
 }
 
