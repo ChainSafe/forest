@@ -610,19 +610,12 @@ where
                     )
                 })?;
 
-            ptx.delete(&txn_id.key())
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to delete transaction for cleanup",
-                    )
-                })?
-                .ok_or_else(|| {
-                    actor_error!(
-                        ErrIllegalState,
-                        "failed to delete transaction for cleanup: does not exist"
-                    )
-                })?;
+            ptx.delete(&txn_id.key()).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to delete transaction for cleanup",
+                )
+            })?;
 
             st.pending_txs = ptx.flush().map_err(|e| {
                 e.downcast_default(
