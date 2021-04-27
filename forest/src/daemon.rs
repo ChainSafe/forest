@@ -44,14 +44,23 @@ pub(super) async fn start(config: Config) {
 
     // Initialize keystore
     let mut ks = if config.encrypt_keystore {
-        print!("Keystore passphrase: ");
-        std::io::stdout().flush().unwrap();
-        let passphrase = read_password().expect("Error reading passphrase");
-        KeyStore::new(KeyStoreConfig::Encrypted(
-            PathBuf::from(&config.data_dir),
-            passphrase,
-        ))
-        .expect("Error initializing keystore: incorrect passphrase")
+        loop {
+            print!("Keystore passphrase: ");
+            std::io::stdout().flush().unwrap();
+
+            let passphrase = read_password().expect("Error reading passphrase");
+            let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
+                PathBuf::from(&config.data_dir),
+                passphrase,
+            ));
+
+            match key_store_init_result {
+                Ok(ks) => break ks,
+                Err(_) => {
+                    log::error!("incorrect passphrase")
+                }
+            };
+        }
     } else {
         KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(&config.data_dir)))
             .expect("Error initializing keystore")
