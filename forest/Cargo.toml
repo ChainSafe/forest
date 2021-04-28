@@ -51,9 +51,10 @@ features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
 
 [features]
-default = ["rocksdb"]
+default = ["rocksdb", "networks/mainnet"]
 rocksdb = ["db/rocksdb", "ipld_blockstore/rocksdb"]
 sled = ["db/sled", "ipld_blockstore/sled"]
-devnet = ["actor/devnet"]
-interopnet = ["actor/interopnet", "networks/interopnet"]
+devnet = ["actor/devnet", "networks/devnet", "testnet"]
+interopnet = ["actor/interopnet", "networks/interopnet", "testnet"]
 insecure_post = ["chain_sync/insecure_post"]
+testnet = []

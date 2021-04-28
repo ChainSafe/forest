@@ -6,10 +6,7 @@ mod types;
 
 pub use self::state::{LaneState, Merge, State};
 pub use self::types::*;
-use crate::{
-    check_empty_params, resolve_to_id_addr, ActorDowncast, ACCOUNT_ACTOR_CODE_ID,
-    INIT_ACTOR_CODE_ID,
-};
+use crate::{resolve_to_id_addr, ActorDowncast, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_CODE_ID};
 use address::Address;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -372,12 +369,10 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::Settle) => {
-                check_empty_params(params)?;
                 Self::settle(rt)?;
                 Ok(Serialized::default())
             }
             Some(Method::Collect) => {
-                check_empty_params(params)?;
                 Self::collect(rt)?;
                 Ok(Serialized::default())
             }

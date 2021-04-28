@@ -161,7 +161,10 @@ pub const MAX_PRE_COMMIT_RANDOMNESS_LOOKBACK: ChainEpoch = EPOCHS_IN_DAY + CHAIN
 
 /// Number of epochs between publishing the precommit and when the challenge for interactive PoRep is drawn
 /// used to ensure it is not predictable by miner.
+#[cfg(not(feature = "devnet"))]
 pub const PRE_COMMIT_CHALLENGE_DELAY: ChainEpoch = 150;
+#[cfg(feature = "devnet")]
+pub const PRE_COMMIT_CHALLENGE_DELAY: ChainEpoch = 10;
 
 /// Lookback from the deadline's challenge window opening from which to sample chain randomness for the challenge seed.
 
