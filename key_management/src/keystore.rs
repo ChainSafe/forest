@@ -15,8 +15,8 @@ use thiserror::Error;
 use super::errors::Error;
 use crypto::SignatureType;
 
-const KEYSTORE_NAME: &str = "keystore.json";
-const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
+pub const KEYSTORE_NAME: &str = "keystore.json";
+pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
 
 /// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
 /// note how the private key is stored as a byte vector

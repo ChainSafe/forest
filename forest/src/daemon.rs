@@ -20,6 +20,7 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
 use utils::write_to_file;
+use wallet::ENCRYPTED_KEYSTORE_NAME;
 use wallet::{KeyStore, KeyStoreConfig};
 
 /// Starts daemon process
@@ -45,10 +46,21 @@ pub(super) async fn start(config: Config) {
     // Initialize keystore
     let mut ks = if config.encrypt_keystore {
         loop {
-            print!("Keystore passphrase: ");
+            print!("keystore passphrase: ");
             std::io::stdout().flush().unwrap();
 
             let passphrase = read_password().expect("Error reading passphrase");
+
+            let mut data_dir = PathBuf::from(&config.data_dir);
+            data_dir.push(ENCRYPTED_KEYSTORE_NAME);
+
+            if !data_dir.exists() {
+                print!("confirm passphrase: ");
+                std::io::stdout().flush().unwrap();
+
+                read_password().expect("Passphrases do not match");
+            }
+
             let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
                 PathBuf::from(&config.data_dir),
                 passphrase,
