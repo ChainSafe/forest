@@ -282,9 +282,9 @@ impl MsgChainNode {
         if self.merged && !other.merged
             || self.gas_perf >= 0.0 && other.gas_perf < 0.0
             || self.eff_perf > other.eff_perf
-            || (self.eff_perf == other.eff_perf && self.gas_perf > other.gas_perf)
-            || (self.eff_perf == other.eff_perf
-                && self.gas_perf == other.gas_perf
+            || (approx_cmp(self.eff_perf, other.eff_perf) == Ordering::Equal && self.gas_perf > other.gas_perf)
+            || (approx_cmp(self.eff_perf, other.eff_perf)  == Ordering::Equal
+                && approx_cmp(self.gas_perf, other.gas_perf) == Ordering::Equal
                 && self.gas_reward > other.gas_reward)
         {
             return Ordering::Greater;
@@ -424,7 +424,7 @@ where
 
     let new_chain = |m: SignedMessage, i: usize| -> MsgChainNode {
         let gl = m.gas_limit();
-        let node = MsgChainNode {
+        MsgChainNode {
             msgs: vec![m],
             gas_reward: rewards[i].clone(),
             gas_limit: gl,
@@ -436,8 +436,7 @@ where
             merged: false,
             prev: None,
             next: None,
-        };
-        node
+        }
     };
 
     // creates msg chain nodes in chunks based on gas_perf obtained from the current chain's gas limit.

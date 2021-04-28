@@ -138,7 +138,7 @@ where
         // 2. Sort the chains
         chains.sort(false);
 
-        if chains.len() != 0 && chains[0].gas_perf < 0.0 {
+        if !chains.is_empty() && chains[0].gas_perf < 0.0 {
             log::warn!(
                 "all messages in mpool have non-positive gas performance {}",
                 chains[0].gas_perf
@@ -392,7 +392,7 @@ where
                 let mut chain_deps = vec![];
                 let mut cur_chain = chains[i].prev;
                 while let Some(cur_chn) = cur_chain {
-                    chain_deps.push(cur_chn.clone());
+                    chain_deps.push(cur_chn);
                     let node = chains.get(cur_chn).unwrap();
                     chain_gas_limit += node.gas_limit;
                     dep_gas_limit += node.gas_limit;
