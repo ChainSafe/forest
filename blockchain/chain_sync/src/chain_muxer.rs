@@ -334,7 +334,6 @@ where
                 Err(e) => return Err(ChainMuxerError::Bitswap(e.to_string())),
             };
 
-        // From block
         let block = Block {
             header: block.header,
             bls_messages,
@@ -345,7 +344,7 @@ where
 
     async fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
         if let Err(why) = mem_pool.add(message).await {
-            warn!(
+            debug!(
                 "GossipSub message could not be added to the mem pool: {}",
                 why
             );
@@ -499,17 +498,17 @@ where
                 .into_iter()
                 .max_by_key(|ts| ts.weight().clone())
                 .unwrap();
+
             // Query the heaviest tipset in the store
             // Unwrapping is fine because the store always has at least one tipset
             let local_head = chain_store.heaviest_tipset().await.unwrap();
 
             // We are in sync if the local head weight is heavier or
-            // as heavy as much as the network head
+            // as heavy as the network head
             if local_head.weight() >= network_head.weight() {
                 return Ok(NetworkHeadEvaluation::InSync);
             }
-            // We are in range if the network epoch is only 1 ahead of
-            // the local epoch
+            // We are in range if the network epoch is only 1 ahead of the local epoch
             if (network_head.epoch() - local_head.epoch()) == 1 {
                 return Ok(NetworkHeadEvaluation::InRange { network_head });
             }
@@ -586,7 +585,7 @@ where
                     }
                 };
 
-                // No further processing for the tipset because we are bootstrapping
+                // Drop tipsets while we are bootstrapping
             }
         });
 
@@ -595,6 +594,8 @@ where
         tasks.push(stream_processor);
 
         Box::pin(async move {
+            // The stream processor will not return unless the p2p event stream is closed. In this case it will return with an error.
+            // Only wait for one task to complete before returning to the caller
             match tasks.next().await {
                 Some(Ok(_)) => Ok(()),
                 Some(Err(e)) => Err(e),
@@ -611,20 +612,28 @@ where
         let tp_network = self.network.clone();
         let tp_chain_store = self.state_manager.chain_store().clone();
         let tp_bad_block_cache = self.bad_blocks.clone();
-        let tipset_receiver = self.tipset_receiver.clone();
-        let tipset_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
-            TipsetProcessor::<_, _, V>::new(
-                Box::pin(tipset_receiver),
-                tp_beacon,
-                tp_network,
-                tp_chain_store,
-                tp_bad_block_cache,
-            )
-            .await
-            .map_err(|err| ChainMuxerError::TipsetProcessor(err))
-        });
+        let tp_tipset_receiver = self.tipset_receiver.clone();
+        enum UnexpectedReturnKind {
+            TipsetProcessor,
+            P2PEventStreamProcessor,
+        }
+        let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
+            Box::pin(async move {
+                TipsetProcessor::<_, _, V>::new(
+                    Box::pin(tp_tipset_receiver),
+                    tp_beacon,
+                    tp_network,
+                    tp_chain_store,
+                    tp_bad_block_cache,
+                )
+                .await
+                .map_err(|err| ChainMuxerError::TipsetProcessor(err))?;
 
-        // The stream processor _must_ only error if the stream ends
+                return Ok(UnexpectedReturnKind::TipsetProcessor);
+            });
+
+        // The stream processor _must_ only error if the p2p event stream ends or if the
+        // tipset channel is unexpectedly closed
         let p2p_messages = self.net_handler.clone();
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
@@ -632,79 +641,90 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
-        let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
-            // If a tipset has been provided, pass it to the tipset processor
-            if let Some(tipset) = tipset_opt {
-                if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
-                    error!("Sending tipset to TipsetProcessor failed: {}", why);
-                    return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
-                };
-            }
-            loop {
-                let event = match p2p_messages.recv().await {
-                    Ok(event) => event,
-                    Err(why) => {
-                        error!("Receiving event from p2p event stream failed: {}", why);
-                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                    }
-                };
+        let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
+            Box::pin(async move {
+                // If a tipset has been provided, pass it to the tipset processor
+                if let Some(tipset) = tipset_opt {
+                    if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
+                        error!("Sending tipset to TipsetProcessor failed: {}", why);
+                        return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
+                    };
+                }
+                loop {
+                    let event = match p2p_messages.recv().await {
+                        Ok(event) => event,
+                        Err(why) => {
+                            error!("Receiving event from p2p event stream failed: {}", why);
+                            return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
+                        }
+                    };
 
-                let (tipset, _) = match Self::process_gossipsub_event(
-                    event,
-                    network.clone(),
-                    chain_store.clone(),
-                    bad_block_cache.clone(),
-                    mem_pool.clone(),
-                    genesis.clone(),
-                )
-                .await
-                {
-                    Ok(Some((tipset, source))) => (tipset, source),
-                    Ok(None) => continue,
-                    Err(why) => {
-                        error!("Processing GossipSub event failed: {:?}", why);
+                    let (tipset, _) = match Self::process_gossipsub_event(
+                        event,
+                        network.clone(),
+                        chain_store.clone(),
+                        bad_block_cache.clone(),
+                        mem_pool.clone(),
+                        genesis.clone(),
+                    )
+                    .await
+                    {
+                        Ok(Some((tipset, source))) => (tipset, source),
+                        Ok(None) => continue,
+                        Err(why) => {
+                            error!("Processing GossipSub event failed: {:?}", why);
+                            continue;
+                        }
+                    };
+
+                    // Validate that the tipset is heavier that the heaviest
+                    // tipset in the store
+                    if !chain_store
+                        .heaviest_tipset()
+                        .await
+                        .map(|heaviest| tipset.weight() >= heaviest.weight())
+                        .unwrap_or(true)
+                    {
+                        // Only send heavier Tipsets to the TipsetProcessor
+                        // TODO: Add log
                         continue;
                     }
-                };
 
-                // Validate that the tipset is heavier that the heaviest
-                // tipset in the store
-                if !chain_store
-                    .heaviest_tipset()
-                    .await
-                    .map(|heaviest| tipset.weight() >= heaviest.weight())
-                    .unwrap_or(true)
-                {
-                    // Only send heavier Tipsets to the TipsetProcessor
-                    continue;
+                    if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
+                        error!("Sending tipset to TipsetProcessor failed: {}", why);
+                        return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
+                    };
                 }
-
-                if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
-                    error!("Sending tipset to TipsetProcessor failed: {}", why);
-                    return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
-                };
-            }
-        });
+            });
 
         let mut tasks = FuturesUnordered::new();
         tasks.push(tipset_processor);
         tasks.push(stream_processor);
 
         Box::pin(async move {
+            // Only wait for one of the tasks to complete before returning to the caller
             match tasks.next().await {
                 // Either the TipsetProcessor or the StreamProcessor has returned.
                 // Both of these should be long running, so we have to return control
                 // back to caller in order to direct the next action.
-                Some(Ok(_)) => {
-                    // TODO: Log & return custom error
-                    Ok(())
+                Some(Ok(kind)) => {
+                    // Log the expected return
+                    match kind {
+                        UnexpectedReturnKind::TipsetProcessor => {
+                            error!("Tipset processor unexpectedly returned");
+                        }
+                        UnexpectedReturnKind::P2PEventStreamProcessor => {
+                            error!("P2P event stream processor unexpectedly returned");
+                        }
+                    }
+                    return Ok(());
                 }
                 Some(Err(e)) => {
-                    // TODO: Log & return custom error
+                    error!("Following the network failed unexpectedly: {}", e);
                     Err(e)
                 }
                 // This arm is reliably unreachable because the FuturesUnordered
-                // has tow futures and we only resolve one before returning
+                // has two futures and we only resolve one before returning
                 None => unreachable!(),
             }
         })
