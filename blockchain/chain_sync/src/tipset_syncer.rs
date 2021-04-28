@@ -17,8 +17,6 @@ use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
-use crate::bucket::SyncBucketSet;
-use crate::errors::Error;
 use crate::network_context::SyncNetworkContext;
 use crate::validation::TipsetValidator;
 use actor::{is_account_actor, power};

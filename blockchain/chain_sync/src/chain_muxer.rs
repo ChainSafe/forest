@@ -2,15 +2,13 @@
 mod peer_test;
 
 use crate::bad_block_cache::BadBlockCache;
-use crate::bucket::{SyncBucket, SyncBucketSet};
 use crate::network_context::HelloResponseFuture;
+use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncState;
-// use crate::sync_worker::SyncWorker;
 use crate::tipset_syncer::{
     TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
-use crate::{network_context::SyncNetworkContext, Error};
 
 use amt::Amt;
 use beacon::{Beacon, BeaconSchedule};

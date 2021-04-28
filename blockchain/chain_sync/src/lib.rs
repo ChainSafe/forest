@@ -4,9 +4,7 @@
 #![recursion_limit = "1024"]
 
 mod bad_block_cache;
-mod bucket;
 mod chain_muxer;
-mod errors;
 mod network_context;
 mod peer_manager;
 mod sync_state;
@@ -18,6 +16,5 @@ extern crate serde;
 
 pub use self::bad_block_cache::BadBlockCache;
 pub use self::chain_muxer::{ChainMuxer, SyncConfig};
-pub use self::errors::Error;
 pub use self::sync_state::{SyncStage, SyncState};
 pub use self::validation::TipsetValidator;
