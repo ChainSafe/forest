@@ -81,6 +81,8 @@ pub enum ChainMuxerError {
     Bitswap(String),
     #[error("Block error: {0}")]
     Block(#[from] ForestBlockError),
+    #[error("Following network unexpectedly failed: {0}")]
+    NetworkFollowingFailure(String),
 }
 
 /// Struct that defines syncing configuration options
@@ -711,13 +713,16 @@ where
                     // Log the expected return
                     match kind {
                         UnexpectedReturnKind::TipsetProcessor => {
-                            error!("Tipset processor unexpectedly returned");
+                            return Err(ChainMuxerError::NetworkFollowingFailure(String::from(
+                                "Tipset processor unexpectedly returned",
+                            )));
                         }
                         UnexpectedReturnKind::P2PEventStreamProcessor => {
-                            error!("P2P event stream processor unexpectedly returned");
+                            return Err(ChainMuxerError::NetworkFollowingFailure(String::from(
+                                "P2P event stream processor unexpectedly returned",
+                            )));
                         }
                     }
-                    return Ok(());
                 }
                 Some(Err(e)) => {
                     error!("Following the network failed unexpectedly: {}", e);
@@ -800,13 +805,11 @@ where
                 }
                 ChainMuxerState::Follow(ref mut follow) => match follow.as_mut().poll(cx) {
                     Poll::Ready(Ok(_)) => {
-                        // TODO: Figure out what to do when the follow future completes
-                        // TODO: Log
+                        error!("Following the network unexpectedly ended without an error; restarting the sync process.");
                         self.state = ChainMuxerState::Idle;
                     }
-                    Poll::Ready(Err(_why)) => {
-                        // TODO: Determine error handling strategy here
-                        // TODO: Log
+                    Poll::Ready(Err(why)) => {
+                        error!("Following the network failed, restarted. Error = {:?}", why);
                         self.state = ChainMuxerState::Idle;
                     }
                     Poll::Pending => return Poll::Pending,
@@ -918,4 +921,3 @@ mod tests {
         );
     }
 }
-]
