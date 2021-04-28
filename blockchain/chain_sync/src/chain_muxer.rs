@@ -114,9 +114,7 @@ enum NetworkHeadEvaluation {
     InSync,
 }
 
-/// Struct that handles the ChainSync logic. This handles incoming network events such as
-/// gossipsub messages, Hello protocol requests, as well as sending and receiving ChainExchange
-/// messages to be able to do the initial sync.
+/// The ChainMuxer handles events from the p2p network and orchestrates the chain synchronization.
 pub struct ChainMuxer<DB, TBeacon, V, M> {
     /// State of the ChainSyncer Future implementation
     state: ChainMuxerState,
