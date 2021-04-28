@@ -760,34 +760,39 @@ where
                             network_head,
                             local_head,
                         } => {
-                            // TODO: Log
+                            info!("Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = {} -> NETWORK_HEAD = {}", local_head.epoch(), network_head.epoch());
                             self.state = ChainMuxerState::Bootstrap(
                                 self.bootstrap(network_head, local_head),
                             );
                         }
                         NetworkHeadEvaluation::InRange { network_head } => {
-                            // TODO: Log
+                            info!("Local node is within range of the NETWORK_HEAD = {}, starting FOLLOW", network_head.epoch());
                             self.state = ChainMuxerState::Follow(self.follow(Some(network_head)));
                         }
                         NetworkHeadEvaluation::InSync => {
-                            // TODO: Log
+                            info!("Local node is in sync with the network");
                             self.state = ChainMuxerState::Follow(self.follow(None));
                         }
                     },
-                    Poll::Ready(Err(_why)) => {
-                        // TODO: Determine error handling strategy here
+                    Poll::Ready(Err(why)) => {
+                        // TODO: Should we exponentially backoff before retrying?
+                        error!(
+                            "Evaluating the network head failed, retrying. Error = {:?}",
+                            why
+                        );
+                        self.state = ChainMuxerState::Idle;
                     }
                     Poll::Pending => return Poll::Pending,
                 },
                 ChainMuxerState::Bootstrap(ref mut bootstrap) => {
                     match bootstrap.as_mut().poll(cx) {
                         Poll::Ready(Ok(_)) => {
-                            // TODO: Log
+                            info!("Bootstrap successfully completed, now evaluating the network head to ensure the node is in sync");
                             self.state = ChainMuxerState::Idle;
                         }
-                        Poll::Ready(Err(_why)) => {
-                            // TODO: Determine error handling strategy here
-                            // TODO: Log
+                        Poll::Ready(Err(why)) => {
+                            // TODO: Should we exponentially back off before retrying?
+                            error!("Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}", why);
                             self.state = ChainMuxerState::Idle;
                         }
                         Poll::Pending => return Poll::Pending,
@@ -913,3 +918,4 @@ mod tests {
         );
     }
 }
+]
