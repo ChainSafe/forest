@@ -267,10 +267,8 @@ pub struct MsgChainNode {
 impl MsgChainNode {
     pub fn compare(&self, other: &Self) -> Ordering {
         if approx_cmp(self.gas_perf, other.gas_perf) == Ordering::Greater
-            || approx_cmp(self.gas_perf,other.gas_perf) == Ordering::Equal
-                && self
-                    .gas_reward
-                    .cmp(&other.gas_reward) == Ordering::Greater
+            || approx_cmp(self.gas_perf, other.gas_perf) == Ordering::Equal
+                && self.gas_reward.cmp(&other.gas_reward) == Ordering::Greater
         {
             return Ordering::Greater;
         }
@@ -282,8 +280,9 @@ impl MsgChainNode {
         if self.merged && !other.merged
             || self.gas_perf >= 0.0 && other.gas_perf < 0.0
             || self.eff_perf > other.eff_perf
-            || (approx_cmp(self.eff_perf, other.eff_perf) == Ordering::Equal && self.gas_perf > other.gas_perf)
-            || (approx_cmp(self.eff_perf, other.eff_perf)  == Ordering::Equal
+            || (approx_cmp(self.eff_perf, other.eff_perf) == Ordering::Equal
+                && self.gas_perf > other.gas_perf)
+            || (approx_cmp(self.eff_perf, other.eff_perf) == Ordering::Equal
                 && approx_cmp(self.gas_perf, other.gas_perf) == Ordering::Equal
                 && self.gas_reward > other.gas_reward)
         {
