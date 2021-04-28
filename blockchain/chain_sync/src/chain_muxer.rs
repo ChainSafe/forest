@@ -256,8 +256,8 @@ where
     ) {
         // Query the heaviest TipSet from the store
         let heaviest = chain_store.heaviest_tipset().await.unwrap();
-        // If the peer is new, send them a hello request
         if network.peer_manager().is_peer_new(&peer_id).await {
+            // Since the peer is new, send them a hello request
             let request = HelloRequest {
                 heaviest_tip_set: heaviest.cids().to_vec(),
                 heaviest_tipset_height: heaviest.epoch(),
@@ -275,6 +275,8 @@ where
             let dur = SystemTime::now()
                 .duration_since(moment_sent)
                 .unwrap_or_default();
+
+            // Update the peer metadata based on the response
             match response {
                 Some(Ok(_res)) => {
                     network.peer_manager().log_success(peer_id, dur).await;
