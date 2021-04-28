@@ -82,8 +82,6 @@ pub struct DaemonOpts {
                     Assumes a pre-loaded database"
     )]
     pub skip_load: bool,
-    #[structopt(long, help = "Number of worker sync tasks spawned (default is 1")]
-    pub worker_tasks: Option<usize>,
     #[structopt(
         long,
         help = "Number of tipsets requested over chain exchange (default is 200)"
@@ -142,9 +140,6 @@ impl DaemonOpts {
         // TODO add MAX conditions
         if let Some(req_window) = &self.req_window {
             cfg.sync.req_window = req_window.to_owned();
-        }
-        if let Some(worker_tsk) = &self.worker_tasks {
-            cfg.sync.worker_tasks = worker_tsk.to_owned();
         }
 
         Ok(cfg)

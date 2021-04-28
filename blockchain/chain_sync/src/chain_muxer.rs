@@ -90,26 +90,18 @@ pub enum ChainMuxerError {
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
-    /// Number of tasks spawned for sync workers
-    pub worker_tasks: usize,
 }
 
 impl SyncConfig {
-    pub fn new(req_window: i64, worker_tasks: usize) -> Self {
-        Self {
-            req_window,
-            worker_tasks,
-        }
+    pub fn new(req_window: i64) -> Self {
+        Self { req_window }
     }
 }
 
 impl Default for SyncConfig {
     // TODO benchmark (1 is temporary value to avoid overlap)
     fn default() -> Self {
-        Self {
-            req_window: 200,
-            worker_tasks: 1,
-        }
+        Self { req_window: 200 }
     }
 }
 
