@@ -294,7 +294,8 @@ where
             }
 
             // select the next (valid and fitting) chain and its dependencies for inclusion
-            for i in last..chains.len() {
+            let lst = last; // to make clippy happy, see: https://rust-lang.github.io/rust-clippy/master/index.html#mut_range_bound
+            for i in lst..chains.len() {
                 let chain = &mut chains[i];
                 // has the chain been invalidated
                 if !chain.valid {
@@ -571,7 +572,8 @@ fn merge_and_trim(
         }
 
         // select the next (valid and fitting) chain for inclusion
-        for i in last..chains.len() {
+        let lst = last; // to make clippy happy, see: https://rust-lang.github.io/rust-clippy/master/index.html#mut_range_bound
+        for i in lst..chains.len() {
             let chain = &mut chains[i];
             if !chain.valid {
                 continue;
