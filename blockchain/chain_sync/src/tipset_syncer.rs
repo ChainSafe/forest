@@ -215,12 +215,12 @@ impl TipsetGroup {
     }
 }
 
-/// The StreamingTipsetSyncer receives and prioritizes a stream of Tipsets
-/// from the ChainMuxer and the SyncSubmitBlock API before syncing.
-/// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which should be synced into the Chain Store.
+/// The TipsetProcessor receives and prioritizes a stream of Tipsets
+/// for syncing from the ChainMuxer and the SyncSubmitBlock API before syncing.
+/// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which will be synced into the Chain Store.
 pub(crate) struct TipsetProcessor<DB, TBeacon, V> {
     state: TipsetProcessorState<DB, TBeacon, V>,
-    // Tipsets pushed into this stream _must_ be validated
+    /// Tipsets pushed into this stream _must_ be validated beforehand by the TipsetValidator
     tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
     network: SyncNetworkContext<DB>,
@@ -312,16 +312,16 @@ where
     type Output = Result<(), TipsetProcessorError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        // TODO: Determine if polling the tipset stream before the state transition future
-        //       introduces a DOS attack vector where peers sent duplicate, valid tipsets over
+        // TODO: Determine if polling the tipset stream before the state machine
+        //       introduces a DOS attack vector where peers send duplicate, valid tipsets over
         //       GossipSub to divert resources away from syncing tipset ranges.
         // First, gather the tipsets off of the channel. Reading off the receiver will return immediately.
         // Ensure that the task will wake up when the stream has a new item by registering it for wakeup.
         // As a tipset is received through the stream we assume:
         //   1. Tipset has at least 1 block
-        //   2. Tipset epoch is not behind the current max epoch
+        //   2. Tipset epoch is not behind the current max epoch in the store
         //   3. Tipset is heavier than the heaviest tipset in the store at the time when it was queued
-        //   4. Tipset message roots were calculated with integrity
+        //   4. Tipset message roots were calculated proven to have integrity
 
         // Read all of the tipsets available on the stream
         let mut grouped_tipsets: HashMap<(i64, TipsetKeys), TipsetGroup> = HashMap::new();
@@ -341,8 +341,7 @@ where
                     }
                 }
                 Poll::Ready(None) => {
-                    // This stream should never end
-                    // TODO: Determine how to return an error here
+                    // Stream should never close
                     return Poll::Ready(Err(TipsetProcessorError::TipsetStreamClosed));
                 }
                 // The current task is registered for wakeup when this
@@ -352,10 +351,11 @@ where
             }
         }
 
-        // Consume the tipsets read off of the stream
+        // Consume the tipsets read off of the stream and attempt to update the state machine
         match self.state {
             TipsetProcessorState::Idle => {
                 // Set the state to FindRange if we have a tipset to sync towards
+                // Consume the tipsets received, start syncing the heaviest tipset group, and discard the rest
                 if let Some(((epoch, parents), heaviest_tipset_group)) = grouped_tipsets
                     .into_iter()
                     .max_by_key(|(_, group)| group.heaviest_weight())
@@ -380,6 +380,7 @@ where
                 if let Some(tipset_group) = grouped_tipsets.remove(&(*epoch, parents.clone())) {
                     match current_sync {
                         Some(cs) => {
+                            // This check is redundant
                             if cs.is_mergeable(&tipset_group) {
                                 cs.merge(tipset_group);
                             }
@@ -406,6 +407,7 @@ where
                                 // The tipset group received is heavier than the one saved, replace it.
                                 *next_sync = Some(heaviest_tipset_group);
                             }
+                            // Otherwise, drop the heaviest tipset group
                         }
                     }
                 }
@@ -421,6 +423,8 @@ where
                 )) {
                     tipset_group.tipsets().into_iter().for_each(|ts| {
                         if let Err(why) = range_syncer.add_tipset(ts) {
+                            // Failing to add a tipset to the TipsetRangeSyncer while it is
+                            // in progress should not abort the sync process
                             error!("Adding tipset to range syncer failed: {}", why);
                         };
                     })
@@ -444,6 +448,7 @@ where
                                 // The tipset group received is heavier than the one saved, replace it.
                                 *next_sync = Some(heaviest_tipset_group);
                             }
+                            // Otherwise, drop the heaviest tipset group
                         }
                     }
                 }
@@ -467,6 +472,13 @@ where
                     ref mut next_sync,
                 } => match range_finder.as_mut().poll(cx) {
                     Poll::Ready(Ok(mut range_syncer)) => {
+                        info!(
+                            "Determined epoch range for next sync: [{}, {}]",
+                            range_syncer.proposed_head.epoch(),
+                            range_syncer.current_head.epoch()
+                        );
+                        // Add crrent_sync to the yielded range syncer.
+                        // These tipsets match the range's [epoch, parents]
                         if let Some(tipset_group) = current_sync.take() {
                             tipset_group.tipsets().into_iter().for_each(|ts| {
                                 if let Err(why) = range_syncer.add_tipset(ts) {
@@ -480,7 +492,7 @@ where
                         };
                     }
                     Poll::Ready(Err(why)) => {
-                        warn!("Finding tipset range for sync failed: {}", why);
+                        error!("Finding tipset range for sync failed: {}", why);
                         self.state = TipsetProcessorState::Idle;
                     }
                     Poll::Pending => return Poll::Pending,
@@ -489,25 +501,18 @@ where
                     ref mut range_syncer,
                     ref mut next_sync,
                 } => {
+                    let proposed_head_epoch = range_syncer.proposed_head.epoch();
+                    let current_head_epoch = range_syncer.current_head.epoch();
                     // Drive the range_syncer to completion
                     match range_syncer.as_mut().poll(cx) {
-                        Poll::Ready(Ok(_)) => match next_sync.take() {
-                            Some(tipset_group) => {
-                                self.state = TipsetProcessorState::FindRange {
-                                    epoch: tipset_group.epoch(),
-                                    parents: tipset_group.parents(),
-                                    range_finder: self.find_range(tipset_group),
-                                    current_sync: None,
-                                    next_sync: None,
-                                };
-                            }
-                            None => {
-                                self.state = TipsetProcessorState::Idle;
-                            }
-                        },
-                        Poll::Ready(Err(why)) => {
-                            warn!("Syncing tipset range failed: {}", why);
+                        Poll::Ready(Ok(_)) => {
+                            info!(
+                                "Successfully synced tipset range: [{}, {}]",
+                                proposed_head_epoch, current_head_epoch,
+                            );
                             match next_sync.take() {
+                                // This tipset group is the heaviest that has been received while
+                                // rnning this tipset range syncer, so start syncing it
                                 Some(tipset_group) => {
                                     self.state = TipsetProcessorState::FindRange {
                                         epoch: tipset_group.epoch(),
@@ -518,6 +523,29 @@ where
                                     };
                                 }
                                 None => {
+                                    self.state = TipsetProcessorState::Idle;
+                                }
+                            }
+                        }
+                        Poll::Ready(Err(why)) => {
+                            error!(
+                                "Syncing tipset range [{}, {}] failed: {}",
+                                proposed_head_epoch, current_head_epoch, why,
+                            );
+                            match next_sync.take() {
+                                // This tipset group is the heaviest that has been received while
+                                // rnning this tipset range syncer, so start syncing it
+                                Some(tipset_group) => {
+                                    self.state = TipsetProcessorState::FindRange {
+                                        epoch: tipset_group.epoch(),
+                                        parents: tipset_group.parents(),
+                                        range_finder: self.find_range(tipset_group),
+                                        current_sync: None,
+                                        next_sync: None,
+                                    };
+                                }
+                                None => {
+                                    // Wait for the next tipset to arrive
                                     self.state = TipsetProcessorState::Idle;
                                 }
                             }
@@ -533,8 +561,8 @@ where
 type TipsetRangeSyncerFn = Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError>> + Send>>;
 
 pub(crate) struct TipsetRangeSyncer<DB, TBeacon, V> {
-    proposed_head: Arc<Tipset>,
-    current_head: Arc<Tipset>,
+    pub proposed_head: Arc<Tipset>,
+    pub current_head: Arc<Tipset>,
     tipset_range_length: u64,
     tipset_tasks: Pin<Box<FuturesUnordered<TipsetRangeSyncerFn>>>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
