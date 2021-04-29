@@ -226,7 +226,7 @@ impl State {
     // Returns current proving period start for the current epoch according to the current epoch and constant state offset
     pub fn current_proving_period_start(&self, current_epoch: ChainEpoch) -> ChainEpoch {
         let dl_info = self.deadline_info(current_epoch);
-        return dl_info.period_start;
+        dl_info.period_start
     }
 
     /// Returns deadline calculations for the current (according to state) proving period.
