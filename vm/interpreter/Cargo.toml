@@ -8,7 +8,7 @@ edition = "2018"
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../actor_interface" }
 message = { package = "forest_message", default_features = false, version = "0.7", features = ["blst"] }
-runtime = { package = "forest_runtime", version = "0.1" }
+runtime = { package = "forest_runtime", version = "0.2" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 clock = { package = "fil_clock", path = "../../node/clock" }
 vm = { package = "forest_vm", version = "0.3.1" }
@@ -22,7 +22,7 @@ byteorder = "1.3.4"
 state_tree = { path = "../state_tree" }
 log = "0.4.8"
 db = { package = "forest_db", version = "0.1" }
-fil_types = "0.1"
+fil_types = "0.2"
 ahash = "0.6"
 lazy_static = "1.4"
 rayon = "1.3"

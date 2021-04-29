@@ -34,6 +34,8 @@ pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 210;
 pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 999999998;
 /// V11 network upgrade
 pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 999999999;
+/// V12 network upgrade TODO
+pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 999999999;
 
 pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 

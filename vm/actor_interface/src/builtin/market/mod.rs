@@ -12,10 +12,10 @@ use std::error::Error;
 use vm::{ActorState, TokenAmount};
 
 /// Market actor address.
-pub static ADDRESS: &actorv3::STORAGE_MARKET_ACTOR_ADDR = &actorv3::STORAGE_MARKET_ACTOR_ADDR;
+pub static ADDRESS: &actorv4::STORAGE_MARKET_ACTOR_ADDR = &actorv4::STORAGE_MARKET_ACTOR_ADDR;
 
 /// Market actor method.
-pub type Method = actorv3::market::Method;
+pub type Method = actorv4::market::Method;
 
 /// Market actor state.
 #[derive(Serialize)]
@@ -24,6 +24,7 @@ pub enum State {
     V0(actorv0::market::State),
     V2(actorv2::market::State),
     V3(actorv3::market::State),
+    V4(actorv4::market::State),
 }
 
 impl State {
@@ -45,6 +46,11 @@ impl State {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V3)
+                .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv4::MARKET_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V4)
                 .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
@@ -72,6 +78,10 @@ impl State {
                 Ok(actorv3::BalanceTable::from_root(store, &st.escrow_table)
                     .map(BalanceTable::V3)?)
             }
+            State::V4(st) => {
+                Ok(actorv4::BalanceTable::from_root(store, &st.escrow_table)
+                    .map(BalanceTable::V4)?)
+            }
         }
     }
 
@@ -96,6 +106,10 @@ impl State {
                 Ok(actorv3::BalanceTable::from_root(store, &st.locked_table)
                     .map(BalanceTable::V3)?)
             }
+            State::V4(st) => {
+                Ok(actorv4::BalanceTable::from_root(store, &st.locked_table)
+                    .map(BalanceTable::V4)?)
+            }
         }
     }
 
@@ -117,6 +131,9 @@ impl State {
             State::V3(st) => Ok(
                 actorv3::market::DealArray::load(&st.proposals, store).map(DealProposals::V3)?
             ),
+            State::V4(st) => Ok(
+                actorv4::market::DealArray::load(&st.proposals, store).map(DealProposals::V4)?
+            ),
         }
     }
 
@@ -135,6 +152,9 @@ impl State {
             State::V3(st) => {
                 Ok(actorv3::market::DealMetaArray::load(&st.states, store).map(DealStates::V3)?)
             }
+            State::V4(st) => {
+                Ok(actorv4::market::DealMetaArray::load(&st.states, store).map(DealStates::V4)?)
+            }
         }
     }
 
@@ -144,6 +164,7 @@ impl State {
             State::V0(st) => st.total_locked(),
             State::V2(st) => st.total_locked(),
             State::V3(st) => st.total_locked(),
+            State::V4(st) => st.total_locked(),
         }
     }
 
@@ -187,6 +208,15 @@ impl State {
                 curr_epoch,
             )
             .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
+            State::V4(st) => actorv4::market::validate_deals_for_activation(
+                &st,
+                store,
+                deal_ids,
+                miner_addr,
+                sector_expiry,
+                curr_epoch,
+            )
+            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
         }
     }
 }
@@ -195,12 +225,14 @@ pub enum BalanceTable<'a, BS> {
     V0(actorv0::BalanceTable<'a, BS>),
     V2(actorv2::BalanceTable<'a, BS>),
     V3(actorv3::BalanceTable<'a, BS>),
+    V4(actorv4::BalanceTable<'a, BS>),
 }
 
 pub enum DealProposals<'a, BS> {
     V0(actorv0::market::DealArray<'a, BS>),
     V2(actorv2::market::DealArray<'a, BS>),
     V3(actorv3::market::DealArray<'a, BS>),
+    V4(actorv4::market::DealArray<'a, BS>),
 }
 
 impl<BS> DealProposals<'_, BS> {
@@ -219,6 +251,9 @@ impl<BS> DealProposals<'_, BS> {
                 dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
             }
             DealProposals::V3(dp) => {
+                dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+            }
+            DealProposals::V4(dp) => {
                 dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
             }
         }
@@ -302,10 +337,29 @@ impl From<actorv3::market::DealProposal> for DealProposal {
     }
 }
 
+impl From<actorv4::market::DealProposal> for DealProposal {
+    fn from(d: actorv4::market::DealProposal) -> Self {
+        Self {
+            piece_cid: d.piece_cid,
+            piece_size: d.piece_size,
+            verified_deal: d.verified_deal,
+            client: d.client,
+            provider: d.client,
+            label: d.label,
+            start_epoch: d.start_epoch,
+            end_epoch: d.end_epoch,
+            storage_price_per_epoch: d.storage_price_per_epoch,
+            provider_collateral: d.provider_collateral,
+            client_collateral: d.client_collateral,
+        }
+    }
+}
+
 pub enum DealStates<'a, BS> {
     V0(actorv0::market::DealMetaArray<'a, BS>),
     V2(actorv2::market::DealMetaArray<'a, BS>),
     V3(actorv3::market::DealMetaArray<'a, BS>),
+    V4(actorv4::market::DealMetaArray<'a, BS>),
 }
 
 impl<BS> DealStates<'_, BS>
@@ -317,6 +371,7 @@ where
             DealStates::V0(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
             DealStates::V2(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
             DealStates::V3(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+            DealStates::V4(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
         }
     }
 }
@@ -359,6 +414,16 @@ impl From<actorv3::market::DealState> for DealState {
     }
 }
 
+impl From<actorv4::market::DealState> for DealState {
+    fn from(d: actorv4::market::DealState) -> Self {
+        Self {
+            sector_start_epoch: d.sector_start_epoch,
+            last_updated_epoch: d.last_updated_epoch,
+            slash_epoch: d.slash_epoch,
+        }
+    }
+}
+
 impl<BS> BalanceTable<'_, BS>
 where
     BS: BlockStore,
@@ -368,6 +433,7 @@ where
             BalanceTable::V0(bt) => bt.get(key),
             BalanceTable::V2(bt) => bt.get(key),
             BalanceTable::V3(bt) => bt.get(key),
+            BalanceTable::V4(bt) => bt.get(key),
         }
     }
 }

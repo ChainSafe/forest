@@ -1,4 +1,4 @@
-# 2.0.0 [UNRELEASED]
+# 2.0.0 [2021-04-19]
 
 - `set_if_absent` function added. This inserts a value only if the key does not already exist in the Hamt.
 - `set` now doesn't require flushes when the value set is equal to the one that already exists. This is needed for go interop and removes the need for an extra flush or checking if exists in a separate operation.

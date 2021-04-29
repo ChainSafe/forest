@@ -101,6 +101,36 @@ pub fn expected_reward_for_power(
     std::cmp::max(br128 >> PRECISION, Default::default())
 }
 
+// BR but zero values are clamped at 1 attofil
+// Some uses of BR (PCD, IP) require a strictly positive value for BR derived values so
+// accounting variables can be used as succinct indicators of miner activity.
+fn expected_reward_for_power_clamped_at_atto_fil(
+    reward_estimate: &FilterEstimate,
+    network_qa_power_estimate: &FilterEstimate,
+    qa_sector_power: &StoragePower,
+    projection_duration: ChainEpoch,
+) -> TokenAmount {
+    let br = expected_reward_for_power(
+        reward_estimate,
+        network_qa_power_estimate,
+        qa_sector_power,
+        projection_duration,
+    );
+    if br.le(&TokenAmount::from(0)) {
+        1.into()
+    } else {
+        br
+    }
+}
+
+// func ExpectedRewardForPowerClampedAtAttoFIL(rewardEstimate, networkQAPowerEstimate smoothing.FilterEstimate, qaSectorPower abi.StoragePower, projectionDuration abi.ChainEpoch) abi.TokenAmount {
+// 	br := ExpectedRewardForPower(rewardEstimate, networkQAPowerEstimate, qaSectorPower, projectionDuration)
+// 	if br.LessThanEqual(big.Zero()) {
+// 		br = abi.NewTokenAmount(1)
+// 	}
+// 	return br
+// }
+
 /// The penalty for a sector continuing faulty for another proving period.
 /// It is a projection of the expected reward earned by the sector.
 /// Also known as "FF(t)"
@@ -191,7 +221,7 @@ pub fn pre_commit_deposit_for_power(
     network_qa_power_estimate: &FilterEstimate,
     qa_sector_power: &StoragePower,
 ) -> TokenAmount {
-    expected_reward_for_power(
+    expected_reward_for_power_clamped_at_atto_fil(
         reward_estimate,
         network_qa_power_estimate,
         qa_sector_power,
@@ -217,7 +247,7 @@ pub fn initial_pledge_for_power(
     network_qa_power_estimate: &FilterEstimate,
     circulating_supply: &TokenAmount,
 ) -> TokenAmount {
-    let ip_base = expected_reward_for_power(
+    let ip_base = expected_reward_for_power_clamped_at_atto_fil(
         reward_estimate,
         network_qa_power_estimate,
         qa_power,
