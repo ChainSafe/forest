@@ -638,8 +638,9 @@ where
         &mut self,
         additional_head: Arc<Tipset>,
     ) -> Result<bool, TipsetRangeSyncerError> {
+        let new_key = additional_head.key().clone();
         // Ignore duplicate tipsets
-        if self.tipsets_included.contains(&additional_head.key()) {
+        if self.tipsets_included.contains(&new_key) {
             return Ok(false);
         }
         // Verify that the proposed Tipset has the same epoch and parent
@@ -656,6 +657,9 @@ where
             error!("Parents for tipset added to TipsetSyncer do not match initialized tipset");
             return Err(TipsetRangeSyncerError::InvalidTipsetParent);
         }
+        // Keep track of tipsets included
+        self.tipsets_included.insert(new_key);
+
         self.tipset_tasks.push(sync_tipset::<_, _, V>(
             additional_head,
             self.tipset_range_length,
