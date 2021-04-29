@@ -1024,9 +1024,10 @@ async fn validate_block<
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
     debug!(
-        "Valdating block at epoch: {} with weight: {}",
+        "Validating block at epoch: {} with weight: {} with key: {}",
         block.header().epoch(),
-        block.header().weight()
+        block.header().weight(),
+        block.header().cid(),
     );
     let chain_store = state_manager.chain_store().clone();
     let block_cid = block.cid();
