@@ -613,7 +613,7 @@ where
         // Checks:
         // TODO: Ensure the Tipset is heavier than the heaviest tipset in the store
         // Ensure the difference in epochs between the proposed and current head is > 0
-        if tipset_range_length <= 0 {
+        if tipset_range_length < 0 {
             return Err(TipsetRangeSyncerError::InvalidTipsetRangeLength);
         }
 
