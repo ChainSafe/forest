@@ -1006,7 +1006,7 @@ async fn validate_tipset<
     }
     info!(
         "Successfully validated tipset: EPOCH = {}, KEY = {:?}",
-        epoch, full_tipset_key,
+        epoch, full_tipset_key.cids,
     );
     Ok(())
 }
