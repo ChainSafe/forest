@@ -427,10 +427,11 @@ where
                     range_syncer.proposed_head_parents(),
                 )) {
                     tipset_group.tipsets().into_iter().for_each(|ts| {
+                        let tipset_key = ts.key().clone();
                         match range_syncer.add_tipset(ts) {
                             Ok(added) => {
                                 if added {
-                                    debug!("Successfully added tipset to running range syncer");
+                                    debug!("Successfully added tipset [key = {:?}] to running range syncer", tipset_key);
                                 }
                             }
                             Err(why) => {
