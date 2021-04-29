@@ -312,6 +312,8 @@ where
     type Output = Result<(), TipsetProcessorError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        debug!("--- Polling TipsetProcessor");
+
         // TODO: Determine if polling the tipset stream before the state machine
         //       introduces a DOS attack vector where peers send duplicate, valid tipsets over
         //       GossipSub to divert resources away from syncing tipset ranges.
@@ -350,6 +352,11 @@ where
                 Poll::Pending => break,
             }
         }
+
+        debug!(
+            "--- Tipsets received through stream: {}",
+            grouped_tipsets.len()
+        );
 
         // Consume the tipsets read off of the stream and attempt to update the state machine
         match self.state {
@@ -426,8 +433,12 @@ where
                             // Failing to add a tipset to the TipsetRangeSyncer while it is
                             // in progress should not abort the sync process
                             error!("Adding tipset to range syncer failed: {}", why);
+                        } else {
+                            debug!("Sucessfully added tipset to running range syncer");
                         };
                     })
+                } else {
+                    debug!("No tipsets added to existing range syncer");
                 }
 
                 // Update or replace the next sync
