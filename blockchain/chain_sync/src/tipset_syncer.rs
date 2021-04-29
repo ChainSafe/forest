@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
@@ -574,6 +574,7 @@ type TipsetRangeSyncerFn = Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyn
 pub(crate) struct TipsetRangeSyncer<DB, TBeacon, V> {
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
+    tipsets_included: HashSet<TipsetKeys>,
     tipset_range_length: u64,
     tipset_tasks: Pin<Box<FuturesUnordered<TipsetRangeSyncerFn>>>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
@@ -614,9 +615,13 @@ where
         if tipset_range_length <= 0 {
             return Err(TipsetRangeSyncerError::InvalidTipsetRangeLength);
         }
+
+        let mut tipsets_included = HashSet::new();
+        tipsets_included.insert(proposed_head.key());
         Ok(Self {
             proposed_head,
             current_head,
+            tipsets_included: HashSet::new(),
             tipset_range_length,
             tipset_tasks,
             beacon,
@@ -631,6 +636,10 @@ where
         &mut self,
         additional_head: Arc<Tipset>,
     ) -> Result<(), TipsetRangeSyncerError> {
+        // Ignore duplicate tipsets
+        if self.tipsets_included.contains(&additional_head.key()) {
+            return Ok(());
+        }
         // Verify that the proposed Tipset has the same epoch and parent
         // as the original proposed Tipset
         if additional_head.epoch() != self.proposed_head.epoch() {
@@ -828,7 +837,21 @@ fn sync_tipset_range<
         .await?;
 
         // At this point the head is synced and it can be set in the store as the heaviest
-        chain_store.put_tipset(&proposed_head).await?;
+        debug!(
+            "Tipset range successfully verified: EPOCH = [{}, {}], HEAD_KEY = {:?}",
+            proposed_head.epoch(),
+            current_head.epoch(),
+            proposed_head.key()
+        );
+        if let Err(why) = chain_store.put_tipset(&proposed_head).await {
+            error!(
+                "Putting tipset range head [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
+                proposed_head.epoch(),
+                proposed_head.key(),
+                why
+            );
+            return Err(why.into());
+        };
         Ok(())
     })
 }
@@ -863,9 +886,23 @@ fn sync_tipset<
         {
             return Err(e);
         }
+
         // Add the tipset to the store. The tipset will be expanded with other blocks with
         // the same [epoch, parents] before updating the heaviest Tipset in the store.
-        chain_store.put_tipset(&proposed_head).await?;
+        debug!(
+            "Tipset successfully verified: EPOCH = {}, KEYS = {:?}",
+            proposed_head.epoch(),
+            proposed_head.key()
+        );
+        if let Err(why) = chain_store.put_tipset(&proposed_head).await {
+            error!(
+                "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
+                proposed_head.epoch(),
+                proposed_head.key(),
+                why
+            );
+            return Err(why.into());
+        };
         Ok(())
     })
 }
