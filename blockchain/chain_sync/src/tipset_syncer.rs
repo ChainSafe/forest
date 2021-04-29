@@ -12,7 +12,7 @@ use async_std::pin::Pin;
 use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, JoinHandle, Poll};
 use futures::stream::FuturesUnordered;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use num_bigint::BigInt;
 use thiserror::Error;
 
@@ -312,7 +312,7 @@ where
     type Output = Result<(), TipsetProcessorError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        debug!("--- Polling TipsetProcessor");
+        debug!("Polling TipsetProcessor");
 
         // TODO: Determine if polling the tipset stream before the state machine
         //       introduces a DOS attack vector where peers send duplicate, valid tipsets over
@@ -336,9 +336,7 @@ where
                             grouped_tipsets.insert(key, TipsetGroup::new(tipset));
                         }
                         Some(group) => {
-                            if let Some(_) = group.try_add_tipset(tipset) {
-                                debug!("Dropping duplicate tipset");
-                            }
+                            group.try_add_tipset(tipset);
                         }
                     }
                 }
@@ -353,10 +351,7 @@ where
             }
         }
 
-        debug!(
-            "--- Tipsets received through stream: {}",
-            grouped_tipsets.len()
-        );
+        debug!("Tipsets received through stream: {}", grouped_tipsets.len());
 
         // Consume the tipsets read off of the stream and attempt to update the state machine
         match self.state {
@@ -367,6 +362,7 @@ where
                     .into_iter()
                     .max_by_key(|(_, group)| group.heaviest_weight())
                 {
+                    debug!("Finding range for tipset epoch = {}", epoch);
                     self.state = TipsetProcessorState::FindRange {
                         epoch,
                         parents,
@@ -389,6 +385,7 @@ where
                         Some(cs) => {
                             // This check is redundant
                             if cs.is_mergeable(&tipset_group) {
+                                debug!("Merging current tipset group");
                                 cs.merge(tipset_group);
                             }
                         }
@@ -409,6 +406,7 @@ where
                         Some(ns) => {
                             if ns.is_mergeable(&heaviest_tipset_group) {
                                 // Both tipsets groups have the same epoch & parents, so merge them
+                                debug!("Merging the next tipset group");
                                 ns.merge(heaviest_tipset_group);
                             } else if heaviest_tipset_group.is_heavier_than(&ns) {
                                 // The tipset group received is heavier than the one saved, replace it.
@@ -429,14 +427,17 @@ where
                     range_syncer.proposed_head_parents(),
                 )) {
                     tipset_group.tipsets().into_iter().for_each(|ts| {
-                        if let Err(why) = range_syncer.add_tipset(ts) {
-                            // Failing to add a tipset to the TipsetRangeSyncer while it is
-                            // in progress should not abort the sync process
-                            error!("Adding tipset to range syncer failed: {}", why);
-                        } else {
-                            debug!("Sucessfully added tipset to running range syncer");
-                        };
-                    })
+                        match range_syncer.add_tipset(ts) {
+                            Ok(added) => {
+                                if added {
+                                    debug!("Successfully added tipset to running range syncer");
+                                }
+                            }
+                            Err(why) => {
+                                error!("Adding tipset to range syncer failed: {}", why);
+                            }
+                        }
+                    });
                 } else {
                     debug!("No tipsets added to existing range syncer");
                 }
@@ -635,10 +636,10 @@ where
     pub fn add_tipset(
         &mut self,
         additional_head: Arc<Tipset>,
-    ) -> Result<(), TipsetRangeSyncerError> {
+    ) -> Result<bool, TipsetRangeSyncerError> {
         // Ignore duplicate tipsets
         if self.tipsets_included.contains(&additional_head.key()) {
-            return Ok(());
+            return Ok(false);
         }
         // Verify that the proposed Tipset has the same epoch and parent
         // as the original proposed Tipset
@@ -662,7 +663,7 @@ where
             self.bad_block_cache.clone(),
             self.beacon.clone(),
         ));
-        Ok(())
+        Ok(true)
     }
 
     pub fn proposed_head_epoch(&self) -> i64 {
@@ -1033,11 +1034,17 @@ async fn validate_tipset<
             Ok(block) => {
                 chainstore.add_to_tipset_tracker(block.header()).await;
             }
-            Err((cid, e)) => {
-                if !matches!(e, TipsetRangeSyncerError::TimeTravellingBlock(_, _)) {
-                    bad_block_cache.put(cid, e.to_string()).await;
+            Err((cid, why)) => {
+                warn!(
+                    "Validating block [CID = {}] in EPOCH = {} failed: {}",
+                    cid.clone(),
+                    epoch,
+                    why
+                );
+                if !matches!(why, TipsetRangeSyncerError::TimeTravellingBlock(_, _)) {
+                    bad_block_cache.put(cid, why.to_string()).await;
                 }
-                return Err(e);
+                return Err(why);
             }
         }
     }
@@ -1060,7 +1067,7 @@ async fn validate_block<
     beacon_schedule: Arc<BeaconSchedule<TBeacon>>,
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
-    debug!(
+    trace!(
         "Validating block: epoch = {}, weight = {}, key = {}",
         block.header().epoch(),
         block.header().weight(),
