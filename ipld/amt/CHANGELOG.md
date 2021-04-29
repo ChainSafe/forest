@@ -1,4 +1,4 @@
-# 1.0.0 [UNRELEASED]
+# 1.0.0 [2021-04-19]
 
 - Dynamic bit width functionality
     - Updates serialized format, this is a breaking change

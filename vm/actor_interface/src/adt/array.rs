@@ -11,6 +11,7 @@ pub enum Array<'a, BS, V> {
     V0(actorv0::ipld_amt::Amt<'a, V, BS>),
     V2(actorv2::ipld_amt::Amt<'a, V, BS>),
     V3(actorv3::ipld_amt::Amt<'a, V, BS>),
+    V4(actorv4::ipld_amt::Amt<'a, V, BS>),
 }
 
 impl<'a, BS, V> Array<'a, BS, V>
@@ -23,6 +24,7 @@ where
             ActorVersion::V0 => Array::V0(actorv0::ipld_amt::Amt::new(store)),
             ActorVersion::V2 => Array::V2(actorv2::ipld_amt::Amt::new(store)),
             ActorVersion::V3 => Array::V3(actorv3::ipld_amt::Amt::new(store)),
+            ActorVersion::V4 => Array::V4(actorv4::ipld_amt::Amt::new(store)),
         }
     }
 
@@ -32,6 +34,7 @@ where
             ActorVersion::V0 => Ok(Array::V0(actorv0::ipld_amt::Amt::load(cid, store)?)),
             ActorVersion::V2 => Ok(Array::V2(actorv2::ipld_amt::Amt::load(cid, store)?)),
             ActorVersion::V3 => Ok(Array::V3(actorv3::ipld_amt::Amt::load(cid, store)?)),
+            ActorVersion::V4 => Ok(Array::V4(actorv4::ipld_amt::Amt::load(cid, store)?)),
         }
     }
 
@@ -41,6 +44,7 @@ where
             Array::V0(m) => m.count(),
             Array::V2(m) => m.count(),
             Array::V3(m) => m.count() as u64,
+            Array::V4(m) => m.count() as u64,
         }
     }
 
@@ -50,6 +54,7 @@ where
             Array::V0(m) => Ok(m.get(i)?),
             Array::V2(m) => Ok(m.get(i)?),
             Array::V3(m) => Ok(m.get(i as usize)?),
+            Array::V4(m) => Ok(m.get(i as usize)?),
         }
     }
 
@@ -59,6 +64,7 @@ where
             Array::V0(m) => Ok(m.set(i, val)?),
             Array::V2(m) => Ok(m.set(i, val)?),
             Array::V3(m) => Ok(m.set(i as usize, val)?),
+            Array::V4(m) => Ok(m.set(i as usize, val)?),
         }
     }
 
@@ -68,6 +74,7 @@ where
             Array::V0(m) => Ok(m.delete(i)?),
             Array::V2(m) => Ok(m.delete(i)?),
             Array::V3(m) => Ok(m.delete(i as usize)?.is_some()),
+            Array::V4(m) => Ok(m.delete(i as usize)?.is_some()),
         }
     }
 
@@ -77,6 +84,7 @@ where
             Array::V0(m) => Ok(m.flush()?),
             Array::V2(m) => Ok(m.flush()?),
             Array::V3(m) => Ok(m.flush()?),
+            Array::V4(m) => Ok(m.flush()?),
         }
     }
 
@@ -89,6 +97,7 @@ where
             Array::V0(m) => m.for_each(f),
             Array::V2(m) => m.for_each(f),
             Array::V3(m) => m.for_each(|k: usize, v: &V| f(k as u64, v)),
+            Array::V4(m) => m.for_each(|k: usize, v: &V| f(k as u64, v)),
         }
     }
 }

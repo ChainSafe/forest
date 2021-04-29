@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
-    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info, policy::*,
-    quant_spec_for_deadline, types::*, BitFieldQueue, Deadline, DeadlineSectorMap, Deadlines,
-    PowerPair, Sectors, TerminationResult, VestingFunds,
+    assign_deadlines, deadline_is_mutable, deadlines::new_deadline_info,
+    new_deadline_info_from_offset_and_epoch, policy::*, quant_spec_for_deadline, types::*,
+    BitFieldQueue, Deadline, DeadlineSectorMap, Deadlines, PowerPair, Sectors, TerminationResult,
+    VestingFunds,
 };
 use crate::{make_empty_map, make_map_with_root_and_bitwidth, u64_key, ActorDowncast};
 use address::Address;
@@ -96,6 +97,9 @@ pub struct State {
 
     /// Deadlines with outstanding fees for early sector termination.
     pub early_terminations: BitField,
+
+    // True when miner cron is active, false otherwise
+    pub deadline_cron_active: bool,
 }
 
 impl Cbor for State {}
@@ -183,6 +187,7 @@ impl State {
             current_deadline: deadline_idx,
             deadlines: empty_deadlines,
             early_terminations: BitField::new(),
+            deadline_cron_active: false,
         })
     }
 
@@ -206,11 +211,22 @@ impl State {
 
     /// Returns deadline calculations for the current (according to state) proving period.
     pub fn deadline_info(&self, current_epoch: ChainEpoch) -> DeadlineInfo {
+        new_deadline_info_from_offset_and_epoch(self.proving_period_start, current_epoch)
+    }
+    // Returns deadline calculations for the state recorded proving period and deadline.
+    // This is out of date if the a miner does not have an active miner cron
+    pub fn recorded_deadline_info(&self, current_epoch: ChainEpoch) -> DeadlineInfo {
         new_deadline_info(
             self.proving_period_start,
             self.current_deadline,
             current_epoch,
         )
+    }
+
+    // Returns current proving period start for the current epoch according to the current epoch and constant state offset
+    pub fn current_proving_period_start(&self, current_epoch: ChainEpoch) -> ChainEpoch {
+        let dl_info = self.deadline_info(current_epoch);
+        dl_info.period_start
     }
 
     /// Returns deadline calculations for the current (according to state) proving period.
@@ -485,9 +501,12 @@ impl State {
 
         let mut all_replaced = Vec::new();
         for (deadline_idx, partition_sectors) in deadline_sectors.iter() {
-            let deadline_info =
-                new_deadline_info(self.proving_period_start, deadline_idx, current_epoch)
-                    .next_not_elapsed();
+            let deadline_info = new_deadline_info(
+                self.current_proving_period_start(current_epoch),
+                deadline_idx,
+                current_epoch,
+            )
+            .next_not_elapsed();
             let new_expiration = deadline_info.last();
             let mut deadline = deadlines.load_deadline(store, deadline_idx)?;
 
@@ -528,7 +547,11 @@ impl State {
 
         deadlines.for_each(store, |deadline_idx, deadline| {
             // Skip deadlines that aren't currently mutable.
-            if deadline_is_mutable(self.proving_period_start, deadline_idx, current_epoch) {
+            if deadline_is_mutable(
+                self.current_proving_period_start(current_epoch),
+                deadline_idx,
+                current_epoch,
+            ) {
                 deadline_vec[deadline_idx as usize] = Some(deadline);
             }
 
@@ -728,6 +751,13 @@ impl State {
     ) -> Result<(), Box<dyn StdError>> {
         self.vesting_funds = store.put(funds, Blake2b256)?;
         Ok(())
+    }
+
+    // Return true when the miner actor needs to continue scheduling deadline crons
+    pub fn continue_deadline_cron(&self) -> bool {
+        !self.pre_commit_deposits.is_zero()
+            || !self.initial_pledge.is_zero()
+            || !self.locked_funds.is_zero()
     }
 
     //
@@ -1073,9 +1103,9 @@ impl State {
             });
         }
 
-        self.current_deadline = (self.current_deadline + 1) % WPOST_PERIOD_DEADLINES as usize;
+        self.current_deadline = ((dl_info.index + 1) % WPOST_PERIOD_DEADLINES) as usize;
         if self.current_deadline == 0 {
-            self.proving_period_start += WPOST_PROVING_PERIOD;
+            self.proving_period_start = dl_info.period_start + WPOST_PROVING_PERIOD;
         }
 
         let mut deadlines = self.load_deadlines(store)?;

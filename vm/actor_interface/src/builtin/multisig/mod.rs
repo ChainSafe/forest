@@ -15,7 +15,8 @@ pub type Method = actorv3::multisig::Method;
 pub enum State {
     V0(actorv0::multisig::State),
     V2(actorv2::multisig::State),
-    V3(actorv2::multisig::State),
+    V3(actorv3::multisig::State),
+    V4(actorv4::multisig::State),
 }
 
 impl State {
@@ -37,6 +38,11 @@ impl State {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V3)
+                .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv4::MULTISIG_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V4)
                 .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
