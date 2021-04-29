@@ -176,9 +176,7 @@ mod tests {
         let (new_mined_block_tx, _) = bounded(5);
         let state = Arc::new(RpcState {
             state_manager,
-            keystore: Arc::new(RwLock::new(
-                KeyStore::new(KeyStoreConfig::Memory()).unwrap(),
-            )),
+            keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             sync_state: Arc::new(RwLock::new(vec![Default::default()])),

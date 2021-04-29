@@ -329,7 +329,7 @@ pub mod tests {
 
     #[test]
     fn test_message_pool() {
-        let keystore = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -383,7 +383,7 @@ pub mod tests {
     #[test]
     fn test_revert_messages() {
         let tma = TestApi::default();
-        let keystore = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
 
         let a = mock_block(1, 1);
@@ -486,7 +486,7 @@ pub mod tests {
 
     #[test]
     fn test_async_message_pool() {
-        let keystore = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -535,7 +535,7 @@ pub mod tests {
 
     #[async_std::test]
     async fn test_msg_chains() {
-        let keystore = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let a1 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();

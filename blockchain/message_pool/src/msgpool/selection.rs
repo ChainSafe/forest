@@ -688,11 +688,11 @@ mod test_selection {
     async fn basic_message_selection() {
         let mpool = make_test_mpool();
 
-        let ks1 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let ks2 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
@@ -859,11 +859,11 @@ mod test_selection {
     async fn message_selection_trimming() {
         let mpool = make_test_mpool();
 
-        let ks1 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let ks2 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
@@ -938,11 +938,11 @@ mod test_selection {
 
         let mut mpool = make_test_mpool();
 
-        let ks1 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let ks2 = KeyStore::new(KeyStoreConfig::Memory()).unwrap();
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
@@ -1039,9 +1039,9 @@ mod test_selection {
         let mpool = make_test_mpool();
 
         // create two actors
-        let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory()).unwrap());
+        let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
-        let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory()).unwrap());
+        let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         // create a block
@@ -1123,9 +1123,9 @@ mod test_selection {
         let mpool = make_test_mpool();
 
         // create two actors
-        let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory()).unwrap());
+        let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
-        let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory()).unwrap());
+        let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         // create a block
@@ -1243,7 +1243,7 @@ mod test_selection {
         let mut wallets = vec![];
 
         for _ in 0..n_actors {
-            let mut wallet = Wallet::new(KeyStore::new(KeyStoreConfig::Memory()).unwrap());
+            let mut wallet = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
             let actor = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
             actors.push(actor);

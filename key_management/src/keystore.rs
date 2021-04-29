@@ -126,7 +126,7 @@ pub struct KeyStore {
 }
 
 pub enum KeyStoreConfig {
-    Memory(),
+    Memory,
     Persistent(PathBuf),
     Encrypted(PathBuf, String),
 }
@@ -163,13 +163,13 @@ pub enum EncryptedKeyStoreError {
 impl KeyStore {
     pub fn new(config: KeyStoreConfig) -> Result<Self, Error> {
         match config {
-            KeyStoreConfig::Memory() => Ok(Self {
+            KeyStoreConfig::Memory => Ok(Self {
                 key_info: HashMap::new(),
                 persistence: None,
                 encryption: None,
             }),
             KeyStoreConfig::Persistent(location) => {
-                let file_path = location.join(Path::new(KEYSTORE_NAME));
+                let file_path = location.join(KEYSTORE_NAME);
 
                 match File::open(&file_path) {
                     Ok(file) => {
@@ -418,10 +418,8 @@ impl EncryptedKeyStore {
     ) -> Result<Vec<u8>, EncryptedKeyStoreError> {
         let ciphertext = &msg[..msg.len() - 24];
 
-        let nonce = match secretbox::Nonce::from_slice(&msg[msg.len() - 24..]) {
-            Some(value) => value,
-            None => return Err(EncryptedKeyStoreError::DecryptionError),
-        };
+        let nonce = secretbox::Nonce::from_slice(&msg[msg.len() - 24..])
+            .ok_or(EncryptedKeyStoreError::DecryptionError)?;
 
         let plaintext = secretbox::open(&ciphertext, &nonce, &encryption_key)
             .map_err(|_| EncryptedKeyStoreError::DecryptionError)?;
