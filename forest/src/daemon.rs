@@ -214,8 +214,8 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    p2p_task.cancel().await;
     sync_task.cancel().await;
+    p2p_task.cancel().await;
     if let Some(task) = rpc_task {
         task.cancel().await;
     }

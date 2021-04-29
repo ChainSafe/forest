@@ -309,7 +309,7 @@ where
         source: PeerId,
         network: SyncNetworkContext<DB>,
     ) -> Result<FullTipset, ChainMuxerError> {
-        info!(
+        debug!(
             "Received block over GossipSub: {} height {} from {}",
             block.header.cid(),
             block.header.epoch(),
@@ -374,7 +374,7 @@ where
                 {
                     Ok(tipset) => tipset,
                     Err(why) => {
-                        warn!("Querying full tipset failed: {}", why);
+                        debug!("Querying full tipset failed: {}", why);
                         return Err(why);
                     }
                 };
@@ -482,7 +482,7 @@ where
                     Ok(Some((tipset, source))) => (tipset, source),
                     Ok(None) => continue,
                     Err(why) => {
-                        error!("Processing GossipSub event failed: {:?}", why);
+                        debug!("Processing GossipSub event failed: {:?}", why);
                         continue;
                     }
                 };
@@ -582,7 +582,7 @@ where
                     Ok(Some((tipset, source))) => (tipset, source),
                     Ok(None) => continue,
                     Err(why) => {
-                        error!("Processing GossipSub event failed: {:?}", why);
+                        debug!("Processing GossipSub event failed: {:?}", why);
                         continue;
                     }
                 };
@@ -674,7 +674,7 @@ where
                         Ok(Some((tipset, source))) => (tipset, source),
                         Ok(None) => continue,
                         Err(why) => {
-                            error!("Processing GossipSub event failed: {:?}", why);
+                            debug!("Processing GossipSub event failed: {:?}", why);
                             continue;
                         }
                     };
