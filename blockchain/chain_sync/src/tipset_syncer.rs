@@ -1024,7 +1024,7 @@ async fn validate_block<
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
     debug!(
-        "Validating block at epoch: {} with weight: {} with key: {}",
+        "Validating block: epoch = {}, weight = {}, key = {}",
         block.header().epoch(),
         block.header().weight(),
         block.header().cid(),
