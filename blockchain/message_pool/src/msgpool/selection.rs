@@ -668,7 +668,7 @@ mod test_selection {
     use async_std::task;
     use crypto::SignatureType;
     use db::MemoryDB;
-    use key_management::{MemKeyStore, Wallet};
+    use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
     use std::sync::Arc;
     use types::NetworkParams;
@@ -688,10 +688,12 @@ mod test_selection {
     async fn basic_message_selection() {
         let mpool = make_test_mpool();
 
-        let mut w1 = Wallet::new(MemKeyStore::new());
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut w2 = Wallet::new(MemKeyStore::new());
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let b1 = mock_block(1, 1);
@@ -857,10 +859,12 @@ mod test_selection {
     async fn message_selection_trimming() {
         let mpool = make_test_mpool();
 
-        let mut w1 = Wallet::new(MemKeyStore::new());
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut w2 = Wallet::new(MemKeyStore::new());
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let b1 = mock_block(1, 1);
@@ -934,10 +938,12 @@ mod test_selection {
 
         let mut mpool = make_test_mpool();
 
-        let mut w1 = Wallet::new(MemKeyStore::new());
+        let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut w1 = Wallet::new(ks1);
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut w2 = Wallet::new(MemKeyStore::new());
+        let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut w2 = Wallet::new(ks2);
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         // set priority addrs to a1
@@ -1033,9 +1039,9 @@ mod test_selection {
         let mpool = make_test_mpool();
 
         // create two actors
-        let mut w1 = Wallet::new(MemKeyStore::new());
+        let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
-        let mut w2 = Wallet::new(MemKeyStore::new());
+        let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         // create a block
@@ -1117,9 +1123,9 @@ mod test_selection {
         let mpool = make_test_mpool();
 
         // create two actors
-        let mut w1 = Wallet::new(MemKeyStore::new());
+        let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
-        let mut w2 = Wallet::new(MemKeyStore::new());
+        let mut w2 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         // create a block
@@ -1237,7 +1243,7 @@ mod test_selection {
         let mut wallets = vec![];
 
         for _ in 0..n_actors {
-            let mut wallet = Wallet::new(MemKeyStore::new());
+            let mut wallet = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
             let actor = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
             actors.push(actor);

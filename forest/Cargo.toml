@@ -43,6 +43,7 @@ genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 networks = { path = "../types/networks" }
+rpassword = "0.0.4"
 
 [dependencies.jsonrpc-v2]
 version = "0.10.0"

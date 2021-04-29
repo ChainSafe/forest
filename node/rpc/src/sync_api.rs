@@ -15,7 +15,6 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{SignedMessage, UnsignedMessage};
 use serde::Serialize;
 use std::sync::Arc;
-use wallet::KeyStore;
 
 #[derive(Serialize)]
 pub struct RPCSyncState {
@@ -24,13 +23,12 @@ pub struct RPCSyncState {
 }
 
 /// Checks if a given block is marked as bad.
-pub(crate) async fn sync_check_bad<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn sync_check_bad<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
@@ -38,13 +36,12 @@ where
 }
 
 /// Marks a block as bad, meaning it will never be synced.
-pub(crate) async fn sync_mark_bad<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn sync_mark_bad<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
@@ -65,12 +62,11 @@ async fn clone_state(states: &RwLock<Vec<Arc<RwLock<SyncState>>>>) -> Vec<SyncSt
 }
 
 /// Returns the current status of the ChainSync process.
-pub(crate) async fn sync_state<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn sync_state<DB, B>(
+    data: Data<RpcState<DB, B>>,
 ) -> Result<RPCSyncState, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let active_syncs = clone_state(data.sync_state.as_ref()).await;
@@ -78,13 +74,12 @@ where
 }
 
 /// Submits block to be sent through gossipsub.
-pub(crate) async fn sync_submit_block<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn sync_submit_block<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params((GossipBlockJson(blk),)): Params<(GossipBlockJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let bls_msgs: Vec<UnsignedMessage> =
@@ -133,12 +128,12 @@ mod tests {
     use serde_json::from_str;
     use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
-    use wallet::MemKeyStore;
+    use wallet::{KeyStore, KeyStoreConfig};
 
     const TEST_NET_NAME: &str = "test";
 
     async fn state_setup() -> (
-        Arc<RpcState<MemoryDB, MemKeyStore, MockBeacon>>,
+        Arc<RpcState<MemoryDB, MockBeacon>>,
         Receiver<NetworkMessage>,
     ) {
         let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
@@ -181,7 +176,7 @@ mod tests {
         let (new_mined_block_tx, _) = bounded(5);
         let state = Arc::new(RpcState {
             state_manager,
-            keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
+            keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
             sync_state: Arc::new(RwLock::new(vec![Default::default()])),

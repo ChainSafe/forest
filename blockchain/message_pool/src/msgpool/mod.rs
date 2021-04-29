@@ -296,7 +296,7 @@ pub mod tests {
     use async_std::task;
     use blocks::Tipset;
     use crypto::SignatureType;
-    use key_management::{MemKeyStore, Wallet};
+    use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use num_bigint::BigInt;
     use std::borrow::BorrowMut;
@@ -307,7 +307,7 @@ pub mod tests {
     pub fn create_smsg(
         to: &Address,
         from: &Address,
-        wallet: &mut Wallet<MemKeyStore>,
+        wallet: &mut Wallet,
         sequence: u64,
         gas_limit: i64,
         gas_price: u64,
@@ -329,7 +329,7 @@ pub mod tests {
 
     #[test]
     fn test_message_pool() {
-        let keystore = MemKeyStore::new();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -383,7 +383,8 @@ pub mod tests {
     #[test]
     fn test_revert_messages() {
         let tma = TestApi::default();
-        let mut wallet = Wallet::new(MemKeyStore::new());
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(keystore);
 
         let a = mock_block(1, 1);
         let tipset = Tipset::new(vec![a.clone()]).unwrap();
@@ -485,7 +486,7 @@ pub mod tests {
 
     #[test]
     fn test_async_message_pool() {
-        let keystore = MemKeyStore::new();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -534,7 +535,7 @@ pub mod tests {
 
     #[async_std::test]
     async fn test_msg_chains() {
-        let keystore = MemKeyStore::new();
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let a1 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();

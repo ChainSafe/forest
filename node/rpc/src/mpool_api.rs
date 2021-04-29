@@ -21,16 +21,14 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::{collections::HashSet, convert::TryFrom};
 use vm::TokenAmount;
-use wallet::KeyStore;
 
 /// Estimate the gas price for an Address
-pub(crate) async fn estimate_gas_premium<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn estimate_gas_premium<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(u64, String, u64, TipsetKeys)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (nblocks, sender_str, gas_limit, tsk) = params;
@@ -42,13 +40,12 @@ where
 }
 
 /// get the sequence of given address in mpool
-pub(crate) async fn mpool_get_sequence<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn mpool_get_sequence<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(String,)>,
 ) -> Result<u64, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (addr_str,) = params;
@@ -58,13 +55,12 @@ where
 }
 
 /// Return Vec of pending messages in mpool
-pub(crate) async fn mpool_pending<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn mpool_pending<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(CidJsonVec,)>,
 ) -> Result<Vec<SignedMessage>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJsonVec(cid_vec),) = params;
@@ -124,13 +120,12 @@ where
 }
 
 /// Add SignedMessage to mpool, return msg CID
-pub(crate) async fn mpool_push<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn mpool_push<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(SignedMessageJson,)>,
 ) -> Result<CidJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (SignedMessageJson(smsg),) = params;
@@ -148,13 +143,12 @@ pub(crate) struct MessageSendSpec {
 }
 
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
-pub(crate) async fn mpool_push_message<DB, KS, B, V>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn mpool_push_message<DB, B, V>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(UnsignedMessageJson, Option<MessageSendSpec>)>,
 ) -> Result<SignedMessageJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
@@ -179,8 +173,7 @@ where
             "Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into(),
         );
     }
-    let mut umsg =
-        estimate_message_gas::<DB, KS, B, V>(&data, umsg, spec, Default::default()).await?;
+    let mut umsg = estimate_message_gas::<DB, B, V>(&data, umsg, spec, Default::default()).await?;
     if umsg.gas_premium() > umsg.gas_fee_cap() {
         return Err("After estimation, gas premium is greater than gas fee cap".into());
     }
@@ -204,13 +197,12 @@ where
     Ok(SignedMessageJson(smsg))
 }
 
-pub(crate) async fn mpool_select<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn mpool_select<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(TipsetKeysJson, f64)>,
 ) -> Result<Vec<SignedMessageJson>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (tsk, q) = params;
