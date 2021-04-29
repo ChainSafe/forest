@@ -207,17 +207,6 @@ impl Actor {
         })?;
         rt.create(&st)?;
 
-        // Register first cron callback for epoch before the next deadline starts.
-        let deadline_close =
-            period_start + WPOST_CHALLENGE_WINDOW * (1 + deadline_idx) as ChainEpoch;
-        enroll_cron_event(
-            rt,
-            deadline_close - 1,
-            CronEventPayload {
-                event_type: CRON_EVENT_PROVING_DEADLINE,
-            },
-        )?;
-
         Ok(())
     }
 
