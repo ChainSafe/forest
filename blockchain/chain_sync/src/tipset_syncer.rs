@@ -449,6 +449,7 @@ where
                     .map(|(_, group)| group)
                     .max_by_key(|group| group.heaviest_weight())
                 {
+                    debug!("Adding tipset to next sync tipset group");
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.
                     match next_sync {
