@@ -511,9 +511,9 @@ where
                 return Ok(NetworkHeadEvaluation::InSync);
             }
             // We are in range if the network epoch is only 1 ahead of the local epoch
-            // if (network_head.epoch() - local_head.epoch()) == 1 {
-            //     return Ok(NetworkHeadEvaluation::InRange { network_head });
-            // }
+            if (network_head.epoch() - local_head.epoch()) == 1 {
+                return Ok(NetworkHeadEvaluation::InRange { network_head });
+            }
             // Local node is behind the network and we need to do an initial sync
             return Ok(NetworkHeadEvaluation::Behind {
                 network_head,
