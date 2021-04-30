@@ -137,6 +137,8 @@ pub enum TipsetRangeSyncerError {
     GeneratingTipsetFromTipsetBundle(String),
     #[error("[INSECURE-POST-VALIDATION] {0}")]
     InsecurePostValidation(String),
+    #[error("Tipset's parent was not available in the store")]
+    TipsetParentNotFound,
 }
 
 struct TipsetGroup {
@@ -808,7 +810,7 @@ fn sync_tipset_range<
                 .map_err(|err| TipsetRangeSyncerError::NetworkTipsetQueryFailed(err.to_string()))?;
             let mut potential_common_ancestor =
                 chain_store.tipset_from_keys(current_head.parents()).await?;
-            let mut fork_length = 1;
+            let fork_length = 1;
             for (i, tipset) in fork_tipsets.iter().enumerate() {
                 if tipset.epoch() == 0 {
                     return Err(TipsetRangeSyncerError::ForkAtGenesisBlock(format!(
@@ -1067,9 +1069,13 @@ async fn validate_tipset<
                     epoch,
                     why
                 );
-                // if !matches!(why, TipsetRangeSyncerError::TimeTravellingBlock(_, _)) {
-                //     bad_block_cache.put(cid, why.to_string()).await;
-                // }
+                match &why {
+                    TipsetRangeSyncerError::TimeTravellingBlock(_, _)
+                    | TipsetRangeSyncerError::TipsetParentNotFound => (),
+                    why => {
+                        bad_block_cache.put(cid, why.to_string()).await;
+                    }
+                }
                 return Err(why);
             }
         }
@@ -1105,7 +1111,12 @@ async fn validate_block<
     // Check block validation cache in store
     let is_validated = chain_store
         .is_block_validated(block_cid)
-        .map_err(|e| (*block_cid, e.into()))?;
+        // The parent tipset will always be there when calling validate_block
+        // as part of the sync_tipset_range flow because all of the headers in the range
+        // have been committed to the store. When validate_block is called from sync_tipset
+        // this guarantee does not exist, so we create a specific error to inform the caller
+        // not to add this block to the bad blocks cache.
+        .map_err(|e| (*block_cid, TipsetRangeSyncerError::TipsetParentNotFound))?;
     if is_validated {
         return Ok(block);
     }

@@ -435,6 +435,7 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
+            chain::persist_objects(chain_store.db.as_ref(), &vec![block.header()])?;
             chain::persist_objects(chain_store.db.as_ref(), block.bls_msgs())?;
             chain::persist_objects(chain_store.db.as_ref(), block.secp_msgs())?;
         }
