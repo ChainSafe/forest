@@ -1067,9 +1067,9 @@ async fn validate_tipset<
                     epoch,
                     why
                 );
-                if !matches!(why, TipsetRangeSyncerError::TimeTravellingBlock(_, _)) {
-                    bad_block_cache.put(cid, why.to_string()).await;
-                }
+                // if !matches!(why, TipsetRangeSyncerError::TimeTravellingBlock(_, _)) {
+                //     bad_block_cache.put(cid, why.to_string()).await;
+                // }
                 return Err(why);
             }
         }
