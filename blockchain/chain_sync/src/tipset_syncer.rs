@@ -224,6 +224,7 @@ pub(crate) struct TipsetProcessor<DB, TBeacon, V> {
     state: TipsetProcessorState<DB, TBeacon, V>,
     /// Tipsets pushed into this stream _must_ be validated beforehand by the TipsetValidator
     tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
+    state_manager: Arc<StateManager<DB>>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
@@ -239,6 +240,7 @@ where
 {
     pub fn new(
         tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
+        state_manager: Arc<StateManager<DB>>,
         beacon: Arc<BeaconSchedule<TBeacon>>,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
@@ -247,6 +249,7 @@ where
         Self {
             state: TipsetProcessorState::Idle,
             tipsets,
+            state_manager,
             beacon,
             network,
             chain_store,
@@ -259,6 +262,7 @@ where
         &self,
         mut tipset_group: TipsetGroup,
     ) -> TipsetProcessorFuture<TipsetRangeSyncer<DB, TBeacon, V>, TipsetProcessorError> {
+        let state_manager = self.state_manager.clone();
         let chain_store = self.chain_store.clone();
         let beacon = self.beacon.clone();
         let network = self.network.clone();
@@ -278,6 +282,7 @@ where
             let mut tipset_range_syncer = TipsetRangeSyncer::new(
                 proposed_head,
                 current_head,
+                state_manager,
                 beacon,
                 network,
                 chain_store,
@@ -588,6 +593,7 @@ pub(crate) struct TipsetRangeSyncer<DB, TBeacon, V> {
     tipsets_included: HashSet<TipsetKeys>,
     tipset_range_length: u64,
     tipset_tasks: Pin<Box<FuturesUnordered<TipsetRangeSyncerFn>>>,
+    state_manager: Arc<StateManager<DB>>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
@@ -604,6 +610,7 @@ where
     pub fn new(
         proposed_head: Arc<Tipset>,
         current_head: Arc<Tipset>,
+        state_manager: Arc<StateManager<DB>>,
         beacon: Arc<BeaconSchedule<TBeacon>>,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
@@ -615,6 +622,7 @@ where
             proposed_head.clone(),
             current_head.clone(),
             tipset_range_length,
+            state_manager.clone(),
             chain_store.clone(),
             network.clone(),
             bad_block_cache.clone(),
@@ -635,6 +643,7 @@ where
             tipsets_included: HashSet::new(),
             tipset_range_length,
             tipset_tasks,
+            state_manager,
             beacon,
             network,
             chain_store,
@@ -672,6 +681,7 @@ where
         self.tipset_tasks.push(sync_tipset::<_, _, V>(
             additional_head,
             self.tipset_range_length,
+            self.state_manager.clone(),
             self.chain_store.clone(),
             self.network.clone(),
             self.bad_block_cache.clone(),
@@ -717,6 +727,7 @@ fn sync_tipset_range<
     proposed_head: Arc<Tipset>,
     current_head: Arc<Tipset>,
     tipset_range_length: u64,
+    state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
@@ -842,7 +853,7 @@ fn sync_tipset_range<
 
         //  Sync and validate messages from the tipsets
         sync_messages_check_state::<_, _, V>(
-            Arc::new(StateManager::new(chain_store.clone())),
+            state_manager,
             beacon,
             network,
             chain_store.clone(),
@@ -878,6 +889,7 @@ fn sync_tipset<
 >(
     proposed_head: Arc<Tipset>,
     tipset_range_length: u64,
+    state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
@@ -890,7 +902,7 @@ fn sync_tipset<
 
         // Sync and validate messages from the tipsets
         if let Err(e) = sync_messages_check_state::<_, _, V>(
-            Arc::new(StateManager::new(chain_store.clone())),
+            state_manager,
             beacon,
             network,
             chain_store.clone(),

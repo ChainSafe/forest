@@ -530,6 +530,7 @@ where
         local_head: Arc<Tipset>,
     ) -> ChainMuxerFuture<(), ChainMuxerError> {
         // Instantiate a TipsetRangeSyncer
+        let trs_state_manager = self.state_manager.clone();
         let trs_bad_block_cache = self.bad_blocks.clone();
         let trs_chain_store = self.state_manager.chain_store().clone();
         let trs_network = self.network.clone();
@@ -538,6 +539,7 @@ where
             let tipset_range_syncer = match TipsetRangeSyncer::<DB, TBeacon, V>::new(
                 Arc::new(network_head.into_tipset()),
                 local_head,
+                trs_state_manager,
                 trs_beacon,
                 trs_network.clone(),
                 trs_chain_store.clone(),
@@ -610,6 +612,7 @@ where
 
     fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainMuxerFuture<(), ChainMuxerError> {
         // Instantiate a TipsetProcessor
+        let tp_state_manager = self.state_manager.clone();
         let tp_beacon = self.beacon.clone();
         let tp_network = self.network.clone();
         let tp_chain_store = self.state_manager.chain_store().clone();
@@ -623,6 +626,7 @@ where
             Box::pin(async move {
                 TipsetProcessor::<_, _, V>::new(
                     Box::pin(tp_tipset_receiver),
+                    tp_state_manager,
                     tp_beacon,
                     tp_network,
                     tp_chain_store,
