@@ -461,6 +461,8 @@ where
                             } else if heaviest_tipset_group.is_heavier_than(&ns) {
                                 // The tipset group received is heavier than the one saved, replace it.
                                 *next_sync = Some(heaviest_tipset_group);
+                            } else {
+                                debug!("Dropping collected tipset groups");
                             }
                             // Otherwise, drop the heaviest tipset group
                         }
