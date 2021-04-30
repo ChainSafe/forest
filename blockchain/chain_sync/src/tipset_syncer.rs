@@ -51,6 +51,8 @@ pub enum TipsetProcessorError {
     TipsetRangeSyncer(#[from] TipsetRangeSyncerError),
     #[error("Tipset stream closed")]
     TipsetStreamClosed,
+    #[error("Tipset has already been synced")]
+    TipsetAlreadySynced,
 }
 
 #[derive(Debug, Error)]
@@ -269,6 +271,10 @@ where
             // tipset group contains at least one tipset
             let proposed_head = tipset_group.take_heaviest_tipset().unwrap();
 
+            if current_head.key().eq(proposed_head.key()) {
+                return Err(TipsetProcessorError::TipsetAlreadySynced);
+            }
+
             let mut tipset_range_syncer = TipsetRangeSyncer::new(
                 proposed_head,
                 current_head,
@@ -462,9 +468,9 @@ where
                                 // The tipset group received is heavier than the one saved, replace it.
                                 *next_sync = Some(heaviest_tipset_group);
                             } else {
+                                // Otherwise, drop the heaviest tipset group
                                 debug!("Dropping collected tipset groups");
                             }
-                            // Otherwise, drop the heaviest tipset group
                         }
                     }
                 }
