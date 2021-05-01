@@ -854,7 +854,7 @@ fn sync_tipset_range<
         persist_objects(chain_store.blockstore(), &headers)?;
 
         //  Sync and validate messages from the tipsets
-        sync_messages_check_state::<_, _, V>(
+        if let Err(e) = sync_messages_check_state::<_, _, V>(
             state_manager,
             beacon,
             network,
@@ -862,7 +862,11 @@ fn sync_tipset_range<
             bad_block_cache,
             parent_tipsets,
         )
-        .await?;
+        .await
+        {
+            error!("Sync messages check state failed for tipset range");
+            return Err(e);
+        };
 
         // At this point the head is synced and it can be set in the store as the heaviest
         debug!(
@@ -913,16 +917,12 @@ fn sync_tipset<
         )
         .await
         {
+            error!("Sync messages check state failed for single tipset");
             return Err(e);
         }
 
         // Add the tipset to the store. The tipset will be expanded with other blocks with
         // the same [epoch, parents] before updating the heaviest Tipset in the store.
-        debug!(
-            "Tipset successfully verified: EPOCH = {}, KEYS = {:?}",
-            proposed_head.epoch(),
-            proposed_head.key()
-        );
         if let Err(why) = chain_store.put_tipset(&proposed_head).await {
             error!(
                 "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
