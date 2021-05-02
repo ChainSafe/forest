@@ -116,6 +116,11 @@ enum NetworkHeadEvaluation {
     InSync,
 }
 
+enum PubsubMessageProcessingStrategy {
+    Process,
+    DoNotProcess,
+}
+
 /// The ChainMuxer handles events from the p2p network and orchestrates the chain synchronization.
 pub struct ChainMuxer<DB, TBeacon, V, M> {
     /// State of the ChainSyncer Future implementation
@@ -360,6 +365,7 @@ where
         bad_block_cache: Arc<BadBlockCache>,
         mem_pool: Arc<MessagePool<M>>,
         genesis: Arc<Tipset>,
+        message_processing_strategy: PubsubMessageProcessingStrategy,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
@@ -406,8 +412,10 @@ where
                     (tipset, source)
                 }
                 PubsubMessage::Message(m) => {
-                    // Spawn and immediately move on to the next event
-                    async_std::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
+                    if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
+                        // Spawn and immediately move on to the next event
+                        async_std::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
+                    }
                     return Ok(None);
                 }
             },
@@ -477,6 +485,7 @@ where
                     bad_block_cache.clone(),
                     mem_pool.clone(),
                     genesis.clone(),
+                    PubsubMessageProcessingStrategy::Process,
                 )
                 .await
                 {
@@ -579,6 +588,7 @@ where
                     bad_block_cache.clone(),
                     mem_pool.clone(),
                     genesis.clone(),
+                    PubsubMessageProcessingStrategy::DoNotProcess,
                 )
                 .await
                 {
@@ -673,6 +683,7 @@ where
                         bad_block_cache.clone(),
                         mem_pool.clone(),
                         genesis.clone(),
+                        PubsubMessageProcessingStrategy::Process,
                     )
                     .await
                     {

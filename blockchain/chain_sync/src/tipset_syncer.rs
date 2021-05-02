@@ -517,7 +517,13 @@ where
                         };
                     }
                     Poll::Ready(Err(why)) => {
-                        error!("Finding tipset range for sync failed: {}", why);
+                        match why {
+                            // Do not log for these errors
+                            TipsetProcessorError::TipsetAlreadySynced => (),
+                            why => {
+                                error!("Finding tipset range for sync failed: {}", why);
+                            }
+                        };
                         self.state = TipsetProcessorState::Idle;
                     }
                     Poll::Pending => return Poll::Pending,
