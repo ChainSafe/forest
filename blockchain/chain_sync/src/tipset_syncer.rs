@@ -616,7 +616,7 @@ where
             proposed_head.clone(),
             current_head.clone(),
             // Casting from i64 -> u64 is safe because we ensured that
-            // the value is greated than 0
+            // the value is greater than 0
             tipset_range_length as u64,
             state_manager.clone(),
             chain_store.clone(),
@@ -632,7 +632,7 @@ where
             current_head,
             tipsets_included: HashSet::new(),
             // Casting from i64 -> u64 is safe because we ensured that
-            // the value is greated than 0
+            // the value is greater than 0
             tipset_range_length: tipset_range_length as u64,
             tipset_tasks,
             state_manager,
