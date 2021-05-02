@@ -325,7 +325,7 @@ where
     type Output = Result<(), TipsetProcessorError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        debug!("Polling TipsetProcessor");
+        trace!("Polling TipsetProcessor");
 
         // TODO: Determine if polling the tipset stream before the state machine
         //       introduces a DOS attack vector where peers send duplicate, valid tipsets over
@@ -364,7 +364,7 @@ where
             }
         }
 
-        debug!("Tipsets received through stream: {}", grouped_tipsets.len());
+        trace!("Tipsets received through stream: {}", grouped_tipsets.len());
 
         // Consume the tipsets read off of the stream and attempt to update the state machine
         match self.state {
@@ -375,7 +375,7 @@ where
                     .into_iter()
                     .max_by_key(|(_, group)| group.heaviest_weight())
                 {
-                    debug!("Finding range for tipset epoch = {}", epoch);
+                    trace!("Finding range for tipset epoch = {}", epoch);
                     self.state = TipsetProcessorState::FindRange {
                         epoch,
                         parents,
@@ -458,7 +458,6 @@ where
                     .map(|(_, group)| group)
                     .max_by_key(|group| group.heaviest_weight())
                 {
-                    debug!("Adding tipset to next sync tipset group");
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.
                     match next_sync {
@@ -497,7 +496,7 @@ where
                     ref mut next_sync,
                 } => match range_finder.as_mut().poll(cx) {
                     Poll::Ready(Ok(mut range_syncer)) => {
-                        info!(
+                        debug!(
                             "Determined epoch range for next sync: [{}, {}]",
                             range_syncer.current_head.epoch(),
                             range_syncer.proposed_head.epoch(),
