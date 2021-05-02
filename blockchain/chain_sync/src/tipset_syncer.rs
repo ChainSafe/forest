@@ -398,7 +398,6 @@ where
                         Some(cs) => {
                             // This check is redundant
                             if cs.is_mergeable(&tipset_group) {
-                                debug!("Merging current tipset group");
                                 cs.merge(tipset_group);
                             }
                         }
@@ -419,7 +418,6 @@ where
                         Some(ns) => {
                             if ns.is_mergeable(&heaviest_tipset_group) {
                                 // Both tipsets groups have the same epoch & parents, so merge them
-                                debug!("Merging the next tipset group");
                                 ns.merge(heaviest_tipset_group);
                             } else if heaviest_tipset_group.is_heavier_than(&ns) {
                                 // The tipset group received is heavier than the one saved, replace it.
@@ -444,7 +442,7 @@ where
                         match range_syncer.add_tipset(ts) {
                             Ok(added) => {
                                 if added {
-                                    debug!("Successfully added tipset [key = {:?}] to running range syncer", tipset_key);
+                                    trace!("Successfully added tipset [key = {:?}] to running range syncer", tipset_key);
                                 }
                             }
                             Err(why) => {
@@ -452,8 +450,6 @@ where
                             }
                         }
                     });
-                } else {
-                    debug!("No tipsets added to existing range syncer");
                 }
 
                 // Update or replace the next sync
@@ -476,7 +472,7 @@ where
                                 *next_sync = Some(heaviest_tipset_group);
                             } else {
                                 // Otherwise, drop the heaviest tipset group
-                                debug!("Dropping collected tipset groups");
+                                trace!("Dropping collected tipset groups");
                             }
                         }
                     }
@@ -503,8 +499,8 @@ where
                     Poll::Ready(Ok(mut range_syncer)) => {
                         info!(
                             "Determined epoch range for next sync: [{}, {}]",
+                            range_syncer.current_head.epoch(),
                             range_syncer.proposed_head.epoch(),
-                            range_syncer.current_head.epoch()
                         );
                         // Add crrent_sync to the yielded range syncer.
                         // These tipsets match the range's [epoch, parents]
@@ -537,49 +533,33 @@ where
                         Poll::Ready(Ok(_)) => {
                             info!(
                                 "Successfully synced tipset range: [{}, {}]",
-                                proposed_head_epoch, current_head_epoch,
+                                current_head_epoch, proposed_head_epoch,
                             );
-                            match next_sync.take() {
-                                // This tipset group is the heaviest that has been received while
-                                // rnning this tipset range syncer, so start syncing it
-                                Some(tipset_group) => {
-                                    self.state = TipsetProcessorState::FindRange {
-                                        epoch: tipset_group.epoch(),
-                                        parents: tipset_group.parents(),
-                                        range_finder: self.find_range(tipset_group),
-                                        current_sync: None,
-                                        next_sync: None,
-                                    };
-                                }
-                                None => {
-                                    self.state = TipsetProcessorState::Idle;
-                                }
-                            }
                         }
                         Poll::Ready(Err(why)) => {
                             error!(
                                 "Syncing tipset range [{}, {}] failed: {}",
-                                proposed_head_epoch, current_head_epoch, why,
+                                current_head_epoch, proposed_head_epoch, why,
                             );
-                            match next_sync.take() {
-                                // This tipset group is the heaviest that has been received while
-                                // rnning this tipset range syncer, so start syncing it
-                                Some(tipset_group) => {
-                                    self.state = TipsetProcessorState::FindRange {
-                                        epoch: tipset_group.epoch(),
-                                        parents: tipset_group.parents(),
-                                        range_finder: self.find_range(tipset_group),
-                                        current_sync: None,
-                                        next_sync: None,
-                                    };
-                                }
-                                None => {
-                                    // Wait for the next tipset to arrive
-                                    self.state = TipsetProcessorState::Idle;
-                                }
-                            }
                         }
                         Poll::Pending => return Poll::Pending,
+                    }
+                    // Move to the next state
+                    match next_sync.take() {
+                        // This tipset group is the heaviest that has been received while
+                        // rnning this tipset range syncer, so start syncing it
+                        Some(tipset_group) => {
+                            self.state = TipsetProcessorState::FindRange {
+                                epoch: tipset_group.epoch(),
+                                parents: tipset_group.parents(),
+                                range_finder: self.find_range(tipset_group),
+                                current_sync: None,
+                                next_sync: None,
+                            };
+                        }
+                        None => {
+                            self.state = TipsetProcessorState::Idle;
+                        }
                     }
                 }
             }
@@ -630,9 +610,8 @@ where
             bad_block_cache.clone(),
             beacon.clone(),
         ));
-        // Checks:
-        // TODO: Ensure the Tipset is heavier than the heaviest tipset in the store
-        // Ensure the difference in epochs between the proposed and current head is > 0
+
+        // Ensure the difference in epochs between the proposed and current head is >= 0
         if tipset_range_length < 0 {
             return Err(TipsetRangeSyncerError::InvalidTipsetRangeLength);
         }
@@ -766,8 +745,8 @@ fn sync_tipset_range<
             // TODO: Tweak request window when socket frame is tested
             let epoch_diff = oldest_parent.epoch() - current_head.epoch();
             let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
-            debug!(
-                "ChainExchange for TipSet range: {} to {}",
+            trace!(
+                "ChainExchange for TipSet range: {} -> {}",
                 oldest_parent.epoch(),
                 oldest_parent.epoch() - window
             );
@@ -775,7 +754,7 @@ fn sync_tipset_range<
                 .chain_exchange_headers(None, oldest_parent.parents(), window as u64)
                 .await
                 .map_err(|err| TipsetRangeSyncerError::NetworkTipsetQueryFailed(err.to_string()))?;
-            info!(
+            trace!(
                 "Got tipsets: Height: {}, Len: {}",
                 network_tipsets[0].epoch(),
                 network_tipsets.len()
@@ -1081,7 +1060,7 @@ async fn validate_tipset<
         }
     }
     info!(
-        "Successfully validated tipset: EPOCH = {}, KEY = {:?}",
+        "Validating tipset: EPOCH = {}, KEY = {:?}",
         epoch, full_tipset_key.cids,
     );
     Ok(())
