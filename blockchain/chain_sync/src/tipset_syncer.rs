@@ -605,11 +605,19 @@ where
         bad_block_cache: Arc<BadBlockCache>,
     ) -> Result<Self, TipsetRangeSyncerError> {
         let tipset_tasks = Box::pin(FuturesUnordered::new());
-        let tipset_range_length = (proposed_head.epoch() - current_head.epoch()) as u64;
+        let tipset_range_length = proposed_head.epoch() - current_head.epoch();
+
+        // Ensure the difference in epochs between the proposed and current head is >= 0
+        if tipset_range_length < 0 {
+            return Err(TipsetRangeSyncerError::InvalidTipsetRangeLength);
+        }
+
         tipset_tasks.push(sync_tipset_range::<_, _, V>(
             proposed_head.clone(),
             current_head.clone(),
-            tipset_range_length,
+            // Casting from i64 -> u64 is safe because we ensured that
+            // the value is greated than 0
+            tipset_range_length as u64,
             state_manager.clone(),
             chain_store.clone(),
             network.clone(),
@@ -617,18 +625,15 @@ where
             beacon.clone(),
         ));
 
-        // Ensure the difference in epochs between the proposed and current head is >= 0
-        if tipset_range_length < 0 {
-            return Err(TipsetRangeSyncerError::InvalidTipsetRangeLength);
-        }
-
         let mut tipsets_included = HashSet::new();
         tipsets_included.insert(proposed_head.key());
         Ok(Self {
             proposed_head,
             current_head,
             tipsets_included: HashSet::new(),
-            tipset_range_length,
+            // Casting from i64 -> u64 is safe because we ensured that
+            // the value is greated than 0
+            tipset_range_length: tipset_range_length as u64,
             tipset_tasks,
             state_manager,
             beacon,
