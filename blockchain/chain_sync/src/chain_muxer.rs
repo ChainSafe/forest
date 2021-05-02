@@ -658,8 +658,8 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
-        let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
-            Box::pin(async move {
+        let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
+            async move {
                 // If a tipset has been provided, pass it to the tipset processor
                 if let Some(tipset) = tipset_opt {
                     if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
@@ -704,7 +704,7 @@ where
                         .unwrap_or(true)
                     {
                         // Only send heavier Tipsets to the TipsetProcessor
-                        // TODO: Add log
+                        trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
                         continue;
                     }
 
@@ -713,7 +713,8 @@ where
                         return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                     };
                 }
-            });
+            },
+        );
 
         let mut tasks = FuturesUnordered::new();
         tasks.push(tipset_processor);
