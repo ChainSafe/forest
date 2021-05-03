@@ -138,8 +138,8 @@ pub enum TipsetRangeSyncerError {
     GeneratingTipsetFromTipsetBundle(String),
     #[error("[INSECURE-POST-VALIDATION] {0}")]
     InsecurePostValidation(String),
-    #[error("Tipset's parent was not available in the store")]
-    TipsetParentNotFound,
+    #[error("Loading tipset parent from the store failed: {0}")]
+    TipsetParentNotFound(ChainStoreError),
 }
 
 struct TipsetGroup {
@@ -1112,7 +1112,7 @@ async fn validate_tipset<
                 );
                 match &why {
                     TipsetRangeSyncerError::TimeTravellingBlock(_, _)
-                    | TipsetRangeSyncerError::TipsetParentNotFound => (),
+                    | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
                     why => {
                         bad_block_cache.put(cid, why.to_string()).await;
                     }
@@ -1152,12 +1152,7 @@ async fn validate_block<
     // Check block validation cache in store
     let is_validated = chain_store
         .is_block_validated(block_cid)
-        // The parent tipset will always be there when calling validate_block
-        // as part of the sync_tipset_range flow because all of the headers in the range
-        // have been committed to the store. When validate_block is called from sync_tipset
-        // this guarantee does not exist, so we create a specific error to inform the caller
-        // not to add this block to the bad blocks cache.
-        .map_err(|e| (*block_cid, TipsetRangeSyncerError::TipsetParentNotFound))?;
+        .map_err(|why| (*block_cid, why.into()))?;
     if is_validated {
         return Ok(block);
     }
@@ -1171,7 +1166,17 @@ async fn validate_block<
     let base_tipset = chain_store
         .tipset_from_keys(header.parents())
         .await
-        .map_err(|e| (*block_cid, e.into()))?;
+        // The parent tipset will always be there when calling validate_block
+        // as part of the sync_tipset_range flow because all of the headers in the range
+        // have been committed to the store. When validate_block is called from sync_tipset
+        // this guarantee does not exist, so we create a specific error to inform the caller
+        // not to add this block to the bad blocks cache.
+        .map_err(|why| {
+            (
+                *block_cid,
+                TipsetRangeSyncerError::TipsetParentNotFound(why),
+            )
+        })?;
     let win_p_nv = state_manager.get_network_version(base_tipset.epoch());
 
     // Retrieve lookback tipset for validation
