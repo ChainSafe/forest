@@ -828,14 +828,21 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             &parent_blocks,
         )
         .await?;
+        trace!(
+            "[SYNC_HEADERS_REVERSE]: Oldest tipset retrieved EPOCH = {}, CID = {:?}",
+            oldest_parent.epoch(),
+            oldest_parent.key()
+        );
         // Check if we are at the end of the range
         if oldest_parent.epoch() <= current_head.epoch() {
+            trace!("[SYNC_HEADERS_REVERSE]: Oldest parent retrieved has an epoch equal to the current head's epoch");
             // Current tipset epoch is less than or equal to the epoch of
             // Tipset we a synchronizing toward, stop.
             break;
         }
         // Attempt to load the parent tipset from local store
         if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()).await {
+            trace!("[SYNC_HEADERS_REVERSE]: Found next parent in range in the chain store");
             parent_blocks.extend_from_slice(tipset.cids());
             parent_tipsets.push(tipset);
             continue;
@@ -845,7 +852,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
         let epoch_diff = oldest_parent.epoch() - current_head.epoch();
         let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
         trace!(
-            "ChainExchange for TipSet range: {} -> {}",
+            "[SYNC_HEADERS_REVERSE]: ChainExchange for TipSet range: {} -> {}",
             oldest_parent.epoch(),
             oldest_parent.epoch() - window
         );
@@ -854,7 +861,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             .await
             .map_err(|err| TipsetRangeSyncerError::NetworkTipsetQueryFailed(err.to_string()))?;
         trace!(
-            "Got tipsets: Height: {}, Len: {}",
+            "[SYNC_HEADERS_REVERSE]: Got tipsets: Height: {}, Len: {}",
             network_tipsets[0].epoch(),
             network_tipsets.len()
         );
@@ -862,6 +869,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
         for tipset in network_tipsets {
             // Break if have already traversed the entire tipset range
             if tipset.epoch() < current_head.epoch() {
+                trace!("[SYNC_HEADERS_REVERSE]: Oldest parent retrieved has an epoch equal to the current head's epoch");
                 break 'sync;
             }
             validate_tipset_against_cache(bad_block_cache.clone(), &tipset.key(), &parent_blocks)
@@ -877,6 +885,13 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     // Determine if the local chain was a fork.
     // If it was, then sync the fork tipset range by iteratively walking back
     // from the oldest tipset synced until we find a common ancestor
+    trace!(
+        "[SYNC_HEADERS_REVERSE]: OLDEST_TIPSET_RETRIEVED [Epoch = {}, Parents = {:?}] vs. CURRENT_HEAD [Epoch = {}, Parents = {:?}]",
+        oldest_tipset.epoch(),
+        oldest_tipset.key(),
+        current_head.epoch(),
+        current_head.key(),
+    );
     if oldest_tipset.parents() != current_head.parents() {
         info!("Fork detected, working to resolve the local chain against the network chain");
         const FORK_LENGTH_THRESHOLD: u64 = 900;
