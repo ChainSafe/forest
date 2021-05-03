@@ -54,9 +54,6 @@ use std::{
 
 const MAX_HEIGHT_DRIFT: u64 = 5;
 
-// TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
-// on separate thread and needs to be mutated independently, but the vec needs to be read
-// on the RPC API thread and mutated on this thread.
 pub(crate) type WorkerState = Arc<RwLock<SyncState>>;
 
 type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
