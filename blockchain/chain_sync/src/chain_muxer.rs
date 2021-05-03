@@ -99,7 +99,6 @@ impl SyncConfig {
 }
 
 impl Default for SyncConfig {
-    // TODO benchmark (1 is temporary value to avoid overlap)
     fn default() -> Self {
         Self { req_window: 200 }
     }
