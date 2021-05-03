@@ -60,7 +60,7 @@ pub enum TipsetProcessorError {
 pub enum TipsetRangeSyncerError {
     #[error("Tipset added to range syncer does share the same epoch and parents")]
     InvalidTipsetAdded,
-    #[error("Tipset range length is less than 1")]
+    #[error("Tipset range length is less than 0")]
     InvalidTipsetRangeLength,
     #[error("Provided tiset does not match epoch for the range")]
     InvalidTipsetEpoch,
