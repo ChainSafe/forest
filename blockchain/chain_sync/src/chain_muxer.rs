@@ -104,14 +104,19 @@ impl Default for SyncConfig {
     }
 }
 
+/// Represents the result of evaluating the network head tipset against the
+/// local head tipset.
 enum NetworkHeadEvaluation {
+    /// Local head is behind the network and needs move into the BOOTSTRAP state.
     Behind {
         network_head: FullTipset,
         local_head: Arc<Tipset>,
     },
-    InRange {
-        network_head: FullTipset,
-    },
+    /// Local head is the direct ancestor of the network head. The node should
+    /// move into the FOLLOW state and immediately sync the network head.
+    InRange { network_head: FullTipset },
+    /// Local head is at the same height as the network head. The node should
+    /// move into the FOLLOW state and wait for new tipsets.
     InSync,
 }
 
