@@ -894,7 +894,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     );
     if oldest_tipset.parents() != current_head.parents() {
         info!("Fork detected, working to resolve the local chain against the network chain");
-        const FORK_LENGTH_THRESHOLD: u64 = 900;
+        const FORK_LENGTH_THRESHOLD: u64 = 500;
         let fork_tipsets = network
             .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
             .await
