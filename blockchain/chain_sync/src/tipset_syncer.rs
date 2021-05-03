@@ -178,7 +178,12 @@ impl TipsetGroup {
         if !self.epoch.eq(&tipset.epoch()) || !self.parents.eq(tipset.parents()) {
             return Some(tipset);
         }
-        if let Some(_) = self.tipsets.iter().find(|ts| tipset.key().eq(&ts.key())) {
+        if self
+            .tipsets
+            .iter()
+            .find(|ts| tipset.key().eq(&ts.key()))
+            .is_some()
+        {
             return Some(tipset);
         }
         self.tipsets.push(tipset);
