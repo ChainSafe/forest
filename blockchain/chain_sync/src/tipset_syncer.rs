@@ -501,7 +501,7 @@ where
                             range_syncer.current_head.epoch(),
                             range_syncer.proposed_head.epoch(),
                         );
-                        // Add crrent_sync to the yielded range syncer.
+                        // Add current_sync to the yielded range syncer.
                         // These tipsets match the range's [epoch, parents]
                         if let Some(tipset_group) = current_sync.take() {
                             tipset_group.tipsets().into_iter().for_each(|ts| {
