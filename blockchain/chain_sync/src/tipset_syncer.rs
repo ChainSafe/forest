@@ -849,8 +849,6 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             .chain_exchange_headers(None, oldest_parent.parents(), window as u64)
             .await
             .map_err(|err| TipsetRangeSyncerError::NetworkTipsetQueryFailed(err.to_string()))?;
-            network_tipsets.len()
-        );
 
         for tipset in network_tipsets {
             // Break if have already traversed the entire tipset range
@@ -871,7 +869,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     // If it was, then sync the fork tipset range by iteratively walking back
     // from the oldest tipset synced until we find a common ancestor
     if oldest_tipset.parents() != current_head.parents() {
-        info!("Fork detected, working to resolve the local chain against the network chain");
+        info!("Fork detected, searching for a common ancestor between the local chain and the network chain");
         const FORK_LENGTH_THRESHOLD: u64 = 500;
         let fork_tipsets = network
             .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
@@ -879,7 +877,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             .map_err(|err| TipsetRangeSyncerError::NetworkTipsetQueryFailed(err.to_string()))?;
         let mut potential_common_ancestor =
             chain_store.tipset_from_keys(current_head.parents()).await?;
-        let fork_length = 1;
+        let mut fork_length = 1;
         for (i, tipset) in fork_tipsets.iter().enumerate() {
             if tipset.epoch() == 0 {
                 return Err(TipsetRangeSyncerError::ForkAtGenesisBlock(format!(
