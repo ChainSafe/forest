@@ -578,14 +578,15 @@ where
     }
 }
 
-type TipsetRangeSyncerFn = Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError>> + Send>>;
+type TipsetRangeSyncerFuture =
+    Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError>> + Send>>;
 
 pub(crate) struct TipsetRangeSyncer<DB, TBeacon, V> {
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
     tipsets_included: HashSet<TipsetKeys>,
     tipset_range_length: u64,
-    tipset_tasks: Pin<Box<FuturesUnordered<TipsetRangeSyncerFn>>>,
+    tipset_tasks: Pin<Box<FuturesUnordered<TipsetRangeSyncerFuture>>>,
     state_manager: Arc<StateManager<DB>>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
     network: SyncNetworkContext<DB>,
@@ -731,7 +732,7 @@ fn sync_tipset_range<
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
-) -> TipsetRangeSyncerFn {
+) -> TipsetRangeSyncerFuture {
     Box::pin(async move {
         tracker
             .write()
@@ -937,7 +938,7 @@ fn sync_tipset<
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
-) -> TipsetRangeSyncerFn {
+) -> TipsetRangeSyncerFuture {
     Box::pin(async move {
         // Persist the blocks from the proposed tipsets into the store
         let headers: Vec<&BlockHeader> = proposed_head.blocks().iter().collect();
