@@ -57,7 +57,7 @@ const MAX_HEIGHT_DRIFT: u64 = 5;
 // TODO revisit this type, necessary for two sets of Arc<Mutex<>> because each state is
 // on separate thread and needs to be mutated independently, but the vec needs to be read
 // on the RPC API thread and mutated on this thread.
-type WorkerState = Arc<RwLock<SyncState>>;
+pub(crate) type WorkerState = Arc<RwLock<SyncState>>;
 
 type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
@@ -552,8 +552,10 @@ where
         let trs_chain_store = self.state_manager.chain_store().clone();
         let trs_network = self.network.clone();
         let trs_beacon = self.beacon.clone();
+        let trs_tracker = self.worker_state.clone();
         let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             let tipset_range_syncer = match TipsetRangeSyncer::<DB, TBeacon, V>::new(
+                trs_tracker,
                 Arc::new(network_head.into_tipset()),
                 local_head,
                 trs_state_manager,
@@ -636,6 +638,7 @@ where
         let tp_chain_store = self.state_manager.chain_store().clone();
         let tp_bad_block_cache = self.bad_blocks.clone();
         let tp_tipset_receiver = self.tipset_receiver.clone();
+        let tp_tracker = self.worker_state.clone();
         enum UnexpectedReturnKind {
             TipsetProcessor,
             P2PEventStreamProcessor,
@@ -643,6 +646,7 @@ where
         let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
             Box::pin(async move {
                 TipsetProcessor::<_, _, V>::new(
+                    tp_tracker,
                     Box::pin(tp_tipset_receiver),
                     tp_state_manager,
                     tp_beacon,
