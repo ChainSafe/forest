@@ -792,7 +792,7 @@ fn sync_tipset_range<
         // If it was, then sync the fork tipset range by iteratively walking back
         // from the oldest tipset synced until we find a common ancestor
         if oldest_tipset.parents() != current_head.parents() {
-            const FORK_LENGTH_THRESHOLD: u64 = 500;
+            const FORK_LENGTH_THRESHOLD: u64 = 900;
             let mut fork_tipsets = network
                 .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
                 .await
