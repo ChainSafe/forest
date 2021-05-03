@@ -37,7 +37,7 @@ where
     pub state_manager: Arc<StateManager<DB>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
-    pub sync_state: Arc<RwLock<Vec<Arc<RwLock<SyncState>>>>>,
+    pub sync_state: Arc<RwLock<SyncState>>,
     pub network_send: Sender<NetworkMessage>,
     pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub network_name: String,

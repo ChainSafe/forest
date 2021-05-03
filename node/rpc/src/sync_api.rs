@@ -18,8 +18,8 @@ use std::sync::Arc;
 
 #[derive(Serialize)]
 pub struct RPCSyncState {
-    #[serde(rename = "ActiveSyncs")]
-    active_syncs: Vec<SyncState>,
+    #[serde(rename = "ActiveSync")]
+    active_sync: SyncState,
 }
 
 /// Checks if a given block is marked as bad.
@@ -53,12 +53,8 @@ where
 
 // TODO SyncIncomingBlocks (requires websockets)
 
-async fn clone_state(states: &RwLock<Vec<Arc<RwLock<SyncState>>>>) -> Vec<SyncState> {
-    let mut ret = Vec::new();
-    for s in states.read().await.iter() {
-        ret.push(s.read().await.clone());
-    }
-    ret
+async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
+    state.read().await.clone()
 }
 
 /// Returns the current status of the ChainSync process.
@@ -69,8 +65,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let active_syncs = clone_state(data.sync_state.as_ref()).await;
-    Ok(RPCSyncState { active_syncs })
+    let active_sync = clone_state(data.sync_state.as_ref()).await;
+    Ok(RPCSyncState { active_sync })
 }
 
 /// Submits block to be sent through gossipsub.
@@ -221,7 +217,7 @@ mod tests {
         let st_copy = state.sync_state.clone();
 
         match sync_state(Data(state.clone())).await {
-            Ok(ret) => assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await),
+            Ok(ret) => assert_eq!(ret.active_sync, clone_state(st_copy.as_ref()).await),
             Err(e) => std::panic::panic_any(e),
         }
 
@@ -234,8 +230,8 @@ mod tests {
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {
-                assert_ne!(ret.active_syncs, vec![]);
-                assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await);
+                assert_ne!(ret.active_sync, vec![]);
+                assert_eq!(ret.active_sync, clone_state(st_copy.as_ref()).await);
             }
             Err(e) => std::panic::panic_any(e),
         }
