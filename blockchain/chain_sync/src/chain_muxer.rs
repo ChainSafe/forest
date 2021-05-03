@@ -2,7 +2,6 @@
 mod peer_test;
 
 use crate::bad_block_cache::BadBlockCache;
-use crate::network_context::HelloResponseFuture;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncState;
 use crate::tipset_syncer::{
@@ -10,14 +9,10 @@ use crate::tipset_syncer::{
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
 
-use amt::Amt;
 use beacon::{Beacon, BeaconSchedule};
-use blocks::{
-    Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys, TxMeta,
-};
+use blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys};
 use chain::{ChainStore, Error as ChainStoreError};
-use cid::{Cid, Code::Blake2b256};
-use encoding::{Cbor, Error as EncodingError};
+use cid::Cid;
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
@@ -26,33 +21,21 @@ use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use message::{SignedMessage, UnsignedMessage};
 use message_pool::{MessagePool, Provider};
-use networks::BLOCK_DELAY_SECS;
 use state_manager::StateManager;
 
 use async_std::channel::{Receiver, Sender};
 use async_std::pin::Pin;
 use async_std::stream::StreamExt;
-use async_std::sync::{Mutex, RwLock};
-use async_std::task::{self, Context, JoinHandle, Poll};
-use futures::{
-    future,
-    future::try_join_all,
-    future::{Future, FutureExt},
-    stream::TryStreamExt,
-    try_join, Stream,
-};
-use futures::{select, stream::FuturesUnordered};
+use async_std::sync::RwLock;
+use async_std::task::{Context, Poll};
+use futures::stream::FuturesUnordered;
+use futures::{future::try_join_all, future::Future, try_join};
 use log::{debug, error, info, trace, warn};
 use serde::Deserialize;
 use thiserror::Error;
 
 use std::sync::Arc;
-use std::{
-    marker::PhantomData,
-    time::{SystemTime, UNIX_EPOCH},
-};
-
-const MAX_HEIGHT_DRIFT: u64 = 5;
+use std::{marker::PhantomData, time::SystemTime};
 
 pub(crate) type WorkerState = Arc<RwLock<SyncState>>;
 
@@ -87,17 +70,25 @@ pub enum ChainMuxerError {
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
+    /// Sample size of tipsets to acquire before determining what the network head is
+    pub tipset_sample_size: usize,
 }
 
 impl SyncConfig {
-    pub fn new(req_window: i64) -> Self {
-        Self { req_window }
+    pub fn new(req_window: i64, tipset_sample_size: usize) -> Self {
+        Self {
+            req_window,
+            tipset_sample_size,
+        }
     }
 }
 
 impl Default for SyncConfig {
     fn default() -> Self {
-        Self { req_window: 200 }
+        Self {
+            req_window: 200,
+            tipset_sample_size: 5,
+        }
     }
 }
 
@@ -469,10 +460,10 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
+        let tipset_sample_size = self.sync_config.tipset_sample_size;
 
         let evaluator = async move {
             let mut tipsets = vec![];
-            let tipset_sample_size = 5usize;
             loop {
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
@@ -587,7 +578,7 @@ where
                     }
                 };
 
-                let (tipset, _) = match Self::process_gossipsub_event(
+                let (_tipset, _) = match Self::process_gossipsub_event(
                     event,
                     network.clone(),
                     chain_store.clone(),
@@ -638,7 +629,6 @@ where
         let tp_tracker = self.worker_state.clone();
         enum UnexpectedReturnKind {
             TipsetProcessor,
-            P2PEventStreamProcessor,
         }
         let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
             Box::pin(async move {
@@ -740,11 +730,6 @@ where
                         UnexpectedReturnKind::TipsetProcessor => {
                             return Err(ChainMuxerError::NetworkFollowingFailure(String::from(
                                 "Tipset processor unexpectedly returned",
-                            )));
-                        }
-                        UnexpectedReturnKind::P2PEventStreamProcessor => {
-                            return Err(ChainMuxerError::NetworkFollowingFailure(String::from(
-                                "P2P event stream processor unexpectedly returned",
                             )));
                         }
                     }

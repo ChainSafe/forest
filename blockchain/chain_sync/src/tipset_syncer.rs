@@ -6,11 +6,10 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use async_std::channel::Receiver;
 use async_std::future::Future;
 use async_std::pin::Pin;
 use async_std::stream::{Stream, StreamExt};
-use async_std::task::{self, Context, JoinHandle, Poll};
+use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
 use log::{debug, error, info, trace, warn};
 use num_bigint::BigInt;
@@ -18,7 +17,7 @@ use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
 use crate::network_context::SyncNetworkContext;
-use crate::sync_state::{SyncStage, SyncState};
+use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
 use actor::{is_account_actor, power};
 use address::Address;
@@ -28,7 +27,7 @@ use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
 use clock::ChainEpoch;
-use crypto::{verify_bls_aggregate, DomainSeparationTag, Signature};
+use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
 use fil_types::{
@@ -187,7 +186,7 @@ impl TipsetGroup {
         self.tipsets
             .iter()
             .enumerate()
-            .max_by_key(|(idx, ts)| ts.weight())
+            .max_by_key(|(_idx, ts)| ts.weight())
             .map(|(idx, _)| idx)
             .map(|idx| self.tipsets.swap_remove(idx))
     }
@@ -394,9 +393,9 @@ where
             TipsetProcessorState::FindRange {
                 ref mut epoch,
                 ref mut parents,
-                ref mut range_finder,
                 ref mut current_sync,
                 ref mut next_sync,
+                ..
             } => {
                 // Add tipsets to the current sync cache
                 if let Some(tipset_group) = grouped_tipsets.remove(&(*epoch, parents.clone())) {
@@ -495,11 +494,10 @@ where
                     return Poll::Pending;
                 }
                 TipsetProcessorState::FindRange {
-                    ref mut epoch,
-                    ref mut parents,
                     ref mut range_finder,
                     ref mut current_sync,
                     ref mut next_sync,
+                    ..
                 } => match range_finder.as_mut().poll(cx) {
                     Poll::Ready(Ok(mut range_syncer)) => {
                         debug!(
@@ -585,7 +583,6 @@ pub(crate) struct TipsetRangeSyncer<DB, TBeacon, V> {
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
     tipsets_included: HashSet<TipsetKeys>,
-    tipset_range_length: u64,
     tipset_tasks: Pin<Box<FuturesUnordered<TipsetRangeSyncerFuture>>>,
     state_manager: Arc<StateManager<DB>>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
@@ -639,9 +636,6 @@ where
             proposed_head,
             current_head,
             tipsets_included: HashSet::new(),
-            // Casting from i64 -> u64 is safe because we ensured that
-            // the value is greater than 0
-            tipset_range_length: tipset_range_length as u64,
             tipset_tasks,
             state_manager,
             beacon,
@@ -1476,7 +1470,7 @@ fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
         .map_err(|err| TipsetRangeSyncerError::MinerPowerUnavailable(err.to_string()))?;
     state
         .miner_power(state_manager.blockstore(), miner_addr)
-        .map_err(|err| TipsetRangeSyncerError::MinerPowerUnavailable(err.to_string()));
+        .map_err(|err| TipsetRangeSyncerError::MinerPowerUnavailable(err.to_string()))?;
     Ok(())
 }
 
