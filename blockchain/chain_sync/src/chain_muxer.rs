@@ -105,23 +105,26 @@ impl Default for SyncConfig {
 }
 
 /// Represents the result of evaluating the network head tipset against the
-/// local head tipset.
+/// local head tipset
 enum NetworkHeadEvaluation {
-    /// Local head is behind the network and needs move into the BOOTSTRAP state.
+    /// Local head is behind the network and needs move into the BOOTSTRAP state
     Behind {
         network_head: FullTipset,
         local_head: Arc<Tipset>,
     },
     /// Local head is the direct ancestor of the network head. The node should
-    /// move into the FOLLOW state and immediately sync the network head.
+    /// move into the FOLLOW state and immediately sync the network head
     InRange { network_head: FullTipset },
     /// Local head is at the same height as the network head. The node should
-    /// move into the FOLLOW state and wait for new tipsets.
+    /// move into the FOLLOW state and wait for new tipsets
     InSync,
 }
 
+/// Repesents whether received messages should be added to message pool
 enum PubsubMessageProcessingStrategy {
+    /// Messages should be added to the message pool
     Process,
+    /// Message _should not_ be added to the message pool
     DoNotProcess,
 }
 
