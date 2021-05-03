@@ -888,9 +888,6 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
                 )));
             }
             if potential_common_ancestor == *tipset {
-                // TODO: Iterate over the blocks in the forks tipsets,
-                // validate them, and add them to the accepted blocks vector
-                //
                 // Remove elements from the vector since the Drain
                 // iterator is immediately dropped
                 let mut fork_tipsets = fork_tipsets;
@@ -905,6 +902,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             if potential_common_ancestor.epoch() < tipset.epoch() {
                 continue;
             }
+            fork_length += 1;
             // Increment the fork length and enfore the fork length check
             if fork_length > FORK_LENGTH_THRESHOLD {
                 return Err(TipsetRangeSyncerError::ChainForkLengthExceedsMaximum);
