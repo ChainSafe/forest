@@ -349,7 +349,7 @@ where
         //   1. Tipset has at least 1 block
         //   2. Tipset epoch is not behind the current max epoch in the store
         //   3. Tipset is heavier than the heaviest tipset in the store at the time when it was queued
-        //   4. Tipset message roots were calculated proven to have integrity
+        //   4. Tipset message roots were calculated and integrity checks were run
 
         // Read all of the tipsets available on the stream
         let mut grouped_tipsets: HashMap<(i64, TipsetKeys), TipsetGroup> = HashMap::new();
@@ -492,7 +492,7 @@ where
             }
         }
 
-        // Drive TipsetSyncers to completion.
+        // Drive underlying futures to completion
         loop {
             match self.state {
                 TipsetProcessorState::Idle => {
@@ -529,8 +529,12 @@ where
                     }
                     Poll::Ready(Err(why)) => {
                         match why {
-                            // Do not log for these errors
-                            TipsetProcessorError::TipsetAlreadySynced => (),
+                            // Do not log for these errors since they are expected to occur
+                            // throughout the syncing process
+                            TipsetProcessorError::TipsetAlreadySynced
+                            | TipsetProcessorError::TipsetRangeSyncer(
+                                TipsetRangeSyncerError::InvalidTipsetRangeLength,
+                            ) => (),
                             why => {
                                 error!("Finding tipset range for sync failed: {}", why);
                             }
