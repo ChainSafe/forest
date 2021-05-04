@@ -1107,7 +1107,7 @@ async fn validate_tipset<
                     epoch,
                     why
                 );
-                // Only do bad block accounting is the function was called with
+                // Only do bad block accounting if the function was called with
                 // `is_strict` = true
                 if is_strict {
                     match &why {
