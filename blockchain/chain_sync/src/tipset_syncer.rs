@@ -245,6 +245,7 @@ where
     DB: BlockStore + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static + Unpin,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         tracker: crate::chain_muxer::WorkerState,
         tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
