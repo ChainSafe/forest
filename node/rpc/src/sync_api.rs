@@ -18,8 +18,8 @@ use std::sync::Arc;
 
 #[derive(Serialize)]
 pub struct RPCSyncState {
-    #[serde(rename = "ActiveSync")]
-    active_sync: SyncState,
+    #[serde(rename = "ActiveSyncs")]
+    active_syncs: Vec<SyncState>,
 }
 
 /// Checks if a given block is marked as bad.
@@ -65,8 +65,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let active_sync = clone_state(data.sync_state.as_ref()).await;
-    Ok(RPCSyncState { active_sync })
+    let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
+    Ok(RPCSyncState { active_syncs })
 }
 
 /// Submits block to be sent through gossipsub.
@@ -178,7 +178,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
-            sync_state: Arc::new(RwLock::new(vec![Default::default()])),
+            sync_state: Arc::new(RwLock::new(Default::default())),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
             chain_store: cs_for_chain,
@@ -217,21 +217,18 @@ mod tests {
         let st_copy = state.sync_state.clone();
 
         match sync_state(Data(state.clone())).await {
-            Ok(ret) => assert_eq!(ret.active_sync, clone_state(st_copy.as_ref()).await),
+            Ok(ret) => assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]),
             Err(e) => std::panic::panic_any(e),
         }
 
         // update cloned state
-        st_copy.read().await[0]
-            .write()
-            .await
-            .set_stage(SyncStage::Messages);
-        st_copy.read().await[0].write().await.set_epoch(4);
+        st_copy.write().await.set_stage(SyncStage::Messages);
+        st_copy.write().await.set_epoch(4);
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {
-                assert_ne!(ret.active_sync, vec![]);
-                assert_eq!(ret.active_sync, clone_state(st_copy.as_ref()).await);
+                assert_ne!(ret.active_syncs, vec![]);
+                assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]);
             }
             Err(e) => std::panic::panic_any(e),
         }

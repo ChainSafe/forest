@@ -1,9 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(test)]
-mod peer_test;
-
 use crate::bad_block_cache::BadBlockCache;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncState;
@@ -835,79 +832,29 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::convert::TryFrom;
+    use std::sync::Arc;
+    use std::time::Duration;
+    
     use async_std::channel::{bounded, Sender};
     use async_std::task;
+
+    use crate::validation::TipsetValidator;
+    use chain::ChainStore;
     use beacon::{BeaconPoint, MockBeacon};
     use db::MemoryDB;
     use fil_types::verifier::MockVerifier;
     use forest_libp2p::NetworkEvent;
     use message_pool::{test_provider::TestApi, MessagePool};
     use state_manager::StateManager;
-    use std::convert::TryFrom;
-    use std::sync::Arc;
-    use std::time::Duration;
     use test_utils::{construct_dummy_header, construct_messages};
-
-    fn chain_syncer_setup(
-        db: Arc<MemoryDB>,
-    ) -> (
-        ChainSyncer<MemoryDB, MockBeacon, MockVerifier, TestApi>,
-        Sender<NetworkEvent>,
-        Receiver<NetworkMessage>,
-    ) {
-        let chain_store = Arc::new(ChainStore::new(db.clone()));
-        let test_provider = TestApi::default();
-        let (tx, _rx) = bounded(10);
-        let mpool = task::block_on(MessagePool::new(
-            test_provider,
-            "test".to_string(),
-            tx,
-            Default::default(),
-        ))
-        .unwrap();
-        let mpool = Arc::new(mpool);
-        let (local_sender, test_receiver) = bounded(20);
-        let (event_sender, event_receiver) = bounded(20);
-
-        let gen = construct_dummy_header();
-        chain_store.set_genesis(&gen).unwrap();
-
-        let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
-            height: 0,
-            beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
-        }]));
-
-        let genesis_ts = Arc::new(Tipset::new(vec![gen]).unwrap());
-        (
-            ChainSyncer::new(
-                Arc::new(StateManager::new(chain_store)),
-                beacon,
-                mpool,
-                local_sender,
-                event_receiver,
-                genesis_ts,
-                SyncConfig::default(),
-            )
-            .unwrap(),
-            event_sender,
-            test_receiver,
-        )
-    }
-
-    #[test]
-    fn chainsync_constructor() {
-        let db = Arc::new(MemoryDB::default());
-
-        // Test just makes sure that the chain syncer can be created without using a live database or
-        // p2p network (local channels to simulate network messages and responses)
-        let _chain_syncer = chain_syncer_setup(db);
-    }
+    use cid::Cid;
+    use message::{SignedMessage, UnsignedMessage};
+    
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {
-        let db = Arc::new(MemoryDB::default());
-        let (cs, _, _) = chain_syncer_setup(db);
+        let blockstore = MemoryDB::default();        
 
         let (bls, secp) = construct_messages();
 
@@ -915,7 +862,8 @@ mod tests {
             Cid::try_from("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
                 .unwrap();
 
-        let root = compute_msg_meta(cs.state_manager.blockstore(), &[bls], &[secp]).unwrap();
+        let root = TipsetValidator::compute_msg_root(&blockstore, &[bls], &[secp])
+            .expect("Computing message root should succeed");
         assert_eq!(root, expected_root);
     }
 
@@ -928,8 +876,8 @@ mod tests {
             encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
 
         assert_eq!(
-            compute_msg_meta(&blockstore, &usm, &sm)
-                .unwrap()
+            TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)
+                .expect("Computing message root should succeed")
                 .to_string(),
             "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
         );
