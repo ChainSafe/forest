@@ -971,6 +971,7 @@ fn sync_tipset<
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn sync_messages_check_state<
     DB: BlockStore + Send + Sync + 'static,
     TBeacon: Beacon + Sync + Send + 'static,
