@@ -15,7 +15,6 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{SignedMessage, UnsignedMessage};
 use serde::Serialize;
 use std::sync::Arc;
-use wallet::KeyStore;
 
 #[derive(Serialize)]
 pub struct RPCSyncState {
@@ -24,13 +23,12 @@ pub struct RPCSyncState {
 }
 
 /// Checks if a given block is marked as bad.
-pub(crate) async fn sync_check_bad<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn sync_check_bad<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
@@ -38,13 +36,12 @@ where
 }
 
 /// Marks a block as bad, meaning it will never be synced.
-pub(crate) async fn sync_mark_bad<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn sync_mark_bad<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(CidJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
@@ -56,43 +53,40 @@ where
 
 // TODO SyncIncomingBlocks (requires websockets)
 
-async fn clone_state(states: &RwLock<Vec<Arc<RwLock<SyncState>>>>) -> Vec<SyncState> {
-    let mut ret = Vec::new();
-    for s in states.read().await.iter() {
-        ret.push(s.read().await.clone());
-    }
-    ret
+async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
+    state.read().await.clone()
 }
 
 /// Returns the current status of the ChainSync process.
-pub(crate) async fn sync_state<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn sync_state<DB, B>(
+    data: Data<RpcState<DB, B>>,
 ) -> Result<RPCSyncState, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let active_syncs = clone_state(data.sync_state.as_ref()).await;
+    let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
 }
 
 /// Submits block to be sent through gossipsub.
-pub(crate) async fn sync_submit_block<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn sync_submit_block<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params((GossipBlockJson(blk),)): Params<(GossipBlockJson,)>,
 ) -> Result<(), JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let bls_msgs: Vec<UnsignedMessage> =
         chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
     let secp_msgs: Vec<SignedMessage> =
         chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
-    let sm_root =
-        chain_sync::compute_msg_meta(data.state_manager.blockstore(), &bls_msgs, &secp_msgs)?;
+    let sm_root = chain_sync::TipsetValidator::compute_msg_root(
+        data.state_manager.blockstore(),
+        &bls_msgs,
+        &secp_msgs,
+    )?;
     if blk.header.messages() != &sm_root {
         return Err(format!(
             "Block message root does not match the computed: Actual: {}, Computed: {}",
@@ -133,12 +127,12 @@ mod tests {
     use serde_json::from_str;
     use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
-    use wallet::MemKeyStore;
+    use wallet::{KeyStore, KeyStoreConfig};
 
     const TEST_NET_NAME: &str = "test";
 
     async fn state_setup() -> (
-        Arc<RpcState<MemoryDB, MemKeyStore, MockBeacon>>,
+        Arc<RpcState<MemoryDB, MockBeacon>>,
         Receiver<NetworkMessage>,
     ) {
         let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
@@ -181,10 +175,10 @@ mod tests {
         let (new_mined_block_tx, _) = bounded(5);
         let state = Arc::new(RpcState {
             state_manager,
-            keystore: Arc::new(RwLock::new(wallet::MemKeyStore::new())),
+            keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
-            sync_state: Arc::new(RwLock::new(vec![Default::default()])),
+            sync_state: Arc::new(RwLock::new(Default::default())),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
             chain_store: cs_for_chain,
@@ -223,21 +217,18 @@ mod tests {
         let st_copy = state.sync_state.clone();
 
         match sync_state(Data(state.clone())).await {
-            Ok(ret) => assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await),
+            Ok(ret) => assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]),
             Err(e) => std::panic::panic_any(e),
         }
 
         // update cloned state
-        st_copy.read().await[0]
-            .write()
-            .await
-            .set_stage(SyncStage::Messages);
-        st_copy.read().await[0].write().await.set_epoch(4);
+        st_copy.write().await.set_stage(SyncStage::Messages);
+        st_copy.write().await.set_epoch(4);
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {
                 assert_ne!(ret.active_syncs, vec![]);
-                assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await);
+                assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]);
             }
             Err(e) => std::panic::panic_any(e),
         }

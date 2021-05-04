@@ -207,17 +207,6 @@ impl Actor {
         })?;
         rt.create(&st)?;
 
-        // Register first cron callback for epoch before the next deadline starts.
-        let deadline_close =
-            period_start + WPOST_CHALLENGE_WINDOW * (1 + deadline_idx) as ChainEpoch;
-        enroll_cron_event(
-            rt,
-            deadline_close - 1,
-            CronEventPayload {
-                event_type: CRON_EVENT_PROVING_DEADLINE,
-            },
-        )?;
-
         Ok(())
     }
 
@@ -712,8 +701,10 @@ impl Actor {
 
         let (pledge_delta, mut to_burn, power_delta, to_reward) =
             rt.transaction(|st: &mut State, rt| {
+                let dl_info = st.deadline_info(current_epoch);
+
                 if !deadline_available_for_optimistic_post_dispute(
-                    st.proving_period_start,
+                    dl_info.period_start,
                     params.deadline,
                     current_epoch,
                 ) {
@@ -729,8 +720,8 @@ impl Actor {
                 // --- check proof ---
 
                 // Find the proving period start for the deadline in question.
-                let mut pp_start = st.proving_period_start;
-                if st.current_deadline < params.deadline {
+                let mut pp_start = dl_info.period_start;
+                if dl_info.index < params.deadline as u64 {
                     pp_start -= WPOST_PROVING_PERIOD
                 }
                 let target_deadline = new_deadline_info(pp_start, params.deadline, current_epoch);
@@ -1000,7 +991,8 @@ impl Actor {
         )?;
         let deal_weight = &deal_weights.sectors[0];
         let mut fee_to_burn = TokenAmount::from(0);
-        let newly_vested = rt.transaction(|state: &mut State, rt| {
+        let mut needs_cron = false;
+        let (newly_vested, needs_cron) = rt.transaction(|state: &mut State, rt| {
             let newly_vested = TokenAmount::from(0);
 
             // available balance already accounts for fee debt so it is correct to call
@@ -1186,8 +1178,9 @@ impl Actor {
                         "failed to add pre-commit expiry to queue",
                     )
                 })?;
-
-            Ok(newly_vested)
+            needs_cron = !state.deadline_cron_active;
+            state.deadline_cron_active = true;
+            Ok((newly_vested, needs_cron))
         })?;
 
         burn_funds(rt, fee_to_burn)?;
@@ -1200,7 +1193,16 @@ impl Actor {
                     format!("balance invariants broken: {}", e),
                 )
             })?;
-
+        if needs_cron {
+            let new_dl_info = state.deadline_info(rt.curr_epoch());
+            enroll_cron_event(
+                rt,
+                new_dl_info.last(),
+                CronEventPayload {
+                    event_type: CRON_EVENT_PROVING_DEADLINE,
+                },
+            )?;
+        }
         notify_pledge_changed(rt, &-newly_vested)?;
         Ok(())
     }
@@ -2005,7 +2007,11 @@ impl Actor {
             for (deadline_idx, partition_sectors) in to_process.iter() {
                 // If the deadline the current or next deadline to prove, don't allow terminating sectors.
                 // We assume that deadlines are immutable when being proven.
-                if !deadline_is_mutable(state.proving_period_start, deadline_idx, curr_epoch) {
+                if !deadline_is_mutable(
+                    state.current_proving_period_start(curr_epoch),
+                    deadline_idx,
+                    curr_epoch,
+                ) {
                     return Err(actor_error!(
                         ErrIllegalArgument,
                         "cannot terminate sectors in immutable deadline {}",
@@ -2145,12 +2151,12 @@ impl Actor {
             })?;
 
             let mut new_fault_power_total = PowerPair::zero();
-
+            let curr_epoch = rt.curr_epoch();
             for (deadline_idx, partition_map) in to_process.iter() {
                 let target_deadline = declaration_deadline_info(
-                    state.proving_period_start,
+                    state.current_proving_period_start(curr_epoch),
                     deadline_idx,
-                    rt.curr_epoch(),
+                    curr_epoch,
                 )
                 .map_err(|e| {
                     actor_error!(
@@ -2299,12 +2305,12 @@ impl Actor {
             let sectors = Sectors::load(store, &state.sectors).map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to load sectors array")
             })?;
-
+            let curr_epoch = rt.curr_epoch();
             for (deadline_idx, partition_map) in to_process.iter() {
                 let target_deadline = declaration_deadline_info(
-                    state.proving_period_start,
+                    state.current_proving_period_start(curr_epoch),
                     deadline_idx,
-                    rt.curr_epoch(),
+                    curr_epoch,
                 )
                 .map_err(|e| {
                     actor_error!(
@@ -2417,7 +2423,7 @@ impl Actor {
             let store = rt.store();
 
             if !deadline_available_for_compaction(
-                state.proving_period_start,
+                state.current_proving_period_start(rt.curr_epoch()),
                 params_deadline,
                 rt.curr_epoch(),
             ) {
@@ -3101,6 +3107,7 @@ where
     let mut power_delta_total = PowerPair::zero();
     let mut penalty_total = TokenAmount::zero();
     let mut pledge_delta_total = TokenAmount::zero();
+    let mut continue_cron = false;
 
     let state: State = rt.transaction(|state: &mut State, rt| {
         // Vest locked funds.
@@ -3166,6 +3173,12 @@ where
 
         penalty_total = &penalty_from_vesting + penalty_from_balance;
         pledge_delta_total -= penalty_from_vesting;
+
+        continue_cron = state.continue_deadline_cron();
+        if !continue_cron {
+            state.deadline_cron_active = false;
+        }
+
         Ok(state.clone())
     })?;
 
@@ -3175,14 +3188,21 @@ where
     notify_pledge_changed(rt, &pledge_delta_total)?;
 
     // Schedule cron callback for next deadline's last epoch.
-    let new_deadline_info = state.deadline_info(curr_epoch);
-    enroll_cron_event(
-        rt,
-        new_deadline_info.last(),
-        CronEventPayload {
-            event_type: CRON_EVENT_PROVING_DEADLINE,
-        },
-    )?;
+    if continue_cron {
+        let new_deadline_info = state.deadline_info(curr_epoch + 1);
+        enroll_cron_event(
+            rt,
+            new_deadline_info.last(),
+            CronEventPayload {
+                event_type: CRON_EVENT_PROVING_DEADLINE,
+            },
+        )?;
+    } else {
+        info!(
+            "miner {} going inactive, deadline cron discontinued",
+            rt.message().receiver()
+        )
+    }
 
     // Record whether or not we _have_ early terminations now.
     let has_early_terminations = have_pending_early_terminations(&state);

@@ -15,35 +15,32 @@ use message::{ChainMessage, Message};
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
-use wallet::KeyStore;
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
-pub(crate) async fn gas_estimate_fee_cap<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn gas_estimate_fee_cap<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(UnsignedMessageJson, i64, TipsetKeysJson)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (UnsignedMessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
-    estimate_fee_cap::<DB, KS, B>(&data, msg, max_queue_blks, tsk)
+    estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk)
         .await
         .map(|n| BigInt::to_string(&n))
 }
 
-async fn estimate_fee_cap<DB, KS, B>(
-    data: &Data<RpcState<DB, KS, B>>,
+async fn estimate_fee_cap<DB, B>(
+    data: &Data<RpcState<DB, B>>,
     msg: UnsignedMessage,
     max_queue_blks: i64,
     _tsk: TipsetKeys,
 ) -> Result<BigInt, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let ts = data
@@ -66,28 +63,26 @@ where
 }
 
 /// Estimate the fee cap
-pub(crate) async fn gas_estimate_gas_premium<DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn gas_estimate_gas_premium<DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(u64, AddressJson, i64, TipsetKeysJson)>,
 ) -> Result<String, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
-    estimate_gas_premium::<DB, KS, B>(&data, nblocksincl)
+    estimate_gas_premium::<DB, B>(&data, nblocksincl)
         .await
         .map(|n| BigInt::to_string(&n))
 }
 
-async fn estimate_gas_premium<DB, KS, B>(
-    data: &Data<RpcState<DB, KS, B>>,
+async fn estimate_gas_premium<DB, B>(
+    data: &Data<RpcState<DB, B>>,
     mut nblocksincl: u64,
 ) -> Result<BigInt, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     if nblocksincl == 0 {
@@ -176,28 +171,26 @@ where
 }
 
 /// Estimate the gas limit
-pub(crate) async fn gas_estimate_gas_limit<DB, KS, B, V>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn gas_estimate_gas_limit<DB, B, V>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(UnsignedMessageJson, TipsetKeysJson)>,
 ) -> Result<i64, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
     let (UnsignedMessageJson(msg), TipsetKeysJson(tsk)) = params;
-    estimate_gas_limit::<DB, KS, B, V>(&data, msg, tsk).await
+    estimate_gas_limit::<DB, B, V>(&data, msg, tsk).await
 }
 
-async fn estimate_gas_limit<DB, KS, B, V>(
-    data: &Data<RpcState<DB, KS, B>>,
+async fn estimate_gas_limit<DB, B, V>(
+    data: &Data<RpcState<DB, B>>,
     msg: UnsignedMessage,
     _: TipsetKeys,
 ) -> Result<i64, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
@@ -244,37 +237,35 @@ where
 }
 
 /// Estimates the gas paramaters for a given message
-pub(crate) async fn gas_estimate_message_gas<DB, KS, B, V>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn gas_estimate_message_gas<DB, B, V>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(UnsignedMessageJson, Option<MessageSendSpec>, TipsetKeysJson)>,
 ) -> Result<UnsignedMessageJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
     let (UnsignedMessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
-    estimate_message_gas::<DB, KS, B, V>(&data, msg, spec, tsk)
+    estimate_message_gas::<DB, B, V>(&data, msg, spec, tsk)
         .await
         .map(UnsignedMessageJson::from)
 }
 
-pub(crate) async fn estimate_message_gas<DB, KS, B, V>(
-    data: &Data<RpcState<DB, KS, B>>,
+pub(crate) async fn estimate_message_gas<DB, B, V>(
+    data: &Data<RpcState<DB, B>>,
     msg: UnsignedMessage,
     _spec: Option<MessageSendSpec>,
     tsk: TipsetKeys,
 ) -> Result<UnsignedMessage, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
     let mut msg = msg;
     if msg.gas_limit() == 0 {
-        let gl = estimate_gas_limit::<DB, KS, B, V>(&data, msg.clone(), tsk.clone()).await?;
+        let gl = estimate_gas_limit::<DB, B, V>(&data, msg.clone(), tsk.clone()).await?;
         msg.gas_limit = gl;
     }
     if msg.gas_premium().is_zero() {

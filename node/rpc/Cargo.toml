@@ -38,7 +38,7 @@ cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 clock = { package = "fil_clock", path = "../clock" }
 crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst"] }
 encoding = { package = "forest_encoding", version = "0.2.1" }
-fil_types = "0.1"
+fil_types = "0.2"
 forest_libp2p = { path = "../forest_libp2p" }
 interpreter = { path = "../../vm/interpreter/" }
 ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }

@@ -20,6 +20,7 @@ pub enum State {
     V0(actorv0::init::State),
     V2(actorv2::init::State),
     V3(actorv3::init::State),
+    V4(actorv4::init::State),
 }
 
 impl State {
@@ -42,6 +43,11 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V3)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv4::INIT_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V4)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
         }
@@ -58,6 +64,7 @@ impl State {
             State::V0(st) => Ok(st.map_address_to_new_id(store, addr)?),
             State::V2(st) => Ok(st.map_address_to_new_id(store, addr)?),
             State::V3(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            State::V4(st) => Ok(st.map_address_to_new_id(store, addr)?),
         }
     }
 
@@ -80,6 +87,7 @@ impl State {
             State::V0(st) => st.resolve_address(store, addr),
             State::V2(st) => st.resolve_address(store, addr),
             State::V3(st) => st.resolve_address(store, addr),
+            State::V4(st) => st.resolve_address(store, addr),
         }
     }
 
@@ -88,6 +96,7 @@ impl State {
             State::V0(st) => st.network_name,
             State::V2(st) => st.network_name,
             State::V3(st) => st.network_name,
+            State::V4(st) => st.network_name,
         }
     }
 }

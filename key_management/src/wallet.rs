@@ -37,17 +37,14 @@ impl TryFrom<KeyInfo> for Key {
 /// - keys which is a HashMap of Keys resolved by their Address
 /// - keystore which is a HashMap of KeyInfos resolved by their Address
 #[derive(Clone, PartialEq, Debug, Eq)]
-pub struct Wallet<T> {
+pub struct Wallet {
     keys: HashMap<Address, Key>,
-    keystore: T,
+    keystore: KeyStore,
 }
 
-impl<T> Wallet<T>
-where
-    T: KeyStore,
-{
+impl Wallet {
     /// Return a new Wallet with a given KeyStore
-    pub fn new(keystore: T) -> Self {
+    pub fn new(keystore: KeyStore) -> Self {
         Wallet {
             keys: HashMap::new(),
             keystore,
@@ -56,7 +53,7 @@ where
 
     /// Return a wallet from a given amount of keys. This wallet will not use the
     /// generic keystore trait, but rather specifically use a MemKeyStore
-    pub fn new_from_keys(keystore: T, key_vec: impl IntoIterator<Item = Key>) -> Self {
+    pub fn new_from_keys(keystore: KeyStore, key_vec: impl IntoIterator<Item = Key>) -> Self {
         let mut keys: HashMap<Address, Key> = HashMap::new();
         for item in key_vec.into_iter() {
             keys.insert(item.address, item);
@@ -153,14 +150,14 @@ where
 }
 
 /// Return the default Address for KeyStore
-pub fn get_default<T: KeyStore>(keystore: &T) -> Result<Address, Error> {
+pub fn get_default(keystore: &KeyStore) -> Result<Address, Error> {
     let key_info = keystore.get(&"default".to_string())?;
     let k = Key::try_from(key_info)?;
     Ok(k.address)
 }
 
 /// Return Vec of Addresses sorted by their string representation in KeyStore
-pub fn list_addrs<T: KeyStore>(keystore: &T) -> Result<Vec<Address>, Error> {
+pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     let mut all = keystore.list();
     all.sort();
     let mut out = Vec::new();
@@ -176,14 +173,14 @@ pub fn list_addrs<T: KeyStore>(keystore: &T) -> Result<Vec<Address>, Error> {
 }
 
 /// Return Key corresponding to given Address in KeyStore
-pub fn find_key<T: KeyStore>(addr: &Address, keystore: &T) -> Result<Key, Error> {
+pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
     let key_string = format!("wallet-{}", addr.to_string());
     let key_info = keystore.get(&key_string)?;
     let new_key = Key::try_from(key_info)?;
     Ok(new_key)
 }
 
-pub fn try_find<T: KeyStore>(addr: &Address, keystore: &mut T) -> Result<KeyInfo, Error> {
+pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
     let key_string = format!("wallet-{}", addr.to_string());
     match keystore.get(&key_string) {
         Ok(k) => Ok(k),
@@ -204,7 +201,7 @@ pub fn try_find<T: KeyStore>(addr: &Address, keystore: &mut T) -> Result<KeyInfo
 }
 
 /// Return keyInfo for given Address in KeyStore
-pub fn export_key_info<T: KeyStore>(addr: &Address, keystore: &T) -> Result<KeyInfo, Error> {
+pub fn export_key_info(addr: &Address, keystore: &KeyStore) -> Result<KeyInfo, Error> {
     let key = find_key(addr, keystore)?;
     Ok(key.key_info)
 }
@@ -217,10 +214,7 @@ pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 }
 
 /// Import KeyInfo into KeyStore
-pub fn import<T: KeyStore + Sync + Send>(
-    key_info: KeyInfo,
-    keystore: &mut T,
-) -> Result<Address, Error> {
+pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> Result<Address, Error> {
     let k = Key::try_from(key_info)?;
     let addr = format!("wallet-{}", k.address.to_string());
     keystore.put(addr, k.key_info)?;
@@ -230,7 +224,7 @@ pub fn import<T: KeyStore + Sync + Send>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{generate, MemKeyStore};
+    use crate::{generate, KeyStoreConfig};
     use encoding::blake2b_256;
     use secp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
@@ -253,9 +247,9 @@ mod tests {
         secp_keys
     }
 
-    fn generate_wallet() -> Wallet<MemKeyStore> {
+    fn generate_wallet() -> Wallet {
         let key_vec = construct_priv_keys();
-        let wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
+        let wallet = Wallet::new_from_keys(KeyStore::new(KeyStoreConfig::Memory).unwrap(), key_vec);
         wallet
     }
 
@@ -265,7 +259,8 @@ mod tests {
         let found_key = key_vec[0].clone();
         let addr = key_vec[0].address;
 
-        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
+        let mut wallet =
+            Wallet::new_from_keys(KeyStore::new(KeyStoreConfig::Memory).unwrap(), key_vec);
 
         // make sure that this address resolves to the right key
         assert_eq!(wallet.find_key(&addr).unwrap(), found_key);
@@ -291,7 +286,9 @@ mod tests {
         let key_vec = construct_priv_keys();
         let priv_key_bytes = key_vec[2].key_info.private_key().clone();
         let addr = key_vec[2].address;
-        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
+
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new_from_keys(keystore, key_vec);
         let msg = [0u8; 64];
 
         let msg_sig = wallet.sign(&addr, &msg).unwrap();
@@ -311,7 +308,8 @@ mod tests {
     fn import_export() {
         let key_vec = construct_priv_keys();
         let key = key_vec[0].clone();
-        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), key_vec);
+        let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new_from_keys(keystore, key_vec);
 
         let key_info = wallet.export(&key.address).unwrap();
         // test to see if export returns the correct key_info
@@ -339,7 +337,7 @@ mod tests {
         let key_vec = construct_priv_keys();
         let mut addr_string_vec = Vec::new();
 
-        let mut key_store = MemKeyStore::new();
+        let mut key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
 
         for i in &key_vec {
             addr_string_vec.push(i.address.to_string());
@@ -385,7 +383,8 @@ mod tests {
 
     #[test]
     fn get_set_default() {
-        let mut wallet = Wallet::new(MemKeyStore::new());
+        let key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new(key_store);
         // check to make sure that there is no default
         assert_eq!(wallet.get_default().unwrap_err(), Error::KeyInfo);
 
@@ -412,7 +411,8 @@ mod tests {
         let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
         let secp_key = Key::try_from(secp_key_info).unwrap();
         let addr = secp_key.address;
-        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), vec![secp_key]);
+        let key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new_from_keys(key_store, vec![secp_key]);
 
         let msg = [0u8; 64];
 
@@ -430,7 +430,8 @@ mod tests {
         let bls_key_info = KeyInfo::new(SignatureType::BLS, bls_priv_key);
         let bls_key = Key::try_from(bls_key_info).unwrap();
         let addr = bls_key.address;
-        let mut wallet = Wallet::new_from_keys(MemKeyStore::new(), vec![bls_key]);
+        let key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+        let mut wallet = Wallet::new_from_keys(key_store, vec![bls_key]);
 
         let msg = [0u8; 64];
 

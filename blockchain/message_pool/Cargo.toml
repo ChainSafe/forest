@@ -29,14 +29,15 @@ async-std = { version = "1.9", features = ["tokio1"] }
 state_manager = { path = "../state_manager" }
 async-trait = "0.1"
 interpreter = { path = "../../vm/interpreter/" }
-types = { package = "fil_types", version = "0.1" }
+types = { package = "fil_types", version = "0.2" }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 num-traits = "0.2"
 statrs = "0.13.0"
 num-rational = "0.3.2"
 networks = { path = "../../types/networks" }
+slotmap = "1.0"
+rand = "0.8.3"
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }
 key_management = { path = "../../key_management" }
-rand = "0.7.3"

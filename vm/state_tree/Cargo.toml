@@ -13,7 +13,7 @@ ipld_hamt = "1.0"
 forest_ipld = "0.1.1"
 ipld_blockstore = "0.1"
 db = { package = "forest_db", version = "0.1" }
-fil_types = { version = "0.1" }
+fil_types = { version = "0.2" }
 
 [dev-dependencies]
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

@@ -39,4 +39,14 @@ impl QuantSpec {
             self.unit * (quotient + 1) + offset
         }
     }
+
+    pub fn quantize_down(&self, epoch: ChainEpoch) -> ChainEpoch {
+        let next = self.quantize_up(epoch);
+        // QuantizeDown == QuantizeUp iff epoch is a fixed point of QuantizeUp
+        if epoch == next {
+            next
+        } else {
+            next - self.unit
+        }
+    }
 }

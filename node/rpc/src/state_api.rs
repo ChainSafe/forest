@@ -46,7 +46,6 @@ use state_tree::StateTree;
 use std::collections::HashMap;
 use std::sync::Arc;
 use vm::ActorState;
-use wallet::KeyStore;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
@@ -76,10 +75,9 @@ pub(crate) struct Partition {
 /// If false, only those sectors in the filter are included.
 pub(crate) async fn state_miner_sectors<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, BitFieldJson, TipsetKeysJson)>,
 ) -> Result<Vec<miner::SectorOnChainInfo>, JsonRpcError> {
     let (address, filter, key) = params;
@@ -99,10 +97,9 @@ pub(crate) async fn state_miner_sectors<
 /// runs the given message and returns its result without any persisted changes.
 pub(crate) async fn state_call<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(UnsignedMessageJson, TipsetKeysJson)>,
 ) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -128,10 +125,9 @@ pub(crate) struct Deadline {
 /// returns all the proving deadlines for the given miner
 pub(crate) async fn state_miner_deadlines<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<Vec<Deadline>, JsonRpcError> {
     let (actor, key) = params;
@@ -158,10 +154,9 @@ pub(crate) async fn state_miner_deadlines<
 /// returns the PreCommit info for the specified miner's sector
 pub(crate) async fn state_sector_precommit_info<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, SectorNumber, TipsetKeysJson)>,
 ) -> Result<miner::SectorPreCommitOnChainInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -180,10 +175,9 @@ pub(crate) async fn state_sector_precommit_info<
 /// StateMinerInfo returns info about the indicated miner
 pub async fn state_miner_info<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<MinerInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -209,10 +203,9 @@ pub async fn state_miner_info<
 /// returns the on-chain info for the specified miner's sector
 pub async fn state_sector_info<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, SectorNumber, TipsetKeysJson)>,
 ) -> Result<Option<SectorOnChainInfo>, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -233,10 +226,9 @@ pub async fn state_sector_info<
 /// and returns the deadline-related calculations.
 pub(crate) async fn state_miner_proving_deadline<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<DeadlineInfo, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -259,10 +251,9 @@ pub(crate) async fn state_miner_proving_deadline<
 /// returns a single non-expired Faults that occur within lookback epochs of the given tipset
 pub(crate) async fn state_miner_faults<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<BitFieldJson, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -288,10 +279,9 @@ pub struct Fault {
 /// returns all non-expired Faults that occur within lookback epochs of the given tipset
 pub(crate) async fn state_all_miner_faults<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    _data: Data<RpcState<DB, KS, B>>,
+    _data: Data<RpcState<DB, B>>,
     Params(_params): Params<(ChainEpoch, TipsetKeysJson)>,
 ) -> Result<Vec<Fault>, JsonRpcError> {
     // FIXME
@@ -325,10 +315,9 @@ pub(crate) async fn state_all_miner_faults<
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<BitFieldJson, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -348,10 +337,9 @@ pub(crate) async fn state_miner_recoveries<
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_partitions<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, u64, TipsetKeysJson)>,
 ) -> Result<Vec<Partition>, JsonRpcError> {
     let (actor, dl_idx, key) = params;
@@ -382,10 +370,9 @@ pub(crate) async fn state_miner_partitions<
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
 pub(crate) async fn state_replay<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(CidJson, TipsetKeysJson)>,
 ) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -407,10 +394,9 @@ pub(crate) async fn state_replay<
 
 pub(crate) async fn state_get_network_version<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(TipsetKeysJson,)>,
 ) -> Result<NetworkVersion, JsonRpcError> {
     let (TipsetKeysJson(tsk),) = params;
@@ -421,11 +407,10 @@ pub(crate) async fn state_get_network_version<
 /// returns the indicated actor's nonce and balance.
 pub(crate) async fn state_get_actor<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<Option<ActorStateJson>, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -443,11 +428,10 @@ pub(crate) async fn state_get_actor<
 /// returns the indicated actor's nonce and balance.
 pub(crate) async fn state_miner_get_base_info<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, ChainEpoch, TipsetKeysJson)>,
 ) -> Result<Option<MiningBaseInfoJson>, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -462,11 +446,10 @@ pub(crate) async fn state_miner_get_base_info<
 /// returns the public key address of the given ID address
 pub(crate) async fn state_account_key<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<Option<AddressJson>, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -484,11 +467,10 @@ pub(crate) async fn state_account_key<
 /// retrieves the ID address of the given address
 pub(crate) async fn state_lookup_id<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<Option<Address>, JsonRpcError> {
     let state_manager = &data.state_manager;
@@ -506,10 +488,9 @@ pub(crate) async fn state_lookup_id<
 /// gets network name from state manager
 pub(crate) async fn state_network_name<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
 ) -> Result<String, JsonRpcError> {
     let state_manager = &data.state_manager;
     let heaviest_tipset = state_manager
@@ -526,10 +507,9 @@ pub(crate) async fn state_network_name<
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
 pub(crate) async fn state_market_balance<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, TipsetKeysJson)>,
 ) -> Result<MarketBalance, JsonRpcError> {
     let (address, key) = params;
@@ -547,10 +527,9 @@ pub(crate) async fn state_market_balance<
 /// returns the message receipt for the given message
 pub(crate) async fn state_get_receipt<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(CidJson, TipsetKeysJson)>,
 ) -> Result<MessageReceiptJson, JsonRpcError> {
     let (cidjson, key) = params;
@@ -571,10 +550,9 @@ pub(crate) async fn state_get_receipt<
 /// message arrives on chain, and gets to the indicated confidence depth.
 pub(crate) async fn state_wait_msg<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(CidJson, i64)>,
 ) -> Result<MessageLookup, JsonRpcError> {
     let (cidjson, confidence) = params;
@@ -613,11 +591,10 @@ pub(crate) struct BlockTemplate {
 
 pub(crate) async fn miner_create_block<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(BlockTemplate,)>,
 ) -> Result<BlockMsgJson, JsonRpcError> {
     let params = params.0;
@@ -737,10 +714,9 @@ pub(crate) struct MarketDeal {
 
 pub(crate) async fn state_market_deals<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(TipsetKeysJson,)>,
 ) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
     let (TipsetKeysJson(tsk),) = params;
@@ -775,10 +751,9 @@ pub(crate) async fn state_market_deals<
 
 pub(crate) async fn state_miner_sector_allocated<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, u64, TipsetKeysJson)>,
 ) -> Result<bool, JsonRpcError> {
     let (AddressJson(maddr), sector_num, TipsetKeysJson(tsk)) = params;
@@ -807,6 +782,12 @@ pub(crate) async fn state_miner_sector_allocated<
             .get::<bitfield::BitField>(&m.allocated_sectors)?
             .ok_or("allocated sectors bitfield not found")?
             .get(sector_num as usize),
+        miner::State::V4(m) => data
+            .chain_store
+            .db
+            .get::<bitfield::BitField>(&m.allocated_sectors)?
+            .ok_or("allocated sectors bitfield not found")?
+            .get(sector_num as usize),
     };
 
     Ok(allocated_sectors)
@@ -814,11 +795,10 @@ pub(crate) async fn state_miner_sector_allocated<
 
 pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, SectorPreCommitInfo, TipsetKeysJson)>,
 ) -> Result<String, JsonRpcError> {
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
@@ -859,11 +839,10 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
 
 pub(crate) async fn state_miner_initial_pledge_collateral<
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, KS, B>>,
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<(AddressJson, SectorPreCommitInfo, TipsetKeysJson)>,
 ) -> Result<String, JsonRpcError> {
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;

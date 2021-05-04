@@ -124,3 +124,25 @@ pub fn deadline_available_for_compaction(
             current_epoch,
         )
 }
+
+// Determine current period start and deadline index directly from current epoch and
+// the offset implied by the proving period. This works correctly even for the state
+// of a miner actor without an active deadline cron
+pub fn new_deadline_info_from_offset_and_epoch(
+    period_start_seed: ChainEpoch,
+    current_epoch: ChainEpoch,
+) -> DeadlineInfo {
+    let q = QuantSpec {
+        unit: WPOST_PROVING_PERIOD,
+        offset: period_start_seed,
+    };
+    let current_period_start = q.quantize_down(current_epoch);
+    let current_deadline_idx = ((current_epoch - current_period_start) / WPOST_CHALLENGE_WINDOW)
+        as u64
+        % WPOST_PERIOD_DEADLINES;
+    new_deadline_info(
+        current_period_start,
+        current_deadline_idx as usize,
+        current_epoch,
+    )
+}

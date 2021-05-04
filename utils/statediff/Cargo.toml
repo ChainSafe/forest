@@ -18,5 +18,5 @@ address = { package = "forest_address", version = "0.3", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 ipld = { version = "0.1.1", package = "forest_ipld", features = ["json"] }
 vm = { package = "forest_vm", version = "0.3.1" }
-fil_types = "0.1"
+fil_types = "0.2"
 state_tree = { path = "../../vm/state_tree/" }

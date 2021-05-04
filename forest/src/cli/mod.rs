@@ -82,13 +82,16 @@ pub struct DaemonOpts {
                     Assumes a pre-loaded database"
     )]
     pub skip_load: bool,
-    #[structopt(long, help = "Number of worker sync tasks spawned (default is 1")]
-    pub worker_tasks: Option<usize>,
     #[structopt(
         long,
         help = "Number of tipsets requested over chain exchange (default is 200)"
     )]
     pub req_window: Option<i64>,
+    #[structopt(
+        long,
+        help = "Number of tipsets to include in the sample that determines what the network head is"
+    )]
+    pub tipset_sample_size: Option<u8>,
     #[structopt(
         long,
         help = "Amount of Peers we want to be connected to (default is 75)"
@@ -143,8 +146,8 @@ impl DaemonOpts {
         if let Some(req_window) = &self.req_window {
             cfg.sync.req_window = req_window.to_owned();
         }
-        if let Some(worker_tsk) = &self.worker_tasks {
-            cfg.sync.worker_tasks = worker_tsk.to_owned();
+        if let Some(tipset_sample_size) = self.tipset_sample_size {
+            cfg.sync.tipset_sample_size = tipset_sample_size.into();
         }
 
         Ok(cfg)

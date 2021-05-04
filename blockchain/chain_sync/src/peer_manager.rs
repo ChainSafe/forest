@@ -128,17 +128,6 @@ impl PeerManager {
         peers
     }
 
-    /// Retrieves all head tipsets from current peer set.
-    pub async fn get_peer_heads(&self) -> Vec<Arc<Tipset>> {
-        self.peers
-            .read()
-            .await
-            .full_peers
-            .iter()
-            .filter_map(|(_, v)| v.head.clone())
-            .collect()
-    }
-
     /// Logs a global request success. This just updates the average for the peer manager.
     pub async fn log_global_success(&self, dur: Duration) {
         debug!("logging global success");

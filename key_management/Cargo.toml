@@ -18,7 +18,9 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 serde = { version = "1.0", features = ["derive"] }
 base64 = { version = "0.13", optional = true }
 serde_json = "1.0.57"
+serde_cbor = "0.11.1"
 log = "0.4.8"
+sodiumoxide = "0.2.6"
 
 [features]
 json = ["base64", "crypto/json"]

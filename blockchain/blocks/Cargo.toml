@@ -22,7 +22,7 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 sha2 = { version = "0.9", default-features = false }
 thiserror = "1.0"
 vm = { package = "forest_vm", version = "0.3.1" }
-fil_types = "0.1"
+fil_types = "0.2"
 base64 = { version = "0.13", optional = true }
 forest_json_utils = { path = "../../utils/json_utils", optional = true }
 lazy_static = "1.4.0"

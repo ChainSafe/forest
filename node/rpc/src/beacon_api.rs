@@ -7,18 +7,16 @@ use beacon::Beacon;
 use blockstore::BlockStore;
 use clock::ChainEpoch;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use wallet::KeyStore;
 
 /// BeaconGetEntry returns the beacon entry for the given filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
 /// becomes available
-pub(crate) async fn beacon_get_entry<'a, DB, KS, B>(
-    data: Data<RpcState<DB, KS, B>>,
+pub(crate) async fn beacon_get_entry<'a, DB, B>(
+    data: Data<RpcState<DB, B>>,
     Params(params): Params<Vec<ChainEpoch>>,
 ) -> Result<BeaconEntryJson, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    KS: KeyStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let first = params
