@@ -778,6 +778,7 @@ fn sync_tipset_range<
             chain_store.clone(),
             bad_block_cache,
             parent_tipsets,
+            true,
         )
         .await
         {
@@ -947,6 +948,7 @@ fn sync_tipset<
             chain_store.clone(),
             bad_block_cache,
             vec![proposed_head.clone()],
+            false,
         )
         .await
         {
@@ -981,6 +983,7 @@ async fn sync_messages_check_state<
     chainstore: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     tipsets: Vec<Arc<Tipset>>,
+    is_strict: bool,
 ) -> Result<(), TipsetRangeSyncerError> {
     // Iterate through tipsets in chronological order
     let mut tipset_iter = tipsets.into_iter().rev();
@@ -998,6 +1001,7 @@ async fn sync_messages_check_state<
                     chainstore.clone(),
                     bad_block_cache.clone(),
                     full_tipset,
+                    is_strict,
                 )
                 .await?;
                 tracker.write().await.set_epoch(current_epoch);
@@ -1044,6 +1048,7 @@ async fn sync_messages_check_state<
                         chainstore.clone(),
                         bad_block_cache.clone(),
                         full_tipset,
+                        is_strict,
                     )
                     .await?;
                     tracker.write().await.set_epoch(current_epoch);
@@ -1072,6 +1077,7 @@ async fn validate_tipset<
     chainstore: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     full_tipset: FullTipset,
+    is_strict: bool,
 ) -> Result<(), TipsetRangeSyncerError> {
     // TODO: Ensure that the tipset is not the genesis tipset
 
@@ -1100,11 +1106,15 @@ async fn validate_tipset<
                     epoch,
                     why
                 );
-                match &why {
-                    TipsetRangeSyncerError::TimeTravellingBlock(_, _)
-                    | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
-                    why => {
-                        bad_block_cache.put(cid, why.to_string()).await;
+                // Only do bad block accounting is the function was called with
+                // `is_strict` = true
+                if is_strict {
+                    match &why {
+                        TipsetRangeSyncerError::TimeTravellingBlock(_, _)
+                        | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
+                        why => {
+                            bad_block_cache.put(cid, why.to_string()).await;
+                        }
                     }
                 }
                 return Err(why);
