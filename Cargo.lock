@@ -3627,7 +3627,6 @@ dependencies = [
  "forest_address",
  "forest_crypto",
  "forest_encoding",
- "hex",
  "libsecp256k1",
  "log",
  "rand 0.7.3",

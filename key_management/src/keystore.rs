@@ -30,6 +30,12 @@ pub struct KeyInfo {
     private_key: Vec<u8>,
 }
 
+#[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
+pub struct PersistentKeyInfo {
+    key_type: SignatureType,
+    private_key: String,
+}
+
 impl KeyInfo {
     /// Return a new KeyInfo given the key_type and private_key
     pub fn new(key_type: SignatureType, private_key: Vec<u8>) -> Self {
@@ -85,7 +91,7 @@ pub mod json {
     {
         JsonHelper {
             sig_type: SignatureTypeJson(k.key_type),
-            private_key: hex::encode(&k.private_key),
+            private_key: base64::encode(&k.private_key),
         }
         .serialize(serializer)
     }
@@ -100,7 +106,7 @@ pub mod json {
         } = Deserialize::deserialize(deserializer)?;
         Ok(KeyInfo {
             key_type: sig_type.0,
-            private_key: hex::decode(private_key).map_err(de::Error::custom)?,
+            private_key: base64::decode(private_key).map_err(de::Error::custom)?,
         })
     }
 }
@@ -176,15 +182,31 @@ impl KeyStore {
                         let reader = BufReader::new(file);
 
                         // Existing cleartext JSON keystore
-                        let key_info = serde_json::from_reader(reader)
-                            .map_err(|e| {
-                                error!("failed to deserialize keyfile, initializing new keystore at: {:?}", file_path);
-                                e
-                            })
-                            .unwrap_or_default();
+                        let key_info: HashMap<String, PersistentKeyInfo> =
+                            serde_json::from_reader(reader)
+                                .map_err(|e| {
+                                    error!(
+                                "failed to deserialize keyfile, initializing new keystore at: {:?}",
+                                file_path
+                            );
+                                    e
+                                })
+                                .unwrap_or_default();
+
+                        let mut data = HashMap::new();
+                        for (key, value) in key_info.iter() {
+                            data.insert(
+                                key.to_string(),
+                                KeyInfo {
+                                    private_key: base64::decode(value.private_key.clone())
+                                        .map_err(|error| Error::Other(error.to_string()))?,
+                                    key_type: value.key_type,
+                                },
+                            );
+                        }
 
                         Ok(Self {
-                            key_info,
+                            key_info: data,
                             persistence: Some(PersistentKeyStore { file_path }),
                             encryption: None,
                         })
@@ -325,10 +347,18 @@ impl KeyStore {
                         Ok(())
                     }
                     None => {
-                        let mut data: HashMap<String, String> = HashMap::new();
+                        let mut data: HashMap<String, PersistentKeyInfo> = HashMap::new();
                         for (key, value) in self.key_info.iter() {
-                            data.insert(key.to_string(), hex::encode(value.private_key.clone()));
+                            data.insert(
+                                key.to_string(),
+                                PersistentKeyInfo {
+                                    private_key: base64::encode(value.private_key.clone()),
+                                    key_type: value.key_type,
+                                },
+                            );
                         }
+
+                        log::info!("writing keystore\n{:#?}", data);
 
                         // Flush for PersistentKeyStore
                         serde_json::to_writer_pretty(writer, &data).map_err(|e| {
@@ -436,6 +466,7 @@ impl EncryptedKeyStore {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::wallet;
 
     const PASSPHRASE: &'static str = "foobarbaz";
 
@@ -492,6 +523,36 @@ mod test {
         ks.flush().unwrap();
 
         assert!(true);
+    }
+
+    #[test]
+    #[ignore = "fragile test, requires keystore.json to exist"]
+    fn test_encode_read_write() {
+        let keystore_location = PathBuf::from("/home/connor/chainsafe/forest-db");
+        let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone())).unwrap();
+
+        let key = wallet::generate_key(SignatureType::BLS).unwrap();
+
+        let addr = format!("wallet-{}", key.address.to_string());
+        ks.put(addr.clone(), key.key_info.clone()).unwrap();
+        ks.flush().unwrap();
+
+        let default = ks.get(&addr).unwrap();
+
+        let mut keystore_file = keystore_location.clone();
+        keystore_file.push("keystore.json");
+
+        let reader = BufReader::new(File::open(keystore_file).unwrap());
+        let persisted_keystore: HashMap<String, PersistentKeyInfo> =
+            serde_json::from_reader(reader).unwrap();
+
+        let default_key_info = persisted_keystore.get(&addr).unwrap();
+        let actual = base64::decode(default_key_info.private_key.clone()).unwrap();
+
+        assert_eq!(
+            default.private_key, actual,
+            "persisted key matches key from key store"
+        );
     }
 
     #[test]
