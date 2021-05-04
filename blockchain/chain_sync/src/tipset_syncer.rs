@@ -1491,8 +1491,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), TipsetRangeSyncerError> {
-    crypto::verify_vrf(worker, rand, evrf)
-        .map_err(|err| TipsetRangeSyncerError::VrfValidation(err.to_string()))
+    crypto::verify_vrf(worker, rand, evrf).map_err(TipsetRangeSyncerError::VrfValidation)
 }
 
 fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(
@@ -1688,7 +1687,7 @@ fn check_block_messages<
         // SecP256K1 Signature validation
         msg.signature
             .verify(&msg.message().to_signing_bytes(), &key_addr)
-            .map_err(|e| TipsetRangeSyncerError::MessageSignatureInvalid(e.to_string()))?;
+            .map_err(TipsetRangeSyncerError::MessageSignatureInvalid)?;
     }
 
     // Validate message root from header matches message root

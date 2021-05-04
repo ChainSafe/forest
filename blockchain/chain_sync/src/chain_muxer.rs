@@ -169,6 +169,7 @@ where
     V: ProofVerifier + Sync + Send + 'static + Unpin,
     M: Provider + Sync + Send + 'static,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         state_manager: Arc<StateManager<DB>>,
         beacon: Arc<BeaconSchedule<TBeacon>>,
