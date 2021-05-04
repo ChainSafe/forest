@@ -112,7 +112,7 @@ where
 
 pub async fn rpc_ws_handler<DB, KS, B>(
     request: tide::Request<JsonRpcServerState>,
-    ws_stream: WebSocketConnection,
+    mut ws_stream: WebSocketConnection,
 ) -> Result<(), tide::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -122,12 +122,11 @@ where
     let (authorization_header, request) = get_auth_header(request);
     let rpc_server = request.state();
     let socket_active = Arc::new(AtomicCell::new(true));
-    let mut ws_receiver = ws_stream.clone();
     let ws_sender = ws_stream.clone();
 
     info!("Accepted WS connection!");
 
-    while let Some(message_result) = ws_receiver.next().await {
+    while let Some(message_result) = ws_stream.next().await {
         debug!("Received new WS RPC message: {:?}", message_result);
 
         match message_result {
