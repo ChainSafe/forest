@@ -235,6 +235,7 @@ pub(crate) struct TipsetProcessor<DB, TBeacon, V> {
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
+    genesis: Arc<Tipset>,
     verifier: PhantomData<V>,
 }
 
@@ -252,6 +253,7 @@ where
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
+        genesis: Arc<Tipset>,
     ) -> Self {
         Self {
             state: TipsetProcessorState::Idle,
@@ -262,6 +264,7 @@ where
             network,
             chain_store,
             bad_block_cache,
+            genesis,
             verifier: Default::default(),
         }
     }
@@ -276,6 +279,7 @@ where
         let network = self.network.clone();
         let bad_block_cache = self.bad_block_cache.clone();
         let tracker = self.tracker.clone();
+        let genesis = self.genesis.clone();
         Box::pin(async move {
             // Define the low end of the range
             // Unwrapping is safe here because the store always has at least one tipset
@@ -297,6 +301,7 @@ where
                 network,
                 chain_store,
                 bad_block_cache,
+                genesis,
             )?;
             for tipset in tipset_group.tipsets() {
                 tipset_range_syncer.add_tipset(tipset)?;
@@ -602,6 +607,7 @@ pub(crate) struct TipsetRangeSyncer<DB, TBeacon, V> {
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
+    genesis: Arc<Tipset>,
     verifier: PhantomData<V>,
 }
 
@@ -621,6 +627,7 @@ where
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
+        genesis: Arc<Tipset>,
     ) -> Result<Self, TipsetRangeSyncerError> {
         let tipset_tasks = Box::pin(FuturesUnordered::new());
         let tipset_range_length = proposed_head.epoch() - current_head.epoch();
@@ -642,6 +649,7 @@ where
             network.clone(),
             bad_block_cache.clone(),
             beacon.clone(),
+            genesis.clone(),
         ));
 
         let mut tipsets_included = HashSet::new();
@@ -656,6 +664,7 @@ where
             network,
             chain_store,
             bad_block_cache,
+            genesis,
             verifier: Default::default(),
         })
     }
@@ -693,6 +702,7 @@ where
             self.network.clone(),
             self.bad_block_cache.clone(),
             self.beacon.clone(),
+            self.genesis.clone(),
         ));
         Ok(true)
     }
@@ -741,6 +751,7 @@ fn sync_tipset_range<
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
+    genesis: Arc<Tipset>,
 ) -> TipsetRangeSyncerFuture {
     Box::pin(async move {
         tracker
@@ -784,6 +795,7 @@ fn sync_tipset_range<
             chain_store.clone(),
             bad_block_cache,
             parent_tipsets,
+            genesis,
             InvalidBlockStrategy::Strict,
         )
         .await
@@ -938,6 +950,7 @@ fn sync_tipset<
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
     beacon: Arc<BeaconSchedule<TBeacon>>,
+    genesis: Arc<Tipset>,
 ) -> TipsetRangeSyncerFuture {
     Box::pin(async move {
         // Persist the blocks from the proposed tipsets into the store
@@ -954,6 +967,7 @@ fn sync_tipset<
             chain_store.clone(),
             bad_block_cache,
             vec![proposed_head.clone()],
+            genesis,
             InvalidBlockStrategy::Forgiving,
         )
         .await
@@ -990,6 +1004,7 @@ async fn sync_messages_check_state<
     chainstore: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     tipsets: Vec<Arc<Tipset>>,
+    genesis: Arc<Tipset>,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError> {
     // Iterate through tipsets in chronological order
@@ -1008,6 +1023,7 @@ async fn sync_messages_check_state<
                     chainstore.clone(),
                     bad_block_cache.clone(),
                     full_tipset,
+                    genesis.clone(),
                     invalid_block_strategy,
                 )
                 .await?;
@@ -1055,6 +1071,7 @@ async fn sync_messages_check_state<
                         chainstore.clone(),
                         bad_block_cache.clone(),
                         full_tipset,
+                        genesis.clone(),
                         invalid_block_strategy,
                     )
                     .await?;
@@ -1084,9 +1101,13 @@ async fn validate_tipset<
     chainstore: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     full_tipset: FullTipset,
+    genesis: Arc<Tipset>,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError> {
-    // TODO: Ensure that the tipset is not the genesis tipset
+    if full_tipset.key().eq(genesis.key()) {
+        trace!("Skipping genesis tipset validation");
+        return Ok(());
+    }
 
     let epoch = full_tipset.epoch();
     let full_tipset_key = full_tipset.key().clone();

@@ -133,7 +133,7 @@ pub struct ChainMuxer<DB, TBeacon, V, M> {
     /// Context to be able to send requests to p2p network
     network: SyncNetworkContext<DB>,
 
-    /// the known genesis tipset
+    /// Genesis tipset
     genesis: Arc<Tipset>,
 
     /// Bad blocks cache, updates based on invalid state transitions.
@@ -542,6 +542,7 @@ where
         let trs_network = self.network.clone();
         let trs_beacon = self.beacon.clone();
         let trs_tracker = self.worker_state.clone();
+        let trs_genesis = self.genesis.clone();
         let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             let tipset_range_syncer = match TipsetRangeSyncer::<DB, TBeacon, V>::new(
                 trs_tracker,
@@ -549,9 +550,10 @@ where
                 local_head,
                 trs_state_manager,
                 trs_beacon,
-                trs_network.clone(),
-                trs_chain_store.clone(),
-                trs_bad_block_cache.clone(),
+                trs_network,
+                trs_chain_store,
+                trs_bad_block_cache,
+                trs_genesis,
             ) {
                 Ok(tipset_range_syncer) => tipset_range_syncer,
                 Err(why) => return Err(ChainMuxerError::TipsetRangeSyncer(why)),
@@ -628,6 +630,7 @@ where
         let tp_bad_block_cache = self.bad_blocks.clone();
         let tp_tipset_receiver = self.tipset_receiver.clone();
         let tp_tracker = self.worker_state.clone();
+        let tp_genesis = self.genesis.clone();
         enum UnexpectedReturnKind {
             TipsetProcessor,
         }
@@ -641,6 +644,7 @@ where
                     tp_network,
                     tp_chain_store,
                     tp_bad_block_cache,
+                    tp_genesis,
                 )
                 .await
                 .map_err(ChainMuxerError::TipsetProcessor)?;
