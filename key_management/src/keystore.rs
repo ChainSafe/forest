@@ -85,7 +85,7 @@ pub mod json {
     {
         JsonHelper {
             sig_type: SignatureTypeJson(k.key_type),
-            private_key: base64::encode(&k.private_key),
+            private_key: hex::encode(&k.private_key),
         }
         .serialize(serializer)
     }
@@ -100,7 +100,7 @@ pub mod json {
         } = Deserialize::deserialize(deserializer)?;
         Ok(KeyInfo {
             key_type: sig_type.0,
-            private_key: base64::decode(private_key).map_err(de::Error::custom)?,
+            private_key: hex::decode(private_key).map_err(de::Error::custom)?,
         })
     }
 }
@@ -325,8 +325,13 @@ impl KeyStore {
                         Ok(())
                     }
                     None => {
+                        let mut data: HashMap<String, String> = HashMap::new();
+                        for (key, value) in self.key_info.iter() {
+                            data.insert(key.to_string(), hex::encode(value.private_key.clone()));
+                        }
+
                         // Flush for PersistentKeyStore
-                        serde_json::to_writer(writer, &self.key_info).map_err(|e| {
+                        serde_json::to_writer_pretty(writer, &data).map_err(|e| {
                             Error::Other(format!("failed to serialize and write key info: {}", e))
                         })?;
 
