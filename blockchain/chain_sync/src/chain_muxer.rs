@@ -228,7 +228,7 @@ where
         network
             .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
             .await
-            .map_err(|err| ChainMuxerError::ChainExchange(err.to_string()))
+            .map_err(ChainMuxerError::ChainExchange)
     }
 
     async fn load_full_tipset(
@@ -337,7 +337,7 @@ where
         let (bls_messages, secp_messages) =
             match try_join!(try_join_all(bls_messages), try_join_all(secp_messages)) {
                 Ok(msgs) => msgs,
-                Err(e) => return Err(ChainMuxerError::Bitswap(e.to_string())),
+                Err(e) => return Err(ChainMuxerError::Bitswap(e)),
             };
 
         let block = Block {
@@ -442,7 +442,7 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            chain::persist_objects(chain_store.db.as_ref(), &vec![block.header()])?;
+            chain::persist_objects(chain_store.db.as_ref(), &[block.header()])?;
             chain::persist_objects(chain_store.db.as_ref(), block.bls_msgs())?;
             chain::persist_objects(chain_store.db.as_ref(), block.secp_msgs())?;
         }
@@ -524,10 +524,10 @@ where
                 return Ok(NetworkHeadEvaluation::InRange { network_head });
             }
             // Local node is behind the network and we need to do an initial sync
-            return Ok(NetworkHeadEvaluation::Behind {
+            Ok(NetworkHeadEvaluation::Behind {
                 network_head,
                 local_head,
-            });
+            })
         };
 
         Box::pin(evaluator)
@@ -562,7 +562,7 @@ where
 
             tipset_range_syncer
                 .await
-                .map_err(|err| ChainMuxerError::TipsetRangeSyncer(err))
+                .map_err(ChainMuxerError::TipsetRangeSyncer)
         });
 
         // The stream processor _must_ only error if the stream ends
@@ -646,9 +646,9 @@ where
                     tp_bad_block_cache,
                 )
                 .await
-                .map_err(|err| ChainMuxerError::TipsetProcessor(err))?;
+                .map_err(ChainMuxerError::TipsetProcessor)?;
 
-                return Ok(UnexpectedReturnKind::TipsetProcessor);
+                Ok(UnexpectedReturnKind::TipsetProcessor)
             });
 
         // The stream processor _must_ only error if the p2p event stream ends or if the
@@ -732,9 +732,9 @@ where
                     // Log the expected return
                     match kind {
                         UnexpectedReturnKind::TipsetProcessor => {
-                            return Err(ChainMuxerError::NetworkFollowingFailure(String::from(
+                            Err(ChainMuxerError::NetworkFollowingFailure(String::from(
                                 "Tipset processor unexpectedly returned",
-                            )));
+                            )))
                         }
                     }
                 }

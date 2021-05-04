@@ -178,12 +178,7 @@ impl TipsetGroup {
         if !self.epoch.eq(&tipset.epoch()) || !self.parents.eq(tipset.parents()) {
             return Some(tipset);
         }
-        if self
-            .tipsets
-            .iter()
-            .find(|ts| tipset.key().eq(&ts.key()))
-            .is_some()
-        {
+        if self.tipsets.iter().any(|ts| tipset.key().eq(&ts.key())) {
             return Some(tipset);
         }
         self.tipsets.push(tipset);
@@ -610,6 +605,7 @@ where
     DB: BlockStore + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + Unpin + 'static,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         tracker: crate::chain_muxer::WorkerState,
         proposed_head: Arc<Tipset>,
@@ -724,6 +720,7 @@ where
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn sync_tipset_range<
     DB: BlockStore + Sync + Send + 'static,
     TBeacon: Beacon + Sync + Send + 'static,
@@ -854,7 +851,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
         let network_tipsets = network
             .chain_exchange_headers(None, oldest_parent.parents(), window as u64)
             .await
-            .map_err(|err| TipsetRangeSyncerError::NetworkTipsetQueryFailed(err.to_string()))?;
+            .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
 
         for tipset in network_tipsets {
             // Break if have already traversed the entire tipset range
@@ -880,7 +877,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
         let fork_tipsets = network
             .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
             .await
-            .map_err(|err| TipsetRangeSyncerError::NetworkTipsetQueryFailed(err.to_string()))?;
+            .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
         let mut potential_common_ancestor =
             chain_store.tipset_from_keys(current_head.parents()).await?;
         let mut fork_length = 1;
@@ -1018,9 +1015,7 @@ async fn sync_messages_check_state<
                 let compacted_messages = network
                     .chain_exchange_messages(None, tipset.key(), batch_size as u64)
                     .await
-                    .map_err(|err| {
-                        TipsetRangeSyncerError::NetworkMessageQueryFailed(err.to_string())
-                    })?;
+                    .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
                 // Chain current tipset with iterator
                 let mut inner_iter = std::iter::once(tipset).chain(&mut tipset_iter);
 
@@ -1038,9 +1033,8 @@ async fn sync_messages_check_state<
                         messages: Some(messages),
                     };
 
-                    let full_tipset = FullTipset::try_from(&bundle).map_err(|err| {
-                        TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle(err.to_string())
-                    })?;
+                    let full_tipset = FullTipset::try_from(&bundle)
+                        .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
                     // Validate the tipset and the messages
                     let current_epoch = full_tipset.epoch();
@@ -1184,7 +1178,7 @@ async fn validate_block<
     let prev_beacon = chain_store
         .latest_beacon_entry(&base_tipset)
         .await
-        .map(|prev_beacon| Arc::new(prev_beacon))
+        .map(Arc::new)
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Timestamp checks
@@ -1353,7 +1347,7 @@ async fn validate_block<
         }
         let (mpow, tpow) = v_state_manager
             .get_power(&v_lookback_state, Some(header.miner_address()))?
-            .ok_or_else(|| TipsetRangeSyncerError::MinerPowerNotAvailable)?;
+            .ok_or(TipsetRangeSyncerError::MinerPowerNotAvailable)?;
 
         let j = election_proof.compute_win_count(&mpow.quality_adj_power, &tpow.quality_adj_power);
         if election_proof.win_count != j {
