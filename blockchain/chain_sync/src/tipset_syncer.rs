@@ -583,6 +583,12 @@ where
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+enum InvalidBlockStrategy {
+    Strict,
+    Forgiving,
+}
+
 type TipsetRangeSyncerFuture =
     Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError>> + Send>>;
 
@@ -778,7 +784,7 @@ fn sync_tipset_range<
             chain_store.clone(),
             bad_block_cache,
             parent_tipsets,
-            true,
+            InvalidBlockStrategy::Strict,
         )
         .await
         {
@@ -948,7 +954,7 @@ fn sync_tipset<
             chain_store.clone(),
             bad_block_cache,
             vec![proposed_head.clone()],
-            false,
+            InvalidBlockStrategy::Forgiving,
         )
         .await
         {
@@ -984,7 +990,7 @@ async fn sync_messages_check_state<
     chainstore: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     tipsets: Vec<Arc<Tipset>>,
-    is_strict: bool,
+    invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError> {
     // Iterate through tipsets in chronological order
     let mut tipset_iter = tipsets.into_iter().rev();
@@ -1002,7 +1008,7 @@ async fn sync_messages_check_state<
                     chainstore.clone(),
                     bad_block_cache.clone(),
                     full_tipset,
-                    is_strict,
+                    invalid_block_strategy,
                 )
                 .await?;
                 tracker.write().await.set_epoch(current_epoch);
@@ -1049,7 +1055,7 @@ async fn sync_messages_check_state<
                         chainstore.clone(),
                         bad_block_cache.clone(),
                         full_tipset,
-                        is_strict,
+                        invalid_block_strategy,
                     )
                     .await?;
                     tracker.write().await.set_epoch(current_epoch);
@@ -1078,7 +1084,7 @@ async fn validate_tipset<
     chainstore: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     full_tipset: FullTipset,
-    is_strict: bool,
+    invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError> {
     // TODO: Ensure that the tipset is not the genesis tipset
 
@@ -1109,7 +1115,7 @@ async fn validate_tipset<
                 );
                 // Only do bad block accounting if the function was called with
                 // `is_strict` = true
-                if is_strict {
+                if let InvalidBlockStrategy::Strict = invalid_block_strategy {
                     match &why {
                         TipsetRangeSyncerError::TimeTravellingBlock(_, _)
                         | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
