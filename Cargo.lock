@@ -5613,7 +5613,7 @@ dependencies = [
  "test_utils",
  "thiserror",
  "tide",
- "tide-websockets-sink",
+ "tide-websockets",
  "utils",
 ]
 
@@ -6687,10 +6687,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "tide-websockets-sink"
+name = "tide-websockets"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9250a3a3f1849fd6cb3df188b554a239158ef3d090ca94c448cef696509e6437"
+checksum = "e779e18072c7b59c45bdd60a5611c27ee304c41b7c430532ac98de4d6e7d3a2d"
 dependencies = [
  "async-dup",
  "async-std",

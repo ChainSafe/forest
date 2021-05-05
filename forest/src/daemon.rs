@@ -5,7 +5,7 @@ use super::cli::{block_until_sigint, Config};
 use async_std::{channel::bounded, sync::RwLock, task};
 use auth::{generate_priv_key, JWT_IDENTIFIER};
 use chain::ChainStore;
-use chain_sync::ChainSyncer;
+use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{import_chain, initialize_genesis};
@@ -157,24 +157,23 @@ pub(super) async fn start(config: Config) {
             .unwrap(),
     );
 
-    // Initialize ChainSyncer
-    let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
+    // Initialize ChainMuxer
+    let (tipset_sink, tipset_stream) = bounded(20);
+    let chain_muxer_tipset_sink = tipset_sink.clone();
+    let chain_muxer = ChainMuxer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
         beacon.clone(),
         Arc::clone(&mpool),
         network_send.clone(),
         network_rx,
         Arc::new(genesis),
+        chain_muxer_tipset_sink,
+        tipset_stream,
         config.sync,
-    )
-    .unwrap();
-    let bad_blocks = chain_syncer.bad_blocks_cloned();
-    let sync_state = chain_syncer.sync_state_cloned();
-    let (worker_tx, worker_rx) = bounded(20);
-    let worker_tx_clone = worker_tx.clone();
-    let sync_task = task::spawn(async move {
-        chain_syncer.start(worker_tx_clone, worker_rx).await;
-    });
+    );
+    let bad_blocks = chain_muxer.bad_blocks_cloned();
+    let sync_state = chain_muxer.sync_state_cloned();
+    let sync_task = task::spawn(chain_muxer);
 
     // Start services
     let p2p_task = task::spawn(async {
@@ -196,7 +195,7 @@ pub(super) async fn start(config: Config) {
                     network_name,
                     beacon,
                     chain_store,
-                    new_mined_block_tx: worker_tx,
+                    new_mined_block_tx: tipset_sink,
                 }),
                 &rpc_listen,
             )
@@ -215,8 +214,8 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    p2p_task.cancel().await;
     sync_task.cancel().await;
+    p2p_task.cancel().await;
     if let Some(task) = rpc_task {
         task.cancel().await;
     }
