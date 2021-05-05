@@ -182,7 +182,7 @@ impl KeyStore {
                         let reader = BufReader::new(file);
 
                         // Existing cleartext JSON keystore
-                        let key_info: HashMap<String, PersistentKeyInfo> =
+                        let persisted_key_info: HashMap<String, PersistentKeyInfo> =
                             serde_json::from_reader(reader)
                                 .map_err(|e| {
                                     error!(
@@ -193,9 +193,9 @@ impl KeyStore {
                                 })
                                 .unwrap_or_default();
 
-                        let mut data = HashMap::new();
-                        for (key, value) in key_info.iter() {
-                            data.insert(
+                        let mut key_info = HashMap::new();
+                        for (key, value) in persisted_key_info.iter() {
+                            key_info.insert(
                                 key.to_string(),
                                 KeyInfo {
                                     private_key: base64::decode(value.private_key.clone())
@@ -206,7 +206,7 @@ impl KeyStore {
                         }
 
                         Ok(Self {
-                            key_info: data,
+                            key_info,
                             persistence: Some(PersistentKeyStore { file_path }),
                             encryption: None,
                         })
@@ -347,9 +347,9 @@ impl KeyStore {
                         Ok(())
                     }
                     None => {
-                        let mut data: HashMap<String, PersistentKeyInfo> = HashMap::new();
+                        let mut key_info: HashMap<String, PersistentKeyInfo> = HashMap::new();
                         for (key, value) in self.key_info.iter() {
-                            data.insert(
+                            key_info.insert(
                                 key.to_string(),
                                 PersistentKeyInfo {
                                     private_key: base64::encode(value.private_key.clone()),
@@ -358,10 +358,10 @@ impl KeyStore {
                             );
                         }
 
-                        log::info!("writing keystore\n{:#?}", data);
+                        log::info!("writing keystore\n{:#?}", key_info);
 
                         // Flush for PersistentKeyStore
-                        serde_json::to_writer_pretty(writer, &data).map_err(|e| {
+                        serde_json::to_writer_pretty(writer, &key_info).map_err(|e| {
                             Error::Other(format!("failed to serialize and write key info: {}", e))
                         })?;
 
@@ -514,7 +514,7 @@ mod test {
         // current way to run this test:
         // add encrypt_keystore = true to config.toml
         // change keystore_location to your location
-        let keystore_location = PathBuf::from("/home/connor/chainsafe/forest-db");
+        let keystore_location = PathBuf::from("/tmp/forest-db");
         let ks = KeyStore::new(KeyStoreConfig::Encrypted(
             keystore_location,
             PASSPHRASE.to_string(),
@@ -528,7 +528,7 @@ mod test {
     #[test]
     #[ignore = "fragile test, requires keystore.json to exist"]
     fn test_encode_read_write() {
-        let keystore_location = PathBuf::from("/home/connor/chainsafe/forest-db");
+        let keystore_location = PathBuf::from("/tmp/forest-db");
         let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone())).unwrap();
 
         let key = wallet::generate_key(SignatureType::BLS).unwrap();
@@ -558,7 +558,7 @@ mod test {
     #[test]
     #[ignore = "fragile test, requires keystore.json"]
     fn test_read_unencrypted_keystore() {
-        let keystore_location = PathBuf::from("/home/connor/chainsafe/forest-db");
+        let keystore_location = PathBuf::from("/tmp/forest-db");
         let ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
         ks.flush().unwrap();
 
