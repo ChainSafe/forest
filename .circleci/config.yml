@@ -184,10 +184,11 @@ jobs:
       - run:
           name: Install deps
           command: |
-            brew install hwloc
+            brew install hwloc@2.4.1s
       - run:
           name: Macos build
           command: |
+            export LIBRARY_PATH=/opt/homebrew/Cellar/hwloc/2.4.1/lib
             rustup run stable rustc --version --verbose
             rustup run stable cargo --version --verbose
             cargo +stable check -p forest
@@ -295,9 +296,9 @@ workflows:
       - msrv-build-check:
           requires:
             - prefetch-crates
-      # - macos-build-check:
-      #     requires:
-      #       - prefetch-crates
+      - macos-build-check:
+          requires:
+            - prefetch-crates
   daily-check:
     triggers:
       - schedule:
