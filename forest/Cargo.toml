@@ -21,6 +21,7 @@ chain_sync = { path = "../blockchain/chain_sync" }
 state_manager = { path = "../blockchain/state_manager" }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 forest_car = { path = "../ipld/car" }
+forest_crypto = { version = "0.5.2", features = ["json"] }
 tokio = { version = "1.0", features = ["sync"] }
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }

@@ -2105,6 +2105,7 @@ dependencies = [
  "forest_blocks",
  "forest_car",
  "forest_cid",
+ "forest_crypto",
  "forest_db",
  "forest_encoding",
  "forest_libp2p",

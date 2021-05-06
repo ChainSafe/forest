@@ -140,7 +140,7 @@ where
 }
 
 /// Generate a new Address that is stored in the Wallet
-pub(crate) async fn wallet_new<DB, B>(
+pub async fn wallet_new<DB, B>(
     data: Data<RpcState<DB, B>>,
     Params(params): Params<(SignatureTypeJson,)>,
 ) -> Result<String, JsonRpcError>
