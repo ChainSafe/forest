@@ -98,8 +98,8 @@ pub struct State {
     /// Deadlines with outstanding fees for early sector termination.
     pub early_terminations: BitField,
 
-    // True when miner cron is active, false otherwise
-    pub deadline_cron_active: bool,
+	// True when miner cron is active, false otherwise
+	pub deadline_cron_active: bool
 }
 
 impl Cbor for State {}
@@ -187,7 +187,7 @@ impl State {
             current_deadline: deadline_idx,
             deadlines: empty_deadlines,
             early_terminations: BitField::new(),
-            deadline_cron_active: false,
+            deadline_cron_active: false
         })
     }
 
