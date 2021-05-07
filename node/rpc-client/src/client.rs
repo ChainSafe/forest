@@ -6,6 +6,7 @@
 
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
+use crypto::signature::json::signature_type::SignatureTypeJson;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use message::unsigned_message::json::UnsignedMessageJson;
@@ -30,6 +31,9 @@ jsonrpsee::rpc_api! {
 
         #[rpc(method = "Filecoin.ChainGetObj", positional_params)]
         fn chain_read_obj(cid: CidJson) -> Vec<u8>;
+        // Wallet
+        #[rpc(method = "Filecoin.WalletNew")]
+        fn wallet_new(signature_type: SignatureTypeJson) -> String;
     }
 }
 
