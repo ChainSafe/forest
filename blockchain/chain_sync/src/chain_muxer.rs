@@ -837,23 +837,12 @@ where
 #[cfg(test)]
 mod tests {
     use std::convert::TryFrom;
-    use std::sync::Arc;
-    use std::time::Duration;
-
-    use async_std::channel::{bounded, Sender};
-    use async_std::task;
 
     use crate::validation::TipsetValidator;
-    use beacon::{BeaconPoint, MockBeacon};
-    use chain::ChainStore;
     use cid::Cid;
     use db::MemoryDB;
-    use fil_types::verifier::MockVerifier;
-    use forest_libp2p::NetworkEvent;
     use message::{SignedMessage, UnsignedMessage};
-    use message_pool::{test_provider::TestApi, MessagePool};
-    use state_manager::StateManager;
-    use test_utils::{construct_dummy_header, construct_messages};
+    use test_utils::construct_messages;
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {
