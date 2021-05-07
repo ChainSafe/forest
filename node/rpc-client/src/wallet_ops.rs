@@ -7,7 +7,5 @@ pub async fn wallet_new(
     client: &mut RawClient<HttpTransportClient>,
     signature_type: SignatureTypeJson,
 ) -> Result<String, JsonRpcError> {
-    Filecoin::wallet_new(client, signature_type)
-        .await
-        .map_err(|error| JsonRpcError::from(error))
+    Ok(Filecoin::wallet_new(client, signature_type).await?)
 }
