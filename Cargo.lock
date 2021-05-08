@@ -7,7 +7,7 @@ name = "actor_interface"
 version = "0.1.0"
 dependencies = [
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_actor 0.1.7",
  "forest_actor 1.0.4",
  "forest_actor 2.0.1",
@@ -1009,7 +1009,7 @@ dependencies = [
  "byteorder 1.4.2",
  "crossbeam",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -1050,7 +1050,7 @@ dependencies = [
  "chain",
  "commcid",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -1197,7 +1197,7 @@ dependencies = [
  "chain",
  "chain_sync",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "flate2",
  "forest_address",
  "forest_bigint",
@@ -1905,28 +1905,6 @@ dependencies = [
 
 [[package]]
 name = "fil_types"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "529404fce0ceab0c5a10a0503bb0cacc40bbd58cc1b4532cb62db455d184f620"
-dependencies = [
- "async-std",
- "chrono",
- "fil_clock",
- "forest_address",
- "forest_bigint",
- "forest_cid",
- "forest_encoding",
- "forest_vm",
- "git-version",
- "lazy_static",
- "num-derive",
- "num-traits",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "fil_types"
 version = "0.2.1"
 dependencies = [
  "async-std",
@@ -2084,7 +2062,7 @@ dependencies = [
  "chain",
  "chain_sync",
  "ctrlc",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -2135,7 +2113,7 @@ dependencies = [
  "byteorder 1.4.2",
  "commcid",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -2169,7 +2147,7 @@ dependencies = [
  "byteorder 1.4.2",
  "commcid",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -2203,7 +2181,7 @@ dependencies = [
  "byteorder 1.4.2",
  "commcid",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -2237,7 +2215,7 @@ dependencies = [
  "byteorder 1.4.2",
  "commcid",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -2270,7 +2248,7 @@ dependencies = [
  "commcid",
  "derive_builder",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -2347,7 +2325,7 @@ dependencies = [
  "byteorder 1.4.2",
  "derive_builder",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_cid",
@@ -2516,7 +2494,7 @@ version = "0.7.2"
 dependencies = [
  "base64 0.13.0",
  "derive_builder",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_cid",
@@ -2536,7 +2514,7 @@ dependencies = [
  "base64 0.13.0",
  "commcid",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "filecoin-proofs-api",
  "forest_address",
  "forest_cid",
@@ -2787,7 +2765,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "chain",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_blocks",
  "forest_car",
  "forest_cid",
@@ -3177,7 +3155,7 @@ dependencies = [
  "ahash 0.6.2",
  "byteorder 1.4.2",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -4112,7 +4090,7 @@ dependencies = [
  "async-trait",
  "blake2b_simd",
  "chain",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -4335,7 +4313,7 @@ version = "0.1.0"
 dependencies = [
  "beacon",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "lazy_static",
  "serde_json",
 ]
@@ -4609,7 +4587,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "blake2b_simd",
- "fil_types 0.2.1",
+ "fil_types",
  "futures",
  "isahc",
  "log",
@@ -5388,7 +5366,7 @@ dependencies = [
  "chain",
  "chain_sync",
  "crossbeam",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -5433,7 +5411,7 @@ dependencies = [
  "chain",
  "chain_sync",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -5728,7 +5706,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "bls-signatures",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_blocks",
  "forest_cid",
@@ -6019,7 +5997,7 @@ dependencies = [
  "beacon",
  "chain",
  "fil_clock",
- "fil_types 0.2.1",
+ "fil_types",
  "filecoin-proofs-api",
  "forest_address",
  "forest_bigint",
@@ -6052,8 +6030,9 @@ dependencies = [
 name = "state_migration"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "fil_clock",
- "fil_types 0.1.11",
+ "fil_types",
  "forest_actor 0.1.7",
  "forest_actor 1.0.4",
  "forest_actor 4.0.0",
@@ -6069,6 +6048,7 @@ dependencies = [
  "ipld_blockstore",
  "libp2p 0.35.1",
  "serde",
+ "state_tree",
  "thiserror",
 ]
 
@@ -6078,7 +6058,7 @@ version = "0.1.0"
 dependencies = [
  "actor_interface",
  "async-std",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_bigint",
  "forest_car",
@@ -6097,7 +6077,7 @@ version = "0.1.0"
 dependencies = [
  "colored",
  "difference",
- "fil_types 0.2.1",
+ "fil_types",
  "forest_address",
  "forest_cid",
  "forest_ipld",

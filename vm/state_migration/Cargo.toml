@@ -8,7 +8,7 @@ edition = "2018"
 actorv0 = { package = "forest_actor", version = "0.1" }
 actorv2 = { package = "forest_actor", version = "1.0" }
 actorv3 = { package = "forest_actor", path = "../actor" }
-fil_types = "0.1"
+fil_types = {path="../../types"}
 vm = { package = "forest_vm", version = "0.3.1" }
 ipld_blockstore = "0.1"
 address = { package = "forest_address", version = "0.3" }
@@ -23,3 +23,5 @@ forest_hash_utils = "0.1"
 forest_json_utils = "0.1.1"
 thiserror = "1.0"
 futures = "0.3.14"
+state_tree = {path="../state_tree"}
+async-std = "1.9.0"

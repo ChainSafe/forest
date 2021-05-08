@@ -1,19 +1,23 @@
+use vm::ActorState;
 use ipld_blockstore::BlockStore;
 use cid::Cid;
 use vm::TokenAmount;
 use clock::ChainEpoch;
 use address::Address;
+use std::rc::Rc;
 
 mod nv12;
 
-#[derive(thiserror::Error, Debug, Clone, Copy)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub(crate) enum MigrationErr {
     #[error("Cache read failed")]
     MigrationCacheRead,
     #[error("Cache write failed")]
     MigrationCacheWrite,
-    #[error("State migration error")]
-    StateMigrationErr,
+    #[error("State migration: {0}")]
+    MigrationJobErr(String),
+    #[error("Flush failed post migration")]
+    FlushFailed,
     #[error("Migration failed")]
     Other
 }
@@ -43,7 +47,7 @@ pub(crate) struct ActorMigrationInput  {
     // epoch of last state transition prior to migration
 	prior_epoch: ChainEpoch,
     /// cache of existing cid -> cid migrations for this actor
-	cache: Box<dyn MigrationCache>  
+	cache: Rc<dyn MigrationCache>  
 }
 
 pub(crate) struct ActorMigrationResult {
@@ -62,12 +66,51 @@ pub(crate) trait ActorMigration<BS: BlockStore> {
 
 struct MigrationJob<BS: BlockStore> {
     address: Address,
-    cache: Box<dyn MigrationCache>,
-    actor_migration: dyn ActorMigration<BS>,
+    actor_state: ActorState,
+    cache: Rc<dyn MigrationCache>,
+    actor_migration: Rc<dyn ActorMigration<BS>>,
+}
+
+impl<BS: BlockStore> MigrationJob<BS> {
+    fn run(&self, store: BS, prior_epoch: ChainEpoch) -> Result<MigrationJobResult, ()> {
+        let result = self.actor_migration.migrate_state(store,  ActorMigrationInput{
+            address:    self.address,
+            balance:    self.actor_state.balance.clone(),
+            head:       self.actor_state.state,
+            prior_epoch: prior_epoch,
+            cache:      self.cache.clone(),
+        }).map_err(|e| 
+            MigrationErr::MigrationJobErr(format!("state migration failed for {} actor, addr {}:{}", self.actor_state.code, self.address, e.to_string()
+        ))).unwrap();
+
+        let migration_job_result = MigrationJobResult {
+            address: self.address,
+            actor_state: ActorState::new(result.new_code_cid, result.new_head, self.actor_state.balance.clone(), self.actor_state.sequence)
+        };
+
+        Ok(migration_job_result)
+    }
+}
+
+struct MigrationJobResult {
+    address: Address,
+    actor_state: ActorState
 }
 
 // Migrator which preserves the head CID and provides a fixed result code CID.
 pub(crate) struct NilMigrator(Cid);
+
+impl<BS: BlockStore> ActorMigration<BS> for NilMigrator {
+    fn migrate_state(&self, store: BS, input: ActorMigrationInput) -> Result<ActorMigrationResult, MigrationErr> {
+        Ok(ActorMigrationResult {
+            new_code_cid: self.0,
+            new_head: input.head
+        })
+    }
+    fn migrated_code_cid(&self) -> Cid {
+        self.0
+    }
+} 
 
 trait MigrationCache {
     fn write(&self, key: &str, new_cid: Cid) -> Result<(), MigrationErr>;
@@ -80,12 +123,12 @@ trait MigrationCache {
 
 // Migrator that uses cached transformation if it exists
 struct CachedMigrator<BS>  {
-	cache: Box<dyn MigrationCache>,
+	cache: Rc<dyn MigrationCache>,
 	actor_migration: Box<dyn ActorMigration<BS>>,
 }
 
 impl<BS: BlockStore> CachedMigrator<BS> {
-    fn from(cache: Box<dyn MigrationCache>, m: Box<dyn ActorMigration<BS>>) -> Self {
+    fn from(cache: Rc<dyn MigrationCache>, m: Box<dyn ActorMigration<BS>>) -> Self {
         CachedMigrator {
             actor_migration: m,
             cache: cache
