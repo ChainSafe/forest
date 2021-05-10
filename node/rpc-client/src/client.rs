@@ -10,6 +10,7 @@ use crypto::signature::json::signature_type::SignatureTypeJson;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use message::unsigned_message::json::UnsignedMessageJson;
+use wallet::json::KeyInfoJson;
 
 jsonrpsee::rpc_api! {
     pub Filecoin {
@@ -36,6 +37,12 @@ jsonrpsee::rpc_api! {
         fn wallet_new(signature_type: SignatureTypeJson) -> String;
         #[rpc(method = "Filecoin.WalletHas")]
         fn wallet_has() -> String;
+        #[rpc(method = "Filecoin.WalletBalance")]
+        fn wallet_balance() -> String;
+        #[rpc(method = "Filecoin.WalletExport")]
+        fn wallet_export() -> KeyInfoJson;
+        #[rpc(method = "Filecoin.WalletList")]
+        fn wallet_list() -> KeyInfoJson;
     }
 }
 

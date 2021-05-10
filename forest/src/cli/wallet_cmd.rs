@@ -39,6 +39,8 @@ pub enum WalletCommands {
 
 impl WalletCommands {
     pub async fn run(&self) {
+        let mut client = new_client();
+
         match self {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.as_str() {
@@ -48,31 +50,45 @@ impl WalletCommands {
 
                 let signature_type_json = SignatureTypeJson(signature_type);
 
-                let mut client = new_client();
-
-                let obj = wallet_ops::wallet_new(&mut client, signature_type_json)
+                let response = wallet_ops::wallet_new(&mut client, signature_type_json)
                     .await
                     .map_err(stringify_rpc_err)
                     .unwrap();
-                println!("{}", obj);
+                println!("{}", response);
             }
-            Self::Balance => {}
+            Self::Balance => {
+                let response = wallet_ops::wallet_balance(&mut client)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("{}", response);
+            }
             Self::DefaultAddress => {
-                let mut client = new_client();
-
-                let obj = wallet_ops::wallet_default_address(&mut client)
+                let response = wallet_ops::wallet_default_address(&mut client)
                     .await
                     .map_err(stringify_rpc_err)
                     .unwrap();
-                println!("{}", obj);
+                println!("{}", response);
             }
-            Self::Export => {}
+            Self::Export => {
+                let response = wallet_ops::wallet_export(&mut client)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("{:#?}", response);
+            }
             Self::Has => {}
             Self::Import => {}
-            Self::List => {}
+            Self::List => {
+                let response = wallet_ops::wallet_list(&mut client)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("{:#?}", response);
+            }
             Self::SetDefault => {}
             Self::Sign => {}
             Self::Verify => {}
-        }
+        };
     }
 }
