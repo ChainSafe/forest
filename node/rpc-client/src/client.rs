@@ -4,6 +4,8 @@
 #![allow(clippy::all)]
 #![allow(unused_variables, dead_code)]
 
+use std::env;
+
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
 use jsonrpsee::raw::RawClient;
@@ -33,10 +35,10 @@ jsonrpsee::rpc_api! {
     }
 }
 
-// TODO need to handle dynamic port
 const URL: &str = "http://127.0.0.1:1234/rpc/v0";
+const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 
-// TODO pass config for URL
 pub fn new_client() -> RawClient<HttpTransportClient> {
+    let api_info = env::var(API_INFO_KEY).unwrap_or(URL.to_owned());
     RawClient::new(HttpTransportClient::new(URL))
 }
