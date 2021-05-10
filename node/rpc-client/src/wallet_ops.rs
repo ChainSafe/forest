@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::client::Filecoin;
 use crypto::signature::json::signature_type::SignatureTypeJson;
 use jsonrpc_v2::Error as JsonRpcError;

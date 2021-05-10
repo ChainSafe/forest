@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use forest_crypto::signature::{json::signature_type::SignatureTypeJson, SignatureType};
 use rpc_client::{new_client, wallet_ops};
 use structopt::StructOpt;
