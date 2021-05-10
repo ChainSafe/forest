@@ -23,7 +23,7 @@ pub struct Config {
     pub skip_load: bool,
     pub sync: SyncConfig,
     pub encrypt_keystore: bool,
-    pub prometheus_port: u16,
+    pub metrics_port: u16,
 }
 
 impl Default for Config {
@@ -39,7 +39,7 @@ impl Default for Config {
             skip_load: false,
             sync: SyncConfig::default(),
             encrypt_keystore: false,
-            prometheus_port: 6116,
+            metrics_port: 6116,
         }
     }
 }

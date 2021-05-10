@@ -68,12 +68,8 @@ pub struct DaemonOpts {
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "The port used for communication")]
     pub port: Option<String>,
-    #[structopt(
-        short,
-        long,
-        help = "Port used for Prometheus metric collection server"
-    )]
-    pub prometheus_port: Option<u16>,
+    #[structopt(short, long, help = "Port used for metrics collection server")]
+    pub metrics_port: Option<u16>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
     pub kademlia: Option<bool>,
     #[structopt(short, long, help = "Allow MDNS (default = false)")]
@@ -125,8 +121,8 @@ impl DaemonOpts {
         } else {
             cfg.enable_rpc = false;
         }
-        if let Some(prometheus_port) = self.prometheus_port {
-            cfg.prometheus_port = prometheus_port;
+        if let Some(metrics_port) = self.metrics_port {
+            cfg.metrics_port = metrics_port;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             panic!("Can't set import_snapshot and import_chain at the same time!");
