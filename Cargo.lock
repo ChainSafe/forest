@@ -2117,10 +2117,12 @@ dependencies = [
  "libp2p 0.35.1",
  "log",
  "message_pool",
+ "metrics",
  "net_utils",
  "networks",
  "paramfetch",
  "pretty_env_logger",
+ "prometheus",
  "rpassword",
  "rpc",
  "rpc-client",
@@ -4289,6 +4291,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "metrics"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "log",
+ "prometheus",
+ "thiserror",
+ "tide",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5136,6 +5149,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
 dependencies = [
  "unicode-xid 0.2.1",
+]
+
+[[package]]
+name = "prometheus"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5986aa8d62380092d2f50f8b1cdba9cb9b6731ffd4b25b51fd126b6c3e05b99c"
+dependencies = [
+ "cfg-if 1.0.0",
+ "fnv",
+ "lazy_static",
+ "memchr",
+ "parking_lot 0.11.1",
+ "thiserror",
 ]
 
 [[package]]
