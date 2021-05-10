@@ -117,6 +117,10 @@ where
             .with_method("Filecoin.WalletSign", wallet_sign::<DB, B>)
             .with_method("Filecoin.WalletSignMessage", wallet_sign_message::<DB, B>)
             .with_method("Filecoin.WalletVerify", wallet_verify::<DB, B>)
+            .with_method(
+                "Filecoin.WalletDefaultAddress",
+                wallet_default_address::<DB, B>,
+            )
             // State API
             .with_method("Filecoin.StateMinerSectors", state_miner_sectors::<DB, B>)
             .with_method("Filecoin.StateCall", state_call::<DB, B>)

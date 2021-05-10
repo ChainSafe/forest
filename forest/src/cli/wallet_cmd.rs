@@ -14,6 +14,24 @@ pub enum WalletCommands {
         )]
         signature_type: String,
     },
+    #[structopt(about = "Create a new wallet")]
+    Balance,
+    #[structopt(about = "Get the default address of the wallet")]
+    DefaultAddress,
+    #[structopt(about = "Export the wallet's keys")]
+    Export,
+    #[structopt(about = "Check if the wallet has a key")]
+    Has,
+    #[structopt(about = "import keys from existing wallet")]
+    Import,
+    #[structopt(about = "List addresses of the wallet")]
+    List,
+    #[structopt(about = "Set the defualt wallet address")]
+    SetDefault,
+    #[structopt(about = "Sign a message")]
+    Sign,
+    #[structopt(about = "Verify the signature of a message")]
+    Verify,
 }
 
 impl WalletCommands {
@@ -35,6 +53,23 @@ impl WalletCommands {
                     .unwrap();
                 println!("{}", obj);
             }
+            Self::Balance => {}
+            Self::DefaultAddress => {
+                let mut client = new_client();
+
+                let obj = wallet_ops::wallet_default_address(&mut client)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("{}", obj);
+            }
+            Self::Export => {}
+            Self::Has => {}
+            Self::Import => {}
+            Self::List => {}
+            Self::SetDefault => {}
+            Self::Sign => {}
+            Self::Verify => {}
         }
     }
 }

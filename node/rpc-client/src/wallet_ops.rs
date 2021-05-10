@@ -9,3 +9,9 @@ pub async fn wallet_new(
 ) -> Result<String, JsonRpcError> {
     Ok(Filecoin::wallet_new(client, signature_type).await?)
 }
+
+pub async fn wallet_default_address(
+    client: &mut RawClient<HttpTransportClient>,
+) -> Result<String, JsonRpcError> {
+    Ok(Filecoin::wallet_has(client).await?)
+}

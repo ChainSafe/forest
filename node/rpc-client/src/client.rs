@@ -34,6 +34,8 @@ jsonrpsee::rpc_api! {
         // Wallet
         #[rpc(method = "Filecoin.WalletNew")]
         fn wallet_new(signature_type: SignatureTypeJson) -> String;
+        #[rpc(method = "Filecoin.WalletHas")]
+        fn wallet_has() -> String;
     }
 }
 
