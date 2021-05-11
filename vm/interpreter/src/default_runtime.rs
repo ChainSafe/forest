@@ -984,13 +984,16 @@ where
         vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // Gas charged for batch verify in actor
+        dbg!(vis.len());
+        let avg = std::sync::atomic::AtomicUsize::new(0);
         let out = vis
             .par_iter()
-            .with_max_len(8)
             .map(|(&addr, seals)| {
+                dbg!(seals.len());
+                avg.fetch_add(seals.len(), std::sync::atomic::Ordering::Relaxed);
                 let results = seals
                     .par_iter()
-                    .with_max_len(8)
+                    .with_min_len(8)
                     .map(|s| {
                         if let Err(err) = V::verify_seal(s) {
                             debug!(
@@ -1006,6 +1009,7 @@ where
                 (addr, results)
             })
             .collect();
+        dbg!(avg.into_inner()/vis.len());
         Ok(out)
     }
 }
