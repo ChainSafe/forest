@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::client::Filecoin;
+use address::json::AddressJson;
 use crypto::signature::json::signature_type::SignatureTypeJson;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonrpsee::{raw::RawClient, transport::http::HttpTransportClient};
@@ -17,7 +18,7 @@ pub async fn wallet_new(
 pub async fn wallet_default_address(
     client: &mut RawClient<HttpTransportClient>,
 ) -> Result<String, JsonRpcError> {
-    Ok(Filecoin::wallet_has(client).await?)
+    Ok(Filecoin::wallet_default_address(client).await?)
 }
 
 pub async fn wallet_balance(
@@ -34,7 +35,20 @@ pub async fn wallet_export(
 
 pub async fn wallet_list(
     client: &mut RawClient<HttpTransportClient>,
-) -> Result<Vec<String>, JsonRpcError> {
-    let _result = Filecoin::wallet_list(client).await?;
-    Ok(vec![])
+) -> Result<Vec<AddressJson>, JsonRpcError> {
+    Ok(Filecoin::wallet_list(client).await?)
+}
+
+pub async fn wallet_has(
+    client: &mut RawClient<HttpTransportClient>,
+    key: String,
+) -> Result<bool, JsonRpcError> {
+    Ok(Filecoin::wallet_has(client, key).await?)
+}
+
+pub async fn wallet_set_default(
+    client: &mut RawClient<HttpTransportClient>,
+    key: String,
+) -> Result<(), JsonRpcError> {
+    Ok(Filecoin::wallet_set_default(client, key).await?)
 }

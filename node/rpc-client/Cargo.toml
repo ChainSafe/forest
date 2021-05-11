@@ -18,6 +18,7 @@ wallet = { package = "key_management", path = "../../key_management", features =
     "json"
 ] }
 auth = { path = "../../utils/auth" }
+address = { package = "forest_address", version = "0.3", features = ["json"] }
 
 [dependencies.jsonrpc-v2]
 version = "0.10.0"

@@ -332,7 +332,7 @@ pub mod json {
     use std::borrow::Cow;
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-    #[derive(Deserialize, Serialize)]
+    #[derive(Debug, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct AddressJson(#[serde(with = "self")] pub Address);
 

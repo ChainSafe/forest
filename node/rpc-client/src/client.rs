@@ -4,6 +4,7 @@
 #![allow(clippy::all)]
 #![allow(unused_variables, dead_code)]
 
+use address::json::AddressJson;
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
 use crypto::signature::json::signature_type::SignatureTypeJson;
@@ -36,13 +37,17 @@ jsonrpsee::rpc_api! {
         #[rpc(method = "Filecoin.WalletNew")]
         fn wallet_new(signature_type: SignatureTypeJson) -> String;
         #[rpc(method = "Filecoin.WalletHas")]
-        fn wallet_has() -> String;
+        fn wallet_has(key: String) -> bool;
         #[rpc(method = "Filecoin.WalletBalance")]
         fn wallet_balance() -> String;
         #[rpc(method = "Filecoin.WalletExport")]
         fn wallet_export() -> KeyInfoJson;
         #[rpc(method = "Filecoin.WalletList")]
-        fn wallet_list() -> KeyInfoJson;
+        fn wallet_list() -> Vec<AddressJson>;
+        #[rpc(method = "Filecoin.WalletDefaultAddress")]
+        fn wallet_default_address() -> String;
+        #[rpc(method = "Filecoin.WalletSetDefault")]
+        fn wallet_set_default(key: String) -> ();
     }
 }
 

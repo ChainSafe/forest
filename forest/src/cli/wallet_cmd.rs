@@ -24,13 +24,19 @@ pub enum WalletCommands {
     #[structopt(about = "Export the wallet's keys")]
     Export,
     #[structopt(about = "Check if the wallet has a key")]
-    Has,
+    Has {
+        #[structopt(short, help = "The key to check")]
+        key: String,
+    },
     #[structopt(about = "import keys from existing wallet")]
     Import,
     #[structopt(about = "List addresses of the wallet")]
     List,
     #[structopt(about = "Set the defualt wallet address")]
-    SetDefault,
+    SetDefault {
+        #[structopt(about = "The given key to set to the default address", short)]
+        key: String,
+    },
     #[structopt(about = "Sign a message")]
     Sign,
     #[structopt(about = "Verify the signature of a message")]
@@ -77,7 +83,14 @@ impl WalletCommands {
                     .unwrap();
                 println!("{:#?}", response);
             }
-            Self::Has => {}
+            Self::Has { key } => {
+                let key = key.parse().unwrap();
+                let response = wallet_ops::wallet_has(&mut client, key)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("{}", response);
+            }
             Self::Import => {}
             Self::List => {
                 let response = wallet_ops::wallet_list(&mut client)
@@ -86,7 +99,13 @@ impl WalletCommands {
                     .unwrap();
                 println!("{:#?}", response);
             }
-            Self::SetDefault => {}
+            Self::SetDefault { key } => {
+                let key = key.parse().unwrap();
+                wallet_ops::wallet_set_default(&mut client, key)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+            }
             Self::Sign => {}
             Self::Verify => {}
         };
