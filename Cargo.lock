@@ -6031,12 +6031,10 @@ dependencies = [
 name = "state_migration"
 version = "0.1.0"
 dependencies = [
+ "actor_interface",
  "async-std",
  "fil_clock",
  "fil_types",
- "forest_actor 0.1.7",
- "forest_actor 1.0.4",
- "forest_actor 4.0.0",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",

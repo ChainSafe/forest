@@ -6,15 +6,20 @@ use crate::ActorMigrationResult;
 use cid::{Cid, Code::Blake2b256};
 use crate::ActorMigration;
 use std::rc::Rc;
+
+use actor_interface::actorv3::miner::State as V3State;
+use actor_interface::actorv4::miner::State as V4State;
+use actor_interface::actorv4;
+
 pub(crate) struct MinerMigrator;
 
 impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
     fn migrate_state(&self, store: &'db BS, input: ActorMigrationInput) -> Result<ActorMigrationResult, MigrationErr>  {
         // TODO: error handling
-        let v2_state: Option<actorv2::miner::State> = store.get(&input.head).map_err(|e| MigrationErr::Other)?;
-        let in_state: actorv2::miner::State = v2_state.ok_or(MigrationErr::Other)?;
+        let v3_state: Option<V3State> = store.get(&input.head).map_err(|e| MigrationErr::Other)?;
+        let in_state: V3State = v3_state.ok_or(MigrationErr::Other)?;
 
-        let out_state = actorv3::miner::State {
+        let out_state = V4State {
             info: in_state.info,
             pre_commit_deposits: in_state.pre_commit_deposits,
             locked_funds: in_state.locked_funds,
@@ -35,13 +40,13 @@ impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
         let new_head = store.put(&out_state, Blake2b256).map_err(|e| MigrationErr::Other)?; // FIXME: is Blake2b256 correct here?
 
         Ok(ActorMigrationResult {
-            new_code_cid: *actorv3::MINER_ACTOR_CODE_ID,
+            new_code_cid: *actorv4::MINER_ACTOR_CODE_ID,
             new_head
         })
     }
 
     // don't really need it
     fn migrated_code_cid(&self) -> Cid {
-        *actorv3::MINER_ACTOR_CODE_ID
+        *actorv4::MINER_ACTOR_CODE_ID
     }
 }
