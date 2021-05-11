@@ -184,6 +184,7 @@ where
                     prev_state, 
                     epoch).expect("failed to run nv12 state migration"); // TODO error handling
                 if new_state != prev_state {
+                    dbg!("state migration successful");
                     Ok(Some(new_state))
                 } else {
                     Ok(None)

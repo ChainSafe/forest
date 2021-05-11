@@ -92,6 +92,7 @@ impl<'db, BS: BlockStore> MigrationJob<'db, BS> {
     }
 }
 
+#[derive(Debug)]
 struct MigrationJobResult {
     address: Address,
     actor_state: ActorState
