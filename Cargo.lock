@@ -2121,6 +2121,7 @@ dependencies = [
  "networks",
  "paramfetch",
  "pretty_env_logger",
+ "rayon",
  "rpassword",
  "rpc",
  "rpc-client",

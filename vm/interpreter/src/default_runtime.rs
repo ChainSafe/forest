@@ -984,12 +984,13 @@ where
         vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // Gas charged for batch verify in actor
-
         let out = vis
             .par_iter()
+            .with_max_len(8)
             .map(|(&addr, seals)| {
                 let results = seals
                     .par_iter()
+                    .with_max_len(8)
                     .map(|s| {
                         if let Err(err) = V::verify_seal(s) {
                             debug!(
