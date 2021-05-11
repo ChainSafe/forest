@@ -1011,7 +1011,9 @@ where
                 (addr, results)
             })
             .collect();
-        dbg!(avg.into_inner()/vis.len()); // mean
+        if !vis.len().is_zero() {
+            dbg!(avg.into_inner()/vis.len()); // mean
+        }
         dbg!(min); // min
         dbg!(max); // max
         Ok(out)
