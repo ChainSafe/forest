@@ -4,9 +4,7 @@ use cid::Cid;
 use ipld_blockstore::BlockStore;
 use clock::ChainEpoch;
 use std::collections::HashMap;
-use crate::{ActorMigration, CachedMigrator, MigrationJob};
-use crate::Config;
-use crate::MigrationCache;
+use crate::{ActorMigration, MigrationJob};
 use crate::MigrationErr;
 use crate::NilMigrator;
 use std::collections::HashSet;
@@ -17,27 +15,24 @@ use async_std::task;
 use futures::StreamExt;
 
 mod util;
-mod miner;
+pub mod miner;
 
 fn actor_head_key(addr: Address, head: Cid) -> String {
 	format!("{}-h-{}", addr, head)
 }
 
-fn nil_migrator_v3<BS: BlockStore>(cid: Cid) -> Rc<dyn ActorMigration<BS>> {
+fn nil_migrator_v3<'db, BS: BlockStore>(cid: Cid) -> Rc<dyn ActorMigration<'db, BS>> {
     Rc::new(NilMigrator(cid))
 }
 
-fn migrate_state_tree<BS: BlockStore + Clone>(store: BS,
+pub fn migrate_state_tree<'db, BS: BlockStore>(store: &'db BS,
     actors_root_in: Cid,
     prior_epoch: ChainEpoch,
-    cfg: Config,
-    cache: Rc<dyn MigrationCache>) -> Result<Cid, MigrationErr> {
+    // cfg: Config,
+    // cache: Rc<dyn MigrationCache>
+) -> Result<Cid, MigrationErr> {
 
     let mut jobs_future = futures::stream::FuturesOrdered::new();
-
-    if cfg.max_workers <= 0 {
-        todo!();
-    }
 
     // Maps prior version code CIDs to migration functions.
     let mut migrations: HashMap<Cid, Rc<dyn ActorMigration<BS>>> = HashMap::new();
@@ -55,30 +50,35 @@ fn migrate_state_tree<BS: BlockStore + Clone>(store: BS,
     migrations.insert(*actorv2::SYSTEM_ACTOR_CODE_ID, nil_migrator_v3(*actorv3::SYSTEM_ACTOR_CODE_ID));
     migrations.insert(*actorv2::VERIFREG_ACTOR_CODE_ID, nil_migrator_v3(*actorv3::VERIFREG_ACTOR_CODE_ID));
 
+    for i in migrations.keys() {
+        println!("{}", i);
+    }
+
     // Set of prior version code CIDs for actors to defer during iteration, for explicit migration afterwards.
 	let deferred_code_ids = HashSet::<Cid>::new(); // None in this migration
 
     if migrations.len()+deferred_code_ids.len() != 11 {
         panic!("Incomplete migration specification with {} code CIDs", migrations.len());
 	}
-
-    let actors_in = StateTree::new_from_root(&store, &actors_root_in).unwrap();
-    let actors_out = StateTree::new(&store, StateTreeVersion::V2);
+    
+    let actors_in = StateTree::new_from_root(store, &actors_root_in).unwrap();
+    let actors_out = StateTree::new(store, StateTreeVersion::V2);
     
     let a = actors_in.for_each(|a,s| {
-        let store_clone = store.clone();
         if deferred_code_ids.contains(&s.code) {
             return Ok(());
         }
 
+        println!("Actors code: {} {:?}", &s.code, migrations.contains_key(&s.code));
+
         let next_input = MigrationJob {
             address: a,
             actor_state: s.clone(),
-            cache: cache.clone(),
+            // cache: cache.clone(),
             actor_migration: migrations[&s.code].clone()
         };
 
-        jobs_future.push(async move {next_input.run(store_clone, prior_epoch)});
+        jobs_future.push(async move {next_input.run(store, prior_epoch)});
 
         Ok(())
     }).expect("failed to create jobs for each actor state");

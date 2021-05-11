@@ -5,10 +5,11 @@ use crate::ActorMigrationInput;
 use crate::ActorMigrationResult;
 use cid::{Cid, Code::Blake2b256};
 use crate::ActorMigration;
+use std::rc::Rc;
 pub(crate) struct MinerMigrator;
 
-impl<BS: BlockStore> ActorMigration<BS> for MinerMigrator {
-    fn migrate_state(&self, store: BS, input: ActorMigrationInput) -> Result<ActorMigrationResult, MigrationErr>  {
+impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
+    fn migrate_state(&self, store: &'db BS, input: ActorMigrationInput) -> Result<ActorMigrationResult, MigrationErr>  {
         // TODO: error handling
         let v2_state: Option<actorv2::miner::State> = store.get(&input.head).map_err(|e| MigrationErr::Other)?;
         let in_state: actorv2::miner::State = v2_state.ok_or(MigrationErr::Other)?;

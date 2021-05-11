@@ -6,10 +6,10 @@ use clock::ChainEpoch;
 use address::Address;
 use std::rc::Rc;
 
-mod nv12;
+pub mod nv12;
 
 #[derive(thiserror::Error, Debug, Clone)]
-pub(crate) enum MigrationErr {
+pub enum MigrationErr {
     #[error("Cache read failed")]
     MigrationCacheRead,
     #[error("Cache write failed")]
@@ -21,21 +21,21 @@ pub(crate) enum MigrationErr {
     #[error("Migration failed")]
     Other
 }
-// Config parameterizes a state tree migration
-struct Config {
-    // Number of migration worker goroutines to run.
-	// More workers enables higher CPU utilization doing migration computations (including state encoding)
-    max_workers: usize,
-	// Capacity of the queue of jobs available to workers (zero for unbuffered).
-	// A queue length of hundreds to thousands improves throughput at the cost of memory.
-    job_queue_size: usize,
-	// Capacity of the queue receiving migration results from workers, for persisting (zero for unbuffered).
-	// A queue length of tens to hundreds improves throughput at the cost of memory.
-    res_queue_size: usize,
-	// Time between progress logs to emit.
-	// Zero (the default) results in no progress logs.
-    progress_log_period: std::time::Duration
-}
+// // Config parameterizes a state tree migration
+// struct Config {
+//     // Number of migration worker goroutines to run.
+// 	// More workers enables higher CPU utilization doing migration computations (including state encoding)
+//     max_workers: usize,
+// 	// Capacity of the queue of jobs available to workers (zero for unbuffered).
+// 	// A queue length of hundreds to thousands improves throughput at the cost of memory.
+//     job_queue_size: usize,
+// 	// Capacity of the queue receiving migration results from workers, for persisting (zero for unbuffered).
+// 	// A queue length of tens to hundreds improves throughput at the cost of memory.
+//     res_queue_size: usize,
+// 	// Time between progress logs to emit.
+// 	// Zero (the default) results in no progress logs.
+//     progress_log_period: std::time::Duration
+// }
 
 pub(crate) struct ActorMigrationInput  {
 	/// actor's address
@@ -46,8 +46,8 @@ pub(crate) struct ActorMigrationInput  {
 	head: Cid,
     // epoch of last state transition prior to migration
 	prior_epoch: ChainEpoch,
-    /// cache of existing cid -> cid migrations for this actor
-	cache: Rc<dyn MigrationCache>  
+    // /// cache of existing cid -> cid migrations for this actor
+	// cache: Rc<dyn MigrationCache>  
 }
 
 pub(crate) struct ActorMigrationResult {
@@ -55,30 +55,30 @@ pub(crate) struct ActorMigrationResult {
 	new_head: Cid
 }
 
-pub(crate) trait ActorMigration<BS: BlockStore> {
+pub(crate) trait ActorMigration<'db, BS: BlockStore> {
     fn migrate_state(
         &self,
-        store: BS,
+        store: &'db BS,
         input: ActorMigrationInput,
     ) -> Result<ActorMigrationResult, MigrationErr>;
     fn migrated_code_cid(&self) -> Cid;
 }
 
-struct MigrationJob<BS: BlockStore> {
+struct MigrationJob<'db, BS: BlockStore> {
     address: Address,
     actor_state: ActorState,
-    cache: Rc<dyn MigrationCache>,
-    actor_migration: Rc<dyn ActorMigration<BS>>,
+    // cache: Rc<dyn MigrationCache>,
+    actor_migration: Rc<dyn ActorMigration<'db, BS>>,
 }
 
-impl<BS: BlockStore> MigrationJob<BS> {
-    fn run(&self, store: BS, prior_epoch: ChainEpoch) -> Result<MigrationJobResult, ()> {
+impl<'db, BS: BlockStore> MigrationJob<'db, BS> {
+    fn run(&self, store: &'db BS, prior_epoch: ChainEpoch) -> Result<MigrationJobResult, ()> {
         let result = self.actor_migration.migrate_state(store,  ActorMigrationInput{
             address:    self.address,
             balance:    self.actor_state.balance.clone(),
             head:       self.actor_state.state,
             prior_epoch: prior_epoch,
-            cache:      self.cache.clone(),
+            // cache:      self.cache.clone(),
         }).map_err(|e| 
             MigrationErr::MigrationJobErr(format!("state migration failed for {} actor, addr {}:{}", self.actor_state.code, self.address, e.to_string()
         ))).unwrap();
@@ -100,8 +100,8 @@ struct MigrationJobResult {
 // Migrator which preserves the head CID and provides a fixed result code CID.
 pub(crate) struct NilMigrator(Cid);
 
-impl<BS: BlockStore> ActorMigration<BS> for NilMigrator {
-    fn migrate_state(&self, store: BS, input: ActorMigrationInput) -> Result<ActorMigrationResult, MigrationErr> {
+impl<'db, BS: BlockStore> ActorMigration<'db, BS> for NilMigrator {
+    fn migrate_state(&self, store: &'db BS, input: ActorMigrationInput) -> Result<ActorMigrationResult, MigrationErr> {
         Ok(ActorMigrationResult {
             new_code_cid: self.0,
             new_head: input.head
@@ -121,17 +121,17 @@ trait MigrationCache {
     // }
 }
 
-// Migrator that uses cached transformation if it exists
-struct CachedMigrator<BS>  {
-	cache: Rc<dyn MigrationCache>,
-	actor_migration: Box<dyn ActorMigration<BS>>,
-}
+// // Migrator that uses cached transformation if it exists
+// struct CachedMigrator<'db, BS>  {
+// 	cache: Rc<dyn MigrationCache>,
+// 	actor_migration: Box<dyn ActorMigration<'db, BS>>,
+// }
 
-impl<BS: BlockStore> CachedMigrator<BS> {
-    fn from(cache: Rc<dyn MigrationCache>, m: Box<dyn ActorMigration<BS>>) -> Self {
-        CachedMigrator {
-            actor_migration: m,
-            cache: cache
-        }
-    }
-}
+// impl<BS: BlockStore> CachedMigrator<BS> {
+//     fn from(cache: Rc<dyn MigrationCache>, m: Box<dyn ActorMigration<BS>>) -> Self {
+//         CachedMigrator {
+//             actor_migration: m,
+//             cache: cache
+//         }
+//     }
+// }

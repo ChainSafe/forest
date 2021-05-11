@@ -20,7 +20,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::{UPGRADE_CLAUS_HEIGHT, UPGRADE_PLACEHOLDER_HEIGHT};
+use networks::{UPGRADE_CLAUS_HEIGHT, UPGRADE_PLACEHOLDER_HEIGHT, UPGRADE_ACTORS_V4_HEIGHT};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -29,6 +29,7 @@ use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
+use state_migration::nv12;
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
@@ -174,13 +175,14 @@ where
     #[allow(unreachable_code, unused_variables)]
     pub fn migrate_state(&mut self, epoch: ChainEpoch) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
-            x if x == UPGRADE_PLACEHOLDER_HEIGHT => {
+            x if x == UPGRADE_ACTORS_V4_HEIGHT => {
+                println!("Running nv12 migration");
                 // need to flush since we run_cron before the migration
                 let prev_state = self.flush()?;
-                // new_state is new state root we can from calling the migration function
-                // that will be provided from the actors create (probably).
-                // TODO perform migration here, currently skipping
-                let new_state: Cid = prev_state;
+                let new_state = nv12::migrate_state_tree(
+                    self.store,
+                    prev_state, 
+                    epoch).expect("failed to run nv12 state migration"); // TODO error handling
                 if new_state != prev_state {
                     Ok(Some(new_state))
                 } else {
