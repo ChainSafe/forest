@@ -987,17 +987,15 @@ where
         dbg!(vis.len());
         let avg = std::sync::atomic::AtomicUsize::new(0);
         let max = std::sync::atomic::AtomicUsize::new(0);
-        let min = std::sync::atomic::AtomicUsize::new(0);
+        let min = std::sync::atomic::AtomicUsize::new(1);
         let out = vis
             .par_iter()
             .map(|(&addr, seals)| {
-                dbg!(seals.len());
                 avg.fetch_add(seals.len(), std::sync::atomic::Ordering::Relaxed);
                 max.fetch_max(seals.len(), std::sync::atomic::Ordering::Relaxed);
                 min.fetch_min(seals.len(), std::sync::atomic::Ordering::Relaxed);
                 let results = seals
                     .par_iter()
-                    .with_min_len(8)
                     .map(|s| {
                         if let Err(err) = V::verify_seal(s) {
                             debug!(
