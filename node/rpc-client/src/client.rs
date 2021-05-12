@@ -10,7 +10,9 @@ use cid::json::CidJson;
 use crypto::signature::json::signature_type::SignatureTypeJson;
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
-use message::unsigned_message::json::UnsignedMessageJson;
+use message::{
+    signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
+};
 use wallet::json::KeyInfoJson;
 
 jsonrpsee::rpc_api! {
@@ -48,6 +50,10 @@ jsonrpsee::rpc_api! {
         fn wallet_default_address() -> String;
         #[rpc(method = "Filecoin.WalletSetDefault")]
         fn wallet_set_default(key: String) -> ();
+        #[rpc(method = "Filecoin.WalletSignMessage")]
+        fn wallet_sign_message(message: String) -> SignedMessageJson;
+        #[rpc(method = "Filecoin.WalletVerify")]
+        fn wallet_verify(message: String) -> bool;
     }
 }
 

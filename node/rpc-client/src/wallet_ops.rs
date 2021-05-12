@@ -6,6 +6,7 @@ use address::json::AddressJson;
 use crypto::signature::json::signature_type::SignatureTypeJson;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonrpsee::{raw::RawClient, transport::http::HttpTransportClient};
+use message::signed_message::json::SignedMessageJson;
 use wallet::json::KeyInfoJson;
 
 pub async fn wallet_new(
@@ -51,4 +52,18 @@ pub async fn wallet_set_default(
     key: String,
 ) -> Result<(), JsonRpcError> {
     Ok(Filecoin::wallet_set_default(client, key).await?)
+}
+
+pub async fn wallet_sign(
+    client: &mut RawClient<HttpTransportClient>,
+    message: String,
+) -> Result<SignedMessageJson, JsonRpcError> {
+    Ok(Filecoin::wallet_sign_message(client, message).await?)
+}
+
+pub async fn wallet_verify(
+    client: &mut RawClient<HttpTransportClient>,
+    message: String,
+) -> Result<bool, JsonRpcError> {
+    Ok(Filecoin::wallet_verify(client, message).await?)
 }

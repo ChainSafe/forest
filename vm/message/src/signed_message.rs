@@ -132,7 +132,7 @@ pub mod json {
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
-    #[derive(Deserialize, Serialize)]
+    #[derive(Debug, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct SignedMessageJson(#[serde(with = "self")] pub SignedMessage);
 

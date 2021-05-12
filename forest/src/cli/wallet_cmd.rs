@@ -20,7 +20,7 @@ pub enum WalletCommands {
     #[structopt(about = "Create a new wallet")]
     Balance,
     #[structopt(about = "Get the default address of the wallet")]
-    DefaultAddress,
+    Default,
     #[structopt(about = "Export the wallet's keys")]
     Export,
     #[structopt(about = "Check if the wallet has a key")]
@@ -38,9 +38,15 @@ pub enum WalletCommands {
         key: String,
     },
     #[structopt(about = "Sign a message")]
-    Sign,
+    Sign {
+        #[structopt(about = "The message to sign", short)]
+        message: String,
+    },
     #[structopt(about = "Verify the signature of a message")]
-    Verify,
+    Verify {
+        #[structopt(about = "The message to verify", short)]
+        message: String,
+    },
 }
 
 impl WalletCommands {
@@ -69,7 +75,7 @@ impl WalletCommands {
                     .unwrap();
                 println!("{}", response);
             }
-            Self::DefaultAddress => {
+            Self::Default => {
                 let response = wallet_ops::wallet_default_address(&mut client)
                     .await
                     .map_err(stringify_rpc_err)
@@ -106,8 +112,22 @@ impl WalletCommands {
                     .map_err(stringify_rpc_err)
                     .unwrap();
             }
-            Self::Sign => {}
-            Self::Verify => {}
+            Self::Sign { message } => {
+                let message = message.parse().unwrap();
+                let response = wallet_ops::wallet_sign(&mut client, message)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("{:#?}", response);
+            }
+            Self::Verify { message } => {
+                let message = message.parse().unwrap();
+                let response = wallet_ops::wallet_verify(&mut client, message)
+                    .await
+                    .map_err(stringify_rpc_err)
+                    .unwrap();
+                println!("{}", response);
+            }
         };
     }
 }
