@@ -447,30 +447,28 @@ impl Actor {
                     .chain(&[info.worker, info.owner]),
             )?;
 
-            // Verify that the miner has passed 0 or 1 proofs. If they've
-            // passed 1, verify that it's a good proof.
-            //
-            // This can be 0 if the miner isn't actually proving anything,
-            // just skipping all sectors.
-            if let Some(proof) = params.proofs.get(0) {
-                if proof.post_proof != info.window_post_proof_type {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "expected proof of type {:?}, got {:?}",
-                        proof.post_proof,
-                        info.window_post_proof_type
-                    ));
-                }
-            } else {
+            // Verify that the miner has passed exactly 1 proof.
+            if params.proofs.len() != 1 {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "expected exactly one proof, got {}",
                     params.proofs.len()
                 ));
             }
+
+            // Make sure the miner is using the correct proof type.
+            if params.proofs[0].post_proof != info.window_post_proof_type {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "expected proof of type {:?}, got {:?}",
+                    params.proofs[0].post_proof,
+                    info.window_post_proof_type
+                ));
+            }
+
             // Make sure the proof size doesn't exceed the max. We could probably check for an exact match, but this is safer.
             let max_size = max_proof_size * params.partitions.len();
-            if params.proofs.get(0).unwrap().proof_bytes.len() > max_size {
+            if params.proofs[0].proof_bytes.len() > max_size {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "expect proof to be smaller than {} bytes",
