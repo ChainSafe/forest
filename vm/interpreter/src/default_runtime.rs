@@ -990,6 +990,7 @@ where
         let min = std::sync::atomic::AtomicUsize::new(1);
         let out = vis
             .par_iter()
+            .with_min_len(10)
             .map(|(&addr, seals)| {
                 avg.fetch_add(seals.len(), std::sync::atomic::Ordering::Relaxed);
                 max.fetch_max(seals.len(), std::sync::atomic::Ordering::Relaxed);
