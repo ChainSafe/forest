@@ -187,9 +187,9 @@ where
     /// Flushes cache for node, replacing any cached values with a Cid variant
     pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
         if let Node::Link { links } = self {
-            for link in links.iter_mut() {
+            for link in links.iter_mut().flatten() {
                 // links should only be flushed if the bitmap is set.
-                if let Some(Link::Dirty(n)) = link {
+                if let Link::Dirty(n) = link {
                     // flush sub node to clear caches
                     n.flush(bs)?;
 
@@ -201,7 +201,7 @@ where
 
                     // Can keep the flushed node in link cache
                     let cache = OnceCell::from(existing);
-                    *link = Some(Link::Cid { cid, cache });
+                    *link = Link::Cid { cid, cache };
                 }
             }
         }
