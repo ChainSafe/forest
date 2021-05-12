@@ -42,7 +42,6 @@ pub fn migrate_state_tree<'db, BS: BlockStore>(store: &'db BS,
     migrations.insert(*actorv3::ACCOUNT_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::ACCOUNT_ACTOR_CODE_ID));
     migrations.insert(*actorv3::CRON_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::CRON_ACTOR_CODE_ID));
     migrations.insert(*actorv3::INIT_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::INIT_ACTOR_CODE_ID));
-    migrations.insert(*actorv3::INIT_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::INIT_ACTOR_CODE_ID));
     migrations.insert(*actorv3::MULTISIG_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::MULTISIG_ACTOR_CODE_ID));
     migrations.insert(*actorv3::PAYCH_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::PAYCH_ACTOR_CODE_ID));
     migrations.insert(*actorv3::REWARD_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::REWARD_ACTOR_CODE_ID));
@@ -53,10 +52,6 @@ pub fn migrate_state_tree<'db, BS: BlockStore>(store: &'db BS,
     migrations.insert(*actorv3::SYSTEM_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::SYSTEM_ACTOR_CODE_ID));
     migrations.insert(*actorv3::VERIFREG_ACTOR_CODE_ID, nil_migrator_v4(*actorv4::VERIFREG_ACTOR_CODE_ID));
 
-    // for i in migrations.keys() {
-    //     println!("{}", i);
-    // }
-
     // Set of prior version code CIDs for actors to defer during iteration, for explicit migration afterwards.
 	let deferred_code_ids = HashSet::<Cid>::new(); // None in this migration
 
@@ -65,20 +60,20 @@ pub fn migrate_state_tree<'db, BS: BlockStore>(store: &'db BS,
 	}
     
     let actors_in = StateTree::new_from_root(store, &actors_root_in).unwrap();
-    let actors_out = StateTree::new(store, StateTreeVersion::V2);
+    let actors_out = StateTree::new(store, StateTreeVersion::V3);
     
-    let a = actors_in.for_each(|a,s| {
-        if deferred_code_ids.contains(&s.code) {
+    let a = actors_in.for_each(|addr,state| {
+        if deferred_code_ids.contains(&state.code) {
             return Ok(());
         }
 
         // println!("Actors code: {} {:?}", &s.code, migrations.contains_key(&s.code));
 
         let next_input = MigrationJob {
-            address: a,
-            actor_state: s.clone(),
+            address: addr,
+            actor_state: state.clone(),
             // cache: cache.clone(),
-            actor_migration: migrations[&s.code].clone()
+            actor_migration: migrations[&state.code].clone()
         };
 
         jobs_future.push(async move {next_input.run(store, prior_epoch)});
@@ -91,7 +86,6 @@ pub fn migrate_state_tree<'db, BS: BlockStore>(store: &'db BS,
     task::block_on(async {
         while let Some(job_result) = jobs_future.next().await {
             let result = job_result.unwrap();
-            println!("result: {:?}", result);
             actors_out.set_actor(&result.address, result.actor_state).expect("failed updating resulting actor state");
         }
     });
