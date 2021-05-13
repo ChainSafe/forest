@@ -1,0 +1,12 @@
+[package]
+name = "metrics"
+version = "0.1.0"
+authors = ["jorge <jorgeaolivero@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+prometheus =  { version = "0.12.0", default-features = false }
+tide = "0.16.0"
+log = "0.4.8"
+thiserror = "1.0"
+async-std = { version = "1.9", features = ["tokio1", "unstable"] }
