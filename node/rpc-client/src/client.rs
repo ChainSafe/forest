@@ -8,9 +8,9 @@ use std::env;
 
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
 use cid::json::CidJson;
-use jsonrpsee::raw::RawClient;
-use jsonrpsee::transport::http::HttpTransportClient;
 use message::unsigned_message::json::UnsignedMessageJson;
+
+use ;
 
 jsonrpsee::rpc_api! {
     pub Filecoin {
@@ -35,10 +35,11 @@ jsonrpsee::rpc_api! {
     }
 }
 
-const URL: &str = "http://127.0.0.1:1234/rpc/v0";
+const DEFUALT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 
-pub fn new_client() -> RawClient<HttpTransportClient> {
-    let api_info = env::var(API_INFO_KEY).unwrap_or(URL.to_owned());
-    RawClient::new(HttpTransportClient::new(URL))
+pub fn call_rpc_method(Filecoin::Method) {
+    let url = env::var(API_INFO_KEY).unwrap_or(DEFUALT_URL.to_owned());
+
+    let rpc_builder = jsonrpc_v2::RequestObject::request().with_method();
 }
