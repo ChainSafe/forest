@@ -14,6 +14,7 @@ crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst
 wallet = { package = "key_management", path = "../../key_management", features = ["json"] }
 auth = { path = "../../utils/auth" }
 surf = "2.2.0"
+anyhow = "1.0"
 
 [dependencies.jsonrpc-v2]
 version = "0.10.0"

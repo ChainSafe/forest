@@ -5347,6 +5347,7 @@ dependencies = [
 name = "rpc-client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "auth",
  "forest_blocks",
  "forest_cid",
