@@ -2,22 +2,25 @@
 use ipld_blockstore::BlockStore;
 use crate::MigrationErr;
 use crate::ActorMigrationInput;
-use crate::ActorMigrationResult;
-use cid::{Cid, Code::Blake2b256};
+use crate::MigrationOutput;
+use cid::Code::Blake2b256;
 use crate::ActorMigration;
-use std::rc::Rc;
-
 use actor_interface::actorv3::miner::State as V3State;
 use actor_interface::actorv4::miner::State as V4State;
-use actor_interface::actorv4;
+use std::io::{Error, ErrorKind}; 
+use cid::Cid;
+use std::rc::Rc;
 
-pub(crate) struct MinerMigrator;
+pub(crate) struct MinerMigrator(Cid);
+
+pub(crate) fn miner_migrator_v4<'db, BS: BlockStore>(cid: Cid) -> Rc<dyn ActorMigration<'db, BS>> {
+    Rc::new(MinerMigrator(cid))
+}
 
 impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
-    fn migrate_state(&self, store: &'db BS, input: ActorMigrationInput) -> Result<ActorMigrationResult, MigrationErr>  {
-        // TODO: error handling
-        let v3_state: Option<V3State> = store.get(&input.head).map_err(|e| MigrationErr::Other)?;
-        let in_state: V3State = v3_state.ok_or(MigrationErr::Other)?;
+    fn migrate_state(&self, store: &'db BS, input: ActorMigrationInput) -> Result<MigrationOutput, MigrationErr>  {
+        let v3_state: Option<V3State> = store.get(&input.head).map_err(MigrationErr::BlockStoreRead)?;
+        let in_state: V3State = v3_state.ok_or(MigrationErr::BlockStoreRead(Error::new(ErrorKind::Other, "could not read v3 state").into()))?;
 
         let out_state = V4State {
             info: in_state.info,
@@ -37,16 +40,11 @@ impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
             deadline_cron_active: true
         };
 
-        let new_head = store.put(&out_state, Blake2b256).map_err(|e| MigrationErr::Other)?; // FIXME: is Blake2b256 correct here?
+        let new_head = store.put(&out_state, Blake2b256).map_err(MigrationErr::BlockStoreWrite)?;
 
-        Ok(ActorMigrationResult {
-            new_code_cid: *actorv4::MINER_ACTOR_CODE_ID,
+        Ok(MigrationOutput {
+            new_code_cid: self.0,
             new_head
         })
-    }
-
-    // don't really need it
-    fn migrated_code_cid(&self) -> Cid {
-        *actorv4::MINER_ACTOR_CODE_ID
     }
 }

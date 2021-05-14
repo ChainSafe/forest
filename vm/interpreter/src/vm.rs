@@ -176,6 +176,7 @@ where
     pub fn migrate_state(&mut self, epoch: ChainEpoch) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
             x if x == UPGRADE_ACTORS_V4_HEIGHT => {
+                let start = std::time::Instant::now();
                 println!("Running nv12 migration");
                 // need to flush since we run_cron before the migration
                 let prev_state = self.flush()?;
@@ -184,7 +185,7 @@ where
                     prev_state, 
                     epoch).expect("failed to run nv12 state migration"); // TODO error handling
                 if new_state != prev_state {
-                    dbg!("state migration successful");
+                    dbg!("state migration successful, took: {}ms",start.elapsed().as_millis());
                     Ok(Some(new_state))
                 } else {
                     Ok(None)
