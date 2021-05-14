@@ -988,9 +988,18 @@ where
         let avg = std::sync::atomic::AtomicUsize::new(0);
         let max = std::sync::atomic::AtomicUsize::new(0);
         let min = std::sync::atomic::AtomicUsize::new(1);
-        let out = vis
+        let cpus = num_cpus::get();
+        let batch_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(cpus)
+        .thread_name(|id| {
+            format!("batch_verify_seal_{}", id)
+        })
+        .build()?;
+
+        let out = batch_pool.scope(|_scope| {
+            vis
             .par_iter()
-            .with_min_len(10)
+            // .with_min_len(10)
             .map(|(&addr, seals)| {
                 avg.fetch_add(seals.len(), std::sync::atomic::Ordering::Relaxed);
                 max.fetch_max(seals.len(), std::sync::atomic::Ordering::Relaxed);
@@ -1011,7 +1020,32 @@ where
                     .collect();
                 (addr, results)
             })
-            .collect();
+            .collect()
+        });
+        // let out = vis
+        //     .par_iter()
+        //     .with_min_len(10)
+        //     .map(|(&addr, seals)| {
+        //         avg.fetch_add(seals.len(), std::sync::atomic::Ordering::Relaxed);
+        //         max.fetch_max(seals.len(), std::sync::atomic::Ordering::Relaxed);
+        //         min.fetch_min(seals.len(), std::sync::atomic::Ordering::Relaxed);
+        //         let results = seals
+        //             .par_iter()
+        //             .map(|s| {
+        //                 if let Err(err) = V::verify_seal(s) {
+        //                     debug!(
+        //                         "seal verify in batch failed (miner: {}) (err: {})",
+        //                         addr, err
+        //                     );
+        //                     false
+        //                 } else {
+        //                     true
+        //                 }
+        //             })
+        //             .collect();
+        //         (addr, results)
+        //     })
+        //     .collect();
         if !vis.len().is_zero() {
             dbg!(avg.into_inner()/vis.len()); // mean
         }

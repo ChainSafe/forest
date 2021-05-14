@@ -3280,6 +3280,7 @@ dependencies = [
  "log",
  "networks",
  "num-traits",
+ "num_cpus",
  "rayon",
  "state_tree",
 ]
