@@ -198,7 +198,9 @@ pub(super) async fn start(config: Config) {
         chain_muxer_tipset_sink,
         tipset_stream,
         config.sync,
-    );
+        &prometheus_registry,
+    )
+    .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
     let sync_task = task::spawn(chain_muxer);

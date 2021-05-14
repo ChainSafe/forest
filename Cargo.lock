@@ -1077,6 +1077,7 @@ dependencies = [
  "networks",
  "num-traits",
  "pretty_env_logger",
+ "prometheus",
  "rand 0.7.3",
  "serde",
  "smallvec",
@@ -4919,6 +4920,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "procfs"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab8809e0c18450a2db0f236d2a44ec0b4c1412d0eb936233579f0990faa5d5cd"
+dependencies = [
+ "bitflags 1.2.1",
+ "byteorder 1.4.2",
+ "flate2",
+ "hex",
+ "lazy_static",
+ "libc 0.2.91",
+]
+
+[[package]]
 name = "prometheus"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4927,8 +4942,11 @@ dependencies = [
  "cfg-if 1.0.0",
  "fnv",
  "lazy_static",
+ "libc 0.2.91",
  "memchr",
- "parking_lot",
+ "parking_lot 0.11.1",
+ "procfs",
+ "protobuf",
  "thiserror",
 ]
 
@@ -5033,6 +5051,12 @@ dependencies = [
  "bytes 1.0.1",
  "prost 0.7.0",
 ]
+
+[[package]]
+name = "protobuf"
+version = "2.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45604fc7a88158e7d514d8e22e14ac746081e7a70d7690074dd0029ee37458d6"
 
 [[package]]
 name = "quick-error"

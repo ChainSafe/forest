@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
+use crate::metrics::Metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncState;
 use crate::tipset_syncer::{
@@ -63,6 +64,8 @@ pub enum ChainMuxerError {
     Block(#[from] ForestBlockError),
     #[error("Following network unexpectedly failed: {0}")]
     NetworkFollowingFailure(String),
+    #[error("Promethus error: {0}")]
+    Prometheus(prometheus::Error),
 }
 
 /// Struct that defines syncing configuration options
@@ -118,6 +121,9 @@ enum PubsubMessageProcessingStrategy {
 
 /// The ChainMuxer handles events from the p2p network and orchestrates the chain synchronization.
 pub struct ChainMuxer<DB, TBeacon, V, M> {
+    /// Set of metrics managed by the obects in this crate
+    metrics: Metrics,
+
     /// State of the ChainSyncer Future implementation
     state: ChainMuxerState,
 
@@ -140,7 +146,7 @@ pub struct ChainMuxer<DB, TBeacon, V, M> {
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
     bad_blocks: Arc<BadBlockCache>,
 
-    /// Incoming network events to be handled by syncer
+    ///   network events to be handled by syncer
     net_handler: Receiver<NetworkEvent>,
 
     /// Proof verification implementation.
@@ -177,14 +183,18 @@ where
         tipset_sender: Sender<Arc<Tipset>>,
         tipset_receiver: Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
-    ) -> Self {
+        registry: &prometheus::Registry,
+    ) -> Result<Self, ChainMuxerError> {
         let network = SyncNetworkContext::new(
             network_send,
             Default::default(),
             state_manager.blockstore_cloned(),
         );
 
-        Self {
+        let metrics = Metrics::register(registry).map_err(ChainMuxerError::Prometheus)?;
+
+        Ok(Self {
+            metrics,
             state: ChainMuxerState::Idle,
             worker_state: Default::default(),
             beacon,
@@ -198,7 +208,7 @@ where
             tipset_sender,
             tipset_receiver,
             sync_config: cfg,
-        }
+        })
     }
 
     /// Returns a clone of the bad blocks cache to be used outside of chain sync.
@@ -355,6 +365,7 @@ where
     }
 
     async fn process_gossipsub_event(
+        metrics: Metrics,
         event: NetworkEvent,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
@@ -365,6 +376,10 @@ where
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
+                metrics
+                    .gossipsub_message_total
+                    .with_label_values(&["hello_request"])
+                    .inc();
                 let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
@@ -462,6 +477,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.sync_config.tipset_sample_size;
+        let metrics = self.metrics.clone();
 
         let evaluator = async move {
             let mut tipsets = vec![];
@@ -475,6 +491,7 @@ where
                 };
 
                 let (tipset, _) = match Self::process_gossipsub_event(
+                    metrics.clone(),
                     event,
                     network.clone(),
                     chain_store.clone(),
@@ -571,6 +588,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
+        let metrics = self.metrics.clone();
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv().await {
@@ -582,6 +600,7 @@ where
                 };
 
                 let (_tipset, _) = match Self::process_gossipsub_event(
+                    metrics.clone(),
                     event,
                     network.clone(),
                     chain_store.clone(),
@@ -661,6 +680,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
+        let metrics = self.metrics.clone();
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
@@ -680,6 +700,7 @@ where
                     };
 
                     let (tipset, _) = match Self::process_gossipsub_event(
+                        metrics.clone(),
                         event,
                         network.clone(),
                         chain_store.clone(),
