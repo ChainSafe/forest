@@ -999,7 +999,7 @@ where
         let out = batch_pool.scope(|_scope| {
             vis
             .par_iter()
-            // .with_min_len(10)
+            .with_min_len(cpus)
             .map(|(&addr, seals)| {
                 avg.fetch_add(seals.len(), std::sync::atomic::Ordering::Relaxed);
                 max.fetch_max(seals.len(), std::sync::atomic::Ordering::Relaxed);
