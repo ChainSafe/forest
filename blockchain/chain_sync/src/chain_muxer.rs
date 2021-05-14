@@ -398,6 +398,10 @@ where
                 (tipset, source)
             }
             NetworkEvent::PeerConnected(peer_id) => {
+                metrics
+                    .gossipsub_message_total
+                    .with_label_values(&["peer_connected"])
+                    .inc();
                 // Spawn and immediately move on to the next event
                 async_std::task::spawn(Self::handle_peer_connected_event(
                     network.clone(),
@@ -408,6 +412,10 @@ where
                 return Ok(None);
             }
             NetworkEvent::PeerDisconnected(peer_id) => {
+                metrics
+                    .gossipsub_message_total
+                    .with_label_values(&["peer_disconnected"])
+                    .inc();
                 // Spawn and immediately move on to the next event
                 async_std::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
@@ -417,12 +425,20 @@ where
             }
             NetworkEvent::PubsubMessage { source, message } => match message {
                 PubsubMessage::Block(b) => {
+                    metrics
+                        .gossipsub_message_total
+                        .with_label_values(&["pubsub_message_block"])
+                        .inc();
                     // Assemble full tipset from block
                     let tipset =
                         Self::gossipsub_block_to_full_tipset(b, source, network.clone()).await?;
                     (tipset, source)
                 }
                 PubsubMessage::Message(m) => {
+                    metrics
+                        .gossipsub_message_total
+                        .with_label_values(&["pubsub_message_message"])
+                        .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
                         // Spawn and immediately move on to the next event
                         async_std::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
@@ -430,8 +446,20 @@ where
                     return Ok(None);
                 }
             },
-            // Not supported.
-            NetworkEvent::ChainExchangeRequest { .. } | NetworkEvent::BitswapBlock { .. } => {
+            NetworkEvent::ChainExchangeRequest { .. } => {
+                metrics
+                    .gossipsub_message_total
+                    .with_label_values(&["chain_exchange_request"])
+                    .inc();
+                // Not supported.
+                return Ok(None);
+            }
+            NetworkEvent::BitswapBlock { .. } => {
+                metrics
+                    .gossipsub_message_total
+                    .with_label_values(&["bitswap_block"])
+                    .inc();
+                // Not supported.
                 return Ok(None);
             }
         };
