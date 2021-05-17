@@ -20,16 +20,16 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::{UPGRADE_CLAUS_HEIGHT, UPGRADE_PLACEHOLDER_HEIGHT, UPGRADE_ACTORS_V4_HEIGHT};
+use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
+use state_migration::nv12;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
-use state_migration::nv12;
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
@@ -180,12 +180,13 @@ where
                 println!("Running nv12 migration");
                 // need to flush since we run_cron before the migration
                 let prev_state = self.flush()?;
-                let new_state = nv12::migrate_state_tree(
-                    self.store,
-                    prev_state, 
-                    epoch).expect("failed to run nv12 state migration"); // TODO error handling
+                let new_state = nv12::migrate_state_tree(self.store, prev_state, epoch)
+                    .expect("failed to run nv12 state migration"); // TODO error handling
                 if new_state != prev_state {
-                    dbg!("state migration successful, took: {}ms",start.elapsed().as_millis());
+                    dbg!(
+                        "state migration successful, took: {}ms",
+                        start.elapsed().as_millis()
+                    );
                     Ok(Some(new_state))
                 } else {
                     Ok(None)
