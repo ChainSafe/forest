@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::stringify_rpc_err;
-use rpc_client::{auth_new, new_client};
+use rpc_client::auth_new;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -24,12 +24,7 @@ impl AuthCommands {
         match self {
             Self::CreateToken { perm } => {
                 let perm: String = perm.parse().unwrap();
-                let mut client = new_client();
-
-                let obj = auth_new(&mut client, perm)
-                    .await
-                    .map_err(stringify_rpc_err)
-                    .unwrap();
+                let obj = auth_new(perm).await.map_err(stringify_rpc_err).unwrap();
                 println!("{}", serde_json::to_string_pretty(&obj).unwrap());
             }
         }

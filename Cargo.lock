@@ -3364,9 +3364,9 @@ dependencies = [
 
 [[package]]
 name = "jsonrpc-v2"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb3fd73bb053ef580f885553ab0614493fe987a575115f7db89c5e7e00d3636d"
+checksum = "3a5b309ff4f83be463974f916218283e4d9e04798ae856dd6f6968ce67654db6"
 dependencies = [
  "async-trait",
  "bytes 0.5.6",
@@ -5356,6 +5356,7 @@ dependencies = [
  "jsonrpc-v2",
  "key_management",
  "log",
+ "serde",
  "serde_json",
  "surf",
 ]

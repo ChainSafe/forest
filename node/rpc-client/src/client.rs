@@ -1,50 +1,99 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(clippy::all)]
-#![allow(unused_variables, dead_code)]
-
+use jsonrpc_v2::{Error as JsonRpcError, Id};
+use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde_json::Value;
 use std::env;
-
-use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
-use cid::json::CidJson;
-use message::unsigned_message::json::UnsignedMessageJson;
-
-// jsonrpsee::rpc_api! {
-//     pub Filecoin {
-//         /// Auth
-//         #[rpc(method = "Filecoin.AuthNew", positional_params)]
-//         fn auth_new(perm: Vec<String>) -> String;
-//         /// Chain
-//         #[rpc(method = "Filecoin.ChainGetBlock", positional_params)]
-//         fn chain_get_block(cid: CidJson) -> BlockHeaderJson;
-
-//         #[rpc(method = "Filecoin.ChainGetGenesis")]
-//         fn chain_get_genesis() -> TipsetJson;
-
-//         #[rpc(method = "Filecoin.ChainHead")]
-//         fn chain_get_head() -> TipsetJson;
-
-//         #[rpc(method = "Filecoin.ChainGetMessage", positional_params)]
-//         fn chain_get_messages(cid: CidJson) -> UnsignedMessageJson;
-
-//         #[rpc(method = "Filecoin.ChainGetObj", positional_params)]
-//         fn chain_read_obj(cid: CidJson) -> Vec<u8>;
-//     }
-// }
 
 const DEFUALT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 
-pub async fn call_rpc_method<T>(method_name: &str) -> Result<T, surf::Error> {
+#[derive(Deserialize)]
+struct JsonRpcResponse<T> {
+    pub jsonrpc: String,
+    pub result: T,
+    pub id: Option<Id>,
+}
+
+pub async fn call<R>(method_name: &str) -> Result<R, JsonRpcError>
+where
+    R: DeserializeOwned,
+{
     let url = env::var(API_INFO_KEY).unwrap_or(DEFUALT_URL.to_owned());
     let rpc_call = jsonrpc_v2::RequestObject::request()
         .with_method(method_name)
         .finish();
-    let http_res = surf::post(url)
-        .body(surf::Body::from_bytes(rpc_call.to_bytes()))
-        // .body(surf::Body::from_json(&rpc_call)?)
+
+    let mut http_res = surf::post(url)
+        .body(surf::Body::from_json(&rpc_call)?)
         .await?;
 
-    http_res.body_json().await
+    let result = http_res.body_string().await?;
+    println!("http response: {}", &result);
+
+    match serde_json::from_str(&result) {
+        Ok(r) => Ok(r),
+        Err(e) => Err(jsonrpc_v2::Error::from(e)),
+    }
+}
+
+pub async fn call_params<P, R>(method_name: &str, params: P) -> Result<R, JsonRpcError>
+where
+    P: Into<Value>,
+    R: DeserializeOwned,
+{
+    let url = env::var(API_INFO_KEY).unwrap_or(DEFUALT_URL.to_owned());
+    let rpc_call = jsonrpc_v2::RequestObject::request()
+        .with_method(method_name)
+        .with_params(params)
+        .finish();
+
+    let mut http_res = surf::post(url)
+        .body(surf::Body::from_json(&rpc_call)?)
+        .await?;
+
+    let result = http_res.body_string().await?;
+    println!("http response: {}", &result);
+
+    match serde_json::from_str(&result) {
+        Ok(r) => Ok(r),
+        Err(e) => Err(jsonrpc_v2::Error::from(e)),
+    }
+}
+
+pub mod filecoin_rpc {
+    use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
+    use cid::json::CidJson;
+    use jsonrpc_v2::Error as JsonRpcError;
+    use message::unsigned_message::json::UnsignedMessageJson;
+
+    use crate::{call, call_params};
+
+    pub async fn auth_new(perm: Vec<String>) -> Result<String, JsonRpcError> {
+        call_params("Filecoin.AuthNew", perm).await
+    }
+
+    pub async fn chain_get_block(cid: CidJson) -> Result<BlockHeaderJson, JsonRpcError> {
+        call_params("Filecoin.ChainGetBlock", serde_json::to_string(&cid)?).await
+    }
+
+    pub async fn chain_get_genesis() -> Result<TipsetJson, JsonRpcError> {
+        call("Filecoin.ChainGetGenesis").await
+    }
+
+    pub async fn chain_get_head() -> Result<TipsetJson, JsonRpcError> {
+        println!("HELLO 3");
+
+        call("Filecoin.ChainHead").await
+    }
+
+    pub async fn chain_get_messages(cid: CidJson) -> Result<UnsignedMessageJson, JsonRpcError> {
+        call_params("Filecoin.ChainGetMessage", serde_json::to_string(&cid)?).await
+    }
+
+    pub async fn chain_read_obj(cid: CidJson) -> Result<Vec<u8>, JsonRpcError> {
+        call_params("Filecoin.ChainGetObj", serde_json::to_string(&cid)?).await
+    }
 }
