@@ -3,6 +3,17 @@ use prometheus::{
     Error as PrometheusError, Histogram, HistogramOpts, Registry,
 };
 
+pub mod labels {
+    // gosssipsub_message_total
+    pub const HELLO_REQUEST: &str = "hello_request";
+    pub const PEER_CONNECTED: &str = "peer_connected";
+    pub const PEER_DISCONNECTED: &str = "peer_disconnected";
+    pub const PUBSUB_BLOCK: &str = "pubsub_message_block";
+    pub const PUBSUB_MESSAGE: &str = "pubsub_message_message";
+    pub const CHAIN_EXCHANGE_REQUEST: &str = "chain_exchange_request";
+    pub const BITSWAP_BLOCK: &str = "bitswap_block";
+}
+
 #[derive(Clone)]
 pub struct Metrics {
     pub tipset_processing_time: Box<Histogram>,
@@ -26,13 +37,13 @@ impl Metrics {
                 "Total number of gossipsub message by type",
             ),
             &[
-                "hello_request",
-                "peer_connected",
-                "peer_disconnected",
-                "pubsub_message_block",
-                "pubsub_message_message",
-                "chain_exchange_request",
-                "bitswap_block",
+                labels::HELLO_REQUEST,
+                labels::PEER_CONNECTED,
+                labels::PEER_DISCONNECTED,
+                labels::PUBSUB_BLOCK,
+                labels::PUBSUB_MESSAGE,
+                labels::CHAIN_EXCHANGE_REQUEST,
+                labels::BITSWAP_BLOCK,
             ],
         )?);
         let invalid_tipset_total = Box::new(GenericCounter::<AtomicU64>::new(
