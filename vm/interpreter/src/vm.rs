@@ -177,14 +177,13 @@ where
         match epoch {
             x if x == UPGRADE_ACTORS_V4_HEIGHT => {
                 let start = std::time::Instant::now();
-                println!("Running nv12 migration");
+                log::info!("Running actors_v4 state migration");
                 // need to flush since we run_cron before the migration
                 let prev_state = self.flush()?;
-                let new_state = nv12::migrate_state_tree(self.store, prev_state, epoch)
-                    .expect("failed to run nv12 state migration"); // TODO error handling
+                let new_state = nv12::migrate_state_tree(self.store, prev_state, epoch)?;
                 if new_state != prev_state {
-                    dbg!(
-                        "state migration successful, took: {}ms",
+                    log::info!(
+                        "actors_v4 state migration successful, took: {}ms",
                         start.elapsed().as_millis()
                     );
                     Ok(Some(new_state))
