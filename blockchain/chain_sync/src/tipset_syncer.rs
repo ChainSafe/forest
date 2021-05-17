@@ -19,6 +19,7 @@ use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
+use crate::metrics::Metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
@@ -226,6 +227,7 @@ impl TipsetGroup {
 /// for syncing from the ChainMuxer and the SyncSubmitBlock API before syncing.
 /// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which will be synced into the Chain Store.
 pub(crate) struct TipsetProcessor<DB, TBeacon, V> {
+    metrics: Metrics,
     state: TipsetProcessorState<DB, TBeacon, V>,
     tracker: crate::chain_muxer::WorkerState,
     /// Tipsets pushed into this stream _must_ be validated beforehand by the TipsetValidator
@@ -247,6 +249,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        metrics: Metrics,
         tracker: crate::chain_muxer::WorkerState,
         tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
         state_manager: Arc<StateManager<DB>>,
@@ -257,6 +260,7 @@ where
         genesis: Arc<Tipset>,
     ) -> Self {
         Self {
+            metrics,
             state: TipsetProcessorState::Idle,
             tracker,
             tipsets,
@@ -281,6 +285,7 @@ where
         let bad_block_cache = self.bad_block_cache.clone();
         let tracker = self.tracker.clone();
         let genesis = self.genesis.clone();
+        let metrics = self.metrics.clone();
         Box::pin(async move {
             // Define the low end of the range
             // Unwrapping is safe here because the store always has at least one tipset
@@ -294,6 +299,7 @@ where
             }
 
             let mut tipset_range_syncer = TipsetRangeSyncer::new(
+                metrics,
                 tracker,
                 proposed_head,
                 current_head,
@@ -351,6 +357,8 @@ where
         //   2. Tipset epoch is not behind the current max epoch in the store
         //   3. Tipset is heavier than the heaviest tipset in the store at the time when it was queued
         //   4. Tipset message roots were calculated and integrity checks were run
+
+        let metrics = self.metrics.clone();
 
         // Read all of the tipsets available on the stream
         let mut grouped_tipsets: HashMap<(i64, TipsetKeys), TipsetGroup> = HashMap::new();
@@ -494,6 +502,8 @@ where
         }
 
         // Drive underlying futures to completion
+
+        //
         loop {
             match self.state {
                 TipsetProcessorState::Idle => {
@@ -559,6 +569,7 @@ where
                             );
                         }
                         Poll::Ready(Err(why)) => {
+                            metrics.tipset_range_sync_failure_total.inc();
                             error!(
                                 "Syncing tipset range [{}, {}] failed: {}",
                                 current_head_epoch, proposed_head_epoch, why,
@@ -599,6 +610,7 @@ type TipsetRangeSyncerFuture =
     Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError>> + Send>>;
 
 pub(crate) struct TipsetRangeSyncer<DB, TBeacon, V> {
+    metrics: Metrics,
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
     tipsets_included: HashSet<TipsetKeys>,
@@ -620,6 +632,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        metrics: Metrics,
         tracker: crate::chain_muxer::WorkerState,
         proposed_head: Arc<Tipset>,
         current_head: Arc<Tipset>,
@@ -639,6 +652,7 @@ where
         }
 
         tipset_tasks.push(sync_tipset_range::<_, _, V>(
+            metrics.clone(),
             proposed_head.clone(),
             current_head.clone(),
             tracker,
@@ -656,6 +670,7 @@ where
         let mut tipsets_included = HashSet::new();
         tipsets_included.insert(proposed_head.key());
         Ok(Self {
+            metrics,
             proposed_head,
             current_head,
             tipsets_included: HashSet::new(),
@@ -697,6 +712,7 @@ where
         self.tipsets_included.insert(new_key);
 
         self.tipset_tasks.push(sync_tipset::<_, _, V>(
+            self.metrics.clone(),
             additional_head,
             self.state_manager.clone(),
             self.chain_store.clone(),
@@ -743,6 +759,7 @@ fn sync_tipset_range<
     TBeacon: Beacon + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static,
 >(
+    metrics: Metrics,
     proposed_head: Arc<Tipset>,
     current_head: Arc<Tipset>,
     tracker: crate::chain_muxer::WorkerState,
@@ -789,6 +806,7 @@ fn sync_tipset_range<
         //  Sync and validate messages from the tipsets
         tracker.write().await.set_stage(SyncStage::Messages);
         if let Err(why) = sync_messages_check_state::<_, _, V>(
+            metrics,
             tracker.clone(),
             state_manager,
             beacon,
@@ -945,6 +963,7 @@ fn sync_tipset<
     TBeacon: Beacon + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static,
 >(
+    metrics: Metrics,
     proposed_head: Arc<Tipset>,
     state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
@@ -960,6 +979,7 @@ fn sync_tipset<
 
         // Sync and validate messages from the tipsets
         if let Err(e) = sync_messages_check_state::<_, _, V>(
+            metrics,
             // Include a dummy WorkerState
             crate::chain_muxer::WorkerState::default(),
             state_manager,
@@ -998,6 +1018,7 @@ async fn sync_messages_check_state<
     TBeacon: Beacon + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static,
 >(
+    metrics: Metrics,
     tracker: crate::chain_muxer::WorkerState,
     state_manager: Arc<StateManager<DB>>,
     beacon_scheduler: Arc<BeaconSchedule<TBeacon>>,
@@ -1065,6 +1086,7 @@ async fn sync_messages_check_state<
                         .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
                     // Validate the tipset and the messages
+                    let timer = metrics.tipset_processing_time.start_timer();
                     let current_epoch = full_tipset.epoch();
                     validate_tipset::<_, _, V>(
                         state_manager.clone(),
@@ -1077,6 +1099,7 @@ async fn sync_messages_check_state<
                     )
                     .await?;
                     tracker.write().await.set_epoch(current_epoch);
+                    timer.observe_duration();
 
                     // Persist the messages in the store
                     if let Some(m) = bundle.messages {

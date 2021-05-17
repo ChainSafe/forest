@@ -473,6 +473,7 @@ where
             )
             .await
         {
+            metrics.invalid_tipset_total.inc();
             warn!(
                 "Validating tipset received through GossipSub failed: {}",
                 why
@@ -588,8 +589,10 @@ where
         let trs_beacon = self.beacon.clone();
         let trs_tracker = self.worker_state.clone();
         let trs_genesis = self.genesis.clone();
+        let trs_metrics = self.metrics.clone();
         let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             let tipset_range_syncer = match TipsetRangeSyncer::<DB, TBeacon, V>::new(
+                trs_metrics.clone(),
                 trs_tracker,
                 Arc::new(network_head.into_tipset()),
                 local_head,
@@ -601,7 +604,10 @@ where
                 trs_genesis,
             ) {
                 Ok(tipset_range_syncer) => tipset_range_syncer,
-                Err(why) => return Err(ChainMuxerError::TipsetRangeSyncer(why)),
+                Err(why) => {
+                    trs_metrics.tipset_range_sync_failure_total.inc();
+                    return Err(ChainMuxerError::TipsetRangeSyncer(why));
+                }
             };
 
             tipset_range_syncer
@@ -678,12 +684,14 @@ where
         let tp_tipset_receiver = self.tipset_receiver.clone();
         let tp_tracker = self.worker_state.clone();
         let tp_genesis = self.genesis.clone();
+        let tp_metrics = self.metrics.clone();
         enum UnexpectedReturnKind {
             TipsetProcessor,
         }
         let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
             Box::pin(async move {
                 TipsetProcessor::<_, _, V>::new(
+                    tp_metrics,
                     tp_tracker,
                     Box::pin(tp_tipset_receiver),
                     tp_state_manager,
