@@ -10,15 +10,14 @@ use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use std::error::Error as StdError;
 use std::rc::Rc;
-use vm::ActorState;
-use vm::TokenAmount;
+use vm::{ActorState, TokenAmount};
 
 pub mod nv12;
 
-pub type MigrationResult<T> = Result<T, MigrationErr>;
+pub type MigrationResult<T> = Result<T, MigrationError>;
 
 #[derive(thiserror::Error, Debug)]
-pub enum MigrationErr {
+pub enum MigrationError {
     #[error("Failed creating job for state migration")]
     MigrationJobCreate(Box<dyn StdError>),
     #[error("Failed running job for state migration: {0}")]
@@ -42,13 +41,13 @@ pub enum MigrationErr {
 }
 
 pub(crate) struct ActorMigrationInput {
-    /// actor's address
+    /// Actor's address
     address: Address,
-    /// actor's balance
+    /// Actor's balance
     balance: TokenAmount,
-    /// actor's state head CID
+    /// Actor's state head CID
     head: Cid,
-    // epoch of last state transition prior to migration
+    /// Epoch of last state transition prior to migration
     prior_epoch: ChainEpoch,
 }
 
@@ -85,7 +84,7 @@ impl<'db, BS: BlockStore> MigrationJob<'db, BS> {
                 },
             )
             .map_err(|e| {
-                MigrationErr::MigrationJobRun(format!(
+                MigrationError::MigrationJobRun(format!(
                     "state migration failed for {} actor, addr {}:{}",
                     self.actor_state.code,
                     self.address,

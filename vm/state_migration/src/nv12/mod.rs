@@ -10,11 +10,8 @@
 pub mod miner;
 
 use crate::nil_migrator_v4;
-use crate::MigrationErr;
-use crate::MigrationResult;
-use crate::{ActorMigration, MigrationJob};
-use actor_interface::actorv3;
-use actor_interface::actorv4;
+use crate::{ActorMigration, MigrationError, MigrationJob, MigrationResult};
+use actor_interface::{actorv3, actorv4};
 use async_std::task;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -24,8 +21,7 @@ use futures::StreamExt;
 use ipld_blockstore::BlockStore;
 use miner::miner_migrator_v4;
 use state_tree::StateTree;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 const ACTORS_COUNT: usize = 11;
@@ -89,12 +85,12 @@ pub fn migrate_state_tree<'db, BS: BlockStore>(
     let deferred_code_ids = HashSet::<Cid>::new(); // None in this migration
 
     if migrations.len() + deferred_code_ids.len() != ACTORS_COUNT {
-        return Err(MigrationErr::IncompleteMigrationSpec(migrations.len()));
+        return Err(MigrationError::IncompleteMigrationSpec(migrations.len()));
     }
 
     let actors_in = StateTree::new_from_root(store, &actors_root_in).unwrap();
     let mut actors_out =
-        StateTree::new(store, StateTreeVersion::V3).map_err(MigrationErr::StateTreeCreation)?;
+        StateTree::new(store, StateTreeVersion::V3).map_err(MigrationError::StateTreeCreation)?;
 
     actors_in
         .for_each(|addr, state| {
@@ -108,27 +104,27 @@ pub fn migrate_state_tree<'db, BS: BlockStore>(
                 actor_migration: migrations
                     .get(&state.code)
                     .cloned()
-                    .ok_or(MigrationErr::MigratorNotFound(state.code))?,
+                    .ok_or(MigrationError::MigratorNotFound(state.code))?,
             };
 
             jobs.push(async move { next_input.run(store, prior_epoch) });
 
             Ok(())
         })
-        .map_err(MigrationErr::MigrationJobCreate)?;
+        .map_err(MigrationError::MigrationJobCreate)?;
 
     task::block_on(async {
         while let Some(job_result) = jobs.next().await {
             let result = job_result?;
             actors_out
                 .set_actor(&result.address, result.actor_state)
-                .map_err(MigrationErr::SetActorState)?;
+                .map_err(MigrationError::SetActorState)?;
         }
 
         Ok(())
     })?;
 
-    let root_cid = actors_out.flush().map_err(MigrationErr::FlushFailed);
+    let root_cid = actors_out.flush().map_err(MigrationError::FlushFailed);
 
     root_cid
 }

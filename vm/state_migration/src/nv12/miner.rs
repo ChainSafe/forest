@@ -3,10 +3,8 @@
 
 //! This module implements the miner actor state migration for network version 12 upgrade.
 
-use crate::ActorMigration;
-use crate::ActorMigrationInput;
-use crate::MigrationErr;
-use crate::MigrationOutput;
+use crate::{ActorMigration, ActorMigrationInput};
+use crate::{MigrationError, MigrationOutput, MigrationResult};
 use actor_interface::actorv3::miner::State as V3State;
 use actor_interface::actorv4::miner::State as V4State;
 use cid::Cid;
@@ -26,11 +24,11 @@ impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
         &self,
         store: &'db BS,
         input: ActorMigrationInput,
-    ) -> Result<MigrationOutput, MigrationErr> {
+    ) -> MigrationResult<MigrationOutput> {
         let v3_state: Option<V3State> = store
             .get(&input.head)
-            .map_err(MigrationErr::BlockStoreRead)?;
-        let in_state: V3State = v3_state.ok_or(MigrationErr::BlockStoreRead(
+            .map_err(MigrationError::BlockStoreRead)?;
+        let in_state: V3State = v3_state.ok_or(MigrationError::BlockStoreRead(
             Error::new(ErrorKind::Other, "Miner actor: could not read v3 state").into(),
         ))?;
 
@@ -54,7 +52,7 @@ impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
 
         let new_head = store
             .put(&out_state, Blake2b256)
-            .map_err(MigrationErr::BlockStoreWrite)?;
+            .map_err(MigrationError::BlockStoreWrite)?;
 
         Ok(MigrationOutput {
             new_code_cid: self.0,
