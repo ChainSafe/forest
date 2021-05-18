@@ -68,6 +68,8 @@ pub struct DaemonOpts {
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "The port used for communication")]
     pub port: Option<String>,
+    #[structopt(short, long, help = "Port used for metrics collection server")]
+    pub metrics_port: Option<u16>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
     pub kademlia: Option<bool>,
     #[structopt(short, long, help = "Allow MDNS (default = false)")]
@@ -82,13 +84,16 @@ pub struct DaemonOpts {
                     Assumes a pre-loaded database"
     )]
     pub skip_load: bool,
-    #[structopt(long, help = "Number of worker sync tasks spawned (default is 1")]
-    pub worker_tasks: Option<usize>,
     #[structopt(
         long,
         help = "Number of tipsets requested over chain exchange (default is 200)"
     )]
     pub req_window: Option<i64>,
+    #[structopt(
+        long,
+        help = "Number of tipsets to include in the sample that determines what the network head is"
+    )]
+    pub tipset_sample_size: Option<u8>,
     #[structopt(
         long,
         help = "Amount of Peers we want to be connected to (default is 75)"
@@ -115,6 +120,9 @@ impl DaemonOpts {
             cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
         } else {
             cfg.enable_rpc = false;
+        }
+        if let Some(metrics_port) = self.metrics_port {
+            cfg.metrics_port = metrics_port;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             panic!("Can't set import_snapshot and import_chain at the same time!");
@@ -143,8 +151,8 @@ impl DaemonOpts {
         if let Some(req_window) = &self.req_window {
             cfg.sync.req_window = req_window.to_owned();
         }
-        if let Some(worker_tsk) = &self.worker_tasks {
-            cfg.sync.worker_tasks = worker_tsk.to_owned();
+        if let Some(tipset_sample_size) = self.tipset_sample_size {
+            cfg.sync.tipset_sample_size = tipset_sample_size.into();
         }
 
         Ok(cfg)

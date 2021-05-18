@@ -53,7 +53,7 @@ impl Serialize for SyncStage {
     }
 }
 
-/// State of a given sync. This state is used to keep track of the state of each sync worker.
+/// State of the node's syncing process.
 /// This state is different from the general state of the ChainSync process.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SyncState {

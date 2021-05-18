@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::peer_manager::PeerManager;
-use async_std::channel::Sender;
-use async_std::future;
 use blocks::{FullTipset, Tipset, TipsetKeys};
 use cid::Cid;
 use encoding::de::DeserializeOwned;
@@ -16,28 +14,16 @@ use forest_libp2p::{
     rpc::RequestResponseError,
     NetworkMessage,
 };
-use futures::{channel::oneshot::channel as oneshot_channel, Future};
+use futures::channel::oneshot::channel as oneshot_channel;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
 use log::{trace, warn};
+use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-use std::{convert::TryFrom, pin::Pin};
 
-/// Future of the response from sending a hello request. This does not need to be immediately polled
-/// because the response does not need to be handled synchronously.
-pub(crate) type HelloResponseFuture = Pin<
-    Box<
-        dyn Future<
-                Output = (
-                    PeerId,
-                    SystemTime,
-                    Option<Result<HelloResponse, RequestResponseError>>,
-                ),
-            > + Send
-            + Sync,
-    >,
->;
+use async_std::channel::Sender;
+use async_std::future;
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
@@ -297,7 +283,14 @@ where
         &self,
         peer_id: PeerId,
         request: HelloRequest,
-    ) -> Result<HelloResponseFuture, &'static str> {
+    ) -> Result<
+        (
+            PeerId,
+            SystemTime,
+            Option<Result<HelloResponse, RequestResponseError>>,
+        ),
+        &'static str,
+    > {
         trace!("Sending Hello Message to {}", peer_id);
 
         // Create oneshot channel for receiving response from sent hello.
@@ -317,14 +310,12 @@ where
 
         // Add timeout and create future to be polled asynchronously.
         let rx = future::timeout(Duration::from_secs(10), rx);
-        Ok(Box::pin(async move {
-            let res = rx.await;
-            match res {
-                // Convert timeout error into `Option` and wrap `Ok` with the PeerId and sent time.
-                Ok(received) => (peer_id, sent, received.ok()),
-                // Timeout on response, this doesn't matter to us, can safely ignore.
-                Err(_) => (peer_id, sent, None),
-            }
-        }))
+        let res = rx.await;
+        match res {
+            // Convert timeout error into `Option` and wrap `Ok` with the PeerId and sent time.
+            Ok(received) => Ok((peer_id, sent, received.ok())),
+            // Timeout on response, this doesn't matter to us, can safely ignore.
+            Err(_) => Ok((peer_id, sent, None)),
+        }
     }
 }

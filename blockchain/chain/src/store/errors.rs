@@ -20,7 +20,7 @@ pub enum Error {
     NoBlocks,
     /// Key not found in database
     #[error("{0} not found")]
-    NotFound(&'static str),
+    NotFound(String),
     /// Error originating from key-value store
     #[error(transparent)]
     DB(#[from] DbErr),

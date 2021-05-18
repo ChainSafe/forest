@@ -2,26 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
-use async_std::{channel::bounded, sync::RwLock, task};
 use auth::{generate_priv_key, JWT_IDENTIFIER};
 use chain::ChainStore;
-use chain_sync::ChainSyncer;
+use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{import_chain, initialize_genesis};
-use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
-use rpassword::read_password;
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
-use std::io::prelude::*;
-use std::path::PathBuf;
-use std::sync::Arc;
 use utils::write_to_file;
 use wallet::ENCRYPTED_KEYSTORE_NAME;
 use wallet::{KeyStore, KeyStoreConfig};
+
+use async_std::{channel::bounded, sync::RwLock, task};
+use libp2p::identity::{ed25519, Keypair};
+use log::{debug, info, trace};
+use rpassword::read_password;
+
+use std::io::prelude::*;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -52,6 +54,8 @@ pub(super) async fn start(config: Config) {
             };
             Keypair::Ed25519(gen_keypair)
         });
+
+    let prometheus_registry = prometheus::Registry::new();
 
     // Initialize keystore
     let mut ks = if config.encrypt_keystore {
@@ -157,24 +161,23 @@ pub(super) async fn start(config: Config) {
             .unwrap(),
     );
 
-    // Initialize ChainSyncer
-    let chain_syncer = ChainSyncer::<_, _, FullVerifier, _>::new(
+    // Initialize ChainMuxer
+    let (tipset_sink, tipset_stream) = bounded(20);
+    let chain_muxer_tipset_sink = tipset_sink.clone();
+    let chain_muxer = ChainMuxer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
         beacon.clone(),
         Arc::clone(&mpool),
         network_send.clone(),
         network_rx,
         Arc::new(genesis),
+        chain_muxer_tipset_sink,
+        tipset_stream,
         config.sync,
-    )
-    .unwrap();
-    let bad_blocks = chain_syncer.bad_blocks_cloned();
-    let sync_state = chain_syncer.sync_state_cloned();
-    let (worker_tx, worker_rx) = bounded(20);
-    let worker_tx_clone = worker_tx.clone();
-    let sync_task = task::spawn(async move {
-        chain_syncer.start(worker_tx_clone, worker_rx).await;
-    });
+    );
+    let bad_blocks = chain_muxer.bad_blocks_cloned();
+    let sync_state = chain_muxer.sync_state_cloned();
+    let sync_task = task::spawn(chain_muxer);
 
     // Start services
     let p2p_task = task::spawn(async {
@@ -196,7 +199,7 @@ pub(super) async fn start(config: Config) {
                     network_name,
                     beacon,
                     chain_store,
-                    new_mined_block_tx: worker_tx,
+                    new_mined_block_tx: tipset_sink,
                 }),
                 &rpc_listen,
             )
@@ -207,6 +210,14 @@ pub(super) async fn start(config: Config) {
         None
     };
 
+    // Start Prometheus server port
+    let prometheus_server_task = task::spawn(metrics::init_prometheus(
+        (format!("127.0.0.1:{}", config.metrics_port))
+            .parse()
+            .unwrap(),
+        prometheus_registry,
+    ));
+
     // Block until ctrl-c is hit
     block_until_sigint().await;
 
@@ -215,8 +226,9 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    p2p_task.cancel().await;
+    prometheus_server_task.cancel().await;
     sync_task.cancel().await;
+    p2p_task.cancel().await;
     if let Some(task) = rpc_task {
         task.cancel().await;
     }
