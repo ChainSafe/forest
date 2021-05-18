@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use jsonrpc_v2::{Error as JsonRpcError, Id};
+use jsonrpc_v2::{Error as JsonRpcError, Id, RequestObject};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::Value;
@@ -18,14 +18,11 @@ struct JsonRpcResponse<T> {
     pub id: Option<Id>,
 }
 
-pub async fn call<R>(method_name: &str) -> Result<R, JsonRpcError>
+pub async fn call<R>(rpc_call: RequestObject) -> Result<R, JsonRpcError>
 where
     R: DeserializeOwned,
 {
     let url = env::var(API_INFO_KEY).unwrap_or(DEFUALT_URL.to_owned());
-    let rpc_call = jsonrpc_v2::RequestObject::request()
-        .with_method(method_name)
-        .finish();
 
     let mut http_res = surf::post(url)
         .body(surf::Body::from_json(&rpc_call)?)
@@ -39,27 +36,28 @@ where
     }
 }
 
+pub async fn call_method<R>(method_name: &str) -> Result<R, JsonRpcError>
+where
+    R: DeserializeOwned,
+{
+    let rpc_call = jsonrpc_v2::RequestObject::request()
+        .with_method(method_name)
+        .finish();
+
+    call(rpc_call).await
+}
+
 pub async fn call_params<P, R>(method_name: &str, params: P) -> Result<R, JsonRpcError>
 where
     P: Into<Value>,
     R: DeserializeOwned,
 {
-    let url = env::var(API_INFO_KEY).unwrap_or(DEFUALT_URL.to_owned());
     let rpc_call = jsonrpc_v2::RequestObject::request()
         .with_method(method_name)
         .with_params(params)
         .finish();
 
-    let mut http_res = surf::post(url)
-        .body(surf::Body::from_json(&rpc_call)?)
-        .await?;
-
-    let result = http_res.body_string().await?;
-
-    match serde_json::from_str::<JsonRpcResponse<R>>(&result) {
-        Ok(r) => Ok(r.result),
-        Err(e) => Err(jsonrpc_v2::Error::from(e)),
-    }
+    call(rpc_call).await
 }
 
 pub mod filecoin_rpc {
@@ -68,7 +66,7 @@ pub mod filecoin_rpc {
     use jsonrpc_v2::Error as JsonRpcError;
     use message::unsigned_message::json::UnsignedMessageJson;
 
-    use crate::{call, call_params};
+    use crate::{call, call_method, call_params};
 
     pub async fn auth_new(perm: Vec<String>) -> Result<String, JsonRpcError> {
         call_params("Filecoin.AuthNew", perm).await
@@ -79,11 +77,11 @@ pub mod filecoin_rpc {
     }
 
     pub async fn chain_get_genesis() -> Result<TipsetJson, JsonRpcError> {
-        call("Filecoin.ChainGetGenesis").await
+        call_method("Filecoin.ChainGetGenesis").await
     }
 
     pub async fn chain_get_head() -> Result<TipsetJson, JsonRpcError> {
-        call("Filecoin.ChainHead").await
+        call_method("Filecoin.ChainHead").await
     }
 
     pub async fn chain_get_messages(cid: CidJson) -> Result<UnsignedMessageJson, JsonRpcError> {
