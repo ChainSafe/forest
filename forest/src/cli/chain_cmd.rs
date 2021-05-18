@@ -62,7 +62,7 @@ impl ChainCommands {
                             .0
                             .cids()
                             .iter()
-                            .map(|cid: &Cid| base64::encode(&cid.to_bytes()))
+                            .map(|cid: &Cid| cid.to_string())
                             .collect::<Vec<String>>()
                     )
                     .unwrap()
