@@ -989,34 +989,27 @@ where
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // Gas charged for batch verify in actor
 
-        // Create a local threadpool just for running verify seal in this epoch
-        let batch_pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(*NUM_CPUS)
-            .thread_name(|id| format!("batch_verify_seal_{}", id))
-            .build()?;
-
-        let out = batch_pool.scope(|_scope| {
-            vis.par_iter()
-                .with_min_len(vis.len() / *NUM_CPUS)
-                .map(|(&addr, seals)| {
-                    let results = seals
-                        .par_iter()
-                        .map(|s| {
-                            if let Err(err) = V::verify_seal(s) {
-                                debug!(
-                                    "seal verify in batch failed (miner: {}) (err: {})",
-                                    addr, err
-                                );
-                                false
-                            } else {
-                                true
-                            }
-                        })
-                        .collect();
-                    (addr, results)
-                })
-                .collect()
-        });
+        let out = vis
+            .par_iter()
+            .with_min_len(vis.len() / *NUM_CPUS)
+            .map(|(&addr, seals)| {
+                let results = seals
+                    .par_iter()
+                    .map(|s| {
+                        if let Err(err) = V::verify_seal(s) {
+                            debug!(
+                                "seal verify in batch failed (miner: {}) (err: {})",
+                                addr, err
+                            );
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                    .collect();
+                (addr, results)
+            })
+            .collect();
         Ok(out)
     }
 }
