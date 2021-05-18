@@ -140,7 +140,7 @@ pub struct ChainMuxer<DB, TBeacon, V, M> {
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
     bad_blocks: Arc<BadBlockCache>,
 
-    ///  incoming network events to be handled by syncer
+    /// Incoming network events to be handled by syncer
     net_handler: Receiver<NetworkEvent>,
 
     /// Proof verification implementation.

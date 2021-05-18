@@ -2,26 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
-use async_std::{channel::bounded, sync::RwLock, task};
 use auth::{generate_priv_key, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{import_chain, initialize_genesis};
-use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
-use rpassword::read_password;
 use rpc::{start_rpc, RpcState};
 use state_manager::StateManager;
-use std::io::prelude::*;
-use std::path::PathBuf;
-use std::sync::Arc;
 use utils::write_to_file;
 use wallet::ENCRYPTED_KEYSTORE_NAME;
 use wallet::{KeyStore, KeyStoreConfig};
+
+use async_std::{channel::bounded, sync::RwLock, task};
+use libp2p::identity::{ed25519, Keypair};
+use log::{debug, info, trace};
+use rpassword::read_password;
+
+use std::io::prelude::*;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -52,6 +54,8 @@ pub(super) async fn start(config: Config) {
             };
             Keypair::Ed25519(gen_keypair)
         });
+
+    let prometheus_registry = prometheus::Registry::new();
 
     // Initialize keystore
     let mut ks = if config.encrypt_keystore {
@@ -206,6 +210,14 @@ pub(super) async fn start(config: Config) {
         None
     };
 
+    // Start Prometheus server port
+    let prometheus_server_task = task::spawn(metrics::init_prometheus(
+        (format!("127.0.0.1:{}", config.metrics_port))
+            .parse()
+            .unwrap(),
+        prometheus_registry,
+    ));
+
     // Block until ctrl-c is hit
     block_until_sigint().await;
 
@@ -214,6 +226,7 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
+    prometheus_server_task.cancel().await;
     sync_task.cancel().await;
     p2p_task.cancel().await;
     if let Some(task) = rpc_task {
