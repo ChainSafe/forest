@@ -27,9 +27,9 @@ impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
     ) -> MigrationResult<MigrationOutput> {
         let v3_state: Option<V3State> = store
             .get(&input.head)
-            .map_err(MigrationError::BlockStoreRead)?;
+            .map_err(|e| MigrationError::BlockStoreRead(e.to_string()))?;
         let in_state: V3State = v3_state.ok_or(MigrationError::BlockStoreRead(
-            Error::new(ErrorKind::Other, "Miner actor: could not read v3 state").into(),
+            "Miner actor: could not read v3 state".to_string(),
         ))?;
 
         let out_state = V4State {
@@ -52,7 +52,7 @@ impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
 
         let new_head = store
             .put(&out_state, Blake2b256)
-            .map_err(MigrationError::BlockStoreWrite)?;
+            .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         Ok(MigrationOutput {
             new_code_cid: self.0,

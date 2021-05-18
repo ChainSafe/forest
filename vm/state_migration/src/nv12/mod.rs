@@ -89,8 +89,8 @@ pub fn migrate_state_tree<'db, BS: BlockStore>(
     }
 
     let actors_in = StateTree::new_from_root(store, &actors_root_in).unwrap();
-    let mut actors_out =
-        StateTree::new(store, StateTreeVersion::V3).map_err(MigrationError::StateTreeCreation)?;
+    let mut actors_out = StateTree::new(store, StateTreeVersion::V3)
+        .map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
 
     actors_in
         .for_each(|addr, state| {
@@ -111,20 +111,22 @@ pub fn migrate_state_tree<'db, BS: BlockStore>(
 
             Ok(())
         })
-        .map_err(MigrationError::MigrationJobCreate)?;
+        .map_err(|e| MigrationError::MigrationJobCreate(e.to_string()))?;
 
     task::block_on(async {
         while let Some(job_result) = jobs.next().await {
             let result = job_result?;
             actors_out
                 .set_actor(&result.address, result.actor_state)
-                .map_err(MigrationError::SetActorState)?;
+                .map_err(|e| MigrationError::SetActorState(e.to_string()))?;
         }
 
         Ok(())
     })?;
 
-    let root_cid = actors_out.flush().map_err(MigrationError::FlushFailed);
+    let root_cid = actors_out
+        .flush()
+        .map_err(|e| MigrationError::FlushFailed(e.to_string()));
 
     root_cid
 }

@@ -18,22 +18,23 @@ pub type MigrationResult<T> = Result<T, MigrationError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum MigrationError {
-    #[error("Failed creating job for state migration")]
-    MigrationJobCreate(Box<dyn StdError>),
+    // FIXME: use underlying concrete types when possible.
+    #[error("Failed creating job for state migration: {0}")]
+    MigrationJobCreate(String),
     #[error("Failed running job for state migration: {0}")]
     MigrationJobRun(String),
-    #[error("Flush failed post migration")]
-    FlushFailed(Box<dyn StdError>),
-    #[error("Failed writing to blockstore")]
-    BlockStoreWrite(Box<dyn StdError>),
-    #[error("Failed reading from blockstore")]
-    BlockStoreRead(Box<dyn StdError>),
+    #[error("Flush failed post migration: {0}")]
+    FlushFailed(String),
+    #[error("Failed writing to blockstore: {0}")]
+    BlockStoreWrite(String),
+    #[error("Failed reading from blockstore: {0}")]
+    BlockStoreRead(String),
     #[error("Migrator not found for cid: {0}")]
     MigratorNotFound(Cid),
-    #[error("Failed updating new actor state")]
-    SetActorState(Box<dyn StdError>),
+    #[error("Failed updating new actor state: {0}")]
+    SetActorState(String),
     #[error("State tree creation failed")]
-    StateTreeCreation(Box<dyn StdError>),
+    StateTreeCreation(String),
     #[error("Incomplete migration specification with {0} code CIDs")]
     IncompleteMigrationSpec(usize),
     #[error("Migration failed")]
