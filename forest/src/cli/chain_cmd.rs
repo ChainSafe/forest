@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::stringify_rpc_err;
-use base64;
 use cid::Cid;
 use rpc_client::{block, genesis, head, messages, read_obj};
 use structopt::StructOpt;

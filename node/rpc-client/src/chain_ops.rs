@@ -11,33 +11,29 @@ use message::unsigned_message::json::UnsignedMessageJson;
 pub async fn block(cid: Cid) -> Result<BlockHeaderJson, JsonRpcError> {
     filecoin_rpc::chain_get_block(CidJson(cid))
         .await
-        .map_err(|e| JsonRpcError::from(e))
+        .map_err(|e| e)
 }
 
 /// Returns genesis tipset from chain via RPC
 pub async fn genesis() -> Result<TipsetJson, JsonRpcError> {
-    filecoin_rpc::chain_get_genesis()
-        .await
-        .map_err(|e| JsonRpcError::from(e))
+    filecoin_rpc::chain_get_genesis().await.map_err(|e| e)
 }
 
 /// Returns canonical head of the chain via RPC
 pub async fn head() -> Result<TipsetJson, JsonRpcError> {
-    filecoin_rpc::chain_get_head()
-        .await
-        .map_err(|e| JsonRpcError::from(e))
+    filecoin_rpc::chain_get_head().await.map_err(|e| e)
 }
 
 /// Returns messages with specified CID from chain via RPC
 pub async fn messages(cid: Cid) -> Result<UnsignedMessageJson, JsonRpcError> {
     filecoin_rpc::chain_get_messages(CidJson(cid))
         .await
-        .map_err(|e| JsonRpcError::from(e))
+        .map_err(|e| e)
 }
 
 /// Returns IPLD node with specified CID from chain via RPC
 pub async fn read_obj(cid: Cid) -> Result<Vec<u8>, JsonRpcError> {
     filecoin_rpc::chain_read_obj(CidJson(cid))
         .await
-        .map_err(|e| JsonRpcError::from(e))
+        .map_err(|e| e)
 }

@@ -22,7 +22,7 @@ pub async fn call<R>(rpc_call: RequestObject) -> Result<R, JsonRpcError>
 where
     R: DeserializeOwned,
 {
-    let url = env::var(API_INFO_KEY).unwrap_or(DEFUALT_URL.to_owned());
+    let url = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFUALT_URL.to_owned());
 
     let mut http_res = surf::post(url)
         .body(surf::Body::from_json(&rpc_call)?)
@@ -66,7 +66,7 @@ pub mod filecoin_rpc {
     use jsonrpc_v2::Error as JsonRpcError;
     use message::unsigned_message::json::UnsignedMessageJson;
 
-    use crate::{call, call_method, call_params};
+    use crate::{call_method, call_params};
 
     pub async fn auth_new(perm: Vec<String>) -> Result<String, JsonRpcError> {
         call_params("Filecoin.AuthNew", perm).await
