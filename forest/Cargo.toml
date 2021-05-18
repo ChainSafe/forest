@@ -38,6 +38,7 @@ wallet = { package = "key_management", path = "../key_management" }
 uuid = { version = "0.8.2", features = ["v4"] }
 auth = { path = "../utils/auth" }
 net_utils = { path = "../utils/net_utils" }
+metrics = { path = "../utils/metrics" }
 actor = { package = "actor_interface", path = "../vm/actor_interface" }
 genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
@@ -45,6 +46,7 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 networks = { path = "../types/networks" }
 rpassword = "0.0.4"
 rayon = "1.5"
+prometheus =  { version = "0.12.0", default-features = false }
 
 [dependencies.jsonrpc-v2]
 version = "0.10.0"
