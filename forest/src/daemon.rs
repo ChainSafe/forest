@@ -38,9 +38,10 @@ pub(super) async fn start(config: Config) {
         .unwrap();
 
     // Configure the Rayon Threadpool
-    rayon::ThreadPoolBuilder::new().thread_name(|n| {
-        format!("rayon-thread-{}", n)
-    }).build_global().unwrap();
+    rayon::ThreadPoolBuilder::new()
+        .thread_name(|n| format!("rayon-thread-{}", n))
+        .build_global()
+        .unwrap();
 
     info!("Starting Forest daemon");
     let net_keypair = get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair"))

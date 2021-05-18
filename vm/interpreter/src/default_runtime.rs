@@ -988,34 +988,31 @@ where
         let cpus = num_cpus::get();
         // Create a local threadpool just for running verify seal in this epoch
         let batch_pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(cpus)
-        .thread_name(|id| {
-            format!("batch_verify_seal_{}", id)
-        })
-        .build()?;
+            .num_threads(cpus)
+            .thread_name(|id| format!("batch_verify_seal_{}", id))
+            .build()?;
 
         let out = batch_pool.scope(|_scope| {
-            vis
-            .par_iter()
-            .with_min_len(cpus)
-            .map(|(&addr, seals)| {
-                let results = seals
-                    .par_iter()
-                    .map(|s| {
-                        if let Err(err) = V::verify_seal(s) {
-                            debug!(
-                                "seal verify in batch failed (miner: {}) (err: {})",
-                                addr, err
-                            );
-                            false
-                        } else {
-                            true
-                        }
-                    })
-                    .collect();
-                (addr, results)
-            })
-            .collect()
+            vis.par_iter()
+                .with_min_len(cpus)
+                .map(|(&addr, seals)| {
+                    let results = seals
+                        .par_iter()
+                        .map(|s| {
+                            if let Err(err) = V::verify_seal(s) {
+                                debug!(
+                                    "seal verify in batch failed (miner: {}) (err: {})",
+                                    addr, err
+                                );
+                                false
+                            } else {
+                                true
+                            }
+                        })
+                        .collect();
+                    (addr, results)
+                })
+                .collect()
         });
         Ok(out)
     }
