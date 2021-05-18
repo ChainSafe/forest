@@ -41,6 +41,10 @@ use vm::{
     EMPTY_ARR_CID, METHOD_SEND,
 };
 
+lazy_static! {
+    static ref NUM_CPUS: usize = num_cpus::get();
+}
+
 /// Max runtime call depth
 const MAX_CALL_DEPTH: u64 = 4096;
 
@@ -985,16 +989,15 @@ where
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // Gas charged for batch verify in actor
 
-        let cpus = num_cpus::get();
         // Create a local threadpool just for running verify seal in this epoch
         let batch_pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(cpus)
+            .num_threads(*NUM_CPUS)
             .thread_name(|id| format!("batch_verify_seal_{}", id))
             .build()?;
 
         let out = batch_pool.scope(|_scope| {
             vis.par_iter()
-                .with_min_len(cpus)
+                .with_min_len(vis.len() / *NUM_CPUS)
                 .map(|(&addr, seals)| {
                     let results = seals
                         .par_iter()
