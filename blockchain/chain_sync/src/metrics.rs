@@ -1,3 +1,6 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use prometheus::{
     core::{AtomicU64, GenericCounter, GenericCounterVec, Opts},
     Error as PrometheusError, Histogram, HistogramOpts, Registry,
