@@ -29,6 +29,7 @@ chain = { path = "../blockchain/chain" }
 structopt = { version = "0.3" }
 beacon = { path = "../blockchain/beacon" }
 hex = "0.4.2"
+base64 = "0.13"
 rpc = { path = "../node/rpc" }
 rpc_client = { package = "rpc-client", path = "../node/rpc-client" }
 fil_types = "0.2"

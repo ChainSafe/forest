@@ -11,6 +11,7 @@ const DEFUALT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 
 #[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
 struct JsonRpcResponse<T> {
     pub jsonrpc: String,
     pub result: T,
@@ -31,10 +32,9 @@ where
         .await?;
 
     let result = http_res.body_string().await?;
-    println!("http response: {}", &result);
 
-    match serde_json::from_str(&result) {
-        Ok(r) => Ok(r),
+    match serde_json::from_str::<JsonRpcResponse<R>>(&result) {
+        Ok(r) => Ok(r.result),
         Err(e) => Err(jsonrpc_v2::Error::from(e)),
     }
 }
@@ -55,10 +55,9 @@ where
         .await?;
 
     let result = http_res.body_string().await?;
-    println!("http response: {}", &result);
 
-    match serde_json::from_str(&result) {
-        Ok(r) => Ok(r),
+    match serde_json::from_str::<JsonRpcResponse<R>>(&result) {
+        Ok(r) => Ok(r.result),
         Err(e) => Err(jsonrpc_v2::Error::from(e)),
     }
 }
@@ -84,8 +83,6 @@ pub mod filecoin_rpc {
     }
 
     pub async fn chain_get_head() -> Result<TipsetJson, JsonRpcError> {
-        println!("HELLO 3");
-
         call("Filecoin.ChainHead").await
     }
 

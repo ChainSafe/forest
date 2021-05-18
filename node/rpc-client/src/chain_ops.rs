@@ -23,7 +23,6 @@ pub async fn genesis() -> Result<TipsetJson, JsonRpcError> {
 
 /// Returns canonical head of the chain via RPC
 pub async fn head() -> Result<TipsetJson, JsonRpcError> {
-    println!("HELLO 2");
     filecoin_rpc::chain_get_head()
         .await
         .map_err(|e| JsonRpcError::from(e))

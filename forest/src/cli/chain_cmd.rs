@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::stringify_rpc_err;
+use base64;
 use cid::Cid;
 use rpc_client::{block, genesis, head, messages, read_obj};
 use structopt::StructOpt;
@@ -54,11 +55,18 @@ impl ChainCommands {
                 println!("{}", serde_json::to_string_pretty(&gen).unwrap());
             }
             Self::Head => {
-                println!("HELLO 1");
                 let canonical = head().await.map_err(stringify_rpc_err).unwrap();
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&canonical.0.cids()).unwrap()
+                    serde_json::to_string_pretty(
+                        &canonical
+                            .0
+                            .cids()
+                            .iter()
+                            .map(|cid: &Cid| base64::encode(&cid.to_bytes()))
+                            .collect::<Vec<String>>()
+                    )
+                    .unwrap()
                 );
             }
             Self::Message { cid } => {
