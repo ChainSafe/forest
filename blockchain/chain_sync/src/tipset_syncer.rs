@@ -502,8 +502,6 @@ where
         }
 
         // Drive underlying futures to completion
-
-        //
         loop {
             match self.state {
                 TipsetProcessorState::Idle => {
