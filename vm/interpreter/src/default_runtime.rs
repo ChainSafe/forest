@@ -984,11 +984,9 @@ where
         vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
         // Gas charged for batch verify in actor
-        dbg!(vis.len());
-        let avg = std::sync::atomic::AtomicUsize::new(0);
-        let max = std::sync::atomic::AtomicUsize::new(0);
-        let min = std::sync::atomic::AtomicUsize::new(1);
+
         let cpus = num_cpus::get();
+        // Create a local threadpool just for running verify seal in this epoch
         let batch_pool = rayon::ThreadPoolBuilder::new()
         .num_threads(cpus)
         .thread_name(|id| {
@@ -1001,9 +999,6 @@ where
             .par_iter()
             .with_min_len(cpus)
             .map(|(&addr, seals)| {
-                avg.fetch_add(seals.len(), std::sync::atomic::Ordering::Relaxed);
-                max.fetch_max(seals.len(), std::sync::atomic::Ordering::Relaxed);
-                min.fetch_min(seals.len(), std::sync::atomic::Ordering::Relaxed);
                 let results = seals
                     .par_iter()
                     .map(|s| {
@@ -1022,35 +1017,6 @@ where
             })
             .collect()
         });
-        // let out = vis
-        //     .par_iter()
-        //     .with_min_len(10)
-        //     .map(|(&addr, seals)| {
-        //         avg.fetch_add(seals.len(), std::sync::atomic::Ordering::Relaxed);
-        //         max.fetch_max(seals.len(), std::sync::atomic::Ordering::Relaxed);
-        //         min.fetch_min(seals.len(), std::sync::atomic::Ordering::Relaxed);
-        //         let results = seals
-        //             .par_iter()
-        //             .map(|s| {
-        //                 if let Err(err) = V::verify_seal(s) {
-        //                     debug!(
-        //                         "seal verify in batch failed (miner: {}) (err: {})",
-        //                         addr, err
-        //                     );
-        //                     false
-        //                 } else {
-        //                     true
-        //                 }
-        //             })
-        //             .collect();
-        //         (addr, results)
-        //     })
-        //     .collect();
-        if !vis.len().is_zero() {
-            dbg!(avg.into_inner()/vis.len()); // mean
-        }
-        dbg!(min); // min
-        dbg!(max); // max
         Ok(out)
     }
 }
