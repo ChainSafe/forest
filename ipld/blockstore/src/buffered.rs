@@ -10,14 +10,15 @@ use db::{Error, Store};
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::io::{Read, Seek};
-use std::{cell::RefCell, convert::TryFrom, io::Cursor};
+use std::{convert::TryFrom, io::Cursor};
+use std::borrow::Borrow;
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.
 #[derive(Debug)]
 pub struct BufferedBlockStore<'bs, BS> {
     base: &'bs BS,
-    write: RefCell<HashMap<Cid, Vec<u8>>>,
+    write: std::sync::Mutex<HashMap<Cid, Vec<u8>>>,
 }
 
 impl<'bs, BS> BufferedBlockStore<'bs, BS>
@@ -30,12 +31,17 @@ where
             write: Default::default(),
         }
     }
+
     /// Flushes the buffered cache based on the root node.
     /// This will recursively traverse the cache and write all data connected by links to this
     /// root Cid.
-    pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError>> {
+    pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError + '_>> {
         let mut buffer = Vec::new();
-        copy_rec(self.base, &self.write.borrow(), *root, &mut buffer)?;
+        {
+            // FIXME: we unwrap because of a lifetime issue.
+            let s = &mut *self.write.lock().unwrap();
+            copy_rec(self.base, s, *root, &mut buffer)?;
+        }
 
         self.base.bulk_write(&buffer)?;
         self.write = Default::default();
@@ -190,7 +196,8 @@ where
     BS: BlockStore,
 {
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        if let Some(data) = self.write.borrow().get(cid) {
+        let x = &*self.write.lock().unwrap();
+        if let Some(data) = x.get(cid) {
             return Ok(Some(data.clone()));
         }
 
@@ -199,7 +206,9 @@ where
 
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
         let cid = cid::new_from_cbor(&bytes, code);
-        self.write.borrow_mut().insert(cid, bytes);
+        let mut map = self.write.lock();
+        let map = map.as_deref_mut().unwrap();
+        map.insert(cid, bytes);
         Ok(cid)
     }
 }

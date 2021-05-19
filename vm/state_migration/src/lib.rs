@@ -11,6 +11,7 @@ use ipld_blockstore::BlockStore;
 use std::error::Error as StdError;
 use std::rc::Rc;
 use vm::{ActorState, TokenAmount};
+use async_std::sync::Arc;
 
 pub mod nv12;
 
@@ -57,22 +58,22 @@ pub(crate) struct MigrationOutput {
     new_head: Cid,
 }
 
-pub(crate) trait ActorMigration<'db, BS: BlockStore> {
+pub(crate) trait ActorMigration<BS: BlockStore> {
     fn migrate_state(
         &self,
-        store: &'db BS,
+        store: Arc<BS>,
         input: ActorMigrationInput,
     ) -> MigrationResult<MigrationOutput>;
 }
 
-struct MigrationJob<'db, BS: BlockStore> {
+struct MigrationJob<BS: BlockStore> {
     address: Address,
     actor_state: ActorState,
-    actor_migration: Rc<dyn ActorMigration<'db, BS>>,
+    actor_migration: Arc<dyn ActorMigration<BS>>,
 }
 
-impl<'db, BS: BlockStore> MigrationJob<'db, BS> {
-    fn run(&self, store: &'db BS, prior_epoch: ChainEpoch) -> MigrationResult<MigrationJobOutput> {
+impl<BS: BlockStore> MigrationJob<BS> {
+    fn run(&self, store: Arc<BS>, prior_epoch: ChainEpoch) -> MigrationResult<MigrationJobOutput> {
         let result = self
             .actor_migration
             .migrate_state(
@@ -113,17 +114,17 @@ struct MigrationJobOutput {
     actor_state: ActorState,
 }
 
-fn nil_migrator_v4<'db, BS: BlockStore>(cid: Cid) -> Rc<dyn ActorMigration<'db, BS>> {
-    Rc::new(NilMigrator(cid))
+fn nil_migrator_v4<BS: BlockStore>(cid: Cid) -> Arc<dyn ActorMigration<BS>> {
+    Arc::new(NilMigrator(cid))
 }
 
 // Migrator which preserves the head CID and provides a fixed result code CID.
 pub(crate) struct NilMigrator(Cid);
 
-impl<'db, BS: BlockStore> ActorMigration<'db, BS> for NilMigrator {
+impl<'db, BS: BlockStore> ActorMigration<BS> for NilMigrator {
     fn migrate_state(
         &self,
-        _store: &'db BS,
+        _store: Arc<BS>,
         input: ActorMigrationInput,
     ) -> MigrationResult<MigrationOutput> {
         Ok(MigrationOutput {

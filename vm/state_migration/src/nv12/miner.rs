@@ -12,17 +12,20 @@ use cid::Code::Blake2b256;
 use ipld_blockstore::BlockStore;
 use std::io::{Error, ErrorKind};
 use std::rc::Rc;
+use async_std::sync::Arc;
 
 pub(crate) struct MinerMigrator(Cid);
 
-pub(crate) fn miner_migrator_v4<'db, BS: BlockStore>(cid: Cid) -> Rc<dyn ActorMigration<'db, BS>> {
-    Rc::new(MinerMigrator(cid))
+pub(crate) fn miner_migrator_v4<'db, BS: BlockStore>(cid: Cid) -> Arc<dyn ActorMigration<BS>> {
+    Arc::new(MinerMigrator(cid))
 }
 
-impl<'db, BS: BlockStore> ActorMigration<'db, BS> for MinerMigrator {
+// each actor's state migration is read from blockstore, change state tree, and write back to the blocstore. 
+
+impl<'db, BS: BlockStore> ActorMigration<BS> for MinerMigrator {
     fn migrate_state(
         &self,
-        store: &'db BS,
+        store: Arc<BS>,
         input: ActorMigrationInput,
     ) -> MigrationResult<MigrationOutput> {
         let v3_state: Option<V3State> = store

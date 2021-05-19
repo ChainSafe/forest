@@ -173,14 +173,18 @@ where
     /// Flushes the StateTree and perform a state migration if there is a migration at this epoch.
     /// If there is no migration this function will return Ok(None).
     #[allow(unreachable_code, unused_variables)]
-    pub fn migrate_state(&mut self, epoch: ChainEpoch) -> Result<Option<Cid>, Box<dyn StdError>> {
+    pub fn migrate_state(
+        &mut self,
+        epoch: ChainEpoch,
+        arc_store: std::sync::Arc<impl BlockStore + Send + Sync>,
+    ) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
             x if x == UPGRADE_ACTORS_V4_HEIGHT => {
                 let start = std::time::Instant::now();
                 log::info!("Running actors_v4 state migration");
                 // need to flush since we run_cron before the migration
                 let prev_state = self.flush()?;
-                let new_state = nv12::migrate_state_tree(self.store, prev_state, epoch)?;
+                let new_state = nv12::migrate_state_tree(arc_store, prev_state, epoch)?;
                 if new_state != prev_state {
                     log::info!(
                         "actors_v4 state migration successful, took: {}ms",
@@ -202,6 +206,7 @@ where
         messages: &[BlockMessages],
         parent_epoch: ChainEpoch,
         epoch: ChainEpoch,
+        arc_store: std::sync::Arc<impl BlockStore + Send + Sync>,
         mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
@@ -211,7 +216,7 @@ where
             if i > parent_epoch {
                 self.run_cron(epoch, callback.as_mut())?;
             }
-            if let Some(new_state) = self.migrate_state(i)? {
+            if let Some(new_state) = self.migrate_state(i, arc_store.clone())? {
                 self.state = StateTree::new_from_root(self.store, &new_state)?
             }
             self.epoch = i + 1;
