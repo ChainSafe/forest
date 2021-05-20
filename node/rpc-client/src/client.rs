@@ -119,13 +119,12 @@ where
     };
 
     if let Some(why) = rpc_res.error {
-        Err(why.message.into())
-    } else {
-        rpc_res.result.map_or(
-            Err("Unknown Error: Server responded with neither a response nor an error".into()),
-            Ok,
-        )
+        return Err(why.message.into());
     }
+
+    rpc_res
+        .result
+        .ok_or("Unknown Error: Server responded with neither a response nor an error".into())
 }
 
 /// Call an RPC method without params
