@@ -19,7 +19,7 @@ fn build_msg_topic_config() -> TopicScoreParams {
         topic_weight: 0.1,
 
         // 1 tick per second, maxes at 1 after 1 hour
-        time_in_mesh_weight: 0.00027,
+        time_in_mesh_weight: 0.0002778,
         time_in_mesh_quantum: Duration::from_secs(1),
         time_in_mesh_cap: 1.0,
 
@@ -41,13 +41,13 @@ fn build_block_topic_config() -> TopicScoreParams {
         topic_weight: 0.1,
 
         // 1 tick per second, maxes at 1 hours (-1/3600)
-        time_in_mesh_weight: 0.0002778,
+        time_in_mesh_weight: 0.00027,
         time_in_mesh_quantum: Duration::from_secs(1),
         time_in_mesh_cap: 1.0,
 
         // deliveries decay after 10min, cap at 100 tx
-        first_message_deliveries_weight: 0.5,
-        first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(10 * 60)), // 10mins
+        first_message_deliveries_weight: 5.0,
+        first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)), 
         // 100 messages in 10 minutes
         first_message_deliveries_cap: 100.0,
         // invalid messages decay after 1 hour
