@@ -118,14 +118,13 @@ where
         }
     };
 
-    match rpc_res.error {
-        Some(e) => Err(e.message.into()),
-        None => match rpc_res.result {
-            Some(r) => Ok(r),
-            None => {
-                Err("Unknown Error: Server responded with neither a response nor an error".into())
-            }
-        },
+    if let Some(why) = rpc_res.error {
+        Err(why.message.into())
+    } else {
+        rpc_res.result.map_or(
+            Err("Unknown Error: Server responded with neither a response nor an error".into()),
+            Ok,
+        )
     }
 }
 
