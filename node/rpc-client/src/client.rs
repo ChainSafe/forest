@@ -137,7 +137,7 @@ where
         .with_method(method_name)
         .finish();
 
-    call(rpc_req).await.map_err(|e| e.into())
+    call(rpc_req).await.map_err(|e| e)
 }
 
 /// Call an RPC method with params
