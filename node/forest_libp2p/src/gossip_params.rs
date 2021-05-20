@@ -24,7 +24,7 @@ fn build_msg_topic_config() -> TopicScoreParams {
         time_in_mesh_cap: 1.0,
 
         // deliveries decay after 10min, cap at 100 tx
-        first_message_deliveries_weight: 5.0,
+        first_message_deliveries_weight: 0.5,
         first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(10 * 60)), // 10mins
         // 100 blocks in an hour
         first_message_deliveries_cap: 100.0,
@@ -45,10 +45,10 @@ fn build_block_topic_config() -> TopicScoreParams {
         time_in_mesh_quantum: Duration::from_secs(1),
         time_in_mesh_cap: 1.0,
 
-        // deliveries decay after 10min, cap at 100 tx
+        // deliveries decay after 10min, cap at 100 blocks
         first_message_deliveries_weight: 5.0,
         first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)), 
-        // 100 messages in 10 minutes
+        // 100 blocks in 10 minutes
         first_message_deliveries_cap: 100.0,
         // invalid messages decay after 1 hour
         invalid_message_deliveries_weight: -1000.0,
