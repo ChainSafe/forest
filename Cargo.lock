@@ -4888,7 +4888,7 @@ dependencies = [
  "fnv",
  "lazy_static",
  "memchr",
- "parking_lot 0.11.1",
+ "parking_lot",
  "thiserror",
 ]
 
