@@ -6,6 +6,7 @@ use crate::{
         ChainExchangeCodec, ChainExchangeProtocolName, ChainExchangeRequest, ChainExchangeResponse,
     },
     discovery::DiscoveryOut,
+    gossip_params::{build_peer_score_params, build_peer_score_threshold},
     rpc::RequestResponseError,
 };
 use crate::{config::Libp2pConfig, discovery::DiscoveryBehaviour};
@@ -426,14 +427,19 @@ impl ForestBehaviour {
         gs_config_builder.validation_mode(ValidationMode::Strict);
 
         let gossipsub_config = gs_config_builder.build().unwrap();
-        let gossipsub = Gossipsub::new(
+        let mut gossipsub = Gossipsub::new(
             MessageAuthenticity::Signed(local_key.clone()),
             gossipsub_config,
         )
         .unwrap();
 
         // TODO: Figure out why this delays incoming blocks. See gossip_params.rs for the params settings.
-        // gossipsub.with_peer_score(build_peer_score_params(network_name), build_peer_score_threshold()).unwrap();
+        gossipsub
+            .with_peer_score(
+                build_peer_score_params(network_name),
+                build_peer_score_threshold(),
+            )
+            .unwrap();
 
         let bitswap = Bitswap::new();
 
