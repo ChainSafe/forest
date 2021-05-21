@@ -15,10 +15,11 @@ use crate::{
     hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse},
 };
 use forest_cid::Cid;
+use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
-use libp2p::core::PeerId;
+use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
 use libp2p::gossipsub::{
     error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
     GossipsubEvent, IdentTopic as Topic, MessageAuthenticity, MessageId, TopicHash, ValidationMode,
@@ -422,9 +423,14 @@ impl ForestBehaviour {
     }
 
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
+        let msg_id_fn = |msg: &GossipsubMessage| {
+            let s = blake2b_256(&msg.data);
+            MessageId::from(s)
+        };
         let mut gs_config_builder = GossipsubConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
+        gs_config_builder.message_id_fn(msg_id_fn);
 
         let gossipsub_config = gs_config_builder.build().unwrap();
         let mut gossipsub = Gossipsub::new(
