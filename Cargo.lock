@@ -2076,6 +2076,7 @@ dependencies = [
  "paramfetch",
  "pretty_env_logger",
  "prometheus",
+ "rayon",
  "rpassword",
  "rpc",
  "rpc-client",
@@ -3137,6 +3138,7 @@ dependencies = [
  "log",
  "networks",
  "num-traits",
+ "num_cpus",
  "rayon",
  "state_tree",
 ]
