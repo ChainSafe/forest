@@ -28,10 +28,20 @@ fn build_msg_topic_config() -> TopicScoreParams {
         first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(10 * 60)), // 10mins
         // 100 blocks in an hour
         first_message_deliveries_cap: 100.0,
+
+        // Set to 0 because disabled for FIlecoin
+        mesh_message_deliveries_weight: 0.0,
+        mesh_message_deliveries_decay: 0.0,
+        mesh_message_deliveries_cap: 0.0,
+        mesh_message_deliveries_threshold: 0.0,
+        mesh_message_deliveries_window: Duration::from_millis(0),
+        mesh_message_deliveries_activation: Duration::from_millis(0),
+        mesh_failure_penalty_weight: 0.0,
+        mesh_failure_penalty_decay: 0.0,
+
         // invalid messages decay after 1 hour
         invalid_message_deliveries_weight: -1000.0,
         invalid_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)),
-        ..Default::default()
     }
 }
 
@@ -50,10 +60,21 @@ fn build_block_topic_config() -> TopicScoreParams {
         first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)), 
         // 100 blocks in 10 minutes
         first_message_deliveries_cap: 100.0,
+
+
+        // Set to 0 because disabled for FIlecoin
+        mesh_message_deliveries_weight: 0.0,
+        mesh_message_deliveries_decay: 0.0,
+        mesh_message_deliveries_cap: 0.0,
+        mesh_message_deliveries_threshold: 0.0,
+        mesh_message_deliveries_window:  Duration::from_millis(0),
+        mesh_message_deliveries_activation: Duration::from_millis(0),
+        mesh_failure_penalty_weight: 0.0,
+        mesh_failure_penalty_decay: 0.0,
+
         // invalid messages decay after 1 hour
         invalid_message_deliveries_weight: -1000.0,
         invalid_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)),
-        ..Default::default()
     }
 }
 
