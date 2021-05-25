@@ -94,14 +94,19 @@ pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
 
         ip_colocation_factor_threshold: 5.0,
         ip_colocation_factor_weight: -100.0,
+        ip_colocation_factor_whitelist: Default::default(),
 
         behaviour_penalty_threshold: 6.0,
         behaviour_penalty_weight: -10.0,
         behaviour_penalty_decay: score_parameter_decay(Duration::from_secs(60 * 60)),
 
+        decay_interval: Duration::from_secs(1),
+        decay_to_zero: 0.01,
+
+        topic_score_cap: 0.0,
+
         retain_score: Duration::from_secs(6 * 60 * 60),
         topics: psp_topics,
-        ..Default::default()
     }
 }
 
