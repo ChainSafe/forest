@@ -22,7 +22,7 @@ use forest_ipld::Ipld;
 use futures::{AsyncRead, AsyncWrite};
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
-use ipld_blockstore::{BlockStore, BufferedBlockStore};
+use ipld_blockstore::BlockStore;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
