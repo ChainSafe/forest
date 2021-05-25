@@ -57,17 +57,16 @@ fn build_block_topic_config() -> TopicScoreParams {
 
         // deliveries decay after 10min, cap at 100 blocks
         first_message_deliveries_weight: 5.0,
-        first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)), 
+        first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(60 * 60)),
         // 100 blocks in 10 minutes
         first_message_deliveries_cap: 100.0,
-
 
         // Set to 0 because disabled for FIlecoin
         mesh_message_deliveries_weight: 0.0,
         mesh_message_deliveries_decay: 0.0,
         mesh_message_deliveries_cap: 0.0,
         mesh_message_deliveries_threshold: 0.0,
-        mesh_message_deliveries_window:  Duration::from_millis(0),
+        mesh_message_deliveries_window: Duration::from_millis(0),
         mesh_message_deliveries_activation: Duration::from_millis(0),
         mesh_failure_penalty_weight: 0.0,
         mesh_failure_penalty_decay: 0.0,
