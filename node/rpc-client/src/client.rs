@@ -122,9 +122,9 @@ where
         return Err(why.message.into());
     }
 
-    rpc_res
-        .result
-        .ok_or("Unknown Error: Server responded with neither a response nor an error".into())
+    rpc_res.result.ok_or_else(|| {
+        "Unknown Error: Server responded with neither a response nor an error".into()
+    })
 }
 
 /// Call an RPC method without params
