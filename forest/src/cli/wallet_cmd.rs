@@ -29,7 +29,12 @@ pub enum WalletCommands {
         key: String,
     },
     #[structopt(about = "import keys from existing wallet")]
-    Import,
+    Import {
+        #[structopt(short, help = "specify input format for key (default: hex-lotus)")]
+        format: String,
+        #[structopt(short, help = "import the given key as your new default key")]
+        as_default: bool,
+    },
     #[structopt(about = "List addresses of the wallet")]
     List,
     #[structopt(about = "Set the defualt wallet address")]
@@ -97,7 +102,10 @@ impl WalletCommands {
                     .unwrap();
                 println!("{}", response);
             }
-            Self::Import => {}
+            Self::Import { format, as_default } => {
+                println!("format: {}", format);
+                println!("as default: {}", as_default);
+            }
             Self::List => {
                 let response = wallet_ops::wallet_list(&mut client)
                     .await
