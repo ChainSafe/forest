@@ -30,7 +30,11 @@ pub enum WalletCommands {
     },
     #[structopt(about = "import keys from existing wallet")]
     Import {
-        #[structopt(short, help = "specify input format for key (default: hex-lotus)")]
+        #[structopt(
+            short,
+            default_value = "hex-lotus",
+            help = "specify input format for key"
+        )]
         format: String,
         #[structopt(short, help = "import the given key as your new default key")]
         as_default: bool,
