@@ -13,11 +13,12 @@ pub enum WalletCommands {
     New {
         #[structopt(
             short,
-            help = "The signature type to use. One of Secp256k1, or BLS. Defaults to BLS"
+            default_value = "bls",
+            help = "The signature type to use. One of Secp256k1, or bls"
         )]
         signature_type: String,
     },
-    #[structopt(about = "Create a new wallet")]
+    #[structopt(about = "Get account balance")]
     Balance,
     #[structopt(about = "Get the default address of the wallet")]
     Default,
@@ -64,7 +65,7 @@ impl WalletCommands {
 
         match self {
             Self::New { signature_type } => {
-                let signature_type = match signature_type.as_str() {
+                let signature_type = match signature_type.to_lowercase().as_str() {
                     "secp256k1" => SignatureType::Secp256k1,
                     _ => SignatureType::BLS,
                 };
