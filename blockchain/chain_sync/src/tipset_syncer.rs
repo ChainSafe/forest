@@ -956,6 +956,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     Ok(parent_tipsets)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn sync_tipset<
     DB: BlockStore + Sync + Send + 'static,
     TBeacon: Beacon + Sync + Send + 'static,

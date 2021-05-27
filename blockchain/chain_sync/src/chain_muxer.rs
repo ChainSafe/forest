@@ -364,6 +364,7 @@ where
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn process_gossipsub_event(
         metrics: Metrics,
         event: NetworkEvent,
