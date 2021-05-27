@@ -1,0 +1,26 @@
+# Docker compose file to start the metrics and monitoring stack for a local Forest node
+#
+# # Processes
+# - Prometheus server
+# - Grafana server
+
+version: "3.7"
+services:
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    depends_on:
+      - prometheus
+    ports:
+      - 3001:3000
+    volumes:
+      - ./grafana/provisioning/:/etc/grafana/provisioning
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboard-definitions
+    restart: always
