@@ -20,7 +20,6 @@ pub enum AuthCommands {
 
 impl AuthCommands {
     pub async fn run(&self) {
-        // TODO handle cli config
         match self {
             Self::CreateToken { perm } => {
                 let perm: String = perm.parse().unwrap();

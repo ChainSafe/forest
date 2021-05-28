@@ -2047,7 +2047,6 @@ dependencies = [
  "async-log",
  "async-std",
  "auth",
- "base64 0.13.0",
  "beacon",
  "chain",
  "chain_sync",

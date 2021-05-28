@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::{Error, Id, RequestObject};
-use log::{error, info};
+use log::{debug, error};
 use parity_multiaddr::{Multiaddr, Protocol};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -96,7 +96,7 @@ fn multiaddress_to_url(ma_str: String) -> String {
         "{}://{}:{}/{}",
         addr.protocol, addr.host, addr.port, RPC_ENDPOINT
     );
-    info!("Using JSON-RPC v2 HTTP URL: {}", url);
+    debug!("Using JSON-RPC v2 HTTP URL: {}", url);
     url
 }
 

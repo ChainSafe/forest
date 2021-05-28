@@ -42,7 +42,6 @@ pub enum ChainCommands {
 
 impl ChainCommands {
     pub async fn run(&self) {
-        // TODO handle cli config
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
@@ -63,7 +62,7 @@ impl ChainCommands {
                             .cids()
                             .iter()
                             .map(|cid: &Cid| cid.to_string())
-                            .collect::<Vec<String>>()
+                            .collect::<Vec<_>>()
                     )
                     .unwrap()
                 );
