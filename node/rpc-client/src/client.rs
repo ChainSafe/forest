@@ -44,7 +44,7 @@ struct URL {
     host: String,
 }
 
-/// Parses an ip4 multiaddress into an HTTP URL
+/// Parses a multiaddress into a URL
 fn multiaddress_to_url(ma_str: String) -> String {
     // Parse Multiaddress string
     let ma: Multiaddr = ma_str.parse().expect("Parse multiaddress");
