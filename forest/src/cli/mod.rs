@@ -68,11 +68,11 @@ pub struct DaemonOpts {
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "The port used for communication")]
     pub port: Option<String>,
-    #[structopt(short, long, help = "Port used for metrics collection server")]
+    #[structopt(long, help = "Port used for metrics collection server")]
     pub metrics_port: Option<u16>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
     pub kademlia: Option<bool>,
-    #[structopt(short, long, help = "Allow MDNS (default = false)")]
+    #[structopt(long, help = "Allow MDNS (default = false)")]
     pub mdns: Option<bool>,
     #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
     pub import_snapshot: Option<String>,
