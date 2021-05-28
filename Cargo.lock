@@ -5384,7 +5384,7 @@ dependencies = [
  "jsonrpc-v2",
  "key_management",
  "log",
- "regex",
+ "parity-multiaddr",
  "serde",
  "serde_json",
  "surf",

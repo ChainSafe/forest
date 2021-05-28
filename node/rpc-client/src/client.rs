@@ -3,7 +3,7 @@
 
 use jsonrpc_v2::{Error, Id, RequestObject};
 use log::{error, info};
-use regex::Regex;
+use parity_multiaddr::{Multiaddr, Protocol};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
@@ -11,6 +11,9 @@ use std::{env, fmt};
 
 const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
 const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
+const DEFAULT_PROTOCOL: &str = "http";
+const DEFAULT_HOST: &str = "127.0.0.1";
+const DEFAULT_PORT: &str = "1234";
 const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 const RPC_ENDPOINT: &str = "rpc/v0";
 
@@ -35,37 +38,64 @@ struct JsonRpcResponse<T> {
     pub id: Option<Id>,
 }
 
+struct URL {
+    protocol: String,
+    port: String,
+    host: String,
+}
+
 /// Parses an ip4 multiaddress into an HTTP URL
 fn multiaddress_to_url(ma_str: String) -> String {
-    // Example haystack: "/ip4/127.0.0.1/tcp/1234/http"
-    let regex = Regex::new(r"/ip4/(?P<protocol>.*)/tcp/(?P<host>.*)/(?P<port>.*)").unwrap();
+    // Parse Multiaddress string
+    let ma: Multiaddr = ma_str.parse().expect("Parse multiaddress");
 
-    // Parse multiaddress using regex named captures.
-    // If the regex cannot match, log an error and return the default URL.
-    let url = match regex.captures(&ma_str) {
-        Some(segments) => {
-            let protocol = segments.name("protocol").unwrap().as_str();
-            let host = segments.name("host").unwrap().as_str();
-            let port = segments.name("port").unwrap().as_str();
-            let path = RPC_ENDPOINT;
-            format!(
-                "{protocol}://{host}:{port}/{path}",
-                protocol = protocol,
-                host = host,
-                port = port,
-                path = path
-            )
-        }
-        None => {
-            error!(
-                "Parse Error: {} could not be parsed as a ip4 multiaddress",
-                ma_str
-            );
-            DEFAULT_URL.to_owned()
-        }
-    };
+    // Fold Multiaddress into a URL struct
+    let addr = ma.into_iter().fold(
+        URL {
+            protocol: DEFAULT_PROTOCOL.to_owned(),
+            port: DEFAULT_PORT.to_owned(),
+            host: DEFAULT_HOST.to_owned(),
+        },
+        |mut addr, protocol| {
+            match protocol {
+                Protocol::Ip6(ip) => {
+                    addr.host = ip.to_string();
+                }
+                Protocol::Ip4(ip) => {
+                    addr.host = ip.to_string();
+                }
+                Protocol::Dns(dns) => {
+                    addr.host = dns.to_string();
+                }
+                Protocol::Dns4(dns) => {
+                    addr.host = dns.to_string();
+                }
+                Protocol::Dns6(dns) => {
+                    addr.host = dns.to_string();
+                }
+                Protocol::Dnsaddr(dns) => {
+                    addr.host = dns.to_string();
+                }
+                Protocol::Tcp(p) => {
+                    addr.port = p.to_string();
+                }
+                Protocol::Http => {
+                    addr.protocol = "http".to_string();
+                }
+                Protocol::Https => {
+                    addr.protocol = "https".to_string();
+                }
+                _ => {}
+            };
+            addr
+        },
+    );
 
-    // Print and return the URL
+    // Format, print and return the URL
+    let url = format!(
+        "{}://{}:{}/{}",
+        addr.protocol, addr.host, addr.port, RPC_ENDPOINT
+    );
     info!("Using JSON-RPC v2 HTTP URL: {}", url);
     url
 }
@@ -79,17 +109,10 @@ where
     let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
 
     // Input sanity checks
-    if !api_info.starts_with("/ip4/") {
+    if api_info.matches(':').count() > 1 {
         return Err(jsonrpc_v2::Error::from(format!(
-            "Only IPv4 addresses are currently supported values for the {} environment variable",
-            API_INFO_KEY,
-        )));
-    }
-
-    if api_info.split(':').count() > 1 {
-        return Err(jsonrpc_v2::Error::from(format!(
-            "Improperly formatted multiaddress value provided for the {} environment variable",
-            API_INFO_KEY,
+            "Improperly formatted multiaddress value provided for the {} environment variable. Value was: {}",
+            API_INFO_KEY, api_info,
         )));
     }
 
