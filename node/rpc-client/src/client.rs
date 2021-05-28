@@ -206,6 +206,6 @@ pub mod filecoin_rpc {
     }
 
     pub async fn chain_read_obj(cid: CidJson) -> Result<Vec<u8>, Error> {
-        call_params("Filecoin.ChainGetObj", cid).await
+        call_params("Filecoin.ChainReadObj", cid).await
     }
 }
