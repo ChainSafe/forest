@@ -6,7 +6,7 @@ use log::{error, info};
 use regex::Regex;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use serde_json::Value;
+use serde::Serialize;
 use std::{env, fmt};
 
 const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
@@ -142,12 +142,12 @@ where
 /// Call an RPC method with params
 pub async fn call_params<P, R>(method_name: &str, params: P) -> Result<R, Error>
 where
-    P: Into<Value>,
+    P: Serialize,
     R: DeserializeOwned,
 {
     let rpc_req = jsonrpc_v2::RequestObject::request()
         .with_method(method_name)
-        .with_params(params)
+        .with_params(serde_json::to_value(vec![params])?)
         .finish();
 
     call(rpc_req).await.map_err(|e| e)
@@ -162,12 +162,12 @@ pub mod filecoin_rpc {
 
     use crate::{call_method, call_params};
 
-    pub async fn auth_new(perm: Vec<String>) -> Result<String, Error> {
+    pub async fn auth_new(perm: Vec<String>) -> Result<Vec<u8>, Error> {
         call_params("Filecoin.AuthNew", perm).await
     }
 
     pub async fn chain_get_block(cid: CidJson) -> Result<BlockHeaderJson, Error> {
-        call_params("Filecoin.ChainGetBlock", serde_json::to_string(&cid)?).await
+        call_params("Filecoin.ChainGetBlock", cid).await
     }
 
     pub async fn chain_get_genesis() -> Result<TipsetJson, Error> {
@@ -179,10 +179,10 @@ pub mod filecoin_rpc {
     }
 
     pub async fn chain_get_messages(cid: CidJson) -> Result<UnsignedMessageJson, Error> {
-        call_params("Filecoin.ChainGetMessage", serde_json::to_string(&cid)?).await
+        call_params("Filecoin.ChainGetMessage", cid).await
     }
 
     pub async fn chain_read_obj(cid: CidJson) -> Result<Vec<u8>, Error> {
-        call_params("Filecoin.ChainGetObj", serde_json::to_string(&cid)?).await
+        call_params("Filecoin.ChainGetObj", cid).await
     }
 }

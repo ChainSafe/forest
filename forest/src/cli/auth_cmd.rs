@@ -25,7 +25,7 @@ impl AuthCommands {
             Self::CreateToken { perm } => {
                 let perm: String = perm.parse().unwrap();
                 let obj = auth_new(perm).await.map_err(stringify_rpc_err).unwrap();
-                println!("{}", serde_json::to_string_pretty(&obj).unwrap());
+                println!("{}", &obj);
             }
         }
     }
