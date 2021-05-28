@@ -5,10 +5,11 @@
 #![allow(unused_variables, dead_code)]
 
 use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
-use cid::json::CidJson;
+use cid::json::{vec::CidJsonVec, CidJson};
 use jsonrpsee::raw::RawClient;
 use jsonrpsee::transport::http::HttpTransportClient;
 use message::unsigned_message::json::UnsignedMessageJson;
+use message::SignedMessage;
 
 jsonrpsee::rpc_api! {
     pub Filecoin {
@@ -30,6 +31,9 @@ jsonrpsee::rpc_api! {
 
         #[rpc(method = "Filecoin.ChainGetObj", positional_params)]
         fn chain_read_obj(cid: CidJson) -> Vec<u8>;
+        /// Mem pool
+        #[rpc(method = "Filecoin.MpoolPending")]
+        fn mpool_pending(cid: CidJsonVec) -> Vec<SignedMessage>;
     }
 }
 
