@@ -1,13 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use jsonrpc_v2::{Error, Id, RequestObject};
+use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use log::{debug, error};
 use parity_multiaddr::{Multiaddr, Protocol};
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
-use serde::Serialize;
-use std::{env, fmt};
+use serde::{Deserialize, Serialize};
+use std::env;
 
 const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
 const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
@@ -19,23 +18,24 @@ const RPC_ENDPOINT: &str = "rpc/v0";
 
 /// Error object in a response
 #[derive(Deserialize)]
-struct JsonRpcError {
+pub struct JsonRpcError {
     pub code: i64,
     pub message: String,
 }
 
-impl fmt::Display for JsonRpcError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Error ({}): {}", self.code, self.message)
-    }
-}
-
 #[derive(Deserialize)]
-struct JsonRpcResponse<T> {
-    pub jsonrpc: String,
-    pub result: Option<T>,
-    pub error: Option<JsonRpcError>,
-    pub id: Option<Id>,
+#[serde(untagged)]
+pub enum JsonRpcResponse<R> {
+    Result {
+        jsonrpc: V2,
+        result: R,
+        id: Id,
+    },
+    Error {
+        jsonrpc: V2,
+        error: JsonRpcError,
+        id: Id,
+    },
 }
 
 struct URL {
@@ -141,13 +141,12 @@ where
         }
     };
 
-    if let Some(why) = rpc_res.error {
-        return Err(why.message.into());
+    match rpc_res {
+        JsonRpcResponse::Result { result, .. } => Ok(result),
+        JsonRpcResponse::Error { error, .. } => {
+            return Err(error.message.into());
+        }
     }
-
-    rpc_res.result.ok_or_else(|| {
-        "Unknown Error: Server responded with neither a response nor an error".into()
-    })
 }
 
 /// Call an RPC method without params
