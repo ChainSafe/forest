@@ -5375,6 +5375,12 @@ dependencies = [
 name = "rpc-api"
 version = "0.1.0"
 dependencies = [
+ "beacon",
+ "chain",
+ "fil_clock",
+ "forest_blocks",
+ "forest_cid",
+ "forest_message",
  "once_cell",
 ]
 

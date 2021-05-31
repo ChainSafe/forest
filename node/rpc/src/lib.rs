@@ -52,41 +52,64 @@ where
             .with_data(Data(state))
             // Auth API
             .with_method(rpc_api::auth_new::AUTH_NEW, auth_new::<DB, B>)
-            .with_method("Filecoin.AuthVerify", auth_verify::<DB, B>)
+            .with_method(rpc_api::auth_verify::AUTH_VERIFY, auth_verify::<DB, B>)
+            // Beacon API
+            .with_method(
+                rpc_api::beacon_get_entry::BEACON_GET_ENTRY,
+                beacon_get_entry::<DB, B>,
+            )
             // Chain API
             .with_method(
-                "Filecoin.ChainGetMessage",
+                rpc_api::chain_get_message::CHAIN_GET_MESSAGE,
                 chain_api::chain_get_message::<DB, B>,
             )
-            .with_method("Filecoin.ChainReadObj", chain_read_obj::<DB, B>)
-            .with_method("Filecoin.ChainHasObj", chain_has_obj::<DB, B>)
             .with_method(
-                "Filecoin.ChainGetBlockMessages",
-                chain_block_messages::<DB, B>,
+                rpc_api::chain_read_obj::CHAIN_READ_OBJ,
+                chain_read_obj::<DB, B>,
             )
             .with_method(
-                "Filecoin.ChainGetTipsetByHeight",
+                rpc_api::chain_has_obj::CHAIN_HAS_OBJ,
+                chain_has_obj::<DB, B>,
+            )
+            .with_method(
+                rpc_api::chain_get_block_messages::CHAIN_GET_BLOCK_MESSAGES,
+                chain_get_block_messages::<DB, B>,
+            )
+            .with_method(
+                rpc_api::chain_get_tipset_by_height::CHAIN_GET_TIPSET_BY_HEIGHT,
                 chain_get_tipset_by_height::<DB, B>,
             )
-            .with_method("Filecoin.ChainGetGenesis", chain_get_genesis::<DB, B>)
-            .with_method("Filecoin.ChainTipSetWeight", chain_tipset_weight::<DB, B>)
-            .with_method("Filecoin.ChainGetTipSet", chain_get_tipset::<DB, B>)
-            .with_method("Filecoin.ChainHeadSubscription", chain_head_sub::<DB, B>)
-            .with_method("Filecoin.ChainNotify", chain_notify::<DB, B>)
             .with_method(
-                "Filecoin.ChainGetRandomnessFromTickets",
+                rpc_api::chain_get_genesis::CHAIN_GET_GENESIS,
+                chain_get_genesis::<DB, B>,
+            )
+            .with_method(
+                rpc_api::chain_tipset_weight::CHAIN_TIPSET_WEIGHT,
+                chain_tipset_weight::<DB, B>,
+            )
+            .with_method(
+                rpc_api::chain_get_tipset::CHAIN_GET_TIPSET,
+                chain_get_tipset::<DB, B>,
+            )
+            .with_method(rpc_api::chain_head::CHAIN_HEAD, chain_head::<DB, B>)
+            .with_method(
+                rpc_api::chain_head_subscription::CHAIN_HEAD_SUBSCRIPTION,
+                chain_head_subscription::<DB, B>,
+            )
+            // * Filecoin.ChainNotify is handled specifically in middleware for streaming
+            .with_method(rpc_api::chain_notify::CHAIN_NOTIFY, chain_notify::<DB, B>)
+            .with_method(
+                rpc_api::chain_get_randomness_from_tickets::CHAIN_GET_RANDOMNESS_FROM_TICKETS,
                 chain_get_randomness_from_tickets::<DB, B>,
             )
             .with_method(
-                "Filecoin.ChainGetRandomnessFromBeacon",
+                rpc_api::chain_get_randomness_from_beacon::CHAIN_GET_RANDOMNESS_FROM_BEACON,
                 chain_get_randomness_from_beacon::<DB, B>,
             )
             .with_method(
-                "Filecoin.ChainGetBlock",
+                rpc_api::chain_get_block::CHAIN_GET_BLOCK,
                 chain_api::chain_get_block::<DB, B>,
             )
-            // * Filecoin.ChainNotify is handled specifically in middleware for streaming
-            .with_method("Filecoin.ChainHead", chain_head::<DB, B>)
             // Message Pool API
             .with_method(
                 "Filecoin.MpoolEstimateGasPrice",
@@ -191,11 +214,9 @@ where
                 "Filecoin.GasEstimateMessageGas",
                 gas_estimate_message_gas::<DB, B, V>,
             )
-            // Common
+            // Common API
             .with_method("Filecoin.Version", version)
-            // Beacon
-            .with_method("Filecoin.BeaconGetEntry", beacon_get_entry::<DB, B>)
-            // Net
+            // Net API
             .with_method(
                 "Filecoin.NetAddrsListen",
                 net_api::net_addrs_listen::<DB, B>,

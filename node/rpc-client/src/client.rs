@@ -170,7 +170,7 @@ where
 {
     let rpc_req = jsonrpc_v2::RequestObject::request()
         .with_method(method_name)
-        .with_params(serde_json::to_value(vec![params])?)
+        .with_params(serde_json::to_value(params)?)
         .finish();
 
     call(rpc_req).await.map_err(|e| e)
@@ -178,10 +178,7 @@ where
 
 /// Filecoin RPC client interface methods
 pub mod filecoin_rpc {
-    use blocks::{header::json::BlockHeaderJson, tipset_json::TipsetJson};
-    use cid::json::CidJson;
     use jsonrpc_v2::Error;
-    use message::unsigned_message::json::UnsignedMessageJson;
 
     use crate::{call_method, call_params};
 
@@ -191,23 +188,30 @@ pub mod filecoin_rpc {
         call_params(rpc_api::auth_new::AUTH_NEW, perm).await
     }
 
-    pub async fn chain_get_block(cid: CidJson) -> Result<BlockHeaderJson, Error> {
+    pub async fn chain_get_block(
+        cid: rpc_api::chain_get_block::ChainGetBlockParams,
+    ) -> Result<rpc_api::chain_get_block::ChainGetBlockResult, Error> {
         call_params("Filecoin.ChainGetBlock", cid).await
     }
 
-    pub async fn chain_get_genesis() -> Result<TipsetJson, Error> {
+    pub async fn chain_get_genesis(
+    ) -> Result<rpc_api::chain_get_genesis::ChainGetGenesisResult, Error> {
         call_method("Filecoin.ChainGetGenesis").await
     }
 
-    pub async fn chain_get_head() -> Result<TipsetJson, Error> {
+    pub async fn chain_head() -> Result<rpc_api::chain_head::ChainHeadResult, Error> {
         call_method("Filecoin.ChainHead").await
     }
 
-    pub async fn chain_get_messages(cid: CidJson) -> Result<UnsignedMessageJson, Error> {
+    pub async fn chain_get_message(
+        cid: rpc_api::chain_get_message::ChainGetMessageParams,
+    ) -> Result<rpc_api::chain_get_message::ChainGetMessageResult, Error> {
         call_params("Filecoin.ChainGetMessage", cid).await
     }
 
-    pub async fn chain_read_obj(cid: CidJson) -> Result<Vec<u8>, Error> {
+    pub async fn chain_read_obj(
+        cid: rpc_api::chain_read_obj::ChainReadObjParams,
+    ) -> Result<rpc_api::chain_read_obj::ChainReadObjResult, Error> {
         call_params("Filecoin.ChainReadObj", cid).await
     }
 }

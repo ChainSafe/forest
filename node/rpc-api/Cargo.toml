@@ -5,4 +5,12 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+# Public
 once_cell = "1.7.2"
+# Internal
+beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
+chain = { path = "../../blockchain/chain", features = ["json"] }
+cid = { package = "forest_cid", version = "0.3", features = ["json"] }
+clock = { package = "fil_clock", path = "../clock" }
+message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }

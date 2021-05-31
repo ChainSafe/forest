@@ -9,15 +9,13 @@ use serde::Serialize;
 use beacon::{Beacon, BeaconSchedule};
 use blocks::Tipset;
 use blockstore::BlockStore;
-use chain::headchange_json::HeadChangeJson;
+use chain::headchange_json::SubscriptionHeadChange;
 use chain::ChainStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
 use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::StateManager;
 use wallet::KeyStore;
-
-pub type SubscriptionHeadChange = (i64, Vec<HeadChangeJson>);
 
 #[derive(Serialize)]
 pub struct StreamingData<'a> {

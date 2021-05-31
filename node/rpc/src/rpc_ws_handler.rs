@@ -10,8 +10,9 @@ use tide_websockets::{Message, WebSocketConnection};
 
 use beacon::Beacon;
 use blockstore::BlockStore;
+use chain::headchange_json::SubscriptionHeadChange;
 
-use crate::data_types::{JsonRpcServerState, StreamingData, SubscriptionHeadChange};
+use crate::data_types::{JsonRpcServerState, StreamingData};
 use crate::rpc_util::{
     call_rpc, call_rpc_str, check_permissions, get_auth_header, get_error_str,
     RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
