@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::stringify_rpc_err;
+use super::{print_rpc_res_cids, print_rpc_res_pretty};
 use cid::Cid;
 use rpc_client::{block, genesis, head, messages, read_obj};
 use structopt::StructOpt;
@@ -45,37 +45,21 @@ impl ChainCommands {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let blk = block(cid).await.map_err(stringify_rpc_err).unwrap();
-                println!("{}", serde_json::to_string_pretty(&blk).unwrap());
+                print_rpc_res_pretty(block(cid).await);
             }
             Self::Genesis => {
-                let gen = genesis().await.map_err(stringify_rpc_err).unwrap();
-                println!("{}", serde_json::to_string_pretty(&gen).unwrap());
+                print_rpc_res_pretty(genesis().await);
             }
             Self::Head => {
-                let canonical = head().await.map_err(stringify_rpc_err).unwrap();
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(
-                        &canonical
-                            .0
-                            .cids()
-                            .iter()
-                            .map(|cid: &Cid| cid.to_string())
-                            .collect::<Vec<_>>()
-                    )
-                    .unwrap()
-                );
+                print_rpc_res_cids(head().await);
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let msg = messages(cid).await.map_err(stringify_rpc_err).unwrap();
-                println!("{}", serde_json::to_string_pretty(&msg).unwrap());
+                print_rpc_res_pretty(messages(cid).await);
             }
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let obj = read_obj(cid).await.map_err(stringify_rpc_err).unwrap();
-                println!("{}", serde_json::to_string_pretty(&obj).unwrap());
+                print_rpc_res_pretty(read_obj(cid).await);
             }
         }
     }
