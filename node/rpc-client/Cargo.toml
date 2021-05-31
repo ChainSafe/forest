@@ -5,21 +5,21 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-jsonrpsee = "0.1.0"
-cid = { package = "forest_cid", version = "0.3", features = ["json"] }
-blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = [
-    "json"
-] }
-message = { package = "forest_message", version = "0.7", features = ["json"] }
-serde_json = "1.0"
-log = "0.4.8"
-crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst"] }
-wallet = { package = "key_management", path = "../../key_management", features = [
-    "json"
-] }
+# Internal
 auth = { path = "../../utils/auth" }
+blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
+cid = { package = "forest_cid", version = "0.3", features = ["json"] }
+crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst"] }
+message = { package = "forest_message", version = "0.7", features = ["json"] }
+wallet = { package = "key_management", path = "../../key_management", features = ["json"] }
+# Public
+log = "0.4.8"
+parity-multiaddr = "0.11.2"
+serde = "1.0"
+serde_json = "1.0"
+surf = "2.2.0"
 
 [dependencies.jsonrpc-v2]
-version = "0.10.0"
+version = "0.10.1"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
