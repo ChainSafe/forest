@@ -423,14 +423,13 @@ impl ForestBehaviour {
     }
 
     pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
-        let msg_id_fn = |msg: &GossipsubMessage| {
-            let s = blake2b_256(&msg.data);
-            MessageId::from(s)
-        };
         let mut gs_config_builder = GossipsubConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
-        gs_config_builder.message_id_fn(msg_id_fn);
+        gs_config_builder.message_id_fn(|msg: &GossipsubMessage| {
+            let s = blake2b_256(&msg.data);
+            MessageId::from(s)
+        });
 
         let gossipsub_config = gs_config_builder.build().unwrap();
         let mut gossipsub = Gossipsub::new(
@@ -439,7 +438,6 @@ impl ForestBehaviour {
         )
         .unwrap();
 
-        // TODO: Figure out why this delays incoming blocks. See gossip_params.rs for the params settings.
         gossipsub
             .with_peer_score(
                 build_peer_score_params(network_name),

@@ -18,7 +18,7 @@ fn build_msg_topic_config() -> TopicScoreParams {
         // expected 10 blocks/min
         topic_weight: 0.1,
 
-        // 1 tick per second, maxes at 1 after 1 hour
+        // 1 tick per second, maxes at 1 after 1 hour (1/3600)
         time_in_mesh_weight: 0.0002778,
         time_in_mesh_quantum: Duration::from_secs(1),
         time_in_mesh_cap: 1.0,
@@ -29,7 +29,7 @@ fn build_msg_topic_config() -> TopicScoreParams {
         // 100 blocks in an hour
         first_message_deliveries_cap: 100.0,
 
-        // Set to 0 because disabled for FIlecoin
+        // Set to 0 because disabled for Filecoin
         mesh_message_deliveries_weight: 0.0,
         mesh_message_deliveries_decay: 0.0,
         mesh_message_deliveries_cap: 0.0,
@@ -61,7 +61,7 @@ fn build_block_topic_config() -> TopicScoreParams {
         // 100 blocks in 10 minutes
         first_message_deliveries_cap: 100.0,
 
-        // Set to 0 because disabled for FIlecoin
+        // Set to 0 because disabled for Filecoin
         mesh_message_deliveries_weight: 0.0,
         mesh_message_deliveries_decay: 0.0,
         mesh_message_deliveries_cap: 0.0,
