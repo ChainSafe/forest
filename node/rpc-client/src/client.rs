@@ -119,14 +119,25 @@ where
     // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
     let mut http_res = match &api_info.split_once(':') {
         Some((jwt, host)) => surf::post(multiaddress_to_url(host.to_string()))
-            .body(surf::Body::from_json(&rpc_call)?)
             .content_type("application/json-rpc")
+            .body(surf::Body::from_json(&rpc_call)?)
             .header("Authorization", jwt.to_string()),
-        None => surf::post(DEFAULT_URL).body(surf::Body::from_json(&rpc_call)?),
+        None => surf::post(DEFAULT_URL)
+            .content_type("application/json-rpc")
+            .body(surf::Body::from_json(&rpc_call)?),
     }
     .await?;
 
     let res = http_res.body_string().await?;
+    let code = http_res.status() as i64;
+
+    if code != 200 {
+        return Err(jsonrpc_v2::Error::Full {
+            message: format!("Error code from HTTP Response: {}", code),
+            code,
+            data: None,
+        });
+    }
 
     // Return the parsed RPC result
     let rpc_res: JsonRpcResponse<R> = match serde_json::from_str(&res) {
@@ -149,18 +160,6 @@ where
     }
 }
 
-/// Call an RPC method without params
-pub async fn call_method<R>(method_name: &str) -> Result<R, Error>
-where
-    R: DeserializeOwned,
-{
-    let rpc_req = jsonrpc_v2::RequestObject::request()
-        .with_method(method_name)
-        .finish();
-
-    call(rpc_req).await.map_err(|e| e)
-}
-
 /// Call an RPC method with params
 pub async fn call_params<P, R>(method_name: &str, params: P) -> Result<R, Error>
 where
@@ -179,7 +178,7 @@ where
 pub mod filecoin_rpc {
     use jsonrpc_v2::Error;
 
-    use crate::{call_method, call_params};
+    use crate::call_params;
 
     pub async fn auth_new(
         perm: rpc_api::auth_new::AuthNewParams,
@@ -190,27 +189,27 @@ pub mod filecoin_rpc {
     pub async fn chain_get_block(
         cid: rpc_api::chain_get_block::ChainGetBlockParams,
     ) -> Result<rpc_api::chain_get_block::ChainGetBlockResult, Error> {
-        call_params("Filecoin.ChainGetBlock", cid).await
+        call_params(rpc_api::chain_get_block::CHAIN_GET_BLOCK, cid).await
     }
 
     pub async fn chain_get_genesis(
     ) -> Result<rpc_api::chain_get_genesis::ChainGetGenesisResult, Error> {
-        call_method("Filecoin.ChainGetGenesis").await
+        call_params(rpc_api::chain_get_genesis::CHAIN_GET_GENESIS, ()).await
     }
 
     pub async fn chain_head() -> Result<rpc_api::chain_head::ChainHeadResult, Error> {
-        call_method("Filecoin.ChainHead").await
+        call_params(rpc_api::chain_head::CHAIN_HEAD, ()).await
     }
 
     pub async fn chain_get_message(
         cid: rpc_api::chain_get_message::ChainGetMessageParams,
     ) -> Result<rpc_api::chain_get_message::ChainGetMessageResult, Error> {
-        call_params("Filecoin.ChainGetMessage", cid).await
+        call_params(rpc_api::chain_get_message::CHAIN_GET_MESSAGE, cid).await
     }
 
     pub async fn chain_read_obj(
         cid: rpc_api::chain_read_obj::ChainReadObjParams,
     ) -> Result<rpc_api::chain_read_obj::ChainReadObjResult, Error> {
-        call_params("Filecoin.ChainReadObj", cid).await
+        call_params(rpc_api::chain_read_obj::CHAIN_READ_OBJ, cid).await
     }
 }

@@ -64,7 +64,7 @@ where
         .blockstore()
         .get_bytes(&obj_cid)?
         .ok_or("can't find object with that cid")?;
-    Ok(base64::encode(ret))
+    Ok(hex::encode(ret))
 }
 
 pub(crate) async fn chain_has_obj<DB, B>(

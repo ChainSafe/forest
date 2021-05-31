@@ -550,6 +550,7 @@ dependencies = [
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
+ "once_cell",
  "rand 0.7.3",
  "serde",
  "thiserror",
