@@ -49,7 +49,7 @@ rayon = "1.5"
 prometheus = { version = "0.12.0", default-features = false }
 
 [dependencies.jsonrpc-v2]
-version = "0.10.0"
+version = "0.10.1"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
 

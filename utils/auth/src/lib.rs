@@ -20,15 +20,6 @@ pub const SIGN: [&str; 3] = ["read", "write", "sign"];
 pub const WRITE: [&str; 2] = ["read", "write"];
 /// Reading permissions
 pub const READ: [&str; 1] = ["read"];
-/// All methods that require write permission
-pub const WRITE_ACCESS: [&str; 6] = [
-    "Filecoin.MpoolPush",
-    "Filecoin.WalletNew",
-    "Filecoin.WalletHas",
-    "Filecoin.WalletList",
-    "Filecoin.WalletDefaultAddress",
-    "Filecoin.WalletList",
-];
 
 /// Error Enum for Authentication
 #[derive(Debug, Error, Serialize, Deserialize)]

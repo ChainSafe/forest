@@ -549,7 +549,6 @@ dependencies = [
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
- "lazy_static",
  "rand 0.7.3",
  "serde",
  "thiserror",
@@ -5360,6 +5359,7 @@ dependencies = [
  "num-traits",
  "rand 0.7.3",
  "rand_distr 0.3.0",
+ "rpc-api",
  "serde",
  "serde_json",
  "state_manager",
@@ -5369,6 +5369,13 @@ dependencies = [
  "tide",
  "tide-websockets",
  "utils",
+]
+
+[[package]]
+name = "rpc-api"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
 ]
 
 [[package]]
@@ -5384,6 +5391,7 @@ dependencies = [
  "key_management",
  "log",
  "parity-multiaddr",
+ "rpc-api",
  "serde",
  "serde_json",
  "surf",

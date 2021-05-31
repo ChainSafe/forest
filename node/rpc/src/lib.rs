@@ -51,7 +51,7 @@ where
         Server::new()
             .with_data(Data(state))
             // Auth API
-            .with_method("Filecoin.AuthNew", auth_new::<DB, B>)
+            .with_method(rpc_api::auth_new::AUTH_NEW, auth_new::<DB, B>)
             .with_method("Filecoin.AuthVerify", auth_verify::<DB, B>)
             // Chain API
             .with_method(

@@ -10,19 +10,19 @@ pub async fn auth_new(perm: String) -> Result<String, JsonRpcError> {
     let ret: Vec<u8> = match perm.as_str() {
         "admin" => {
             let perms: Vec<String> = ADMIN.iter().map(|s| s.to_string()).collect();
-            filecoin_rpc::auth_new(perms).await?
+            filecoin_rpc::auth_new((perms,)).await?
         }
         "sign" => {
             let perms: Vec<String> = SIGN.iter().map(|s| s.to_string()).collect();
-            filecoin_rpc::auth_new(perms).await?
+            filecoin_rpc::auth_new((perms,)).await?
         }
         "write" => {
             let perms: Vec<String> = WRITE.iter().map(|s| s.to_string()).collect();
-            filecoin_rpc::auth_new(perms).await?
+            filecoin_rpc::auth_new((perms,)).await?
         }
         "read" => {
             let perms: Vec<String> = READ.iter().map(|s| s.to_string()).collect();
-            filecoin_rpc::auth_new(perms).await?
+            filecoin_rpc::auth_new((perms,)).await?
         }
         _ => {
             return Err(JsonRpcError::INVALID_PARAMS);

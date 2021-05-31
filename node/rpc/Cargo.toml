@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+# Public
 ahash = "0.6"
 async-log = "2.0.0"
 async-std = { version = "1.9", features = ["attributes"] }
@@ -24,7 +25,7 @@ thiserror = "1.0"
 tide = "0.16.0"
 tide-websockets = "0.3.0"
 extensions = "0.2.0"
-##
+# Internal
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 address = { package = "forest_address", version = "0.3", features = ["json"] }
 auth = { path = "../../utils/auth" }
@@ -47,6 +48,7 @@ message = { package = "forest_message", version = "0.7", features = ["json", "bl
 message_pool = { path = "../../blockchain/message_pool" }
 networks = { path = "../../types/networks" }
 num-bigint = { version = "0.1.1", package = "forest_bigint" }
+rpc-api = { path = "../rpc-api", version = "0.1" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
 state_tree = { path = "../../vm/state_tree" }
 utils = { path = "../../node/utils" }
@@ -54,7 +56,7 @@ vm = { package = "forest_vm", version = "0.3.1" }
 wallet = { package = "key_management", path = "../../key_management", features = ["json"] }
 
 [dependencies.jsonrpc-v2]
-version = "0.10.0"
+version = "0.10.1"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
 

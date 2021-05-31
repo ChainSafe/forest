@@ -185,8 +185,10 @@ pub mod filecoin_rpc {
 
     use crate::{call_method, call_params};
 
-    pub async fn auth_new(perm: Vec<String>) -> Result<Vec<u8>, Error> {
-        call_params("Filecoin.AuthNew", perm).await
+    pub async fn auth_new(
+        perm: rpc_api::auth_new::AuthNewParams,
+    ) -> Result<rpc_api::auth_new::AuthNewResult, Error> {
+        call_params(rpc_api::auth_new::AUTH_NEW, perm).await
     }
 
     pub async fn chain_get_block(cid: CidJson) -> Result<BlockHeaderJson, Error> {
