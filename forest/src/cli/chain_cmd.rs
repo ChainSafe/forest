@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{print_rpc_res_cids, print_rpc_res_pretty, print_rpc_res};
+use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
 use cid::Cid;
 use rpc_client::{block, genesis, head, messages, read_obj};
 use structopt::StructOpt;
