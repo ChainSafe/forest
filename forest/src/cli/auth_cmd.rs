@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::stringify_rpc_err;
+use super::print_rpc_res;
 use rpc_client::auth_new;
 use structopt::StructOpt;
 
@@ -23,8 +23,7 @@ impl AuthCommands {
         match self {
             Self::CreateToken { perm } => {
                 let perm: String = perm.parse().unwrap();
-                let obj = auth_new(perm).await.map_err(stringify_rpc_err).unwrap();
-                println!("{}", &obj);
+                print_rpc_res(auth_new(perm).await);
             }
         }
     }

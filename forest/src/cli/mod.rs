@@ -14,12 +14,16 @@ pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 
 use jsonrpc_v2::Error as JsonRpcError;
+use serde::Serialize;
 use std::cell::RefCell;
 use std::io;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
+
+use blocks::tipset_json::TipsetJson;
+use cid::Cid;
 use utils::{read_file_to_string, read_toml};
 
 /// CLI structure generated when interacting with Forest binary
@@ -183,17 +187,54 @@ pub(super) async fn block_until_sigint() {
 }
 
 /// Returns a stringified JSON-RPC error
-pub(super) fn stringify_rpc_err(e: JsonRpcError) -> String {
+pub(super) fn handle_rpc_err(e: JsonRpcError) {
     match e {
         JsonRpcError::Full {
             code,
             message,
             data: _,
         } => {
-            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
+            println!("JSON RPC Error: Code: {} Message: {}", code, message);
+            process::exit(code as i32);
         }
         JsonRpcError::Provided { code, message } => {
-            return format!("JSON RPC Error: Code: {} Message: {}", code, message);
+            println!("JSON RPC Error: Code: {} Message: {}", code, message);
+            process::exit(code as i32);
         }
     }
+}
+
+/// Prints a plain HTTP JSON-RPC response result
+pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) {
+    match res {
+        Ok(obj) => println!("{}", &obj),
+        Err(err) => handle_rpc_err(err),
+    };
+}
+
+/// Prints a pretty HTTP JSON-RPC response result
+pub(super) fn print_rpc_res_pretty<T: Serialize>(res: Result<T, JsonRpcError>) {
+    match res {
+        Ok(obj) => println!("{}", serde_json::to_string_pretty(&obj).unwrap()),
+        Err(err) => handle_rpc_err(err),
+    };
+}
+
+/// Prints a tipset from a HTTP JSON-RPC response result
+pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) {
+    match res {
+        Ok(tipset) => println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &tipset
+                    .0
+                    .cids()
+                    .iter()
+                    .map(|cid: &Cid| cid.to_string())
+                    .collect::<Vec<_>>()
+            )
+            .unwrap()
+        ),
+        Err(err) => handle_rpc_err(err),
+    };
 }
