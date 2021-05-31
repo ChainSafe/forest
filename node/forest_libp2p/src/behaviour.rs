@@ -6,6 +6,7 @@ use crate::{
         ChainExchangeCodec, ChainExchangeProtocolName, ChainExchangeRequest, ChainExchangeResponse,
     },
     discovery::DiscoveryOut,
+    gossip_params::{build_peer_score_params, build_peer_score_threshold},
     rpc::RequestResponseError,
 };
 use crate::{config::Libp2pConfig, discovery::DiscoveryBehaviour};
@@ -14,10 +15,10 @@ use crate::{
     hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse},
 };
 use forest_cid::Cid;
+use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
-use libp2p::core::PeerId;
 use libp2p::gossipsub::{
     error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
     GossipsubEvent, IdentTopic as Topic, MessageAuthenticity, MessageId, TopicHash, ValidationMode,
@@ -34,6 +35,7 @@ use libp2p::request_response::{
 use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
 use libp2p::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
+use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
 use std::collections::HashSet;
@@ -424,16 +426,24 @@ impl ForestBehaviour {
         let mut gs_config_builder = GossipsubConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
+        gs_config_builder.message_id_fn(|msg: &GossipsubMessage| {
+            let s = blake2b_256(&msg.data);
+            MessageId::from(s)
+        });
 
         let gossipsub_config = gs_config_builder.build().unwrap();
-        let gossipsub = Gossipsub::new(
+        let mut gossipsub = Gossipsub::new(
             MessageAuthenticity::Signed(local_key.clone()),
             gossipsub_config,
         )
         .unwrap();
 
-        // TODO: Figure out why this delays incoming blocks. See gossip_params.rs for the params settings.
-        // gossipsub.with_peer_score(build_peer_score_params(network_name), build_peer_score_threshold()).unwrap();
+        gossipsub
+            .with_peer_score(
+                build_peer_score_params(network_name),
+                build_peer_score_threshold(),
+            )
+            .unwrap();
 
         let bitswap = Bitswap::new();
 
