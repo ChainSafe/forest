@@ -5,6 +5,8 @@ use crate::RpcState;
 use beacon::json::BeaconEntryJson;
 use beacon::Beacon;
 use blockstore::BlockStore;
+use rpc_api::beacon_api::*;
+
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 /// BeaconGetEntry returns the beacon entry for the given filecoin epoch. If
@@ -12,8 +14,8 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 /// becomes available
 pub(crate) async fn beacon_get_entry<'a, DB, B>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::beacon_get_entry::BeaconGetEntryParams>,
-) -> Result<rpc_api::beacon_get_entry::BeaconGetEntryResult, JsonRpcError>
+    Params(params): Params<BeaconGetEntryParams>,
+) -> Result<BeaconGetEntryResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,

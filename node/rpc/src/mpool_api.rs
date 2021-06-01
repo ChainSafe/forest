@@ -5,25 +5,27 @@ use super::gas_api::estimate_message_gas;
 use crate::RpcState;
 use address::{Address, Protocol};
 use beacon::Beacon;
-use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
+use blocks::TipsetKeys;
 use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::Message;
 use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
+use rpc_api::mpool_api::*;
+
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::str::FromStr;
 use std::{collections::HashSet, convert::TryFrom};
 
 /// Estimate the gas price for an Address
 pub(crate) async fn estimate_gas_premium<DB, B>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::mpool_estimate_gas_price::MpoolEstimateGasPriceParams>,
-) -> Result<rpc_api::mpool_estimate_gas_price::MpoolEstimateGasPriceResult, JsonRpcError>
+    Params(params): Params<MpoolEstimateGasPriceParams>,
+) -> Result<MpoolEstimateGasPriceResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -39,8 +41,8 @@ where
 /// get the sequence of given address in mpool
 pub(crate) async fn mpool_get_sequence<DB, B>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::mpool_get_nonce::MpoolGetNonceParams>,
-) -> Result<rpc_api::mpool_get_nonce::MpoolGetNonceResult, JsonRpcError>
+    Params(params): Params<MpoolGetNonceParams>,
+) -> Result<MpoolGetNonceResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -54,8 +56,8 @@ where
 /// Return Vec of pending messages in mpool
 pub(crate) async fn mpool_pending<DB, B>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::mpool_pending::MpoolPendingParams>,
-) -> Result<rpc_api::mpool_pending::MpoolPendingResult, JsonRpcError>
+    Params(params): Params<MpoolPendingParams>,
+) -> Result<MpoolPendingResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -119,8 +121,8 @@ where
 /// Add SignedMessage to mpool, return msg CID
 pub(crate) async fn mpool_push<DB, B>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::mpool_push::MpoolPushParams>,
-) -> Result<rpc_api::mpool_push::MpoolPushResult, JsonRpcError>
+    Params(params): Params<MpoolPushParams>,
+) -> Result<MpoolPushResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -135,8 +137,8 @@ where
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
 pub(crate) async fn mpool_push_message<DB, B, V>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::mpool_push_message::MpoolPushMessageParams>,
-) -> Result<rpc_api::mpool_push_message::MpoolPushMessageResult, JsonRpcError>
+    Params(params): Params<MpoolPushMessageParams>,
+) -> Result<MpoolPushMessageResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -189,8 +191,8 @@ where
 
 pub(crate) async fn mpool_select<DB, B>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::mpool_select::MpoolSelectParams>,
-) -> Result<rpc_api::mpool_select::MpoolSelectResult, JsonRpcError>
+    Params(params): Params<MpoolSelectParams>,
+) -> Result<MpoolSelectResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,

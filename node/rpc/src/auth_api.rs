@@ -5,13 +5,15 @@ use crate::RpcState;
 use auth::*;
 use beacon::Beacon;
 use blockstore::BlockStore;
+use rpc_api::auth_api::*;
+
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 /// RPC call to create a new JWT Token
 pub(crate) async fn auth_new<'a, DB, B>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::auth_new::AuthNewParams>,
-) -> Result<rpc_api::auth_new::AuthNewResult, JsonRpcError>
+    Params(params): Params<AuthNewParams>,
+) -> Result<AuthNewResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -26,8 +28,8 @@ where
 /// RPC call to verify JWT Token and return the token's permissions
 pub(crate) async fn auth_verify<DB, B>(
     data: Data<RpcState<DB, B>>,
-    Params(params): Params<rpc_api::auth_verify::AuthVerifyParams>,
-) -> Result<rpc_api::auth_verify::AuthVerifyResult, JsonRpcError>
+    Params(params): Params<AuthVerifyParams>,
+) -> Result<AuthVerifyResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,

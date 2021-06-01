@@ -31,6 +31,8 @@ use crate::rpc_http_handler::rpc_http_handler;
 use crate::rpc_ws_handler::rpc_ws_handler;
 use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
 
+use rpc_api::{auth_api::*, beacon_api::*, chain_api::*};
+
 pub async fn start_rpc<DB, B, V>(
     state: Arc<RpcState<DB, B>>,
     rpc_endpoint: &str,
@@ -51,65 +53,35 @@ where
         Server::new()
             .with_data(Data(state))
             // Auth API
-            .with_method(rpc_api::auth_new::AUTH_NEW, auth_new::<DB, B>)
-            .with_method(rpc_api::auth_verify::AUTH_VERIFY, auth_verify::<DB, B>)
+            .with_method(AUTH_NEW, auth_new::<DB, B>)
+            .with_method(AUTH_VERIFY, auth_verify::<DB, B>)
             // Beacon API
-            .with_method(
-                rpc_api::beacon_get_entry::BEACON_GET_ENTRY,
-                beacon_get_entry::<DB, B>,
-            )
+            .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB, B>)
             // Chain API
+            .with_method(CHAIN_GET_MESSAGE, chain_api::chain_get_message::<DB, B>)
+            .with_method(CHAIN_READ_OBJ, chain_read_obj::<DB, B>)
+            .with_method(CHAIN_HAS_OBJ, chain_has_obj::<DB, B>)
+            .with_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB, B>)
             .with_method(
-                rpc_api::chain_get_message::CHAIN_GET_MESSAGE,
-                chain_api::chain_get_message::<DB, B>,
-            )
-            .with_method(
-                rpc_api::chain_read_obj::CHAIN_READ_OBJ,
-                chain_read_obj::<DB, B>,
-            )
-            .with_method(
-                rpc_api::chain_has_obj::CHAIN_HAS_OBJ,
-                chain_has_obj::<DB, B>,
-            )
-            .with_method(
-                rpc_api::chain_get_block_messages::CHAIN_GET_BLOCK_MESSAGES,
-                chain_get_block_messages::<DB, B>,
-            )
-            .with_method(
-                rpc_api::chain_get_tipset_by_height::CHAIN_GET_TIPSET_BY_HEIGHT,
+                CHAIN_GET_TIPSET_BY_HEIGHT,
                 chain_get_tipset_by_height::<DB, B>,
             )
-            .with_method(
-                rpc_api::chain_get_genesis::CHAIN_GET_GENESIS,
-                chain_get_genesis::<DB, B>,
-            )
-            .with_method(
-                rpc_api::chain_tipset_weight::CHAIN_TIPSET_WEIGHT,
-                chain_tipset_weight::<DB, B>,
-            )
-            .with_method(
-                rpc_api::chain_get_tipset::CHAIN_GET_TIPSET,
-                chain_get_tipset::<DB, B>,
-            )
-            .with_method(rpc_api::chain_head::CHAIN_HEAD, chain_head::<DB, B>)
-            .with_method(
-                rpc_api::chain_head_subscription::CHAIN_HEAD_SUBSCRIPTION,
-                chain_head_subscription::<DB, B>,
-            )
+            .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB, B>)
+            .with_method(CHAIN_TIPSET_WEIGHT, chain_tipset_weight::<DB, B>)
+            .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB, B>)
+            .with_method(CHAIN_HEAD, chain_head::<DB, B>)
+            .with_method(CHAIN_HEAD_SUBSCRIPTION, chain_head_subscription::<DB, B>)
             // * Filecoin.ChainNotify is handled specifically in middleware for streaming
-            .with_method(rpc_api::chain_notify::CHAIN_NOTIFY, chain_notify::<DB, B>)
+            .with_method(CHAIN_NOTIFY, chain_notify::<DB, B>)
             .with_method(
-                rpc_api::chain_get_randomness_from_tickets::CHAIN_GET_RANDOMNESS_FROM_TICKETS,
+                CHAIN_GET_RANDOMNESS_FROM_TICKETS,
                 chain_get_randomness_from_tickets::<DB, B>,
             )
             .with_method(
-                rpc_api::chain_get_randomness_from_beacon::CHAIN_GET_RANDOMNESS_FROM_BEACON,
+                CHAIN_GET_RANDOMNESS_FROM_BEACON,
                 chain_get_randomness_from_beacon::<DB, B>,
             )
-            .with_method(
-                rpc_api::chain_get_block::CHAIN_GET_BLOCK,
-                chain_api::chain_get_block::<DB, B>,
-            )
+            .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB, B>)
             // Message Pool API
             .with_method(
                 "Filecoin.MpoolEstimateGasPrice",

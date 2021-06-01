@@ -17,38 +17,23 @@ pub enum Access {
 pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     let mut access = HashMap::new();
 
-    access.insert(auth_new::AUTH_NEW, Access::Admin);
-    access.insert(auth_verify::AUTH_VERIFY, Access::Read);
-    access.insert(beacon_get_entry::BEACON_GET_ENTRY, Access::Read);
-    access.insert(chain_get_message::CHAIN_GET_MESSAGE, Access::Read);
-    access.insert(chain_read_obj::CHAIN_READ_OBJ, Access::Read);
-    access.insert(chain_has_obj::CHAIN_HAS_OBJ, Access::Read);
-    access.insert(
-        chain_get_block_messages::CHAIN_GET_BLOCK_MESSAGES,
-        Access::Read,
-    );
-    access.insert(
-        chain_get_tipset_by_height::CHAIN_GET_TIPSET_BY_HEIGHT,
-        Access::Read,
-    );
-    access.insert(chain_get_genesis::CHAIN_GET_GENESIS, Access::Read);
-    access.insert(chain_head::CHAIN_HEAD, Access::Read);
-    access.insert(
-        chain_head_subscription::CHAIN_HEAD_SUBSCRIPTION,
-        Access::Read,
-    );
-    access.insert(chain_notify::CHAIN_NOTIFY, Access::Read);
-    access.insert(chain_tipset_weight::CHAIN_TIPSET_WEIGHT, Access::Read);
-    access.insert(chain_get_block::CHAIN_GET_BLOCK, Access::Read);
-    access.insert(chain_get_tipset::CHAIN_GET_TIPSET, Access::Read);
-    access.insert(
-        chain_get_randomness_from_tickets::CHAIN_GET_RANDOMNESS_FROM_TICKETS,
-        Access::Read,
-    );
-    access.insert(
-        chain_get_randomness_from_beacon::CHAIN_GET_RANDOMNESS_FROM_BEACON,
-        Access::Read,
-    );
+    access.insert(auth_api::AUTH_NEW, Access::Admin);
+    access.insert(auth_api::AUTH_VERIFY, Access::Read);
+    access.insert(beacon_api::BEACON_GET_ENTRY, Access::Read);
+    access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);
+    access.insert(chain_api::CHAIN_READ_OBJ, Access::Read);
+    access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
+    access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);
+    access.insert(chain_api::CHAIN_GET_TIPSET_BY_HEIGHT, Access::Read);
+    access.insert(chain_api::CHAIN_GET_GENESIS, Access::Read);
+    access.insert(chain_api::CHAIN_HEAD, Access::Read);
+    access.insert(chain_api::CHAIN_HEAD_SUBSCRIPTION, Access::Read);
+    access.insert(chain_api::CHAIN_NOTIFY, Access::Read);
+    access.insert(chain_api::CHAIN_TIPSET_WEIGHT, Access::Read);
+    access.insert(chain_api::CHAIN_GET_BLOCK, Access::Read);
+    access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
+    access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
+    access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_BEACON, Access::Read);
 
     access
 });
@@ -66,20 +51,18 @@ pub fn check_access(access: &Access, claims: &[String]) -> bool {
 /// JSON-RPC API definitions
 
 /// Auth API
-pub mod auth_new {
+pub mod auth_api {
     pub const AUTH_NEW: &str = "Filecoin.AuthNew";
     pub type AuthNewParams = (Vec<String>,);
     pub type AuthNewResult = Vec<u8>;
-}
 
-pub mod auth_verify {
     pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";
     pub type AuthVerifyParams = (String,);
     pub type AuthVerifyResult = Vec<String>;
 }
 
 /// Beacon API
-pub mod beacon_get_entry {
+pub mod beacon_api {
     use beacon::json::BeaconEntryJson;
     use clock::ChainEpoch;
 
@@ -89,117 +72,68 @@ pub mod beacon_get_entry {
 }
 
 /// Chain API
-pub mod chain_get_message {
+pub mod chain_api {
+    use blocks::{
+        header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
+        TipsetKeys,
+    };
+    use chain::headchange_json::SubscriptionHeadChange;
     use cid::json::CidJson;
-    use message::unsigned_message::json::UnsignedMessageJson;
+    use clock::ChainEpoch;
+    use message::{unsigned_message::json::UnsignedMessageJson, BlockMessages};
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
     pub type ChainGetMessageResult = UnsignedMessageJson;
-}
-
-pub mod chain_read_obj {
-    use cid::json::CidJson;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
     pub type ChainReadObjParams = (CidJson,);
     pub type ChainReadObjResult = String;
-}
-
-pub mod chain_has_obj {
-    use cid::json::CidJson;
 
     pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
     pub type ChainHasObjParams = (CidJson,);
     pub type ChainHasObjResult = bool;
-}
-
-pub mod chain_get_block_messages {
-    use cid::json::CidJson;
-    use message::BlockMessages;
 
     pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
     pub type ChainGetBlockMessagesParams = (CidJson,);
     pub type ChainGetBlockMessagesResult = BlockMessages;
-}
-
-pub mod chain_get_tipset_by_height {
-    use blocks::{tipset_json::TipsetJson, TipsetKeys};
-    use clock::ChainEpoch;
 
     pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipsetByHeight";
     pub type ChainGetTipsetByHeightParams = (ChainEpoch, TipsetKeys);
     pub type ChainGetTipsetByHeightResult = TipsetJson;
-}
-
-pub mod chain_get_genesis {
-    use blocks::tipset_json::TipsetJson;
 
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
     pub type ChainGetGenesisParams = ();
     pub type ChainGetGenesisResult = Option<TipsetJson>;
-}
-
-pub mod chain_head {
-    use blocks::tipset_json::TipsetJson;
 
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
     pub type ChainHeadParams = ();
     pub type ChainHeadResult = TipsetJson;
-}
 
-pub mod chain_head_subscription {
     pub const CHAIN_HEAD_SUBSCRIPTION: &str = "Filecoin.ChainHeadSubscription";
     pub type ChainHeadSubscriptionParams = ();
     pub type ChainHeadSubscriptionResult = i64;
-}
-
-pub mod chain_notify {
-    use chain::headchange_json::SubscriptionHeadChange;
 
     pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
     pub type ChainNotifyParams = ();
     pub type ChainNotifyResult = SubscriptionHeadChange;
-}
-
-pub mod chain_tipset_weight {
-    use blocks::tipset_keys_json::TipsetKeysJson;
 
     pub const CHAIN_TIPSET_WEIGHT: &str = "Filecoin.ChainTipSetWeight";
     pub type ChainTipSetWeightParams = (TipsetKeysJson,);
     pub type ChainTipSetWeightResult = String;
-}
-
-pub mod chain_get_block {
-    use blocks::header::json::BlockHeaderJson;
-    use cid::json::CidJson;
 
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
     pub type ChainGetBlockParams = (CidJson,);
     pub type ChainGetBlockResult = BlockHeaderJson;
-}
-
-pub mod chain_get_tipset {
-    use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
     pub type ChainGetTipSetParams = (TipsetKeysJson,);
     pub type ChainGetTipSetResult = TipsetJson;
-}
-
-pub mod chain_get_randomness_from_tickets {
-    use blocks::tipset_keys_json::TipsetKeysJson;
-    use clock::ChainEpoch;
 
     pub const CHAIN_GET_RANDOMNESS_FROM_TICKETS: &str = "Filecoin.ChainGetRandomnessFromTickets";
     pub type ChainGetRandomnessFromTicketsParams =
         (TipsetKeysJson, i64, ChainEpoch, Option<String>);
     pub type ChainGetRandomnessFromTicketsResult = [u8; 32];
-}
-
-pub mod chain_get_randomness_from_beacon {
-    use blocks::tipset_keys_json::TipsetKeysJson;
-    use clock::ChainEpoch;
 
     pub const CHAIN_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.ChainGetRandomnessFromBeacon";
     pub type ChainGetRandomnessFromBeaconParams = (TipsetKeysJson, i64, ChainEpoch, Option<String>);
@@ -207,51 +141,37 @@ pub mod chain_get_randomness_from_beacon {
 }
 
 /// Message Pool API
-// estimate_gas_premium
-pub mod mpool_estimate_gas_price {
-    use blocks::TipsetKeys;
+pub mod mpool_api {
+    use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
+    use cid::json::CidJson;
+    use message::{
+        signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
+        MessageSendSpec,
+    };
 
     pub const MPOOL_ESTIMATE_GAS_PRICE: &str = "Filecoin.MpoolEstimateGasPrice";
     pub type MpoolEstimateGasPriceParams = (u64, String, u64, TipsetKeys);
     pub type MpoolEstimateGasPriceResult = String;
-}
 
-pub mod mpool_get_nonce {
     pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
     pub type MpoolGetNonceParams = (String,);
     pub type MpoolGetNonceResult = u64;
-}
 
-pub mod mpool_pending {
     use cid::json::vec::CidJsonVec;
     use message::SignedMessage;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub type MpoolPendingParams = (CidJsonVec,);
     pub type MpoolPendingResult = Vec<SignedMessage>;
-}
-
-pub mod mpool_push {
-    use cid::json::CidJson;
-    use message::signed_message::json::SignedMessageJson;
 
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
     pub type MpoolPushParams = (SignedMessageJson,);
     pub type MpoolPushResult = CidJson;
-}
-
-pub mod mpool_push_message {
-    use message::{
-        signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
-        MessageSendSpec,
-    };
 
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
     pub type MpoolPushMessageParams = (UnsignedMessageJson, Option<MessageSendSpec>);
     pub type MpoolPushMessageResult = SignedMessageJson;
-}
 
-pub mod mpool_select {
     pub const MPOOL_SELECT: &str = "Filecoin.MpoolSelect";
     pub type MpoolSelectParams = (TipsetKeysJson, f64);
     pub type MpoolSelectResult = Vec<SignedMessageJson>;

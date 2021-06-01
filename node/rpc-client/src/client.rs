@@ -179,37 +179,31 @@ pub mod filecoin_rpc {
     use jsonrpc_v2::Error;
 
     use crate::call_params;
+    use rpc_api::{auth_api::*, chain_api::*};
 
-    pub async fn auth_new(
-        perm: rpc_api::auth_new::AuthNewParams,
-    ) -> Result<rpc_api::auth_new::AuthNewResult, Error> {
-        call_params(rpc_api::auth_new::AUTH_NEW, perm).await
+    pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
+        call_params(AUTH_NEW, perm).await
     }
 
-    pub async fn chain_get_block(
-        cid: rpc_api::chain_get_block::ChainGetBlockParams,
-    ) -> Result<rpc_api::chain_get_block::ChainGetBlockResult, Error> {
-        call_params(rpc_api::chain_get_block::CHAIN_GET_BLOCK, cid).await
+    pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockResult, Error> {
+        call_params(CHAIN_GET_BLOCK, cid).await
     }
 
-    pub async fn chain_get_genesis(
-    ) -> Result<rpc_api::chain_get_genesis::ChainGetGenesisResult, Error> {
-        call_params(rpc_api::chain_get_genesis::CHAIN_GET_GENESIS, ()).await
+    pub async fn chain_get_genesis() -> Result<ChainGetGenesisResult, Error> {
+        call_params(CHAIN_GET_GENESIS, ()).await
     }
 
-    pub async fn chain_head() -> Result<rpc_api::chain_head::ChainHeadResult, Error> {
-        call_params(rpc_api::chain_head::CHAIN_HEAD, ()).await
+    pub async fn chain_head() -> Result<ChainHeadResult, Error> {
+        call_params(CHAIN_HEAD, ()).await
     }
 
     pub async fn chain_get_message(
-        cid: rpc_api::chain_get_message::ChainGetMessageParams,
-    ) -> Result<rpc_api::chain_get_message::ChainGetMessageResult, Error> {
-        call_params(rpc_api::chain_get_message::CHAIN_GET_MESSAGE, cid).await
+        cid: ChainGetMessageParams,
+    ) -> Result<ChainGetMessageResult, Error> {
+        call_params(CHAIN_GET_MESSAGE, cid).await
     }
 
-    pub async fn chain_read_obj(
-        cid: rpc_api::chain_read_obj::ChainReadObjParams,
-    ) -> Result<rpc_api::chain_read_obj::ChainReadObjResult, Error> {
-        call_params(rpc_api::chain_read_obj::CHAIN_READ_OBJ, cid).await
+    pub async fn chain_read_obj(cid: ChainReadObjParams) -> Result<ChainReadObjResult, Error> {
+        call_params(CHAIN_READ_OBJ, cid).await
     }
 }

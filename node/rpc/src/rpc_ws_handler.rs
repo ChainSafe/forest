@@ -11,12 +11,10 @@ use tide_websockets::{Message, WebSocketConnection};
 use beacon::Beacon;
 use blockstore::BlockStore;
 use chain::headchange_json::SubscriptionHeadChange;
+use rpc_api::chain_api::*;
 
 use crate::data_types::{JsonRpcServerState, StreamingData};
-use crate::rpc_util::{
-    call_rpc, call_rpc_str, check_permissions, get_auth_header, get_error_str,
-    RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY,
-};
+use crate::rpc_util::{call_rpc, call_rpc_str, check_permissions, get_auth_header, get_error_str};
 
 async fn rpc_ws_task<DB, B>(
     authorization_header: Option<HeaderValues>,
@@ -35,7 +33,7 @@ where
     check_permissions::<DB, B>(rpc_server.clone(), call_method, authorization_header).await?;
 
     match call_method {
-        RPC_METHOD_CHAIN_NOTIFY => {
+        CHAIN_NOTIFY => {
             let request_id = match call_id {
                 Some(id) => id.to_owned(),
                 None => jsonrpc_v2::Id::Null,
@@ -46,7 +44,7 @@ where
             let (subscription_response, subscription_id) = call_rpc::<i64>(
                 rpc_server.clone(),
                 jsonrpc_v2::RequestObject::request()
-                    .with_method(RPC_METHOD_CHAIN_HEAD_SUB)
+                    .with_method(CHAIN_HEAD_SUBSCRIPTION)
                     .with_id(request_id.clone())
                     .finish(),
             )
@@ -68,7 +66,7 @@ where
                 let (_, event) = call_rpc::<SubscriptionHeadChange>(
                     rpc_server.clone(),
                     jsonrpc_v2::RequestObject::request()
-                        .with_method(RPC_METHOD_CHAIN_NOTIFY)
+                        .with_method(CHAIN_NOTIFY)
                         .with_id(subscription_id)
                         .finish(),
                 )
