@@ -18,6 +18,8 @@ use address::Address;
 use cid::Cid;
 use vm::{MethodNum, Serialized, TokenAmount};
 
+use num_bigint::bigint_ser;
+
 /// Message interface to interact with Signed and unsigned messages in a generic context.
 pub trait Message {
     /// Returns the from address of the message.
@@ -58,4 +60,11 @@ pub struct BlockMessages {
     pub secp_msg: Vec<SignedMessage>,
     #[serde(rename = "Cids", with = "cid::json::vec")]
     pub cids: Vec<Cid>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageSendSpec {
+    #[serde(with = "bigint_ser::json")]
+    max_fee: TokenAmount,
 }

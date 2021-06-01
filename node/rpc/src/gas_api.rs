@@ -1,7 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::mpool_api::MessageSendSpec;
 use crate::RpcState;
 use address::json::AddressJson;
 use beacon::Beacon;
@@ -11,7 +10,7 @@ use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{unsigned_message::json::UnsignedMessageJson, UnsignedMessage};
-use message::{ChainMessage, Message};
+use message::{ChainMessage, Message, MessageSendSpec};
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};

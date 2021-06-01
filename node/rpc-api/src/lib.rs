@@ -207,40 +207,54 @@ pub mod chain_get_randomness_from_beacon {
 }
 
 /// Message Pool API
+// estimate_gas_premium
 pub mod mpool_estimate_gas_price {
+    use blocks::TipsetKeys;
+
     pub const MPOOL_ESTIMATE_GAS_PRICE: &str = "Filecoin.MpoolEstimateGasPrice";
-    pub type MpoolEstimateGasPriceParams = ();
-    pub type MpoolEstimateGasPriceResult = ();
+    pub type MpoolEstimateGasPriceParams = (u64, String, u64, TipsetKeys);
+    pub type MpoolEstimateGasPriceResult = String;
 }
 
 pub mod mpool_get_nonce {
     pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
-    pub type MpoolGetNonceParams = ();
-    pub type MpoolGetNonceResult = ();
+    pub type MpoolGetNonceParams = (String,);
+    pub type MpoolGetNonceResult = u64;
 }
 
 pub mod mpool_pending {
+    use cid::json::vec::CidJsonVec;
+    use message::SignedMessage;
+
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
-    pub type MpoolPendingParams = ();
-    pub type MpoolPendingResult = ();
+    pub type MpoolPendingParams = (CidJsonVec,);
+    pub type MpoolPendingResult = Vec<SignedMessage>;
 }
 
 pub mod mpool_push {
+    use cid::json::CidJson;
+    use message::signed_message::json::SignedMessageJson;
+
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
-    pub type MpoolPushParams = ();
-    pub type MpoolPushResult = ();
+    pub type MpoolPushParams = (SignedMessageJson,);
+    pub type MpoolPushResult = CidJson;
 }
 
 pub mod mpool_push_message {
+    use message::{
+        signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
+        MessageSendSpec,
+    };
+
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
-    pub type MpoolPushMessageParams = ();
-    pub type MpoolPushMessageResult = ();
+    pub type MpoolPushMessageParams = (UnsignedMessageJson, Option<MessageSendSpec>);
+    pub type MpoolPushMessageResult = SignedMessageJson;
 }
 
 pub mod mpool_select {
     pub const MPOOL_SELECT: &str = "Filecoin.MpoolSelect";
-    pub type MpoolSelectParams = ();
-    pub type MpoolSelectResult = ();
+    pub type MpoolSelectParams = (TipsetKeysJson, f64);
+    pub type MpoolSelectResult = Vec<SignedMessageJson>;
 }
 
 /// Sync API
