@@ -1058,24 +1058,4 @@ mod tests {
         cs.mark_block_as_validated(&cid).unwrap();
         assert_eq!(cs.is_block_validated(&cid).unwrap(), true);
     }
-
-    #[async_std::test]
-    async fn state_tree_export_import() {
-        let db = db::MemoryDB::default();
-        let mut tree = StateTree::new(&db, StateTreeVersion::V3).unwrap();
-        let root = tree.flush().unwrap();
-        let cs = ChainStore::new(Arc::new(db));
-
-        let dir = "/tmp/sttest";
-        let cur = BufWriter::new(File::create(dir).await.unwrap());
-        cs.export_state_tree(root, cur).await.unwrap();
-
-        let re = BufReader::new(File::open(dir).await.unwrap());
-
-        let root_in = cs.import_state_tree(re).await.unwrap();
-
-        assert_eq!(root, root_in);
-
-        remove_file(dir).await.unwrap();
-    }
 }

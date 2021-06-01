@@ -482,3 +482,33 @@ where
         .map_err(|e| format!("Failed to write blocks in export: {}", e))?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use async_std::{
+        fs::{remove_file, File},
+        io::{BufReader, BufWriter},
+    };
+    use fil_types::StateTreeVersion;
+
+    use crate::{export_state_tree, StateTree};
+
+    #[async_std::test]
+    async fn state_tree_export_import() {
+        let db = db::MemoryDB::default();
+        let mut tree = StateTree::new(&db, StateTreeVersion::V3).unwrap();
+        let root = tree.flush().unwrap();
+
+        let dir = "/tmp/sttest";
+        let cur = BufWriter::new(File::create(dir).await.unwrap());
+        export_state_tree(&db, root, cur).await.unwrap();
+
+        let re = BufReader::new(File::open(dir).await.unwrap());
+
+        let root_in = StateTree::import_state_tree(&db, re).await.unwrap();
+
+        assert_eq!(root, root_in);
+
+        remove_file(dir).await.unwrap();
+    }
+}
