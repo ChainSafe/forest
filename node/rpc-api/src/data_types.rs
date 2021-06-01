@@ -3,22 +3,35 @@
 
 use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
-use cid::Cid;
+use beacon::BeaconEntry;
+use fil_types::SectorSize;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 
-use beacon::{Beacon, BeaconSchedule};
-use blocks::Tipset;
+use actor::market::{DealProposal, DealState};
+use address::{json::AddressJson, Address};
+use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
+use bitfield::json::BitFieldJson;
+use blocks::{
+    election_proof::json::ElectionProofJson, ticket::json::TicketJson,
+    tipset_keys_json::TipsetKeysJson, Tipset,
+};
 use blockstore::BlockStore;
-use chain::headchange_json::SubscriptionHeadChange;
-use chain::ChainStore;
+use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
+use cid::{json::CidJson, Cid};
+use clock::ChainEpoch;
+use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 use forest_libp2p::NetworkMessage;
-use message::{signed_message, unsigned_message, SignedMessage, UnsignedMessage};
+use ipld::json::IpldJson;
+use message::{
+    message_receipt::json::MessageReceiptJson, signed_message,
+    signed_message::json::SignedMessageJson, unsigned_message, SignedMessage, UnsignedMessage,
+};
 use message_pool::{MessagePool, MpoolRpcProvider};
-use num_bigint::bigint_ser;
-use state_manager::StateManager;
-use vm::TokenAmount;
+use num_bigint::{bigint_ser, BigInt};
+use state_manager::{MiningBaseInfo, StateManager};
+use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;
 
 #[derive(Serialize)]
@@ -69,4 +82,122 @@ pub struct BlockMessages {
 pub struct MessageSendSpec {
     #[serde(with = "bigint_ser::json")]
     max_fee: TokenAmount,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Deadline {
+    pub post_submissions: BitFieldJson,
+    pub disputable_proof_count: usize,
+}
+
+#[derive(Serialize)]
+pub struct Fault {
+    miner: Address,
+    epoch: ChainEpoch,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Partition {
+    pub all_sectors: BitFieldJson,
+    pub faulty_sectors: BitFieldJson,
+    pub recovering_sectors: BitFieldJson,
+    pub live_sectors: BitFieldJson,
+    pub active_sectors: BitFieldJson,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ActorStateJson {
+    #[serde(with = "cid::json")]
+    code: Cid,
+    #[serde(with = "cid::json")]
+    head: Cid,
+    nonce: u64,
+    #[serde(with = "bigint_ser::json")]
+    balance: BigInt,
+}
+
+impl From<ActorState> for ActorStateJson {
+    fn from(a: ActorState) -> Self {
+        Self {
+            code: a.code,
+            head: a.state,
+            nonce: a.sequence,
+            balance: a.balance,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MarketDeal {
+    pub proposal: DealProposal,
+    pub state: DealState,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageLookup {
+    pub receipt: MessageReceiptJson,
+    #[serde(rename = "TipSet")]
+    pub tipset: TipsetKeysJson,
+    pub height: i64,
+    pub message: CidJson,
+    pub return_dec: IpldJson,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct BlockTemplate {
+    pub miner: AddressJson,
+    pub parents: TipsetKeysJson,
+    pub ticket: TicketJson,
+    pub eproof: ElectionProofJson,
+    pub beacon_values: Vec<BeaconEntryJson>,
+    pub messages: Vec<SignedMessageJson>,
+    pub epoch: i64,
+    pub timestamp: u64,
+    #[serde(rename = "WinningPoStProof")]
+    pub winning_post_proof: Vec<PoStProofJson>,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MiningBaseInfoJson {
+    #[serde(with = "bigint_ser::json::opt")]
+    pub miner_power: Option<BigInt>,
+    #[serde(with = "bigint_ser::json::opt")]
+    pub network_power: Option<BigInt>,
+    pub sectors: Vec<SectorInfoJson>,
+    #[serde(with = "address::json")]
+    pub worker_key: Address,
+    pub sector_size: SectorSize,
+    #[serde(with = "beacon::json")]
+    pub prev_beacon_entry: BeaconEntry,
+    pub beacon_entries: Vec<BeaconEntryJson>,
+    pub eligible_for_mining: bool,
+}
+
+impl From<MiningBaseInfo> for MiningBaseInfoJson {
+    fn from(info: MiningBaseInfo) -> Self {
+        Self {
+            miner_power: info.miner_power,
+            network_power: info.network_power,
+            sectors: info
+                .sectors
+                .into_iter()
+                .map(From::from)
+                .collect::<Vec<SectorInfoJson>>(),
+            worker_key: info.worker_key,
+            sector_size: info.sector_size,
+            prev_beacon_entry: info.prev_beacon_entry,
+            beacon_entries: info
+                .beacon_entries
+                .into_iter()
+                .map(BeaconEntryJson)
+                .collect::<Vec<BeaconEntryJson>>(),
+            eligible_for_mining: info.eligible_for_mining,
+        }
+    }
 }

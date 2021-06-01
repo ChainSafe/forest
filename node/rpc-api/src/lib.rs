@@ -337,111 +337,135 @@ pub mod wallet_api {
 
 /// State API
 pub mod state_api {
+    use std::collections::HashMap;
+
+    use crate::data_types::{
+        ActorStateJson, BlockTemplate, Deadline, Fault, MarketDeal, MessageLookup,
+        MiningBaseInfoJson, Partition,
+    };
+    use actor::miner::{
+        MinerInfo, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
+    };
+    use address::{json::AddressJson, Address};
+    use bitfield::json::BitFieldJson;
+    use blocks::{
+        gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
+    };
+    use cid::json::CidJson;
+    use clock::ChainEpoch;
+    use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
+    use message::{
+        message_receipt::json::MessageReceiptJson, unsigned_message::json::UnsignedMessageJson,
+    };
+    use state_manager::{InvocResult, MarketBalance};
+
     pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
-    pub type StateMinerSectorsParams = ();
-    pub type StateMinerSectorsResult = ();
+    pub type StateMinerSectorsParams = (AddressJson, BitFieldJson, TipsetKeysJson);
+    pub type StateMinerSectorsResult = Vec<SectorOnChainInfo>;
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
-    pub type StateCallParams = ();
-    pub type StateCallResult = ();
+    pub type StateCallParams = (UnsignedMessageJson, TipsetKeysJson);
+    pub type StateCallResult = InvocResult;
 
     pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
-    pub type StateMinerDeadlinesParams = ();
-    pub type StateMinerDeadlinesResult = ();
+    pub type StateMinerDeadlinesParams = (AddressJson, TipsetKeysJson);
+    pub type StateMinerDeadlinesResult = Vec<Deadline>;
 
     pub const STATE_SECTOR_PRECOMMIT_INFO: &str = "Filecoin.StateSectorPrecommitInfo";
-    pub type StateSectorPrecommitInfoParams = ();
-    pub type StateSectorPrecommitInfoResult = ();
-
-    pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
-    pub type StateSectorGetInfoParams = ();
-    pub type StateSectorGetInfoResult = ();
-
-    pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
-    pub type StateMinerProvingDeadlineParams = ();
-    pub type StateMinerProvingDeadlineResult = ();
+    pub type StateSectorPrecommitInfoParams = (AddressJson, SectorNumber, TipsetKeysJson);
+    pub type StateSectorPrecommitInfoResult = SectorPreCommitOnChainInfo;
 
     pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
-    pub type StateMinerInfoParams = ();
-    pub type StateMinerInfoResult = ();
+    pub type StateMinerInfoParams = (AddressJson, TipsetKeysJson);
+    pub type StateMinerInfoResult = MinerInfo;
+
+    pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
+    pub type StateSectorGetInfoParams = (AddressJson, SectorNumber, TipsetKeysJson);
+    pub type StateSectorGetInfoResult = Option<SectorOnChainInfo>;
+
+    pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
+    pub type StateMinerProvingDeadlineParams = (AddressJson, TipsetKeysJson);
+    pub type StateMinerProvingDeadlineResult = DeadlineInfo;
 
     pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
-    pub type StateMinerFaultsParams = ();
-    pub type StateMinerFaultsResult = ();
+    pub type StateMinerFaultsParams = (AddressJson, TipsetKeysJson);
+    pub type StateMinerFaultsResult = BitFieldJson;
 
     pub const STATE_ALL_MINER_FAULTS: &str = "Filecoin.StateAllMinerFaults";
-    pub type StateAllMinerFaultsParams = ();
-    pub type StateAllMinerFaultsResult = ();
+    pub type StateAllMinerFaultsParams = (ChainEpoch, TipsetKeysJson);
+    pub type StateAllMinerFaultsResult = Vec<Fault>;
 
     pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
-    pub type StateMinerRecoveriesParams = ();
-    pub type StateMinerRecoveriesResult = ();
+    pub type StateMinerRecoveriesParams = (AddressJson, TipsetKeysJson);
+    pub type StateMinerRecoveriesResult = BitFieldJson;
 
     pub const STATE_MINER_PARTITIONS: &str = "Filecoin.StateMinerPartitions";
-    pub type StateMinerPartitionsParams = ();
-    pub type StateMinerPartitionsResult = ();
-
-    pub const STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER: &str =
-        "Filecoin.StateMinerPreCommitDepositForPower";
-    pub type StateMinerPreCommitDepositForPowerParams = ();
-    pub type StateMinerPreCommitDepositForPowerResult = ();
-
-    pub const STATE_MINER_INITIAL_PLEDGE_COLLATERAL: &str =
-        "Filecoin.StateMinerInitialPledgeCollateral";
-    pub type StateMinerInitialPledgeCollateralParams = ();
-    pub type StateMinerInitialPledgeCollateralResult = ();
+    pub type StateMinerPartitionsParams = (AddressJson, u64, TipsetKeysJson);
+    pub type StateMinerPartitionsResult = Vec<Partition>;
 
     pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-    pub type StateReplayParams = ();
-    pub type StateReplayResult = ();
-
-    pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
-    pub type StateGetActorParams = ();
-    pub type StateGetActorResult = ();
-
-    pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
-    pub type StateAccountKeyParams = ();
-    pub type StateAccountKeyResult = ();
-
-    pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupId";
-    pub type StateLookupIdParams = ();
-    pub type StateLookupIdResult = ();
-
-    pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
-    pub type StateMarketBalanceParams = ();
-    pub type StateMarketBalanceResult = ();
-
-    pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
-    pub type StateMarketDealsParams = ();
-    pub type StateMarketDealsResult = ();
-
-    pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
-    pub type StateGetReceiptParams = ();
-    pub type StateGetReceiptResult = ();
-
-    pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
-    pub type StateWaitMsgParams = ();
-    pub type StateWaitMsgResult = ();
-
-    pub const STATE_MINER_SECTOR_ALLOCATED: &str = "Filecoin.StateMinerSectorAllocated";
-    pub type StateMinerSectorAllocatedParams = ();
-    pub type StateMinerSectorAllocatedResult = ();
+    pub type StateReplayParams = (CidJson, TipsetKeysJson);
+    pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
     pub type StateNetworkNameParams = ();
-    pub type StateNetworkNameResult = ();
-
-    pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
-    pub type MinerGetBaseInfoParams = ();
-    pub type MinerGetBaseInfoResult = ();
-
-    pub const MINER_CREATE_BLOCK: &str = "Filecoin.MinerCreateBlock";
-    pub type MinerCreateBlockParams = ();
-    pub type MinerCreateBlockResult = ();
+    pub type StateNetworkNameResult = String;
 
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
-    pub type StateNetworkVersionParams = ();
-    pub type StateNetworkVersionResult = ();
+    pub type StateNetworkVersionParams = (TipsetKeysJson,);
+    pub type StateNetworkVersionResult = NetworkVersion;
+
+    pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
+    pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
+    pub type StateGetActorResult = Option<ActorStateJson>;
+
+    pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
+    pub type StateAccountKeyParams = (AddressJson, TipsetKeysJson);
+    pub type StateAccountKeyResult = Option<AddressJson>;
+
+    pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupId";
+    pub type StateLookupIdParams = (AddressJson, TipsetKeysJson);
+    pub type StateLookupIdResult = Option<Address>;
+
+    pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
+    pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);
+    pub type StateMarketBalanceResult = MarketBalance;
+
+    pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
+    pub type StateMarketDealsParams = (TipsetKeysJson,);
+    pub type StateMarketDealsResult = HashMap<String, MarketDeal>;
+
+    pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
+    pub type StateGetReceiptParams = (CidJson, TipsetKeysJson);
+    pub type StateGetReceiptResult = MessageReceiptJson;
+
+    pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
+    pub type StateWaitMsgParams = (CidJson, i64);
+    pub type StateWaitMsgResult = MessageLookup;
+
+    pub const MINER_CREATE_BLOCK: &str = "Filecoin.MinerCreateBlock";
+    pub type MinerCreateBlockParams = (BlockTemplate,);
+    pub type MinerCreateBlockResult = BlockMsgJson;
+
+    pub const STATE_MINER_SECTOR_ALLOCATED: &str = "Filecoin.StateMinerSectorAllocated";
+    pub type StateMinerSectorAllocatedParams = (AddressJson, u64, TipsetKeysJson);
+    pub type StateMinerSectorAllocatedResult = bool;
+
+    pub const STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER: &str =
+        "Filecoin.StateMinerPreCommitDepositForPower";
+    pub type StateMinerPreCommitDepositForPowerParams =
+        (AddressJson, SectorPreCommitInfo, TipsetKeysJson);
+    pub type StateMinerPreCommitDepositForPowerResult = String;
+
+    pub const STATE_MINER_INITIAL_PLEDGE_COLLATERAL: &str =
+        "Filecoin.StateMinerInitialPledgeCollateral";
+    pub type StateMinerInitialPledgeCollateralParams =
+        (AddressJson, SectorPreCommitInfo, TipsetKeysJson);
+    pub type StateMinerInitialPledgeCollateralResult = String;
+
+    pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
+    pub type MinerGetBaseInfoParams = (AddressJson, ChainEpoch, TipsetKeysJson);
+    pub type MinerGetBaseInfoResult = Option<MiningBaseInfoJson>;
 }
 
 /// Gas API

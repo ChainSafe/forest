@@ -1,13 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RPCState;
-use beacon::Beacon;
-use blockstore::BlockStore;
-use forest_libp2p::{Multiaddr, NetRPCMethods, NetworkMessage};
 use futures::channel::oneshot;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
 use serde::Serialize;
+
+use beacon::Beacon;
+use blockstore::BlockStore;
+use forest_libp2p::{Multiaddr, NetRPCMethods, NetworkMessage};
+use rpc_api::{data_types::RPCState, net_api::*};
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
