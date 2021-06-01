@@ -18,8 +18,8 @@ use crossbeam::atomic::AtomicCell;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
-use futures::{AsyncRead, AsyncWrite};
-use forest_ipld::{recurse_links, Ipld};
+use forest_ipld::recurse_links;
+use futures::AsyncWrite;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -492,78 +492,6 @@ where
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
         Ok(miner::State::load(self.blockstore(), &actor)?)
-    }
-
-    /// Imports a StateTree given an AsyncRead that has data in CAR format
-    pub async fn import_state_tree<R: AsyncRead + Send + Unpin>(
-        &self,
-        reader: R,
-    ) -> Result<Cid, Error> {
-        let state_root = forest_car::load_car(self.blockstore(), reader)
-            .await
-            .map_err(|e| Error::Other(format!("Import StateTree failed: {}", e.to_string())))?;
-        if state_root.len() != 1 {
-            return Err(Error::Other(format!(
-                "Import StateTree failed: expected root length of 1, got: {}",
-                state_root.len()
-            )));
-        }
-
-        // Safe to grab index 0 because we have verified that the length of the vec is exactly 1
-        let state_root = state_root[0];
-
-        // Attempt to load StateTree to see if the root CID indeed points to a valid StateTree
-        StateTree::new_from_root(self.blockstore(), &state_root).map_err(|e| {
-            Error::Other(format!(
-                "Import StateTree failed: Invalid StateTree root: {}",
-                e.to_string()
-            ))
-        })?;
-
-        Ok(state_root)
-    }
-
-    /// Exports a StateTree in CAR format given the Cid to the tree.
-    pub async fn export_state_tree<W>(&self, state_root: Cid, mut writer: W) -> Result<(), Error>
-    where
-        W: AsyncWrite + Send + Unpin + 'static,
-    {
-        const CHANNEL_CAP: usize = 1000;
-        let (tx, mut rx) = bounded(CHANNEL_CAP);
-        let header = CarHeader::from(vec![state_root]);
-        let write_task =
-            task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
-
-        // Check if given Cid is a StateTree
-        StateTree::new_from_root(self.blockstore(), &state_root).map_err(|e| {
-            Error::Other(format!(
-                "Export StateTree failed: Invalid StateTree root: {}",
-                e.to_string()
-            ))
-        })?;
-
-        // Recurse over the StateTree links
-        let mut seen = Default::default();
-        recurse_links(&mut seen, state_root, &mut |cid| {
-            let block = self
-                .blockstore()
-                .get_bytes(&cid)?
-                .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
-
-            // * If cb can return a generic type, deserializing would remove need to clone.
-            // Ignore error intentionally, if receiver dropped, error will be handled below
-            let _ = task::block_on(tx.send((cid, block.clone())));
-            Ok(block)
-        })?;
-
-        // Close the Sender channel
-        drop(tx);
-
-        // Await on values being written.
-        write_task
-            .await
-            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))?;
-        Ok(())
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.

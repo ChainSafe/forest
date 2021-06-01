@@ -6,8 +6,6 @@ use encoding::Cbor;
 
 use crate::Ipld;
 
-
-
 // Traverses all Cid links, loading all unique values and using the callback function
 // to interact with the data.
 fn traverse_ipld_links<F>(
@@ -45,7 +43,11 @@ where
 }
 
 // Load cids and call [traverse_ipld_links] to resolve recursively.
-pub fn recurse_links<F>(walked: &mut HashSet<Cid>, root: Cid, load_block: &mut F) -> Result<(), Box<dyn StdError>>
+pub fn recurse_links<F>(
+    walked: &mut HashSet<Cid>,
+    root: Cid,
+    load_block: &mut F,
+) -> Result<(), Box<dyn StdError>>
 where
     F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
 {
