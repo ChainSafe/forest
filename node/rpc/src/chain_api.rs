@@ -18,10 +18,13 @@ use cid::{json::CidJson, Cid};
 use crypto::DomainSeparationTag;
 use message::{
     unsigned_message::{self, json::UnsignedMessageJson},
-    BlockMessages, UnsignedMessage,
+    UnsignedMessage,
 };
 use num_traits::FromPrimitive;
-use rpc_api::{chain_api::*, data_types::RPCState};
+use rpc_api::{
+    chain_api::*,
+    data_types::{BlockMessages, RPCState},
+};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

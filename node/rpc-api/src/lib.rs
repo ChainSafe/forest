@@ -153,6 +153,7 @@ pub mod beacon_api {
 
 /// Chain API
 pub mod chain_api {
+    use crate::data_types::BlockMessages;
     use blocks::{
         header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
         TipsetKeys,
@@ -160,7 +161,7 @@ pub mod chain_api {
     use chain::headchange_json::SubscriptionHeadChange;
     use cid::json::CidJson;
     use clock::ChainEpoch;
-    use message::{unsigned_message::json::UnsignedMessageJson, BlockMessages};
+    use message::unsigned_message::json::UnsignedMessageJson;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
@@ -222,11 +223,11 @@ pub mod chain_api {
 
 /// Message Pool API
 pub mod mpool_api {
+    use crate::data_types::MessageSendSpec;
     use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
     use cid::json::CidJson;
     use message::{
         signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
-        MessageSendSpec,
     };
 
     pub const MPOOL_ESTIMATE_GAS_PRICE: &str = "Filecoin.MpoolEstimateGasPrice";

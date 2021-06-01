@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
-use serde::{Deserialize, Serialize};
-
 pub mod chain_message;
 pub mod message_receipt;
 pub mod signed_message;
@@ -15,10 +13,7 @@ pub use signed_message::SignedMessage;
 pub use unsigned_message::UnsignedMessage;
 
 use address::Address;
-use cid::Cid;
 use vm::{MethodNum, Serialized, TokenAmount};
-
-use num_bigint::bigint_ser;
 
 /// Message interface to interact with Signed and unsigned messages in a generic context.
 pub trait Message {
@@ -50,21 +45,4 @@ pub trait Message {
     fn set_gas_fee_cap(&mut self, cap: TokenAmount);
     /// sets the gas premium.
     fn set_gas_premium(&mut self, prem: TokenAmount);
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "unsigned_message::json::vec")]
-    pub bls_msg: Vec<UnsignedMessage>,
-    #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
-    pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "cid::json::vec")]
-    pub cids: Vec<Cid>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct MessageSendSpec {
-    #[serde(with = "bigint_ser::json")]
-    max_fee: TokenAmount,
 }

@@ -18,7 +18,9 @@ crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst
 forest_libp2p = { path = "../forest_libp2p" }
 message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1.1" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
+vm = { package = "forest_vm", version = "0.3" }
 wallet = { package = "key_management", path = "../../key_management", features = ["json"] }
 # Public
 async-std = { version = "1.9", features = ["attributes"] }

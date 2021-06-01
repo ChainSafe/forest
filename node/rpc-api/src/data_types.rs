@@ -3,8 +3,9 @@
 
 use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
+use cid::Cid;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use beacon::{Beacon, BeaconSchedule};
 use blocks::Tipset;
@@ -13,8 +14,11 @@ use chain::headchange_json::SubscriptionHeadChange;
 use chain::ChainStore;
 use chain_sync::{BadBlockCache, SyncState};
 use forest_libp2p::NetworkMessage;
+use message::{signed_message, unsigned_message, SignedMessage, UnsignedMessage};
 use message_pool::{MessagePool, MpoolRpcProvider};
+use num_bigint::bigint_ser;
 use state_manager::StateManager;
+use vm::TokenAmount;
 use wallet::KeyStore;
 
 #[derive(Serialize)]
@@ -49,3 +53,20 @@ pub struct RPCSyncState {
 }
 
 pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
+
+#[derive(Serialize, Deserialize)]
+pub struct BlockMessages {
+    #[serde(rename = "BlsMessages", with = "unsigned_message::json::vec")]
+    pub bls_msg: Vec<UnsignedMessage>,
+    #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
+    pub secp_msg: Vec<SignedMessage>,
+    #[serde(rename = "Cids", with = "cid::json::vec")]
+    pub cids: Vec<Cid>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageSendSpec {
+    #[serde(with = "bigint_ser::json")]
+    max_fee: TokenAmount,
+}
