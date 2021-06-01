@@ -3,26 +3,21 @@
 
 use futures::channel::oneshot;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
-use serde::Serialize;
 
 use beacon::Beacon;
 use blockstore::BlockStore;
-use forest_libp2p::{Multiaddr, NetRPCMethods, NetworkMessage};
-use rpc_api::{data_types::RPCState, net_api::*};
+use forest_libp2p::{NetRPCMethods, NetworkMessage};
+use rpc_api::{
+    data_types::{AddrInfo, RPCState},
+    net_api::*,
+};
 
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub(crate) struct AddrInfo {
-    #[serde(rename = "ID")]
-    id: String,
-    addrs: Vec<Multiaddr>,
-}
 pub(crate) async fn net_addrs_listen<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
-) -> Result<AddrInfo, JsonRpcError> {
+) -> Result<NetAddrsListenResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::NetAddrsListen(tx),

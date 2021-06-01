@@ -22,7 +22,7 @@ use chain_sync::{BadBlockCache, SyncState};
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
-use forest_libp2p::NetworkMessage;
+use forest_libp2p::{Multiaddr, NetworkMessage};
 use ipld::json::IpldJson;
 use message::{
     message_receipt::json::MessageReceiptJson, signed_message,
@@ -34,6 +34,7 @@ use state_manager::{MiningBaseInfo, StateManager};
 use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;
 
+// RPC State
 #[derive(Serialize)]
 pub struct StreamingData<'a> {
     pub json_rpc: &'a str,
@@ -67,6 +68,7 @@ pub struct RPCSyncState {
 
 pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 
+// Chain API
 #[derive(Serialize, Deserialize)]
 pub struct BlockMessages {
     #[serde(rename = "BlsMessages", with = "unsigned_message::json::vec")]
@@ -84,6 +86,7 @@ pub struct MessageSendSpec {
     max_fee: TokenAmount,
 }
 
+// State API
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Deadline {
@@ -200,4 +203,13 @@ impl From<MiningBaseInfo> for MiningBaseInfoJson {
             eligible_for_mining: info.eligible_for_mining,
         }
     }
+}
+
+// Net API
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct AddrInfo {
+    #[serde(rename = "ID")]
+    pub id: String,
+    pub addrs: Vec<Multiaddr>,
 }

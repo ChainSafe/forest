@@ -151,9 +151,9 @@ where
             )
             .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB, B, V>)
             // Gas API
+            .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB, B>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB, B, V>)
             .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB, B>)
-            .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB, B>)
             .with_method(
                 GAS_ESTIMATE_MESSAGE_GAS,
                 gas_estimate_message_gas::<DB, B, V>,

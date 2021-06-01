@@ -470,33 +470,43 @@ pub mod state_api {
 
 /// Gas API
 pub mod gas_api {
-    pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
-    pub type GasEstimateGasLimitParams = ();
-    pub type GasEstimateGasLimitResult = ();
-
-    pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
-    pub type GasEstimateGasPremiumParams = ();
-    pub type GasEstimateGasPremiumResult = ();
+    use crate::data_types::MessageSendSpec;
+    use address::json::AddressJson;
+    use blocks::tipset_keys_json::TipsetKeysJson;
+    use message::unsigned_message::json::UnsignedMessageJson;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
-    pub type GasEstimateFeeCapParams = ();
-    pub type GasEstimateFeeCapResult = ();
+    pub type GasEstimateFeeCapParams = (UnsignedMessageJson, i64, TipsetKeysJson);
+    pub type GasEstimateFeeCapResult = String;
+
+    pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
+    pub type GasEstimateGasPremiumParams = (u64, AddressJson, i64, TipsetKeysJson);
+    pub type GasEstimateGasPremiumResult = String;
+
+    pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
+    pub type GasEstimateGasLimitParams = (UnsignedMessageJson, TipsetKeysJson);
+    pub type GasEstimateGasLimitResult = i64;
 
     pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
-    pub type GasEstimateMessageGasParams = ();
-    pub type GasEstimateMessageGasResult = ();
+    pub type GasEstimateMessageGasParams =
+        (UnsignedMessageJson, Option<MessageSendSpec>, TipsetKeysJson);
+    pub type GasEstimateMessageGasResult = UnsignedMessageJson;
 }
 
 /// Common API
 pub mod common_api {
+    use fil_types::build_version::APIVersion;
+
     pub const VERSION: &str = "Filecoin.Version";
     pub type VersionParams = ();
-    pub type VersionResult = ();
+    pub type VersionResult = APIVersion;
 }
 
 /// Net API
 pub mod net_api {
+    use crate::data_types::AddrInfo;
+
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
     pub type NetAddrsListenParams = ();
-    pub type NetAddrsListenResult = ();
+    pub type NetAddrsListenResult = AddrInfo;
 }

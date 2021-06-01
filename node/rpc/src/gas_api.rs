@@ -14,15 +14,18 @@ use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
 use message::{unsigned_message::json::UnsignedMessageJson, UnsignedMessage};
 use message::{ChainMessage, Message};
 use num_bigint::BigInt;
-use rpc_api::data_types::{MessageSendSpec, RPCState};
+use rpc_api::{
+    data_types::{MessageSendSpec, RPCState},
+    gas_api::*,
+};
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
 pub(crate) async fn gas_estimate_fee_cap<DB, B>(
     data: Data<RPCState<DB, B>>,
-    Params(params): Params<(UnsignedMessageJson, i64, TipsetKeysJson)>,
-) -> Result<String, JsonRpcError>
+    Params(params): Params<GasEstimateFeeCapParams>,
+) -> Result<GasEstimateFeeCapResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -66,8 +69,8 @@ where
 /// Estimate the fee cap
 pub(crate) async fn gas_estimate_gas_premium<DB, B>(
     data: Data<RPCState<DB, B>>,
-    Params(params): Params<(u64, AddressJson, i64, TipsetKeysJson)>,
-) -> Result<String, JsonRpcError>
+    Params(params): Params<GasEstimateGasPremiumParams>,
+) -> Result<GasEstimateGasPremiumResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -174,8 +177,8 @@ where
 /// Estimate the gas limit
 pub(crate) async fn gas_estimate_gas_limit<DB, B, V>(
     data: Data<RPCState<DB, B>>,
-    Params(params): Params<(UnsignedMessageJson, TipsetKeysJson)>,
-) -> Result<i64, JsonRpcError>
+    Params(params): Params<GasEstimateGasLimitParams>,
+) -> Result<GasEstimateGasLimitResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -240,8 +243,8 @@ where
 /// Estimates the gas paramaters for a given message
 pub(crate) async fn gas_estimate_message_gas<DB, B, V>(
     data: Data<RPCState<DB, B>>,
-    Params(params): Params<(UnsignedMessageJson, Option<MessageSendSpec>, TipsetKeysJson)>,
-) -> Result<UnsignedMessageJson, JsonRpcError>
+    Params(params): Params<GasEstimateMessageGasParams>,
+) -> Result<GasEstimateMessageGasResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
