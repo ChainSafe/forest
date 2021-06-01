@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::stringify_rpc_err;
+use super::{print_rpc_res_cids, print_rpc_res_pretty};
 use cid::Cid;
-use rpc_client::{block, genesis, head, messages, new_client, read_obj};
+use rpc_client::{block, genesis, head, messages, read_obj};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -42,55 +42,24 @@ pub enum ChainCommands {
 
 impl ChainCommands {
     pub async fn run(&self) {
-        // TODO handle cli config
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
-
-                let blk = block(&mut client, cid)
-                    .await
-                    .map_err(stringify_rpc_err)
-                    .unwrap();
-                println!("{}", serde_json::to_string_pretty(&blk).unwrap());
+                print_rpc_res_pretty(block(cid).await);
             }
             Self::Genesis => {
-                let mut client = new_client();
-
-                let gen = genesis(&mut client)
-                    .await
-                    .map_err(stringify_rpc_err)
-                    .unwrap();
-                println!("{}", serde_json::to_string_pretty(&gen).unwrap());
+                print_rpc_res_pretty(genesis().await);
             }
             Self::Head => {
-                let mut client = new_client();
-
-                let canonical = head(&mut client).await.map_err(stringify_rpc_err).unwrap();
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&canonical.0.cids()).unwrap()
-                );
+                print_rpc_res_cids(head().await);
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
-
-                let msg = messages(&mut client, cid)
-                    .await
-                    .map_err(stringify_rpc_err)
-                    .unwrap();
-                println!("{}", serde_json::to_string_pretty(&msg).unwrap());
+                print_rpc_res_pretty(messages(cid).await);
             }
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let mut client = new_client();
-
-                let obj = read_obj(&mut client, cid)
-                    .await
-                    .map_err(stringify_rpc_err)
-                    .unwrap();
-                println!("{}", serde_json::to_string_pretty(&obj).unwrap());
+                print_rpc_res_pretty(read_obj(cid).await);
             }
         }
     }

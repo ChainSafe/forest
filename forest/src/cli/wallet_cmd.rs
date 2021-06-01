@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_crypto::signature::{json::signature_type::SignatureTypeJson, SignatureType};
-use rpc_client::{new_client, wallet_ops};
+use rpc_client::wallet_ops;
 use structopt::StructOpt;
 
-use super::stringify_rpc_err;
+use super::handle_rpc_err;
 
 #[derive(Debug, StructOpt)]
 pub enum WalletCommands {
@@ -61,8 +61,6 @@ pub enum WalletCommands {
 
 impl WalletCommands {
     pub async fn run(&self) {
-        let mut client = new_client();
-
         match self {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.to_lowercase().as_str() {
@@ -72,38 +70,38 @@ impl WalletCommands {
 
                 let signature_type_json = SignatureTypeJson(signature_type);
 
-                let response = wallet_ops::wallet_new(&mut client, signature_type_json)
+                let response = wallet_ops::wallet_new(signature_type_json)
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{}", response);
             }
             Self::Balance => {
-                let response = wallet_ops::wallet_balance(&mut client)
+                let response = wallet_ops::wallet_balance()
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{}", response);
             }
             Self::Default => {
-                let response = wallet_ops::wallet_default_address(&mut client)
+                let response = wallet_ops::wallet_default_address()
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{}", response);
             }
             Self::Export => {
-                let response = wallet_ops::wallet_export(&mut client)
+                let response = wallet_ops::wallet_export()
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{:#?}", response);
             }
             Self::Has { key } => {
                 let key = key.parse().unwrap();
-                let response = wallet_ops::wallet_has(&mut client, key)
+                let response = wallet_ops::wallet_has(key)
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{}", response);
             }
@@ -112,32 +110,32 @@ impl WalletCommands {
                 println!("as default: {}", as_default);
             }
             Self::List => {
-                let response = wallet_ops::wallet_list(&mut client)
+                let response = wallet_ops::wallet_list()
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{:#?}", response);
             }
             Self::SetDefault { key } => {
                 let key = key.parse().unwrap();
-                wallet_ops::wallet_set_default(&mut client, key)
+                wallet_ops::wallet_set_default(key)
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
             }
             Self::Sign { message } => {
                 let message = message.parse().unwrap();
-                let response = wallet_ops::wallet_sign(&mut client, message)
+                let response = wallet_ops::wallet_sign(message)
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{:#?}", response);
             }
             Self::Verify { message } => {
                 let message = message.parse().unwrap();
-                let response = wallet_ops::wallet_verify(&mut client, message)
+                let response = wallet_ops::wallet_verify(message)
                     .await
-                    .map_err(stringify_rpc_err)
+                    .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{}", response);
             }

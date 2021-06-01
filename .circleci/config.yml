@@ -3,7 +3,7 @@ version: 2.1
 parameters:
   rustc-version:
     type: string
-    default: "1.51.0"
+    default: "1.52.1"
 
 executors:
   test-executor:
