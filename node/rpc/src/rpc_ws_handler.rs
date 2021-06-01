@@ -11,9 +11,11 @@ use tide_websockets::{Message, WebSocketConnection};
 use beacon::Beacon;
 use blockstore::BlockStore;
 use chain::headchange_json::SubscriptionHeadChange;
-use rpc_api::chain_api::*;
+use rpc_api::{
+    chain_api::*,
+    data_types::{JsonRpcServerState, StreamingData},
+};
 
-use crate::data_types::{JsonRpcServerState, StreamingData};
 use crate::rpc_util::{call_rpc, call_rpc_str, check_permissions, get_auth_header, get_error_str};
 
 async fn rpc_ws_task<DB, B>(

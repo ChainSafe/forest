@@ -5,10 +5,11 @@ use log::{debug, error};
 use serde::de::DeserializeOwned;
 use tide::http::headers::HeaderValues;
 
-use crate::data_types::JsonRpcServerState;
 use beacon::Beacon;
 use blockstore::BlockStore;
-use rpc_api::{auth_api::*, chain_api::*, check_access, ACCESS_MAP};
+use rpc_api::{
+    auth_api::*, chain_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP,
+};
 
 pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
     debug!(

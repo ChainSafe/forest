@@ -10,7 +10,8 @@ use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{import_chain, initialize_genesis};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
-use rpc::{start_rpc, RpcState};
+use rpc::start_rpc;
+use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
 use utils::write_to_file;
 use wallet::ENCRYPTED_KEYSTORE_NAME;
@@ -201,7 +202,7 @@ pub(super) async fn start(config: Config) {
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc::<_, _, FullVerifier>(
-                Arc::new(RpcState {
+                Arc::new(RPCState {
                     state_manager,
                     keystore: keystore_rpc,
                     mpool,

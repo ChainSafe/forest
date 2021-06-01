@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
+use rpc_api::data_types::JsonRpcServerState;
 use tide::http::{format_err, Error as HttpError, Method};
 
 use beacon::Beacon;
 use blockstore::BlockStore;
 
-use crate::data_types::JsonRpcServerState;
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 
 pub async fn rpc_http_handler<DB, B>(request: tide::Request<JsonRpcServerState>) -> tide::Result

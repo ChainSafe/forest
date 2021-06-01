@@ -5,7 +5,6 @@ mod auth_api;
 mod beacon_api;
 mod chain_api;
 mod common_api;
-mod data_types;
 mod gas_api;
 mod mpool_api;
 mod net_api;
@@ -17,16 +16,15 @@ mod sync_api;
 mod wallet_api;
 
 use async_std::sync::Arc;
-use log::info;
-
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
+use log::info;
 use tide_websockets::WebSocket;
 
 use beacon::Beacon;
 use blockstore::BlockStore;
 use fil_types::verifier::ProofVerifier;
+use rpc_api::data_types::RPCState;
 
-pub use crate::data_types::RpcState;
 use crate::rpc_http_handler::rpc_http_handler;
 use crate::rpc_ws_handler::rpc_ws_handler;
 use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
@@ -37,7 +35,7 @@ use rpc_api::{
 };
 
 pub async fn start_rpc<DB, B, V>(
-    state: Arc<RpcState<DB, B>>,
+    state: Arc<RPCState<DB, B>>,
     rpc_endpoint: &str,
 ) -> Result<(), JSONRPCError>
 where

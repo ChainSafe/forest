@@ -4,6 +4,8 @@
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
+pub mod data_types;
+
 /// Access levels to be checked against JWT claims
 pub enum Access {
     Admin,
@@ -257,20 +259,24 @@ pub mod mpool_api {
 
 /// Sync API
 pub mod sync_api {
+    use crate::data_types::RPCSyncState;
+    use blocks::gossip_block::json::GossipBlockJson;
+    use cid::json::CidJson;
+
     pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
-    pub type SyncCheckBadParams = ();
-    pub type SyncCheckBadResult = ();
+    pub type SyncCheckBadParams = (CidJson,);
+    pub type SyncCheckBadResult = String;
 
     pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
-    pub type SyncMarkBadParams = ();
+    pub type SyncMarkBadParams = (CidJson,);
     pub type SyncMarkBadResult = ();
 
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
     pub type SyncStateParams = ();
-    pub type SyncStateResult = ();
+    pub type SyncStateResult = RPCSyncState;
 
     pub const SYNC_SUBMIT_BLOCK: &str = "Filecoin.SyncSubmitBlock";
-    pub type SyncSubmitBlockParams = ();
+    pub type SyncSubmitBlockParams = (GossipBlockJson,);
     pub type SyncSubmitBlockResult = ();
 }
 

@@ -1,17 +1,16 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RpcState;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+
 use auth::*;
 use beacon::Beacon;
 use blockstore::BlockStore;
-use rpc_api::auth_api::*;
-
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use rpc_api::{auth_api::*, data_types::RPCState};
 
 /// RPC call to create a new JWT Token
 pub(crate) async fn auth_new<'a, DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<AuthNewParams>,
 ) -> Result<AuthNewResult, JsonRpcError>
 where
@@ -27,7 +26,7 @@ where
 
 /// RPC call to verify JWT Token and return the token's permissions
 pub(crate) async fn auth_verify<DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<AuthVerifyParams>,
 ) -> Result<AuthVerifyResult, JsonRpcError>
 where

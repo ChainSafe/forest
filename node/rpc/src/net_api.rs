@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RpcState;
+use crate::RPCState;
 use beacon::Beacon;
 use blockstore::BlockStore;
 use forest_libp2p::{Multiaddr, NetRPCMethods, NetworkMessage};
@@ -20,7 +20,7 @@ pub(crate) async fn net_addrs_listen<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
 ) -> Result<AddrInfo, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {

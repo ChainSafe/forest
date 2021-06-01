@@ -2079,6 +2079,7 @@ dependencies = [
  "rayon",
  "rpassword",
  "rpc",
+ "rpc-api",
  "rpc-client",
  "serde",
  "serde_json",
@@ -5411,13 +5412,22 @@ dependencies = [
 name = "rpc-api"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "beacon",
  "chain",
+ "chain_sync",
  "fil_clock",
  "forest_blocks",
  "forest_cid",
+ "forest_libp2p",
  "forest_message",
+ "ipld_blockstore",
+ "jsonrpc-v2",
+ "key_management",
+ "message_pool",
  "once_cell",
+ "serde",
+ "state_manager",
 ]
 
 [[package]]

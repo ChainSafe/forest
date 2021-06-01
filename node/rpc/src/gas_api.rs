@@ -1,24 +1,26 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RpcState;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use num_traits::{FromPrimitive, Zero};
+use rand_distr::{Distribution, Normal};
+
 use address::json::AddressJson;
 use beacon::Beacon;
 use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;
 use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{unsigned_message::json::UnsignedMessageJson, UnsignedMessage};
 use message::{ChainMessage, Message, MessageSendSpec};
 use num_bigint::BigInt;
-use num_traits::{FromPrimitive, Zero};
-use rand_distr::{Distribution, Normal};
+use rpc_api::data_types::RPCState;
+
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
 pub(crate) async fn gas_estimate_fee_cap<DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<(UnsignedMessageJson, i64, TipsetKeysJson)>,
 ) -> Result<String, JsonRpcError>
 where
@@ -33,7 +35,7 @@ where
 }
 
 async fn estimate_fee_cap<DB, B>(
-    data: &Data<RpcState<DB, B>>,
+    data: &Data<RPCState<DB, B>>,
     msg: UnsignedMessage,
     max_queue_blks: i64,
     _tsk: TipsetKeys,
@@ -63,7 +65,7 @@ where
 
 /// Estimate the fee cap
 pub(crate) async fn gas_estimate_gas_premium<DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<(u64, AddressJson, i64, TipsetKeysJson)>,
 ) -> Result<String, JsonRpcError>
 where
@@ -77,7 +79,7 @@ where
 }
 
 async fn estimate_gas_premium<DB, B>(
-    data: &Data<RpcState<DB, B>>,
+    data: &Data<RPCState<DB, B>>,
     mut nblocksincl: u64,
 ) -> Result<BigInt, JsonRpcError>
 where
@@ -171,7 +173,7 @@ where
 
 /// Estimate the gas limit
 pub(crate) async fn gas_estimate_gas_limit<DB, B, V>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<(UnsignedMessageJson, TipsetKeysJson)>,
 ) -> Result<i64, JsonRpcError>
 where
@@ -184,7 +186,7 @@ where
 }
 
 async fn estimate_gas_limit<DB, B, V>(
-    data: &Data<RpcState<DB, B>>,
+    data: &Data<RPCState<DB, B>>,
     msg: UnsignedMessage,
     _: TipsetKeys,
 ) -> Result<i64, JsonRpcError>
@@ -237,7 +239,7 @@ where
 
 /// Estimates the gas paramaters for a given message
 pub(crate) async fn gas_estimate_message_gas<DB, B, V>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<(UnsignedMessageJson, Option<MessageSendSpec>, TipsetKeysJson)>,
 ) -> Result<UnsignedMessageJson, JsonRpcError>
 where
@@ -252,7 +254,7 @@ where
 }
 
 pub(crate) async fn estimate_message_gas<DB, B, V>(
-    data: &Data<RpcState<DB, B>>,
+    data: &Data<RPCState<DB, B>>,
     msg: UnsignedMessage,
     _spec: Option<MessageSendSpec>,
     tsk: TipsetKeys,

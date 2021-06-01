@@ -25,7 +25,7 @@ pub struct StreamingData<'a> {
 }
 
 /// This is where you store persistent data, or at least access to stateful data.
-pub struct RpcState<DB, B>
+pub struct RPCState<DB, B>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -40,6 +40,12 @@ where
     pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub network_name: String,
     pub beacon: Arc<BeaconSchedule<B>>,
+}
+
+#[derive(Serialize)]
+pub struct RPCSyncState {
+    #[serde(rename = "ActiveSyncs")]
+    pub active_syncs: Vec<SyncState>,
 }
 
 pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;

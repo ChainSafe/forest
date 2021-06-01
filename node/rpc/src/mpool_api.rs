@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas_api::estimate_message_gas;
-use crate::RpcState;
 use address::{Address, Protocol};
 use beacon::Beacon;
 use blocks::TipsetKeys;
@@ -15,6 +14,7 @@ use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
+use rpc_api::data_types::RPCState;
 use rpc_api::mpool_api::*;
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -23,7 +23,7 @@ use std::{collections::HashSet, convert::TryFrom};
 
 /// Estimate the gas price for an Address
 pub(crate) async fn estimate_gas_premium<DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolEstimateGasPriceParams>,
 ) -> Result<MpoolEstimateGasPriceResult, JsonRpcError>
 where
@@ -40,7 +40,7 @@ where
 
 /// get the sequence of given address in mpool
 pub(crate) async fn mpool_get_sequence<DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolGetNonceParams>,
 ) -> Result<MpoolGetNonceResult, JsonRpcError>
 where
@@ -55,7 +55,7 @@ where
 
 /// Return Vec of pending messages in mpool
 pub(crate) async fn mpool_pending<DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPendingParams>,
 ) -> Result<MpoolPendingResult, JsonRpcError>
 where
@@ -120,7 +120,7 @@ where
 
 /// Add SignedMessage to mpool, return msg CID
 pub(crate) async fn mpool_push<DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPushParams>,
 ) -> Result<MpoolPushResult, JsonRpcError>
 where
@@ -136,7 +136,7 @@ where
 
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
 pub(crate) async fn mpool_push_message<DB, B, V>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPushMessageParams>,
 ) -> Result<MpoolPushMessageResult, JsonRpcError>
 where
@@ -190,7 +190,7 @@ where
 }
 
 pub(crate) async fn mpool_select<DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolSelectParams>,
 ) -> Result<MpoolSelectResult, JsonRpcError>
 where

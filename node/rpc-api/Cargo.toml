@@ -5,12 +5,25 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-# Public
-once_cell = "1.7.2"
 # Internal
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
+blockstore = { package = "ipld_blockstore", version = "0.1" }
 chain = { path = "../../blockchain/chain", features = ["json"] }
+chain_sync = { path = "../../blockchain/chain_sync" }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 clock = { package = "fil_clock", path = "../clock" }
+forest_libp2p = { path = "../forest_libp2p" }
 message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
+message_pool = { path = "../../blockchain/message_pool" }
+state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
+wallet = { package = "key_management", path = "../../key_management", features = ["json"] }
+# Public
+async-std = { version = "1.9", features = ["attributes"] }
+once_cell = "1.7.2"
+serde = { version = "1.0.101", default-features = false, features = ["derive"] }
+
+[dependencies.jsonrpc-v2]
+version = "0.10.1"
+features = ["easy-errors", "macros", "bytes-v05"]
+default-features = false
