@@ -282,49 +282,56 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
+    use address::json::AddressJson;
+    use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
+    use message::{
+        signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
+    };
+    use wallet::json::KeyInfoJson;
+
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
-    pub type WalletBalanceParams = ();
-    pub type WalletBalanceResult = ();
+    pub type WalletBalanceParams = (String,);
+    pub type WalletBalanceResult = String;
 
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
     pub type WalletDefaultAddressParams = ();
-    pub type WalletDefaultAddressResult = ();
+    pub type WalletDefaultAddressResult = String;
 
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
-    pub type WalletExportParams = ();
-    pub type WalletExportResult = ();
+    pub type WalletExportParams = (String,);
+    pub type WalletExportResult = KeyInfoJson;
 
     pub const WALLET_HAS: &str = "Filecoin.WalletHas";
-    pub type WalletHasParams = ();
-    pub type WalletHasResult = ();
+    pub type WalletHasParams = (String,);
+    pub type WalletHasResult = bool;
 
     pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-    pub type WalletImportParams = ();
-    pub type WalletImportResult = ();
+    pub type WalletImportParams = Vec<KeyInfoJson>;
+    pub type WalletImportResult = String;
 
     pub const WALLET_LIST: &str = "Filecoin.WalletList";
     pub type WalletListParams = ();
-    pub type WalletListResult = ();
+    pub type WalletListResult = Vec<AddressJson>;
 
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-    pub type WalletNewParams = ();
-    pub type WalletNewResult = ();
+    pub type WalletNewParams = (SignatureTypeJson,);
+    pub type WalletNewResult = String;
 
     pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
-    pub type WalletSetDefaultParams = ();
+    pub type WalletSetDefaultParams = (AddressJson,);
     pub type WalletSetDefaultResult = ();
 
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-    pub type WalletSignParams = ();
-    pub type WalletSignResult = ();
+    pub type WalletSignParams = (AddressJson, String);
+    pub type WalletSignResult = SignatureJson;
 
     pub const WALLET_SIGN_MESSAGE: &str = "Filecoin.WalletSignMessage";
-    pub type WalletSignMessageParams = ();
-    pub type WalletSignMessageResult = ();
+    pub type WalletSignMessageParams = (String, UnsignedMessageJson);
+    pub type WalletSignMessageResult = SignedMessageJson;
 
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub type WalletVerifyParams = ();
-    pub type WalletVerifyResult = ();
+    pub type WalletVerifyParams = (String, String, SignatureJson);
+    pub type WalletVerifyResult = bool;
 }
 
 /// State API

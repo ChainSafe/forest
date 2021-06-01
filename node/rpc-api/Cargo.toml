@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 # Internal
+address = { package = "forest_address", version = "0.3", features = ["json"] }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 blockstore = { package = "ipld_blockstore", version = "0.1" }
@@ -13,6 +14,7 @@ chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 clock = { package = "fil_clock", path = "../clock" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst"] }
 forest_libp2p = { path = "../forest_libp2p" }
 message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
