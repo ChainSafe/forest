@@ -18,7 +18,7 @@ use crossbeam::atomic::AtomicCell;
 use crypto::DomainSeparationTag;
 use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
-use forest_ipld::Ipld;
+use forest_ipld::recurse_links;
 use futures::AsyncWrite;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
@@ -680,63 +680,6 @@ where
     }
 }
 
-// Traverses all Cid links, loading all unique values and using the callback function
-// to interact with the data.
-fn traverse_ipld_links<F>(
-    walked: &mut HashSet<Cid>,
-    load_block: &mut F,
-    ipld: &Ipld,
-) -> Result<(), Box<dyn StdError>>
-where
-    F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
-{
-    match ipld {
-        Ipld::Map(m) => {
-            for (_, v) in m.iter() {
-                traverse_ipld_links(walked, load_block, v)?;
-            }
-        }
-        Ipld::List(list) => {
-            for v in list.iter() {
-                traverse_ipld_links(walked, load_block, v)?;
-            }
-        }
-        Ipld::Link(cid) => {
-            if cid.codec() == cid::DAG_CBOR {
-                if !walked.insert(*cid) {
-                    return Ok(());
-                }
-                let bytes = load_block(*cid)?;
-                let ipld = Ipld::unmarshal_cbor(&bytes)?;
-                traverse_ipld_links(walked, load_block, &ipld)?;
-            }
-        }
-        _ => (),
-    }
-    Ok(())
-}
-
-// Load cids and call [traverse_ipld_links] to resolve recursively.
-fn recurse_links<F>(walked: &mut HashSet<Cid>, root: Cid, load_block: &mut F) -> Result<(), Error>
-where
-    F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
-{
-    if !walked.insert(root) {
-        // Cid has already been traversed
-        return Ok(());
-    }
-    if root.codec() != cid::DAG_CBOR {
-        return Ok(());
-    }
-
-    let bytes = load_block(root)?;
-    let ipld = Ipld::unmarshal_cbor(&bytes)?;
-
-    traverse_ipld_links(walked, load_block, &ipld)?;
-
-    Ok(())
-}
-
 pub(crate) type TipsetCache = RwLock<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Loads a tipset from memory given the tipset keys and cache.
@@ -1074,7 +1017,14 @@ pub mod headchange_json {
 mod tests {
     use super::*;
     use address::Address;
+    use async_std::sync::Arc;
+    use async_std::{
+        fs::{remove_file, File},
+        io::{BufReader, BufWriter},
+    };
     use cid::Code::{Blake2b256, Identity};
+    use state_tree::StateTree;
+    use types::StateTreeVersion;
 
     #[test]
     fn genesis_test() {
