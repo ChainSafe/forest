@@ -17,9 +17,14 @@ pub enum Access {
 pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     let mut access = HashMap::new();
 
+    // Auth API
     access.insert(auth_api::AUTH_NEW, Access::Admin);
     access.insert(auth_api::AUTH_VERIFY, Access::Read);
+
+    // Beacon API
     access.insert(beacon_api::BEACON_GET_ENTRY, Access::Read);
+
+    // Chain API
     access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);
     access.insert(chain_api::CHAIN_READ_OBJ, Access::Read);
     access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
@@ -34,6 +39,79 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
     access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_BEACON, Access::Read);
+
+    // Message Pool API
+    access.insert(mpool_api::MPOOL_ESTIMATE_GAS_PRICE, Access::Read);
+    access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
+    access.insert(mpool_api::MPOOL_PENDING, Access::Read);
+    access.insert(mpool_api::MPOOL_PUSH, Access::Write);
+    access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
+    access.insert(mpool_api::MPOOL_SELECT, Access::Read);
+
+    // Sync API
+    access.insert(sync_api::SYNC_CHECK_BAD, Access::Read);
+    access.insert(sync_api::SYNC_MARK_BAD, Access::Admin);
+    access.insert(sync_api::SYNC_STATE, Access::Read);
+    access.insert(sync_api::SYNC_SUBMIT_BLOCK, Access::Write);
+
+    // Wallet API
+    access.insert(wallet_api::WALLET_BALANCE, Access::Write);
+    access.insert(wallet_api::WALLET_DEFAULT_ADDRESS, Access::Write);
+    access.insert(wallet_api::WALLET_EXPORT, Access::Admin);
+    access.insert(wallet_api::WALLET_HAS, Access::Write);
+    access.insert(wallet_api::WALLET_IMPORT, Access::Admin);
+    access.insert(wallet_api::WALLET_LIST, Access::Write);
+    access.insert(wallet_api::WALLET_NEW, Access::Write);
+    access.insert(wallet_api::WALLET_SET_DEFAULT, Access::Write);
+    access.insert(wallet_api::WALLET_SIGN, Access::Sign);
+    access.insert(wallet_api::WALLET_SIGN_MESSAGE, Access::Sign);
+    access.insert(wallet_api::WALLET_VERIFY, Access::Read);
+
+    // State API
+    access.insert(state_api::STATE_MINER_SECTORS, Access::Read);
+    access.insert(state_api::STATE_CALL, Access::Read);
+    access.insert(state_api::STATE_MINER_DEADLINES, Access::Read);
+    access.insert(state_api::STATE_SECTOR_PRECOMMIT_INFO, Access::Read);
+    access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
+    access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
+    access.insert(state_api::STATE_MINER_INFO, Access::Read);
+    access.insert(state_api::STATE_MINER_FAULTS, Access::Read);
+    access.insert(state_api::STATE_ALL_MINER_FAULTS, Access::Read);
+    access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
+    access.insert(state_api::STATE_MINER_PARTITIONS, Access::Read);
+    access.insert(
+        state_api::STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
+        Access::Read,
+    );
+    access.insert(
+        state_api::STATE_MINER_INITIAL_PLEDGE_COLLATERAL,
+        Access::Read,
+    );
+    access.insert(state_api::STATE_REPLAY, Access::Read);
+    access.insert(state_api::STATE_GET_ACTOR, Access::Read);
+    access.insert(state_api::STATE_ACCOUNT_KEY, Access::Read);
+    access.insert(state_api::STATE_LOOKUP_ID, Access::Read);
+    access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
+    access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
+    access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
+    access.insert(state_api::STATE_WAIT_MSG, Access::Read);
+    access.insert(state_api::STATE_MINER_SECTOR_ALLOCATED, Access::Read);
+    access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
+    access.insert(state_api::MINER_GET_BASE_INFO, Access::Read);
+    access.insert(state_api::MINER_CREATE_BLOCK, Access::Write);
+    access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
+
+    // Gas API
+    access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
+    access.insert(gas_api::GAS_ESTIMATE_GAS_PREMIUM, Access::Read);
+    access.insert(gas_api::GAS_ESTIMATE_FEE_CAP, Access::Read);
+    access.insert(gas_api::GAS_ESTIMATE_MESSAGE_GAS, Access::Read);
+
+    // Common API
+    access.insert(common_api::VERSION, Access::Read);
+
+    // Net API
+    access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
 
     access
 });
