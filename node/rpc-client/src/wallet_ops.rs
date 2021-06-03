@@ -9,7 +9,7 @@ use message::signed_message::json::SignedMessageJson;
 use wallet::json::KeyInfoJson;
 
 pub async fn wallet_new(signature_type: SignatureTypeJson) -> Result<String, JsonRpcError> {
-    filecoin_rpc::wallet_new(signature_type).await
+    filecoin_rpc::wallet_new((signature_type,)).await
 }
 
 pub async fn wallet_default_address() -> Result<String, JsonRpcError> {

@@ -177,13 +177,12 @@ where
 /// Filecoin RPC client interface methods
 pub mod filecoin_rpc {
     use address::json::AddressJson;
-    use crypto::signature::json::signature_type::SignatureTypeJson;
     use jsonrpc_v2::Error;
     use message::signed_message::json::SignedMessageJson;
     use wallet::json::KeyInfoJson;
 
     use crate::call_params;
-    use rpc_api::{auth_api::*, chain_api::*};
+    use rpc_api::{auth_api::*, chain_api::*, wallet_api::WalletNewParams};
 
     /// Auth
     pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
@@ -213,7 +212,7 @@ pub mod filecoin_rpc {
     }
 
     /// Wallet
-    pub async fn wallet_new(signature_type: SignatureTypeJson) -> Result<String, Error> {
+    pub async fn wallet_new(signature_type: WalletNewParams) -> Result<String, Error> {
         call_params("Filecoin.WalletNew", signature_type).await
     }
 
