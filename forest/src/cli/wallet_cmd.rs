@@ -114,7 +114,10 @@ impl WalletCommands {
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
-                println!("{:#?}", response);
+
+                response.iter().for_each(|address| {
+                    println!("{}", address.0);
+                });
             }
             Self::SetDefault { key } => {
                 let key = key.parse().unwrap();
