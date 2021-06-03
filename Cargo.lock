@@ -6033,6 +6033,8 @@ version = "0.1.0"
 dependencies = [
  "actor_interface",
  "async-std",
+ "crossbeam-channel",
+ "crossbeam-utils 0.8.4",
  "fil_clock",
  "fil_types",
  "forest_address",
@@ -6046,6 +6048,9 @@ dependencies = [
  "futures",
  "ipld_blockstore",
  "libp2p 0.35.1",
+ "log",
+ "num_cpus",
+ "rayon",
  "serde",
  "state_tree",
  "thiserror",
