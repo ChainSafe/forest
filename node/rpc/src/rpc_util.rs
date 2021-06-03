@@ -5,10 +5,11 @@ use log::{debug, error};
 use serde::de::DeserializeOwned;
 use tide::http::headers::HeaderValues;
 
-use crate::data_types::JsonRpcServerState;
-use auth::WRITE_ACCESS;
 use beacon::Beacon;
 use blockstore::BlockStore;
+use rpc_api::{
+    auth_api::*, chain_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP,
+};
 
 pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
     debug!(
@@ -37,27 +38,22 @@ pub fn get_error_str(code: i64, message: String) -> String {
     }
 }
 
-pub const RPC_METHOD_CHAIN_HEAD_SUB: &str = "Filecoin.ChainHeadSubscription";
-pub const RPC_METHOD_CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
-
-const STREAMING_METHODS: [&str; 2] = [RPC_METHOD_CHAIN_HEAD_SUB, RPC_METHOD_CHAIN_NOTIFY];
+const STREAMING_METHODS: [&str; 2] = [CHAIN_HEAD_SUBSCRIPTION, CHAIN_NOTIFY];
 
 pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
 }
 
-pub const RPC_METHOD_AUTH_VERIFY: &str = "Filecoin.AuthVerify";
-
 pub async fn check_permissions<DB, B>(
     rpc_server: JsonRpcServerState,
-    method_name: &str,
+    method: &str,
     authorization_header: Option<HeaderValues>,
 ) -> Result<(), tide::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    match authorization_header
+    let claims = match authorization_header
         .and_then(|header_values| header_values.get(0).cloned())
         .map(|token| token.to_string())
     {
@@ -67,7 +63,7 @@ where
             let (_, claims) = call_rpc::<Vec<String>>(
                 rpc_server,
                 jsonrpc_v2::RequestObject::request()
-                    .with_method(RPC_METHOD_AUTH_VERIFY)
+                    .with_method(AUTH_VERIFY)
                     .with_params(vec![token])
                     .finish(),
             )
@@ -75,26 +71,21 @@ where
 
             debug!("Decoded JWT Claims: {:?}", claims);
 
-            // Checks to see if the method is within the array of methods that require write access
-            if WRITE_ACCESS.contains(&method_name) {
-                if claims.contains(&"write".to_string()) {
-                    Ok(())
-                } else {
-                    Err(tide::Error::from_str(403, "Forbidden"))
-                }
-            } else {
-                // If write access is not required, allow this to run
-                Ok(())
-            }
+            claims
         }
         // If no token is passed, assume read behavior
-        None => {
-            if WRITE_ACCESS.contains(&method_name) {
-                Err(tide::Error::from_str(403, "Forbidden"))
-            } else {
+        None => vec!["read".to_owned()],
+    };
+
+    match ACCESS_MAP.get(&method) {
+        Some(access) => {
+            if check_access(access, &claims) {
                 Ok(())
+            } else {
+                Err(tide::Error::from_str(403, "Forbidden"))
             }
         }
+        None => Err(tide::Error::from_str(404, "Not Found")),
     }
 }
 

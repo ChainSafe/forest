@@ -1,34 +1,35 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crypto::SignatureType;
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonwebtoken::errors::Result as JWTResult;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header};
+use once_cell::sync::Lazy;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crypto::SignatureType;
 use wallet::KeyInfo;
 
 /// constant string that is used to identify the JWT secret key in KeyStore
 pub const JWT_IDENTIFIER: &str = "auth-jwt-private";
 /// Admin permissions
-pub const ADMIN: [&str; 4] = ["read", "write", "sign", "admin"];
+pub static ADMIN: Lazy<Vec<String>> = Lazy::new(|| {
+    vec![
+        "read".to_string(),
+        "write".to_string(),
+        "sign".to_string(),
+        "admin".to_string(),
+    ]
+});
 /// Signing permissions
-pub const SIGN: [&str; 3] = ["read", "write", "sign"];
+pub static SIGN: Lazy<Vec<String>> =
+    Lazy::new(|| vec!["read".to_string(), "write".to_string(), "sign".to_string()]);
 /// Writing permissions
-pub const WRITE: [&str; 2] = ["read", "write"];
+pub static WRITE: Lazy<Vec<String>> = Lazy::new(|| vec!["read".to_string(), "write".to_string()]);
 /// Reading permissions
-pub const READ: [&str; 1] = ["read"];
-/// All methods that require write permission
-pub const WRITE_ACCESS: [&str; 6] = [
-    "Filecoin.MpoolPush",
-    "Filecoin.WalletNew",
-    "Filecoin.WalletHas",
-    "Filecoin.WalletList",
-    "Filecoin.WalletDefaultAddress",
-    "Filecoin.WalletList",
-];
+pub static READ: Lazy<Vec<String>> = Lazy::new(|| vec!["read".to_string()]);
 
 /// Error Enum for Authentication
 #[derive(Debug, Error, Serialize, Deserialize)]

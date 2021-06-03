@@ -19,6 +19,8 @@ members = [
     "node/clock",
     "node/db",
     "node/rpc",
+    "node/rpc-client",
+    "node/rpc-api",
     "crypto",
     "encoding",
     "ipld/cid",

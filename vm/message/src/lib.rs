@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
-extern crate serde;
-
 pub mod chain_message;
 pub mod message_receipt;
 pub mod signed_message;
