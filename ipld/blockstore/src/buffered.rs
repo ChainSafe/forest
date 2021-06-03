@@ -7,11 +7,11 @@ use super::BlockStore;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use cid::{Cid, Code, DAG_CBOR};
 use db::{Error, Store};
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::io::{Read, Seek};
 use std::{convert::TryFrom, io::Cursor};
-use std::borrow::Borrow;
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.

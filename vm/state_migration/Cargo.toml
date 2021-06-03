@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
-fil_types = {path="../../types"}
+fil_types = { path="../../types" }
 vm = { package = "forest_vm", version = "0.3.1" }
 ipld_blockstore = "0.1"
 address = { package = "forest_address", version = "0.3" }
@@ -20,9 +20,9 @@ forest_hash_utils = "0.1"
 forest_json_utils = "0.1.1"
 thiserror = "1.0"
 futures = "0.3.14"
-state_tree = { path="../state_tree" }
+state_tree = { path = "../state_tree" }
 async-std = "1.9.0"
-actor_interface = {path = "../actor_interface"}
+actor_interface = { path = "../actor_interface" }
 crossbeam-utils = "0.8.4"
 crossbeam-channel = "0.5.1"
 rayon = "1.5"

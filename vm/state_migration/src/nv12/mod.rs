@@ -92,7 +92,11 @@ pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
 
     let cpus = num_cpus::get();
     let chan_size = 2;
-    log::info!("Using {} CPUs for migration and channel size of {}", cpus, chan_size);
+    log::info!(
+        "Using {} CPUs for migration and channel size of {}",
+        cpus,
+        chan_size
+    );
 
     let pool = rayon::ThreadPoolBuilder::new()
         .thread_name(|id| format!("nv12 migration thread: {}", id))
@@ -107,10 +111,14 @@ pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
         let store_clone = store.clone();
 
         s.spawn(move |_| {
-            actors_in.for_each(|addr, state| {
-                state_tx.send((addr, state.clone())).expect("failed sending actor state through channel");
-                Ok(())
-            }).expect("Failed iterating over actor state");
+            actors_in
+                .for_each(|addr, state| {
+                    state_tx
+                        .send((addr, state.clone()))
+                        .expect("failed sending actor state through channel");
+                    Ok(())
+                })
+                .expect("Failed iterating over actor state");
         });
 
         s.spawn(move |scope| {
@@ -125,9 +133,13 @@ pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
                         actor_migration: migrator,
                     };
 
-                    let job_output = job.run(store_clone, prior_epoch).expect(&format!("failed executing job for address: {}", addr));
+                    let job_output = job
+                        .run(store_clone, prior_epoch)
+                        .expect(&format!("failed executing job for address: {}", addr));
 
-                    job_tx.send(job_output).expect(&format!("failed sending job output for address: {}", addr));
+                    job_tx
+                        .send(job_output)
+                        .expect(&format!("failed sending job output for address: {}", addr));
                 });
             }
             drop(job_tx);
@@ -136,7 +148,10 @@ pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
         while let Ok(job_output) = job_rx.recv() {
             actors_out
                 .set_actor(&job_output.address, job_output.actor_state)
-                .expect(&format!("Failed setting new actor state at given address: {}", job_output.address));
+                .expect(&format!(
+                    "Failed setting new actor state at given address: {}",
+                    job_output.address
+                ));
         }
     });
 

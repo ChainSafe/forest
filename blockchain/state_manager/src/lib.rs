@@ -251,7 +251,8 @@ where
         )?;
 
         // Apply tipset messages
-        let receipts = vm.apply_block_messages(messages, parent_epoch, epoch,buf_store.clone(), callback)?;
+        let receipts =
+            vm.apply_block_messages(messages, parent_epoch, epoch, buf_store.clone(), callback)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_iter(self.blockstore(), receipts)?;
@@ -259,8 +260,9 @@ where
         let state_root = vm.flush()?;
         // Persist changes connected to root
         Arc::get_mut(&mut buf_store)
-        .expect("failed getting store reference")
-        .flush(&state_root).expect("buffered blockstore flush failed");
+            .expect("failed getting store reference")
+            .flush(&state_root)
+            .expect("buffered blockstore flush failed");
 
         Ok((state_root, rect_root))
     }
