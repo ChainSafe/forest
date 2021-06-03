@@ -176,7 +176,11 @@ where
 
 /// Filecoin RPC client interface methods
 pub mod filecoin_rpc {
+    use address::json::AddressJson;
+    use crypto::signature::json::signature_type::SignatureTypeJson;
     use jsonrpc_v2::Error;
+    use message::signed_message::json::SignedMessageJson;
+    use wallet::json::KeyInfoJson;
 
     use crate::call_params;
     use rpc_api::{auth_api::*, chain_api::*};
@@ -214,19 +218,19 @@ pub mod filecoin_rpc {
     }
 
     pub async fn wallet_default_address() -> Result<String, Error> {
-        call_method("Filecoin.WalletDefaultAddress").await
+        call_params("Filecoin.WalletDefaultAddress", ()).await
     }
 
     pub async fn wallet_balance() -> Result<String, Error> {
-        call_method("Filecoin.WalletBalance").await
+        call_params("Filecoin.WalletBalance", ()).await
     }
 
     pub async fn wallet_export() -> Result<KeyInfoJson, Error> {
-        call_method("Filecoin.WalletExport").await
+        call_params("Filecoin.WalletExport", ()).await
     }
 
     pub async fn wallet_list() -> Result<Vec<AddressJson>, Error> {
-        call_method("Filecoin.WalletList").await
+        call_params("Filecoin.WalletList", ()).await
     }
 
     pub async fn wallet_has(key: String) -> Result<bool, Error> {
