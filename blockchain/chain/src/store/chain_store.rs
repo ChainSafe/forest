@@ -1002,6 +1002,8 @@ pub mod headchange_json {
         Revert(TipsetJson),
     }
 
+    pub type SubscriptionHeadChange = (i64, Vec<HeadChangeJson>);
+
     impl From<HeadChange> for HeadChangeJson {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {

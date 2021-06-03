@@ -6,36 +6,25 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::data_types::SubscriptionHeadChange;
 use crate::rpc_util::get_error_obj;
-use crate::RpcState;
 use beacon::Beacon;
 use blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
-    BlockHeader, Tipset, TipsetKeys,
+    BlockHeader, Tipset,
 };
 use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
-use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
-
 use message::{
-    signed_message,
     unsigned_message::{self, json::UnsignedMessageJson},
-    SignedMessage, UnsignedMessage,
+    UnsignedMessage,
 };
 use num_traits::FromPrimitive;
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "unsigned_message::json::vec")]
-    pub bls_msg: Vec<UnsignedMessage>,
-    #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
-    pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "cid::json::vec")]
-    pub cids: Vec<Cid>,
-}
+use rpc_api::{
+    chain_api::*,
+    data_types::{BlockMessages, RPCState},
+};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -47,9 +36,9 @@ pub(crate) struct Message {
 }
 
 pub(crate) async fn chain_get_message<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(CidJson,)>,
-) -> Result<UnsignedMessageJson, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainGetMessageParams>,
+) -> Result<ChainGetMessageResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -64,9 +53,9 @@ where
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(CidJson,)>,
-) -> Result<String, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainReadObjParams>,
+) -> Result<ChainReadObjResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -77,13 +66,13 @@ where
         .blockstore()
         .get_bytes(&obj_cid)?
         .ok_or("can't find object with that cid")?;
-    Ok(base64::encode(ret))
+    Ok(hex::encode(ret))
 }
 
 pub(crate) async fn chain_has_obj<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(CidJson,)>,
-) -> Result<bool, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainHasObjParams>,
+) -> Result<ChainHasObjResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -96,10 +85,10 @@ where
         .is_some())
 }
 
-pub(crate) async fn chain_block_messages<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(CidJson,)>,
-) -> Result<BlockMessages, JsonRpcError>
+pub(crate) async fn chain_get_block_messages<DB, B>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainGetBlockMessagesParams>,
+) -> Result<ChainGetBlockMessagesResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -132,9 +121,9 @@ where
 }
 
 pub(crate) async fn chain_get_tipset_by_height<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(ChainEpoch, TipsetKeys)>,
-) -> Result<TipsetJson, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainGetTipsetByHeightParams>,
+) -> Result<ChainGetTipsetByHeightResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -154,8 +143,8 @@ where
 }
 
 pub(crate) async fn chain_get_genesis<DB, B>(
-    data: Data<RpcState<DB, B>>,
-) -> Result<Option<TipsetJson>, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+) -> Result<ChainGetGenesisResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -167,8 +156,8 @@ where
 }
 
 pub(crate) async fn chain_head<DB, B>(
-    data: Data<RpcState<DB, B>>,
-) -> Result<TipsetJson, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+) -> Result<ChainHeadResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -182,7 +171,9 @@ where
     Ok(TipsetJson(heaviest))
 }
 
-pub(crate) async fn chain_head_sub<DB, B>(data: Data<RpcState<DB, B>>) -> Result<i64, JsonRpcError>
+pub(crate) async fn chain_head_subscription<DB, B>(
+    data: Data<RPCState<DB, B>>,
+) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -192,9 +183,9 @@ where
 }
 
 pub(crate) async fn chain_notify<'a, DB, B>(
-    data: Data<RpcState<DB, B>>,
+    data: Data<RPCState<DB, B>>,
     id: Id,
-) -> Result<SubscriptionHeadChange, JsonRpcError>
+) -> Result<ChainNotifyResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -218,9 +209,9 @@ where
 }
 
 pub(crate) async fn chain_tipset_weight<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(TipsetKeysJson,)>,
-) -> Result<String, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainTipSetWeightParams>,
+) -> Result<ChainTipSetWeightResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -235,9 +226,9 @@ where
 }
 
 pub(crate) async fn chain_get_block<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(CidJson,)>,
-) -> Result<BlockHeaderJson, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainGetBlockParams>,
+) -> Result<ChainGetBlockResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -252,9 +243,9 @@ where
 }
 
 pub(crate) async fn chain_get_tipset<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(TipsetKeysJson,)>,
-) -> Result<TipsetJson, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainGetTipSetParams>,
+) -> Result<ChainGetTipSetResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -269,9 +260,9 @@ where
 }
 
 pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(TipsetKeysJson, i64, ChainEpoch, Option<String>)>,
-) -> Result<[u8; 32], JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainGetRandomnessFromTicketsParams>,
+) -> Result<ChainGetRandomnessFromTicketsResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -291,9 +282,9 @@ where
 }
 
 pub(crate) async fn chain_get_randomness_from_beacon<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(TipsetKeysJson, i64, ChainEpoch, Option<String>)>,
-) -> Result<[u8; 32], JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainGetRandomnessFromBeaconParams>,
+) -> Result<ChainGetRandomnessFromBeaconResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
