@@ -242,7 +242,7 @@ impl Actor {
         if !caller_ok {
             return Err(actor_error!(
                 ErrForbidden,
-                "caller {} is now worker or control address of provider {}",
+                "caller {} is not worker or control address of provider {}",
                 caller,
                 provider
             ));

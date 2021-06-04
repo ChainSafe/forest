@@ -1,30 +1,30 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RpcState;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use std::convert::TryFrom;
+use std::str::FromStr;
 
 use address::{json::AddressJson, Address};
 use beacon::Beacon;
 use blockstore::BlockStore;
-use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
+use crypto::signature::json::SignatureJson;
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
 use num_bigint::BigUint;
+use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
-use std::convert::TryFrom;
-use std::str::FromStr;
 use wallet::{json::KeyInfoJson, Key};
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(String,)>,
-) -> Result<String, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletBalanceParams>,
+) -> Result<WalletBalanceResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -56,8 +56,8 @@ where
 
 /// Get the default Address for the Wallet
 pub(crate) async fn wallet_default_address<DB, B>(
-    data: Data<RpcState<DB, B>>,
-) -> Result<String, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+) -> Result<WalletDefaultAddressResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -70,9 +70,9 @@ where
 
 /// Export KeyInfo from the Wallet given its address
 pub(crate) async fn wallet_export<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(String,)>,
-) -> Result<KeyInfoJson, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletExportParams>,
+) -> Result<WalletExportResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -88,9 +88,9 @@ where
 
 /// Return whether or not a Key is in the Wallet
 pub(crate) async fn wallet_has<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(String,)>,
-) -> Result<bool, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletHasParams>,
+) -> Result<WalletHasResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -106,9 +106,9 @@ where
 
 /// Import Keyinfo to the Wallet, return the Address that corresponds to it
 pub(crate) async fn wallet_import<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<Vec<KeyInfoJson>>,
-) -> Result<String, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletImportParams>,
+) -> Result<WalletBalanceResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -126,8 +126,8 @@ where
 
 /// List all Addresses in the Wallet
 pub(crate) async fn wallet_list<DB, B>(
-    data: Data<RpcState<DB, B>>,
-) -> Result<Vec<AddressJson>, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+) -> Result<WalletListResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -141,9 +141,9 @@ where
 
 /// Generate a new Address that is stored in the Wallet
 pub(crate) async fn wallet_new<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(SignatureTypeJson,)>,
-) -> Result<String, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletNewParams>,
+) -> Result<WalletNewResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -164,9 +164,9 @@ where
 
 /// Set the default Address for the Wallet
 pub(crate) async fn wallet_set_default<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(AddressJson,)>,
-) -> Result<(), JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletSetDefaultParams>,
+) -> Result<WalletSetDefaultResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -183,9 +183,9 @@ where
 
 /// Sign a vector of bytes
 pub(crate) async fn wallet_sign<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(AddressJson, String)>,
-) -> Result<SignatureJson, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletSignParams>,
+) -> Result<WalletSignResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -221,9 +221,9 @@ where
 
 /// Sign an UnsignedMessage, return SignedMessage
 pub(crate) async fn wallet_sign_message<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(String, UnsignedMessageJson)>,
-) -> Result<SignedMessageJson, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletSignMessageParams>,
+) -> Result<WalletSignMessageResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -249,9 +249,9 @@ where
 
 /// Verify a Signature, true if verified, false otherwise
 pub(crate) async fn wallet_verify<DB, B>(
-    _data: Data<RpcState<DB, B>>,
-    Params(params): Params<(String, String, SignatureJson)>,
-) -> Result<bool, JsonRpcError>
+    _data: Data<RPCState<DB, B>>,
+    Params(params): Params<WalletVerifyParams>,
+) -> Result<WalletVerifyResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,

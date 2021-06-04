@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
-use auth::{generate_priv_key, JWT_IDENTIFIER};
+use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
@@ -10,7 +10,8 @@ use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{import_chain, initialize_genesis};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
-use rpc::{start_rpc, RpcState};
+use rpc::start_rpc;
+use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
 use utils::write_to_file;
 use wallet::ENCRYPTED_KEYSTORE_NAME;
@@ -102,6 +103,12 @@ pub(super) async fn start(config: Config) {
         ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
             .unwrap();
     }
+
+    // Print admin token
+    let ki = ks.get(JWT_IDENTIFIER).unwrap();
+    let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
+    println!("Admin token: {}", token);
+
     let keystore = Arc::new(RwLock::new(ks));
 
     // Initialize database (RocksDb will be default if both features enabled)
@@ -195,7 +202,7 @@ pub(super) async fn start(config: Config) {
         Some(task::spawn(async move {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc::<_, _, FullVerifier>(
-                Arc::new(RpcState {
+                Arc::new(RPCState {
                     state_manager,
                     keystore: keystore_rpc,
                     mpool,

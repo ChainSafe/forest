@@ -7,26 +7,17 @@ use jsonrpc_v2::Error as JsonRpcError;
 
 /// Creates a new JWT Token
 pub async fn auth_new(perm: String) -> Result<String, JsonRpcError> {
-    let ret: Vec<u8> = match perm.as_str() {
-        "admin" => {
-            let perms: Vec<String> = ADMIN.iter().map(|s| s.to_string()).collect();
-            filecoin_rpc::auth_new(perms).await?
-        }
-        "sign" => {
-            let perms: Vec<String> = SIGN.iter().map(|s| s.to_string()).collect();
-            filecoin_rpc::auth_new(perms).await?
-        }
-        "write" => {
-            let perms: Vec<String> = WRITE.iter().map(|s| s.to_string()).collect();
-            filecoin_rpc::auth_new(perms).await?
-        }
-        "read" => {
-            let perms: Vec<String> = READ.iter().map(|s| s.to_string()).collect();
-            filecoin_rpc::auth_new(perms).await?
-        }
+    let perms = match perm.as_str() {
+        "admin" => ADMIN.to_owned(),
+        "sign" => SIGN.to_owned(),
+        "write" => WRITE.to_owned(),
+        "read" => READ.to_owned(),
         _ => {
             return Err(JsonRpcError::INVALID_PARAMS);
         }
     };
+
+    let ret: Vec<u8> = filecoin_rpc::auth_new((perms,)).await?;
+
     Ok(String::from_utf8(ret)?)
 }
