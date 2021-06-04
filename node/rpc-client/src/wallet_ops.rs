@@ -20,12 +20,12 @@ pub async fn wallet_default_address() -> Result<String, JsonRpcError> {
     filecoin_rpc::wallet_default_address().await
 }
 
-pub async fn wallet_balance() -> Result<String, JsonRpcError> {
-    filecoin_rpc::wallet_balance().await
+pub async fn wallet_balance(address: String) -> Result<String, JsonRpcError> {
+    filecoin_rpc::wallet_balance((address,)).await
 }
 
-pub async fn wallet_export() -> Result<KeyInfoJson, JsonRpcError> {
-    filecoin_rpc::wallet_export().await
+pub async fn wallet_export(address: String) -> Result<KeyInfoJson, JsonRpcError> {
+    filecoin_rpc::wallet_export((address,)).await
 }
 
 pub async fn wallet_list() -> Result<Vec<AddressJson>, JsonRpcError> {

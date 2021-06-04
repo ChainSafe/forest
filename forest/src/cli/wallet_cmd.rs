@@ -22,11 +22,17 @@ pub enum WalletCommands {
         signature_type: String,
     },
     #[structopt(about = "Get account balance")]
-    Balance,
+    Balance {
+        #[structopt(about = "The address to of the account to check", short)]
+        address: String,
+    },
     #[structopt(about = "Get the default address of the wallet")]
     Default,
     #[structopt(about = "Export the wallet's keys")]
-    Export,
+    Export {
+        #[structopt(about = "The address that contains the keys to export")]
+        address: String,
+    },
     #[structopt(about = "Check if the wallet has a key")]
     Has {
         #[structopt(short, help = "The key to check")]
@@ -85,8 +91,8 @@ impl WalletCommands {
                     .unwrap();
                 println!("{}", response);
             }
-            Self::Balance => {
-                let response = wallet_ops::wallet_balance()
+            Self::Balance { address } => {
+                let response = wallet_ops::wallet_balance(address.to_string())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -99,8 +105,8 @@ impl WalletCommands {
                     .unwrap();
                 println!("{}", response);
             }
-            Self::Export => {
-                let response = wallet_ops::wallet_export()
+            Self::Export { address } => {
+                let response = wallet_ops::wallet_export(address.to_string())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
