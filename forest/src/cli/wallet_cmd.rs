@@ -1,13 +1,17 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
+use std::process::exit;
+
+use address::{json::AddressJson, Address, Network};
 use forest_crypto::{
     signature::{json::signature_type::SignatureTypeJson, SignatureType},
     Signature,
 };
 use rpc_client::wallet_ops;
 use structopt::StructOpt;
+
+use crate::subcommand::process;
 
 use super::handle_rpc_err;
 
@@ -62,7 +66,7 @@ pub enum WalletCommands {
         #[structopt(about = "The message to sign", short)]
         message: String,
         #[structopt(about = "The address to be used to sign the message", short)]
-        signing_address: String,
+        address: String,
     },
     #[structopt(about = "Verify the signature of a message")]
     Verify {
@@ -142,12 +146,26 @@ impl WalletCommands {
                     .map_err(handle_rpc_err)
                     .unwrap();
             }
-            Self::Sign {
-                signing_address,
-                message,
-            } => {
-                let address = Address::from_bytes(signing_address.as_bytes()).unwrap();
-                let response = wallet_ops::wallet_sign(address, message.to_string())
+            Self::Sign { address, message } => {
+                // let network = match address.chars().nth(0).unwrap() {
+                //     'f' => Network::Mainnet,
+                //     't' => Network::Testnet,
+                //     _ => {
+                //         println!("Invalid network byte");
+                //         exit(1);
+                //     }
+                // };
+
+                // let protocol = match address.chars().nth(1).unwrap() {
+                //     '1' =>
+                // };
+
+                // let address = Address::new(network).unwrap();
+
+                let address = Address::from_bytes(address.as_bytes()).unwrap();
+
+                let message = hex::decode(message.to_string()).unwrap();
+                let response = wallet_ops::wallet_sign(address, message)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();

@@ -40,7 +40,7 @@ pub async fn wallet_set_default(key: Address) -> Result<(), JsonRpcError> {
 
 pub async fn wallet_sign(
     address: Address,
-    message: String,
+    message: Vec<u8>,
 ) -> Result<SignedMessageJson, JsonRpcError> {
     filecoin_rpc::wallet_sign((AddressJson(address), message)).await
 }
