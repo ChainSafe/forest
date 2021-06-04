@@ -85,8 +85,7 @@ pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
         return Err(MigrationError::IncompleteMigrationSpec(migrations.len()));
     }
 
-    // input actors state tree -
-    let actors_in = StateTree::new_from_root(&*store, &actors_root_in).unwrap();
+    let actors_in = StateTree::new_from_root(&*store, &actors_root_in).map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
     let mut actors_out = StateTree::new(&*store, StateTreeVersion::V3)
         .map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
 

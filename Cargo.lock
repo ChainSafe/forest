@@ -3234,6 +3234,7 @@ version = "0.1.1"
 dependencies = [
  "byteorder 1.4.2",
  "commcid",
+ "dashmap",
  "forest_cid",
  "forest_db",
  "forest_encoding",
