@@ -187,7 +187,7 @@ pub mod filecoin_rpc {
         chain_api::*,
         wallet_api::{
             WalletBalanceParams, WalletExportParams, WalletHasParams, WalletNewParams,
-            WalletSetDefaultParams, WalletSignMessageParams, WalletVerifyParams,
+            WalletSetDefaultParams, WalletSignParams, WalletVerifyParams,
         },
     };
 
@@ -247,7 +247,7 @@ pub mod filecoin_rpc {
         call_params("Filecoin.WalletSetDefault", address).await
     }
 
-    pub async fn wallet_sign(message: WalletSignMessageParams) -> Result<SignedMessageJson, Error> {
+    pub async fn wallet_sign(message: WalletSignParams) -> Result<SignedMessageJson, Error> {
         call_params("Filecoin.WalletSign", message).await
     }
 

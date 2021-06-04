@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use address::Address;
 use forest_crypto::{
     signature::{json::signature_type::SignatureTypeJson, SignatureType},
     Signature,
@@ -142,11 +143,11 @@ impl WalletCommands {
                     .unwrap();
             }
             Self::Sign {
-                message,
                 signing_address,
+                message,
             } => {
-                let message = ();
-                let response = wallet_ops::wallet_sign(signing_address.to_string(), message)
+                let address = Address::from_bytes(signing_address.as_bytes()).unwrap();
+                let response = wallet_ops::wallet_sign(address, message.to_string())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -157,14 +158,22 @@ impl WalletCommands {
                 address,
                 signature,
             } => {
-                let signature = Signature {
-                    sig_type: val,
-                    bytes: val,
+                let sig_type = match address.chars().nth(1).unwrap() {
+                    '0' => SignatureType::Secp256k1,
+                    _ => SignatureType::BLS,
                 };
-                let response = wallet_ops::wallet_verify(message, address, signature)
-                    .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                let signature = match sig_type {
+                    SignatureType::Secp256k1 => {
+                        Signature::new_secp256k1(signature.as_bytes().to_vec())
+                    }
+                    SignatureType::BLS => Signature::new_bls(signature.as_bytes().to_vec()),
+                };
+
+                let response =
+                    wallet_ops::wallet_verify(message.to_string(), address.to_string(), signature)
+                        .await
+                        .map_err(handle_rpc_err)
+                        .unwrap();
                 println!("{}", response);
             }
         };

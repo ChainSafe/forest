@@ -2071,6 +2071,7 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_libp2p",
+ "forest_message",
  "futures",
  "genesis",
  "hex",
