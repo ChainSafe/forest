@@ -329,7 +329,7 @@ impl Actor {
                 info.owner = pending_address;
             }
 
-            // Clear ay no-op change
+            // Clear any no-op change
             if let Some(p_addr) = info.pending_owner_address {
                 if p_addr == info.owner {
                     info.pending_owner_address = None;
@@ -3302,7 +3302,7 @@ where
         .map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
-                format!("failed to load sector {}", params.sector_number),
+                format!("failed to load sector {}", params.replace_sector_number),
             )
         })?
         .ok_or_else(|| {
