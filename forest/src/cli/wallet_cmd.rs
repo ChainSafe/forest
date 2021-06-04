@@ -1,7 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_crypto::signature::{json::signature_type::SignatureTypeJson, SignatureType};
+use forest_crypto::{
+    signature::{json::signature_type::SignatureTypeJson, SignatureType},
+    Signature,
+};
 use rpc_client::wallet_ops;
 use structopt::StructOpt;
 
@@ -51,11 +54,17 @@ pub enum WalletCommands {
     Sign {
         #[structopt(about = "The message to sign", short)]
         message: String,
+        #[structopt(about = "The address to be used to sign the message", short)]
+        signing_address: String,
     },
     #[structopt(about = "Verify the signature of a message")]
     Verify {
+        #[structopt(about = "The signing address", short)]
+        address: String,
         #[structopt(about = "The message to verify", short)]
         message: String,
+        #[structopt(about = "The signature of the message to verify", short)]
+        signature: String,
     },
 }
 
@@ -126,17 +135,27 @@ impl WalletCommands {
                     .map_err(handle_rpc_err)
                     .unwrap();
             }
-            Self::Sign { message } => {
-                let message = message.parse().unwrap();
-                let response = wallet_ops::wallet_sign(message)
+            Self::Sign {
+                message,
+                signing_address,
+            } => {
+                let message = ();
+                let response = wallet_ops::wallet_sign(signing_address.to_string(), message)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{:#?}", response);
             }
-            Self::Verify { message } => {
-                let message = message.parse().unwrap();
-                let response = wallet_ops::wallet_verify(message)
+            Self::Verify {
+                message,
+                address,
+                signature,
+            } => {
+                let signature = Signature {
+                    sig_type: val,
+                    bytes: val,
+                };
+                let response = wallet_ops::wallet_verify(message, address, signature)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();

@@ -182,7 +182,14 @@ pub mod filecoin_rpc {
     use wallet::json::KeyInfoJson;
 
     use crate::call_params;
-    use rpc_api::{auth_api::*, chain_api::*, wallet_api::WalletNewParams};
+    use rpc_api::{
+        auth_api::*,
+        chain_api::*,
+        wallet_api::{
+            WalletHasParams, WalletNewParams, WalletSetDefaultParams, WalletSignMessageParams,
+            WalletVerifyParams,
+        },
+    };
 
     /// Auth
     pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
@@ -232,19 +239,19 @@ pub mod filecoin_rpc {
         call_params("Filecoin.WalletList", ()).await
     }
 
-    pub async fn wallet_has(key: String) -> Result<bool, Error> {
+    pub async fn wallet_has(key: WalletHasParams) -> Result<bool, Error> {
         call_params("Filecoin.WalletHas", key).await
     }
 
-    pub async fn wallet_set_default(address: String) -> Result<(), Error> {
+    pub async fn wallet_set_default(address: WalletSetDefaultParams) -> Result<(), Error> {
         call_params("Filecoin.WalletSetDefault", address).await
     }
 
-    pub async fn wallet_sign(message: String) -> Result<SignedMessageJson, Error> {
+    pub async fn wallet_sign(message: WalletSignMessageParams) -> Result<SignedMessageJson, Error> {
         call_params("Filecoin.WalletSign", message).await
     }
 
-    pub async fn wallet_verify(message: String) -> Result<bool, Error> {
+    pub async fn wallet_verify(message: WalletVerifyParams) -> Result<bool, Error> {
         call_params("Filecoin.WalletVerify", message).await
     }
 }
