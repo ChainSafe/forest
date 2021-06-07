@@ -21,7 +21,7 @@ pub use miner::miner_migrator_v4;
 use state_tree::StateTree;
 use std::collections::{HashMap, HashSet};
 
-use crate::{Migrator, ACTORS_COUNT};
+use crate::{Migrator, ACTORS_COUNT, MigrationJobOutput};
 
 pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
     store: Arc<BS>,
@@ -99,7 +99,7 @@ pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
         .thread_name(|id| format!("nv12 migration thread: {}", id))
         .num_threads(cpus)
         .build()
-        .map_err(|e| MigrationError::ThreadPoolCreation(e))?;
+        .map_err(MigrationError::ThreadPoolCreation)?;
 
     let (state_tx, state_rx) = crossbeam_channel::bounded(chan_size);
     let (job_tx, job_rx) = crossbeam_channel::bounded(chan_size);
@@ -119,35 +119,42 @@ pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
         });
 
         s.spawn(move |scope| {
-            while let Ok((addr, state)) = state_rx.recv() {
+            while let Ok((address, state)) = state_rx.recv() {
                 let job_tx = job_tx.clone();
                 let store_clone = store_clone.clone();
                 let migrator = migrations.get(&state.code).cloned().unwrap();
                 scope.spawn(move |_| {
                     let job = MigrationJob {
-                        address: addr.clone(),
+                        address,
                         actor_state: state,
                         actor_migration: migrator,
                     };
 
-                    let job_output = job
-                        .run(store_clone, prior_epoch)
-                        .expect(&format!("failed executing job for address: {}", addr));
+                    let job_output = job.run(store_clone, prior_epoch).unwrap_or_else(|e| {
+                        panic!(
+                            "failed executing job for address: {}, Reason: {}",
+                            address, e
+                        )
+                    });
 
-                    job_tx
-                        .send(job_output)
-                        .expect(&format!("failed sending job output for address: {}", addr));
+                    job_tx.send(job_output).unwrap_or_else(|e| {
+                        panic!(
+                            "failed sending job output for address: {}, Reason: {}",
+                            address, e
+                        )
+                    });
                 });
             }
             drop(job_tx);
         });
 
         while let Ok(job_output) = job_rx.recv() {
+            let MigrationJobOutput { address, actor_state} = job_output;
             actors_out
-                .set_actor(&job_output.address, job_output.actor_state)
-                .expect(&format!(
+                .set_actor(&address, actor_state)
+                .unwrap_or_else(|_| panic!(
                     "Failed setting new actor state at given address: {}",
-                    job_output.address
+                    &address
                 ));
         }
     });

@@ -24,7 +24,6 @@ use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
-use state_migration::nv12;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::convert::TryFrom;

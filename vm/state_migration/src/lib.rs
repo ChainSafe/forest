@@ -196,6 +196,7 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
     }
 }
 
+#[allow(dead_code)] // future migrations might need the fields.
 pub struct ActorMigrationInput {
     /// Actor's address
     address: Address,
