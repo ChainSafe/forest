@@ -10,6 +10,7 @@ use forest_crypto::{
 };
 use rpc_client::wallet_ops;
 use structopt::StructOpt;
+use wallet::KeyInfo;
 
 use super::handle_rpc_err;
 
@@ -42,14 +43,15 @@ pub enum WalletCommands {
     },
     #[structopt(about = "import keys from existing wallet")]
     Import {
+        #[structopt(short, help = "The private key to import")]
+        key: String,
         #[structopt(
             short,
-            default_value = "hex-lotus",
-            help = "specify input format for key"
+            help = "The type of the given key",
+            short,
+            default_value = "bls"
         )]
-        format: String,
-        #[structopt(short, help = "import the given key as your new default key")]
-        as_default: bool,
+        key_type: String,
     },
     #[structopt(about = "List addresses of the wallet")]
     List,
@@ -122,9 +124,18 @@ impl WalletCommands {
                     .unwrap();
                 println!("{}", response);
             }
-            Self::Import { format, as_default } => {
-                println!("format: {}", format);
-                println!("as default: {}", as_default);
+            Self::Import { key, key_type } => {
+                let key_type = match key_type.to_lowercase().as_str() {
+                    "secp256k1" => SignatureType::Secp256k1,
+                    _ => SignatureType::BLS,
+                };
+
+                let key = KeyInfo::new(key_type, key.as_bytes().to_vec());
+
+                let _ = wallet_ops::wallet_import(key)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
             }
             Self::List => {
                 let response = wallet_ops::wallet_list()

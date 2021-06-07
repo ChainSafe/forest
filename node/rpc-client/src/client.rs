@@ -185,8 +185,9 @@ pub mod filecoin_rpc {
         auth_api::*,
         chain_api::*,
         wallet_api::{
-            WalletBalanceParams, WalletExportParams, WalletHasParams, WalletNewParams,
-            WalletSetDefaultParams, WalletSignParams, WalletSignResult, WalletVerifyParams,
+            WalletBalanceParams, WalletExportParams, WalletHasParams, WalletImportParams,
+            WalletNewParams, WalletSetDefaultParams, WalletSignParams, WalletSignResult,
+            WalletVerifyParams,
         },
     };
 
@@ -232,6 +233,10 @@ pub mod filecoin_rpc {
 
     pub async fn wallet_export(address: WalletExportParams) -> Result<KeyInfoJson, Error> {
         call_params("Filecoin.WalletExport", address).await
+    }
+
+    pub async fn wallet_import(key: WalletImportParams) -> Result<KeyInfoJson, Error> {
+        call_params("Filecoin.WalletImport", key).await
     }
 
     pub async fn wallet_list() -> Result<Vec<AddressJson>, Error> {

@@ -7,7 +7,7 @@ use crypto::{
     signature::json::signature_type::SignatureTypeJson, signature::json::SignatureJson, Signature,
 };
 use jsonrpc_v2::Error as JsonRpcError;
-use wallet::json::KeyInfoJson;
+use wallet::{json::KeyInfoJson, KeyInfo};
 
 pub async fn wallet_new(signature_type: SignatureTypeJson) -> Result<String, JsonRpcError> {
     filecoin_rpc::wallet_new((signature_type,)).await
@@ -23,6 +23,10 @@ pub async fn wallet_balance(address: String) -> Result<String, JsonRpcError> {
 
 pub async fn wallet_export(address: String) -> Result<KeyInfoJson, JsonRpcError> {
     filecoin_rpc::wallet_export((address,)).await
+}
+
+pub async fn wallet_import(key: KeyInfo) -> Result<KeyInfoJson, JsonRpcError> {
+    filecoin_rpc::wallet_import(vec![KeyInfoJson(key)]).await
 }
 
 pub async fn wallet_list() -> Result<Vec<AddressJson>, JsonRpcError> {
