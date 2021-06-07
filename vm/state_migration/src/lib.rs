@@ -170,22 +170,23 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
                             .run(store_clone, prior_epoch)
                             .expect(&format!("failed executing job for address: {}", addr));
 
-                        job_tx
-                            .send(job_output)
-                            .unwrap_or_else(|_| panic!("failed sending job output for address: {}", addr));
+                        job_tx.send(job_output).unwrap_or_else(|_| {
+                            panic!("failed sending job output for address: {}", addr)
+                        });
                     });
                 }
                 drop(job_tx);
             });
 
             while let Ok(job_output) = job_rx.recv() {
-                let MigrationJobOutput {address, actor_state} = job_output;
-                actors_out
-                    .set_actor(&address, actor_state)
-                    .expect(&format!(
-                        "Failed setting new actor state at given address: {}",
-                        address
-                    ));
+                let MigrationJobOutput {
+                    address,
+                    actor_state,
+                } = job_output;
+                actors_out.set_actor(&address, actor_state).expect(&format!(
+                    "Failed setting new actor state at given address: {}",
+                    address
+                ));
             }
         });
 
