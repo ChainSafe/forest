@@ -18,7 +18,6 @@ pub enum WalletCommands {
     #[structopt(about = "Create a new wallet")]
     New {
         #[structopt(
-            short,
             default_value = "bls",
             help = "The signature type to use. One of Secp256k1, or bls"
         )]
@@ -56,7 +55,7 @@ pub enum WalletCommands {
     List,
     #[structopt(about = "Set the defualt wallet address")]
     SetDefault {
-        #[structopt(about = "The given key to set to the default address", short)]
+        #[structopt(about = "The given key to set to the default address")]
         key: String,
     },
     #[structopt(about = "Sign a message")]
