@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
-use crate::metrics::{labels, Metrics};
+use crate::metrics::{values, Metrics};
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncState;
 use crate::tipset_syncer::{
@@ -379,7 +379,7 @@ where
             NetworkEvent::HelloRequest { request, source } => {
                 metrics
                     .gossipsub_message_total
-                    .with_label_values(&[labels::HELLO_REQUEST])
+                    .with_label_values(&[values::HELLO_REQUEST])
                     .inc();
                 let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
@@ -401,7 +401,7 @@ where
             NetworkEvent::PeerConnected(peer_id) => {
                 metrics
                     .gossipsub_message_total
-                    .with_label_values(&[labels::PEER_CONNECTED])
+                    .with_label_values(&[values::PEER_CONNECTED])
                     .inc();
                 // Spawn and immediately move on to the next event
                 async_std::task::spawn(Self::handle_peer_connected_event(
@@ -415,7 +415,7 @@ where
             NetworkEvent::PeerDisconnected(peer_id) => {
                 metrics
                     .gossipsub_message_total
-                    .with_label_values(&[labels::PEER_DISCONNECTED])
+                    .with_label_values(&[values::PEER_DISCONNECTED])
                     .inc();
                 // Spawn and immediately move on to the next event
                 async_std::task::spawn(Self::handle_peer_disconnected_event(
@@ -428,7 +428,7 @@ where
                 PubsubMessage::Block(b) => {
                     metrics
                         .gossipsub_message_total
-                        .with_label_values(&[labels::PUBSUB_BLOCK])
+                        .with_label_values(&[values::PUBSUB_BLOCK])
                         .inc();
                     // Assemble full tipset from block
                     let tipset =
@@ -438,7 +438,7 @@ where
                 PubsubMessage::Message(m) => {
                     metrics
                         .gossipsub_message_total
-                        .with_label_values(&[labels::PUBSUB_MESSAGE])
+                        .with_label_values(&[values::PUBSUB_MESSAGE])
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
                         // Spawn and immediately move on to the next event
@@ -450,7 +450,7 @@ where
             NetworkEvent::ChainExchangeRequest { .. } => {
                 metrics
                     .gossipsub_message_total
-                    .with_label_values(&[labels::CHAIN_EXCHANGE_REQUEST])
+                    .with_label_values(&[values::CHAIN_EXCHANGE_REQUEST])
                     .inc();
                 // Not supported.
                 return Ok(None);
@@ -458,7 +458,7 @@ where
             NetworkEvent::BitswapBlock { .. } => {
                 metrics
                     .gossipsub_message_total
-                    .with_label_values(&[labels::BITSWAP_BLOCK])
+                    .with_label_values(&[values::BITSWAP_BLOCK])
                     .inc();
                 // Not supported.
                 return Ok(None);

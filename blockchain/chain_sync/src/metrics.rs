@@ -7,6 +7,10 @@ use prometheus::{
 };
 
 pub mod labels {
+    pub const GOSSIPSUB_MESSAGE_KIND: &str = "gossipsub_message_kind";
+}
+
+pub mod values {
     // gosssipsub_message_total
     pub const HELLO_REQUEST: &str = "hello_request";
     pub const PEER_CONNECTED: &str = "peer_connected";
@@ -39,15 +43,7 @@ impl Metrics {
                 "gossipsub_messsage_total",
                 "Total number of gossipsub message by type",
             ),
-            &[
-                labels::HELLO_REQUEST,
-                labels::PEER_CONNECTED,
-                labels::PEER_DISCONNECTED,
-                labels::PUBSUB_BLOCK,
-                labels::PUBSUB_MESSAGE,
-                labels::CHAIN_EXCHANGE_REQUEST,
-                labels::BITSWAP_BLOCK,
-            ],
+            &[labels::GOSSIPSUB_MESSAGE_KIND],
         )?);
         let invalid_tipset_total = Box::new(GenericCounter::<AtomicU64>::new(
             "invalid_tipset_total",
