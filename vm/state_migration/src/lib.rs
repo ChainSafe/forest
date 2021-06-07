@@ -4,18 +4,23 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
+use actor_interface::{actorv3, actorv4};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
+use state_tree::StateTree;
 use vm::{ActorState, TokenAmount};
 
-use rayon::ThreadPoolBuildError;
-
 use async_std::sync::Arc;
+use rayon::ThreadPoolBuildError;
+use std::collections::{HashMap, HashSet};
 
 pub mod nv12;
 
+pub const ACTORS_COUNT: usize = 11;
+
+pub type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
 pub type MigrationResult<T> = Result<T, MigrationError>;
 
 #[derive(thiserror::Error, Debug)]
@@ -45,7 +50,153 @@ pub enum MigrationError {
     Other,
 }
 
-pub(crate) struct ActorMigrationInput {
+pub struct StateMigration<BS> {
+    migrations: HashMap<Cid, Migrator<BS>>,
+    deferred_code_ids: HashSet<Cid>,
+}
+
+impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
+    pub fn new() -> Self {
+        let mut migrations = HashMap::new();
+        migrations.insert(
+            *actorv3::ACCOUNT_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::ACCOUNT_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::CRON_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::CRON_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::INIT_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::INIT_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::MULTISIG_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::MULTISIG_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::PAYCH_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::PAYCH_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::REWARD_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::REWARD_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::MARKET_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::MARKET_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::POWER_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::POWER_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::SYSTEM_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::SYSTEM_ACTOR_CODE_ID),
+        );
+        migrations.insert(
+            *actorv3::VERIFREG_ACTOR_CODE_ID,
+            nil_migrator_v4(*actorv4::VERIFREG_ACTOR_CODE_ID),
+        );
+
+        Self {
+            migrations,
+            deferred_code_ids: HashSet::new(),
+        }
+    }
+
+    pub fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
+        self.migrations.insert(prior_cid, migrator);
+    }
+
+    pub fn migrate_state_tree(
+        &mut self,
+        store: Arc<BS>,
+        prior_epoch: ChainEpoch,
+        actors_in: StateTree<BS>,
+        mut actors_out: StateTree<BS>,
+    ) -> MigrationResult<Cid> {
+        if self.migrations.len() + self.deferred_code_ids.len() != ACTORS_COUNT {
+            return Err(MigrationError::IncompleteMigrationSpec(
+                self.migrations.len(),
+            ));
+        }
+
+        let cpus = num_cpus::get();
+        let chan_size = 2;
+
+        log::info!(
+            "Using {} CPUs for migration and channel size of {}",
+            cpus,
+            chan_size
+        );
+
+        let pool = rayon::ThreadPoolBuilder::new()
+            .thread_name(|id| format!("nv12 migration thread: {}", id))
+            .num_threads(cpus)
+            .build()
+            .map_err(|e| MigrationError::ThreadPoolCreation(e))?;
+
+        let (state_tx, state_rx) = crossbeam_channel::bounded(chan_size);
+        let (job_tx, job_rx) = crossbeam_channel::bounded(chan_size);
+
+        pool.scope(|s| {
+            let store_clone = store.clone();
+
+            s.spawn(move |_| {
+                actors_in
+                    .for_each(|addr, state| {
+                        state_tx
+                            .send((addr, state.clone()))
+                            .expect("failed sending actor state through channel");
+                        Ok(())
+                    })
+                    .expect("Failed iterating over actor state");
+            });
+
+            s.spawn(move |scope| {
+                while let Ok((addr, state)) = state_rx.recv() {
+                    let job_tx = job_tx.clone();
+                    let store_clone = store_clone.clone();
+                    let migrator = self.migrations.get(&state.code).cloned().unwrap();
+                    scope.spawn(move |_| {
+                        let job = MigrationJob {
+                            address: addr.clone(),
+                            actor_state: state,
+                            actor_migration: migrator,
+                        };
+
+                        let job_output = job
+                            .run(store_clone, prior_epoch)
+                            .expect(&format!("failed executing job for address: {}", addr));
+
+                        job_tx
+                            .send(job_output)
+                            .expect(&format!("failed sending job output for address: {}", addr));
+                    });
+                }
+                drop(job_tx);
+            });
+
+            while let Ok(job_output) = job_rx.recv() {
+                actors_out
+                    .set_actor(&job_output.address, job_output.actor_state)
+                    .expect(&format!(
+                        "Failed setting new actor state at given address: {}",
+                        job_output.address
+                    ));
+            }
+        });
+
+        let root_cid = actors_out
+            .flush()
+            .map_err(|e| MigrationError::FlushFailed(e.to_string()));
+
+        root_cid
+    }
+}
+
+pub struct ActorMigrationInput {
     /// Actor's address
     address: Address,
     /// Actor's balance
@@ -56,12 +207,12 @@ pub(crate) struct ActorMigrationInput {
     prior_epoch: ChainEpoch,
 }
 
-pub(crate) struct MigrationOutput {
+pub struct MigrationOutput {
     new_code_cid: Cid,
     new_head: Cid,
 }
 
-pub(crate) trait ActorMigration<BS: BlockStore + Send + Sync> {
+pub trait ActorMigration<BS: BlockStore + Send + Sync> {
     fn migrate_state(
         &self,
         store: Arc<BS>,
@@ -85,7 +236,7 @@ impl<BS: BlockStore + Send + Sync> MigrationJob<BS> {
                     address: self.address,
                     balance: self.actor_state.balance.clone(),
                     head: self.actor_state.state,
-                    prior_epoch: prior_epoch,
+                    prior_epoch,
                 },
             )
             .map_err(|e| {

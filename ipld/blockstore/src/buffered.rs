@@ -6,11 +6,12 @@
 use super::BlockStore;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use cid::{Cid, Code, DAG_CBOR};
+use dashmap::DashMap;
 use db::{Error, Store};
+
 use std::error::Error as StdError;
 use std::io::{Read, Seek};
 use std::{convert::TryFrom, io::Cursor};
-use dashmap::DashMap;
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.
@@ -167,8 +168,8 @@ where
     }
 
     let block = &*cache
-    .get(&root)
-    .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
+        .get(&root)
+        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
 
     scan_for_links(&mut Cursor::new(block), |link| {
         if link.codec() != DAG_CBOR {
@@ -278,7 +279,7 @@ mod tests {
         buf_store.flush(&cid).unwrap();
         assert_eq!(buf_store.get::<u8>(&cid).unwrap(), Some(8));
         assert_eq!(mem.get::<u8>(&cid).unwrap(), Some(8));
-        assert_eq!(buf_store.write.borrow().get(&cid), None);
+        assert!(buf_store.write.get(&cid).is_none());
     }
 
     #[test]

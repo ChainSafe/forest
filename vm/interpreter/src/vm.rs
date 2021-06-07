@@ -8,13 +8,14 @@ use super::{
 use actor::{
     actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
 };
+use actor::{actorv3, actorv4};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
-    DefaultNetworkParams, NetworkParams, NetworkVersion,
+    DefaultNetworkParams, NetworkParams, NetworkVersion, StateTreeVersion,
 };
 use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
@@ -184,7 +185,7 @@ where
                 log::info!("Running actors_v4 state migration");
                 // need to flush since we run_cron before the migration
                 let prev_state = self.flush()?;
-                let new_state = nv12::migrate_state_tree(arc_store, prev_state, epoch)?;
+                let new_state = run_nv12_migration(arc_store, prev_state, epoch)?;
                 if new_state != prev_state {
                     log::info!(
                         "actors_v4 state migration successful, took: {}ms",
@@ -605,6 +606,30 @@ where
         }
         Ok(true)
     }
+}
+
+// Performs network version 12 / actors v4 state migration
+
+fn run_nv12_migration(
+    arc_store: std::sync::Arc<impl BlockStore + Send + Sync>,
+    prev_state: Cid,
+    epoch: i64,
+) -> Result<Cid, Box<dyn StdError>> {
+    let mut migration = state_migration::StateMigration::new();
+    // nv12 migration involves only the miner actor.
+    let (v4_miner_actor_cid, v3_miner_actor_cid) =
+        (*actorv4::MINER_ACTOR_CODE_ID, *actorv3::MINER_ACTOR_CODE_ID);
+    let store_ref = arc_store.clone();
+    let actors_in = StateTree::new_from_root(&*store_ref, &prev_state)
+        .map_err(|e| state_migration::MigrationError::StateTreeCreation(e.to_string()))?;
+    let actors_out = StateTree::new(&*store_ref, StateTreeVersion::V3)
+        .map_err(|e| state_migration::MigrationError::StateTreeCreation(e.to_string()))?;
+    migration.add_migrator(
+        v3_miner_actor_cid,
+        state_migration::nv12::miner_migrator_v4(v4_miner_actor_cid),
+    );
+    let new_state = migration.migrate_state_tree(arc_store, epoch, actors_in, actors_out)?;
+    Ok(new_state)
 }
 
 #[derive(Clone, Default)]

@@ -10,22 +10,19 @@
 pub mod miner;
 
 use crate::nil_migrator_v4;
-use crate::{ActorMigration, MigrationError, MigrationJob, MigrationResult};
+use crate::{MigrationError, MigrationJob, MigrationResult};
 use actor_interface::{actorv3, actorv4};
 use async_std::sync::Arc;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::StateTreeVersion;
 use ipld_blockstore::BlockStore;
-use miner::miner_migrator_v4;
+pub use miner::miner_migrator_v4;
 use state_tree::StateTree;
 use std::collections::{HashMap, HashSet};
 
-type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
+use crate::{Migrator, ACTORS_COUNT};
 
-const ACTORS_COUNT: usize = 11;
-
-// Try to pass an Arc<BS> here.
 pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
     store: Arc<BS>,
     actors_root_in: Cid,
@@ -85,7 +82,8 @@ pub fn migrate_state_tree<BS: BlockStore + Send + Sync>(
         return Err(MigrationError::IncompleteMigrationSpec(migrations.len()));
     }
 
-    let actors_in = StateTree::new_from_root(&*store, &actors_root_in).map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
+    let actors_in = StateTree::new_from_root(&*store, &actors_root_in)
+        .map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
     let mut actors_out = StateTree::new(&*store, StateTreeVersion::V3)
         .map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
 

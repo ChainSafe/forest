@@ -12,9 +12,9 @@ use cid::Cid;
 use cid::Code::Blake2b256;
 use ipld_blockstore::BlockStore;
 
-pub(crate) struct MinerMigrator(Cid);
+pub struct MinerMigrator(Cid);
 
-pub(crate) fn miner_migrator_v4<'db, BS: BlockStore + Send + Sync>(
+pub fn miner_migrator_v4<'db, BS: BlockStore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(MinerMigrator(cid))
