@@ -1,17 +1,15 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::process::exit;
+use std::str::FromStr;
 
-use address::{json::AddressJson, Address, Network};
+use address::Address;
 use forest_crypto::{
     signature::{json::signature_type::SignatureTypeJson, SignatureType},
     Signature,
 };
 use rpc_client::wallet_ops;
 use structopt::StructOpt;
-
-use crate::subcommand::process;
 
 use super::handle_rpc_err;
 
@@ -28,7 +26,7 @@ pub enum WalletCommands {
     },
     #[structopt(about = "Get account balance")]
     Balance {
-        #[structopt(about = "The address to of the account to check", short)]
+        #[structopt(about = "The address to of the account to check")]
         address: String,
     },
     #[structopt(about = "Get the default address of the wallet")]
@@ -40,7 +38,7 @@ pub enum WalletCommands {
     },
     #[structopt(about = "Check if the wallet has a key")]
     Has {
-        #[structopt(short, help = "The key to check")]
+        #[structopt(help = "The key to check")]
         key: String,
     },
     #[structopt(about = "import keys from existing wallet")]
@@ -115,7 +113,7 @@ impl WalletCommands {
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
-                println!("{:#?}", response);
+                println!("{}", hex::encode(response.0.private_key()))
             }
             Self::Has { key } => {
                 let key = key.parse().unwrap();
@@ -147,22 +145,7 @@ impl WalletCommands {
                     .unwrap();
             }
             Self::Sign { address, message } => {
-                // let network = match address.chars().nth(0).unwrap() {
-                //     'f' => Network::Mainnet,
-                //     't' => Network::Testnet,
-                //     _ => {
-                //         println!("Invalid network byte");
-                //         exit(1);
-                //     }
-                // };
-
-                // let protocol = match address.chars().nth(1).unwrap() {
-                //     '1' =>
-                // };
-
-                // let address = Address::new(network).unwrap();
-
-                let address = Address::from_bytes(address.as_bytes()).unwrap();
+                let address = Address::from_str(address).unwrap();
 
                 let message = hex::decode(message.to_string()).unwrap();
                 let response = wallet_ops::wallet_sign(address, message)
