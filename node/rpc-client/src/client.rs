@@ -178,7 +178,6 @@ where
 pub mod filecoin_rpc {
     use address::json::AddressJson;
     use jsonrpc_v2::Error;
-    use message::signed_message::json::SignedMessageJson;
     use wallet::json::KeyInfoJson;
 
     use crate::call_params;
@@ -187,7 +186,7 @@ pub mod filecoin_rpc {
         chain_api::*,
         wallet_api::{
             WalletBalanceParams, WalletExportParams, WalletHasParams, WalletNewParams,
-            WalletSetDefaultParams, WalletSignParams, WalletVerifyParams,
+            WalletSetDefaultParams, WalletSignParams, WalletSignResult, WalletVerifyParams,
         },
     };
 
@@ -247,7 +246,7 @@ pub mod filecoin_rpc {
         call_params("Filecoin.WalletSetDefault", address).await
     }
 
-    pub async fn wallet_sign(message: WalletSignParams) -> Result<SignedMessageJson, Error> {
+    pub async fn wallet_sign(message: WalletSignParams) -> Result<WalletSignResult, Error> {
         call_params("Filecoin.WalletSign", message).await
     }
 

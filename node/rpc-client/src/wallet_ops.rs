@@ -7,7 +7,6 @@ use crypto::{
     signature::json::signature_type::SignatureTypeJson, signature::json::SignatureJson, Signature,
 };
 use jsonrpc_v2::Error as JsonRpcError;
-use message::signed_message::json::SignedMessageJson;
 use wallet::json::KeyInfoJson;
 
 pub async fn wallet_new(signature_type: SignatureTypeJson) -> Result<String, JsonRpcError> {
@@ -41,7 +40,7 @@ pub async fn wallet_set_default(key: Address) -> Result<(), JsonRpcError> {
 pub async fn wallet_sign(
     address: Address,
     message: Vec<u8>,
-) -> Result<SignedMessageJson, JsonRpcError> {
+) -> Result<SignatureJson, JsonRpcError> {
     filecoin_rpc::wallet_sign((AddressJson(address), message)).await
 }
 
