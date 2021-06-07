@@ -172,18 +172,19 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
 
                         job_tx
                             .send(job_output)
-                            .expect(&format!("failed sending job output for address: {}", addr));
+                            .unwrap_or_else(|_| panic!("failed sending job output for address: {}", addr));
                     });
                 }
                 drop(job_tx);
             });
 
             while let Ok(job_output) = job_rx.recv() {
+                let MigrationJobOutput {address, actor_state} = job_output;
                 actors_out
-                    .set_actor(&job_output.address, job_output.actor_state)
+                    .set_actor(&address, actor_state)
                     .expect(&format!(
                         "Failed setting new actor state at given address: {}",
-                        job_output.address
+                        address
                     ));
             }
         });
