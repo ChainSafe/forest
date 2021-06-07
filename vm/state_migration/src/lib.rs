@@ -15,6 +15,7 @@ use vm::{ActorState, TokenAmount};
 use async_std::sync::Arc;
 use rayon::ThreadPoolBuildError;
 use std::collections::{HashMap, HashSet};
+use std::default::Default;
 
 pub mod nv12;
 
@@ -55,8 +56,8 @@ pub struct StateMigration<BS> {
     deferred_code_ids: HashSet<Cid>,
 }
 
-impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
-    pub fn new() -> Self {
+impl<BS: BlockStore + Send + Sync> Default for StateMigration<BS> {
+    fn default() -> Self {
         let mut migrations = HashMap::new();
         migrations.insert(
             *actorv3::ACCOUNT_ACTOR_CODE_ID,
@@ -104,7 +105,9 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
             deferred_code_ids: HashSet::new(),
         }
     }
+}
 
+impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
     pub fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
         self.migrations.insert(prior_cid, migrator);
     }
@@ -135,7 +138,7 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
             .thread_name(|id| format!("nv12 migration thread: {}", id))
             .num_threads(cpus)
             .build()
-            .map_err(|e| MigrationError::ThreadPoolCreation(e))?;
+            .map_err(MigrationError::ThreadPoolCreation)?;
 
         let (state_tx, state_rx) = crossbeam_channel::bounded(chan_size);
         let (job_tx, job_rx) = crossbeam_channel::bounded(chan_size);
@@ -155,23 +158,26 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
             });
 
             s.spawn(move |scope| {
-                while let Ok((addr, state)) = state_rx.recv() {
+                while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
                     let store_clone = store_clone.clone();
                     let migrator = self.migrations.get(&state.code).cloned().unwrap();
                     scope.spawn(move |_| {
                         let job = MigrationJob {
-                            address: addr.clone(),
+                            address,
                             actor_state: state,
                             actor_migration: migrator,
                         };
 
-                        let job_output = job
-                            .run(store_clone, prior_epoch)
-                            .expect(&format!("failed executing job for address: {}", addr));
+                        let job_output = job.run(store_clone, prior_epoch).unwrap_or_else(|e| {
+                            panic!(
+                                "failed executing job for address: {}, Reason: {}",
+                                address, e
+                            )
+                        });
 
                         job_tx.send(job_output).unwrap_or_else(|_| {
-                            panic!("failed sending job output for address: {}", addr)
+                            panic!("failed sending job output for address: {}", address)
                         });
                     });
                 }
@@ -183,10 +189,14 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
                     address,
                     actor_state,
                 } = job_output;
-                actors_out.set_actor(&address, actor_state).expect(&format!(
-                    "Failed setting new actor state at given address: {}",
-                    address
-                ));
+                actors_out
+                    .set_actor(&address, actor_state)
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "Failed setting new actor state at given address: {}, Reason: {}",
+                            address, e
+                        )
+                    });
             }
         });
 

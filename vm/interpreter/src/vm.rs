@@ -614,7 +614,7 @@ fn run_nv12_migration(
     prev_state: Cid,
     epoch: i64,
 ) -> Result<Cid, Box<dyn StdError>> {
-    let mut migration = state_migration::StateMigration::new();
+    let mut migration = state_migration::StateMigration::default();
     // nv12 migration involves only the miner actor.
     let (v4_miner_actor_cid, v3_miner_actor_cid) =
         (*actorv4::MINER_ACTOR_CODE_ID, *actorv3::MINER_ACTOR_CODE_ID);
