@@ -37,10 +37,8 @@ where
     /// root Cid.
     pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError + '_>> {
         let mut buffer = Vec::new();
-        {
-            let s = &self.write;
-            copy_rec(self.base, s, *root, &mut buffer)?;
-        }
+        let s = &self.write;
+        copy_rec(self.base, s, *root, &mut buffer)?;
 
         self.base.bulk_write(&buffer)?;
         self.write = Default::default();

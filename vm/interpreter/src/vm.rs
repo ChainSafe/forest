@@ -29,6 +29,7 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 
 const GAS_OVERUSE_NUM: i64 = 11;
@@ -176,7 +177,7 @@ where
     pub fn migrate_state(
         &mut self,
         epoch: ChainEpoch,
-        arc_store: std::sync::Arc<impl BlockStore + Send + Sync>,
+        arc_store: Arc<impl BlockStore + Send + Sync>,
     ) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
             x if x == UPGRADE_ACTORS_V4_HEIGHT => {
