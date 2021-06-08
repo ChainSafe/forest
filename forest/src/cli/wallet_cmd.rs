@@ -43,15 +43,8 @@ pub enum WalletCommands {
     },
     #[structopt(about = "import keys from existing wallet")]
     Import {
-        #[structopt(short, help = "The private key to import")]
+        #[structopt(help = "The key to import")]
         key: String,
-        #[structopt(
-            short,
-            help = "The type of the given key",
-            short,
-            default_value = "bls"
-        )]
-        key_type: String,
     },
     #[structopt(about = "List addresses of the wallet")]
     List,
@@ -124,13 +117,15 @@ impl WalletCommands {
                     .unwrap();
                 println!("{}", response);
             }
-            Self::Import { key, key_type } => {
-                let key_type = match key_type.to_lowercase().as_str() {
-                    "secp256k1" => SignatureType::Secp256k1,
-                    _ => SignatureType::BLS,
-                };
+            Self::Import { key } => {
+                use std::str;
+                let decoded_key = hex::decode(key).unwrap();
 
-                let key = KeyInfo::new(key_type, key.as_bytes().to_vec());
+                let key_str = str::from_utf8(&decoded_key).unwrap();
+
+                println!("key_str: {}", key_str);
+
+                let key: KeyInfo = serde_json::from_str(key_str).unwrap();
 
                 let _ = wallet_ops::wallet_import(key)
                     .await
