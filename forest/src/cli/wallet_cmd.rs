@@ -10,7 +10,7 @@ use forest_crypto::{
 };
 use rpc_client::wallet_ops;
 use structopt::StructOpt;
-use wallet::KeyInfo;
+use wallet::{json::KeyInfoJson, KeyInfo};
 
 use super::handle_rpc_err;
 
@@ -123,11 +123,9 @@ impl WalletCommands {
 
                 let key_str = str::from_utf8(&decoded_key).unwrap();
 
-                println!("key_str: {}", key_str);
+                let key: KeyInfoJson = serde_json::from_str(&key_str).unwrap();
 
-                let key: KeyInfo = serde_json::from_str(key_str).unwrap();
-
-                let _ = wallet_ops::wallet_import(key)
+                let _ = wallet_ops::wallet_import(key.0)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
