@@ -328,8 +328,8 @@ impl KeyStore {
                 let file = File::create(&persistent_keystore.file_path)?;
 
                 // Restrict permissions on files containing private keys
-                #[cfg(linux)]
-                utils::set_user_perm(file)?;
+                #[cfg(unix)]
+                utils::set_user_perm(&file)?;
 
                 let mut writer = BufWriter::new(file);
 

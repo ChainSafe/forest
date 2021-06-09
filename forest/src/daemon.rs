@@ -56,10 +56,10 @@ pub(super) async fn start(config: Config) {
                 &format!("{}{}", &config.data_dir, "/libp2p/"),
                 "keypair",
             ) {
-                Ok(_) => {
+                Ok(file) => {
                     // Restrict permissions on files containing private keys
-                    #[cfg(linux)]
-                    utils::set_user_perm(file)?;
+                    #[cfg(unix)]
+                    utils::set_user_perm(&file).expect("Set user perms on unix systems");
                 }
                 Err(e) => {
                     info!("Could not write keystore to disk!");
