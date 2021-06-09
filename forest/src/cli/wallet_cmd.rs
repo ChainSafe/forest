@@ -12,7 +12,7 @@ use rpc_client::wallet_ops;
 use structopt::StructOpt;
 use wallet::json::KeyInfoJson;
 
-use super::handle_rpc_err;
+use super::{cli_error_and_die, handle_rpc_err};
 
 #[derive(Debug, StructOpt)]
 pub enum WalletCommands {
@@ -112,8 +112,7 @@ impl WalletCommands {
                 println!("{}", hex::encode(encoded_key))
             }
             Self::Has { key } => {
-                let key = key.parse().unwrap();
-                let response = wallet_ops::wallet_has(key)
+                let response = wallet_ops::wallet_has(key.to_string())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -121,11 +120,24 @@ impl WalletCommands {
             }
             Self::Import { key } => {
                 use std::str;
-                let decoded_key = hex::decode(key).unwrap();
+                let decoded_key_result = hex::decode(key);
+
+                if decoded_key_result.is_err() {
+                    cli_error_and_die("Key must be hex encoded", 1);
+                }
+
+                let decoded_key = decoded_key_result.unwrap();
 
                 let key_str = str::from_utf8(&decoded_key).unwrap();
 
-                let key: KeyInfoJson = serde_json::from_str(&key_str).unwrap();
+                let key_result: Result<KeyInfoJson, serde_json::error::Error> =
+                    serde_json::from_str(&key_str);
+
+                if key_result.is_err() {
+                    cli_error_and_die(&format!("{} is not a valid key to import", key), 1);
+                }
+
+                let key = key_result.unwrap();
 
                 let _ = wallet_ops::wallet_import(key.0)
                     .await
@@ -150,7 +162,13 @@ impl WalletCommands {
                     .unwrap();
             }
             Self::Sign { address, message } => {
-                let address = Address::from_str(address).unwrap();
+                let address_result = Address::from_str(address);
+
+                if address_result.is_err() {
+                    cli_error_and_die(&format!("{} is not a valid address", address), 1);
+                }
+
+                let address = address_result.unwrap();
 
                 let message = hex::decode(message).unwrap();
                 let message = base64::encode(message);
@@ -166,14 +184,17 @@ impl WalletCommands {
                 address,
                 signature,
             } => {
+                let sig_bytes = hex::decode(signature).unwrap();
                 let signature = match address.chars().nth(1).unwrap() {
-                    '1' => Signature::new_secp256k1(signature.as_bytes().to_vec()),
-                    '3' => Signature::new_bls(signature.as_bytes().to_vec()),
+                    '1' => Signature::new_secp256k1(sig_bytes),
+                    '3' => Signature::new_bls(sig_bytes),
                     _ => {
                         println!("unimplemented signature type (must be bls or secp256k1)");
                         std::process::exit(1);
                     }
                 };
+
+                println!("sig: {:?}", signature);
 
                 let response =
                     wallet_ops::wallet_verify(message.to_string(), address.to_string(), signature)
