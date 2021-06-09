@@ -9,13 +9,15 @@ use std::path::Path;
 /// Restricts permissions on a file to user-only: 0600
 #[cfg(unix)]
 pub fn set_user_perm(file: &File) -> Result<()> {
+    use log::info;
     use std::os::unix::fs::PermissionsExt;
 
     let mut perm = file.metadata()?.permissions();
     perm.set_mode((libc::S_IWUSR | libc::S_IRUSR) as u32);
     file.set_permissions(perm)?;
-    println!("Permissions on {:?} set to 600", file);
-    // log::info!("Permissions on {} set to 600", file);
+
+    info!("Permissions set to 0600 on {:?}", file);
+
     Ok(())
 }
 
