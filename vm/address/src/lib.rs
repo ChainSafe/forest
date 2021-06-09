@@ -14,10 +14,11 @@ use data_encoding::Encoding;
 #[allow(unused_imports)]
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, serde_bytes, Cbor};
+use log::error;
 use once_cell::sync::OnceCell;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::hash::Hash;
-use std::str::FromStr;
+use std::str::{from_utf8, FromStr};
 use std::{borrow::Cow, fmt};
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -304,6 +305,57 @@ pub(crate) fn from_leb_bytes(bz: &[u8]) -> Result<u64, Error> {
 
     // write id to buffer in leb128 format
     Ok(leb128::read::unsigned(&mut readable)?)
+}
+
+#[cfg(test)]
+mod tests {
+    // Test cases for FOR-02: https://github.com/ChainSafe/forest/issues/1134
+    use crate::{errors::Error, from_leb_bytes, to_leb_bytes};
+
+    #[test]
+    fn test_from_leb_bytes_passing() {
+        let passing = vec![67];
+        assert_eq!(
+            to_leb_bytes(from_leb_bytes(&passing).unwrap()),
+            Ok(vec![67])
+        );
+    }
+
+    #[test]
+    fn test_from_leb_bytes_extra_bytes() {
+        let extra_bytes = vec![67, 0, 1, 2];
+
+        match from_leb_bytes(&extra_bytes) {
+            Ok(id) => {
+                println!(
+                    "Successfully decoded bytes when it was not supposed to. Result was: {:?}",
+                    &to_leb_bytes(id).unwrap()
+                );
+                panic!();
+            }
+            Err(e) => {
+                assert_eq!(e, Error::InvalidAddressIDPayload);
+            }
+        }
+    }
+
+    #[test]
+    fn test_from_leb_bytes_minimal_encoding() {
+        let minimal_encoding = vec![67, 0, 130, 0];
+
+        match from_leb_bytes(&minimal_encoding) {
+            Ok(id) => {
+                println!(
+                    "Successfully decoded bytes when it was not supposed to. Result was: {:?}",
+                    &to_leb_bytes(id).unwrap()
+                );
+                panic!();
+            }
+            Err(e) => {
+                assert_eq!(e, Error::InvalidAddressIDPayload);
+            }
+        }
+    }
 }
 
 /// Checksum calculates the 4 byte checksum hash
