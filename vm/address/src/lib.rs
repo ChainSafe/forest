@@ -18,7 +18,7 @@ use log::error;
 use once_cell::sync::OnceCell;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::hash::Hash;
-use std::str::{from_utf8, FromStr};
+use std::str::FromStr;
 use std::{borrow::Cow, fmt};
 
 /// defines the encoder for base32 encoding with the provided string with no padding
@@ -304,7 +304,18 @@ pub(crate) fn from_leb_bytes(bz: &[u8]) -> Result<u64, Error> {
     let mut readable = bz;
 
     // write id to buffer in leb128 format
-    Ok(leb128::read::unsigned(&mut readable)?)
+    let id = leb128::read::unsigned(&mut readable)?;
+
+    if to_leb_bytes(id)? == bz {
+        Ok(id)
+    } else {
+        error!(
+            "Invalid address ID payload, input does not match output. Input: {:?}; Output: {:?}",
+            bz,
+            &to_leb_bytes(id)?,
+        );
+        Err(Error::InvalidAddressIDPayload)
+    }
 }
 
 #[cfg(test)]
