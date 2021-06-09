@@ -53,5 +53,5 @@ pub async fn wallet_verify(
     address: String,
     signature: Signature,
 ) -> Result<bool, JsonRpcError> {
-    filecoin_rpc::wallet_verify((message, address, SignatureJson(signature))).await
+    filecoin_rpc::wallet_verify((address, message, SignatureJson(signature))).await
 }
