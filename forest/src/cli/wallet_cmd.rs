@@ -152,9 +152,10 @@ impl WalletCommands {
             Self::Sign { address, message } => {
                 let address = Address::from_str(address).unwrap();
 
+                let message = hex::decode(message).unwrap();
                 let message = base64::encode(message);
 
-                let response = wallet_ops::wallet_sign(address, message.as_bytes().to_vec())
+                let response = wallet_ops::wallet_sign(address, message.into_bytes())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
