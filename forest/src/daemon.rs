@@ -51,13 +51,20 @@ pub(super) async fn start(config: Config) {
             let gen_keypair = ed25519::Keypair::generate();
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
-            if let Err(e) = write_to_file(
+            match write_to_file(
                 &gen_keypair.encode(),
                 &format!("{}{}", &config.data_dir, "/libp2p/"),
                 "keypair",
             ) {
-                info!("Could not write keystore to disk!");
-                trace!("Error {:?}", e);
+                Ok(_) => {
+                    // Restrict permissions on files containing private keys
+                    #[cfg(linux)]
+                    utils::set_user_perm(file)?;
+                }
+                Err(e) => {
+                    info!("Could not write keystore to disk!");
+                    trace!("Error {:?}", e);
+                }
             };
             Keypair::Ed25519(gen_keypair)
         });

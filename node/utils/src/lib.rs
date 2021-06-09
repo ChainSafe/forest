@@ -6,6 +6,19 @@ use std::fs::{create_dir_all, File};
 use std::io::{prelude::*, Result};
 use std::path::Path;
 
+/// Restricts permissions on a file to user-only: 0600
+#[cfg(linux)]
+pub fn set_user_perm(file: File) -> Result<()> {
+    use std::os::linux::fs::PermissionsExt;
+
+    let mut perm = file.metadata()?.permissions();
+    perm.set_mode((libc::S_IWUSR | libc::S_IRUSR) as u32);
+    file.set_permissions(perm)?;
+    println!("Permissions on {} set to 600", file);
+    // log::info!("Permissions on {} set to 600", file);
+    Ok(())
+}
+
 /// Writes a string to a specified file. Creates the desired path if it does not exist.
 /// Note: `path` and `filename` are appended to produce the resulting file path.
 pub fn write_to_file(message: &[u8], path: &str, file_name: &str) -> Result<()> {
