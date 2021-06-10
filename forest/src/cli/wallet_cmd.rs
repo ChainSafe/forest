@@ -26,7 +26,7 @@ pub enum WalletCommands {
     },
     #[structopt(about = "Get account balance")]
     Balance {
-        #[structopt(about = "The address to of the account to check")]
+        #[structopt(about = "The address of the account to check")]
         address: String,
     },
     #[structopt(about = "Get the default address of the wallet")]
@@ -48,7 +48,7 @@ pub enum WalletCommands {
     },
     #[structopt(about = "List addresses of the wallet")]
     List,
-    #[structopt(about = "Set the defualt wallet address")]
+    #[structopt(about = "Set the default wallet address")]
     SetDefault {
         #[structopt(about = "The given key to set to the default address")]
         key: String,
@@ -191,8 +191,10 @@ impl WalletCommands {
                     '1' => Signature::new_secp256k1(sig_bytes),
                     '3' => Signature::new_bls(sig_bytes),
                     _ => {
-                        println!("unimplemented signature type (must be bls or secp256k1)");
-                        std::process::exit(1);
+                        return cli_error_and_die(
+                            "Invalid signature (must be bls or secp256k1)",
+                            1,
+                        );
                     }
                 };
 
