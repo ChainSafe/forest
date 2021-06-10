@@ -32,6 +32,7 @@ pub async fn init_prometheus(prometheus_addr: SocketAddr, registry: Registry) ->
 }
 
 async fn collect_metrics(req: tide::Request<Registry>) -> tide::Result {
+    println!("--- Collecting Metrics ---");
     let metric_families = req.state().gather();
     let mut metrics = vec![];
 

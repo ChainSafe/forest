@@ -8,6 +8,14 @@ version: "3.7"
 services:
   prometheus:
     image: prom/prometheus
+    entrypoint:
+      - "/bin/prometheus"
+      - "--log.level=debug"
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    network: host
     ports:
       - "9090:9090"
     volumes:
@@ -19,6 +27,7 @@ services:
     user: "104"
     depends_on:
       - prometheus
+    network: host
     ports:
       - 3001:3000
     volumes:
