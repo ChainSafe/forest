@@ -4,7 +4,7 @@
 mod auth_ops;
 mod chain_ops;
 mod client;
-mod mpool_ops;
+pub mod mpool_ops;
 
 pub use self::auth_ops::*;
 pub use self::chain_ops::*;

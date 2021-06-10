@@ -7,5 +7,5 @@ use jsonrpc_v2::Error as JsonRpcError;
 use message::SignedMessage;
 
 pub async fn pending(cid: Cid) -> Result<Vec<SignedMessage>, JsonRpcError> {
-    filecoin_rpc::mpool_pending(CidJsonVec(vec![cid])).await?
+    filecoin_rpc::mpool_pending((CidJsonVec(vec![cid]),)).await
 }

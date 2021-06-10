@@ -179,7 +179,11 @@ pub mod filecoin_rpc {
     use jsonrpc_v2::Error;
 
     use crate::call_params;
-    use rpc_api::{auth_api::*, chain_api::*};
+    use rpc_api::{
+        auth_api::*,
+        chain_api::*,
+        mpool_api::{MpoolPendingParams, MpoolPendingResult, MPOOL_PENDING},
+    };
 
     pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
         call_params(AUTH_NEW, perm).await
@@ -205,5 +209,10 @@ pub mod filecoin_rpc {
 
     pub async fn chain_read_obj(cid: ChainReadObjParams) -> Result<ChainReadObjResult, Error> {
         call_params(CHAIN_READ_OBJ, cid).await
+    }
+
+    /// Message Pool
+    pub async fn mpool_pending(params: MpoolPendingParams) -> Result<MpoolPendingResult, Error> {
+        call_params(MPOOL_PENDING, params).await
     }
 }

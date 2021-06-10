@@ -62,7 +62,7 @@ pub enum Subcommand {
     #[structopt(name = "genesis", about = "Work with blockchain genesis")]
     Genesis(GenesisCommands),
 
-    #[structopt(name = "mpool", about = "work with mempool")]
+    #[structopt(name = "mpool", about = "work with message pool")]
     Mpool(MpoolCommands),
 }
 
