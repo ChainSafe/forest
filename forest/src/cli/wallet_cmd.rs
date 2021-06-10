@@ -55,14 +55,16 @@ pub enum WalletCommands {
     },
     #[structopt(about = "Sign a message")]
     Sign {
-        #[structopt(about = "The message to sign", short)]
+        #[structopt(about = "The hex encoded message to sign", short)]
         message: String,
         #[structopt(about = "The address to be used to sign the message", short)]
         address: String,
     },
-    #[structopt(about = "Verify the signature of a message")]
+    #[structopt(
+        about = "Verify the signature of a message. Returns true if the signature matches the message and address"
+    )]
     Verify {
-        #[structopt(about = "The signing address", short)]
+        #[structopt(about = "The address used to sign the message", short)]
         address: String,
         #[structopt(about = "The message to verify", short)]
         message: String,
@@ -193,8 +195,6 @@ impl WalletCommands {
                         std::process::exit(1);
                     }
                 };
-
-                println!("sig: {:?}", signature);
 
                 let response =
                     wallet_ops::wallet_verify(message.to_string(), address.to_string(), signature)
