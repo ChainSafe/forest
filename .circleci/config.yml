@@ -289,9 +289,9 @@ workflows:
   build-check:
     jobs:
       - prefetch-crates
-      - nightly-build-check:
-          requires:
-            - prefetch-crates
+      # - nightly-build-check:
+      #     requires:
+      #       - prefetch-crates
       - msrv-build-check:
           requires:
             - prefetch-crates
