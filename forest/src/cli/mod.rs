@@ -208,6 +208,11 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
     }
 }
 
+pub(super) fn cli_error_and_die(msg: &str, code: i32) {
+    println!("Error: {}", msg);
+    std::process::exit(code);
+}
+
 /// Prints a plain HTTP JSON-RPC response result
 pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) {
     match res {
