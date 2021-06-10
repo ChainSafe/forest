@@ -349,7 +349,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
             // Schedule the next random query with exponentially increasing delay,
             // capped at 60 seconds.
-            self.next_kad_random_query = stream::interval(Duration::from_secs(10));
+            self.next_kad_random_query = stream::interval(self.duration_to_next_kad);
             self.duration_to_next_kad =
                 cmp::min(self.duration_to_next_kad * 2, Duration::from_secs(60));
         }

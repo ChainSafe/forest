@@ -785,7 +785,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
 
     /// Groups sectors into sets based on their Expiration field.
     /// If sectors are not found in the expiration set corresponding to their expiration field
-    /// (i.e. they have been rescheduled) traverse expiration sets to for groups where these
+    /// (i.e. they have been rescheduled) traverse expiration sets for groups where these
     /// sectors actually expire.
     /// Groups will be returned in expiration order, earliest first.
     fn find_sectors_by_expiration(

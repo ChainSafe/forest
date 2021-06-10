@@ -322,7 +322,7 @@ where
         let msg_gas_cost = pl.on_chain_message(ser_msg.len());
         let cost_total = msg_gas_cost.total();
 
-        // Verify the cost of the message is not oever the message gas limit.
+        // Verify the cost of the message is not over the message gas limit.
         if cost_total > msg.gas_limit() {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {
