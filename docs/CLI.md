@@ -27,6 +27,8 @@ the forest daemon. This will be needed to create tokens with certain permissions
 
 ## Wallet
 
+All wallet commands require write permissions to interact with the keystore
+
 Balance
 Retrieve the fil balance of a given address
 Usage: `forest wallet balance <address>`

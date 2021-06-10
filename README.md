@@ -102,6 +102,22 @@ Importing the snapshot only needs to happen during the first run. Following this
 ./target/release/forest
 ```
 
+### Interacting with Forest via CLI
+
+When the Forest daemon is started, an admin token will be displayed. You will need this for commands that require a higher level of authorization (like a password). Forest, as mentioned above, uses multiaddresses for networking. This is no different in the CLI. To set the host and the port to use, if not using the default port or using a remote host, set the `FULLNODE_API_INFO` environment variable. This is also where you can set a token for authentication.
+
+```
+FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http
+```
+
+Note that if a token is not present in the FULLNODE_API_INFO env variable, the colon is removed.
+
+Forest developers will prepend this variable to cli commands over using `export` on Linux or its equivelant on Windows. This will look like the following:
+
+```
+FULLNODE_API_INFO="..." forest auth api-info -p admin
+```
+
 ### Documentation
 https://chainsafe.github.io/forest/
 
