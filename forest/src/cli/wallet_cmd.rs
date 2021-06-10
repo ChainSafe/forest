@@ -166,9 +166,10 @@ impl WalletCommands {
                 address,
                 signature,
             } => {
+                let signature = hex::decode(signature).unwrap();
                 let signature = match address.chars().nth(1).unwrap() {
-                    '1' => Signature::new_secp256k1(signature.as_bytes().to_vec()),
-                    '3' => Signature::new_bls(signature.as_bytes().to_vec()),
+                    '1' => Signature::new_secp256k1(signature),
+                    '3' => Signature::new_bls(signature),
                     _ => {
                         println!("unimplemented signature type (must be bls or secp256k1)");
                         std::process::exit(1);
