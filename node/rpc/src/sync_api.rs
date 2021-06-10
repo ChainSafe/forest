@@ -1,8 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::RpcState;
-use async_std::sync::RwLock;
 use beacon::Beacon;
 use blocks::gossip_block::json::GossipBlockJson;
 use blocks::Tipset;
@@ -11,22 +9,19 @@ use chain_sync::SyncState;
 use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use message::{SignedMessage, UnsignedMessage};
-use serde::Serialize;
-use std::sync::Arc;
+use rpc_api::data_types::{RPCState, RPCSyncState};
+use rpc_api::sync_api::*;
 
-#[derive(Serialize)]
-pub struct RPCSyncState {
-    #[serde(rename = "ActiveSyncs")]
-    active_syncs: Vec<SyncState>,
-}
+use async_std::sync::RwLock;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use std::sync::Arc;
 
 /// Checks if a given block is marked as bad.
 pub(crate) async fn sync_check_bad<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(CidJson,)>,
-) -> Result<String, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<SyncCheckBadParams>,
+) -> Result<SyncCheckBadResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -37,9 +32,9 @@ where
 
 /// Marks a block as bad, meaning it will never be synced.
 pub(crate) async fn sync_mark_bad<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params(params): Params<(CidJson,)>,
-) -> Result<(), JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<SyncMarkBadParams>,
+) -> Result<SyncMarkBadResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -59,8 +54,8 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 
 /// Returns the current status of the ChainSync process.
 pub(crate) async fn sync_state<DB, B>(
-    data: Data<RpcState<DB, B>>,
-) -> Result<RPCSyncState, JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+) -> Result<SyncStateResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -71,9 +66,9 @@ where
 
 /// Submits block to be sent through gossipsub.
 pub(crate) async fn sync_submit_block<DB, B>(
-    data: Data<RpcState<DB, B>>,
-    Params((GossipBlockJson(blk),)): Params<(GossipBlockJson,)>,
-) -> Result<(), JsonRpcError>
+    data: Data<RPCState<DB, B>>,
+    Params((GossipBlockJson(blk),)): Params<SyncSubmitBlockParams>,
+) -> Result<SyncSubmitBlockResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -132,7 +127,7 @@ mod tests {
     const TEST_NET_NAME: &str = "test";
 
     async fn state_setup() -> (
-        Arc<RpcState<MemoryDB, MockBeacon>>,
+        Arc<RPCState<MemoryDB, MockBeacon>>,
         Receiver<NetworkMessage>,
     ) {
         let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
@@ -173,7 +168,7 @@ mod tests {
             .unwrap()
         });
         let (new_mined_block_tx, _) = bounded(5);
-        let state = Arc::new(RpcState {
+        let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),

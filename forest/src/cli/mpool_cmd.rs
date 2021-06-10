@@ -1,9 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::stringify_rpc_err;
+use super::handle_rpc_err;
 use cid::Cid;
-use rpc_client::{self, new_client};
+use rpc_client;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

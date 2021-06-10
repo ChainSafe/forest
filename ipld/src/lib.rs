@@ -7,6 +7,7 @@ mod path;
 mod path_segment;
 pub mod selector;
 mod ser;
+pub mod util;
 
 #[cfg(feature = "json")]
 pub mod json;
@@ -17,6 +18,7 @@ mod macros;
 pub use self::error::Error;
 pub use path::Path;
 pub use path_segment::PathSegment;
+pub use util::*;
 
 use cid::Cid;
 use encoding::{from_slice, to_vec, Cbor};

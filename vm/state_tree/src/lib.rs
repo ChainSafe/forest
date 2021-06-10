@@ -3,8 +3,10 @@
 
 use actor::{init, ActorVersion, Map};
 use address::{Address, Protocol};
+use async_std::{channel::bounded, task};
 use cid::{Cid, Code::Blake2b256};
 use fil_types::{StateInfo0, StateRoot, StateTreeVersion};
+use forest_car::CarHeader;
 use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -221,6 +223,35 @@ where
         }
     }
 
+    /// Imports a StateTree given an AsyncRead that has data in CAR format
+    pub async fn import_state_tree<R: AsyncRead + Send + Unpin>(
+        store: &'db S,
+        reader: R,
+    ) -> Result<Cid, String> {
+        let state_root = forest_car::load_car(store, reader)
+            .await
+            .map_err(|e| format!("Import StateTree failed: {}", e.to_string()))?;
+        if state_root.len() != 1 {
+            return Err(format!(
+                "Import StateTree failed: expected root length of 1, got: {}",
+                state_root.len()
+            ));
+        }
+
+        // Safe to grab index 0 because we have verified that the length of the vec is exactly 1
+        let state_root = state_root[0];
+
+        // Attempt to load StateTree to see if the root CID indeed points to a valid StateTree
+        StateTree::new_from_root(store, &state_root).map_err(|e| {
+            format!(
+                "Import StateTree failed: Invalid StateTree root: {}",
+                e.to_string()
+            )
+        })?;
+
+        Ok(state_root)
+    }
+
     /// Retrieve store reference to modify db.
     pub fn store(&self) -> &S {
         self.hamt.store()
@@ -400,5 +431,84 @@ where
         S: BlockStore,
     {
         self.hamt.for_each(|k, v| f(Address::from_bytes(&k.0)?, v))
+    }
+}
+
+use futures::{AsyncRead, AsyncWrite};
+
+/// Exports a StateTree in CAR format given the Cid to the tree.
+pub async fn export_state_tree<W, BS: BlockStore>(
+    bs: &BS,
+    state_root: Cid,
+    mut writer: W,
+) -> Result<(), String>
+where
+    W: AsyncWrite + Send + Unpin + 'static,
+{
+    const CHANNEL_CAP: usize = 1000;
+    let (tx, mut rx) = bounded(CHANNEL_CAP);
+    let header = CarHeader::from(vec![state_root]);
+    let write_task =
+        task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
+
+    // Check if given Cid is a StateTree
+    StateTree::new_from_root(bs, &state_root).map_err(|e| {
+        format!(
+            "Export StateTree failed: Invalid StateTree root: {}",
+            e.to_string()
+        )
+    })?;
+
+    // Recurse over the StateTree links
+    let mut seen = Default::default();
+    forest_ipld::recurse_links(&mut seen, state_root, &mut |cid| {
+        let block = bs
+            .get_bytes(&cid)?
+            .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
+
+        // * If cb can return a generic type, deserializing would remove need to clone.
+        // Ignore error intentionally, if receiver dropped, error will be handled below
+        let _ = task::block_on(tx.send((cid, block.clone())));
+        Ok(block)
+    })
+    .map_err(|e| e.to_string())?;
+
+    // Close the Sender channel
+    drop(tx);
+
+    // Await on values being written.
+    write_task
+        .await
+        .map_err(|e| format!("Failed to write blocks in export: {}", e))?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use async_std::{
+        fs::{remove_file, File},
+        io::{BufReader, BufWriter},
+    };
+    use fil_types::StateTreeVersion;
+
+    use crate::{export_state_tree, StateTree};
+
+    #[async_std::test]
+    async fn state_tree_export_import() {
+        let db = db::MemoryDB::default();
+        let mut tree = StateTree::new(&db, StateTreeVersion::V3).unwrap();
+        let root = tree.flush().unwrap();
+
+        let dir = "/tmp/sttest";
+        let cur = BufWriter::new(File::create(dir).await.unwrap());
+        export_state_tree(&db, root, cur).await.unwrap();
+
+        let re = BufReader::new(File::open(dir).await.unwrap());
+
+        let root_in = StateTree::import_state_tree(&db, re).await.unwrap();
+
+        assert_eq!(root, root_in);
+
+        remove_file(dir).await.unwrap();
     }
 }

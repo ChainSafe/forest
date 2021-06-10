@@ -1,16 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::client::Filecoin;
+use super::filecoin_rpc;
 use cid::{json::vec::CidJsonVec, Cid};
 use jsonrpc_v2::Error as JsonRpcError;
-use jsonrpsee::raw::RawClient;
-use jsonrpsee::transport::http::HttpTransportClient as HTC;
 use message::SignedMessage;
 
-pub async fn pending(
-    client: &mut RawClient<HTC>,
-    cid: Cid,
-) -> Result<Vec<SignedMessage>, JsonRpcError> {
-    Ok(Filecoin::mpool_pending(client, CidJsonVec(vec![cid])).await?)
+pub async fn pending(cid: Cid) -> Result<Vec<SignedMessage>, JsonRpcError> {
+    filecoin_rpc::mpool_pending(CidJsonVec(vec![cid])).await?
 }
