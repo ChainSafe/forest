@@ -52,3 +52,22 @@ Usage: `forest wallet new <bls/secp256k1>`
 Set-default
 Set an address to be the default address of the keystore
 Usage: `forest wallet set-default <address>`
+
+Import
+Import a private key to the keystore and create a new address.
+The default format for importing keys is hex encoded JSON. Use the `export`
+command to get formatted keys for importing.
+Usage: `forest wallet import <hex encoded json key>`
+
+Export
+Export a key by address. Use a wallet address to export a key. Returns a formatted key
+to be used to import on another node, or into a new keystore.
+Usage: `forest wallet export <address>`
+
+Sign
+Use an address to sign a vector of bytes
+Usage: `forest wallet sign -m <hex message> -a <address>`
+
+Verify
+Verify the message's integrity with an address and signature
+Usage: `forest wallet verify -m <hex message> -a <address> -s <signature>`
