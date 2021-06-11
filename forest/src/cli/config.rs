@@ -38,7 +38,7 @@ impl Default for Config {
             snapshot: false,
             skip_load: false,
             sync: SyncConfig::default(),
-            encrypt_keystore: false,
+            encrypt_keystore: true,
             metrics_port: 6116,
         }
     }
