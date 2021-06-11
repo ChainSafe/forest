@@ -14,7 +14,6 @@ use data_encoding::Encoding;
 #[allow(unused_imports)]
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::{blake2b_variable, serde_bytes, Cbor};
-use log::error;
 use once_cell::sync::OnceCell;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::hash::Hash;
@@ -309,12 +308,7 @@ pub(crate) fn from_leb_bytes(bz: &[u8]) -> Result<u64, Error> {
     if to_leb_bytes(id)? == bz {
         Ok(id)
     } else {
-        error!(
-            "Invalid address ID payload, input does not match output. Input: {:?}; Output: {:?}",
-            bz,
-            &to_leb_bytes(id)?,
-        );
-        Err(Error::InvalidAddressIDPayload)
+        Err(Error::InvalidAddressIDPayload(bz.to_owned()))
     }
 }
 
@@ -345,7 +339,7 @@ mod tests {
                 panic!();
             }
             Err(e) => {
-                assert_eq!(e, Error::InvalidAddressIDPayload);
+                assert_eq!(e, Error::InvalidAddressIDPayload(extra_bytes));
             }
         }
     }
@@ -363,7 +357,7 @@ mod tests {
                 panic!();
             }
             Err(e) => {
-                assert_eq!(e, Error::InvalidAddressIDPayload);
+                assert_eq!(e, Error::InvalidAddressIDPayload(minimal_encoding));
             }
         }
     }
