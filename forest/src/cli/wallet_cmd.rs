@@ -8,7 +8,10 @@ use forest_crypto::{
     signature::{json::signature_type::SignatureTypeJson, SignatureType},
     Signature,
 };
-use rpc_client::wallet_ops;
+use rpc_client::{
+    wallet_balance, wallet_default_address, wallet_export, wallet_has, wallet_import, wallet_list,
+    wallet_new, wallet_set_default, wallet_sign, wallet_verify,
+};
 use structopt::StructOpt;
 use wallet::json::KeyInfoJson;
 
@@ -19,7 +22,7 @@ pub enum WalletCommands {
     #[structopt(about = "Create a new wallet")]
     New {
         #[structopt(
-            default_value = "bls",
+            default_value = "secp256k1",
             help = "The signature type to use. One of Secp256k1, or bls"
         )]
         signature_type: String,
@@ -84,28 +87,28 @@ impl WalletCommands {
 
                 let signature_type_json = SignatureTypeJson(signature_type);
 
-                let response = wallet_ops::wallet_new(signature_type_json)
+                let response = wallet_new(signature_type_json)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{}", response);
             }
             Self::Balance { address } => {
-                let response = wallet_ops::wallet_balance(address.to_string())
+                let response = wallet_balance(address.to_string())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{}", response);
             }
             Self::Default => {
-                let response = wallet_ops::wallet_default_address()
+                let response = wallet_default_address()
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
                 println!("{}", response);
             }
             Self::Export { address } => {
-                let response = wallet_ops::wallet_export(address.to_string())
+                let response = wallet_export(address.to_string())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -114,7 +117,7 @@ impl WalletCommands {
                 println!("{}", hex::encode(encoded_key))
             }
             Self::Has { key } => {
-                let response = wallet_ops::wallet_has(key.to_string())
+                let response = wallet_has(key.to_string())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -141,16 +144,10 @@ impl WalletCommands {
 
                 let key = key_result.unwrap();
 
-                let _ = wallet_ops::wallet_import(key.0)
-                    .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                let _ = wallet_import(key.0).await.map_err(handle_rpc_err).unwrap();
             }
             Self::List => {
-                let response = wallet_ops::wallet_list()
-                    .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                let response = wallet_list().await.map_err(handle_rpc_err).unwrap();
 
                 response.iter().for_each(|address| {
                     println!("{}", address.0);
@@ -158,7 +155,7 @@ impl WalletCommands {
             }
             Self::SetDefault { key } => {
                 let key = key.parse().unwrap();
-                wallet_ops::wallet_set_default(key)
+                wallet_set_default(key)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -175,7 +172,7 @@ impl WalletCommands {
                 let message = hex::decode(message).unwrap();
                 let message = base64::encode(message);
 
-                let response = wallet_ops::wallet_sign(address, message.into_bytes())
+                let response = wallet_sign(address, message.into_bytes())
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -198,11 +195,10 @@ impl WalletCommands {
                     }
                 };
 
-                let response =
-                    wallet_ops::wallet_verify(message.to_string(), address.to_string(), signature)
-                        .await
-                        .map_err(handle_rpc_err)
-                        .unwrap();
+                let response = wallet_verify(message.to_string(), address.to_string(), signature)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
                 println!("{}", response);
             }
         };

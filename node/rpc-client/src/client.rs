@@ -176,20 +176,10 @@ where
 
 /// Filecoin RPC client interface methods
 pub mod filecoin_rpc {
-    use address::json::AddressJson;
     use jsonrpc_v2::Error;
-    use wallet::json::KeyInfoJson;
 
     use crate::call_params;
-    use rpc_api::{
-        auth_api::*,
-        chain_api::*,
-        wallet_api::{
-            WalletBalanceParams, WalletExportParams, WalletHasParams, WalletImportParams,
-            WalletNewParams, WalletSetDefaultParams, WalletSignParams, WalletSignResult,
-            WalletVerifyParams,
-        },
-    };
+    use rpc_api::{auth_api::*, chain_api::*, wallet_api::*};
 
     /// Auth
     pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
@@ -219,7 +209,7 @@ pub mod filecoin_rpc {
     }
 
     /// Wallet
-    pub async fn wallet_new(signature_type: WalletNewParams) -> Result<String, Error> {
+    pub async fn wallet_new(signature_type: WalletNewParams) -> Result<WalletNewResult, Error> {
         call_params("Filecoin.WalletNew", signature_type).await
     }
 
@@ -227,27 +217,31 @@ pub mod filecoin_rpc {
         call_params("Filecoin.WalletDefaultAddress", ()).await
     }
 
-    pub async fn wallet_balance(address: WalletBalanceParams) -> Result<String, Error> {
+    pub async fn wallet_balance(
+        address: WalletBalanceParams,
+    ) -> Result<WalletBalanceResult, Error> {
         call_params("Filecoin.WalletBalance", address).await
     }
 
-    pub async fn wallet_export(address: WalletExportParams) -> Result<KeyInfoJson, Error> {
+    pub async fn wallet_export(address: WalletExportParams) -> Result<WalletExportResult, Error> {
         call_params("Filecoin.WalletExport", address).await
     }
 
-    pub async fn wallet_import(key: WalletImportParams) -> Result<KeyInfoJson, Error> {
+    pub async fn wallet_import(key: WalletImportParams) -> Result<WalletImportResult, Error> {
         call_params("Filecoin.WalletImport", key).await
     }
 
-    pub async fn wallet_list() -> Result<Vec<AddressJson>, Error> {
+    pub async fn wallet_list() -> Result<WalletListResult, Error> {
         call_params("Filecoin.WalletList", ()).await
     }
 
-    pub async fn wallet_has(key: WalletHasParams) -> Result<bool, Error> {
+    pub async fn wallet_has(key: WalletHasParams) -> Result<WalletHasResult, Error> {
         call_params("Filecoin.WalletHas", key).await
     }
 
-    pub async fn wallet_set_default(address: WalletSetDefaultParams) -> Result<(), Error> {
+    pub async fn wallet_set_default(
+        address: WalletSetDefaultParams,
+    ) -> Result<WalletSetDefaultResult, Error> {
         call_params("Filecoin.WalletSetDefault", address).await
     }
 
@@ -255,7 +249,7 @@ pub mod filecoin_rpc {
         call_params("Filecoin.WalletSign", message).await
     }
 
-    pub async fn wallet_verify(message: WalletVerifyParams) -> Result<bool, Error> {
+    pub async fn wallet_verify(message: WalletVerifyParams) -> Result<WalletVerifyResult, Error> {
         call_params("Filecoin.WalletVerify", message).await
     }
 }

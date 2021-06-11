@@ -25,7 +25,7 @@ pub async fn wallet_export(address: String) -> Result<KeyInfoJson, JsonRpcError>
     filecoin_rpc::wallet_export((address,)).await
 }
 
-pub async fn wallet_import(key: KeyInfo) -> Result<KeyInfoJson, JsonRpcError> {
+pub async fn wallet_import(key: KeyInfo) -> Result<String, JsonRpcError> {
     filecoin_rpc::wallet_import(vec![KeyInfoJson(key)]).await
 }
 

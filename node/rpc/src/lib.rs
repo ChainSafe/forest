@@ -13,7 +13,7 @@ mod rpc_util;
 mod rpc_ws_handler;
 mod state_api;
 mod sync_api;
-pub mod wallet_api;
+mod wallet_api;
 
 use async_std::sync::Arc;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
