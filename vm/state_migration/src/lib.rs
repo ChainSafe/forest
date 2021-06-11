@@ -4,7 +4,6 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
-use actor_interface::{actorv3, actorv4};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -15,7 +14,6 @@ use vm::{ActorState, TokenAmount};
 use async_std::sync::Arc;
 use rayon::ThreadPoolBuildError;
 use std::collections::{HashMap, HashSet};
-use std::default::Default;
 
 pub mod nv12;
 
@@ -56,58 +54,15 @@ pub struct StateMigration<BS> {
     deferred_code_ids: HashSet<Cid>,
 }
 
-impl<BS: BlockStore + Send + Sync> Default for StateMigration<BS> {
-    fn default() -> Self {
-        let mut migrations = HashMap::new();
-        migrations.insert(
-            *actorv3::ACCOUNT_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::ACCOUNT_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::CRON_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::CRON_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::INIT_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::INIT_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::MULTISIG_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::MULTISIG_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::PAYCH_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::PAYCH_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::REWARD_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::REWARD_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::MARKET_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::MARKET_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::POWER_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::POWER_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::SYSTEM_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::SYSTEM_ACTOR_CODE_ID),
-        );
-        migrations.insert(
-            *actorv3::VERIFREG_ACTOR_CODE_ID,
-            nil_migrator_v4(*actorv4::VERIFREG_ACTOR_CODE_ID),
-        );
-
+impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
         Self {
-            migrations,
+            migrations: HashMap::new(),
             deferred_code_ids: HashSet::new(),
         }
     }
-}
 
-impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
     pub fn add_migrator(&mut self, prior_cid: Cid, migrator: Migrator<BS>) {
         self.migrations.insert(prior_cid, migrator);
     }
@@ -126,7 +81,7 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
         }
 
         let cpus = num_cpus::get();
-        let chan_size = 2;
+        let chan_size = cpus / 2;
 
         log::info!(
             "Using {} CPUs for migration and channel size of {}",
@@ -281,7 +236,7 @@ struct MigrationJobOutput {
     actor_state: ActorState,
 }
 
-fn nil_migrator_v4<BS: BlockStore + Send + Sync>(
+fn nil_migrator<BS: BlockStore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(NilMigrator(cid))

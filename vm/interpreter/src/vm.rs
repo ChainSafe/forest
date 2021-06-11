@@ -609,14 +609,15 @@ where
 }
 
 // Performs network version 12 / actors v4 state migration
-
 fn run_nv12_migration(
     arc_store: std::sync::Arc<impl BlockStore + Send + Sync>,
     prev_state: Cid,
     epoch: i64,
 ) -> Result<Cid, Box<dyn StdError>> {
-    let mut migration = state_migration::StateMigration::default();
+    let mut migration = state_migration::StateMigration::new();
+    // Initialize the map with a default set of no-op migrations (nil_migrator).
     // nv12 migration involves only the miner actor.
+    migration.set_nil_migrations();
     let (v4_miner_actor_cid, v3_miner_actor_cid) =
         (*actorv4::MINER_ACTOR_CODE_ID, *actorv3::MINER_ACTOR_CODE_ID);
     let store_ref = arc_store.clone();
