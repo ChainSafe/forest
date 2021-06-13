@@ -9,6 +9,8 @@ use std::net::SocketAddr;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Prometheus error: {0}")]
+    Prometheus(prometheus::Error),
     /// Tide internal error.
     #[error("Tide error: {0}")]
     Tide(tide::Error),
@@ -22,6 +24,12 @@ pub enum Error {
 
 pub async fn init_prometheus(prometheus_addr: SocketAddr, registry: Registry) -> Result<(), Error> {
     info!("Prometheus server started at {}", prometheus_addr);
+
+    // Add the process collector to the registry
+    let process_collector = prometheus::process_collector::ProcessCollector::for_self();
+    registry
+        .register(Box::new(process_collector))
+        .map_err(Error::Prometheus)?;
 
     // Create an configure HTTP server
     let mut server = tide::with_state(registry);
