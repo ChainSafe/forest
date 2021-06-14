@@ -326,6 +326,11 @@ impl KeyStore {
                     .ok_or_else(|| Error::Other("Invalid Path".to_string()))?;
                 fs::create_dir_all(dir)?;
                 let file = File::create(&persistent_keystore.file_path)?;
+
+                // Restrict permissions on files containing private keys
+                #[cfg(unix)]
+                utils::set_user_perm(&file)?;
+
                 let mut writer = BufWriter::new(file);
 
                 match &self.encryption {

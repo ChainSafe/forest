@@ -303,7 +303,64 @@ pub(crate) fn from_leb_bytes(bz: &[u8]) -> Result<u64, Error> {
     let mut readable = bz;
 
     // write id to buffer in leb128 format
-    Ok(leb128::read::unsigned(&mut readable)?)
+    let id = leb128::read::unsigned(&mut readable)?;
+
+    if to_leb_bytes(id)? == bz {
+        Ok(id)
+    } else {
+        Err(Error::InvalidAddressIDPayload(bz.to_owned()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Test cases for FOR-02: https://github.com/ChainSafe/forest/issues/1134
+    use crate::{errors::Error, from_leb_bytes, to_leb_bytes};
+
+    #[test]
+    fn test_from_leb_bytes_passing() {
+        let passing = vec![67];
+        assert_eq!(
+            to_leb_bytes(from_leb_bytes(&passing).unwrap()),
+            Ok(vec![67])
+        );
+    }
+
+    #[test]
+    fn test_from_leb_bytes_extra_bytes() {
+        let extra_bytes = vec![67, 0, 1, 2];
+
+        match from_leb_bytes(&extra_bytes) {
+            Ok(id) => {
+                println!(
+                    "Successfully decoded bytes when it was not supposed to. Result was: {:?}",
+                    &to_leb_bytes(id).unwrap()
+                );
+                panic!();
+            }
+            Err(e) => {
+                assert_eq!(e, Error::InvalidAddressIDPayload(extra_bytes));
+            }
+        }
+    }
+
+    #[test]
+    fn test_from_leb_bytes_minimal_encoding() {
+        let minimal_encoding = vec![67, 0, 130, 0];
+
+        match from_leb_bytes(&minimal_encoding) {
+            Ok(id) => {
+                println!(
+                    "Successfully decoded bytes when it was not supposed to. Result was: {:?}",
+                    &to_leb_bytes(id).unwrap()
+                );
+                panic!();
+            }
+            Err(e) => {
+                assert_eq!(e, Error::InvalidAddressIDPayload(minimal_encoding));
+            }
+        }
+    }
 }
 
 /// Checksum calculates the 4 byte checksum hash
