@@ -210,46 +210,46 @@ pub mod filecoin_rpc {
 
     /// Wallet
     pub async fn wallet_new(signature_type: WalletNewParams) -> Result<WalletNewResult, Error> {
-        call_params("Filecoin.WalletNew", signature_type).await
+        call_params(WALLET_NEW, signature_type).await
     }
 
     pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, Error> {
-        call_params("Filecoin.WalletDefaultAddress", ()).await
+        call_params(WALLET_DEFAULT_ADDRESS, ()).await
     }
 
     pub async fn wallet_balance(
         address: WalletBalanceParams,
     ) -> Result<WalletBalanceResult, Error> {
-        call_params("Filecoin.WalletBalance", address).await
+        call_params(WALLET_BALANCE, address).await
     }
 
     pub async fn wallet_export(address: WalletExportParams) -> Result<WalletExportResult, Error> {
-        call_params("Filecoin.WalletExport", address).await
+        call_params(WALLET_EXPORT, address).await
     }
 
     pub async fn wallet_import(key: WalletImportParams) -> Result<WalletImportResult, Error> {
-        call_params("Filecoin.WalletImport", key).await
+        call_params(WALLET_IMPORT, key).await
     }
 
     pub async fn wallet_list() -> Result<WalletListResult, Error> {
-        call_params("Filecoin.WalletList", ()).await
+        call_params(WALLET_LIST, ()).await
     }
 
     pub async fn wallet_has(key: WalletHasParams) -> Result<WalletHasResult, Error> {
-        call_params("Filecoin.WalletHas", key).await
+        call_params(WALLET_HAS, key).await
     }
 
     pub async fn wallet_set_default(
         address: WalletSetDefaultParams,
     ) -> Result<WalletSetDefaultResult, Error> {
-        call_params("Filecoin.WalletSetDefault", address).await
+        call_params(WALLET_SET_DEFAULT, address).await
     }
 
     pub async fn wallet_sign(message: WalletSignParams) -> Result<WalletSignResult, Error> {
-        call_params("Filecoin.WalletSign", message).await
+        call_params(WALLET_SIGN, message).await
     }
 
     pub async fn wallet_verify(message: WalletVerifyParams) -> Result<WalletVerifyResult, Error> {
-        call_params("Filecoin.WalletVerify", message).await
+        call_params(WALLET_VERIFY, message).await
     }
 }
