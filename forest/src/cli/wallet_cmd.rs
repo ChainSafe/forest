@@ -44,7 +44,7 @@ pub enum WalletCommands {
         #[structopt(help = "The key to check")]
         key: String,
     },
-    #[structopt(about = "import keys from existing wallet")]
+    #[structopt(about = "Import keys from existing wallet")]
     Import {
         #[structopt(help = "The key to import")]
         key: String,
