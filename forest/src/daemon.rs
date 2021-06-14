@@ -19,7 +19,7 @@ use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 use rpassword::read_password;
 
 use std::io::prelude::*;
@@ -95,6 +95,7 @@ pub(super) async fn start(config: Config) {
             };
         }
     } else {
+        warn!("Warning: Keystore encryption disabled!");
         KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(&config.data_dir)))
             .expect("Error initializing keystore")
     };
