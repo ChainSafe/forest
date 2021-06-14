@@ -3,13 +3,11 @@
 
 #[cfg(feature = "buffered")]
 mod buffered;
-#[cfg(feature = "resolve")]
 /// This module is used for resolving Cids and Ipld recursively. This is generally only needed
 /// for testing because links should generally not be collapsed to generate a singular data
 /// structure, or this would lead to ambiguity of the data.
+#[cfg(feature = "resolve")]
 pub mod resolve;
-#[cfg(feature = "sled")]
-mod sled;
 #[cfg(feature = "tracking")]
 mod tracking;
 
@@ -19,13 +17,19 @@ pub use self::buffered::BufferedBlockStore;
 #[cfg(feature = "tracking")]
 pub use self::tracking::{BSStats, TrackingBlockStore};
 
+#[cfg(feature = "rocksdb")]
+mod rocksdb;
+
+#[cfg(feature = "sleddb")]
+mod sled;
+
+#[cfg(feature = "lumberjackdb")]
+mod lumberjack;
+
 use cid::{Cid, Code};
 use db::{MemoryDB, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use std::error::Error as StdError;
-
-#[cfg(feature = "rocksdb")]
-use db::rocks::{RocksDb, WriteBatch};
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
@@ -75,26 +79,3 @@ pub trait BlockStore: Store {
 }
 
 impl BlockStore for MemoryDB {}
-
-#[cfg(feature = "rocksdb")]
-impl BlockStore for RocksDb {
-    fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> Result<Vec<Cid>, Box<dyn StdError>>
-    where
-        S: Serialize + 'a,
-        V: IntoIterator<Item = &'a S>,
-    {
-        let mut batch = WriteBatch::default();
-        let cids: Vec<Cid> = values
-            .into_iter()
-            .map(|v| {
-                let bz = to_vec(v)?;
-                let cid = cid::new_from_cbor(&bz, code);
-                batch.put(cid.to_bytes(), bz);
-                Ok(cid)
-            })
-            .collect::<Result<_, Box<dyn StdError>>>()?;
-        self.db.write(batch)?;
-
-        Ok(cids)
-    }
-}

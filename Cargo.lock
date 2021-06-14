@@ -456,7 +456,7 @@ dependencies = [
  "async-io",
  "async-lock",
  "async-process",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -1016,7 +1016,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_ipld",
  "forest_message",
@@ -1057,7 +1057,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
@@ -1205,7 +1205,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_message",
  "forest_runtime",
@@ -1325,16 +1325,16 @@ dependencies = [
 
 [[package]]
 name = "crossbeam"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd01a6eb3daaafa260f6fc94c3a6c36390abc2080e38e3e34ced87393fb77d80"
+checksum = "4ae5588f6b3c3cb05239e90bd110f257254aecd01e4635400391aeae07497845"
 dependencies = [
  "cfg-if 1.0.0",
  "crossbeam-channel",
  "crossbeam-deque",
  "crossbeam-epoch",
- "crossbeam-queue 0.3.1",
- "crossbeam-utils 0.8.1",
+ "crossbeam-queue 0.3.2",
+ "crossbeam-utils 0.8.5",
 ]
 
 [[package]]
@@ -1344,7 +1344,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dca26ee1f8d361640700bde38b2c37d8c22b3ce2d360e1fc1c74ea4b0aa7d775"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
 ]
 
 [[package]]
@@ -1355,18 +1355,17 @@ checksum = "94af6efb46fef72616855b036a624cf27ba656ffc9be1b9a3c931cfc7749a9a9"
 dependencies = [
  "cfg-if 1.0.0",
  "crossbeam-epoch",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
 ]
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.1"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1aaa739f95311c2c7887a76863f500026092fb1dce0161dab577e559ef3569d"
+checksum = "4ec02e091aa634e2c3ada4a392989e7c3116673ef0ac5b72232439094d73b7fd"
 dependencies = [
  "cfg-if 1.0.0",
- "const_fn",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
  "lazy_static",
  "memoffset",
  "scopeguard",
@@ -1385,12 +1384,12 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-queue"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f6cb3c7f5b8e51bc3ebb73a2327ad4abdbd119dc13223f14f961d2f38486756"
+checksum = "9b10ddc024425c88c2ad148c1b0fd53f4c6d38db9697c9f1588381212fa657c9"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
 ]
 
 [[package]]
@@ -1406,11 +1405,10 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.1"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d96d1e189ef58269ebe5b97953da3274d83a93af647c2ddd6f9dab28cedb8d"
+checksum = "d82cfc11ce7f2c3faef78d8a684447b40d503d9681acebed6cb728d45940c4db"
 dependencies = [
- "autocfg",
  "cfg-if 1.0.0",
  "lazy_static",
 ]
@@ -2067,7 +2065,7 @@ dependencies = [
  "forest_blocks",
  "forest_car",
  "forest_cid",
- "forest_db",
+ "forest_db 0.2.0",
  "forest_encoding",
  "forest_libp2p",
  "futures",
@@ -2251,7 +2249,7 @@ dependencies = [
  "forest_bitfield",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_ipld",
  "forest_runtime",
@@ -2346,7 +2344,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "futures",
  "integer-encoding 3.0.1",
@@ -2391,7 +2389,19 @@ dependencies = [
 [[package]]
 name = "forest_db"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "637464246b3f5554e6d7678cf05d8d76a5cbefe3324cd8c5c5a24c62c379af46"
 dependencies = [
+ "forest_encoding",
+ "parking_lot",
+ "thiserror",
+]
+
+[[package]]
+name = "forest_db"
+version = "0.2.0"
+dependencies = [
+ "crossbeam",
  "forest_encoding",
  "parking_lot",
  "rocksdb",
@@ -2429,7 +2439,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "indexmap",
  "ipld_blockstore",
@@ -2463,7 +2473,7 @@ dependencies = [
  "forest_car",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_message",
  "futures",
@@ -2515,7 +2525,7 @@ dependencies = [
  "forest_address",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_vm",
  "interpreter",
@@ -3169,7 +3179,7 @@ dependencies = [
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_message",
  "forest_runtime",
@@ -3194,7 +3204,7 @@ checksum = "dde92f9f67932f831a0137be87f60370cfb107b3664b6bcca2703311e32c3d46"
 dependencies = [
  "ahash 0.6.2",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "ipld_blockstore",
  "once_cell",
@@ -3209,7 +3219,7 @@ dependencies = [
  "ahash 0.6.2",
  "criterion",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "ipld_blockstore",
  "itertools 0.10.0",
@@ -3226,7 +3236,7 @@ checksum = "278ba2fa369fae45884276f68784750a81bd48a9973615195f0138b8d1fa9436"
 dependencies = [
  "ahash 0.6.2",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "ipld_blockstore",
  "itertools 0.10.0",
@@ -3242,7 +3252,7 @@ dependencies = [
  "byteorder 1.4.2",
  "commcid",
  "forest_cid",
- "forest_db",
+ "forest_db 0.2.0",
  "forest_encoding",
  "forest_ipld",
 ]
@@ -3256,7 +3266,7 @@ dependencies = [
  "byteorder 1.4.2",
  "cs_serde_bytes",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_hash_utils",
  "forest_ipld",
@@ -3276,7 +3286,7 @@ dependencies = [
  "byteorder 1.4.2",
  "cs_serde_bytes",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_hash_utils",
  "forest_ipld",
@@ -3295,7 +3305,7 @@ dependencies = [
  "criterion",
  "cs_serde_bytes",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_hash_utils",
  "forest_ipld",
@@ -3317,7 +3327,7 @@ dependencies = [
  "byteorder 1.4.2",
  "cs_serde_bytes",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_hash_utils",
  "forest_ipld",
@@ -3341,7 +3351,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2948a0ce43e2c2ef11d7edf6816508998d99e13badd1150be0914205df9388a"
 dependencies = [
  "bytes 0.5.6",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
  "curl",
  "curl-sys",
  "encoding_rs",
@@ -4103,7 +4113,7 @@ dependencies = [
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
@@ -5243,7 +5253,7 @@ checksum = "9ab346ac5921dc62ffa9f89b7a773907511cdfa5490c572ae9be1be33e8afa4a"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
  "lazy_static",
  "num_cpus",
 ]
@@ -5379,7 +5389,7 @@ dependencies = [
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_ipld",
  "forest_libp2p",
@@ -5465,7 +5475,7 @@ dependencies = [
  "base64 0.13.0",
  "blake2b_simd",
  "constant_time_eq",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
 ]
 
 [[package]]
@@ -5857,7 +5867,7 @@ checksum = "1d0132f3e393bcb7390c60bb45769498cf4550bcb7a21d7f95c02b69f6362cdc"
 dependencies = [
  "crc32fast",
  "crossbeam-epoch",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.5",
  "fs2",
  "fxhash",
  "libc 0.2.91",
@@ -5995,7 +6005,7 @@ dependencies = [
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_encoding",
  "forest_message",
  "forest_runtime",
@@ -6027,7 +6037,7 @@ dependencies = [
  "forest_bigint",
  "forest_car",
  "forest_cid",
- "forest_db",
+ "forest_db 0.1.0",
  "forest_ipld",
  "forest_vm",
  "futures",

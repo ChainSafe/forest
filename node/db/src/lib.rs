@@ -7,8 +7,11 @@ mod memory;
 #[cfg(feature = "rocksdb")]
 pub mod rocks;
 
-#[cfg(feature = "sled")]
+#[cfg(feature = "sleddb")]
 pub mod sled;
+
+#[cfg(feature = "lumberjackdb")]
+pub mod lumberjack;
 
 pub use errors::Error;
 pub use memory::MemoryDB;
