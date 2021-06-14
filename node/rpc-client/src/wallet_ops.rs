@@ -7,13 +7,14 @@ use crypto::{
     signature::json::signature_type::SignatureTypeJson, signature::json::SignatureJson, Signature,
 };
 use jsonrpc_v2::Error as JsonRpcError;
+use rpc_api::wallet_api::WalletDefaultAddressResult;
 use wallet::{json::KeyInfoJson, KeyInfo};
 
 pub async fn wallet_new(signature_type: SignatureTypeJson) -> Result<String, JsonRpcError> {
     filecoin_rpc::wallet_new((signature_type,)).await
 }
 
-pub async fn wallet_default_address() -> Result<String, JsonRpcError> {
+pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, JsonRpcError> {
     filecoin_rpc::wallet_default_address().await
 }
 
