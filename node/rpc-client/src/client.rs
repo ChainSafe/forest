@@ -185,6 +185,10 @@ pub mod filecoin_rpc {
         call_params(AUTH_NEW, perm).await
     }
 
+    pub async fn auth_api_info(perm: AuthApiInfoParams) -> Result<AuthApiInfoResult, Error> {
+        call_params(AUTH_API_INFO, perm).await
+    }
+
     pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockResult, Error> {
         call_params(CHAIN_GET_BLOCK, cid).await
     }

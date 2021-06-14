@@ -56,6 +56,7 @@ where
             // Auth API
             .with_method(AUTH_NEW, auth_new::<DB, B>)
             .with_method(AUTH_VERIFY, auth_verify::<DB, B>)
+            .with_method(AUTH_API_INFO, auth_api_info::<DB, B>)
             // Beacon API
             .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB, B>)
             // Chain API
