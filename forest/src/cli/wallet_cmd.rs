@@ -5,10 +5,7 @@ use std::str::FromStr;
 
 use address::{Address, json::AddressJson};
 use forest_crypto::{Signature, signature::{SignatureType, json::{SignatureJson, signature_type::SignatureTypeJson}}};
-use rpc_client::{
-    wallet_balance, wallet_default_address, wallet_export, wallet_has, wallet_import, wallet_list,
-    wallet_new, wallet_set_default, wallet_sign, wallet_verify,
-};
+use rpc_client::*;
 use structopt::StructOpt;
 use wallet::json::KeyInfoJson;
 
