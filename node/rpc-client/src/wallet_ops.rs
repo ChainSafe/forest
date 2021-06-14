@@ -13,7 +13,9 @@ pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, Json
     filecoin_rpc::wallet_default_address().await
 }
 
-pub async fn wallet_balance(params: WalletBalanceParams) -> Result<WalletBalanceResult, JsonRpcError> {
+pub async fn wallet_balance(
+    params: WalletBalanceParams,
+) -> Result<WalletBalanceResult, JsonRpcError> {
     filecoin_rpc::wallet_balance(params).await
 }
 
@@ -33,7 +35,9 @@ pub async fn wallet_has(params: WalletHasParams) -> Result<WalletHasResult, Json
     filecoin_rpc::wallet_has(params).await
 }
 
-pub async fn wallet_set_default(params: WalletSetDefaultParams) -> Result<WalletSetDefaultResult, JsonRpcError> {
+pub async fn wallet_set_default(
+    params: WalletSetDefaultParams,
+) -> Result<WalletSetDefaultResult, JsonRpcError> {
     filecoin_rpc::wallet_set_default(params).await
 }
 
