@@ -2280,6 +2280,7 @@ dependencies = [
  "forest_encoding",
  "forest_json_utils",
  "leb128",
+ "log",
  "num-derive",
  "num-traits",
  "once_cell",
