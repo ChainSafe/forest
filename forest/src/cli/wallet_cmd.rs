@@ -3,8 +3,14 @@
 
 use std::str::FromStr;
 
-use address::{Address, json::AddressJson};
-use forest_crypto::{Signature, signature::{SignatureType, json::{SignatureJson, signature_type::SignatureTypeJson}}};
+use address::{json::AddressJson, Address};
+use forest_crypto::{
+    signature::{
+        json::{signature_type::SignatureTypeJson, SignatureJson},
+        SignatureType,
+    },
+    Signature,
+};
 use rpc_client::*;
 use structopt::StructOpt;
 use wallet::json::KeyInfoJson;
@@ -138,7 +144,10 @@ impl WalletCommands {
 
                 let key = key_result.unwrap();
 
-                let _ = wallet_import(vec![KeyInfoJson(key.0)]).await.map_err(handle_rpc_err).unwrap();
+                let _ = wallet_import(vec![KeyInfoJson(key.0)])
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
             }
             Self::List => {
                 let response = wallet_list().await.map_err(handle_rpc_err).unwrap();
@@ -167,7 +176,7 @@ impl WalletCommands {
                 let message = hex::decode(message).unwrap();
                 let message = base64::encode(message);
 
-                let response = wallet_sign((AddressJson(address), message.into_bytes(),))
+                let response = wallet_sign((AddressJson(address), message.into_bytes()))
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -190,10 +199,14 @@ impl WalletCommands {
                     }
                 };
 
-                let response = wallet_verify((message.to_string(), address.to_string(), SignatureJson(signature)))
-                    .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                let response = wallet_verify((
+                    message.to_string(),
+                    address.to_string(),
+                    SignatureJson(signature),
+                ))
+                .await
+                .map_err(handle_rpc_err)
+                .unwrap();
                 println!("{}", response);
             }
         };
