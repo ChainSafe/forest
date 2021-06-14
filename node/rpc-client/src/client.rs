@@ -213,7 +213,7 @@ pub mod filecoin_rpc {
         call_params("Filecoin.WalletNew", signature_type).await
     }
 
-    pub async fn wallet_default_address() -> Result<String, Error> {
+    pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, Error> {
         call_params("Filecoin.WalletDefaultAddress", ()).await
     }
 
