@@ -3473,6 +3473,7 @@ dependencies = [
  "serde_json",
  "sodiumoxide",
  "thiserror",
+ "utils",
 ]
 
 [[package]]
@@ -6840,6 +6841,8 @@ name = "utils"
 version = "0.1.0"
 dependencies = [
  "dirs",
+ "libc 0.2.91",
+ "log",
  "serde",
  "serde_derive",
  "toml",
