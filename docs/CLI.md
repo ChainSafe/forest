@@ -1,7 +1,7 @@
 
 # CLI
 
-The forest CLI allows for operations to interact with a Filecoin node and the blockchain.
+The Forest CLI allows for operations to interact with a Filecoin node and the blockchain.
 
 
 ## Environment Variables
@@ -11,26 +11,26 @@ to provide the multiaddress information for the node. You will need to either se
 
 `FULLNODE_API_INFO="..." forest wallet new -s bls`
 
-On linux, you can set the environment variable with the following syntax
+On Linux, you can set the environment variable with the following syntax
 
 `export FULLNOPDE_API_INFO="..."`
 
-Setting your API info this way will limit the value to your current session. Look online for ways to persist 
+Setting your API info this way will limit the value to your current session. Look online for ways to persist
 this variable if desired.
 
 The syntax for the `FULLNODE_API_INFO` variable is as follows:
 
 `<admin_token>:/ip4/<ip of host>/tcp/<port>/http`
 
-This will use IPv4, tcp, and http when communicating with the RPC API. The admin token can be found when starting
-the forest daemon. This will be needed to create tokens with certain permissions such as read, write, sign, or admin.
+This will use IPv4, TCP, and HTTP when communicating with the RPC API. The admin token can be found when starting
+the Forest daemon. This will be needed to create tokens with certain permissions such as read, write, sign, or admin.
 
 ## Wallet
 
 All wallet commands require write permissions to interact with the keystore
 
 Balance
-Retrieve the fil balance of a given address
+Retrieve the FIL balance of a given address
 Usage: `forest wallet balance <address>`
 
 Default
