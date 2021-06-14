@@ -367,7 +367,7 @@ impl Actor {
                 return Err(actor_error!(ErrForbidden; "Cannot remove only signer"));
             }
 
-            if !params.decrease && st.signers.len() < st.num_approvals_threshold {
+            if !params.decrease && st.signers.len() - 1 < st.num_approvals_threshold {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "can't reduce signers to {} below threshold {} with decrease=false",
