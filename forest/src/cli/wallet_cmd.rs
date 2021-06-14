@@ -23,7 +23,7 @@ pub enum WalletCommands {
     New {
         #[structopt(
             default_value = "secp256k1",
-            help = "The signature type to use. One of Secp256k1, or bls"
+            help = "The signature type to use. One of secp256k1, or bls"
         )]
         signature_type: String,
     },
