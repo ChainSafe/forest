@@ -526,7 +526,7 @@ where
 }
 
 fn approx_cmp(a: f64, b: f64) -> Ordering {
-    if (a - b).abs() < std::f64::EPSILON {
+    if (a - b).abs() <= (a * std::f64::EPSILON).abs() {
         Ordering::Equal
     } else {
         a.partial_cmp(&b).unwrap()
