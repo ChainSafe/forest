@@ -7,10 +7,10 @@ use crypto::{
     signature::json::signature_type::SignatureTypeJson, signature::json::SignatureJson, Signature,
 };
 use jsonrpc_v2::Error as JsonRpcError;
-use rpc_api::wallet_api::WalletDefaultAddressResult;
+use rpc_api::wallet_api::{WalletBalanceResult, WalletDefaultAddressResult, WalletExportResult, WalletHasResult, WalletImportResult, WalletListResult, WalletNewResult, WalletSetDefaultResult, WalletSignResult, WalletVerifyResult};
 use wallet::{json::KeyInfoJson, KeyInfo};
 
-pub async fn wallet_new(signature_type: SignatureTypeJson) -> Result<String, JsonRpcError> {
+pub async fn wallet_new(signature_type: SignatureTypeJson) -> Result<WalletNewResult, JsonRpcError> {
     filecoin_rpc::wallet_new((signature_type,)).await
 }
 
@@ -18,34 +18,34 @@ pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, Json
     filecoin_rpc::wallet_default_address().await
 }
 
-pub async fn wallet_balance(address: String) -> Result<String, JsonRpcError> {
+pub async fn wallet_balance(address: String) -> Result<WalletBalanceResult, JsonRpcError> {
     filecoin_rpc::wallet_balance((address,)).await
 }
 
-pub async fn wallet_export(address: String) -> Result<KeyInfoJson, JsonRpcError> {
+pub async fn wallet_export(address: String) -> Result<WalletExportResult, JsonRpcError> {
     filecoin_rpc::wallet_export((address,)).await
 }
 
-pub async fn wallet_import(key: KeyInfo) -> Result<String, JsonRpcError> {
+pub async fn wallet_import(key: KeyInfo) -> Result<WalletImportResult, JsonRpcError> {
     filecoin_rpc::wallet_import(vec![KeyInfoJson(key)]).await
 }
 
-pub async fn wallet_list() -> Result<Vec<AddressJson>, JsonRpcError> {
+pub async fn wallet_list() -> Result<WalletListResult, JsonRpcError> {
     filecoin_rpc::wallet_list().await
 }
 
-pub async fn wallet_has(key: String) -> Result<bool, JsonRpcError> {
+pub async fn wallet_has(key: String) -> Result<WalletHasResult, JsonRpcError> {
     filecoin_rpc::wallet_has((key,)).await
 }
 
-pub async fn wallet_set_default(key: Address) -> Result<(), JsonRpcError> {
+pub async fn wallet_set_default(key: Address) -> Result<WalletSetDefaultResult, JsonRpcError> {
     filecoin_rpc::wallet_set_default((AddressJson(key),)).await
 }
 
 pub async fn wallet_sign(
     address: Address,
     message: Vec<u8>,
-) -> Result<SignatureJson, JsonRpcError> {
+) -> Result<WalletSignResult, JsonRpcError> {
     filecoin_rpc::wallet_sign((AddressJson(address), message)).await
 }
 
@@ -53,6 +53,6 @@ pub async fn wallet_verify(
     message: String,
     address: String,
     signature: Signature,
-) -> Result<bool, JsonRpcError> {
+) -> Result<WalletVerifyResult, JsonRpcError> {
     filecoin_rpc::wallet_verify((address, message, SignatureJson(signature))).await
 }
