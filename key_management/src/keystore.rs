@@ -363,8 +363,6 @@ impl KeyStore {
                             );
                         }
 
-                        log::info!("writing keystore\n{:#?}", key_info);
-
                         // Flush for PersistentKeyStore
                         serde_json::to_writer_pretty(writer, &key_info).map_err(|e| {
                             Error::Other(format!("failed to serialize and write key info: {}", e))

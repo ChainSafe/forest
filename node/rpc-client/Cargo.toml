@@ -12,6 +12,7 @@ serde = "1.0"
 serde_json = "1.0"
 surf = "2.2.0"
 # Internal
+address = { package = "forest_address", version = "0.3", features = ["json"] }
 auth = { path = "../../utils/auth" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }

@@ -72,7 +72,7 @@ impl Payload {
     }
 
     /// Returns encoded bytes of Address including the protocol byte.
-    pub(crate) fn to_bytes(self) -> Vec<u8> {
+    pub fn to_bytes(self) -> Vec<u8> {
         use Payload::*;
         let mut bz = match self {
             ID(i) => to_leb_bytes(i).unwrap(),

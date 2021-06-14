@@ -2057,6 +2057,7 @@ dependencies = [
  "async-log",
  "async-std",
  "auth",
+ "base64 0.13.0",
  "beacon",
  "chain",
  "chain_sync",
@@ -2067,9 +2068,11 @@ dependencies = [
  "forest_blocks",
  "forest_car",
  "forest_cid",
+ "forest_crypto",
  "forest_db",
  "forest_encoding",
  "forest_libp2p",
+ "forest_message",
  "futures",
  "genesis",
  "hex",
@@ -5432,6 +5435,7 @@ name = "rpc-client"
 version = "0.1.0"
 dependencies = [
  "auth",
+ "forest_address",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
