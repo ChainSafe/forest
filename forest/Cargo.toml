@@ -8,7 +8,7 @@ edition = "2018"
 address = { package = "forest_address", version = "0.3" }
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
-db = { package = "forest_db", version = "0.1" }
+db = { package = "forest_db", path="../node/db", version = "0.2" }
 libp2p = { version = "0.35", default-features = false, features = ["identify"] }
 futures = "0.3.5"
 log = "0.4.8"
@@ -55,9 +55,10 @@ features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
 
 [features]
-default = ["rocksdb", "networks/mainnet"]
+default = ["lumberjackdb", "networks/mainnet"]
 rocksdb = ["db/rocksdb", "ipld_blockstore/rocksdb"]
-sled = ["db/sled", "ipld_blockstore/sled"]
+sleddb = ["db/sleddb", "ipld_blockstore/sleddb"]
+lumberjackdb = ["db/lumberjackdb", "ipld_blockstore/lumberjackdb"]
 devnet = ["actor/devnet", "networks/devnet", "testnet"]
 interopnet = ["actor/interopnet", "networks/interopnet", "testnet"]
 insecure_post = ["chain_sync/insecure_post"]

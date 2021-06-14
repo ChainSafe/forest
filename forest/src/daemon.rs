@@ -112,11 +112,26 @@ pub(super) async fn start(config: Config) {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    // Initialize database (RocksDb will be default if both features enabled)
-    #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
+    // Initialize database
+    #[cfg(all(
+        feature = "lumberjackdb",
+        not(feature = "rocksdb"),
+        not(feature = "sleddb")
+    ))]
     let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
 
-    #[cfg(feature = "rocksdb")]
+    #[cfg(all(
+        feature = "sleddb",
+        not(feature = "rocksdb"),
+        not(feature = "lumberjackdb")
+    ))]
+    let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
+
+    #[cfg(
+        feature = "rocksdb",
+        not(feature = "sleddb"),
+        not(feature = "lumberjack")
+    )]
     let db = db::rocks::RocksDb::open(config.data_dir + "/db").unwrap();
 
     let db = Arc::new(db);
