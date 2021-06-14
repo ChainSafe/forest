@@ -343,7 +343,7 @@ pub mod json {
             Secp256k1,
         }
 
-        #[derive(Serialize, Deserialize)]
+        #[derive(Debug, Serialize, Deserialize)]
         #[serde(transparent)]
         pub struct SignatureTypeJson(#[serde(with = "self")] pub SignatureType);
 

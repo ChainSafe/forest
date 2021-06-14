@@ -323,7 +323,7 @@ pub mod wallet_api {
     pub type WalletSetDefaultResult = ();
 
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-    pub type WalletSignParams = (AddressJson, String);
+    pub type WalletSignParams = (AddressJson, Vec<u8>);
     pub type WalletSignResult = SignatureJson;
 
     pub const WALLET_SIGN_MESSAGE: &str = "Filecoin.WalletSignMessage";
