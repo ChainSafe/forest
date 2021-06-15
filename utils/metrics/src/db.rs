@@ -1,5 +1,3 @@
-use std::os::unix::fs::MetadataExt;
-
 use prometheus::core::{Collector, Desc};
 use prometheus::proto;
 use prometheus::{Gauge, Opts};
@@ -33,10 +31,9 @@ impl Collector for DBCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        let metadata = std::fs::metadata(self.db_directory.clone()).expect(
-            "Retrieving metadata for the database directory from the filesystem must succeed",
-        );
-        self.db_size.set(metadata.size() as f64);
+        let db_size = fs_extra::dir::get_size(self.db_directory.clone())
+            .expect("Calculating the size of the db directory must succeed");
+        self.db_size.set(db_size as f64);
 
         let mut metric_families = vec![];
         metric_families.extend(self.db_size.collect());
