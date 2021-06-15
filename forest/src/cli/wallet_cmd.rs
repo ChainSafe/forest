@@ -11,6 +11,7 @@ use forest_crypto::{
     },
     Signature,
 };
+use futures::TryFutureExt;
 use rpc_client::*;
 use structopt::StructOpt;
 use wallet::json::KeyInfoJson;
@@ -204,12 +205,11 @@ impl WalletCommands {
                     message.to_string(),
                     SignatureJson(signature),
                 ))
-                .await;
+                .await
+                .map_err(handle_rpc_err)
+                .unwrap();
 
-                match response {
-                    Ok(value) => println!("{}", value),
-                    Err(error) => handle_rpc_err(error),
-                }
+                println!("{}", response);
             }
         };
     }
