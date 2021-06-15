@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use futures::channel::oneshot;
-use jsonrpc_v2::{Data, Error as JsonRpcError};
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use beacon::Beacon;
 use blockstore::BlockStore;
@@ -28,4 +28,34 @@ pub(crate) async fn net_addrs_listen<
         id: id.to_string(),
         addrs,
     })
+}
+
+pub(crate) async fn net_peers<
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<NetPeersParams>,
+) -> Result<NetPeersResult, JsonRpcError> {
+    unimplemented!();
+}
+
+pub(crate) async fn net_connect<
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<NetConnectParams>,
+) -> Result<NetConnectResult, JsonRpcError> {
+    unimplemented!();
+}
+
+pub(crate) async fn net_disconnect<
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<NetDisconnectParams>,
+) -> Result<NetDisconnectResult, JsonRpcError> {
+    unimplemented!();
 }

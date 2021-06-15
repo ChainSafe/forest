@@ -6,6 +6,7 @@ use async_std::sync::{Arc, RwLock};
 use beacon::BeaconEntry;
 use fil_types::SectorSize;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
+pub use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 use actor::market::{DealProposal, DealState};

@@ -114,6 +114,9 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Net API
     access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
+    access.insert(net_api::NET_PEERS, Access::Read);
+    access.insert(net_api::NET_CONNECT, Access::Write);
+    access.insert(net_api::NET_DISCONNECT, Access::Write);
 
     access
 });
@@ -504,9 +507,21 @@ pub mod common_api {
 
 /// Net API
 pub mod net_api {
-    use crate::data_types::AddrInfo;
+    use crate::data_types::{AddrInfo, PeerId};
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
     pub type NetAddrsListenParams = ();
     pub type NetAddrsListenResult = AddrInfo;
+
+    pub const NET_PEERS: &str = "Filecoin.NetPeers";
+    pub type NetPeersParams = ();
+    pub type NetPeersResult = Vec<AddrInfo>;
+
+    pub const NET_CONNECT: &str = "Filecoin.NetConnect";
+    pub type NetConnectParams = (AddrInfo,);
+    pub type NetConnectResult = ();
+
+    pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
+    pub type NetDisconnectParams = (PeerId,);
+    pub type NetDisconnectResult = ();
 }
