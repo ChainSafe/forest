@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod db;
+
 use log::info;
 use prometheus::{Encoder, Registry, TextEncoder};
 use thiserror::Error;
@@ -22,13 +24,23 @@ pub enum Error {
     PortInUse(SocketAddr),
 }
 
-pub async fn init_prometheus(prometheus_addr: SocketAddr, registry: Registry) -> Result<(), Error> {
+pub async fn init_prometheus(
+    prometheus_addr: SocketAddr,
+    registry: Registry,
+    db_directory: String,
+) -> Result<(), Error> {
     info!("Prometheus server started at {}", prometheus_addr);
 
-    // Add the process collector to the registry
+    // Add the process metrics collector to the registry
     let process_collector = prometheus::process_collector::ProcessCollector::for_self();
     registry
         .register(Box::new(process_collector))
+        .map_err(Error::Prometheus)?;
+
+    // Add the DBCollector to the registry
+    let db_collector = crate::db::DBCollector::new(db_directory);
+    registry
+        .register(Box::new(db_collector))
         .map_err(Error::Prometheus)?;
 
     // Create an configure HTTP server

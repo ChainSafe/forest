@@ -124,10 +124,12 @@ pub(super) async fn start(config: Config) {
 
     // Initialize database (RocksDb will be default if both features enabled)
     #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
+    let db = db::sled::SledDb::open(format!("{}/{}", config.data_dir, "/sled"))
+        .expect("Opening SledDB must succeed");
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(config.data_dir + "/db").unwrap();
+    let db = db::rocks::RocksDb::open(format!("{}/{}", config.data_dir.clone(), "db"))
+        .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
 
@@ -242,6 +244,7 @@ pub(super) async fn start(config: Config) {
             .parse()
             .unwrap(),
         prometheus_registry,
+        format!("{}/{}", config.data_dir.clone(), "db"),
     ));
 
     // Block until ctrl-c is hit
