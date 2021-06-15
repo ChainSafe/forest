@@ -200,14 +200,16 @@ impl WalletCommands {
                 };
 
                 let response = wallet_verify((
-                    message.to_string(),
                     address.to_string(),
+                    message.to_string(),
                     SignatureJson(signature),
                 ))
-                .await
-                .map_err(handle_rpc_err)
-                .unwrap();
-                println!("{}", response);
+                .await;
+
+                match response {
+                    Ok(value) => println!("{}", value),
+                    Err(error) => handle_rpc_err(error),
+                }
             }
         };
     }
