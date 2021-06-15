@@ -1020,13 +1020,7 @@ mod tests {
     use super::*;
     use address::Address;
     use async_std::sync::Arc;
-    use async_std::{
-        fs::{remove_file, File},
-        io::{BufReader, BufWriter},
-    };
     use cid::Code::{Blake2b256, Identity};
-    use state_tree::StateTree;
-    use types::StateTreeVersion;
 
     #[test]
     fn genesis_test() {

@@ -51,13 +51,20 @@ pub(super) async fn start(config: Config) {
             let gen_keypair = ed25519::Keypair::generate();
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
-            if let Err(e) = write_to_file(
+            match write_to_file(
                 &gen_keypair.encode(),
                 &format!("{}{}", &config.data_dir, "/libp2p/"),
                 "keypair",
             ) {
-                info!("Could not write keystore to disk!");
-                trace!("Error {:?}", e);
+                Ok(file) => {
+                    // Restrict permissions on files containing private keys
+                    #[cfg(unix)]
+                    utils::set_user_perm(&file).expect("Set user perms on unix systems");
+                }
+                Err(e) => {
+                    info!("Could not write keystore to disk!");
+                    trace!("Error {:?}", e);
+                }
             };
             Keypair::Ed25519(gen_keypair)
         });
@@ -79,7 +86,10 @@ pub(super) async fn start(config: Config) {
                 print!("confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
 
-                read_password().expect("Passphrases do not match");
+                if passphrase != read_password().unwrap() {
+                    println!("passphrases do not match. please retry");
+                    continue;
+                }
             }
 
             let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(

@@ -15,14 +15,30 @@ mod mainnet;
 #[cfg(feature = "mainnet")]
 pub use self::mainnet::*;
 
-#[cfg(all(feature = "interopnet", not(feature = "devnet")))]
+#[cfg(all(
+    feature = "interopnet",
+    not(feature = "devnet"),
+    not(feature = "mainnet")
+))]
 mod interopnet;
-#[cfg(all(feature = "interopnet", not(feature = "devnet")))]
+#[cfg(all(
+    feature = "interopnet",
+    not(feature = "devnet"),
+    not(feature = "mainnet")
+))]
 pub use self::interopnet::*;
 
-#[cfg(all(feature = "devnet", not(feature = "interopnet")))]
+#[cfg(all(
+    feature = "devnet",
+    not(feature = "interopnet"),
+    not(feature = "mainnet")
+))]
 mod devnet;
-#[cfg(all(feature = "devnet", not(feature = "interopnet")))]
+#[cfg(all(
+    feature = "devnet",
+    not(feature = "interopnet"),
+    not(feature = "mainnet")
+))]
 pub use self::devnet::*;
 
 /// Defines the different hard fork parameters.

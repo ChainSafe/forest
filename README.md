@@ -64,7 +64,7 @@ Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/5
 
 ### Logging
 
-The Forest logger uses [Rust's log filtering options](https://doc.rust-lang.org/1.1.0/log/index.html#filtering-results) with the `RUST_LOG` environment variable.  
+The Forest logger uses [Rust's log filtering options](https://doc.rust-lang.org/1.1.0/log/index.html#filtering-results) with the `RUST_LOG` environment variable.
 For example:
 
 ```bash
@@ -102,11 +102,27 @@ Importing the snapshot only needs to happen during the first run. Following this
 ./target/release/forest
 ```
 
+### Interacting with Forest via CLI
+
+When the Forest daemon is started, an admin token will be displayed. You will need this for commands that require a higher level of authorization (like a password). Forest, as mentioned above, uses multiaddresses for networking. This is no different in the CLI. To set the host and the port to use, if not using the default port or using a remote host, set the `FULLNODE_API_INFO` environment variable. This is also where you can set a token for authentication.
+
+```
+FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http
+```
+
+Note that if a token is not present in the FULLNODE_API_INFO env variable, the colon is removed.
+
+Forest developers will prepend this variable to CLI commands over using `export` on Linux or its equivalant on Windows. This will look like the following:
+
+```
+FULLNODE_API_INFO="..." forest auth api-info -p admin
+```
+
 ### Documentation
 https://chainsafe.github.io/forest/
 
 ## Contributing
-- Check out our contribution guidelines: [CONTRIBUTING.md](CONTRIBUTING.md)  
+- Check out our contribution guidelines: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Have questions? Say hi on [Discord](https://discord.gg/Q6A3YA2)!
 
 ## ChainSafe Security Policy
@@ -114,11 +130,11 @@ https://chainsafe.github.io/forest/
 ### Reporting a Security Bug
 
 We take all security issues seriously, if you believe you have found a security issue within a ChainSafe
-project please notify us immediately. If an issue is confirmed, we will take all necessary precautions 
+project please notify us immediately. If an issue is confirmed, we will take all necessary precautions
 to ensure a statement and patch release is made in a timely manner.
 
 Please email us a description of the flaw and any related information (e.g. reproduction steps, version) to
 [security at chainsafe dot io](mailto:security@chainsafe.io).
 
-## License 
+## License
 Forest is dual licensed under [MIT](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT) + [Apache 2.0](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE).
