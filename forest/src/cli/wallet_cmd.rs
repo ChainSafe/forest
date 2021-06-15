@@ -11,7 +11,6 @@ use forest_crypto::{
     },
     Signature,
 };
-use futures::TryFutureExt;
 use rpc_client::*;
 use structopt::StructOpt;
 use wallet::json::KeyInfoJson;
