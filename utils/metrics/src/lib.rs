@@ -40,6 +40,7 @@ async fn collect_metrics(req: tide::Request<Registry>) -> tide::Result {
         .encode(&metric_families, &mut metrics)
         .expect("Encoding Prometheus metrics must succeed.");
     Ok(tide::Response::builder(tide::StatusCode::Ok)
+        .header("content-type", "text/plain; version=0.0.4; charset=utf-8")
         .body(metrics)
         .build())
 }
