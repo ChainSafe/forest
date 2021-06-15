@@ -54,5 +54,5 @@ where
     let ks = data.keystore.read().await;
     let ki = ks.get(JWT_IDENTIFIER)?;
     let token = create_token(perms, ki.private_key())?;
-    Ok(hex::encode(token.as_bytes().to_vec()))
+    Ok(token.as_bytes().to_vec())
 }

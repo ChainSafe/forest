@@ -4,7 +4,6 @@
 use super::client::filecoin_rpc;
 use auth::*;
 use jsonrpc_v2::Error as JsonRpcError;
-use rpc_api::auth_api::AuthApiInfoResult;
 
 /// Creates a new JWT Token
 pub async fn auth_new(perm: String) -> Result<String, JsonRpcError> {
@@ -23,7 +22,7 @@ pub async fn auth_new(perm: String) -> Result<String, JsonRpcError> {
     Ok(String::from_utf8(ret)?)
 }
 
-pub async fn auth_api_info(perm: String) -> Result<AuthApiInfoResult, JsonRpcError> {
+pub async fn auth_api_info(perm: String) -> Result<String, JsonRpcError> {
     let perms = match perm.as_str() {
         "admin" => ADMIN.to_owned(),
         "sign" => SIGN.to_owned(),
@@ -34,5 +33,7 @@ pub async fn auth_api_info(perm: String) -> Result<AuthApiInfoResult, JsonRpcErr
         }
     };
 
-    filecoin_rpc::auth_api_info((perms,)).await
+    let ret = filecoin_rpc::auth_api_info((perms,)).await?;
+
+    Ok(String::from_utf8(ret)?)
 }

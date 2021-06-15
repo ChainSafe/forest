@@ -142,7 +142,7 @@ pub mod auth_api {
 
     pub const AUTH_API_INFO: &str = "Filecoin.AuthApiInfo";
     pub type AuthApiInfoParams = (Vec<String>,);
-    pub type AuthApiInfoResult = String;
+    pub type AuthApiInfoResult = Vec<u8>;
 }
 
 /// Beacon API
