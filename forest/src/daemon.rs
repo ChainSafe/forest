@@ -86,7 +86,10 @@ pub(super) async fn start(config: Config) {
                 print!("confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
 
-                read_password().expect("Passphrases do not match");
+                if passphrase != read_password().unwrap() {
+                    println!("passphrases do not match. please retry");
+                    continue;
+                }
             }
 
             let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
