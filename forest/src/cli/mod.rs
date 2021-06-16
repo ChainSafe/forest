@@ -107,6 +107,8 @@ pub struct DaemonOpts {
         help = "Amount of Peers we want to be connected to (default is 75)"
     )]
     pub target_peer_count: Option<u32>,
+    #[structopt(long, help = "Encrypt the keystore (default = true)")]
+    pub encrypt_keystore: Option<bool>,
 }
 
 impl DaemonOpts {
@@ -161,6 +163,9 @@ impl DaemonOpts {
         }
         if let Some(tipset_sample_size) = self.tipset_sample_size {
             cfg.sync.tipset_sample_size = tipset_sample_size.into();
+        }
+        if let Some(encrypt_keystore) = self.encrypt_keystore {
+            cfg.encrypt_keystore = encrypt_keystore;
         }
 
         Ok(cfg)
