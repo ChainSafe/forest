@@ -1,7 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::env;
+
 use super::client::filecoin_rpc;
+use crate::{API_INFO_KEY, DEFAULT_MULTIADDRESS};
 use auth::*;
 use jsonrpc_v2::Error as JsonRpcError;
 
@@ -33,7 +36,11 @@ pub async fn auth_api_info(perm: String) -> Result<String, JsonRpcError> {
         }
     };
 
-    let ret = filecoin_rpc::auth_api_info((perms,)).await?;
+    let token = filecoin_rpc::auth_api_info((perms,)).await?;
 
-    Ok(String::from_utf8(ret)?)
+    let api_info = env::var(API_INFO_KEY).unwrap_or(DEFAULT_MULTIADDRESS.to_string());
+
+    let template = format!("{}:{}", token, api_info);
+
+    Ok(template)
 }

@@ -4,6 +4,7 @@
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use auth::*;
+
 use beacon::Beacon;
 use blockstore::BlockStore;
 use rpc_api::{auth_api::*, data_types::RPCState};
@@ -48,11 +49,11 @@ pub(crate) async fn auth_api_info<DB, B>(
 ) -> Result<AuthApiInfoResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static
+    B: Beacon + Send + Sync + 'static,
 {
     let (perms,) = params;
     let ks = data.keystore.read().await;
     let ki = ks.get(JWT_IDENTIFIER)?;
     let token = create_token(perms, ki.private_key())?;
-    Ok(token.as_bytes().to_vec())
+    Ok(token)
 }

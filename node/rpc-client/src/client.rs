@@ -8,12 +8,12 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::env;
 
-const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
+use crate::{API_INFO_KEY, DEFAULT_MULTIADDRESS};
+
 const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 const DEFAULT_PROTOCOL: &str = "http";
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: &str = "1234";
-const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 const RPC_ENDPOINT: &str = "rpc/v0";
 
 /// Error object in a response
@@ -105,7 +105,7 @@ async fn call<R>(rpc_call: RequestObject) -> Result<R, Error>
 where
     R: DeserializeOwned,
 {
-    // Get API INFO environment variable if exists, otherwise, use default multiaddress
+    // Get API INFO enironment variable if exists, otherwise, use default multiaddress
     let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
 
     // Input sanity checks
