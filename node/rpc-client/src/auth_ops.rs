@@ -38,7 +38,7 @@ pub async fn auth_api_info(perm: String) -> Result<String, JsonRpcError> {
 
     let token = filecoin_rpc::auth_api_info((perms,)).await?;
 
-    let api_info = env::var(API_INFO_KEY).unwrap_or(DEFAULT_MULTIADDRESS.to_string());
+    let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_string());
 
     let host = match api_info.split_once(':') {
         Some((_, host)) => host,
