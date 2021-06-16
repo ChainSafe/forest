@@ -40,7 +40,12 @@ pub async fn auth_api_info(perm: String) -> Result<String, JsonRpcError> {
 
     let api_info = env::var(API_INFO_KEY).unwrap_or(DEFAULT_MULTIADDRESS.to_string());
 
-    let template = format!("{}:{}", token, api_info);
+    let host = match api_info.split_once(':') {
+        Some((_, host)) => host,
+        None => DEFAULT_MULTIADDRESS,
+    };
+
+    let template = format!("FULLNODE_API_INFO=\"{}:{}\"", token, host);
 
     Ok(template)
 }
