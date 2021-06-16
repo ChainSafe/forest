@@ -105,7 +105,7 @@ async fn call<R>(rpc_call: RequestObject) -> Result<R, Error>
 where
     R: DeserializeOwned,
 {
-    // Get API INFO enironment variable if exists, otherwise, use default multiaddress
+    // Get API INFO environment variable if exists, otherwise, use default multiaddress
     let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
 
     // Input sanity checks
