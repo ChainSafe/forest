@@ -7,7 +7,7 @@ use prometheus::{
 };
 
 pub mod labels {
-    pub const GOSSIPSUB_MESSAGE_KIND: &str = "gossipsub_message_kind";
+    pub const GOSSIPSUB_MESSAGE_KIND: &str = "libp2p_message_kind";
 }
 
 pub mod values {
@@ -40,7 +40,7 @@ impl Metrics {
         })?);
         let gossipsub_message_total = Box::new(GenericCounterVec::<AtomicU64>::new(
             Opts::new(
-                "gossipsub_messsage_total",
+                "libp2p_messsage_total",
                 "Total number of gossipsub message by type",
             ),
             &[labels::GOSSIPSUB_MESSAGE_KIND],
