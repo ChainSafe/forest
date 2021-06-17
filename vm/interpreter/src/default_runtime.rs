@@ -102,6 +102,8 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DefaultNetworkParams> {
     circ_supply_calc: &'vm C,
     lb_state: &'vm LB,
 
+    base_fee: TokenAmount,
+
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
@@ -122,6 +124,7 @@ where
         state: &'vm mut StateTree<'db, BS>,
         store: &'db BS,
         gas_used: i64,
+        base_fee: TokenAmount,
         message: &UnsignedMessage,
         epoch: ChainEpoch,
         origin: Address,
@@ -181,6 +184,7 @@ where
             registered_actors,
             circ_supply_calc,
             lb_state,
+            base_fee,
             allow_internal: true,
             caller_validated: false,
             params: PhantomData,
@@ -820,6 +824,9 @@ where
     }
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
         self.charge_gas(GasCharge::new(name, compute, 0))
+    }
+    fn base_fee(&self) -> &TokenAmount {
+        &self.base_fee
     }
 }
 

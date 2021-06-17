@@ -159,6 +159,8 @@ pub trait Runtime<BS: BlockStore>: Syscalls {
             }
         })
     }
+
+    fn base_fee(&self) -> &TokenAmount;
 }
 
 /// Message information available to the actor about executing message.
