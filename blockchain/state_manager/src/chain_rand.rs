@@ -50,9 +50,9 @@ where
             self.cs
                 .get_beacon_randomness_looking_backward(&self.blks, pers, round, entropy),
         )
-    }   
-    
-     fn get_chain_randomness_looking_forward(
+    }
+
+    fn get_chain_randomness_looking_forward(
         &self,
         pers: DomainSeparationTag,
         round: ChainEpoch,
@@ -63,7 +63,7 @@ where
                 .get_chain_randomness_looking_forward(&self.blks, pers, round, entropy),
         )
     }
-    
+
     fn get_beacon_randomness_looking_forward(
         &self,
         pers: DomainSeparationTag,
@@ -74,6 +74,5 @@ where
             self.cs
                 .get_beacon_randomness_looking_forward(&self.blks, pers, round, entropy),
         )
-    }   
-
+    }
 }

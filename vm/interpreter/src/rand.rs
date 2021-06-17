@@ -38,5 +38,4 @@ pub trait Rand {
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>>;
-
 }
