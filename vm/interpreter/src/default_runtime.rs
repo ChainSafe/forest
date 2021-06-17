@@ -615,10 +615,18 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = self
+        let r = if rand_epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT 
+        {
+            self
+            .rand
+            .get_chain_randomness_looking_forward(personalization, rand_epoch, entropy)
+            .map_err(|e| e.downcast_fatal("could not get randomness"))?
+        } else {
+            self
             .rand
             .get_chain_randomness(personalization, rand_epoch, entropy)
-            .map_err(|e| e.downcast_fatal("could not get randomness"))?;
+            .map_err(|e| e.downcast_fatal("could not get randomness"))?
+        };
 
         Ok(Randomness(r))
     }
@@ -629,11 +637,17 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = self
+        let r = if rand_epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT {
+            self
+            .rand
+            .get_beacon_randomness_looking_forward(personalization, rand_epoch, entropy)
+            .map_err(|e| e.downcast_fatal("could not get randomness"))?
+        } else {
+            self
             .rand
             .get_beacon_randomness(personalization, rand_epoch, entropy)
-            .map_err(|e| e.downcast_fatal("could not get randomness"))?;
-
+            .map_err(|e| e.downcast_fatal("could not get randomness"))?
+        };
         Ok(Randomness(r))
     }
 
