@@ -277,11 +277,7 @@ where
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
             &base64::decode(entropy)?,
-            if epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT {
-                false
-            } else {
-                true
-            },
+            !(epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT),
         )
         .await?)
 }
@@ -305,11 +301,7 @@ where
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
             &base64::decode(entropy)?,
-            if epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT {
-                false
-            } else {
-                true
-            },
+            !(epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT),
         )
         .await?)
 }
