@@ -550,13 +550,13 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "gossipsub_messsage_total{}",
+          "expr": "libp2p_messsage_total{}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
         }
       ],
-      "title": "GossipSub Message Totals",
+      "title": "LibP2P Message Totals",
       "type": "timeseries"
     },
     {
@@ -648,7 +648,7 @@
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
