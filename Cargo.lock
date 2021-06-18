@@ -1936,6 +1936,7 @@ dependencies = [
  "lazy_static",
  "num-derive",
  "num-traits",
+ "rayon",
  "serde",
  "serde_json",
 ]
