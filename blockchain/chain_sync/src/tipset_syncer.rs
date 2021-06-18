@@ -561,6 +561,7 @@ where
                     // Drive the range_syncer to completion
                     match range_syncer.as_mut().poll(cx) {
                         Poll::Ready(Ok(_)) => {
+                            metrics.head_epoch.set(proposed_head_epoch.clone() as u64);
                             info!(
                                 "Successfully synced tipset range: [{}, {}]",
                                 current_head_epoch, proposed_head_epoch,

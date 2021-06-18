@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use prometheus::{
-    core::{AtomicU64, GenericCounter, GenericCounterVec, Opts},
+    core::{AtomicU64, GenericCounter, GenericCounterVec, GenericGauge, Opts},
     Error as PrometheusError, Histogram, HistogramOpts, Registry,
 };
 
@@ -27,6 +27,7 @@ pub struct Metrics {
     pub gossipsub_message_total: Box<GenericCounterVec<AtomicU64>>,
     pub invalid_tipset_total: Box<GenericCounter<AtomicU64>>,
     pub tipset_range_sync_failure_total: Box<GenericCounter<AtomicU64>>,
+    pub head_epoch: Box<GenericGauge<AtomicU64>>,
 }
 
 impl Metrics {
@@ -53,17 +54,23 @@ impl Metrics {
             "tipset_range_sync_failure_total",
             "Total number of errors produced by TipsetRangeSyncers",
         )?);
+        let head_epoch = Box::new(GenericGauge::<AtomicU64>::new(
+            "head_epoch",
+            "Latest epoch synchronized to the node",
+        )?);
 
         registry.register(tipset_processing_time.clone())?;
         registry.register(gossipsub_message_total.clone())?;
         registry.register(invalid_tipset_total.clone())?;
         registry.register(tipset_range_sync_failure_total.clone())?;
+        registry.register(head_epoch.clone())?;
 
         Ok(Self {
             tipset_processing_time,
             gossipsub_message_total,
             invalid_tipset_total,
             tipset_range_sync_failure_total,
+            head_epoch,
         })
     }
 }

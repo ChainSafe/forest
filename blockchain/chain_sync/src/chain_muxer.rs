@@ -592,6 +592,7 @@ where
         let trs_genesis = self.genesis.clone();
         let trs_metrics = self.metrics.clone();
         let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
+            let network_head_epoch = network_head.epoch();
             let tipset_range_syncer = match TipsetRangeSyncer::<DB, TBeacon, V>::new(
                 trs_metrics.clone(),
                 trs_tracker,
@@ -613,7 +614,11 @@ where
 
             tipset_range_syncer
                 .await
-                .map_err(ChainMuxerError::TipsetRangeSyncer)
+                .map_err(ChainMuxerError::TipsetRangeSyncer)?;
+
+            trs_metrics.head_epoch.set(network_head_epoch as u64);
+
+            Ok(())
         });
 
         // The stream processor _must_ only error if the stream ends
