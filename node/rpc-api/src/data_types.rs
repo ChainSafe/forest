@@ -6,7 +6,6 @@ use async_std::sync::{Arc, RwLock};
 use beacon::BeaconEntry;
 use fil_types::SectorSize;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
-pub use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 use actor::market::{DealProposal, DealState};
@@ -20,7 +19,7 @@ use blocks::{
 use blockstore::BlockStore;
 use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
-use cid::{json::CidJson, Cid};
+use cid::{json::CidJson, Cid, Multihash};
 use clock::ChainEpoch;
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 use forest_libp2p::{Multiaddr, NetworkMessage};
@@ -207,10 +206,15 @@ impl From<MiningBaseInfo> for MiningBaseInfoJson {
 }
 
 // Net API
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct AddrInfo {
     #[serde(rename = "ID")]
     pub id: String,
     pub addrs: Vec<Multiaddr>,
+}
+
+#[derive(Deserialize)]
+pub struct PeerID {
+    pub multihash: Multihash,
 }

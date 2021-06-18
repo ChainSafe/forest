@@ -2755,6 +2755,7 @@ version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "501466ecc8a30d1d3b7fc9229b122b2ce8ed6e9d9223f1138d4babb253e51817"
 dependencies = [
+ "serde",
  "typenum",
  "version_check",
 ]
@@ -4210,6 +4211,7 @@ dependencies = [
  "digest 0.9.0",
  "generic-array 0.14.4",
  "multihash-derive",
+ "serde",
  "sha2 0.9.3",
  "unsigned-varint 0.5.1",
 ]
