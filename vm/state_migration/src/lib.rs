@@ -102,6 +102,7 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
             let store_clone = store.clone();
 
             s.spawn(move |_| {
+                // TODO: actors_in (StateTree) could use an iterator here.
                 actors_in
                     .for_each(|addr, state| {
                         state_tx

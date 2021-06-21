@@ -193,7 +193,13 @@ where
                     );
                     Ok(Some(new_state))
                 } else {
-                    Ok(None)
+                    return Err(
+                    format!(
+                        "state post migration must not match. previous state: {}: new state: {}",
+                        prev_state, new_state
+                    )
+                    .into())
+                    // Ok(None)
                 }
             }
             _ => Ok(None),
