@@ -179,7 +179,7 @@ pub mod filecoin_rpc {
     use jsonrpc_v2::Error;
 
     use crate::call_params;
-    use rpc_api::{auth_api::*, chain_api::*, wallet_api::*};
+    use rpc_api::{auth_api::*, chain_api::*, sync_api::*, wallet_api::*};
 
     /// Auth
     pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
@@ -251,5 +251,14 @@ pub mod filecoin_rpc {
 
     pub async fn wallet_verify(message: WalletVerifyParams) -> Result<WalletVerifyResult, Error> {
         call_params(WALLET_VERIFY, message).await
+    }
+
+    /// Chain-Sync
+    pub async fn sync_check_bad(params: SyncCheckBadParams) -> Result<SyncCheckBadResult, Error> {
+        call_params(SYNC_CHECK_BAD, params).await
+    }
+
+    pub async fn sync_mark_bad(params: SyncMarkBadParams) -> Result<SyncMarkBadResult, Error> {
+        call_params(SYNC_MARK_BAD, params).await
     }
 }
