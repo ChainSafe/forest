@@ -1,6 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use log::error;
 use prometheus::core::{Collector, Desc};
 use prometheus::proto;
 use prometheus::{Gauge, Opts};
@@ -34,8 +35,14 @@ impl Collector for DBCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        let db_size = fs_extra::dir::get_size(self.db_directory.clone())
-            .expect("Calculating the size of the db directory must succeed");
+        let db_size = match fs_extra::dir::get_size(self.db_directory.clone()) {
+            Ok(db_size) => db_size,
+            Err(e) => {
+                error!("Calculating DB size for metrics failed: {:?}", e);
+                return vec![];
+            }
+        };
+
         self.db_size.set(db_size as f64);
 
         let mut metric_families = vec![];
