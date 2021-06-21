@@ -21,6 +21,22 @@ impl Rand for TestRand {
     ) -> Result<[u8; 32], Box<dyn StdError>> {
         Ok(*b"i_am_random_____i_am_random_____")
     }
+    fn get_beacon_randomness_looking_forward(
+        &self,
+        _: DomainSeparationTag,
+        _: ChainEpoch,
+        _: &[u8],
+    ) -> Result<[u8; 32], Box<dyn StdError>> {
+        Ok(*b"i_am_random_____i_am_random_____")
+    }
+    fn get_chain_randomness_looking_forward(
+        &self,
+        _: DomainSeparationTag,
+        _: ChainEpoch,
+        _: &[u8],
+    ) -> Result<[u8; 32], Box<dyn StdError>> {
+        Ok(*b"i_am_random_____i_am_random_____")
+    }
 }
 
 pub struct TestSyscalls;
