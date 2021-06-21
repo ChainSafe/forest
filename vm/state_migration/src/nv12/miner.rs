@@ -31,12 +31,12 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MinerMigrator {
         store: Arc<BS>,
         input: ActorMigrationInput,
     ) -> MigrationResult<MigrationOutput> {
-        let v3_state: Option<V3State> = store
+        let in_state: V3State = store
             .get(&input.head)
-            .map_err(|e| MigrationError::BlockStoreRead(e.to_string()))?;
-        let in_state: V3State = v3_state.ok_or_else(|| {
-            MigrationError::BlockStoreRead("Miner actor: could not read v3 state".to_string())
-        })?;
+            .map_err(|e| MigrationError::BlockStoreRead(e.to_string()))?
+            .ok_or_else(|| {
+                MigrationError::BlockStoreRead("Miner actor: could not read v3 state".to_string())
+            })?;
 
         let out_state = V4State {
             info: in_state.info,
