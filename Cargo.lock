@@ -169,9 +169,9 @@ dependencies = [
 
 [[package]]
 name = "aho-corasick"
-version = "0.7.18"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e37cfd5e7657ada45f742d6e99ca5788580b5c529dc78faf11ece6dc702656f"
+checksum = "7404febffaa47dac81aa44dba71523c9d069b1bdc50a77db41195149e17f68e5"
 dependencies = [
  "memchr",
 ]
@@ -456,7 +456,7 @@ dependencies = [
  "async-io",
  "async-lock",
  "async-process",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -1334,17 +1334,17 @@ dependencies = [
  "crossbeam-deque",
  "crossbeam-epoch",
  "crossbeam-queue 0.3.1",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
 ]
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dca26ee1f8d361640700bde38b2c37d8c22b3ce2d360e1fc1c74ea4b0aa7d775"
+checksum = "06ed27e177f16d65f0f0c22a213e17c696ace5dd64b14258b52f9417ccb52db4"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
 ]
 
 [[package]]
@@ -1355,7 +1355,7 @@ checksum = "94af6efb46fef72616855b036a624cf27ba656ffc9be1b9a3c931cfc7749a9a9"
 dependencies = [
  "cfg-if 1.0.0",
  "crossbeam-epoch",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
 ]
 
 [[package]]
@@ -1366,7 +1366,7 @@ checksum = "a1aaa739f95311c2c7887a76863f500026092fb1dce0161dab577e559ef3569d"
 dependencies = [
  "cfg-if 1.0.0",
  "const_fn",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
  "lazy_static",
  "memoffset",
  "scopeguard",
@@ -1390,7 +1390,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f6cb3c7f5b8e51bc3ebb73a2327ad4abdbd119dc13223f14f961d2f38486756"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
 ]
 
 [[package]]
@@ -1406,9 +1406,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.1"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d96d1e189ef58269ebe5b97953da3274d83a93af647c2ddd6f9dab28cedb8d"
+checksum = "4feb231f0d4d6af81aed15928e58ecf5816aa62a2393e2c82f46973e92a9a278"
 dependencies = [
  "autocfg",
  "cfg-if 1.0.0",
@@ -2584,9 +2584,9 @@ checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 
 [[package]]
 name = "futures"
-version = "0.3.10"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "309f13e3f4be6d5917178c84db67c0b9a09177ac16d4f9a7313a767a68adaa77"
+checksum = "a9d5813545e459ad3ca1bff9915e9ad7f1a47dc6a91b627ce321d5863b7dd253"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2615,9 +2615,9 @@ checksum = "0402f765d8a89a26043b889b26ce3c4679d268fa6bb22cd7c6aad98340e179d1"
 
 [[package]]
 name = "futures-executor"
-version = "0.3.10"
+version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f7836b36b7533d16fd5937311d98ba8965ab81030de8b0024c299dd5d51fb9b"
+checksum = "10f6cb7042eda00f0049b1d2080aa4b93442997ee507eb3828e8bd7577f94c9d"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -2979,9 +2979,9 @@ dependencies = [
 
 [[package]]
 name = "http-client"
-version = "6.3.5"
+version = "6.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5566ecc26bc6b04e773e680d66141fced78e091ad818e420d726c152b05a64ff"
+checksum = "ce318d86a47d18d1db645c979214f809a6cd625202ad334ef75ca813b30dac80"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3175,6 +3175,7 @@ dependencies = [
  "num-traits",
  "num_cpus",
  "rayon",
+ "state_migration",
  "state_tree",
 ]
 
@@ -3233,6 +3234,7 @@ version = "0.1.1"
 dependencies = [
  "byteorder 1.4.2",
  "commcid",
+ "dashmap",
  "forest_cid",
  "forest_db",
  "forest_encoding",
@@ -3333,7 +3335,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2948a0ce43e2c2ef11d7edf6816508998d99e13badd1150be0914205df9388a"
 dependencies = [
  "bytes 0.5.6",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
  "curl",
  "curl-sys",
  "encoding_rs",
@@ -4040,9 +4042,9 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
 name = "memchr"
-version = "2.4.0"
+version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b16bd47d9e329435e309c58469fe0791c2d0d1ba96ec0954152a5ae2b04387dc"
+checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
 name = "memmap"
@@ -5236,7 +5238,7 @@ checksum = "9ab346ac5921dc62ffa9f89b7a773907511cdfa5490c572ae9be1be33e8afa4a"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
  "lazy_static",
  "num_cpus",
 ]
@@ -5278,13 +5280,14 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.5.4"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d07a8629359eb56f1e2fb1652bb04212c072a87ba68546a04065d525673ac461"
+checksum = "d9251239e129e16308e70d853559389de218ac275b515068abc96829d05b948a"
 dependencies = [
  "aho-corasick",
  "memchr",
  "regex-syntax",
+ "thread_local",
 ]
 
 [[package]]
@@ -5298,9 +5301,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.6.25"
+version = "0.6.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
+checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
 
 [[package]]
 name = "remove_dir_all"
@@ -5459,7 +5462,7 @@ dependencies = [
  "base64 0.13.0",
  "blake2b_simd",
  "constant_time_eq",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
 ]
 
 [[package]]
@@ -5866,7 +5869,7 @@ checksum = "1d0132f3e393bcb7390c60bb45769498cf4550bcb7a21d7f95c02b69f6362cdc"
 dependencies = [
  "crc32fast",
  "crossbeam-epoch",
- "crossbeam-utils 0.8.1",
+ "crossbeam-utils 0.8.4",
  "fs2",
  "fxhash",
  "libc 0.2.91",
@@ -6023,6 +6026,34 @@ dependencies = [
  "statediff",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "state_migration"
+version = "0.1.0"
+dependencies = [
+ "actor_interface",
+ "async-std",
+ "crossbeam-channel",
+ "fil_clock",
+ "fil_types",
+ "forest_address",
+ "forest_bigint",
+ "forest_bitfield",
+ "forest_cid",
+ "forest_encoding",
+ "forest_hash_utils",
+ "forest_json_utils",
+ "forest_vm",
+ "futures",
+ "ipld_blockstore",
+ "libp2p 0.35.1",
+ "log",
+ "num_cpus",
+ "rayon",
+ "serde",
+ "state_tree",
+ "thiserror",
 ]
 
 [[package]]
@@ -6446,6 +6477,15 @@ dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.8",
  "syn 1.0.67",
+]
+
+[[package]]
+name = "thread_local"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb9bc092d0d51e76b2b19d9d85534ffc9ec2db959a2523cdae0697e2972cd447"
+dependencies = [
+ "lazy_static",
 ]
 
 [[package]]

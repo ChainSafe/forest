@@ -1,0 +1,29 @@
+[package]
+name = "state_migration"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2018"
+
+[dependencies]
+fil_types = { path="../../types" }
+vm = { package = "forest_vm", version = "0.3.1" }
+ipld_blockstore = "0.1"
+address = { package = "forest_address", version = "0.3" }
+serde = { version = "1.0", features = ["derive"] }
+cid = { package = "forest_cid", version = "0.3", features = ["json"] }
+clock = { package = "fil_clock", version = "0.1" }
+encoding = { package = "forest_encoding", version = "0.2.1" }
+libp2p = { version = "0.35", default-features = false }
+forest_bitfield = "0.1"
+num-bigint = { version = "0.1.1", package = "forest_bigint", features = ["json"] }
+forest_hash_utils = "0.1"
+forest_json_utils = "0.1.1"
+thiserror = "1.0"
+futures = "0.3.14"
+state_tree = { path = "../state_tree" }
+async-std = "1.9.0"
+actor_interface = { path = "../actor_interface" }
+crossbeam-channel = "0.5.1"
+rayon = "1.5"
+log = "0.4.8"
+num_cpus = "1.13.0"
