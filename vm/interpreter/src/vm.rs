@@ -626,10 +626,10 @@ fn run_nv12_migration(
     migration.set_nil_migrations();
     let (v4_miner_actor_cid, v3_miner_actor_cid) =
         (*actorv4::MINER_ACTOR_CODE_ID, *actorv3::MINER_ACTOR_CODE_ID);
-    let store_ref = &*store.clone();
-    let actors_in = StateTree::new_from_root(store_ref, &prev_state)
+    let store_ref = store.clone();
+    let actors_in = StateTree::new_from_root(&*store_ref, &prev_state)
         .map_err(|e| state_migration::MigrationError::StateTreeCreation(e.to_string()))?;
-    let actors_out = StateTree::new(store_ref, StateTreeVersion::V3)
+    let actors_out = StateTree::new(&*store_ref, StateTreeVersion::V3)
         .map_err(|e| state_migration::MigrationError::StateTreeCreation(e.to_string()))?;
     migration.add_migrator(
         v3_miner_actor_cid,
