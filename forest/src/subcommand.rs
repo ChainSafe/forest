@@ -22,5 +22,8 @@ pub(super) async fn process(command: Subcommand) {
         Subcommand::Wallet(cmd) => {
             cmd.run().await;
         }
+        Subcommand::Sync(cmd) => {
+            cmd.run().await;
+        }
     }
 }

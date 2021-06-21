@@ -6,6 +6,7 @@ mod chain_cmd;
 mod config;
 mod fetch_params_cmd;
 mod genesis_cmd;
+mod sync_cmd;
 mod wallet_cmd;
 
 pub(super) use self::auth_cmd::AuthCommands;
@@ -13,6 +14,7 @@ pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
+pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use jsonrpc_v2::Error as JsonRpcError;
@@ -63,6 +65,8 @@ pub enum Subcommand {
     Genesis(GenesisCommands),
     #[structopt(name = "wallet", about = "Manage wallet")]
     Wallet(WalletCommands),
+    #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
+    Sync(SyncCommands),
 }
 
 /// Daemon process command line options.
