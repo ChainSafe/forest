@@ -177,7 +177,7 @@ where
     pub fn migrate_state(
         &mut self,
         epoch: ChainEpoch,
-        arc_store: Arc<impl BlockStore + Send + Sync>,
+        store: Arc<impl BlockStore + Send + Sync>,
     ) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
             x if x == UPGRADE_ACTORS_V4_HEIGHT => {
@@ -185,7 +185,7 @@ where
                 log::info!("Running actors_v4 state migration");
                 // need to flush since we run_cron before the migration
                 let prev_state = self.flush()?;
-                let new_state = run_nv12_migration(arc_store, prev_state, epoch)?;
+                let new_state = run_nv12_migration(store, prev_state, epoch)?;
                 if new_state != prev_state {
                     log::info!(
                         "actors_v4 state migration successful, took: {}ms",
@@ -207,7 +207,7 @@ where
         messages: &[BlockMessages],
         parent_epoch: ChainEpoch,
         epoch: ChainEpoch,
-        arc_store: std::sync::Arc<impl BlockStore + Send + Sync>,
+        store: std::sync::Arc<impl BlockStore + Send + Sync>,
         mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
@@ -217,7 +217,7 @@ where
             if i > parent_epoch {
                 self.run_cron(epoch, callback.as_mut())?;
             }
-            if let Some(new_state) = self.migrate_state(i, arc_store.clone())? {
+            if let Some(new_state) = self.migrate_state(i, store.clone())? {
                 self.state = StateTree::new_from_root(self.store, &new_state)?
             }
             self.epoch = i + 1;
@@ -610,7 +610,7 @@ where
 
 // Performs network version 12 / actors v4 state migration
 fn run_nv12_migration(
-    arc_store: std::sync::Arc<impl BlockStore + Send + Sync>,
+    store: Arc<impl BlockStore + Send + Sync>,
     prev_state: Cid,
     epoch: i64,
 ) -> Result<Cid, Box<dyn StdError>> {
@@ -620,16 +620,16 @@ fn run_nv12_migration(
     migration.set_nil_migrations();
     let (v4_miner_actor_cid, v3_miner_actor_cid) =
         (*actorv4::MINER_ACTOR_CODE_ID, *actorv3::MINER_ACTOR_CODE_ID);
-    let store_ref = arc_store.clone();
-    let actors_in = StateTree::new_from_root(&*store_ref, &prev_state)
+    let store_ref = &*store.clone();
+    let actors_in = StateTree::new_from_root(store_ref, &prev_state)
         .map_err(|e| state_migration::MigrationError::StateTreeCreation(e.to_string()))?;
-    let actors_out = StateTree::new(&*store_ref, StateTreeVersion::V3)
+    let actors_out = StateTree::new(store_ref, StateTreeVersion::V3)
         .map_err(|e| state_migration::MigrationError::StateTreeCreation(e.to_string()))?;
     migration.add_migrator(
         v3_miner_actor_cid,
         state_migration::nv12::miner_migrator_v4(v4_miner_actor_cid),
     );
-    let new_state = migration.migrate_state_tree(arc_store, epoch, actors_in, actors_out)?;
+    let new_state = migration.migrate_state_tree(store, epoch, actors_in, actors_out)?;
     Ok(new_state)
 }
 
