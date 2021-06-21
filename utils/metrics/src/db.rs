@@ -35,18 +35,19 @@ impl Collector for DBCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        let db_size = match fs_extra::dir::get_size(self.db_directory.clone()) {
-            Ok(db_size) => db_size,
-            Err(e) => {
-                error!("Calculating DB size for metrics failed: {:?}", e);
-                return vec![];
-            }
-        };
+        return vec![];
+        // let db_size = match fs_extra::dir::get_size(self.db_directory.clone()) {
+        //     Ok(db_size) => db_size,
+        //     Err(e) => {
+        //         error!("Calculating DB size for metrics failed: {:?}", e);
+        //         return vec![];
+        //     }
+        // };
 
-        self.db_size.set(db_size as f64);
+        // self.db_size.set(db_size as f64);
 
-        let mut metric_families = vec![];
-        metric_families.extend(self.db_size.collect());
-        metric_families
+        // let mut metric_families = vec![];
+        // metric_families.extend(self.db_size.collect());
+        // metric_families
     }
 }
