@@ -25,6 +25,10 @@ pub async fn auth_new(perm: String) -> Result<String, JsonRpcError> {
     Ok(String::from_utf8(ret)?)
 }
 
+pub async fn auth_verify(token: String) -> Result<bool, JsonRpcError> {
+    Ok(filecoin_rpc::auth_verify((token,)).await.is_ok())
+}
+
 pub async fn auth_api_info(perm: String) -> Result<String, JsonRpcError> {
     let perms = match perm.as_str() {
         "admin" => ADMIN.to_owned(),

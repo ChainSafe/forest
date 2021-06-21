@@ -190,6 +190,10 @@ pub mod filecoin_rpc {
         call_params(AUTH_API_INFO, perm).await
     }
 
+    pub async fn auth_verify(params: AuthVerifyParams) -> Result<AuthVerifyResult, Error> {
+        call_params(AUTH_VERIFY, params).await
+    }
+
     pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockResult, Error> {
         call_params(CHAIN_GET_BLOCK, cid).await
     }

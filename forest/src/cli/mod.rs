@@ -208,6 +208,7 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
     }
 }
 
+/// Used for handling high level errors such as invalid params
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
     println!("Error: {}", msg);
     std::process::exit(code);
