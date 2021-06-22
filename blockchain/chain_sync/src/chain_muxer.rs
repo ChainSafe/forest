@@ -4,6 +4,7 @@
 use crate::bad_block_cache::BadBlockCache;
 use crate::metrics::{values, Metrics};
 use crate::network_context::SyncNetworkContext;
+use crate::peer_manager::PeerManager;
 use crate::sync_state::SyncState;
 use crate::tipset_syncer::{
     TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
@@ -146,7 +147,7 @@ pub struct ChainMuxer<DB, TBeacon, V, M> {
     /// Will mark any invalid blocks and all childen as bad in this bounded cache
     bad_blocks: Arc<BadBlockCache>,
 
-    ///   network events to be handled by syncer
+    /// Incoming network events to be handled by syncer
     net_handler: Receiver<NetworkEvent>,
 
     /// Proof verification implementation.
@@ -185,13 +186,14 @@ where
         cfg: SyncConfig,
         registry: &prometheus::Registry,
     ) -> Result<Self, ChainMuxerError> {
+        let metrics = Metrics::register(registry).map_err(ChainMuxerError::Prometheus)?;
+
+        let peer_manager = PeerManager::new(metrics.clone());
         let network = SyncNetworkContext::new(
             network_send,
-            Default::default(),
+            Arc::new(peer_manager),
             state_manager.blockstore_cloned(),
         );
-
-        let metrics = Metrics::register(registry).map_err(ChainMuxerError::Prometheus)?;
 
         Ok(Self {
             metrics,

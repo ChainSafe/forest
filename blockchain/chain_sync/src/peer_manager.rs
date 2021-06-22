@@ -1,16 +1,19 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use std::{cmp::Ordering, collections::HashSet};
+
 use async_std::sync::RwLock;
 use blocks::Tipset;
 use libp2p::core::PeerId;
 use log::{debug, trace};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-use std::{cmp::Ordering, collections::HashSet};
+
+use crate::metrics::Metrics;
 
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;
@@ -53,22 +56,29 @@ impl PeerInfo {
 struct PeerSets {
     /// Map of full peers available.
     full_peers: HashMap<PeerId, PeerInfo>,
-
     /// Set of peers to ignore for being incompatible/ failing to accept connections.
     bad_peers: HashSet<PeerId>,
 }
 
 /// Thread safe peer manager which handles peer management for the `ChainExchange` protocol.
-#[derive(Default)]
 pub(crate) struct PeerManager {
+    /// Handles to various metrics objects used for instrumentation
+    metrics: Metrics,
     /// Full and bad peer sets.
     peers: RwLock<PeerSets>,
-
     /// Average response time from peers.
     avg_global_time: RwLock<Duration>,
 }
 
 impl PeerManager {
+    pub fn new(metrics: Metrics) -> Self {
+        Self {
+            metrics,
+            peers: Default::default(),
+            avg_global_time: Default::default(),
+        }
+    }
+
     /// Updates peer's heaviest tipset. If the peer does not exist in the set, a new `PeerInfo`
     /// will be generated.
     pub async fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
@@ -147,7 +157,14 @@ impl PeerManager {
     pub async fn log_success(&self, peer: PeerId, dur: Duration) {
         debug!("logging success for {:?}", peer);
         let mut peers = self.peers.write().await;
-        peers.bad_peers.remove(&peer);
+        // Attempt to remove the peer and decrement bad peer count
+        if peers.bad_peers.remove(&peer) {
+            self.metrics.bad_peers.dec();
+        };
+        // If the peer is not already accounted for, increment full peer count
+        if !peers.full_peers.contains_key(&peer) {
+            self.metrics.full_peers.inc();
+        }
         let peer_stats = peers.full_peers.entry(peer).or_default();
         peer_stats.successes += 1;
         log_time(peer_stats, dur);
@@ -158,6 +175,7 @@ impl PeerManager {
         debug!("logging failure for {:?}", peer);
         let mut peers = self.peers.write().await;
         if !peers.bad_peers.contains(&peer) {
+            self.metrics.peer_failure_total.inc();
             let peer_stats = peers.full_peers.entry(peer).or_default();
             peer_stats.failures += 1;
             log_time(peer_stats, dur);
@@ -168,10 +186,15 @@ impl PeerManager {
     pub async fn mark_peer_bad(&self, peer_id: PeerId) -> bool {
         let mut peers = self.peers.write().await;
         let removed = remove_peer(&mut peers, &peer_id);
+        if removed {
+            self.metrics.full_peers.dec();
+        }
 
-        // Add peer to bad peer set if explicitly removed.
+        // Add peer to bad peer set
         debug!("marked peer {} bad", peer_id);
-        peers.bad_peers.insert(peer_id);
+        if peers.bad_peers.insert(peer_id) {
+            self.metrics.bad_peers.inc();
+        }
 
         removed
     }
@@ -180,7 +203,11 @@ impl PeerManager {
     pub async fn remove_peer(&self, peer_id: &PeerId) -> bool {
         let mut peers = self.peers.write().await;
         debug!("removed peer {}", peer_id);
-        remove_peer(&mut peers, peer_id)
+        let removed = remove_peer(&mut peers, peer_id);
+        if removed {
+            self.metrics.full_peers.dec();
+        }
+        removed
     }
 
     /// Gets count of full peers managed. This is just used for testing.

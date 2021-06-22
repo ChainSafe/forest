@@ -28,6 +28,9 @@ pub struct Metrics {
     pub invalid_tipset_total: Box<GenericCounter<AtomicU64>>,
     pub tipset_range_sync_failure_total: Box<GenericCounter<AtomicU64>>,
     pub head_epoch: Box<GenericGauge<AtomicU64>>,
+    pub peer_failure_total: Box<GenericCounter<AtomicU64>>,
+    pub full_peers: Box<GenericGauge<AtomicU64>>,
+    pub bad_peers: Box<GenericGauge<AtomicU64>>,
 }
 
 impl Metrics {
@@ -58,6 +61,18 @@ impl Metrics {
             "head_epoch",
             "Latest epoch synchronized to the node",
         )?);
+        let peer_failure_total = Box::new(GenericCounter::<AtomicU64>::new(
+            "peer_failure_total",
+            "Total number of failed peer requests",
+        )?);
+        let full_peers = Box::new(GenericGauge::<AtomicU64>::new(
+            "full_peers",
+            "Number of healthy peers recognized by the node",
+        )?);
+        let bad_peers = Box::new(GenericGauge::<AtomicU64>::new(
+            "bad_peers",
+            "Number of bad peers recognized by the node",
+        )?);
 
         registry.register(tipset_processing_time.clone())?;
         registry.register(gossipsub_message_total.clone())?;
@@ -71,6 +86,9 @@ impl Metrics {
             invalid_tipset_total,
             tipset_range_sync_failure_total,
             head_epoch,
+            peer_failure_total,
+            full_peers,
+            bad_peers,
         })
     }
 }
