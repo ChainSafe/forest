@@ -231,6 +231,10 @@ pub trait Syscalls {
         }
         Ok(verified)
     }
+    fn verify_aggregate_seals(
+        &self,
+        aggregate: &fil_types::AggregateSealVerifyProofAndInfos
+    ) -> Result<(), Box<dyn StdError>>;
 }
 
 /// Result of checking two headers for a consensus fault.

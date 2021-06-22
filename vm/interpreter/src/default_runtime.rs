@@ -1028,6 +1028,16 @@ where
             .collect();
         Ok(out)
     }
+
+    fn verify_aggregate_seals(
+        &self,
+        aggregate: &fil_types::AggregateSealVerifyProofAndInfos
+    ) -> Result<(), Box<dyn StdError>> {
+        self.gas_tracker
+            .borrow_mut()
+            .charge_gas(self.price_list.on_verify_aggregate_seals(&aggregate))?;
+        V::verify_aggregate_seals(aggregate)
+    }
 }
 
 /// Transfers funds from one Actor to another Actor

@@ -783,4 +783,11 @@ impl Syscalls for MockRuntime {
         }
         Ok(exp.fault)
     }
+    fn verify_aggregate_seals(
+        &self,
+        _aggregate: &fil_types::AggregateSealVerifyProofAndInfos
+    ) -> Result<(), Box<dyn StdError>> {
+        // TODO: Implement this if we need it. Currently don't have a need.
+        todo!()
+    }
 }
