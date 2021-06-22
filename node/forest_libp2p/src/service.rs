@@ -22,7 +22,9 @@ use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
+use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
+use libp2p::swarm::AddressRecord;
 use libp2p::{
     core,
     core::connection::ConnectionLimits,
@@ -33,6 +35,7 @@ use libp2p::{
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
+use multihash::Multihash;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -106,6 +109,7 @@ pub enum NetworkMessage {
 #[derive(Debug)]
 pub enum NetRPCMethods {
     NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
+    NetPeers(OneShotSender<Vec<(PeerId, Multiaddr)>>),
 }
 
 /// The Libp2pService listens to events from the Libp2p swarm.
@@ -321,9 +325,38 @@ where
                         NetworkMessage::JSONRPCRequest { method } => {
                             match method {
                                 NetRPCMethods::NetAddrsListen(response_channel) => {
-                                let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
-                                let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
+                                    let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
+                                    let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
                                     if response_channel.send((*peer_id, listeners)).is_err() {
+                                        warn!("Failed to get Libp2p listeners");
+                                    }
+                                }
+                                NetRPCMethods::NetPeers(response_channel) => {
+                                    let external_addresses: Vec<AddressRecord> = Swarm::external_addresses( swarm_stream.get_mut()).cloned().collect();
+
+                                    // Process external addresses into a list of Peer IDs and multiaddresses
+                                    let peers = external_addresses.iter().filter_map(|peer| {
+                                        // Get peer multihash from multiaddress
+                                        let multihash: Option<Multihash> = peer.addr.iter().fold(None, |acc, protocol| {
+                                            match protocol {
+                                                Protocol::P2p(multihash) => Some(multihash),
+                                                _ => acc,
+                                            }
+                                        });
+
+                                        // Get peer id from multihash
+                                        match multihash {
+                                            Some(multihash) => {
+                                                match PeerId::from_multihash(multihash) {
+                                                    Ok(id) => Some((id, peer.addr.clone())),
+                                                    Err(_) => None
+                                                }
+                                            }
+                                            None => None
+                                        }
+                                    }).collect();
+
+                                    if response_channel.send(peers).is_err() {
                                         warn!("Failed to get Libp2p listeners");
                                     }
                                 }

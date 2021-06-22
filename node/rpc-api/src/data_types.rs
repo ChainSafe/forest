@@ -214,7 +214,7 @@ pub struct AddrInfo {
     pub addrs: Vec<Multiaddr>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct PeerID {
     pub multihash: Multihash,
 }

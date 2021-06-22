@@ -35,9 +35,24 @@ pub(crate) async fn net_peers<
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
-    Params(params): Params<NetPeersParams>,
 ) -> Result<NetPeersResult, JsonRpcError> {
-    unimplemented!();
+    let (tx, rx) = oneshot::channel();
+    let req = NetworkMessage::JSONRPCRequest {
+        method: NetRPCMethods::NetPeers(tx),
+    };
+
+    data.network_send.send(req).await?;
+    let addrs = rx.await?;
+
+    let connections = addrs
+        .iter()
+        .map(|(id, addr)| AddrInfo {
+            id: id.to_string(),
+            addrs: vec![addr.to_owned()],
+        })
+        .collect();
+
+    Ok(connections)
 }
 
 pub(crate) async fn net_connect<
@@ -47,7 +62,7 @@ pub(crate) async fn net_connect<
     data: Data<RPCState<DB, B>>,
     Params(params): Params<NetConnectParams>,
 ) -> Result<NetConnectResult, JsonRpcError> {
-    unimplemented!();
+    todo!();
 }
 
 pub(crate) async fn net_disconnect<
@@ -57,5 +72,5 @@ pub(crate) async fn net_disconnect<
     data: Data<RPCState<DB, B>>,
     Params(params): Params<NetDisconnectParams>,
 ) -> Result<NetDisconnectResult, JsonRpcError> {
-    unimplemented!();
+    todo!();
 }
