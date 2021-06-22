@@ -88,6 +88,7 @@ impl PeerManager {
             pi.head = Some(ts);
         } else {
             peers.full_peers.insert(peer_id, PeerInfo::new(ts));
+            self.metrics.full_peers.inc();
         }
     }
 
@@ -163,7 +164,6 @@ impl PeerManager {
         };
         // If the peer is not already accounted for, increment full peer count
         if !peers.full_peers.contains_key(&peer) {
-            println!("Incrementing full peers");
             self.metrics.full_peers.inc();
         }
         let peer_stats = peers.full_peers.entry(peer).or_default();
