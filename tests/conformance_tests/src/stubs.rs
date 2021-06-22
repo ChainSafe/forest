@@ -65,4 +65,10 @@ impl Syscalls for TestSyscalls {
     ) -> Result<Option<ConsensusFault>, Box<dyn StdError>> {
         Ok(None)
     }
+    fn verify_aggregate_seals(
+        &self,
+        _: &fil_types::AggregateSealVerifyProofAndInfos,
+    ) -> Result<(), Box<dyn StdError>> {
+        Ok(())
+    }
 }
