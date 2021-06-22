@@ -88,11 +88,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-purple",
+                "color": "dark-blue",
                 "value": null
               },
               {
-                "color": "dark-blue",
+                "color": "dark-purple",
                 "value": 80
               }
             ]
