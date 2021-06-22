@@ -261,4 +261,8 @@ pub mod filecoin_rpc {
     pub async fn sync_mark_bad(params: SyncMarkBadParams) -> Result<SyncMarkBadResult, Error> {
         call_params(SYNC_MARK_BAD, params).await
     }
+
+    pub async fn sync_state(params: SyncStateParams) -> Result<SyncStateResult, Error> {
+        call_params(SYNC_STATE, params).await
+    }
 }

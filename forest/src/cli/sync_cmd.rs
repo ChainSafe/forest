@@ -31,7 +31,10 @@ impl SyncCommands {
     pub async fn run(&self) {
         match self {
             Self::Wait => {}
-            Self::Status => {}
+            Self::Status => {
+                let response = status(()).await.map_err(handle_rpc_err).unwrap();
+                println!("{:?}", response.active_syncs);
+            }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();
                 print_rpc_res(check_bad((CidJson(cid),)).await);

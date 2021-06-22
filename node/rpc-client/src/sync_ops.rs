@@ -13,3 +13,7 @@ pub async fn check_bad(params: SyncCheckBadParams) -> Result<SyncCheckBadResult,
 pub async fn mark_bad(params: SyncMarkBadParams) -> Result<SyncMarkBadResult, JsonRpcError> {
     filecoin_rpc::sync_mark_bad(params).await
 }
+
+pub async fn status(params: SyncStateParams) -> Result<SyncStateResult, JsonRpcError> {
+    filecoin_rpc::sync_state(params).await
+}
