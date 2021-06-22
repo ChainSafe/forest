@@ -5,7 +5,10 @@ use super::GasCharge;
 use ahash::AHashMap;
 use clock::ChainEpoch;
 use crypto::SignatureType;
-use fil_types::{AggregateSealVerifyProofAndInfos, PieceInfo, RegisteredPoStProof, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
+use fil_types::{
+    AggregateSealVerifyProofAndInfos, PieceInfo, RegisteredPoStProof, RegisteredSealProof,
+    SealVerifyInfo, WindowPoStVerifyInfo,
+};
 use networks::UPGRADE_CALICO_HEIGHT;
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
@@ -66,7 +69,7 @@ lazy_static! {
                         Step{start: 205, cost: 318351180},
                         Step{start: 410, cost: 528274980},
                     ]
-                )  
+                )
             ),
             (
                 RegisteredSealProof::StackedDRG64GiBV1P1,
@@ -81,7 +84,7 @@ lazy_static! {
                         Step{start: 205, cost: 304253590},
                         Step{start: 410, cost: 509880640},
                     ]
-                ) 
+                )
             )
         ].iter()
         .cloned()
@@ -172,7 +175,7 @@ lazy_static! {
                         Step{start: 205, cost: 318351180},
                         Step{start: 410, cost: 528274980},
                     ]
-                )  
+                )
             ),
             (
                 RegisteredSealProof::StackedDRG64GiBV1P1,
@@ -187,7 +190,7 @@ lazy_static! {
                         Step{start: 205, cost: 304253590},
                         Step{start: 410, cost: 509880640},
                     ]
-                ) 
+                )
             )
         ].iter()
         .cloned()
@@ -239,7 +242,7 @@ pub(crate) struct Step {
 }
 
 impl StepCost {
-    pub(crate) fn lookup (&self, x: i64) -> i64 {
+    pub(crate) fn lookup(&self, x: i64) -> i64 {
         let mut i: i64 = 0;
         while i < self.0.len() as i64 {
             if self.0[i as usize].start > x {
@@ -249,7 +252,7 @@ impl StepCost {
         }
         i -= 1;
         if i < 0 {
-            return 0
+            return 0;
         }
         return self.0[i as usize].cost;
     }
@@ -442,19 +445,24 @@ impl PriceList {
         GasCharge::new("OnVerifySeal", self.verify_seal_base, 0)
     }
     #[inline]
-    pub fn on_verify_aggregate_seals(&self, aggregate: &AggregateSealVerifyProofAndInfos) -> GasCharge {
+    pub fn on_verify_aggregate_seals(
+        &self,
+        aggregate: &AggregateSealVerifyProofAndInfos,
+    ) -> GasCharge {
         let proof_type = aggregate.seal_proof;
-        let per_proof = self.verify_aggregate_seal_per
+        let per_proof = self
+            .verify_aggregate_seal_per
             .get(&proof_type)
             .expect("There is an implementation error where proof type does not exist in table");
-        let step = self.verify_aggregate_seal_steps
+        let step = self
+            .verify_aggregate_seal_steps
             .get(&proof_type)
             .expect("There is an implementation error where proof type does not exist in table");
         // Should be safe because there is a limit to how much seals get aggregated
         let num = aggregate.infos.len() as i64;
         GasCharge::new(
             "OnVerifyAggregateSeals",
-            per_proof*num + step.lookup(num),
+            per_proof * num + step.lookup(num),
             0,
         )
     }

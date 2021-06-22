@@ -1031,7 +1031,7 @@ where
 
     fn verify_aggregate_seals(
         &self,
-        aggregate: &fil_types::AggregateSealVerifyProofAndInfos
+        aggregate: &fil_types::AggregateSealVerifyProofAndInfos,
     ) -> Result<(), Box<dyn StdError>> {
         self.gas_tracker
             .borrow_mut()
