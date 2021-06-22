@@ -79,6 +79,9 @@ impl Metrics {
         registry.register(invalid_tipset_total.clone())?;
         registry.register(tipset_range_sync_failure_total.clone())?;
         registry.register(head_epoch.clone())?;
+        registry.register(peer_failure_total.clone())?;
+        registry.register(full_peers.clone())?;
+        registry.register(bad_peers.clone())?;
 
         Ok(Self {
             tipset_processing_time,
