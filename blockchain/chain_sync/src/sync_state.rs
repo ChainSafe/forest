@@ -3,13 +3,14 @@
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
 use clock::ChainEpoch;
+use serde::Deserialize;
 use serde::{Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
 
 /// Current state of the ChainSyncer using the ChainExchange protocol.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Deserialize, Clone, Copy)]
 pub enum SyncStage {
     /// Idle state.
     Idle,
@@ -138,5 +139,48 @@ impl Serialize for SyncState {
             message: &self.message,
         }
         .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SyncState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct SyncStateDe {
+            #[serde(with = "blocks::tipset_json")]
+            base: Arc<Tipset>,
+            #[serde(with = "blocks::tipset_json")]
+            target: Arc<Tipset>,
+
+            #[serde(with = "super::SyncStage")]
+            stage: SyncStage,
+            epoch: ChainEpoch,
+
+            start: SystemTime,
+            end: SystemTime,
+            message: String,
+        }
+
+        let SyncStateDe {
+            base,
+            target,
+            stage,
+            epoch,
+            start,
+            end,
+            message,
+        } = Deserialize::deserialize(deserializer)?;
+        Ok(SyncState {
+            base: Some(base),
+            target: Some(target),
+            stage,
+            epoch,
+            start: Some(start),
+            end: Some(end),
+            message,
+        })
     }
 }

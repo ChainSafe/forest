@@ -81,7 +81,7 @@ pub mod rpc_sync_state_json {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct RPCSyncStateDe {
-            #[serde(with = "super::sync_state_json")]
+            #[serde(with = "super::SyncState")]
             active_syncs: Vec<SyncState>,
         }
 
