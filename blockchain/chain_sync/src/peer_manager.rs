@@ -177,6 +177,9 @@ impl PeerManager {
         let mut peers = self.peers.write().await;
         if !peers.bad_peers.contains(&peer) {
             self.metrics.peer_failure_total.inc();
+            if !peers.full_peers.contains_key(&peer) {
+                self.metrics.full_peers.inc();
+            }
             let peer_stats = peers.full_peers.entry(peer).or_default();
             peer_stats.failures += 1;
             log_time(peer_stats, dur);
