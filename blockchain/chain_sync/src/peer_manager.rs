@@ -163,6 +163,7 @@ impl PeerManager {
         };
         // If the peer is not already accounted for, increment full peer count
         if !peers.full_peers.contains_key(&peer) {
+            println!("Incrementing full peers");
             self.metrics.full_peers.inc();
         }
         let peer_stats = peers.full_peers.entry(peer).or_default();
