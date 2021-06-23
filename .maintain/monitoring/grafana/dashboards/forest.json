@@ -63,7 +63,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.2",
+      "pluginVersion": "8.0.3",
       "targets": [
         {
           "exemplar": true,
@@ -123,7 +123,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.2",
+      "pluginVersion": "8.0.3",
       "targets": [
         {
           "exemplar": true,
@@ -184,7 +184,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.2",
+      "pluginVersion": "8.0.3",
       "targets": [
         {
           "exemplar": true,
@@ -243,7 +243,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.2",
+      "pluginVersion": "8.0.3",
       "targets": [
         {
           "exemplar": true,
@@ -303,7 +303,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.2",
+      "pluginVersion": "8.0.3",
       "targets": [
         {
           "exemplar": true,
@@ -801,7 +801,7 @@
           "refId": "A"
         }
       ],
-      "title": "Message LibP2P Events",
+      "title": "Message P2P Events",
       "type": "timeseries"
     },
     {
@@ -884,7 +884,7 @@
           "refId": "A"
         }
       ],
-      "title": "Bitswap Block LibP2P Events",
+      "title": "Bitswap Block P2P Events",
       "type": "timeseries"
     },
     {
@@ -967,7 +967,7 @@
           "refId": "A"
         }
       ],
-      "title": "Peer Connected LibP2P Events",
+      "title": "Peer Connected P2P Events",
       "type": "timeseries"
     },
     {
@@ -1050,7 +1050,7 @@
           "refId": "A"
         }
       ],
-      "title": "Peer Disconnected LibP2P Events",
+      "title": "Peer Disconnected P2P Events",
       "type": "timeseries"
     },
     {
@@ -1133,7 +1133,7 @@
           "refId": "A"
         }
       ],
-      "title": "Block LibP2P Events",
+      "title": "Block P2P Events",
       "type": "timeseries"
     },
     {
@@ -1216,7 +1216,7 @@
           "refId": "A"
         }
       ],
-      "title": "Hello LibP2P Events",
+      "title": "Hello P2P Events",
       "type": "timeseries"
     },
     {
