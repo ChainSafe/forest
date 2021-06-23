@@ -60,7 +60,7 @@ where
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct RPCSyncState {
     #[serde(rename = "ActiveSyncs")]
     pub active_syncs: Vec<SyncState>,
@@ -81,7 +81,6 @@ pub mod rpc_sync_state_json {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct RPCSyncStateDe {
-            #[serde(with = "super::SyncState")]
             active_syncs: Vec<SyncState>,
         }
 
