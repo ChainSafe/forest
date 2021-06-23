@@ -260,7 +260,7 @@ pub mod mpool_api {
 
 /// Sync API
 pub mod sync_api {
-    use crate::data_types::RPCSyncState;
+    use crate::data_types::rpc_sync_state_json::RPCSyncStateJson;
     use blocks::gossip_block::json::GossipBlockJson;
     use cid::json::CidJson;
 
@@ -274,7 +274,7 @@ pub mod sync_api {
 
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
     pub type SyncStateParams = ();
-    pub type SyncStateResult = RPCSyncState;
+    pub type SyncStateResult = RPCSyncStateJson;
 
     pub const SYNC_SUBMIT_BLOCK: &str = "Filecoin.SyncSubmitBlock";
     pub type SyncSubmitBlockParams = (GossipBlockJson,);

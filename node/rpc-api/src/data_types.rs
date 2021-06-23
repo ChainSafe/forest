@@ -60,7 +60,7 @@ where
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RPCSyncState {
     #[serde(rename = "ActiveSyncs")]
     pub active_syncs: Vec<SyncState>,
@@ -68,11 +68,18 @@ pub struct RPCSyncState {
 
 pub mod rpc_sync_state_json {
     use super::*;
-    use serde::{Deserialize, Deserializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct RPCSyncStateJson(#[serde(with = "self")] pub RPCSyncState);
+
+    pub fn serialize<S>(r: &RPCSyncState, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        r.serialize(serializer)
+    }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<RPCSyncState, D::Error>
     where
