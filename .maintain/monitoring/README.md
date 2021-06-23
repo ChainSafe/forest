@@ -14,5 +14,13 @@ $ sudo docker-compose up --build --force-recreate -d
 ```
 
 This will create a `grafana` process which is preloaded with dashboards which render metrics collected by the `prometheus` process from the `forest` node running locally.
+
 Once the metrics stack is running, open up the `grafana` webapp to view the predefined dashboards.
+
+## Reload Dashboards
+
+``` sh
+$ sudo docker-compose down
+$ sudo docker-compose up --build --force-recreate -d
+```
 

@@ -18,6 +18,7 @@ services:
     network_mode: host
     volumes:
       - ./prometheus/:/etc/prometheus/
+      - /var/lib/forest/prometheus/:/prometheus/
     restart: always
 
   grafana:
