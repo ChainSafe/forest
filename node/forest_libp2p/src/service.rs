@@ -357,7 +357,7 @@ where
                                     }).collect();
 
                                     if response_channel.send(peers).is_err() {
-                                        warn!("Failed to get Libp2p listeners");
+                                        warn!("Failed to get Libp2p peers");
                                     }
                                 }
                             }

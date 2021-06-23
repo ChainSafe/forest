@@ -275,4 +275,9 @@ pub(super) fn print_stdout(out: String) {
         .write_all(out.as_bytes())
         .map_err(|e| handle_rpc_err(e.into()))
         .unwrap();
+
+    handle
+        .write("\n".as_bytes())
+        .map_err(|e| handle_rpc_err(e.into()))
+        .unwrap();
 }

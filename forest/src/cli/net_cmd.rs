@@ -22,8 +22,11 @@ impl NetCommands {
         match self {
             Self::Listen => match net_addrs_listen(()).await {
                 Ok(info) => {
-                    let addresses: Vec<String> =
-                        info.addrs.iter().map(|addr| addr.to_string()).collect();
+                    let addresses: Vec<String> = info
+                        .addrs
+                        .iter()
+                        .map(|addr| format!("{}/p2p/{}", addr.to_string(), info.id.to_string()))
+                        .collect();
 
                     print_stdout(addresses.join("\n"));
                 }
