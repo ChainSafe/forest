@@ -13,8 +13,7 @@ use log::{debug, trace};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
 
-use crate::metrics::Metrics;
-
+use crate::metrics;
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;
 
@@ -61,9 +60,8 @@ struct PeerSets {
 }
 
 /// Thread safe peer manager which handles peer management for the `ChainExchange` protocol.
+#[derive(Default)]
 pub(crate) struct PeerManager {
-    /// Handles to various metrics objects used for instrumentation
-    metrics: Metrics,
     /// Full and bad peer sets.
     peers: RwLock<PeerSets>,
     /// Average response time from peers.
@@ -71,14 +69,6 @@ pub(crate) struct PeerManager {
 }
 
 impl PeerManager {
-    pub fn new(metrics: Metrics) -> Self {
-        Self {
-            metrics,
-            peers: Default::default(),
-            avg_global_time: Default::default(),
-        }
-    }
-
     /// Updates peer's heaviest tipset. If the peer does not exist in the set, a new `PeerInfo`
     /// will be generated.
     pub async fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
@@ -88,7 +78,7 @@ impl PeerManager {
             pi.head = Some(ts);
         } else {
             peers.full_peers.insert(peer_id, PeerInfo::new(ts));
-            self.metrics.full_peers.inc();
+            metrics::FULL_PEERS.inc();
         }
     }
 
@@ -160,11 +150,11 @@ impl PeerManager {
         let mut peers = self.peers.write().await;
         // Attempt to remove the peer and decrement bad peer count
         if peers.bad_peers.remove(&peer) {
-            self.metrics.bad_peers.dec();
+            metrics::BAD_PEERS.dec();
         };
         // If the peer is not already accounted for, increment full peer count
         if !peers.full_peers.contains_key(&peer) {
-            self.metrics.full_peers.inc();
+            metrics::FULL_PEERS.inc();
         }
         let peer_stats = peers.full_peers.entry(peer).or_default();
         peer_stats.successes += 1;
@@ -176,9 +166,9 @@ impl PeerManager {
         debug!("logging failure for {:?}", peer);
         let mut peers = self.peers.write().await;
         if !peers.bad_peers.contains(&peer) {
-            self.metrics.peer_failure_total.inc();
+            metrics::PEER_FAILURE_TOTAL.inc();
             if !peers.full_peers.contains_key(&peer) {
-                self.metrics.full_peers.inc();
+                metrics::FULL_PEERS.inc();
             }
             let peer_stats = peers.full_peers.entry(peer).or_default();
             peer_stats.failures += 1;
@@ -191,13 +181,13 @@ impl PeerManager {
         let mut peers = self.peers.write().await;
         let removed = remove_peer(&mut peers, &peer_id);
         if removed {
-            self.metrics.full_peers.dec();
+            metrics::FULL_PEERS.dec();
         }
 
         // Add peer to bad peer set
         debug!("marked peer {} bad", peer_id);
         if peers.bad_peers.insert(peer_id) {
-            self.metrics.bad_peers.inc();
+            metrics::BAD_PEERS.inc();
         }
 
         removed
@@ -209,7 +199,7 @@ impl PeerManager {
         debug!("removed peer {}", peer_id);
         let removed = remove_peer(&mut peers, peer_id);
         if removed {
-            self.metrics.full_peers.dec();
+            metrics::FULL_PEERS.dec();
         }
         removed
     }

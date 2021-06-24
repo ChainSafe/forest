@@ -1059,6 +1059,7 @@ dependencies = [
  "ipld_amt 0.2.1",
  "ipld_blockstore",
  "ipld_hamt 2.0.0",
+ "lazy_static",
  "libp2p 0.35.1",
  "log",
  "lru",

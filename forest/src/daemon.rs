@@ -69,9 +69,6 @@ pub(super) async fn start(config: Config) {
             Keypair::Ed25519(gen_keypair)
         });
 
-    let prometheus_registry = prometheus::Registry::new();
-
-    // Initialize keystore
     let mut ks = if config.encrypt_keystore {
         loop {
             print!("keystore passphrase: ");
@@ -200,7 +197,6 @@ pub(super) async fn start(config: Config) {
         chain_muxer_tipset_sink,
         tipset_stream,
         config.sync,
-        &prometheus_registry,
     )
     .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
@@ -243,7 +239,6 @@ pub(super) async fn start(config: Config) {
         (format!("127.0.0.1:{}", config.metrics_port))
             .parse()
             .unwrap(),
-        prometheus_registry,
         format!("{}/{}", config.data_dir.clone(), "db"),
     ));
 
