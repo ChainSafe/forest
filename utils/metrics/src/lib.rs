@@ -1,14 +1,18 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod db;
+
 use log::info;
-use prometheus::{Encoder, Registry, TextEncoder};
+use prometheus::{Encoder, TextEncoder};
 use thiserror::Error;
 
 use std::net::SocketAddr;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Prometheus error: {0}")]
+    Prometheus(prometheus::Error),
     /// Tide internal error.
     #[error("Tide error: {0}")]
     Tide(tide::Error),
@@ -20,19 +24,31 @@ pub enum Error {
     PortInUse(SocketAddr),
 }
 
-pub async fn init_prometheus(prometheus_addr: SocketAddr, registry: Registry) -> Result<(), Error> {
+pub async fn init_prometheus(
+    prometheus_addr: SocketAddr,
+    db_directory: String,
+) -> Result<(), Error> {
     info!("Prometheus server started at {}", prometheus_addr);
 
+    let registry = prometheus::default_registry();
+
+    // Add the DBCollector to the registry
+    let db_collector = crate::db::DBCollector::new(db_directory);
+    registry
+        .register(Box::new(db_collector))
+        .map_err(Error::Prometheus)?;
+
     // Create an configure HTTP server
-    let mut server = tide::with_state(registry);
+    let mut server = tide::with_state(());
     server.at("/metrics").get(collect_metrics);
 
     // Wait for server to exit
     server.listen(prometheus_addr).await.map_err(Error::Io)
 }
 
-async fn collect_metrics(req: tide::Request<Registry>) -> tide::Result {
-    let metric_families = req.state().gather();
+async fn collect_metrics(_req: tide::Request<()>) -> tide::Result {
+    let registry = prometheus::default_registry();
+    let metric_families = registry.gather();
     let mut metrics = vec![];
 
     let encoder = TextEncoder::new();

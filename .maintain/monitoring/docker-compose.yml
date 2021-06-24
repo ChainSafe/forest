@@ -1,0 +1,33 @@
+# Docker compose file to start the metrics and monitoring stack for a local Forest node
+#
+# # Processes
+# - Prometheus server
+# - Grafana server
+
+version: "3.7"
+services:
+  prometheus:
+    image: prom/prometheus
+    entrypoint:
+      - "/bin/prometheus"
+      - "--log.level=debug"
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    network_mode: host
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - /var/lib/forest/prometheus/:/prometheus/
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    user: "104"
+    depends_on:
+      - prometheus
+    network_mode: host
+    volumes:
+      - ./grafana/provisioning/:/etc/grafana/provisioning
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboard-definitions
+    restart: always

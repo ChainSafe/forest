@@ -19,6 +19,7 @@ use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
+use crate::metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
@@ -553,12 +554,14 @@ where
                     // Drive the range_syncer to completion
                     match range_syncer.as_mut().poll(cx) {
                         Poll::Ready(Ok(_)) => {
+                            metrics::HEAD_EPOCH.set(proposed_head_epoch as u64);
                             info!(
                                 "Successfully synced tipset range: [{}, {}]",
                                 current_head_epoch, proposed_head_epoch,
                             );
                         }
                         Poll::Ready(Err(why)) => {
+                            metrics::TIPSET_RANGE_SYNC_FAILURE_TOTAL.inc();
                             error!(
                                 "Syncing tipset range [{}, {}] failed: {}",
                                 current_head_epoch, proposed_head_epoch, why,
@@ -940,6 +943,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     Ok(parent_tipsets)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn sync_tipset<
     DB: BlockStore + Sync + Send + 'static,
     TBeacon: Beacon + Sync + Send + 'static,
@@ -1065,6 +1069,7 @@ async fn sync_messages_check_state<
                         .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
                     // Validate the tipset and the messages
+                    let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
                     let current_epoch = full_tipset.epoch();
                     validate_tipset::<_, _, V>(
                         state_manager.clone(),
@@ -1077,6 +1082,7 @@ async fn sync_messages_check_state<
                     )
                     .await?;
                     tracker.write().await.set_epoch(current_epoch);
+                    timer.observe_duration();
 
                     // Persist the messages in the store
                     if let Some(m) = bundle.messages {

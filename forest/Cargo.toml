@@ -50,7 +50,7 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 networks = { path = "../types/networks" }
 rpassword = "0.0.4"
 rayon = "1.5"
-prometheus = { version = "0.12.0", default-features = false }
+prometheus = { version = "0.12.0", features = ["process"] }
 
 [dependencies.jsonrpc-v2]
 version = "0.10.1"
