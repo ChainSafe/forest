@@ -61,8 +61,8 @@ where
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
-    #[serde(rename = "ActiveSyncs")]
     pub active_syncs: Vec<SyncState>,
 }
 
