@@ -131,6 +131,9 @@ where
     let res = http_res.body_string().await?;
     let code = http_res.status() as i64;
 
+    println!("res: {}", res);
+    println!("code: {}", code);
+
     if code != 200 {
         return Err(jsonrpc_v2::Error::Full {
             message: format!("Error code from HTTP Response: {}", code),
