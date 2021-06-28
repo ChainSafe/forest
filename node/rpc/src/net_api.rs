@@ -43,13 +43,13 @@ pub(crate) async fn net_peers<
     };
 
     data.network_send.send(req).await?;
-    let addrs = rx.await?;
+    let peer_addresses = rx.await?;
 
-    let connections = addrs
-        .iter()
-        .map(|(id, addr)| AddrInfo {
+    let connections = peer_addresses
+        .into_iter()
+        .map(|(id, addrs)| AddrInfo {
             id: id.to_string(),
-            addrs: vec![addr.to_owned()],
+            addrs,
         })
         .collect();
 

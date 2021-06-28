@@ -55,8 +55,8 @@ where
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<SyncState>>,
     pub network_send: Sender<NetworkMessage>,
-    pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub network_name: String,
+    pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 

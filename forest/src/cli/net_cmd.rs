@@ -11,7 +11,7 @@ pub enum NetCommands {
     /// Lists libp2p swarm listener addresses
     #[structopt(about = "List listen addresses")]
     Listen,
-    /// Lists libp2p swarm listener addresses
+    /// Lists libp2p swarm peers
     #[structopt(about = "Print peers")]
     Peers,
     // TODO: connect, disconnect
