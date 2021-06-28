@@ -56,6 +56,7 @@ async fn collect_metrics(_req: tide::Request<()>) -> tide::Result {
         .encode(&metric_families, &mut metrics)
         .expect("Encoding Prometheus metrics must succeed.");
     Ok(tide::Response::builder(tide::StatusCode::Ok)
+        .content_type("text/plain; version=0.0.4; charset=utf-8")
         .body(metrics)
         .build())
 }
