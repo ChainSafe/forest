@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 /// Current state of the ChainSyncer using the ChainExchange protocol.
-#[derive(PartialEq, Debug, Deserialize, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum SyncStage {
     /// Idle state.
     Idle,
@@ -50,6 +50,16 @@ impl Serialize for SyncStage {
         S: Serializer,
     {
         self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SyncStage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        println!("stage: {:?}", Deserialize::deserialize(deserializer)?);
+        Ok(SyncStage::Headers)
     }
 }
 
