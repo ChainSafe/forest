@@ -24,6 +24,7 @@ pub(crate) async fn net_addrs_listen<
     };
     data.network_send.send(req).await?;
     let (id, addrs) = rx.await?;
+
     Ok(AddrInfo {
         id: id.to_string(),
         addrs,

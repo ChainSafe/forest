@@ -83,8 +83,8 @@ fn multiaddress_to_url(ma_str: String) -> String {
                 Protocol::Dnsaddr(dns) => {
                     addr.host = dns.to_string();
                 }
-                Protocol::Tcp(p) => {
-                    addr.port = p.to_string();
+                Protocol::Tcp(port) => {
+                    addr.port = port.to_string();
                 }
                 Protocol::Http => {
                     addr.protocol = "http".to_string();
@@ -128,7 +128,7 @@ where
         Some((jwt, host)) => surf::post(multiaddress_to_url(host.to_string()))
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_call)?)
-            .header("Authorization", jwt.to_string()),
+            .header("Authorization", format!("Bearer {}", jwt.to_string())),
         None => surf::post(DEFAULT_URL)
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_call)?),

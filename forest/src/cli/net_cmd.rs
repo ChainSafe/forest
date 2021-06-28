@@ -43,6 +43,7 @@ impl NetCommands {
                             format!("{}, [{}]", info.id, addresses.join(", "))
                         })
                         .collect();
+
                     print_stdout(output.join("\n"));
                 }
                 Err(e) => handle_rpc_err(e.into()),
