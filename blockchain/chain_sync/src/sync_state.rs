@@ -3,8 +3,7 @@
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
 use clock::ChainEpoch;
-use serde::Deserialize;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -182,5 +181,56 @@ impl<'de> Deserialize<'de> for SyncState {
             end: Some(end),
             message,
         })
+    }
+}
+
+pub mod json {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
+    pub struct SyncStateJson(#[serde(with = "self")] pub SyncState);
+
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct SyncStateRef<'a>(#[serde(with = "self")] pub &'a SyncState);
+
+    impl From<SyncStateJson> for SyncState {
+        fn from(wrapper: SyncStateJson) -> Self {
+            wrapper.0
+        }
+    }
+}
+
+pub mod vec {
+    use forest_json_utils::GoVecVisitor;
+    use serde::ser::SerializeSeq;
+    use serde::Deserializer;
+
+    use super::json::SyncStateJson;
+    use super::json::SyncStateRef;
+    use super::*;
+
+    #[derive(Serialize)]
+    #[serde(transparent)]
+    pub struct SyncStateJsonVec(#[serde(with = "self")] pub Vec<SyncState>);
+
+    pub fn serialize<S>(m: &[SyncState], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(m.len()))?;
+        for e in m {
+            seq.serialize_element(&SyncStateRef(e))?;
+        }
+        seq.end()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<SyncState>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(GoVecVisitor::<SyncState, SyncStateJson>::new())
     }
 }
