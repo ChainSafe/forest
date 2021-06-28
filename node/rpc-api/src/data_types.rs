@@ -70,7 +70,7 @@ pub mod rpc_sync_state_json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    #[derive(Deserialize, Serialize)]
+    #[derive(Deserialize, Serialize, Debug)]
     #[serde(transparent)]
     pub struct RPCSyncStateJson(#[serde(with = "self")] pub RPCSyncState);
 

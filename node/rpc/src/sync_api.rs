@@ -10,6 +10,7 @@ use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use message::{SignedMessage, UnsignedMessage};
+use rpc_api::data_types::rpc_sync_state_json::RPCSyncStateJson;
 use rpc_api::data_types::{RPCState, RPCSyncState};
 use rpc_api::sync_api::*;
 
@@ -61,7 +62,8 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
-    Ok(RPCSyncState { active_syncs })
+    let json = RPCSyncStateJson(RPCSyncState { active_syncs });
+    Ok(json)
 }
 
 /// Submits block to be sent through gossipsub.
@@ -212,7 +214,10 @@ mod tests {
         let st_copy = state.sync_state.clone();
 
         match sync_state(Data(state.clone())).await {
-            Ok(ret) => assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]),
+            Ok(ret) => assert_eq!(
+                ret.0.active_syncs,
+                vec![clone_state(st_copy.as_ref()).await]
+            ),
             Err(e) => std::panic::panic_any(e),
         }
 
@@ -222,8 +227,11 @@ mod tests {
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {
-                assert_ne!(ret.active_syncs, vec![]);
-                assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]);
+                assert_ne!(ret.0.active_syncs, vec![]);
+                assert_eq!(
+                    ret.0.active_syncs,
+                    vec![clone_state(st_copy.as_ref()).await]
+                );
             }
             Err(e) => std::panic::panic_any(e),
         }

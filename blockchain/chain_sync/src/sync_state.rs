@@ -188,7 +188,7 @@ pub mod json {
     use super::SyncState;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Debug)]
     #[serde(transparent)]
     pub struct SyncStateJson(pub SyncState);
 
