@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'forest'
+    static_configs:
+      - targets: ['127.0.0.1:6116']

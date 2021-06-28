@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
+use crate::metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncState;
 use crate::tipset_syncer::{
@@ -177,14 +178,14 @@ where
         tipset_sender: Sender<Arc<Tipset>>,
         tipset_receiver: Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
-    ) -> Self {
+    ) -> Result<Self, ChainMuxerError> {
         let network = SyncNetworkContext::new(
             network_send,
             Default::default(),
             state_manager.blockstore_cloned(),
         );
 
-        Self {
+        Ok(Self {
             state: ChainMuxerState::Idle,
             worker_state: Default::default(),
             beacon,
@@ -198,7 +199,7 @@ where
             tipset_sender,
             tipset_receiver,
             sync_config: cfg,
-        }
+        })
     }
 
     /// Returns a clone of the bad blocks cache to be used outside of chain sync.
@@ -354,6 +355,7 @@ where
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn process_gossipsub_event(
         event: NetworkEvent,
         network: SyncNetworkContext<DB>,
@@ -365,6 +367,9 @@ where
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::HELLO_REQUEST])
+                    .inc();
                 let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
@@ -383,6 +388,9 @@ where
                 (tipset, source)
             }
             NetworkEvent::PeerConnected(peer_id) => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::PEER_CONNECTED])
+                    .inc();
                 // Spawn and immediately move on to the next event
                 async_std::task::spawn(Self::handle_peer_connected_event(
                     network.clone(),
@@ -393,6 +401,9 @@ where
                 return Ok(None);
             }
             NetworkEvent::PeerDisconnected(peer_id) => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::PEER_DISCONNECTED])
+                    .inc();
                 // Spawn and immediately move on to the next event
                 async_std::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
@@ -402,12 +413,18 @@ where
             }
             NetworkEvent::PubsubMessage { source, message } => match message {
                 PubsubMessage::Block(b) => {
+                    metrics::LIBP2P_MESSAGE_TOTAL
+                        .with_label_values(&[metrics::values::PUBSUB_BLOCK])
+                        .inc();
                     // Assemble full tipset from block
                     let tipset =
                         Self::gossipsub_block_to_full_tipset(b, source, network.clone()).await?;
                     (tipset, source)
                 }
                 PubsubMessage::Message(m) => {
+                    metrics::LIBP2P_MESSAGE_TOTAL
+                        .with_label_values(&[metrics::values::PUBSUB_MESSAGE])
+                        .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
                         // Spawn and immediately move on to the next event
                         async_std::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
@@ -415,8 +432,18 @@ where
                     return Ok(None);
                 }
             },
-            // Not supported.
-            NetworkEvent::ChainExchangeRequest { .. } | NetworkEvent::BitswapBlock { .. } => {
+            NetworkEvent::ChainExchangeRequest { .. } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_REQUEST])
+                    .inc();
+                // Not supported.
+                return Ok(None);
+            }
+            NetworkEvent::BitswapBlock { .. } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::BITSWAP_BLOCK])
+                    .inc();
+                // Not supported.
                 return Ok(None);
             }
         };
@@ -430,6 +457,7 @@ where
             )
             .await
         {
+            metrics::INVALID_TIPSET_TOTAL.inc();
             warn!(
                 "Validating tipset received through GossipSub failed: {}",
                 why
@@ -544,6 +572,7 @@ where
         let trs_tracker = self.worker_state.clone();
         let trs_genesis = self.genesis.clone();
         let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
+            let network_head_epoch = network_head.epoch();
             let tipset_range_syncer = match TipsetRangeSyncer::<DB, TBeacon, V>::new(
                 trs_tracker,
                 Arc::new(network_head.into_tipset()),
@@ -556,12 +585,19 @@ where
                 trs_genesis,
             ) {
                 Ok(tipset_range_syncer) => tipset_range_syncer,
-                Err(why) => return Err(ChainMuxerError::TipsetRangeSyncer(why)),
+                Err(why) => {
+                    metrics::TIPSET_RANGE_SYNC_FAILURE_TOTAL.inc();
+                    return Err(ChainMuxerError::TipsetRangeSyncer(why));
+                }
             };
 
             tipset_range_syncer
                 .await
-                .map_err(ChainMuxerError::TipsetRangeSyncer)
+                .map_err(ChainMuxerError::TipsetRangeSyncer)?;
+
+            metrics::HEAD_EPOCH.set(network_head_epoch as u64);
+
+            Ok(())
         });
 
         // The stream processor _must_ only error if the stream ends

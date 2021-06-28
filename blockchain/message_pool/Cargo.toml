@@ -32,7 +32,7 @@ interpreter = { path = "../../vm/interpreter/" }
 types = { package = "fil_types", version = "0.2" }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 num-traits = "0.2"
-statrs = "0.13.0"
+statrs = "0.14.0"
 num-rational = "0.3.2"
 networks = { path = "../../types/networks" }
 slotmap = "1.0"
