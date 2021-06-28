@@ -185,16 +185,16 @@ impl<'de> Deserialize<'de> for SyncState {
 }
 
 pub mod json {
-    use super::*;
+    use super::SyncState;
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
-    pub struct SyncStateJson(#[serde(with = "self")] pub SyncState);
+    pub struct SyncStateJson(pub SyncState);
 
     #[derive(Serialize)]
     #[serde(transparent)]
-    pub struct SyncStateRef<'a>(#[serde(with = "self")] pub &'a SyncState);
+    pub struct SyncStateRef<'a>(pub &'a SyncState);
 
     impl From<SyncStateJson> for SyncState {
         fn from(wrapper: SyncStateJson) -> Self {
