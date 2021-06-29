@@ -21,6 +21,7 @@ libp2p = { version = "0.35", default-features = false, features = [
     "request-response",
     "websocket"
 ] }
+multihash = { version = "0.13", default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
 futures = "0.3.5"
 futures-util = "0.3.5"
 asynchronous-codec = "0.6.0"
@@ -46,7 +47,6 @@ async-trait = "0.1"
 lazy_static = "1.4"
 futures_cbor_codec = "0.3.1"
 git-version = "0.3.4"
-multihash = { version = "0.13", default-features = false, features = ["std", "blake2b", "derive"] }
 
 [dev-dependencies]
 forest_address = "0.3"

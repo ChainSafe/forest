@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_libp2p::{Multiaddr, PeerId, Protocol};
+use forest_libp2p::{Multiaddr, Multihash, Protocol};
 use rpc_api::data_types::AddrInfo;
 use structopt::StructOpt;
 
@@ -64,13 +64,17 @@ impl NetCommands {
                 Err(e) => handle_rpc_err(e.into()),
             },
             Self::Connect { id, addresses } => {
+                let (_base, data) =
+                    multibase::decode(id).expect("decode provided multibase string");
+                let peer_id = Multihash::from_bytes(id.as_bytes())
+                    .expect("parse multihash from decoded multibase bytes");
+
                 let addrs = addresses
                     .iter()
                     .map(|addr| {
-                        let mut address: Multiaddr = addr.parse().unwrap();
-                        address.push(Protocol::P2p(
-                            *PeerId::from_bytes(id.as_bytes()).unwrap().as_ref(),
-                        ));
+                        let mut address: Multiaddr =
+                            addr.parse().expect("parse provided multiaddr from string");
+                        address.push(Protocol::P2p(peer_id));
                         address
                     })
                     .collect();
@@ -79,6 +83,7 @@ impl NetCommands {
                     id: id.to_owned(),
                     addrs,
                 };
+
                 match net_connect((addr_info,)).await {
                     Ok(_) => {}
                     Err(e) => handle_rpc_err(e.into()),
