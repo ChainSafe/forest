@@ -195,6 +195,7 @@ impl DiscoveryBehaviour {
         &self.peers
     }
 
+    /// Returns a map of peer ids and their multiaddresses
     pub fn peer_addresses(&self) -> &HashMap<PeerId, Vec<Multiaddr>> {
         &self.peer_addresses
     }

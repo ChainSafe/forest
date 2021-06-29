@@ -1,6 +1,8 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_libp2p::{Multiaddr, PeerId, Protocol};
+use rpc_api::data_types::AddrInfo;
 use structopt::StructOpt;
 
 use super::{handle_rpc_err, print_stdout};
@@ -14,7 +16,20 @@ pub enum NetCommands {
     /// Lists libp2p swarm peers
     #[structopt(about = "Print peers")]
     Peers,
-    // TODO: connect, disconnect
+    /// Connects to a peer
+    #[structopt(about = "Connect to a peer by its peer ID and multiaddresses")]
+    Connect {
+        #[structopt(about = "Peer ID to connect to")]
+        id: String,
+        #[structopt(about = "Multiaddresses (can be supplied multiple times)")]
+        addresses: Vec<String>,
+    },
+    /// Disconnects from a peer
+    #[structopt(about = "Disconnect from a peer by its peer ID")]
+    Disconnect {
+        #[structopt(about = "Peer ID to disconnect from")]
+        id: String,
+    },
 }
 
 impl NetCommands {
@@ -48,6 +63,33 @@ impl NetCommands {
                 }
                 Err(e) => handle_rpc_err(e.into()),
             },
-        } // TODO: connect, disconnect
+            Self::Connect { id, addresses } => {
+                let addrs = addresses
+                    .iter()
+                    .map(|addr| {
+                        let mut address: Multiaddr = addr.parse().unwrap();
+                        address.push(Protocol::P2p(
+                            *PeerId::from_bytes(id.as_bytes()).unwrap().as_ref(),
+                        ));
+                        address
+                    })
+                    .collect();
+
+                let addr_info = AddrInfo {
+                    id: id.to_owned(),
+                    addrs,
+                };
+                match net_connect((addr_info,)).await {
+                    Ok(_) => {}
+                    Err(e) => handle_rpc_err(e.into()),
+                }
+            }
+            Self::Disconnect { id } => match net_disconnect((id.to_owned(),)).await {
+                Ok(_) => {
+                    todo!();
+                }
+                Err(e) => handle_rpc_err(e.into()),
+            },
+        }
     }
 }

@@ -507,7 +507,7 @@ pub mod common_api {
 
 /// Net API
 pub mod net_api {
-    use crate::data_types::{AddrInfo, PeerID};
+    use crate::data_types::AddrInfo;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
     pub type NetAddrsListenParams = ();
@@ -522,6 +522,6 @@ pub mod net_api {
     pub type NetConnectResult = ();
 
     pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
-    pub type NetDisconnectParams = (PeerID,);
+    pub type NetDisconnectParams = (String,);
     pub type NetDisconnectResult = ();
 }

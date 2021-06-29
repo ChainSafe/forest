@@ -22,7 +22,8 @@ use chain_sync::{BadBlockCache, SyncState};
 use cid::{json::CidJson, Cid, Multihash};
 use clock::ChainEpoch;
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
-use forest_libp2p::{Multiaddr, NetworkMessage};
+use forest_libp2p::{NetworkMessage};
+pub use forest_libp2p::{Multiaddr, Protocol};
 use ipld::json::IpldJson;
 use message::{
     message_receipt::json::MessageReceiptJson, signed_message,

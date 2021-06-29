@@ -22,6 +22,7 @@ use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
+use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{
     core,
@@ -33,6 +34,7 @@ use libp2p::{
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
+use multihash::Multihash;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -107,6 +109,8 @@ pub enum NetworkMessage {
 pub enum NetRPCMethods {
     NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
     NetPeers(OneShotSender<HashMap<PeerId, Vec<Multiaddr>>>),
+    NetConnect(OneShotSender<bool>, PeerId, Vec<Multiaddr>),
+    NetDisconnect(OneShotSender<()>, PeerId),
 }
 
 /// The Libp2pService listens to events from the Libp2p swarm.
@@ -324,6 +328,7 @@ where
                                 NetRPCMethods::NetAddrsListen(response_channel) => {
                                     let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
                                     let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
+
                                     if response_channel.send((*peer_id, listeners)).is_err() {
                                         warn!("Failed to get Libp2p listeners");
                                     }
@@ -333,6 +338,33 @@ where
 
                                     if response_channel.send(peer_addresses.to_owned()).is_err() {
                                         warn!("Failed to get Libp2p peers");
+                                    }
+                                }
+                                NetRPCMethods::NetConnect(response_channel, peer_id, addresses) => {
+                                    let mut addresses = addresses.clone();
+                                    let mut success = false;
+
+                                    for multiaddr in addresses.iter_mut() {
+                                        multiaddr.push(Protocol::P2p(Multihash::from_bytes(&peer_id.to_bytes()).unwrap()));
+
+                                        match Swarm::dial_addr(swarm_stream.get_mut(), multiaddr.clone()) {
+                                            Ok(_) => {
+                                                success = true;
+                                            }
+                                            Err(_) => {}
+                                        };
+                                    }
+
+                                    if response_channel.send(success).is_err() {
+                                        warn!("Failed to connect to a peer");
+                                    }
+                                }
+                                NetRPCMethods::NetDisconnect(response_channel, peer_id) => {
+                                    // swarm_stream.get_mut().disconnect(&peer_id);
+                                    println!("TODO: {}", peer_id);
+
+                                    if response_channel.send(()).is_err() {
+                                        warn!("Failed to disconnect from a peer");
                                     }
                                 }
                             }
