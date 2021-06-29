@@ -3,6 +3,8 @@
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
 use clock::ChainEpoch;
+use log::info;
+use serde::Deserializer;
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
@@ -56,10 +58,22 @@ impl Serialize for SyncStage {
 impl<'de> Deserialize<'de> for SyncStage {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
-        println!("stage: {:?}", Deserialize::deserialize(deserializer)?);
-        Ok(SyncStage::Headers)
+        let stage: &str = Deserialize::deserialize(deserializer)?;
+
+        info!("SYNC STAGE DESERIALIZATION :: {}", stage);
+
+        let output = match stage {
+            "idle worker" => SyncStage::Idle,
+            "header sync" => SyncStage::Headers,
+            "persisting headers" => SyncStage::PersistHeaders,
+            "message synce" => SyncStage::Messages,
+            "complete" => SyncStage::Complete,
+            _ => SyncStage::Error,
+        };
+
+        Ok(output)
     }
 }
 
@@ -214,11 +228,8 @@ pub mod json {
 }
 
 pub mod vec {
-    use forest_json_utils::GoVecVisitor;
     use serde::ser::SerializeSeq;
-    use serde::Deserializer;
 
-    use super::json::SyncStateJson;
     use super::json::SyncStateRef;
     use super::*;
 
@@ -235,12 +246,5 @@ pub mod vec {
             seq.serialize_element(&SyncStateRef(e))?;
         }
         seq.end()
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<SyncState>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_any(GoVecVisitor::<SyncState, SyncStateJson>::new())
     }
 }
