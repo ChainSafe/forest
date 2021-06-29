@@ -220,7 +220,8 @@ where
 
         for i in parent_epoch..epoch {
             if i > parent_epoch {
-                self.run_cron(epoch, callback.as_mut())?;
+                // run cron for null rounds if any
+                self.run_cron(i, callback.as_mut())?;
             }
             if let Some(new_state) = self.migrate_state(i, store.clone())? {
                 self.state = StateTree::new_from_root(self.store, &new_state)?
