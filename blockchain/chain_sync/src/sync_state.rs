@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
+use chrono::{DateTime, Local};
 use clock::ChainEpoch;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 /// Current state of the ChainSyncer using the ChainExchange protocol.
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -84,8 +84,8 @@ pub struct SyncState {
     stage: SyncStage,
     epoch: ChainEpoch,
 
-    start: Option<SystemTime>,
-    end: Option<SystemTime>,
+    start: Option<DateTime<Local>>,
+    end: Option<DateTime<Local>>,
     message: String,
 }
 
@@ -95,7 +95,7 @@ impl SyncState {
         *self = Self {
             target: Some(target),
             base: Some(base),
-            start: Some(SystemTime::now()),
+            start: Some(Local::now()),
             ..Default::default()
         }
     }
@@ -112,7 +112,7 @@ impl SyncState {
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
         if let SyncStage::Complete = stage {
-            self.end = Some(SystemTime::now());
+            self.end = Some(Local::now());
         }
         self.stage = stage;
     }
@@ -126,7 +126,7 @@ impl SyncState {
     pub fn error(&mut self, err: String) {
         self.message = err;
         self.stage = SyncStage::Error;
-        self.end = Some(SystemTime::now());
+        self.end = Some(Local::now());
     }
 }
 
@@ -144,8 +144,8 @@ impl Serialize for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: &'a Option<SystemTime>,
-            end: &'a Option<SystemTime>,
+            start: &'a Option<DateTime<Local>>,
+            end: &'a Option<DateTime<Local>>,
             message: &'a str,
         }
 
@@ -179,8 +179,8 @@ impl<'de> Deserialize<'de> for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: SystemTime,
-            end: SystemTime,
+            start: DateTime<Local>,
+            end: DateTime<Local>,
             message: String,
         }
 
@@ -225,11 +225,8 @@ pub mod json {
 }
 
 pub mod vec {
-    use forest_json_utils::GoVecVisitor;
     use serde::ser::SerializeSeq;
-    use serde::Deserializer;
 
-    use super::json::SyncStateJson;
     use super::json::SyncStateRef;
     use super::*;
 
@@ -246,12 +243,5 @@ pub mod vec {
             seq.serialize_element(&SyncStateRef(e))?;
         }
         seq.end()
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<SyncState>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_any(GoVecVisitor::<SyncState, SyncStateJson>::new())
     }
 }
