@@ -3,7 +3,6 @@
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
 use clock::ChainEpoch;
-use log::info;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
@@ -61,8 +60,6 @@ impl<'de> Deserialize<'de> for SyncStage {
         D: Deserializer<'de>,
     {
         let stage: &str = Deserialize::deserialize(deserializer)?;
-
-        info!("SYNC STAGE DESERIALIZATION :: {}", stage);
 
         let output = match stage {
             "idle worker" => SyncStage::Idle,
@@ -228,8 +225,11 @@ pub mod json {
 }
 
 pub mod vec {
+    use forest_json_utils::GoVecVisitor;
     use serde::ser::SerializeSeq;
+    use serde::Deserializer;
 
+    use super::json::SyncStateJson;
     use super::json::SyncStateRef;
     use super::*;
 
@@ -246,5 +246,12 @@ pub mod vec {
             seq.serialize_element(&SyncStateRef(e))?;
         }
         seq.end()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<SyncState>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(GoVecVisitor::<SyncState, SyncStateJson>::new())
     }
 }
