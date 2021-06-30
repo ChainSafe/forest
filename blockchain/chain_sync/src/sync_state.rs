@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
-use chrono::{DateTime, Local};
+use chrono::Utc;
 use clock::ChainEpoch;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize, Serializer};
@@ -84,8 +84,8 @@ pub struct SyncState {
     stage: SyncStage,
     epoch: ChainEpoch,
 
-    start: Option<DateTime<Local>>,
-    end: Option<DateTime<Local>>,
+    start: Option<i64>,
+    end: Option<i64>,
     message: String,
 }
 
@@ -95,7 +95,7 @@ impl SyncState {
         *self = Self {
             target: Some(target),
             base: Some(base),
-            start: Some(Local::now()),
+            start: Some(Utc::now().timestamp()),
             ..Default::default()
         }
     }
@@ -112,7 +112,7 @@ impl SyncState {
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
         if let SyncStage::Complete = stage {
-            self.end = Some(Local::now());
+            self.end = Some(Utc::now().timestamp());
         }
         self.stage = stage;
     }
@@ -126,7 +126,7 @@ impl SyncState {
     pub fn error(&mut self, err: String) {
         self.message = err;
         self.stage = SyncStage::Error;
-        self.end = Some(Local::now());
+        self.end = Some(Utc::now().timestamp());
     }
 }
 
@@ -144,8 +144,8 @@ impl Serialize for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: &'a Option<DateTime<Local>>,
-            end: &'a Option<DateTime<Local>>,
+            start: &'a Option<i64>,
+            end: &'a Option<i64>,
             message: &'a str,
         }
 
@@ -179,8 +179,8 @@ impl<'de> Deserialize<'de> for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: DateTime<Local>,
-            end: DateTime<Local>,
+            start: i64,
+            end: i64,
             message: String,
         }
 
