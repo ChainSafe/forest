@@ -1,10 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::json_helpers::OptionalDateTimeFromCustomFormatVisitor;
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use clock::ChainEpoch;
-use serde::Deserializer;
+use serde::{de, Deserializer};
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
@@ -84,9 +85,16 @@ pub struct SyncState {
     stage: SyncStage,
     epoch: ChainEpoch,
 
-    start: Option<i64>,
-    end: Option<i64>,
+    // start: Option<DateTime<Utc>>,
+    // end: Option<DateTime<Utc>>,
     message: String,
+}
+
+pub fn deserialize_optional_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    d.deserialize_option(OptionalDateTimeFromCustomFormatVisitor)
 }
 
 impl SyncState {
@@ -95,7 +103,7 @@ impl SyncState {
         *self = Self {
             target: Some(target),
             base: Some(base),
-            start: Some(Utc::now().timestamp()),
+            // start: Some(Utc::now()),
             ..Default::default()
         }
     }
@@ -112,7 +120,7 @@ impl SyncState {
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
         if let SyncStage::Complete = stage {
-            self.end = Some(Utc::now().timestamp());
+            // self.end = Some(Utc::now().timestamp());
         }
         self.stage = stage;
     }
@@ -126,7 +134,7 @@ impl SyncState {
     pub fn error(&mut self, err: String) {
         self.message = err;
         self.stage = SyncStage::Error;
-        self.end = Some(Utc::now().timestamp());
+        // self.end = Some(Utc::now());
     }
 }
 
@@ -144,8 +152,8 @@ impl Serialize for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: &'a Option<i64>,
-            end: &'a Option<i64>,
+            // start: &'a Option<DateTime<Utc>>,
+            // end: &'a Option<DateTime<Utc>>,
             message: &'a str,
         }
 
@@ -154,8 +162,8 @@ impl Serialize for SyncState {
             target: self.target.as_ref().map(|ts| TipsetJsonRef(ts.as_ref())),
             stage: self.stage,
             epoch: self.epoch,
-            start: &self.start,
-            end: &self.end,
+            // start: &self.start,
+            // end: &self.end,
             message: &self.message,
         }
         .serialize(serializer)
@@ -179,8 +187,10 @@ impl<'de> Deserialize<'de> for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: i64,
-            end: i64,
+            // #[serde(deserialize_with = "deserialize_optional_datetime")]
+            // start: Option<DateTime<Utc>>,
+            // #[serde(deserialize_with = "deserialize_optional_datetime")]
+            // end: Option<DateTime<Utc>>,
             message: String,
         }
 
@@ -189,8 +199,8 @@ impl<'de> Deserialize<'de> for SyncState {
             target,
             stage,
             epoch,
-            start,
-            end,
+            // start,
+            // end,
             message,
         } = Deserialize::deserialize(deserializer)?;
         Ok(SyncState {
@@ -198,8 +208,8 @@ impl<'de> Deserialize<'de> for SyncState {
             target: Some(target),
             stage,
             epoch,
-            start: Some(start),
-            end: Some(end),
+            // start,
+            // end,
             message,
         })
     }
