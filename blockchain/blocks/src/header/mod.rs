@@ -399,7 +399,12 @@ impl BlockHeader {
             return Ok(());
         }
 
-        let last = self.beacon_entries.last().unwrap();
+        let last = match self.beacon_entries.last() {
+            Some(last) => last,
+            None => {
+                return Err(Error::Validation(format!("Block must include at least 1 beacon entry")));
+            }
+        };
         if last.round() != max_round {
             return Err(Error::Validation(format!(
                 "expected final beacon entry in block to be at round {}, got: {}",
