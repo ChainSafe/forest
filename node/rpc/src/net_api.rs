@@ -66,6 +66,8 @@ pub(crate) async fn net_connect<
     Params(params): Params<NetConnectParams>,
 ) -> Result<NetConnectResult, JsonRpcError> {
     let (AddrInfo { id, addrs },) = params;
+    // let peer_id = PeerId::from_multihash(Multihash::from_bytes(id.as_bytes())?)
+    //     .map_err(|e| e.to_string().into())?;
     let peer_id = PeerId::from_bytes(id.as_bytes())?;
 
     println!("compare peer_ids: {} == {}", id, &peer_id.to_base58());
@@ -79,7 +81,7 @@ pub(crate) async fn net_connect<
     let success = rx.await?;
 
     if success {
-        info!("Peer successfully dialed");
+        info!("connect {} success", peer_id.to_base58()); // TODO: return this from CLI
         Ok(())
     } else {
         error!("Peer could not be dialed from any address provided");

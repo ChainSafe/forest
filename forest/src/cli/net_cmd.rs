@@ -1,9 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_libp2p::{Multiaddr, Multihash, Protocol};
+use forest_libp2p::{Multiaddr, Protocol};
 use rpc_api::data_types::AddrInfo;
 use structopt::StructOpt;
+
+use crate::cli::cli_error_and_die;
 
 use super::{handle_rpc_err, print_stdout};
 use rpc_client::net_ops::*;
@@ -19,10 +21,8 @@ pub enum NetCommands {
     /// Connects to a peer
     #[structopt(about = "Connect to a peer by its peer ID and multiaddresses")]
     Connect {
-        #[structopt(short, about = "Peer ID to connect to")]
-        id: String,
-        #[structopt(short, about = "Multiaddresses (can be supplied multiple times)")]
-        addresses: Vec<String>,
+        #[structopt(short, about = "Multiaddr (with /p2p/ protocol)")]
+        address: String,
     },
     /// Disconnects from a peer
     #[structopt(about = "Disconnect from a peer by its peer ID")]
@@ -63,26 +63,37 @@ impl NetCommands {
                 }
                 Err(e) => handle_rpc_err(e.into()),
             },
-            Self::Connect { id, addresses } => {
-                let (_base, data) =
-                    multibase::decode(id).expect("decode provided multibase string");
-                let peer_id = Multihash::from_bytes(&data)
-                    .expect("parse multihash from decoded multibase bytes");
+            Self::Connect { address } => {
+                // let (_base, data) =
+                //     multibase::decode(id).expect("decode provided multibase string");
+                // let peer_id = PeerId::from_bytes(id.as_bytes()).expect("parse provided peer id");
 
-                let addrs = addresses
-                    .iter()
-                    .map(|addr| {
-                        let mut address: Multiaddr =
-                            addr.parse().expect("parse provided multiaddr from string");
-                        address.push(Protocol::P2p(peer_id));
-                        address
-                    })
-                    .collect();
+                let addr: Multiaddr = address
+                    .parse()
+                    .expect("parse provided multiaddr from string");
 
-                let addr_info = AddrInfo {
-                    id: id.to_owned(),
-                    addrs,
-                };
+                let mut id = "".to_owned();
+
+                for protocol in addr.iter() {
+                    match protocol {
+                        Protocol::P2p(p2p) => {
+                            id = multibase::encode(multibase::Base::Base58Btc, p2p.to_bytes());
+                            id = id.split_off(1); // hacky
+                        }
+                        _ => {}
+                    }
+                }
+
+                if id.len() == 0 {
+                    cli_error_and_die("Needs a /p2p/ protocol present in multiaddr", 400);
+                    return;
+                }
+
+                println!("using id: {}", id);
+
+                let addrs = vec![addr];
+
+                let addr_info = AddrInfo { id, addrs };
 
                 match net_connect((addr_info,)).await {
                     Ok(_) => {}
