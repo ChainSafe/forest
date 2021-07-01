@@ -402,7 +402,9 @@ impl BlockHeader {
         let last = match self.beacon_entries.last() {
             Some(last) => last,
             None => {
-                return Err(Error::Validation(format!("Block must include at least 1 beacon entry")));
+                return Err(Error::Validation(format!(
+                    "Block must include at least 1 beacon entry"
+                )));
             }
         };
         if last.round() != max_round {
@@ -472,5 +474,26 @@ mod tests {
                 .parse()
                 .unwrap())
             .unwrap();
+    }
+    #[test]
+    fn beacon_entry_exists() {
+        // let block_header = BlockHeader::builder()
+        //     .messages(cid::new_from_cbor(&[], Identity)) // required
+        //     .message_receipts(cid::new_from_cbor(&[], Identity)) // required
+        //     .state_root(cid::new_from_cbor(&[], Identity)) // required
+        //     .miner_address(Address::new_id(0)) // optional
+        //     .beacon_entries(Vec::new()) // optional
+        //     .winning_post_proof(Vec::new()) // optional
+        //     .election_proof(None) // optional
+        //     .bls_aggregate(None) // optional
+        //     .signature(None) // optional
+        //     .parents(TipsetKeys::default()) // optional
+        //     .weight(BigInt::from(0u8)) // optional
+        //     .epoch(0) // optional
+        //     .timestamp(0) // optional
+        //     .ticket(Some(Ticket::default())) // optional
+        //     .fork_signal(0) // optional
+        //     .build()
+        //     .unwrap();
     }
 }
