@@ -19,15 +19,15 @@ pub enum NetCommands {
     /// Connects to a peer
     #[structopt(about = "Connect to a peer by its peer ID and multiaddresses")]
     Connect {
-        #[structopt(about = "Peer ID to connect to")]
+        #[structopt(short, about = "Peer ID to connect to")]
         id: String,
-        #[structopt(about = "Multiaddresses (can be supplied multiple times)")]
+        #[structopt(short, about = "Multiaddresses (can be supplied multiple times)")]
         addresses: Vec<String>,
     },
     /// Disconnects from a peer
     #[structopt(about = "Disconnect from a peer by its peer ID")]
     Disconnect {
-        #[structopt(about = "Peer ID to disconnect from")]
+        #[structopt(short, about = "Peer ID to disconnect from")]
         id: String,
     },
 }
@@ -66,7 +66,7 @@ impl NetCommands {
             Self::Connect { id, addresses } => {
                 let (_base, data) =
                     multibase::decode(id).expect("decode provided multibase string");
-                let peer_id = Multihash::from_bytes(id.as_bytes())
+                let peer_id = Multihash::from_bytes(&data)
                     .expect("parse multihash from decoded multibase bytes");
 
                 let addrs = addresses
