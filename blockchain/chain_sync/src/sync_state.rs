@@ -85,8 +85,8 @@ pub struct SyncState {
     stage: SyncStage,
     epoch: ChainEpoch,
 
-    // start: Option<DateTime<Utc>>,
-    // end: Option<DateTime<Utc>>,
+    start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
     message: String,
 }
 
@@ -103,7 +103,7 @@ impl SyncState {
         *self = Self {
             target: Some(target),
             base: Some(base),
-            // start: Some(Utc::now()),
+            start: Some(Utc::now()),
             ..Default::default()
         }
     }
@@ -152,8 +152,8 @@ impl Serialize for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            // start: &'a Option<DateTime<Utc>>,
-            // end: &'a Option<DateTime<Utc>>,
+            start: &'a Option<DateTime<Utc>>,
+            end: &'a Option<DateTime<Utc>>,
             message: &'a str,
         }
 
@@ -162,8 +162,8 @@ impl Serialize for SyncState {
             target: self.target.as_ref().map(|ts| TipsetJsonRef(ts.as_ref())),
             stage: self.stage,
             epoch: self.epoch,
-            // start: &self.start,
-            // end: &self.end,
+            start: &self.start,
+            end: &self.end,
             message: &self.message,
         }
         .serialize(serializer)
@@ -187,10 +187,10 @@ impl<'de> Deserialize<'de> for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            // #[serde(deserialize_with = "deserialize_optional_datetime")]
-            // start: Option<DateTime<Utc>>,
-            // #[serde(deserialize_with = "deserialize_optional_datetime")]
-            // end: Option<DateTime<Utc>>,
+            #[serde(deserialize_with = "deserialize_optional_datetime")]
+            start: Option<DateTime<Utc>>,
+            #[serde(deserialize_with = "deserialize_optional_datetime")]
+            end: Option<DateTime<Utc>>,
             message: String,
         }
 
@@ -199,8 +199,8 @@ impl<'de> Deserialize<'de> for SyncState {
             target,
             stage,
             epoch,
-            // start,
-            // end,
+            start,
+            end,
             message,
         } = Deserialize::deserialize(deserializer)?;
         Ok(SyncState {
@@ -208,8 +208,8 @@ impl<'de> Deserialize<'de> for SyncState {
             target: Some(target),
             stage,
             epoch,
-            // start,
-            // end,
+            start,
+            end,
             message,
         })
     }
