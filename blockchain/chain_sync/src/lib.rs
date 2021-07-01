@@ -5,7 +5,6 @@
 
 mod bad_block_cache;
 mod chain_muxer;
-mod json_helpers;
 mod network_context;
 mod peer_manager;
 mod sync_state;

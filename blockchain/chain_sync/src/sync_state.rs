@@ -1,11 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::json_helpers::OptionalDateTimeFromCustomFormatVisitor;
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
 use chrono::{DateTime, Utc};
 use clock::ChainEpoch;
-use serde::{de, Deserializer};
+use serde::Deserializer;
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
@@ -88,13 +87,6 @@ pub struct SyncState {
     start: Option<DateTime<Utc>>,
     end: Option<DateTime<Utc>>,
     message: String,
-}
-
-pub fn deserialize_optional_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    d.deserialize_option(OptionalDateTimeFromCustomFormatVisitor)
 }
 
 impl SyncState {
@@ -187,9 +179,7 @@ impl<'de> Deserialize<'de> for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            #[serde(deserialize_with = "deserialize_optional_datetime")]
             start: Option<DateTime<Utc>>,
-            #[serde(deserialize_with = "deserialize_optional_datetime")]
             end: Option<DateTime<Utc>>,
             message: String,
         }
