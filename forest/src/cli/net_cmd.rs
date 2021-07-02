@@ -21,13 +21,13 @@ pub enum NetCommands {
     /// Connects to a peer
     #[structopt(about = "Connect to a peer by its peer ID and multiaddresses")]
     Connect {
-        #[structopt(short, about = "Multiaddr (with /p2p/ protocol)")]
+        #[structopt(about = "Multiaddr (with /p2p/ protocol)")]
         address: String,
     },
     /// Disconnects from a peer
     #[structopt(about = "Disconnect from a peer by its peer ID")]
     Disconnect {
-        #[structopt(short, about = "Peer ID to disconnect from")]
+        #[structopt(about = "Peer ID to disconnect from")]
         id: String,
     },
 }
@@ -64,10 +64,6 @@ impl NetCommands {
                 Err(e) => handle_rpc_err(e.into()),
             },
             Self::Connect { address } => {
-                // let (_base, data) =
-                //     multibase::decode(id).expect("decode provided multibase string");
-                // let peer_id = PeerId::from_bytes(id.as_bytes()).expect("parse provided peer id");
-
                 let addr: Multiaddr = address
                     .parse()
                     .expect("parse provided multiaddr from string");
@@ -78,7 +74,7 @@ impl NetCommands {
                     match protocol {
                         Protocol::P2p(p2p) => {
                             id = multibase::encode(multibase::Base::Base58Btc, p2p.to_bytes());
-                            id = id.split_off(1); // hacky
+                            id = id.split_off(1);
                         }
                         _ => {}
                     }
@@ -89,14 +85,16 @@ impl NetCommands {
                     return;
                 }
 
-                println!("using id: {}", id);
-
                 let addrs = vec![addr];
-
-                let addr_info = AddrInfo { id, addrs };
+                let addr_info = AddrInfo {
+                    id: id.clone(),
+                    addrs,
+                };
 
                 match net_connect((addr_info,)).await {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        println!("connect {}: success", id);
+                    }
                     Err(e) => handle_rpc_err(e.into()),
                 }
             }

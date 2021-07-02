@@ -66,11 +66,8 @@ pub(crate) async fn net_connect<
     Params(params): Params<NetConnectParams>,
 ) -> Result<NetConnectResult, JsonRpcError> {
     let (AddrInfo { id, addrs },) = params;
-    // let peer_id = PeerId::from_multihash(Multihash::from_bytes(id.as_bytes())?)
-    //     .map_err(|e| e.to_string().into())?;
-    let peer_id = PeerId::from_bytes(id.as_bytes())?;
-
-    println!("compare peer_ids: {} == {}", id, &peer_id.to_base58());
+    let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
+    let peer_id = PeerId::from_bytes(&id)?;
 
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
