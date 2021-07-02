@@ -347,7 +347,7 @@ where
                                     for multiaddr in addresses.iter_mut() {
                                         multiaddr.push(Protocol::P2p(Multihash::from_bytes(&peer_id.to_bytes()).unwrap()));
 
-                                        if let Ok(_) = Swarm::dial_addr(swarm_stream.get_mut(), multiaddr.clone()) {
+                                        if Swarm::dial_addr(swarm_stream.get_mut(), multiaddr.clone()).is_ok() {
                                             success = true;
                                         };
                                     }
