@@ -140,7 +140,7 @@ impl SyncState {
     pub fn error(&mut self, err: String) {
         self.message = err;
         self.stage = SyncStage::Error;
-        // self.end = Some(Utc::now());
+        self.end = Some(Utc::now());
     }
 }
 
