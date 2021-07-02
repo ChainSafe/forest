@@ -61,39 +61,9 @@ where
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
+    #[serde(rename = "ActiveSyncs")]
     pub active_syncs: Vec<SyncState>,
-}
-
-pub mod rpc_sync_state_json {
-    use super::*;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    #[derive(Deserialize, Serialize, Debug)]
-    #[serde(transparent)]
-    pub struct RPCSyncStateJson(#[serde(with = "self")] pub RPCSyncState);
-
-    pub fn serialize<S>(r: &RPCSyncState, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        r.serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<RPCSyncState, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct RPCSyncStateDe {
-            active_syncs: Vec<SyncState>,
-        }
-
-        let RPCSyncStateDe { active_syncs } = Deserialize::deserialize(deserializer)?;
-        Ok(RPCSyncState { active_syncs })
-    }
 }
 
 pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
