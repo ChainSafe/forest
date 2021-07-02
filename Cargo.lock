@@ -2083,6 +2083,7 @@ dependencies = [
  "log",
  "message_pool",
  "metrics",
+ "multibase 0.9.1",
  "net_utils",
  "networks",
  "paramfetch",
