@@ -33,7 +33,9 @@ impl SyncCommands {
             Self::Wait => {}
             Self::Status => {
                 let response = status(()).await.map_err(handle_rpc_err).unwrap();
-                println!("{:#?}", response);
+                println!("{:?}", response);
+                // let state = response.state;
+                // let base = state.base();
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();

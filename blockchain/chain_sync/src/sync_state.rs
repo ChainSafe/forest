@@ -104,9 +104,23 @@ impl SyncState {
         self.stage
     }
 
-    /// Returns the current [Tipset] the
+    /// Returns the current [Tipset]
     pub fn target(&self) -> &Option<Arc<Tipset>> {
         &self.target
+    }
+
+    /// Return an Arc clone of the Base [Tipset]
+    pub fn base(&self) -> Option<Arc<Tipset>> {
+        self.base.clone()
+    }
+
+    pub fn get_elapsed_time(&self) {
+        // if let Some(start) = self.start {
+        //     let elapsed_time = Utc::now() - start;
+        //     Some(elapsed_time)
+        // } else {
+        //     None
+        // }
     }
 
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.

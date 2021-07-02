@@ -63,7 +63,7 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
-    pub active_syncs: SyncState,
+    pub active_syncs: Vec<SyncState>,
 }
 
 pub mod rpc_sync_state_json {
@@ -88,7 +88,7 @@ pub mod rpc_sync_state_json {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct RPCSyncStateDe {
-            active_syncs: SyncState,
+            active_syncs: Vec<SyncState>,
         }
 
         let RPCSyncStateDe { active_syncs } = Deserialize::deserialize(deserializer)?;

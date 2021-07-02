@@ -60,7 +60,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let active_syncs = clone_state(data.sync_state.as_ref()).await;
+    let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
 }
 
@@ -212,7 +212,7 @@ mod tests {
         let st_copy = state.sync_state.clone();
 
         match sync_state(Data(state.clone())).await {
-            Ok(ret) => assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await),
+            Ok(ret) => assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]),
             Err(e) => std::panic::panic_any(e),
         }
 
@@ -222,8 +222,8 @@ mod tests {
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {
-                assert_ne!(ret.active_syncs, SyncState::default());
-                assert_eq!(ret.active_syncs, clone_state(st_copy.as_ref()).await);
+                assert_ne!(ret.active_syncs, vec![]);
+                assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]);
             }
             Err(e) => std::panic::panic_any(e),
         }
