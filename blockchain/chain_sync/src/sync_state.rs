@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use clock::ChainEpoch;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize, Serializer};
@@ -114,13 +114,14 @@ impl SyncState {
         self.base.clone()
     }
 
-    pub fn get_elapsed_time(&self) {
-        // if let Some(start) = self.start {
-        //     let elapsed_time = Utc::now() - start;
-        //     Some(elapsed_time)
-        // } else {
-        //     None
-        // }
+    /// Get the elapsed time of the syncing process
+    pub fn get_elapsed_time(&self) -> Option<Duration> {
+        if let Some(start) = self.start {
+            let elapsed_time = Utc::now() - start;
+            Some(elapsed_time)
+        } else {
+            None
+        }
     }
 
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
