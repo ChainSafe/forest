@@ -100,6 +100,7 @@ impl SyncState {
         }
     }
 
+    /// Get the current [SyncStage] of the Syncer
     pub fn stage(&self) -> SyncStage {
         self.stage
     }
@@ -114,7 +115,13 @@ impl SyncState {
         self.base.clone()
     }
 
-    /// Get the elapsed time of the syncing process
+    /// Return the current [ChainEpoch]
+    pub fn epoch(&self) -> ChainEpoch {
+        self.epoch
+    }
+
+    /// Get the elapsed time of the current syncing process.
+    /// Returns `None` if syncing has not started
     pub fn get_elapsed_time(&self) -> Option<Duration> {
         if let Some(start) = self.start {
             let elapsed_time = Utc::now() - start;

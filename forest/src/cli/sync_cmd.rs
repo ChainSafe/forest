@@ -35,9 +35,42 @@ impl SyncCommands {
                 let response = status(()).await.map_err(handle_rpc_err).unwrap();
 
                 let state = &response.active_syncs[0];
-                let _base = state.base();
-                let _elapsed_time = state.get_elapsed_time();
-                let _target = state.target();
+                let base = state.base();
+                let elapsed_time = state.get_elapsed_time();
+                let target = state.target();
+
+                let (target_cids, target_height) = if let Some(tipset) = target {
+                    (tipset.cids().to_vec(), tipset.epoch())
+                } else {
+                    (vec![], 0)
+                };
+
+                let (base_cids, base_height) = if let Some(tipset) = base {
+                    (tipset.cids().to_vec(), tipset.epoch())
+                } else {
+                    (vec![], 0)
+                };
+
+                let height_diff = target_height - base_height;
+
+                let hex_target_cids: Vec<String> = target_cids
+                    .iter()
+                    .map(|cid| hex::encode(cid.to_bytes()))
+                    .collect();
+
+                let hex_base_cids: Vec<String> = base_cids
+                    .iter()
+                    .map(|cid| hex::encode(cid.to_bytes()))
+                    .collect();
+
+                println!("sync status:");
+                println!("Base:\t{:?}", hex_base_cids);
+                println!("Target:\t{:?} ({})", hex_target_cids, target_height);
+                println!("Height diff:\t{}", height_diff);
+
+                if let Some(duration) = elapsed_time {
+                    println!("Elapsed time:\t{}", duration);
+                }
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();
