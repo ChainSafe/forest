@@ -5,7 +5,7 @@ use cid::{json::CidJson, Cid};
 use rpc_client::*;
 use structopt::StructOpt;
 
-use crate::cli::handle_rpc_err;
+use crate::cli::{format_vec_pretty, handle_rpc_err};
 
 use super::print_rpc_res;
 
@@ -40,28 +40,24 @@ impl SyncCommands {
                 let target = state.target();
 
                 let (target_cids, target_height) = if let Some(tipset) = target {
-                    (
-                        tipset.cids().iter().map(|cid| cid.to_string()).collect(),
-                        tipset.epoch(),
-                    )
+                    let cid_vec = tipset.cids().iter().map(|cid| cid.to_string()).collect();
+                    (format_vec_pretty(cid_vec), tipset.epoch())
                 } else {
-                    (vec![], 0)
+                    ("[]".to_string(), 0)
                 };
 
                 let (base_cids, base_height) = if let Some(tipset) = base {
-                    (
-                        tipset.cids().iter().map(|cid| cid.to_string()).collect(),
-                        tipset.epoch(),
-                    )
+                    let cid_vec = tipset.cids().iter().map(|cid| cid.to_string()).collect();
+                    (format_vec_pretty(cid_vec), tipset.epoch())
                 } else {
-                    (vec![], 0)
+                    ("[]".to_string(), 0)
                 };
 
                 let height_diff = base_height - target_height;
 
                 println!("sync status:");
-                println!("Base:\t{:?}", base_cids);
-                println!("Target:\t{:?} ({})", target_cids, target_height);
+                println!("Base:\t{}", base_cids);
+                println!("Target:\t{} ({})", target_cids, target_height);
                 println!("Height diff:\t{}", height_diff);
                 println!("Stage:\t{}", state.stage().to_string());
                 println!("Height:\t{}", state.epoch());

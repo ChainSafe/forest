@@ -217,6 +217,12 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
     }
 }
 
+/// Format a vector to a prettified string
+pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
+    format!("[{}]", vec.join(", "))
+}
+
+/// Print an error message and exit the program with an error code
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
     println!("Error: {}", msg);
     std::process::exit(code);
