@@ -2085,6 +2085,7 @@ dependencies = [
  "metrics",
  "net_utils",
  "networks",
+ "once_cell",
  "paramfetch",
  "pretty_env_logger",
  "prometheus",
@@ -5434,7 +5435,6 @@ dependencies = [
 name = "rpc-client"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "auth",
  "forest_address",
  "forest_blocks",
@@ -5444,7 +5444,6 @@ dependencies = [
  "jsonrpc-v2",
  "key_management",
  "log",
- "once_cell",
  "parity-multiaddr",
  "rpc-api",
  "serde",
