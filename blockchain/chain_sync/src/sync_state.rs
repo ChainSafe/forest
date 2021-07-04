@@ -111,8 +111,8 @@ impl SyncState {
     }
 
     /// Return an Arc clone of the Base [Tipset]
-    pub fn base(&self) -> Option<Arc<Tipset>> {
-        self.base.clone()
+    pub fn base(&self) -> &Option<Arc<Tipset>> {
+        &self.base
     }
 
     /// Return the current [ChainEpoch]

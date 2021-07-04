@@ -40,36 +40,34 @@ impl SyncCommands {
                 let target = state.target();
 
                 let (target_cids, target_height) = if let Some(tipset) = target {
-                    (tipset.cids().to_vec(), tipset.epoch())
+                    (
+                        tipset.cids().iter().map(|cid| cid.to_string()).collect(),
+                        tipset.epoch(),
+                    )
                 } else {
                     (vec![], 0)
                 };
 
                 let (base_cids, base_height) = if let Some(tipset) = base {
-                    (tipset.cids().to_vec(), tipset.epoch())
+                    (
+                        tipset.cids().iter().map(|cid| cid.to_string()).collect(),
+                        tipset.epoch(),
+                    )
                 } else {
                     (vec![], 0)
                 };
 
-                let height_diff = target_height - base_height;
-
-                let hex_target_cids: Vec<String> = target_cids
-                    .iter()
-                    .map(|cid| hex::encode(cid.to_bytes()))
-                    .collect();
-
-                let hex_base_cids: Vec<String> = base_cids
-                    .iter()
-                    .map(|cid| hex::encode(cid.to_bytes()))
-                    .collect();
+                let height_diff = base_height - target_height;
 
                 println!("sync status:");
-                println!("Base:\t{:?}", hex_base_cids);
-                println!("Target:\t{:?} ({})", hex_target_cids, target_height);
+                println!("Base:\t{:?}", base_cids);
+                println!("Target:\t{:?} ({})", target_cids, target_height);
                 println!("Height diff:\t{}", height_diff);
+                println!("Stage:\t{}", state.stage().to_string());
+                println!("Height:\t{}", state.epoch());
 
                 if let Some(duration) = elapsed_time {
-                    println!("Elapsed time:\t{}", duration);
+                    println!("Elapsed time:\t{}ms", duration.num_milliseconds());
                 }
             }
             Self::CheckBad { cid } => {
