@@ -16,6 +16,7 @@ members = [
     "vm/runtime",
     "vm/state_tree",
     "vm/interpreter",
+    "vm/state_migration",
     "node/clock",
     "node/db",
     "node/rpc",

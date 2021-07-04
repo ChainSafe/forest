@@ -41,6 +41,8 @@ actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 interpreter = { path = "../../vm/interpreter/" }
 message_pool = { path = "../message_pool" }
 networks = { path = "../../types/networks" }
+prometheus = { version = "0.12.0", features = ["process"] }
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [

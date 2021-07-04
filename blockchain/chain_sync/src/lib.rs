@@ -5,6 +5,7 @@
 
 mod bad_block_cache;
 mod chain_muxer;
+mod metrics;
 mod network_context;
 mod peer_manager;
 mod sync_state;

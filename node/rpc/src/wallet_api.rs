@@ -259,7 +259,8 @@ where
 {
     let (addr_str, msg_str, SignatureJson(sig)) = params;
     let address = Address::from_str(&addr_str)?;
-    let msg = hex::decode(msg_str).unwrap();
+    let msg = hex::decode(&msg_str)?;
+
     let ret = sig.verify(&msg, &address).is_ok();
     Ok(ret)
 }
