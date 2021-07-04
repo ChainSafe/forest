@@ -41,19 +41,3 @@ where
     let perms = verify_token(&token, ki.private_key())?;
     Ok(perms)
 }
-
-/// RPC call to retrieve node API multiaddress
-pub(crate) async fn auth_api_info<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<AuthApiInfoParams>,
-) -> Result<AuthApiInfoResult, JsonRpcError>
-where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-{
-    let (perms,) = params;
-    let ks = data.keystore.read().await;
-    let ki = ks.get(JWT_IDENTIFIER)?;
-    let token = create_token(perms, ki.private_key())?;
-    Ok(token)
-}

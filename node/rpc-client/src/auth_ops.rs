@@ -1,55 +1,27 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::env;
-
 use super::client::filecoin_rpc;
-use crate::{API_INFO_KEY, DEFAULT_MULTIADDRESS};
 use auth::*;
 use jsonrpc_v2::Error as JsonRpcError;
 
+fn match_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
+    match perm.as_str() {
+        "admin" => Ok(ADMIN.to_owned()),
+        "sign" => Ok(SIGN.to_owned()),
+        "write" => Ok(WRITE.to_owned()),
+        "read" => Ok(READ.to_owned()),
+        _ => Err(JsonRpcError::INVALID_PARAMS),
+    }
+}
+
 /// Creates a new JWT Token
 pub async fn auth_new(perm: String) -> Result<String, JsonRpcError> {
-    let perms = match perm.as_str() {
-        "admin" => ADMIN.to_owned(),
-        "sign" => SIGN.to_owned(),
-        "write" => WRITE.to_owned(),
-        "read" => READ.to_owned(),
-        _ => {
-            return Err(JsonRpcError::INVALID_PARAMS);
-        }
-    };
-
+    let perms = match_perms(perm)?;
     let ret: Vec<u8> = filecoin_rpc::auth_new((perms,)).await?;
-
     Ok(String::from_utf8(ret)?)
 }
 
 pub async fn auth_verify(token: String) -> Result<bool, JsonRpcError> {
     Ok(filecoin_rpc::auth_verify((token,)).await.is_ok())
-}
-
-pub async fn auth_api_info(perm: String) -> Result<String, JsonRpcError> {
-    let perms = match perm.as_str() {
-        "admin" => ADMIN.to_owned(),
-        "sign" => SIGN.to_owned(),
-        "write" => WRITE.to_owned(),
-        "read" => READ.to_owned(),
-        _ => {
-            return Err(JsonRpcError::INVALID_PARAMS);
-        }
-    };
-
-    let token = filecoin_rpc::auth_api_info((perms,)).await?;
-
-    let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_string());
-
-    let host = match api_info.split_once(':') {
-        Some((_, host)) => host,
-        None => DEFAULT_MULTIADDRESS,
-    };
-
-    let template = format!("FULLNODE_API_INFO=\"{}:{}\"", token, host);
-
-    Ok(template)
 }

@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::env;
 
-use crate::{API_INFO_KEY, DEFAULT_MULTIADDRESS};
+use rpc_api::{API_INFO_KEY, DEFAULT_MULTIADDRESS};
 
 const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 const DEFAULT_PROTOCOL: &str = "http";
@@ -184,10 +184,6 @@ pub mod filecoin_rpc {
     /// Auth
     pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
         call_params(AUTH_NEW, perm).await
-    }
-
-    pub async fn auth_api_info(perm: AuthApiInfoParams) -> Result<AuthApiInfoResult, Error> {
-        call_params(AUTH_API_INFO, perm).await
     }
 
     pub async fn auth_verify(params: AuthVerifyParams) -> Result<AuthVerifyResult, Error> {

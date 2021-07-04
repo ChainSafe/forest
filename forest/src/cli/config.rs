@@ -14,6 +14,7 @@ pub struct Config {
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
     pub rpc_port: String,
+    pub rpc_token: Option<String>,
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
@@ -34,6 +35,7 @@ impl Default for Config {
             genesis_file: None,
             enable_rpc: true,
             rpc_port: "1234".to_string(),
+            rpc_token: None,
             snapshot_path: None,
             snapshot: false,
             skip_load: false,

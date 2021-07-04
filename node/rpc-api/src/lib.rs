@@ -22,7 +22,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Auth API
     access.insert(auth_api::AUTH_NEW, Access::Admin);
     access.insert(auth_api::AUTH_VERIFY, Access::Read);
-    access.insert(auth_api::AUTH_API_INFO, Access::Read);
 
     // Beacon API
     access.insert(beacon_api::BEACON_GET_ENTRY, Access::Read);
@@ -129,6 +128,10 @@ pub fn check_access(access: &Access, claims: &[String]) -> bool {
     }
 }
 
+/// JSON-RPC API defaults
+pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
+pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
+
 /// JSON-RPC API definitions
 
 /// Auth API
@@ -140,10 +143,6 @@ pub mod auth_api {
     pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";
     pub type AuthVerifyParams = (String,);
     pub type AuthVerifyResult = Vec<String>;
-
-    pub const AUTH_API_INFO: &str = "Filecoin.AuthApiInfo";
-    pub type AuthApiInfoParams = (Vec<String>,);
-    pub type AuthApiInfoResult = String;
 }
 
 /// Beacon API
