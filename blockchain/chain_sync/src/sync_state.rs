@@ -134,7 +134,7 @@ impl SyncState {
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
         if let SyncStage::Complete = stage {
-            // self.end = Some(Utc::now().timestamp());
+            self.end = Some(Utc::now());
         }
         self.stage = stage;
     }
