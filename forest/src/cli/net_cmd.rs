@@ -45,7 +45,7 @@ impl NetCommands {
 
                     print_stdout(addresses.join("\n"));
                 }
-                Err(e) => handle_rpc_err(e.into()),
+                Err(e) => handle_rpc_err(e),
             },
             Self::Peers => match net_peers(()).await {
                 Ok(addrs) => {
@@ -61,7 +61,7 @@ impl NetCommands {
 
                     print_stdout(output.join("\n"));
                 }
-                Err(e) => handle_rpc_err(e.into()),
+                Err(e) => handle_rpc_err(e),
             },
             Self::Connect { address } => {
                 let addr: Multiaddr = address
@@ -71,16 +71,13 @@ impl NetCommands {
                 let mut id = "".to_owned();
 
                 for protocol in addr.iter() {
-                    match protocol {
-                        Protocol::P2p(p2p) => {
-                            id = multibase::encode(multibase::Base::Base58Btc, p2p.to_bytes());
-                            id = id.split_off(1);
-                        }
-                        _ => {}
+                    if let Protocol::P2p(p2p) = protocol {
+                        id = multibase::encode(multibase::Base::Base58Btc, p2p.to_bytes());
+                        id = id.split_off(1);
                     }
                 }
 
-                if id.len() == 0 {
+                if id.is_empty() {
                     cli_error_and_die("Needs a /p2p/ protocol present in multiaddr", 400);
                     return;
                 }
@@ -95,14 +92,14 @@ impl NetCommands {
                     Ok(_) => {
                         println!("connect {}: success", id);
                     }
-                    Err(e) => handle_rpc_err(e.into()),
+                    Err(e) => handle_rpc_err(e),
                 }
             }
             Self::Disconnect { id } => match net_disconnect((id.to_owned(),)).await {
                 Ok(_) => {
                     todo!();
                 }
-                Err(e) => handle_rpc_err(e.into()),
+                Err(e) => handle_rpc_err(e),
             },
         }
     }
