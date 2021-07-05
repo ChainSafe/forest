@@ -77,7 +77,7 @@ use num_bigint::bigint_ser::BigIntSer;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Signed, Zero};
-use runtime::{ActorCode, Runtime, Syscalls};
+use runtime::{ActorCode, Runtime};
 use std::collections::{hash_map::Entry, HashMap};
 use std::error::Error as StdError;
 use std::{iter, ops::Neg};
@@ -803,7 +803,7 @@ impl Actor {
         }
 
         let seal_proof = precommits[0].info.seal_proof;
-        if precommits.len() <= 0 {
+        if !precommits.is_empty() {
             return Err(actor_error!(
                 ErrIllegalState,
                 "bitfield non-empty but zero precommits read from state"
@@ -811,7 +811,7 @@ impl Actor {
         }
         rt.verify_aggregate_seals(&AggregateSealVerifyProofAndInfos {
             miner: miner_actor_id,
-            seal_proof: seal_proof,
+            seal_proof,
             aggregate_proof: fil_types::RegisteredAggregateProof::SnarkPackV1,
             proof: params.aggregate_proof,
             infos: svis,

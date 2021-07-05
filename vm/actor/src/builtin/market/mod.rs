@@ -20,7 +20,7 @@ use crate::{
 use address::Address;
 use ahash::AHashMap;
 use byteorder::{BigEndian, ByteOrder};
-use cid::{Cid, Prefix};
+use cid::Prefix;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
@@ -666,7 +666,7 @@ impl Actor {
             e.downcast_default(ExitCode::ErrIllegalState, "failed to load deal proposals")
         })?;
         let mut commds = Vec::with_capacity(params.inputs.len());
-        for (i, comm_input) in params.inputs.iter().enumerate() {
+        for comm_input in params.inputs.iter() {
             let mut pieces: Vec<PieceInfo> = Vec::with_capacity(comm_input.deal_ids.len());
             for deal_id in &comm_input.deal_ids {
                 let deal = proposals
