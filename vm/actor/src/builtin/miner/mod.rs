@@ -669,7 +669,9 @@ impl Actor {
 
         Ok(())
     }
-
+    /// Checks state of the corresponding sector pre-commitments and verifies aggregate proof of replication
+    /// of these sectors. If valid, the sectors' deals are activated, sectors are assigned a deadline and charged pledge
+    /// and precommit state is removed.
     fn prove_commit_aggregate<BS, RT>(
         rt: &mut RT,
         mut params: ProveCommitAggregateParams,
@@ -758,7 +760,6 @@ impl Actor {
 
         let comm_ds = request_unsealed_sector_cids(rt, &compute_data_commitments_inputs)?;
         let mut svis = Vec::new();
-        let receiver = rt.message().receiver();
         let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
             *i
         } else {
@@ -768,9 +769,8 @@ impl Actor {
                 rt.message().receiver()
             ));
         };
-        // Regenerate challenge randomness, which must match that generated for the proof.
         let receiver_bytes = rt.message().receiver().marshal_cbor().map_err(|e| {
-            ActorError::from(e).wrap("failed to marshal address for window post challenge")
+            ActorError::from(e).wrap("failed to marshal address for seal verification challenge")
         })?;
 
         for (i, precommit) in precommits.iter().enumerate() {
@@ -816,7 +816,9 @@ impl Actor {
             proof: params.aggregate_proof,
             infos: svis,
         })
-        .map_err(|e| actor_error!(ErrIllegalArgument, "aggregate seal verify failed: {}", e))?;
+        .map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalArgument, "aggregate seal verify failed")
+        })?;
         confirm_sector_proofs_valid_internal(rt, precommits)
     }
 
@@ -3495,7 +3497,7 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if data_commitment_inputs.len() == 0 {
+    if data_commitment_inputs.is_empty() {
         return Ok(vec![]);
     }
     let ret: ComputeDataCommitmentReturn = rt
@@ -3979,21 +3981,8 @@ where
     let power_total = request_current_total_power(rt)?;
     let circulating_supply = rt.total_fil_circ_supply()?;
 
-    // 1. Activate deals, skipping pre-commits with invalid deals.
-    //    - calls the market actor.
-    // 2. Reschedule replacement sector expiration.
-    //    - loads and saves sectors
-    //    - loads and saves deadlines/partitions
-    // 3. Add new sectors.
-    //    - loads and saves sectors.
-    //    - loads and saves deadlines/partitions
-    //
     // Ideally, we'd combine some of these operations, but at least we have
     // a constant number of them.
-
-    let state = rt.state()?;
-    let info = get_miner_info(rt.store(), &state)?;
-
     // Committed-capacity sectors licensed for early removal by new sectors being proven.
     let mut replace_sectors = DeadlineSectorMap::new();
 
