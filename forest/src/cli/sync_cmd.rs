@@ -1,9 +1,13 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::time::Duration;
+
+use chain_sync::SyncStage;
 use cid::{json::CidJson, Cid};
 use rpc_client::*;
 use structopt::StructOpt;
+use ticker::Ticker;
 
 use crate::cli::{format_vec_pretty, handle_rpc_err};
 
@@ -12,7 +16,10 @@ use super::print_rpc_res;
 #[derive(Debug, StructOpt)]
 pub enum SyncCommands {
     #[structopt(about = "Wait for sync to be complete")]
-    Wait,
+    Wait {
+        #[structopt(short, about = "Don't exit after node is synced")]
+        watch: bool,
+    },
     #[structopt(about = "Check sync status")]
     Status,
     #[structopt(about = "Check if a given block is marked bad, and for what reason")]
@@ -30,7 +37,47 @@ pub enum SyncCommands {
 impl SyncCommands {
     pub async fn run(&self) {
         match self {
-            Self::Wait => {}
+            Self::Wait { watch } => {
+                let watch = *watch;
+
+                let ticker = Ticker::new(0.., Duration::from_secs(1));
+
+                for _ in ticker {
+                    let response = status(()).await.map_err(handle_rpc_err).unwrap();
+                    let state = &response.active_syncs[0];
+
+                    let base = state.base();
+                    let target = state.target();
+
+                    let target_height = if let Some(tipset) = target {
+                        tipset.epoch()
+                    } else {
+                        0
+                    };
+
+                    let base_height = if let Some(tipset) = base {
+                        tipset.epoch()
+                    } else {
+                        0
+                    };
+
+                    println!(
+                        "Worker: 0; Base: {}; Target: {}; (diff: {})",
+                        base_height,
+                        target_height,
+                        target_height - base_height
+                    );
+                    println!(
+                        "State: {}; Current Epoch: {}; Todo: FIXME",
+                        state.stage(),
+                        base_height
+                    );
+
+                    if state.stage() == SyncStage::Complete && !watch {
+                        break;
+                    };
+                }
+            }
             Self::Status => {
                 let response = status(()).await.map_err(handle_rpc_err).unwrap();
 
