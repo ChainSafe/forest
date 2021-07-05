@@ -14,6 +14,9 @@ use num_traits::Pow;
 use std::cmp;
 use vm::TokenAmount;
 
+pub const MAX_AGGREGATED_SECTORS: usize = 819;
+pub const MIN_AGGREGATED_SECTORS: usize = 1;
+pub const MAX_AGGREGATED_PROOF_SIZE: usize = 192000;
 /// The period over which all a miner's active sectors will be challenged.
 pub const WPOST_PROVING_PERIOD: ChainEpoch = EPOCHS_IN_DAY;
 /// The duration of a deadline's challenge window, the period before a deadline when the challenge is available.
