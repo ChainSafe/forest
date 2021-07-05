@@ -301,7 +301,7 @@ impl TryFrom<RegisteredAggregateProof> for filecoin_proofs_api::RegisteredAggreg
         use RegisteredAggregateProof::*;
         match p {
             SnarkPackV1 => Ok(Self::SnarkPackV1),
-            Invalid(i) => Err(format!("unsuppored aggregate proof type: {}", i)),
+            Invalid(i) => Err(format!("unsupported aggregate proof type: {}", i)),
         }
     }
 }

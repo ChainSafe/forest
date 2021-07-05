@@ -450,14 +450,21 @@ impl PriceList {
         aggregate: &AggregateSealVerifyProofAndInfos,
     ) -> GasCharge {
         let proof_type = aggregate.seal_proof;
-        let per_proof = self
-            .verify_aggregate_seal_per
-            .get(&proof_type)
-            .expect("There is an implementation error where proof type does not exist in table");
-        let step = self
-            .verify_aggregate_seal_steps
-            .get(&proof_type)
-            .expect("There is an implementation error where proof type does not exist in table");
+        let per_proof = self.verify_aggregate_seal_per.get(&proof_type).unwrap_or(
+            self.verify_aggregate_seal_per
+                .get(&RegisteredSealProof::StackedDRG32GiBV1P1)
+                .expect(
+                    "There is an implementation error where proof type does not exist in table",
+                ),
+        );
+
+        let step = self.verify_aggregate_seal_steps.get(&proof_type).unwrap_or(
+            self.verify_aggregate_seal_steps
+                .get(&RegisteredSealProof::StackedDRG32GiBV1P1)
+                .expect(
+                    "There is an implementation error where proof type does not exist in table",
+                ),
+        );
         // Should be safe because there is a limit to how much seals get aggregated
         let num = aggregate.infos.len() as i64;
         GasCharge::new(
