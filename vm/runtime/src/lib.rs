@@ -159,6 +159,8 @@ pub trait Runtime<BS: BlockStore>: Syscalls {
             }
         })
     }
+
+    fn base_fee(&self) -> &TokenAmount;
 }
 
 /// Message information available to the actor about executing message.
@@ -229,6 +231,10 @@ pub trait Syscalls {
         }
         Ok(verified)
     }
+    fn verify_aggregate_seals(
+        &self,
+        aggregate: &fil_types::AggregateSealVerifyProofAndInfos,
+    ) -> Result<(), Box<dyn StdError>>;
 }
 
 /// Result of checking two headers for a consensus fault.
