@@ -63,7 +63,9 @@ pub trait ProofVerifier {
         let prover_id = prover_id_from_u64(aggregate.miner);
 
         struct AggregationInputs {
+            // replica
             commr: [u8; 32],
+            // data
             commd: [u8; 32],
             sector_id: u64,
             ticket: [u8; 32],
