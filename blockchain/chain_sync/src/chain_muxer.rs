@@ -479,7 +479,7 @@ where
             .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
             .await;
 
-        return Ok(Some((tipset, source)));
+        Ok(Some((tipset, source)))
     }
 
     fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
