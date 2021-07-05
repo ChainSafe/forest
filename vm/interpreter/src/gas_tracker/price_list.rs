@@ -254,7 +254,7 @@ impl StepCost {
         if i < 0 {
             return 0;
         }
-        return self.0[i as usize].cost;
+        self.0[i as usize].cost
     }
 }
 
