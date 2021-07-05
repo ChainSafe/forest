@@ -85,13 +85,12 @@ pub struct ActivateDealsParams {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ComputeDataCommitmentParams {
-   pub inputs: Vec<SectorDataSpec>,
+    pub inputs: Vec<SectorDataSpec>,
 }
 
 #[derive(Serialize_tuple)]
 pub struct ComputeDataCommitmentParamsRef<'a> {
     pub inputs: &'a [SectorDataSpec],
-
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -104,8 +103,6 @@ pub type DealArray<'bs, BS> = Amt<'bs, DealProposal, BS>;
 
 /// A specialization of a array to deals.
 pub type DealMetaArray<'bs, BS> = Amt<'bs, DealState, BS>;
-
-
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct SectorDataSpec {

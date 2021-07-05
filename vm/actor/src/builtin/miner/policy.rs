@@ -14,8 +14,11 @@ use num_traits::Pow;
 use std::cmp;
 use vm::TokenAmount;
 
+/// Maximum amount of sectors that can be aggregated.
 pub const MAX_AGGREGATED_SECTORS: usize = 819;
+/// Minimum amount of sectors that can be aggregated.
 pub const MIN_AGGREGATED_SECTORS: usize = 1;
+/// Maximum total aggregated proof size.
 pub const MAX_AGGREGATED_PROOF_SIZE: usize = 192000;
 /// The period over which all a miner's active sectors will be challenged.
 pub const WPOST_PROVING_PERIOD: ChainEpoch = EPOCHS_IN_DAY;
@@ -127,10 +130,9 @@ pub fn max_prove_commit_duration(proof: RegisteredSealProof) -> Option<ChainEpoc
     use RegisteredSealProof::*;
     match proof {
         StackedDRG32GiBV1 | StackedDRG2KiBV1 | StackedDRG8MiBV1 | StackedDRG512MiBV1
-        | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG2KiBV1P1 | StackedDRG8MiBV1P1
-        | StackedDRG512MiBV1P1 | StackedDRG64GiBV1P1 => {
-            Some(EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY)
-        }
+        | StackedDRG64GiBV1 => Some(EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
+        StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1 | StackedDRG512MiBV1P1 | StackedDRG8MiBV1P1
+        | StackedDRG2KiBV1P1 => Some(6 * EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
         _ => None,
     }
 }

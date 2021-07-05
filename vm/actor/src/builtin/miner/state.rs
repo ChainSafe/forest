@@ -1173,11 +1173,15 @@ impl State {
         sector_nos: &BitField,
     ) -> Result<Vec<SectorPreCommitOnChainInfo>, Box<dyn StdError>> {
         let mut precommits = Vec::new();
-        let precommitted = make_map_with_root_and_bitwidth(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
-        for sector_no in sector_nos.iter(){
-            let info: &SectorPreCommitOnChainInfo = precommitted.get(&u64_key(sector_no as u64))?.ok_or_else(|| actor_error!(ErrNotFound, "sector {} not found", sector_no))?;
+        let precommitted =
+            make_map_with_root_and_bitwidth(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        for sector_no in sector_nos.iter() {
+            let info: &SectorPreCommitOnChainInfo =
+                precommitted
+                    .get(&u64_key(sector_no as u64))?
+                    .ok_or_else(|| actor_error!(ErrNotFound, "sector {} not found", sector_no))?;
             precommits.push(info.clone());
-        };
+        }
         Ok(precommits)
     }
 }

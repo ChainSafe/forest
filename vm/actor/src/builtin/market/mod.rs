@@ -668,35 +668,35 @@ impl Actor {
         let mut commds = Vec::with_capacity(params.inputs.len());
         for (i, comm_input) in params.inputs.iter().enumerate() {
             let mut pieces: Vec<PieceInfo> = Vec::with_capacity(comm_input.deal_ids.len());
-            for deal_id in &comm_input.deal_ids{
+            for deal_id in &comm_input.deal_ids {
                 let deal = proposals
-                .get(*deal_id as usize)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to get deal_id ({})", deal_id),
-                    )
-                })?
-                .ok_or_else(|| actor_error!(ErrNotFound, "proposal doesn't exist ({})", deal_id))?;
+                    .get(*deal_id as usize)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to get deal_id ({})", deal_id),
+                        )
+                    })?
+                    .ok_or_else(|| {
+                        actor_error!(ErrNotFound, "proposal doesn't exist ({})", deal_id)
+                    })?;
                 pieces.push(PieceInfo {
-                cid: deal.piece_cid,
-                size: deal.piece_size,
+                    cid: deal.piece_cid,
+                    size: deal.piece_size,
                 });
             }
             let commd = rt
-            .compute_unsealed_sector_cid(comm_input.sector_type, &pieces)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::SysErrIllegalArgument,
-                    "failed to compute unsealed sector CID",
-                )
-            })?; 
+                .compute_unsealed_sector_cid(comm_input.sector_type, &pieces)
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::SysErrIllegalArgument,
+                        "failed to compute unsealed sector CID",
+                    )
+                })?;
             commds.push(commd);
         }
 
-        Ok(ComputeDataCommitmentReturn{
-            commds
-        })
+        Ok(ComputeDataCommitmentReturn { commds })
     }
 
     fn cron_tick<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
