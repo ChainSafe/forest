@@ -2,3 +2,4 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod util;
+mod init;

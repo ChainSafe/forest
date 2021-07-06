@@ -7,8 +7,6 @@ use actor::{ipld_amt::Amt, make_empty_map};
 use actor_interface::ActorVersion;
 use actor_interface::{Array, Map as Map2};
 use cid::Cid;
-use encoding::Cbor;
-use fil_types::HAMT_BIT_WIDTH;
 use forest_hash_utils::BytesKey;
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize};
