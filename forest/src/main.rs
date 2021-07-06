@@ -13,17 +13,16 @@ use structopt::StructOpt;
 async fn main() {
     logger::setup_logger();
     // Capture CLI inputs
-    match CLI::from_args() {
-        CLI { opts, cmd } => {
-            match opts.to_config() {
-                Ok(cfg) => match cmd {
-                    Some(command) => subcommand::process(command, cfg).await,
-                    None => daemon::start(cfg).await,
-                },
-                Err(e) => {
-                    println!("Error parsing config. Error was: {}", e);
-                }
-            };
+    let CLI { opts, cmd } = CLI::from_args();
+
+    // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
+    match opts.to_config() {
+        Ok(cfg) => match cmd {
+            Some(command) => subcommand::process(command, cfg).await,
+            None => daemon::start(cfg).await,
+        },
+        Err(e) => {
+            println!("Error parsing config. Error was: {}", e);
         }
-    }
+    };
 }

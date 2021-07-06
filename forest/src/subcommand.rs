@@ -4,7 +4,7 @@
 use auth::{create_token, ADMIN, JWT_IDENTIFIER};
 use rpassword::read_password;
 use rpc_client::API_INFO;
-use std::{io::Write, path::PathBuf};
+use std::path::PathBuf;
 use wallet::{KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME};
 
 use super::cli::{Config, Subcommand};
@@ -17,8 +17,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         None => {
             let keystore = if config.encrypt_keystore {
                 loop {
-                    print!("keystore passphrase: ");
-                    std::io::stdout().flush().unwrap();
+                    println!("keystore passphrase: ");
 
                     let passphrase = read_password().expect("Error reading passphrase");
 
@@ -26,13 +25,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
                     data_dir.push(ENCRYPTED_KEYSTORE_NAME);
 
                     if !data_dir.exists() {
-                        print!("keystore cannot be found from environment or arguments");
-                        std::io::stdout().flush().unwrap();
-
-                        if passphrase != read_password().unwrap() {
-                            println!("passphrases do not match. please retry");
-                            continue;
-                        }
+                        println!("keystore cannot be found from environment or arguments");
                     }
 
                     let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
