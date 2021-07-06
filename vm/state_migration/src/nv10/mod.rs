@@ -3,3 +3,4 @@
 
 mod util;
 mod init;
+mod multisig;
