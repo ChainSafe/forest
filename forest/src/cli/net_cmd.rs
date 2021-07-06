@@ -66,7 +66,13 @@ impl NetCommands {
             Self::Connect { address } => {
                 let addr: Multiaddr = address
                     .parse()
-                    .expect("parse provided multiaddr from string");
+                    .map_err(|e| {
+                        cli_error_and_die(
+                            &format!("Error parsing multiaddr. Error was: {}", e),
+                            400,
+                        );
+                    })
+                    .expect("Parse provided multiaddr from string");
 
                 let mut id = "".to_owned();
 
