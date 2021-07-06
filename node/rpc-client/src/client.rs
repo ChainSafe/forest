@@ -1,13 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-/// Filecoin RPC client interface methods
-pub mod auth_ops;
-pub mod chain_ops;
-pub mod net_ops;
-pub mod wallet_ops;
-
-/// Filecoin HTTP JSON-RPC client methods
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use log::{debug, error};
 use parity_multiaddr::{Multiaddr, Protocol};
@@ -83,8 +76,8 @@ fn multiaddress_to_url(ma_str: String) -> String {
                 Protocol::Dnsaddr(dns) => {
                     addr.host = dns.to_string();
                 }
-                Protocol::Tcp(port) => {
-                    addr.port = port.to_string();
+                Protocol::Tcp(p) => {
+                    addr.port = p.to_string();
                 }
                 Protocol::Http => {
                     addr.protocol = "http".to_string();
@@ -128,7 +121,7 @@ where
         Some((jwt, host)) => surf::post(multiaddress_to_url(host.to_string()))
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_call)?)
-            .header("Authorization", format!("Bearer {}", jwt.to_string())),
+            .header("Authorization", jwt.to_string()),
         None => surf::post(DEFAULT_URL)
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_call)?),
@@ -177,4 +170,84 @@ where
         .finish();
 
     call(rpc_req).await.map_err(|e| e)
+}
+
+/// Filecoin RPC client interface methods
+pub mod filecoin_rpc {
+    use jsonrpc_v2::Error;
+
+    use crate::call_params;
+    use rpc_api::{auth_api::*, chain_api::*, wallet_api::*};
+
+    /// Auth
+    pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
+        call_params(AUTH_NEW, perm).await
+    }
+
+    pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockResult, Error> {
+        call_params(CHAIN_GET_BLOCK, cid).await
+    }
+
+    pub async fn chain_get_genesis() -> Result<ChainGetGenesisResult, Error> {
+        call_params(CHAIN_GET_GENESIS, ()).await
+    }
+
+    pub async fn chain_head() -> Result<ChainHeadResult, Error> {
+        call_params(CHAIN_HEAD, ()).await
+    }
+
+    pub async fn chain_get_message(
+        cid: ChainGetMessageParams,
+    ) -> Result<ChainGetMessageResult, Error> {
+        call_params(CHAIN_GET_MESSAGE, cid).await
+    }
+
+    pub async fn chain_read_obj(cid: ChainReadObjParams) -> Result<ChainReadObjResult, Error> {
+        call_params(CHAIN_READ_OBJ, cid).await
+    }
+
+    /// Wallet
+    pub async fn wallet_new(signature_type: WalletNewParams) -> Result<WalletNewResult, Error> {
+        call_params(WALLET_NEW, signature_type).await
+    }
+
+    pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, Error> {
+        call_params(WALLET_DEFAULT_ADDRESS, ()).await
+    }
+
+    pub async fn wallet_balance(
+        address: WalletBalanceParams,
+    ) -> Result<WalletBalanceResult, Error> {
+        call_params(WALLET_BALANCE, address).await
+    }
+
+    pub async fn wallet_export(address: WalletExportParams) -> Result<WalletExportResult, Error> {
+        call_params(WALLET_EXPORT, address).await
+    }
+
+    pub async fn wallet_import(key: WalletImportParams) -> Result<WalletImportResult, Error> {
+        call_params(WALLET_IMPORT, key).await
+    }
+
+    pub async fn wallet_list() -> Result<WalletListResult, Error> {
+        call_params(WALLET_LIST, ()).await
+    }
+
+    pub async fn wallet_has(key: WalletHasParams) -> Result<WalletHasResult, Error> {
+        call_params(WALLET_HAS, key).await
+    }
+
+    pub async fn wallet_set_default(
+        address: WalletSetDefaultParams,
+    ) -> Result<WalletSetDefaultResult, Error> {
+        call_params(WALLET_SET_DEFAULT, address).await
+    }
+
+    pub async fn wallet_sign(message: WalletSignParams) -> Result<WalletSignResult, Error> {
+        call_params(WALLET_SIGN, message).await
+    }
+
+    pub async fn wallet_verify(message: WalletVerifyParams) -> Result<WalletVerifyResult, Error> {
+        call_params(WALLET_VERIFY, message).await
+    }
 }

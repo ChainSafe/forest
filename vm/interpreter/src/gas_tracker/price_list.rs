@@ -6,7 +6,8 @@ use ahash::AHashMap;
 use clock::ChainEpoch;
 use crypto::SignatureType;
 use fil_types::{
-    PieceInfo, RegisteredPoStProof, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo,
+    AggregateSealVerifyProofAndInfos, PieceInfo, RegisteredPoStProof, RegisteredSealProof,
+    SealVerifyInfo, WindowPoStVerifyInfo,
 };
 use networks::UPGRADE_CALICO_HEIGHT;
 use num_traits::Zero;
@@ -42,6 +43,52 @@ lazy_static! {
         hashing_base: 31355,
         compute_unsealed_sector_cid_base: 98647,
         verify_seal_base: 2000, // TODO revisit potential removal of this
+
+        verify_aggregate_seal_base: 0,
+        verify_aggregate_seal_per: [
+            (
+                RegisteredSealProof::StackedDRG32GiBV1P1,
+                449900
+            ),
+            (
+                RegisteredSealProof::StackedDRG64GiBV1P1,
+                359272
+            )
+        ].iter().copied().collect(),
+        verify_aggregate_seal_steps: [
+            (
+                RegisteredSealProof::StackedDRG32GiBV1P1,
+                StepCost (
+                    vec![
+                        Step{start: 4, cost: 103994170},
+                        Step{start: 7, cost: 112356810},
+                        Step{start: 13, cost: 122912610},
+                        Step{start: 26, cost: 137559930},
+                        Step{start: 52, cost: 162039100},
+                        Step{start: 103, cost: 210960780},
+                        Step{start: 205, cost: 318351180},
+                        Step{start: 410, cost: 528274980},
+                    ]
+                )
+            ),
+            (
+                RegisteredSealProof::StackedDRG64GiBV1P1,
+                StepCost (
+                    vec![
+                        Step{start: 4, cost: 102581240},
+                        Step{start: 7, cost: 110803030},
+                        Step{start: 13, cost: 120803700},
+                        Step{start: 26, cost: 134642130},
+                        Step{start: 52, cost: 157357890},
+                        Step{start: 103, cost: 203017690},
+                        Step{start: 205, cost: 304253590},
+                        Step{start: 410, cost: 509880640},
+                    ]
+                )
+            )
+        ].iter()
+        .cloned()
+        .collect(),
         verify_consensus_fault: 495422,
 
         verify_post_lookup: [
@@ -102,8 +149,54 @@ lazy_static! {
         hashing_base: 31355,
         compute_unsealed_sector_cid_base: 98647,
         verify_seal_base: 2000, // TODO revisit potential removal of this
-        verify_consensus_fault: 495422,
 
+        verify_aggregate_seal_base: 0,
+        verify_aggregate_seal_per: [
+            (
+                RegisteredSealProof::StackedDRG32GiBV1P1,
+                449900
+            ),
+            (
+                RegisteredSealProof::StackedDRG64GiBV1P1,
+                359272
+            )
+        ].iter().copied().collect(),
+        verify_aggregate_seal_steps: [
+            (
+                RegisteredSealProof::StackedDRG32GiBV1P1,
+                StepCost (
+                    vec![
+                        Step{start: 4, cost: 103994170},
+                        Step{start: 7, cost: 112356810},
+                        Step{start: 13, cost: 122912610},
+                        Step{start: 26, cost: 137559930},
+                        Step{start: 52, cost: 162039100},
+                        Step{start: 103, cost: 210960780},
+                        Step{start: 205, cost: 318351180},
+                        Step{start: 410, cost: 528274980},
+                    ]
+                )
+            ),
+            (
+                RegisteredSealProof::StackedDRG64GiBV1P1,
+                StepCost (
+                    vec![
+                        Step{start: 4, cost: 102581240},
+                        Step{start: 7, cost: 110803030},
+                        Step{start: 13, cost: 120803700},
+                        Step{start: 26, cost: 134642130},
+                        Step{start: 52, cost: 157357890},
+                        Step{start: 103, cost: 203017690},
+                        Step{start: 205, cost: 304253590},
+                        Step{start: 410, cost: 509880640},
+                    ]
+                )
+            )
+        ].iter()
+        .cloned()
+        .collect(),
+
+        verify_consensus_fault: 495422,
         verify_post_lookup: [
             (
                 RegisteredPoStProof::StackedDRGWindow512MiBV1,
@@ -138,6 +231,31 @@ lazy_static! {
 pub(crate) struct ScalingCost {
     flat: i64,
     scale: i64,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct StepCost(Vec<Step>);
+#[derive(Clone, Debug, Copy)]
+pub(crate) struct Step {
+    start: i64,
+    cost: i64,
+}
+
+impl StepCost {
+    pub(crate) fn lookup(&self, x: i64) -> i64 {
+        let mut i: i64 = 0;
+        while i < self.0.len() as i64 {
+            if self.0[i as usize].start > x {
+                break;
+            }
+            i += 1;
+        }
+        i -= 1;
+        if i < 0 {
+            return 0;
+        }
+        self.0[i as usize].cost
+    }
 }
 
 /// Provides prices for operations in the VM
@@ -217,6 +335,10 @@ pub struct PriceList {
 
     pub(crate) compute_unsealed_sector_cid_base: i64,
     pub(crate) verify_seal_base: i64,
+    pub(crate) verify_aggregate_seal_base: i64,
+    pub(crate) verify_aggregate_seal_per: AHashMap<RegisteredSealProof, i64>,
+    pub(crate) verify_aggregate_seal_steps: AHashMap<RegisteredSealProof, StepCost>,
+
     pub(crate) verify_post_lookup: AHashMap<RegisteredPoStProof, ScalingCost>,
     pub(crate) verify_post_discount: bool,
     pub(crate) verify_consensus_fault: i64,
@@ -321,6 +443,41 @@ impl PriceList {
     #[inline]
     pub fn on_verify_seal(&self, _info: &SealVerifyInfo) -> GasCharge {
         GasCharge::new("OnVerifySeal", self.verify_seal_base, 0)
+    }
+    #[inline]
+    pub fn on_verify_aggregate_seals(
+        &self,
+        aggregate: &AggregateSealVerifyProofAndInfos,
+    ) -> GasCharge {
+        let proof_type = aggregate.seal_proof;
+        let per_proof = self
+            .verify_aggregate_seal_per
+            .get(&proof_type)
+            .unwrap_or_else(|| {
+                self.verify_aggregate_seal_per
+                    .get(&RegisteredSealProof::StackedDRG32GiBV1P1)
+                    .expect(
+                        "There is an implementation error where proof type does not exist in table",
+                    )
+            });
+
+        let step = self
+            .verify_aggregate_seal_steps
+            .get(&proof_type)
+            .unwrap_or_else(|| {
+                self.verify_aggregate_seal_steps
+                    .get(&RegisteredSealProof::StackedDRG32GiBV1P1)
+                    .expect(
+                        "There is an implementation error where proof type does not exist in table",
+                    )
+            });
+        // Should be safe because there is a limit to how much seals get aggregated
+        let num = aggregate.infos.len() as i64;
+        GasCharge::new(
+            "OnVerifyAggregateSeals",
+            per_proof * num + step.lookup(num),
+            0,
+        )
     }
     /// Returns gas required for PoSt verification.
     #[inline]
