@@ -16,6 +16,7 @@ use rayon::ThreadPoolBuildError;
 use std::collections::{HashMap, HashSet};
 
 pub mod nv12;
+pub mod nv10;
 
 pub const ACTORS_COUNT: usize = 11;
 
@@ -45,6 +46,14 @@ pub enum MigrationError {
     IncompleteMigrationSpec(usize),
     #[error("Thread pool creation failed: {0}")]
     ThreadPoolCreation(ThreadPoolBuildError),
+    #[error("state HAMT loading failed : {0}")]
+    HAMTLoad(String),
+    #[error("state AMT loading failed : {0}")]
+    AMTLoad(String),
+    #[error("HAMT migration failed : {0}")]
+    MigrateHAMT(String),
+    #[error("AMT migration failed : {0}")]
+    MigrateAMT(String),
     #[error("Migration failed")]
     Other,
 }

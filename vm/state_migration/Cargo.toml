@@ -27,3 +27,4 @@ crossbeam-channel = "0.5.1"
 rayon = "1.5"
 log = "0.4.8"
 num_cpus = "1.13.0"
+actor = { package = "forest_actor", path = "../actor" }
