@@ -75,10 +75,14 @@ pub struct CLIOpts {
     pub genesis: Option<String>,
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
-    #[structopt(short, long, help = "Port used for communication")]
-    pub token: Option<String>,
-    #[structopt(short, long, help = "Client JWT token to use for HTTP JSON-RPC")]
+    #[structopt(short, long, help = "Port used for JSON-RPC communication")]
     pub port: Option<String>,
+    #[structopt(
+        short,
+        long,
+        help = "Client JWT token to use for JSON-RPC authentication"
+    )]
+    pub token: Option<String>,
     #[structopt(long, help = "Port used for metrics collection server")]
     pub metrics_port: Option<u16>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
