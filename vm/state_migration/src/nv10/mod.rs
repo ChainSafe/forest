@@ -5,3 +5,4 @@ mod util;
 mod init;
 mod multisig;
 mod paych;
+mod verifreg;
