@@ -129,6 +129,10 @@ impl CLIOpts {
         if self.rpc.unwrap_or(cfg.enable_rpc) {
             cfg.enable_rpc = true;
             cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
+
+            if cfg.rpc_token.is_some() {
+                cfg.rpc_token = self.token.to_owned();
+            }
         } else {
             cfg.enable_rpc = false;
         }
@@ -168,14 +172,6 @@ impl CLIOpts {
 
         Ok(cfg)
     }
-}
-
-pub(super) async fn cli_config(opts: CLIOpts) {
-    todo!(); // TODO: configure lazy cfg init for token, port, etc.
-}
-
-pub(super) async fn get_config() {
-    todo!(); // TODO: configure lazy cfg getter for token, port, etc.
 }
 
 /// Blocks current thread until ctrl-c is received
