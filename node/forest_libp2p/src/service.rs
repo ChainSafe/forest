@@ -349,6 +349,7 @@ where
 
                                         if Swarm::dial_addr(swarm_stream.get_mut(), multiaddr.clone()).is_ok() {
                                             success = true;
+                                            break;
                                         };
                                     }
 
@@ -356,9 +357,8 @@ where
                                         warn!("Failed to connect to a peer");
                                     }
                                 }
-                                NetRPCMethods::NetDisconnect(response_channel, peer_id) => {
-                                    // swarm_stream.get_mut().disconnect(&peer_id);
-                                    println!("TODO: {}", peer_id);
+                                NetRPCMethods::NetDisconnect(response_channel, _peer_id) => {
+                                    warn!("NetDisconnect API not yet implmeneted"); // TODO: implement NetDisconnect - See #1181
 
                                     if response_channel.send(()).is_err() {
                                         warn!("Failed to disconnect from a peer");

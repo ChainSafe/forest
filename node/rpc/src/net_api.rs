@@ -3,7 +3,7 @@
 
 use futures::channel::oneshot;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use log::{error, info};
+use log::error;
 
 use beacon::Beacon;
 use blockstore::BlockStore;
@@ -78,7 +78,6 @@ pub(crate) async fn net_connect<
     let success = rx.await?;
 
     if success {
-        info!("connect {} success", peer_id.to_base58()); // TODO: return this from CLI
         Ok(())
     } else {
         error!("Peer could not be dialed from any address provided");
@@ -95,8 +94,6 @@ pub(crate) async fn net_disconnect<
 ) -> Result<NetDisconnectResult, JsonRpcError> {
     let (id,) = params;
     let peer_id = PeerId::from_bytes(id.as_bytes())?;
-
-    println!("compare peer_ids: {} == {}", id, &peer_id.to_base58()); // TODO: remove
 
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
