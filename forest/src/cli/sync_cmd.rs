@@ -1,10 +1,18 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Duration;
+use std::{
+    io::{stdout, Write},
+    time::Duration,
+};
 
 use chain_sync::SyncStage;
 use cid::{json::CidJson, Cid};
+use crossterm::{
+    cursor,
+    terminal::{self, ClearType},
+    QueueableCommand,
+};
 use rpc_client::*;
 use structopt::StructOpt;
 use ticker::Ticker;
@@ -34,6 +42,7 @@ pub enum SyncCommands {
     },
 }
 
+#[allow(unused_must_use)]
 impl SyncCommands {
     pub async fn run(&self) {
         match self {
@@ -41,6 +50,8 @@ impl SyncCommands {
                 let watch = *watch;
 
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
+
+                let mut stdout = stdout();
 
                 for _ in ticker {
                     let response = status(()).await.map_err(handle_rpc_err).unwrap();
@@ -61,17 +72,24 @@ impl SyncCommands {
                         0
                     };
 
-                    println!(
-                        "Worker: 0; Base: {}; Target: {}; (diff: {})",
-                        base_height,
-                        target_height,
-                        target_height - base_height
+                    stdout.queue(cursor::SavePosition);
+
+                    stdout.write(
+                        format!(
+                            "Worker: 0; Base: {}; Target: {}; (diff: {})\nState: {}; Current Epoch: {}; Todo :{}",
+                            base_height,
+                            target_height,
+                            target_height - base_height,
+                            state.stage(),
+                            base_height,
+                            state.epoch()
+                        )
+                        .as_bytes(),
                     );
-                    println!(
-                        "State: {}; Current Epoch: {}; Todo: FIXME",
-                        state.stage(),
-                        base_height
-                    );
+
+                    stdout.queue(cursor::RestorePosition);
+
+                    stdout.flush();
 
                     if state.stage() == SyncStage::Complete && !watch {
                         break;
