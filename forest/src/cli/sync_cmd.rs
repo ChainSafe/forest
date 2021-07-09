@@ -85,6 +85,7 @@ impl SyncCommands {
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {
+                        println!("Done!");
                         break;
                     };
                 }
