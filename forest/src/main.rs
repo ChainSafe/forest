@@ -22,7 +22,10 @@ async fn main() {
             None => daemon::start(cfg).await,
         },
         Err(e) => {
-            cli_error_and_die(format!("Error parsing config. Error was: {}", e), 1);
+            cli_error_and_die(
+                format!("Error parsing config. Error was: {}", e).to_owned(),
+                1,
+            );
         }
     };
 }
