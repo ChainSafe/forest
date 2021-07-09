@@ -8,11 +8,6 @@ use std::{
 
 use chain_sync::SyncStage;
 use cid::{json::CidJson, Cid};
-use crossterm::{
-    cursor,
-    terminal::{self, ClearType},
-    QueueableCommand,
-};
 use rpc_client::*;
 use structopt::StructOpt;
 use ticker::Ticker;
@@ -46,11 +41,11 @@ pub enum SyncCommands {
 impl SyncCommands {
     pub async fn run(&self) {
         match self {
+            #[allow(unused_must_use)]
             Self::Wait { watch } => {
                 let watch = *watch;
 
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
-
                 let mut stdout = stdout();
 
                 for _ in ticker {
@@ -72,24 +67,22 @@ impl SyncCommands {
                         0
                     };
 
-                    stdout.queue(cursor::SavePosition);
-
-                    stdout.write(
-                        format!(
-                            "Worker: 0; Base: {}; Target: {}; (diff: {})\nState: {}; Current Epoch: {}; Todo :{}",
-                            base_height,
-                            target_height,
-                            target_height - base_height,
-                            state.stage(),
-                            base_height,
-                            state.epoch()
-                        )
-                        .as_bytes(),
+                    println!(
+                        "Worker: 0; Base: {}; Target: {}; (diff: {})",
+                        base_height,
+                        target_height,
+                        target_height - base_height
+                    );
+                    println!(
+                        "State: {}; Current Epoch: {}; Todo: {}",
+                        state.stage(),
+                        base_height,
+                        state.epoch()
                     );
 
-                    stdout.queue(cursor::RestorePosition);
-
-                    stdout.flush();
+                    for _ in 0..2 {
+                        stdout.write("\r\x1b[2K\x1b[A".as_bytes());
+                    }
 
                     if state.stage() == SyncStage::Complete && !watch {
                         break;
