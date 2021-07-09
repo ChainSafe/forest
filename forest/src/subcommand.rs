@@ -54,8 +54,10 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         }
     };
 
-    let mut api_info = API_INFO.write().await;
-    api_info.token = Some(token);
+    {
+        let mut api_info = API_INFO.write().await;
+        api_info.token = Some(token);
+    }
 
     // Run command
     match command {
