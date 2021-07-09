@@ -17,7 +17,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         None => {
             let keystore = if config.encrypt_keystore {
                 loop {
-                    println!("keystore passphrase: ");
+                    println!("Enter the keystore passphrase: ");
 
                     let passphrase = read_password().expect("Error reading passphrase");
 
@@ -25,7 +25,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
                     data_dir.push(ENCRYPTED_KEYSTORE_NAME);
 
                     if !data_dir.exists() {
-                        println!("keystore cannot be found from environment or arguments");
+                        println!("The keystore cannot be found from defaults, the environment, or provided arguments");
                     }
 
                     let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
@@ -36,13 +36,13 @@ pub(super) async fn process(command: Subcommand, config: Config) {
                     match key_store_init_result {
                         Ok(ks) => break ks,
                         Err(_) => {
-                            log::error!("incorrect passphrase")
+                            log::error!("Incorrect passphrase entered.")
                         }
                     };
                 }
             } else {
                 KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(&config.data_dir)))
-                    .expect("Error initializing keystore")
+                    .expect("Error finding keystore")
             };
 
             let key_info = keystore

@@ -6,7 +6,7 @@ mod daemon;
 mod logger;
 mod subcommand;
 
-use cli::CLI;
+use cli::{cli_error_and_die, CLI};
 use structopt::StructOpt;
 
 #[async_std::main]
@@ -22,7 +22,7 @@ async fn main() {
             None => daemon::start(cfg).await,
         },
         Err(e) => {
-            println!("Error parsing config. Error was: {}", e);
+            cli_error_and_die(format!("Error parsing config. Error was: {}", e), 1);
         }
     };
 }
