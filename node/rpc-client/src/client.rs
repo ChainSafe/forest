@@ -154,9 +154,7 @@ where
 
     match rpc_res {
         JsonRpcResponse::Result { result, .. } => Ok(result),
-        JsonRpcResponse::Error { error, .. } => {
-            return Err(error.message.into());
-        }
+        JsonRpcResponse::Error { error, .. } => Err(error.message.into()),
     }
 }
 

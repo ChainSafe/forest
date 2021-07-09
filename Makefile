@@ -55,7 +55,7 @@ release:
 	cargo build --release --bin forest
 
 interopnet:
-	cargo build --release --manifest-path=forest/Cargo.toml --features "interopnet"
+	cargo build --release --manifest-path=forest/Cargo.toml --no-default-features --features "rocksdb, interopnet"
 
 devnet:
 	cargo build  --manifest-path=forest/Cargo.toml --no-default-features --features "devnet, rocksdb"

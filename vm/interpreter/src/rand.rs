@@ -15,9 +15,24 @@ pub trait Rand {
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>>;
+
+    fn get_chain_randomness_looking_forward(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>>;
+
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag,
     /// ChainEpoch, Entropy from the latest beacon entry.
     fn get_beacon_randomness(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>>;
+
+    fn get_beacon_randomness_looking_forward(
         &self,
         pers: DomainSeparationTag,
         round: ChainEpoch,

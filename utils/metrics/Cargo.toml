@@ -5,8 +5,9 @@ authors = ["jorge <jorgeaolivero@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-prometheus =  { version = "0.12.0", default-features = false }
+prometheus =  { version = "0.12.0", features = ["process"] }
 tide = "0.16.0"
 log = "0.4.8"
 thiserror = "1.0"
 async-std = { version = "1.9", features = ["tokio1", "unstable"] }
+fs_extra = "1.2.0"
