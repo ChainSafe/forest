@@ -1,7 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Duration;
+use std::{
+    io::{stdout, Write},
+    time::Duration,
+};
 
 use chain_sync::SyncStage;
 use cid::{json::CidJson, Cid};
@@ -37,10 +40,12 @@ pub enum SyncCommands {
 impl SyncCommands {
     pub async fn run(&self) {
         match self {
+            #[allow(unused_must_use)]
             Self::Wait { watch } => {
                 let watch = *watch;
 
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
+                let mut stdout = stdout();
 
                 for _ in ticker {
                     let response = status(()).await.map_err(handle_rpc_err).unwrap();
@@ -68,10 +73,16 @@ impl SyncCommands {
                         target_height - base_height
                     );
                     println!(
-                        "State: {}; Current Epoch: {}; Todo: FIXME",
+                        "State: {}; Current Epoch: {}; Todo: {}",
                         state.stage(),
-                        base_height
+                        base_height,
+                        state.epoch()
                     );
+
+                    for _ in 0..2 {
+                        stdout.write("\r\x1b[2K\x1b[A".as_bytes());
+                        stdout.flush();
+                    }
 
                     if state.stage() == SyncStage::Complete && !watch {
                         break;
