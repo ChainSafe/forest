@@ -50,7 +50,7 @@ impl Chains {
     /// Sorts the chains with `compare` method. If rev is true, sorts in descending order.
     pub(crate) fn sort(&mut self, rev: bool) {
         // replace dance to get around borrow checker
-        let mut chains = mem::replace(&mut self.key_vec, vec![]);
+        let mut chains = mem::take(&mut self.key_vec);
         chains.sort_by(|a, b| {
             let a = self.map.get(*a).unwrap();
             let b = self.map.get(*b).unwrap();
@@ -65,7 +65,7 @@ impl Chains {
 
     // Sort by effective perf with cmp_effective
     pub(crate) fn sort_effective(&mut self) {
-        let mut chains = mem::replace(&mut self.key_vec, vec![]);
+        let mut chains = mem::take(&mut self.key_vec);
         chains.sort_by(|a, b| {
             let a = self.map.get(*a).unwrap();
             let b = self.map.get(*b).unwrap();
@@ -76,7 +76,7 @@ impl Chains {
 
     // Sort by effective perf on a range
     pub(crate) fn sort_range_effective(&mut self, range: std::ops::RangeFrom<usize>) {
-        let mut chains = mem::replace(&mut self.key_vec, vec![]);
+        let mut chains = mem::take(&mut self.key_vec);
         chains[range].sort_by(|a, b| {
             self.map
                 .get(*a)

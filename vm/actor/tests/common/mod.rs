@@ -21,6 +21,7 @@ use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount};
 pub struct MockRuntime {
     pub epoch: ChainEpoch,
     pub miner: Address,
+    pub base_fee: TokenAmount,
     pub id_addresses: HashMap<Address, Address>,
     pub actor_code_cids: HashMap<Address, Cid>,
     pub new_actor_addr: Option<Address>,
@@ -60,6 +61,7 @@ impl Default for MockRuntime {
         Self {
             epoch: Default::default(),
             miner: Address::new_id(0),
+            base_fee: Default::default(),
             id_addresses: Default::default(),
             actor_code_cids: Default::default(),
             new_actor_addr: Default::default(),
@@ -629,6 +631,10 @@ impl Runtime<MemoryDB> for MockRuntime {
         // TODO implement functionality if needed for testing
         Ok(())
     }
+
+    fn base_fee(&self) -> &TokenAmount {
+        &self.base_fee
+    }
 }
 
 impl Syscalls for MockRuntime {
@@ -776,5 +782,12 @@ impl Syscalls for MockRuntime {
             )));
         }
         Ok(exp.fault)
+    }
+    fn verify_aggregate_seals(
+        &self,
+        _aggregate: &fil_types::AggregateSealVerifyProofAndInfos,
+    ) -> Result<(), Box<dyn StdError>> {
+        // TODO: Implement this if we need it. Currently don't have a need.
+        todo!()
     }
 }

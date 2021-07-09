@@ -1,17 +1,19 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use std::{cmp::Ordering, collections::HashSet};
+
 use async_std::sync::RwLock;
 use blocks::Tipset;
 use libp2p::core::PeerId;
 use log::{debug, trace};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-use std::{cmp::Ordering, collections::HashSet};
 
+use crate::metrics;
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;
 
@@ -53,7 +55,6 @@ impl PeerInfo {
 struct PeerSets {
     /// Map of full peers available.
     full_peers: HashMap<PeerId, PeerInfo>,
-
     /// Set of peers to ignore for being incompatible/ failing to accept connections.
     bad_peers: HashSet<PeerId>,
 }
@@ -63,7 +64,6 @@ struct PeerSets {
 pub(crate) struct PeerManager {
     /// Full and bad peer sets.
     peers: RwLock<PeerSets>,
-
     /// Average response time from peers.
     avg_global_time: RwLock<Duration>,
 }
@@ -78,6 +78,7 @@ impl PeerManager {
             pi.head = Some(ts);
         } else {
             peers.full_peers.insert(peer_id, PeerInfo::new(ts));
+            metrics::FULL_PEERS.inc();
         }
     }
 
@@ -147,7 +148,14 @@ impl PeerManager {
     pub async fn log_success(&self, peer: PeerId, dur: Duration) {
         debug!("logging success for {:?}", peer);
         let mut peers = self.peers.write().await;
-        peers.bad_peers.remove(&peer);
+        // Attempt to remove the peer and decrement bad peer count
+        if peers.bad_peers.remove(&peer) {
+            metrics::BAD_PEERS.dec();
+        };
+        // If the peer is not already accounted for, increment full peer count
+        if !peers.full_peers.contains_key(&peer) {
+            metrics::FULL_PEERS.inc();
+        }
         let peer_stats = peers.full_peers.entry(peer).or_default();
         peer_stats.successes += 1;
         log_time(peer_stats, dur);
@@ -158,6 +166,10 @@ impl PeerManager {
         debug!("logging failure for {:?}", peer);
         let mut peers = self.peers.write().await;
         if !peers.bad_peers.contains(&peer) {
+            metrics::PEER_FAILURE_TOTAL.inc();
+            if !peers.full_peers.contains_key(&peer) {
+                metrics::FULL_PEERS.inc();
+            }
             let peer_stats = peers.full_peers.entry(peer).or_default();
             peer_stats.failures += 1;
             log_time(peer_stats, dur);
@@ -168,10 +180,15 @@ impl PeerManager {
     pub async fn mark_peer_bad(&self, peer_id: PeerId) -> bool {
         let mut peers = self.peers.write().await;
         let removed = remove_peer(&mut peers, &peer_id);
+        if removed {
+            metrics::FULL_PEERS.dec();
+        }
 
-        // Add peer to bad peer set if explicitly removed.
+        // Add peer to bad peer set
         debug!("marked peer {} bad", peer_id);
-        peers.bad_peers.insert(peer_id);
+        if peers.bad_peers.insert(peer_id) {
+            metrics::BAD_PEERS.inc();
+        }
 
         removed
     }
@@ -180,7 +197,11 @@ impl PeerManager {
     pub async fn remove_peer(&self, peer_id: &PeerId) -> bool {
         let mut peers = self.peers.write().await;
         debug!("removed peer {}", peer_id);
-        remove_peer(&mut peers, peer_id)
+        let removed = remove_peer(&mut peers, peer_id);
+        if removed {
+            metrics::FULL_PEERS.dec();
+        }
+        removed
     }
 
     /// Gets count of full peers managed. This is just used for testing.

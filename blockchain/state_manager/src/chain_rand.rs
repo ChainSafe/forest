@@ -36,7 +36,7 @@ where
     ) -> Result<[u8; 32], Box<dyn Error>> {
         task::block_on(
             self.cs
-                .get_chain_randomness(&self.blks, pers, round, entropy),
+                .get_chain_randomness_looking_backward(&self.blks, pers, round, entropy),
         )
     }
 
@@ -48,7 +48,31 @@ where
     ) -> Result<[u8; 32], Box<dyn Error>> {
         task::block_on(
             self.cs
-                .get_beacon_randomness(&self.blks, pers, round, entropy),
+                .get_beacon_randomness_looking_backward(&self.blks, pers, round, entropy),
+        )
+    }
+
+    fn get_chain_randomness_looking_forward(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>> {
+        task::block_on(
+            self.cs
+                .get_chain_randomness_looking_forward(&self.blks, pers, round, entropy),
+        )
+    }
+
+    fn get_beacon_randomness_looking_forward(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>> {
+        task::block_on(
+            self.cs
+                .get_beacon_randomness_looking_forward(&self.blks, pers, round, entropy),
         )
     }
 }
