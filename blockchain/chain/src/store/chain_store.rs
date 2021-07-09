@@ -291,6 +291,28 @@ where
         }
     }
 
+    pub async fn get_chain_randomness_looking_forward(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+        self.get_chain_randomness(blocks, pers, round, entropy, false)
+            .await
+    }
+
+    pub async fn get_chain_randomness_looking_backward(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+        self.get_chain_randomness(blocks, pers, round, entropy, true)
+            .await
+    }
+
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
     /// Entropy from the ticket chain.
     pub async fn get_chain_randomness(
@@ -299,6 +321,7 @@ where
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
+        lookback: bool,
     ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
         let ts = self.tipset_from_keys(blocks).await?;
 
@@ -308,7 +331,7 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let rand_ts = self.tipset_by_height(search_height, ts, true).await?;
+        let rand_ts = self.tipset_by_height(search_height, ts, lookback).await?;
 
         draw_randomness(
             rand_ts
@@ -322,6 +345,28 @@ where
         )
     }
 
+    pub async fn get_beacon_randomness_looking_forward(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+        self.get_beacon_randomness(blocks, pers, round, entropy, false)
+            .await
+    }
+
+    pub async fn get_beacon_randomness_looking_backward(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+        self.get_beacon_randomness(blocks, pers, round, entropy, true)
+            .await
+    }
+
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
     /// Entropy from the latest beacon entry.
     pub async fn get_beacon_randomness(
@@ -330,6 +375,7 @@ where
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
+        lookback: bool,
     ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
         let ts = self.tipset_from_keys(blocks).await?;
 
@@ -339,7 +385,7 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let rand_ts = self.tipset_by_height(search_height, ts, true).await?;
+        let rand_ts = self.tipset_by_height(search_height, ts, lookback).await?;
 
         let be = self.latest_beacon_entry(&rand_ts).await?;
 

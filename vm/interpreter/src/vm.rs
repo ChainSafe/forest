@@ -565,6 +565,7 @@ where
             &mut self.state,
             self.store,
             0,
+            self.base_fee.clone(),
             &msg,
             self.epoch,
             *msg.from(),

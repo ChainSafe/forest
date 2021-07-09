@@ -233,6 +233,13 @@ impl RegisteredSealProof {
     }
 }
 
+/// Seal proof type which defines the version and sector size.
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
+pub enum RegisteredAggregateProof {
+    SnarkPackV1,
+    Invalid(i64),
+}
+
 macro_rules! i64_conversion {
     ($ty:ident; $( $var:ident => $val:expr, )*) => {
         impl From<i64> for $ty {
@@ -281,6 +288,22 @@ i64_conversion! {
     StackedDRG512MiBV1P1 => 7,
     StackedDRG32GiBV1P1 => 8,
     StackedDRG64GiBV1P1 => 9,
+}
+
+i64_conversion! {
+    RegisteredAggregateProof;
+    SnarkPackV1 => 0,
+}
+#[cfg(feature = "proofs")]
+impl TryFrom<RegisteredAggregateProof> for filecoin_proofs_api::RegisteredAggregationProof {
+    type Error = String;
+    fn try_from(p: RegisteredAggregateProof) -> Result<Self, Self::Error> {
+        use RegisteredAggregateProof::*;
+        match p {
+            SnarkPackV1 => Ok(Self::SnarkPackV1),
+            Invalid(i) => Err(format!("unsupported aggregate proof type: {}", i)),
+        }
+    }
 }
 
 #[cfg(feature = "proofs")]
@@ -354,6 +377,25 @@ impl Serialize for RegisteredSealProof {
 }
 
 impl<'de> Deserialize<'de> for RegisteredSealProof {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let val = i64::deserialize(deserializer)?;
+        Ok(Self::from(val))
+    }
+}
+
+impl Serialize for RegisteredAggregateProof {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        i64::from(*self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for RegisteredAggregateProof {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

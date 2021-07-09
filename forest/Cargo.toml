@@ -52,7 +52,6 @@ rpassword = "0.0.4"
 rayon = "1.5"
 prometheus = { version = "0.12.0", features = ["process"] }
 ticker = "0.1.1"
-crossterm = "0.20.0"
 
 [dependencies.jsonrpc-v2]
 version = "0.10.1"
