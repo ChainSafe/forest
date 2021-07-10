@@ -4,7 +4,6 @@
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use auth::*;
-
 use beacon::Beacon;
 use blockstore::BlockStore;
 use rpc_api::{auth_api::*, data_types::RPCState};
