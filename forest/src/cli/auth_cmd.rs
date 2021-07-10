@@ -1,8 +1,9 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{cli_error_and_die, handle_rpc_err, print_rpc_res};
-use rpc_client::{auth_api_info, auth_new, auth_verify};
+use super::{handle_rpc_err, print_rpc_res, Config};
+use forest_libp2p::{Multiaddr, Protocol};
+use rpc_client::{auth_new, DEFAULT_HOST};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -12,6 +13,7 @@ pub enum AuthCommands {
     CreateToken {
         #[structopt(
             short,
+            long,
             help = "permission to assign to the token, one of: read, write, sign, admin"
         )]
         perm: String,
@@ -20,38 +22,32 @@ pub enum AuthCommands {
     ApiInfo {
         #[structopt(
             short,
+            long,
             help = "permission to assign the token, one of: read, write, sign, admin"
         )]
         perm: String,
-        #[structopt(
-            short,
-            help = "the admin token to use to create the multiaddress and auth header"
-        )]
-        admin_token: String,
     },
 }
 
 impl AuthCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, cfg: Config) {
         match self {
             Self::CreateToken { perm } => {
                 let perm: String = perm.parse().unwrap();
                 print_rpc_res(auth_new(perm).await);
             }
-            Self::ApiInfo { perm, admin_token } => {
+            Self::ApiInfo { perm } => {
                 let perm: String = perm.parse().unwrap();
-
-                let verify_response = match auth_verify(admin_token.to_string()).await {
-                    Ok(value) => value,
-                    Err(error) => return handle_rpc_err(error),
+                match auth_new(perm).await {
+                    Ok(token) => {
+                        let mut addr = Multiaddr::empty();
+                        addr.push(Protocol::Ip4(DEFAULT_HOST.parse().unwrap()));
+                        addr.push(Protocol::Tcp(cfg.rpc_port.parse().unwrap()));
+                        addr.push(Protocol::Http);
+                        println!("FULLNODE_API_INFO=\"{}:{}\"", token, addr.to_string());
+                    }
+                    Err(e) => handle_rpc_err(e),
                 };
-
-                if !verify_response {
-                    cli_error_and_die("Error validating token", 1);
-                }
-
-                let response = auth_api_info(perm).await;
-                print_rpc_res(response);
             }
         }
     }
