@@ -4,8 +4,7 @@
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
 use chrono::{DateTime, Duration, Utc};
 use clock::ChainEpoch;
-use serde::Deserializer;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
 
@@ -110,7 +109,7 @@ impl SyncState {
         &self.target
     }
 
-    /// Return an Arc clone of the Base [Tipset]
+    /// Return a reference to the base [Tipset]
     pub fn base(&self) -> &Option<Arc<Tipset>> {
         &self.base
     }

@@ -49,19 +49,16 @@ impl SyncCommands {
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let response = status(()).await.map_err(handle_rpc_err).unwrap();
+                    let response = sync_status(()).await.map_err(handle_rpc_err).unwrap();
                     let state = &response.active_syncs[0];
 
-                    let base = state.base();
-                    let target = state.target();
-
-                    let target_height = if let Some(tipset) = target {
+                    let target_height = if let Some(tipset) = state.target() {
                         tipset.epoch()
                     } else {
                         0
                     };
 
-                    let base_height = if let Some(tipset) = base {
+                    let base_height = if let Some(tipset) = state.base() {
                         tipset.epoch()
                     } else {
                         0
@@ -91,7 +88,7 @@ impl SyncCommands {
                 }
             }
             Self::Status => {
-                let response = status(()).await.map_err(handle_rpc_err).unwrap();
+                let response = sync_status(()).await.map_err(handle_rpc_err).unwrap();
 
                 let state = &response.active_syncs[0];
                 let base = state.base();
@@ -127,11 +124,11 @@ impl SyncCommands {
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res(check_bad((CidJson(cid),)).await);
+                print_rpc_res(sync_check_bad((CidJson(cid),)).await);
             }
             Self::MarkBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                match mark_bad((CidJson(cid),)).await {
+                match sync_mark_bad((CidJson(cid),)).await {
                     Ok(()) => println!("OK"),
                     Err(error) => handle_rpc_err(error),
                 }
