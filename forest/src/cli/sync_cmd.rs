@@ -14,8 +14,6 @@ use ticker::Ticker;
 
 use crate::cli::{format_vec_pretty, handle_rpc_err};
 
-use super::print_rpc_res;
-
 #[derive(Debug, StructOpt)]
 pub enum SyncCommands {
     #[structopt(about = "Wait for sync to be complete")]
@@ -124,7 +122,16 @@ impl SyncCommands {
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res(sync_check_bad((CidJson(cid),)).await);
+                let response = sync_check_bad((CidJson(cid),))
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
+
+                if response.is_empty() {
+                    println!("Block \"{}\" is not marked as a bad block", cid);
+                } else {
+                    println!("response");
+                }
             }
             Self::MarkBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();
