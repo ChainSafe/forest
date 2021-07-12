@@ -740,7 +740,7 @@ impl Actor {
                     prove_commit_due,
                 )
             } else {
-                precommits_to_confirm.push(precommit);
+                precommits_to_confirm.push(precommit.clone());
             }
             // All seal proof types should match
             if i >= 1 {
@@ -822,7 +822,7 @@ impl Actor {
         .map_err(|e| {
             e.downcast_default(ExitCode::ErrIllegalArgument, "aggregate seal verify failed")
         })?;
-        confirm_sector_proofs_valid_internal(rt, precommits.clone())?;
+        confirm_sector_proofs_valid_internal(rt, precommits_to_confirm.clone())?;
         // Compute and burn the aggregate network fee. We need to re-load the state as
 	    // confirmSectorProofsValid can change it.
         let state: State = rt.state()?;
