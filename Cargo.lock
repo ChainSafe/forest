@@ -5403,16 +5403,18 @@ dependencies = [
 name = "rpc-client"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "auth",
  "forest_address",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
+ "forest_libp2p",
  "forest_message",
  "jsonrpc-v2",
  "key_management",
  "log",
- "parity-multiaddr",
+ "once_cell",
  "rpc-api",
  "serde",
  "serde_json",
