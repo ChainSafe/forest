@@ -207,6 +207,11 @@ pub struct WorkerKeyChange {
 pub type PreCommitSectorParams = SectorPreCommitInfo;
 
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+pub struct PreCommitSectorBatchParams {
+    pub sectors: Vec<SectorPreCommitInfo>,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
