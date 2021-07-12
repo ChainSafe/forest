@@ -396,7 +396,7 @@ pub struct Claim {
     pub quality_adj_power: StoragePower,
 }
 
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple, PartialEq)]
 pub struct CronEvent {
     pub miner_addr: Address,
     pub callback_payload: Serialized,
