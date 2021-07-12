@@ -6,20 +6,23 @@ mod daemon;
 mod logger;
 mod subcommand;
 
-use cli::CLI;
+use cli::{cli_error_and_die, CLI};
 use structopt::StructOpt;
 
 #[async_std::main]
 async fn main() {
     logger::setup_logger();
     // Capture CLI inputs
-    match CLI::from_args() {
-        CLI {
-            daemon_opts,
-            cmd: None,
-        } => daemon::start(daemon_opts.to_config().unwrap()).await,
-        CLI {
-            cmd: Some(command), ..
-        } => subcommand::process(command).await,
-    }
+    let CLI { opts, cmd } = CLI::from_args();
+
+    // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
+    match opts.to_config() {
+        Ok(cfg) => match cmd {
+            Some(command) => subcommand::process(command, cfg).await,
+            None => daemon::start(cfg).await,
+        },
+        Err(e) => {
+            cli_error_and_die(&format!("Error parsing config. Error was: {}", e), 1);
+        }
+    };
 }

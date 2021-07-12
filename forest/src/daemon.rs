@@ -71,7 +71,7 @@ pub(super) async fn start(config: Config) {
 
     let mut ks = if config.encrypt_keystore {
         loop {
-            print!("keystore passphrase: ");
+            print!("Enter the keystore passphrase: ");
             std::io::stdout().flush().unwrap();
 
             let passphrase = read_password().expect("Error reading passphrase");
@@ -80,11 +80,11 @@ pub(super) async fn start(config: Config) {
             data_dir.push(ENCRYPTED_KEYSTORE_NAME);
 
             if !data_dir.exists() {
-                print!("confirm passphrase: ");
+                print!("Confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
 
                 if passphrase != read_password().unwrap() {
-                    println!("passphrases do not match. please retry");
+                    println!("Passphrases do not match. Please retry.");
                     continue;
                 }
             }
@@ -97,7 +97,7 @@ pub(super) async fn start(config: Config) {
             match key_store_init_result {
                 Ok(ks) => break ks,
                 Err(_) => {
-                    log::error!("incorrect passphrase")
+                    log::error!("Incorrect passphrase entered. Please try again.")
                 }
             };
         }

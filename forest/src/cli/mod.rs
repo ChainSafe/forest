@@ -38,7 +38,7 @@ use utils::{read_file_to_string, read_toml};
 )]
 pub struct CLI {
     #[structopt(flatten)]
-    pub daemon_opts: DaemonOpts,
+    pub opts: CLIOpts,
     #[structopt(subcommand)]
     pub cmd: Option<Subcommand>,
 }
@@ -61,21 +61,28 @@ pub enum Subcommand {
 
     #[structopt(name = "genesis", about = "Work with blockchain genesis")]
     Genesis(GenesisCommands),
+
     #[structopt(name = "wallet", about = "Manage wallet")]
     Wallet(WalletCommands),
 }
 
-/// Daemon process command line options.
+/// CLI options
 #[derive(StructOpt, Debug)]
-pub struct DaemonOpts {
+pub struct CLIOpts {
     #[structopt(short, long, help = "A toml file containing relevant configurations")]
     pub config: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
     pub genesis: Option<String>,
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
-    #[structopt(short, long, help = "The port used for communication")]
+    #[structopt(short, long, help = "Port used for JSON-RPC communication")]
     pub port: Option<String>,
+    #[structopt(
+        short,
+        long,
+        help = "Client JWT token to use for JSON-RPC authentication"
+    )]
+    pub token: Option<String>,
     #[structopt(long, help = "Port used for metrics collection server")]
     pub metrics_port: Option<u16>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
@@ -111,7 +118,7 @@ pub struct DaemonOpts {
     pub encrypt_keystore: Option<bool>,
 }
 
-impl DaemonOpts {
+impl CLIOpts {
     pub fn to_config(&self) -> Result<Config, io::Error> {
         let mut cfg: Config = match &self.config {
             Some(config_file) => {
@@ -128,6 +135,10 @@ impl DaemonOpts {
         if self.rpc.unwrap_or(cfg.enable_rpc) {
             cfg.enable_rpc = true;
             cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
+
+            if cfg.rpc_token.is_some() {
+                cfg.rpc_token = self.token.to_owned();
+            }
         } else {
             cfg.enable_rpc = false;
         }
@@ -213,6 +224,7 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
     }
 }
 
+/// Used for handling high level errors such as invalid params
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
     println!("Error: {}", msg);
     std::process::exit(code);

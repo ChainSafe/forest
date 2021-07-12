@@ -128,6 +128,10 @@ pub fn check_access(access: &Access, claims: &[String]) -> bool {
     }
 }
 
+/// JSON-RPC API defaults
+pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
+pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
+
 /// JSON-RPC API definitions
 
 /// Auth API
