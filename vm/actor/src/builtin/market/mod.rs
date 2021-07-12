@@ -24,6 +24,7 @@ use cid::{Cid, Prefix};
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
+use fil_types::deadlines::QuantSpec;
 use fil_types::{PieceInfo, StoragePower};
 use ipld_blockstore::BlockStore;
 use num_bigint::BigInt;
@@ -330,13 +331,7 @@ impl Actor {
 
                 // We should randomize the first epoch for when the deal will be processed so an attacker isn't able to
                 // schedule too many deals for the same tick.
-                let process_epoch = gen_rand_next_epoch(rt, rt.curr_epoch(), &deal.proposal)
-                    .map_err(|e| {
-                        e.downcast_default(
-                            ExitCode::ErrIllegalState,
-                            "failed to generate random process epoch",
-                        )
-                    })?;
+                let process_epoch = gen_rand_next_epoch(deal.proposal.start_epoch, id);
 
                 msm.deals_by_epoch
                     .as_mut()
@@ -1093,27 +1088,18 @@ where
     ))
 }
 
-fn gen_rand_next_epoch<BS, RT>(
-    rt: &RT,
-    curr_epoch: ChainEpoch,
-    deal: &DealProposal,
-) -> Result<ChainEpoch, Box<dyn StdError>>
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
-    let bytes = deal.marshal_cbor()?;
-
-    let rb = rt.get_randomness_from_beacon(
-        DomainSeparationTag::MarketDealCronSeed,
-        curr_epoch - 1,
-        &bytes,
-    )?;
-
-    // generate a random epoch in [baseEpoch, baseEpoch + DealUpdatesInterval)
-    let offset = BigEndian::read_u64(&rb.0);
-
-    Ok(deal.start_epoch + (offset % DEAL_UPDATES_INTERVAL as u64) as ChainEpoch)
+fn gen_rand_next_epoch(start_epoch: ChainEpoch, deal_id: DealID) -> ChainEpoch {
+    let offset = deal_id as i64 % DEAL_UPDATES_INTERVAL;
+    let q = QuantSpec {
+        unit: DEAL_UPDATES_INTERVAL,
+        offset: 0,
+    };
+    let prev_day = q.quantize_down(start_epoch);
+    if prev_day + offset >= start_epoch {
+        return prev_day + offset;
+    }
+    let next_day = q.quantize_up(start_epoch);
+    next_day + offset
 }
 ////////////////////////////////////////////////////////////////////////////////
 // Checks
