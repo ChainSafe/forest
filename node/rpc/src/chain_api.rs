@@ -277,7 +277,7 @@ where
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
             &base64::decode(entropy)?,
-            epoch <= networks::UPGRADE_PLACEHOLDER_HEIGHT,
+            epoch <= networks::UPGRADE_HYPERDRIVE_HEIGHT,
         )
         .await?)
 }
@@ -301,7 +301,7 @@ where
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
             &base64::decode(entropy)?,
-            epoch <= networks::UPGRADE_PLACEHOLDER_HEIGHT,
+            epoch <= networks::UPGRADE_HYPERDRIVE_HEIGHT,
         )
         .await?)
 }

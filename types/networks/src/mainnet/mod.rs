@@ -39,6 +39,8 @@ pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 550321;
 pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 665280;
 /// V12 network upgrade
 pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 712320;
+/// V13 network upgrade
+pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = 892800;
 
 pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 
