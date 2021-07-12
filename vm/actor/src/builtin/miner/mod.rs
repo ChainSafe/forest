@@ -704,7 +704,7 @@ impl Actor {
             ));
         }
 
-        if params.aggregate_proof.len() < MAX_AGGREGATED_PROOF_SIZE {
+        if params.aggregate_proof.len() > MAX_AGGREGATED_PROOF_SIZE {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "sector prove-commit proof of size {} exceeds max size of {}",
@@ -722,6 +722,7 @@ impl Actor {
 
         // compute data commitments and validate each precommit
         let mut compute_data_commitments_inputs = Vec::with_capacity(precommits.len());
+        let mut precommits_to_confirm = Vec::new();
         for (i, precommit) in precommits.iter().enumerate() {
             let msd = max_prove_commit_duration(precommit.info.seal_proof).ok_or_else(|| {
                 actor_error!(
@@ -732,13 +733,14 @@ impl Actor {
             })?;
             let prove_commit_due = precommit.pre_commit_deposit.clone() + msd;
             if BigInt::from(rt.curr_epoch()) > prove_commit_due {
-                return Err(actor_error!(
-                    ErrIllegalArgument,
-                    "commitment proof for {} too late at {}, due {}",
+                log::warn!(
+                    "skipping commitment for sector {}, too late at {}, due {}",
                     precommit.info.sector_number,
                     rt.curr_epoch(),
-                    prove_commit_due
-                ));
+                    prove_commit_due,
+                )
+            } else {
+                precommits_to_confirm.push(precommit);
             }
             // All seal proof types should match
             if i >= 1 {
@@ -804,7 +806,7 @@ impl Actor {
         }
 
         let seal_proof = precommits[0].info.seal_proof;
-        if !precommits.is_empty() {
+        if precommits.is_empty() {
             return Err(actor_error!(
                 ErrIllegalState,
                 "bitfield non-empty but zero precommits read from state"
@@ -820,7 +822,33 @@ impl Actor {
         .map_err(|e| {
             e.downcast_default(ExitCode::ErrIllegalArgument, "aggregate seal verify failed")
         })?;
-        confirm_sector_proofs_valid_internal(rt, precommits)
+        confirm_sector_proofs_valid_internal(rt, precommits.clone())?;
+        // Compute and burn the aggregate network fee. We need to re-load the state as
+	    // confirmSectorProofsValid can change it.
+        let state: State = rt.state()?;
+        let aggregate_fee = aggregate_network_fee(precommits_to_confirm.len() as i64, rt.base_fee());
+        let unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?)
+            .map_err(|_e| {
+                actor_error!(ErrIllegalState, "failed to determine unlocked balance")
+            })?;
+        if unlocked_balance < aggregate_fee {
+            return Err(actor_error!(
+                ErrInsufficientFunds,
+                "remaining unlocked funds after prove-commit {} are insufficient to pay aggregation fee of {}",
+                unlocked_balance,
+                aggregate_fee
+            ));
+        }
+        burn_funds(rt, aggregate_fee)?;
+        state
+            .check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariants broken: {}", e),
+                )
+            })?;
+        Ok(())
     }
 
     fn dispute_windowed_post<BS, RT>(
