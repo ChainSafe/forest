@@ -7,21 +7,50 @@ pub mod chain_ops;
 pub mod net_ops;
 pub mod wallet_ops;
 
+use async_std::sync::RwLock;
+use forest_libp2p::{Multiaddr, Protocol};
 /// Filecoin HTTP JSON-RPC client methods
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use log::{debug, error};
-use parity_multiaddr::{Multiaddr, Protocol};
+use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::env;
 
-const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
-const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
-const DEFAULT_PROTOCOL: &str = "http";
-const DEFAULT_HOST: &str = "127.0.0.1";
-const DEFAULT_PORT: &str = "1234";
-const API_INFO_KEY: &str = "FULLNODE_API_INFO";
-const RPC_ENDPOINT: &str = "rpc/v0";
+pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
+pub const DEFAULT_HOST: &str = "127.0.0.1";
+pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
+pub const DEFAULT_PORT: &str = "1234";
+pub const DEFAULT_PROTOCOL: &str = "http";
+pub const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
+pub const RPC_ENDPOINT: &str = "rpc/v0";
+
+pub use self::auth_ops::*;
+pub use self::chain_ops::*;
+pub use self::net_ops::*;
+pub use self::wallet_ops::*;
+
+pub struct ApiInfo {
+    pub multiaddr: Multiaddr,
+    pub token: Option<String>,
+}
+
+pub static API_INFO: Lazy<RwLock<ApiInfo>> = Lazy::new(|| {
+    // Get API_INFO environment variable if exists, otherwise, use default multiaddress
+    let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
+
+    let (multiaddr, token) = match api_info.split_once(':') {
+        // Typically this is when a JWT was provided
+        Some((jwt, host)) => (
+            host.parse().expect("Parse multiaddress"),
+            Some(jwt.to_owned()),
+        ),
+        // Use entire API_INFO env var as host string
+        None => (api_info.parse().expect("Parse multiaddress"), None),
+    };
+
+    RwLock::new(ApiInfo { multiaddr, token })
+});
 
 /// Error object in a response
 #[derive(Deserialize)]
@@ -52,12 +81,9 @@ struct URL {
 }
 
 /// Parses a multiaddress into a URL
-fn multiaddress_to_url(ma_str: String) -> String {
-    // Parse Multiaddress string
-    let ma: Multiaddr = ma_str.parse().expect("Parse multiaddress");
-
+fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
     // Fold Multiaddress into a URL struct
-    let addr = ma.into_iter().fold(
+    let addr = multiaddr.into_iter().fold(
         URL {
             protocol: DEFAULT_PROTOCOL.to_owned(),
             port: DEFAULT_PORT.to_owned(),
@@ -83,8 +109,8 @@ fn multiaddress_to_url(ma_str: String) -> String {
                 Protocol::Dnsaddr(dns) => {
                     addr.host = dns.to_string();
                 }
-                Protocol::Tcp(port) => {
-                    addr.port = port.to_string();
+                Protocol::Tcp(p) => {
+                    addr.port = p.to_string();
                 }
                 Protocol::Http => {
                     addr.protocol = "http".to_string();
@@ -108,30 +134,28 @@ fn multiaddress_to_url(ma_str: String) -> String {
 }
 
 /// Utility method for sending RPC requests over HTTP
-async fn call<R>(rpc_call: RequestObject) -> Result<R, Error>
+async fn call<P, R>(method_name: &str, params: P) -> Result<R, Error>
 where
+    P: Serialize,
     R: DeserializeOwned,
 {
-    // Get API INFO environment variable if exists, otherwise, use default multiaddress
-    let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
+    let rpc_req = RequestObject::request()
+        .with_method(method_name)
+        .with_params(serde_json::to_value(params)?)
+        .finish();
 
-    // Input sanity checks
-    if api_info.matches(':').count() > 1 {
-        return Err(jsonrpc_v2::Error::from(format!(
-            "Improperly formatted multiaddress value provided for the {} environment variable. Value was: {}",
-            API_INFO_KEY, api_info,
-        )));
-    }
+    let api_info = API_INFO.read().await;
+    let api_url = multiaddress_to_url(api_info.multiaddr.to_owned());
 
     // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
-    let mut http_res = match &api_info.split_once(':') {
-        Some((jwt, host)) => surf::post(multiaddress_to_url(host.to_string()))
+    let mut http_res = match api_info.token.to_owned() {
+        Some(jwt) => surf::post(api_url)
             .content_type("application/json-rpc")
-            .body(surf::Body::from_json(&rpc_call)?)
-            .header("Authorization", format!("Bearer {}", jwt.to_string())),
-        None => surf::post(DEFAULT_URL)
+            .body(surf::Body::from_json(&rpc_req)?)
+            .header("Authorization", jwt),
+        None => surf::post(api_url)
             .content_type("application/json-rpc")
-            .body(surf::Body::from_json(&rpc_call)?),
+            .body(surf::Body::from_json(&rpc_req)?),
     }
     .await?;
 
@@ -139,7 +163,7 @@ where
     let code = http_res.status() as i64;
 
     if code != 200 {
-        return Err(jsonrpc_v2::Error::Full {
+        return Err(Error::Full {
             message: format!("Error code from HTTP Response: {}", code),
             code,
             data: None,
@@ -163,18 +187,4 @@ where
         JsonRpcResponse::Result { result, .. } => Ok(result),
         JsonRpcResponse::Error { error, .. } => Err(error.message.into()),
     }
-}
-
-/// Call an RPC method with params
-pub async fn call_params<P, R>(method_name: &str, params: P) -> Result<R, Error>
-where
-    P: Serialize,
-    R: DeserializeOwned,
-{
-    let rpc_req = jsonrpc_v2::RequestObject::request()
-        .with_method(method_name)
-        .with_params(serde_json::to_value(params)?)
-        .finish();
-
-    call(rpc_req).await.map_err(|e| e)
 }
