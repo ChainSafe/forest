@@ -254,7 +254,7 @@ impl State {
             // NOTE: A fancy merge algorithm could extract this intersection while merging, below, saving
             // one iteration of the runs
             let collisions = &prior_allocation & sector_numbers;
-            if collisions.len() != 0 {
+            if !collisions.is_empty() {
                 return Err(actor_error!(
                     ErrIllegalArgument,
                     "sector numbers {:?} already allocated",
@@ -981,7 +981,7 @@ impl State {
         for (expire_epoch, _) in cleanup_events.iter() {
             epochs.push(*expire_epoch);
         }
-        epochs.sort();
+        epochs.sort_unstable();
         for cleanup_epoch in epochs.iter() {
             // Can unwrap here safely because cleanup epochs are taken from the keys of that hashmap.
             queue.add_to_queue_values(
