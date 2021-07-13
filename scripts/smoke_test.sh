@@ -5,9 +5,13 @@ if [ "$1" == "help" ]; then
     exit
 fi
 
-API_MULTIADDR=$FULLNODE_API_INFO
+ADDR=$FULLNODE_API_INFO
 
 if [ -z "$API_MULTIADDR" ]; then
     echo "FULLNODE_API_INFO is not set. Use $0 help for usage"
     exit
 fi
+
+echo "Smoke testing Wallet"
+
+
