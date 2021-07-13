@@ -1953,9 +1953,9 @@ dependencies = [
 
 [[package]]
 name = "filecoin-proofs"
-version = "8.0.1"
+version = "8.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ec052f152527c2201bdb42a53297a927f5ec7774f2e977a4f3b1938bbcd8c90"
+checksum = "2e21d7e3bf0c9980c50f36c1e668a88796c34c5bf4dc4d0158af33d4f8a578d9"
 dependencies = [
  "anyhow",
  "bellperson",
