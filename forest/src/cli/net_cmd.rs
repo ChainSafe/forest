@@ -67,10 +67,7 @@ impl NetCommands {
                 let addr: Multiaddr = address
                     .parse()
                     .map_err(|e| {
-                        cli_error_and_die(
-                            &format!("Error parsing multiaddr. Error was: {}", e),
-                            400,
-                        );
+                        cli_error_and_die(&format!("Error parsing multiaddr. Error was: {}", e), 1);
                     })
                     .expect("Parse provided multiaddr from string");
 
