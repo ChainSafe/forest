@@ -985,7 +985,7 @@ impl State {
         for (expire_epoch, _) in cleanup_events.iter() {
             epochs.push(*expire_epoch);
         }
-        epochs.sort_by(|i,j| i.cmp(j));
+        epochs.sort_by_key(|i| *i);
         for cleanup_epoch in epochs.iter() {
             // Can unwrap here safely because cleanup epochs are taken from the keys of that hashmap.
             queue.add_to_queue_values(
