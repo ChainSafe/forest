@@ -6,6 +6,7 @@ mod chain_cmd;
 mod config;
 mod fetch_params_cmd;
 mod genesis_cmd;
+mod net_cmd;
 mod wallet_cmd;
 
 pub(super) use self::auth_cmd::AuthCommands;
@@ -13,12 +14,13 @@ pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
+pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use jsonrpc_v2::Error as JsonRpcError;
 use serde::Serialize;
 use std::cell::RefCell;
-use std::io;
+use std::io::{self, Write};
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -61,6 +63,9 @@ pub enum Subcommand {
 
     #[structopt(name = "genesis", about = "Work with blockchain genesis")]
     Genesis(GenesisCommands),
+
+    #[structopt(name = "net", about = "Manage P2P Network")]
+    Net(NetCommands),
 
     #[structopt(name = "wallet", about = "Manage wallet")]
     Wallet(WalletCommands),
@@ -263,4 +268,32 @@ pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) {
         ),
         Err(err) => handle_rpc_err(err),
     };
+}
+
+/// Prints a bytes HTTP JSON-RPC response result
+pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) {
+    match res {
+        Ok(obj) => println!(
+            "{}",
+            String::from_utf8(obj)
+                .map_err(|e| handle_rpc_err(e.into()))
+                .unwrap()
+        ),
+        Err(err) => handle_rpc_err(err),
+    };
+}
+
+/// Prints a string HTTP JSON-RPC response result to a buffered stdout
+pub(super) fn print_stdout(out: String) {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    handle
+        .write_all(out.as_bytes())
+        .map_err(|e| handle_rpc_err(e.into()))
+        .unwrap();
+
+    handle
+        .write("\n".as_bytes())
+        .map_err(|e| handle_rpc_err(e.into()))
+        .unwrap();
 }
