@@ -129,7 +129,7 @@ fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
         "{}://{}:{}/{}",
         addr.protocol, addr.host, addr.port, RPC_ENDPOINT
     );
-    debug!("Using JSON-RPC v2 HTTP URL: {}", url);
+
     url
 }
 
@@ -146,6 +146,8 @@ where
 
     let api_info = API_INFO.read().await;
     let api_url = multiaddress_to_url(api_info.multiaddr.to_owned());
+
+    debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
     // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
     let mut http_res = match api_info.token.to_owned() {
