@@ -81,7 +81,7 @@ impl NetCommands {
                 }
 
                 if id.is_empty() {
-                    cli_error_and_die("Needs a /p2p/ protocol present in multiaddr", 400);
+                    cli_error_and_die("Needs a /p2p/ protocol present in multiaddr", 1);
                     return;
                 }
 
