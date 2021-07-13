@@ -1266,13 +1266,15 @@ impl Actor {
             for (i, precommit) in params.sectors.iter().enumerate() {
                 // Sector must have the same Window PoSt proof type as the miner's recorded seal type.
                 let sector_wpost_proof = precommit.seal_proof
-                .registered_window_post_proof()
-                .map_err(|_e|
-                    actor_error!(
-                        ErrIllegalArgument,
-                        "failed to lookup Window PoSt proof type for sector seal proof {}", 
-                        i64::from(precommit.seal_proof)
-                    ))?;
+                    .registered_window_post_proof()
+                    .map_err(|_e|
+                        actor_error!(
+                            ErrIllegalArgument,
+                            "failed to lookup Window PoSt proof type for sector seal proof {}", 
+                            i64::from(precommit.seal_proof)
+                        )
+                    )?;
+
                 if sector_wpost_proof != info.window_post_proof_type {
                     return Err(actor_error!(ErrIllegalArgument, "sector Window PoSt proof type %d must match miner Window PoSt proof type {} (seal proof type {})", i64::from(sector_wpost_proof), i64::from(info.window_post_proof_type)));
                 }
@@ -1328,7 +1330,7 @@ impl Actor {
                         "failed to add pre-commit deposit {}: {}",
                         total_deposit_required, e
                 ))?;
-            state.allocate_sector_numbers(store, &sector_numbers, false)
+            state.allocate_sector_numbers(store, &sector_numbers, CollisionPolicy::DenyCollisions)
                 .map_err(|e|
                      e.wrap("failed to allocate sector numbers")
                 )?;
@@ -2476,7 +2478,7 @@ impl Actor {
                     .chain(&[info.worker, info.owner]),
             )?;
 
-            state.allocate_sector_numbers(rt.store(), mask_sector_numbers, true)
+            state.allocate_sector_numbers(rt.store(), mask_sector_numbers, CollisionPolicy::AllowCollisions)
         })?;
 
         Ok(())
