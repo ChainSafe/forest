@@ -6066,6 +6066,7 @@ dependencies = [
  "colored",
  "difference",
  "fil_types",
+ "forest_actor 4.0.0",
  "forest_address",
  "forest_cid",
  "forest_ipld",
