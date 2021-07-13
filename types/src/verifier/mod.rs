@@ -61,7 +61,6 @@ pub trait ProofVerifier {
         }
         let spt: proofs::RegisteredSealProof = aggregate.seal_proof.try_into()?;
         let prover_id = prover_id_from_u64(aggregate.miner);
-
         struct AggregationInputs {
             // replica
             commr: [u8; 32],

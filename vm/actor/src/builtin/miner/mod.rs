@@ -681,7 +681,6 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        rt.validate_immediate_caller_accept_any()?;
         let sector_numbers = params
             .sector_numbers
             .validate()
@@ -714,6 +713,14 @@ impl Actor {
         }
         let store = rt.store();
         let state: State = rt.state()?;
+
+        let info = get_miner_info(store, state)?;
+        rt.validate_immediate_caller_is(
+        info.control_addresses
+            .iter()
+            .chain(&[info.worker, info.owner]),
+        )?;
+        
         let precommits = state
             .get_all_precommitted_sectors(store, sector_numbers)
             .map_err(|e| {
@@ -3983,11 +3990,20 @@ where
     let power_total = request_current_total_power(rt)?;
     let circulating_supply = rt.total_fil_circ_supply()?;
 
+    // 1. Activate deals, skipping pre-commits with invalid deals.
+	//    - calls the market actor.
+	// 2. Reschedule replacement sector expiration.
+	//    - loads and saves sectors
+	//    - loads and saves deadlines/partitions
+	// 3. Add new sectors.
+	//    - loads and saves sectors.
+	//    - loads and saves deadlines/partitions
+	//
     // Ideally, we'd combine some of these operations, but at least we have
     // a constant number of them.
     // Committed-capacity sectors licensed for early removal by new sectors being proven.
     let mut replace_sectors = DeadlineSectorMap::new();
-
+    let activation = rt.curr_epoch();
     // Pre-commits for new sectors.
     let mut valid_pre_commits = Vec::<SectorPreCommitOnChainInfo>::new();
 
@@ -4068,7 +4084,6 @@ where
 
         for pre_commit in valid_pre_commits {
             // compute initial pledge
-            let activation = rt.curr_epoch();
             let duration = pre_commit.info.expiration - activation;
 
             // This should have been caught in precommit, but don't let other sectors fail because of it.
