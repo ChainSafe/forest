@@ -30,7 +30,7 @@ lazy_static = "1.4"
 async-std = "1.9"
 git-version = "0.3.4"
 rayon = "1"
-base64 = "0.13"
+
 [features]
 json = ["base64", "forest_json_utils", "num-bigint/json"]
 proofs = ["filecoin-proofs-api", "commcid"]

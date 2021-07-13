@@ -711,15 +711,15 @@ impl Actor {
                 MAX_AGGREGATED_PROOF_SIZE
             ));
         }
-        let store = rt.store();
         let state: State = rt.state()?;
 
-        let info = get_miner_info(store, state)?;
+        let info = get_miner_info(rt.store(), &state)?;
         rt.validate_immediate_caller_is(
         info.control_addresses
             .iter()
             .chain(&[info.worker, info.owner]),
         )?;
+        let store = rt.store();
         
         let precommits = state
             .get_all_precommitted_sectors(store, sector_numbers)

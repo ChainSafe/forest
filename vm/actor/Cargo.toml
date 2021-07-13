@@ -34,7 +34,7 @@ base64 = "0.13"
 log = "0.4.8"
 commcid = { path = "../../utils/commcid", version = "0.1.1" }
 indexmap = { version = "1.7.0", features = ["serde-1"] }
-base64 = "0.13"
+
 [dev-dependencies]
 derive_builder = "0.9"
 db = { package = "forest_db", version = "0.1" }
