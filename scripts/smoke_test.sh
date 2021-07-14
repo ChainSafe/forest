@@ -14,8 +14,16 @@ fi
 
 TOKEN="$(cut -d':' -f1 <<< $ADDR)"
 
-AUTH_HEADERS="Authorization: Bearer ${TOKEN}"
+AUTH_HEADERS="{ \"Content-Type\": \"application/json-rpc\", \"Authorization\": \"Bearer ${TOKEN}\" }"
 
-curl --write-out "WalletList %{http_code}\n" -s -X POST -H 'Content-Type: application/json-rpc' $AUTH_HEADERS -d '{"jsonrpc": "2.0", "method":"Filecoin.WalletList", "params":[], "id": 0}' http://127.0.0.1:1235/rpc/v0
+RPC_ENDPOINTS=("WalletList", "WalletBalance")
 
-echo $?
+for endpoint in ${RPC_ENDPOINTS[@]}; do
+    METHOD="Filecoin.${endpoint}"
+    REQUEST_BODY="{\"jsonrpc\": \"2.0\", \"method\":\"${METHOD}\", \"params\":[], \"id\": 0}"
+
+    OUTPUT=$(curl -s -X POST -H $AUTH_HEADERS -d $REQUEST_BODY http://127.0.0.1:1235/rpc/v0)
+
+    echo $OUTPUT
+    echo $?
+done
