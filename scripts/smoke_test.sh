@@ -13,12 +13,9 @@ if [ -z "$ADDR" ]; then
 fi
 
 TOKEN="$(cut -d':' -f1 <<< $ADDR)"
-# echo "Using token: " $TOKEN
-
-# TOKEN="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.jz4chuTPodopfY-rbLCEwIrz8IMwkp8Y-KIOd2AJEXs"
 
 AUTH_HEADERS="Authorization: Bearer ${TOKEN}"
 
-OUTPUT=$(curl --write-out "WalletList %{http_code}\n" -s -X POST -H 'Content-Type: application/json-rpc' $AUTH_HEADERS -d '{"jsonrpc": "2.0", "method":"Filecoin.WalletList", "params":[], "id": 0}' http://127.0.0.1:1235/rpc/v0)
+curl --write-out "WalletList %{http_code}\n" -s -X POST -H 'Content-Type: application/json-rpc' $AUTH_HEADERS -d '{"jsonrpc": "2.0", "method":"Filecoin.WalletList", "params":[], "id": 0}' http://127.0.0.1:1235/rpc/v0
 
 echo $?
