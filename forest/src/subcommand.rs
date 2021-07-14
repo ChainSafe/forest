@@ -73,6 +73,9 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         Subcommand::Genesis(cmd) => {
             cmd.run().await;
         }
+        Subcommand::Net(cmd) => {
+            cmd.run().await;
+        }
         Subcommand::Wallet(cmd) => {
             cmd.run().await;
         }
