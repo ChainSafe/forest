@@ -20,9 +20,9 @@ RPC_ENDPOINTS=("WalletList", "WalletBalance")
 
 for endpoint in ${RPC_ENDPOINTS[@]}; do
     METHOD="Filecoin.${endpoint}"
-    REQUEST_BODY="{\"jsonrpc\": \"2.0\", \"method\":\"${METHOD}\", \"params\":[], \"id\": 0}"
+    REQUEST_BODY="{\"jsonrpc\": \"2.0\", \"method\":$METHOD, \"params\":[], \"id\": 0}"
 
-    OUTPUT=$(curl -s -X POST -H $AUTH_HEADERS -d $REQUEST_BODY http://127.0.0.1:1235/rpc/v0)
+    OUTPUT=$(curl -s -X POST -H "$AUTH_HEADERS" -d "$REQUEST_BODY" http://127.0.0.1:1235/rpc/v0)
 
     echo $OUTPUT
     echo $?
