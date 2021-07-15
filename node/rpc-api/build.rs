@@ -57,28 +57,24 @@ fn run() -> Result<(usize, usize), Box<dyn Error>> {
     let mut forest_rpc: HashMap<String, RPCMethod> = HashMap::new();
 
     for item in api_modules.iter() {
-        match item {
-            Item::Mod(ItemMod { content, .. }) => {
-                if let Some((_, items)) = content {
-                    items.iter().for_each(|item| match item {
-                        Item::Const(ItemConst { expr, .. }) => {
-                            match *expr.clone() {
-                                Expr::Lit(ExprLit { lit, .. }) => match lit {
-                                    Lit::Str(token) => {
-                                        let name = token.value();
-                                        forest_rpc.insert(name.clone(), RPCMethod { name });
-                                    }
-                                    _ => {}
-                                },
-                                _ => {}
-                            };
-                        }
-                        _ => {}
-                    })
+        if let Item::Mod(ItemMod {
+            content: Some((_, items)),
+            ..
+        }) = item
+        {
+            items.iter().for_each(|item| {
+                if let Item::Const(ItemConst { expr, .. }) = item {
+                    if let Expr::Lit(ExprLit {
+                        lit: Lit::Str(token),
+                        ..
+                    }) = *expr.clone()
+                    {
+                        let name = token.value();
+                        forest_rpc.insert(name.clone(), RPCMethod { name });
+                    }
                 }
-            }
-            _ => {}
-        };
+            });
+        }
     }
 
     let lotus_rpc: OpenRPCFile = serde_json::from_str(&lotus_rpc_content)?;
