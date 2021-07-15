@@ -17,7 +17,7 @@ TOKEN="$(cut -d':' -f1 <<< $ADDR)"
 AUTH_HEADER="Authorization: Bearer ${TOKEN}"
 CONTENT_TYPE_HEADER="Content-Type: application/json-rpc"
 
-RPC_ENDPOINTS=("WalletList")
+RPC_ENDPOINTS=("WalletList" "WalletBalance")
 
 for endpoint in ${RPC_ENDPOINTS[@]}; do
     METHOD="Filecoin.${endpoint}"
