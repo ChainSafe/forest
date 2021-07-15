@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 if [ "$1" == "help" ]; then
     echo "Smoke Test\nRun forest node; set FULLNODE_API_INFO; smoke test CLI"
@@ -23,7 +23,5 @@ for endpoint in ${RPC_ENDPOINTS[@]}; do
     METHOD="Filecoin.${endpoint}"
     REQUEST_BODY="{\"jsonrpc\": \"2.0\", \"method\": \"$METHOD\", \"params\":[], \"id\": 0}"
 
-    curl -s -X POST -H "$CONTENT_TYPE_HEADER" -H "$AUTH_HEADER" -d "$REQUEST_BODY" http://127.0.0.1:1235/rpc/v0
-
-    echo $?
+    curl -w "HTTP CODE %{http_code}\n" -s -o /dev/null -X POST -H "$CONTENT_TYPE_HEADER" -H "$AUTH_HEADER" -d "$REQUEST_BODY" http://127.0.0.1:1235/rpc/v0
 done
