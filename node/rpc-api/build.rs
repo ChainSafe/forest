@@ -1,21 +1,40 @@
+// Copyright 2020 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 
+use serde::Deserialize;
 use syn::{Expr, ExprLit, Item, ItemConst, ItemMod, Lit};
 
-struct Method {
-    method: String,
+struct RPCMethod {
+    name: String,
     // params: P,
     // result: R,
 }
 
-fn run() -> Result<(), Box<dyn Error>> {
-    let mut file = File::open("src/lib.rs")?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
+#[derive(Deserialize)]
+struct OpenRPCFile {
+    methods: Vec<OpenRPCMethod>,
+}
 
-    let ast = syn::parse_file(&content)?;
+#[derive(Deserialize)]
+struct OpenRPCMethod {
+    name: String,
+}
+
+fn run() -> Result<(usize, usize), Box<dyn Error>> {
+    let mut lotus_rpc_file = File::open("static/full.json")?;
+    let mut lotus_rpc_content = String::new();
+    lotus_rpc_file.read_to_string(&mut lotus_rpc_content)?;
+
+    let mut api_lib = File::open("src/lib.rs")?;
+    let mut api_lib_content = String::new();
+    api_lib.read_to_string(&mut api_lib_content)?;
+
+    let ast = syn::parse_file(&api_lib_content)?;
     let out = format!("{:#?}", ast);
 
     let mut ast_file = std::fs::File::create("static/ast.ron").expect("create failed");
@@ -35,37 +54,61 @@ fn run() -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
-    let methods = api_modules.iter().fold(vec![], |mut acc, item| match item {
-        Item::Mod(ItemMod { content, .. }) => {
-            if let Some((_, items)) = content {
-                items.iter().for_each(|item| match item {
-                    Item::Const(ItemConst { expr, .. }) => {
-                        match *expr.clone() {
-                            Expr::Lit(ExprLit { lit, .. }) => match lit {
-                                Lit::Str(token) => {
-                                    let method = token.value();
-                                    acc.push(Method { method });
-                                }
-                                _ => {}
-                            },
-                            _ => {}
-                        };
-                    }
-                    _ => {}
-                })
-            }
-            acc
-        }
-        _ => acc,
-    });
+    let mut forest_rpc: HashMap<String, RPCMethod> = HashMap::new();
 
-    for method in methods {
-        println!("cargo:warning={}", method.method);
+    for item in api_modules.iter() {
+        match item {
+            Item::Mod(ItemMod { content, .. }) => {
+                if let Some((_, items)) = content {
+                    items.iter().for_each(|item| match item {
+                        Item::Const(ItemConst { expr, .. }) => {
+                            match *expr.clone() {
+                                Expr::Lit(ExprLit { lit, .. }) => match lit {
+                                    Lit::Str(token) => {
+                                        let name = token.value();
+                                        forest_rpc.insert(name.clone(), RPCMethod { name });
+                                    }
+                                    _ => {}
+                                },
+                                _ => {}
+                            };
+                        }
+                        _ => {}
+                    })
+                }
+            }
+            _ => {}
+        };
     }
 
-    Ok(())
+    let lotus_rpc: OpenRPCFile = serde_json::from_str(&lotus_rpc_content)?;
+
+    for lotus_method in lotus_rpc.methods.iter() {
+        let forest_method = forest_rpc.get(&lotus_method.name);
+
+        let status = match forest_method {
+            Some(_method) => "✔️ ",
+            None => "❌",
+        };
+
+        println!("cargo:warning= {} {}", status, lotus_method.name);
+    }
+
+    Ok((forest_rpc.len(), lotus_rpc.methods.len()))
 }
 
 fn main() {
-    run().expect("parses");
+    match run() {
+        Ok((forest_count, lotus_count)) => {
+            println!(
+                "cargo:warning=Forest: {}, Lotus: {}, {:.2}%",
+                forest_count,
+                lotus_count,
+                (forest_count as f32 / lotus_count as f32) * 100.0
+            );
+        }
+        Err(_) => {
+            println!("cargo:warning=Error parsing Lotus OpenRPC file, skipping...");
+        }
+    }
 }

@@ -5396,6 +5396,7 @@ dependencies = [
  "message_pool",
  "once_cell",
  "serde",
+ "serde_json",
  "state_manager",
  "syn 1.0.67",
 ]
