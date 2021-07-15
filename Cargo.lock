@@ -5397,6 +5397,7 @@ dependencies = [
  "once_cell",
  "serde",
  "state_manager",
+ "syn 1.0.67",
 ]
 
 [[package]]

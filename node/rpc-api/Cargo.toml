@@ -35,3 +35,6 @@ serde = { version = "1.0.101", default-features = false, features = ["derive"] }
 version = "0.10.1"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
+
+[build-dependencies]
+syn = "1.0"
