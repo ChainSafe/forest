@@ -7,3 +7,4 @@ mod multisig;
 mod paych;
 mod verifreg;
 mod power;
+mod miner;

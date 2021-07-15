@@ -26,8 +26,8 @@ use std::ops::Neg;
 use std::{cmp, error::Error as StdError};
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
-const PRECOMMIT_EXPIRY_AMT_BITWIDTH: usize = 6;
-const SECTORS_AMT_BITWIDTH: usize = 5;
+pub const PRECOMMIT_EXPIRY_AMT_BITWIDTH: usize = 6;
+pub const SECTORS_AMT_BITWIDTH: usize = 5;
 
 /// Balance of Miner Actor should be greater than or equal to
 /// the sum of PreCommitDeposits and LockedFunds.
