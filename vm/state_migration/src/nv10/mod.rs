@@ -8,3 +8,4 @@ mod paych;
 mod verifreg;
 mod power;
 mod miner;
+mod market;
