@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 if [ "$1" == "help" ]; then
     echo "Smoke Test\nRun forest node; set FULLNODE_API_INFO; smoke test CLI"
@@ -30,9 +30,9 @@ for endpoint in ${RPC_ENDPOINTS[@]}; do
     RESPONSE_CODE=$(curl -w "%{http_code}" -s -o /dev/null -X POST -H "$CONTENT_TYPE_HEADER" -H "$AUTH_HEADER" -d "$REQUEST_BODY" http://127.0.0.1:1235/rpc/v0)
 
     if [ $RESPONSE_CODE = '200' ]; then
-        echo -e "${METHOD} ${GREEN}${RESPONSE_CODE}${NC}"
+        echo -e "${METHOD} ${GREEN} OK ${NC}"
     else
-        echo -e "${METHOD} ${RED}${RESPONSE_CODE}${NC}"
+        echo -e "${METHOD} ${RED} FAIL ${NC}"
     fi
 
 done
