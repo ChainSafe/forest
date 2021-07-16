@@ -1,33 +1,26 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::client::filecoin_rpc;
-use cid::{json::CidJson, Cid};
+use crate::call;
+use jsonrpc_v2::Error;
 use rpc_api::chain_api::*;
 
-use jsonrpc_v2::Error as JsonRpcError;
-
-/// Returns a block with specified CID fom chain via RPC
-pub async fn block(cid: Cid) -> Result<ChainGetBlockResult, JsonRpcError> {
-    filecoin_rpc::chain_get_block((CidJson(cid),)).await
+pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockResult, Error> {
+    call(CHAIN_GET_BLOCK, cid).await
 }
 
-/// Returns genesis tipset from chain via RPC
-pub async fn genesis() -> Result<ChainGetGenesisResult, JsonRpcError> {
-    filecoin_rpc::chain_get_genesis().await
+pub async fn chain_get_genesis() -> Result<ChainGetGenesisResult, Error> {
+    call(CHAIN_GET_GENESIS, ()).await
 }
 
-/// Returns canonical head of the chain via RPC
-pub async fn head() -> Result<ChainHeadResult, JsonRpcError> {
-    filecoin_rpc::chain_head().await
+pub async fn chain_head() -> Result<ChainHeadResult, Error> {
+    call(CHAIN_HEAD, ()).await
 }
 
-/// Returns messages with specified CID from chain via RPC
-pub async fn messages(cid: Cid) -> Result<ChainGetMessageResult, JsonRpcError> {
-    filecoin_rpc::chain_get_message((CidJson(cid),)).await
+pub async fn chain_get_message(cid: ChainGetMessageParams) -> Result<ChainGetMessageResult, Error> {
+    call(CHAIN_GET_MESSAGE, cid).await
 }
 
-/// Returns IPLD node with specified CID from chain via RPC
-pub async fn read_obj(cid: Cid) -> Result<ChainReadObjResult, JsonRpcError> {
-    filecoin_rpc::chain_read_obj((CidJson(cid),)).await
+pub async fn chain_read_obj(cid: ChainReadObjParams) -> Result<ChainReadObjResult, Error> {
+    call(CHAIN_READ_OBJ, cid).await
 }

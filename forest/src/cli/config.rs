@@ -3,6 +3,7 @@
 
 use chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
+use rpc_client::DEFAULT_PORT;
 use serde::Deserialize;
 use utils::get_home_dir;
 
@@ -14,6 +15,7 @@ pub struct Config {
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
     pub rpc_port: String,
+    pub rpc_token: Option<String>,
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
@@ -33,7 +35,8 @@ impl Default for Config {
             data_dir: get_home_dir() + "/.forest",
             genesis_file: None,
             enable_rpc: true,
-            rpc_port: "1234".to_string(),
+            rpc_port: DEFAULT_PORT.to_owned(),
+            rpc_token: None,
             snapshot_path: None,
             snapshot: false,
             skip_load: false,

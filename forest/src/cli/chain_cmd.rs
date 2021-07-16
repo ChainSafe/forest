@@ -1,10 +1,11 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
-use cid::Cid;
-use rpc_client::{block, genesis, head, messages, read_obj};
 use structopt::StructOpt;
+
+use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
+use cid::{json::CidJson, Cid};
+use rpc_client::chain_ops::*;
 
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
@@ -45,21 +46,21 @@ impl ChainCommands {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res_pretty(block(cid).await);
+                print_rpc_res_pretty(chain_get_block((CidJson(cid),)).await);
             }
             Self::Genesis => {
-                print_rpc_res_pretty(genesis().await);
+                print_rpc_res_pretty(chain_get_genesis().await);
             }
             Self::Head => {
-                print_rpc_res_cids(head().await);
+                print_rpc_res_cids(chain_head().await);
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res_pretty(messages(cid).await);
+                print_rpc_res_pretty(chain_get_message((CidJson(cid),)).await);
             }
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res(read_obj(cid).await);
+                print_rpc_res(chain_read_obj((CidJson(cid),)).await);
             }
         }
     }

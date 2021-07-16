@@ -1,9 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
-use fil_types::genesis::{Actor, ActorType, Miner, Template as GenesisTemplate};
-use fil_types::FILECOIN_PRECISION;
 use log::{info, warn};
 use num_bigint::BigInt;
 use std::collections::HashMap;
@@ -12,6 +9,10 @@ use std::io::Read;
 use std::str::FromStr;
 use structopt::StructOpt;
 use uuid::Uuid;
+
+use address::Address;
+use fil_types::genesis::{Actor, ActorType, Miner, Template as GenesisTemplate};
+use fil_types::FILECOIN_PRECISION;
 
 const ACCOUNT_START: u64 = 1000;
 #[derive(Debug, StructOpt)]
