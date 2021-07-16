@@ -1138,7 +1138,7 @@ impl Actor {
                         "failed to add pre-commit deposit {}: {}",
                         total_deposit_required, e
                 ))?;
-            state.allocate_sector_numbers(store, &sector_numbers, false)
+            state.allocate_sector_numbers(store, &sector_numbers, CollisionPolicy::DenyCollisions)
                 .map_err(|e|
                      e.wrap("failed to allocate sector numbers")
                 )?;
@@ -2546,7 +2546,11 @@ impl Actor {
                     .chain(&[info.worker, info.owner]),
             )?;
 
-            state.allocate_sector_numbers(rt.store(), mask_sector_numbers, true)
+            state.allocate_sector_numbers(
+                rt.store(),
+                mask_sector_numbers,
+                CollisionPolicy::AllowCollisions,
+            )
         })?;
 
         Ok(())

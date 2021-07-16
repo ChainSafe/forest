@@ -102,6 +102,12 @@ pub struct State {
     pub deadline_cron_active: bool,
 }
 
+#[derive(PartialEq)]
+pub enum CollisionPolicy {
+    AllowCollisions,
+    DenyCollisions,
+}
+
 impl Cbor for State {}
 
 impl State {
@@ -238,7 +244,7 @@ impl State {
         &mut self,
         store: &BS,
         sector_numbers: &BitField,
-        allow_collision_policy: bool,
+        policy: CollisionPolicy,
     ) -> Result<(), ActorError> {
         let prior_allocation = store
             .get(&self.allocated_sectors)
@@ -250,7 +256,7 @@ impl State {
             })?
             .ok_or_else(|| actor_error!(ErrIllegalState, "allocated sectors bitfield not found"))?;
 
-        if !allow_collision_policy {
+        if policy != CollisionPolicy::AllowCollisions {
             // NOTE: A fancy merge algorithm could extract this intersection while merging, below, saving
             // one iteration of the runs
             let collisions = &prior_allocation & sector_numbers;
@@ -970,7 +976,7 @@ impl State {
         store: &BS,
         cleanup_events: HashMap<ChainEpoch, Vec<u64>>,
     ) -> Result<(), Box<dyn StdError>> {
-        // Load BitField Queue for secto expiry
+        // Load BitField Queue for sector expiry
         let quant = self.quant_spec_every_deadline();
         let mut queue =
             super::BitFieldQueue::new(store, &self.pre_committed_sectors_cleanup, quant)
