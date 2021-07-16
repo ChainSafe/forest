@@ -1064,7 +1064,6 @@ impl Actor {
                     .chain(&[info.worker, info.owner]),
             )?;
             let store = rt.store();
-            let info = get_miner_info(store, state)?;
             if consensus_fault_active(&info, curr_epoch) {
                 return Err(actor_error!(ErrForbidden, "pre-commit not allowed during active consensus fault"));
             }
