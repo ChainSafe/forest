@@ -113,7 +113,11 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let key_info: wallet::KeyInfo = params.first().cloned().unwrap().into();
+    let key_info: wallet::KeyInfo = match params.first().cloned() {
+        Some(key_info) => key_info.into(),
+        None => return Err(JsonRpcError::INTERNAL_ERROR),
+    };
+
     let key = Key::try_from(key_info)?;
 
     let addr = format!("wallet-{}", key.address.to_string());

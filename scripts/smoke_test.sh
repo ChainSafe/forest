@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 if [ "$1" == "help" ]; then
     echo "Smoke Test\nRun forest node; set FULLNODE_API_INFO; smoke test CLI"
@@ -21,7 +21,7 @@ TOKEN="$(cut -d':' -f1 <<< $ADDR)"
 AUTH_HEADER="Authorization: Bearer ${TOKEN}"
 CONTENT_TYPE_HEADER="Content-Type: application/json-rpc"
 
-RPC_ENDPOINTS=("WalletList" "WalletBalance")
+RPC_ENDPOINTS=("WalletList" "WalletBalance" "WalletDefaultAddress" "WalletExport" "WalletHas" "WalletImport" "WalletNew" "WalletSetDefault" "WalletSign" "WalletVerify")
 
 for endpoint in ${RPC_ENDPOINTS[@]}; do
     METHOD="Filecoin.${endpoint}"
