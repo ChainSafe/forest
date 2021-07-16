@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
+use structopt::StructOpt;
 
 use address::{json::AddressJson, Address};
 use forest_crypto::{
@@ -11,8 +12,7 @@ use forest_crypto::{
     },
     Signature,
 };
-use rpc_client::*;
-use structopt::StructOpt;
+use rpc_client::wallet_ops::*;
 use wallet::json::KeyInfoJson;
 
 use super::{cli_error_and_die, handle_rpc_err};
@@ -157,7 +157,14 @@ impl WalletCommands {
                 });
             }
             Self::SetDefault { key } => {
-                let key = Address::from_str(&key.to_string()).unwrap();
+                let key_parse_result = Address::from_str(&key.to_string());
+
+                if key_parse_result.is_err() {
+                    cli_error_and_die("Error parsing address. Verify that the address exists and is in the keystore", 1);
+                }
+
+                let key = key_parse_result.unwrap();
+
                 let key_json = AddressJson(key);
                 wallet_set_default((key_json,))
                     .await
