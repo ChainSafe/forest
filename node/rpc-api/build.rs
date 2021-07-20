@@ -30,14 +30,10 @@ struct OpenRPCMethod {
     name: String,
 }
 
-fn run() -> Result<
-    (
-        BTreeMap<String, RPCMethod>,
-        BTreeMap<String, RPCMethod>,
-        (usize, usize, usize),
-    ),
-    Box<dyn Error>,
-> {
+type MethodMap = BTreeMap<String, RPCMethod>;
+type StringLengths = (usize, usize, usize);
+
+fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
     let mut lotus_rpc_file = File::open("static/full.json")?;
     let mut lotus_rpc_content = String::new();
     lotus_rpc_file.read_to_string(&mut lotus_rpc_content)?;
