@@ -128,7 +128,6 @@ where
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
-            .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_GET_ACTOR, state_get_actor::<DB, B, V>)
             .with_method(STATE_ACCOUNT_KEY, state_account_key::<DB, B, V>)
             .with_method(STATE_LOOKUP_ID, state_lookup_id::<DB, B, V>)
