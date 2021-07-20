@@ -1,5 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use crate::call;
 use jsonrpc_v2::Error as JsonRpcError;
 use rpc_api::sync_api::*;
