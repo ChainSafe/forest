@@ -12,6 +12,10 @@ use crate::cli::handle_rpc_err;
 pub enum MpoolCommands {
     #[structopt(help = "Get pending messages")]
     Pending,
+    #[structopt(help = "Print mempool stats")]
+    Stat,
+    #[structopt(help = "Subscribe to mempool changes")]
+    Subscribe,
 }
 
 impl MpoolCommands {
@@ -22,6 +26,8 @@ impl MpoolCommands {
                 let messages = res.map_err(handle_rpc_err).unwrap();
                 println!("{:#?}", messages);
             }
+            Self::Stat => {}
+            Self::Subscribe => {}
         }
     }
 }
