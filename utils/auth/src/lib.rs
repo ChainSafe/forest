@@ -72,8 +72,8 @@ pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
 
 /// Check whether or not header has required permissions
 pub fn has_perms(header_raw: String, required: &str, key: &[u8]) -> Result<(), JsonRpcError> {
-    if header_raw.starts_with("Bearer: ") {
-        let token = header_raw.trim_start_matches("Bearer: ");
+    if header_raw.starts_with("Bearer ") {
+        let token = header_raw.trim_start_matches("Bearer ");
         let perms = verify_token(token, key).map_err(|err| Error::Other(err.to_string()))?;
         if !perms.contains(&required.to_string()) {
             return Err(JsonRpcError::from(Error::InvalidPermissions));

@@ -22,7 +22,8 @@ use chain_sync::{BadBlockCache, SyncState};
 use cid::{json::CidJson, Cid};
 use clock::ChainEpoch;
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
-use forest_libp2p::{Multiaddr, NetworkMessage};
+pub use forest_libp2p::{Multiaddr, Protocol};
+use forest_libp2p::{Multihash, NetworkMessage};
 use ipld::json::IpldJson;
 use message::{
     message_receipt::json::MessageReceiptJson, signed_message,
@@ -55,8 +56,8 @@ where
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<SyncState>>,
     pub network_send: Sender<NetworkMessage>,
-    pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub network_name: String,
+    pub new_mined_block_tx: Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 
@@ -206,10 +207,15 @@ impl From<MiningBaseInfo> for MiningBaseInfoJson {
 }
 
 // Net API
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct AddrInfo {
     #[serde(rename = "ID")]
     pub id: String,
     pub addrs: Vec<Multiaddr>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PeerID {
+    pub multihash: Multihash,
 }
