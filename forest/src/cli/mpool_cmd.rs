@@ -3,13 +3,25 @@
 
 use structopt::StructOpt;
 
-use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
-use cid::{json::CidJson, Cid};
-use rpc_client::chain_ops::*;
+use cid::json::vec::CidJsonVec;
+use rpc_client::mpool_ops::*;
+
+use crate::cli::handle_rpc_err;
 
 #[derive(Debug, StructOpt)]
-pub enum MpoolCommands {}
+pub enum MpoolCommands {
+    #[structopt(help = "Get pending messages")]
+    Pending,
+}
 
 impl MpoolCommands {
-    pub async fn run(&self) {}
+    pub async fn run(&self) {
+        match self {
+            Self::Pending => {
+                let res = mpool_pending((CidJsonVec(vec![]),)).await;
+                let messages = res.map_err(handle_rpc_err).unwrap();
+                println!("{:#?}", messages);
+            }
+        }
+    }
 }

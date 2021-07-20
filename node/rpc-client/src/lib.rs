@@ -4,6 +4,7 @@
 /// Filecoin RPC client interface methods
 pub mod auth_ops;
 pub mod chain_ops;
+pub mod mpool_ops;
 pub mod net_ops;
 pub mod sync_ops;
 pub mod wallet_ops;
@@ -28,6 +29,7 @@ pub const RPC_ENDPOINT: &str = "rpc/v0";
 
 pub use self::auth_ops::*;
 pub use self::chain_ops::*;
+pub use self::mpool_ops::*;
 pub use self::net_ops::*;
 pub use self::sync_ops::*;
 pub use self::wallet_ops::*;
