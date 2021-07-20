@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -32,8 +32,8 @@ struct OpenRPCMethod {
 
 fn run() -> Result<
     (
-        HashMap<String, RPCMethod>,
-        OpenRPCFile,
+        BTreeMap<String, RPCMethod>,
+        BTreeMap<String, RPCMethod>,
         (usize, usize, usize),
     ),
     Box<dyn Error>,
@@ -66,7 +66,9 @@ fn run() -> Result<
         })
         .collect();
 
-    let mut forest_rpc = HashMap::new();
+    let mut forest_rpc = BTreeMap::new();
+    let mut lotus_rpc = BTreeMap::new();
+
     let mut longest_name = 0;
     let mut longest_params = 0;
     let mut longest_result = 0;
@@ -75,13 +77,13 @@ fn run() -> Result<
     let mut params = vec![];
     let mut result = "".to_owned();
 
-    for item in api_modules.iter() {
+    for item in api_modules {
         if let Item::Mod(ItemMod {
             content: Some((_, items)),
             ..
         }) = item
         {
-            for item in items.iter() {
+            for item in items {
                 if let Item::Const(ItemConst { expr, .. }) = item {
                     if let Expr::Lit(ExprLit {
                         lit: Lit::Str(token),
@@ -89,7 +91,6 @@ fn run() -> Result<
                     }) = *expr.clone()
                     {
                         name = token.value();
-                        println!("cargo:warning=TODO: Name - {}", name);
                         longest_name = cmp::max(longest_name, name.len());
                     }
                 }
@@ -99,16 +100,15 @@ fn run() -> Result<
 
                     if token.ends_with("Params") {
                         if let Type::Tuple(TypeTuple { elems, .. }) = *ty.clone() {
-                            for t in elems.iter() {
+                            for t in elems {
                                 if let Type::Path(TypePath {
                                     path: Path { segments, .. },
                                     ..
                                 }) = t
                                 {
-                                    for ps in segments.iter() {
+                                    for ps in segments {
                                         let PathSegment { ident, .. } = ps;
                                         let param = ident.to_string();
-                                        println!("cargo:warning=TODO: Params - {}", param);
                                         params.push(param);
                                     }
                                     longest_params =
@@ -122,7 +122,7 @@ fn run() -> Result<
                             ..
                         }) = *ty.clone()
                         {
-                            for ps in segments.iter() {
+                            for ps in segments {
                                 let PathSegment {
                                     ident, arguments, ..
                                 } = ps;
@@ -133,20 +133,16 @@ fn run() -> Result<
                                         AngleBracketedGenericArguments { args, .. },
                                     ) = arguments
                                     {
-                                        for arg in args.iter() {
+                                        for arg in args {
                                             if let GenericArgument::Type(Type::Path(TypePath {
                                                 path: Path { segments, .. },
                                                 ..
                                             })) = arg
                                             {
                                                 let mut option_args = vec![];
-                                                for ps in segments.iter() {
+                                                for ps in segments {
                                                     let PathSegment { ident, .. } = ps;
                                                     let option_arg = ident.to_string();
-                                                    println!(
-                                                        "cargo:warning=TODO: Option Arg - {}",
-                                                        option_arg
-                                                    );
                                                     option_args.push(option_arg);
                                                 }
                                                 result =
@@ -155,11 +151,8 @@ fn run() -> Result<
                                         }
                                     }
                                 }
-                                println!("cargo:warning=TODO: Result - {}", result);
                             }
                             longest_result = cmp::max(longest_result, result.len());
-
-                            println!("cargo:warning=TODO: HELLO 1: {}", &name);
 
                             forest_rpc.insert(
                                 name.clone(),
@@ -169,8 +162,6 @@ fn run() -> Result<
                                     result: result.clone(),
                                 },
                             );
-
-                            println!("cargo:warning=TODO: HELLO 2");
                         }
 
                         name = "".to_owned();
@@ -182,27 +173,26 @@ fn run() -> Result<
         }
     }
 
-    let lotus_rpc: OpenRPCFile = serde_json::from_str(&lotus_rpc_content)?;
+    let lotus_rpc_file: OpenRPCFile = serde_json::from_str(&lotus_rpc_content)?;
 
-    for lotus_method in &lotus_rpc.methods {
+    for lotus_method in lotus_rpc_file.methods {
         longest_name = cmp::max(longest_name, lotus_method.name.len());
+        lotus_rpc.insert(
+            lotus_method.name.clone(),
+            RPCMethod {
+                name: lotus_method.name,
+                params: vec![],
+                result: "".to_owned(),
+            },
+        );
     }
 
-    println!("cargo:warning=TODO: FOREST RPC LEN {}", forest_rpc.len());
-
     for forest_method in forest_rpc.keys() {
-        if lotus_rpc
-            .methods
-            .iter()
-            .find(|m| &m.name == forest_method)
-            .is_none()
-        {
+        if !lotus_rpc.contains_key(forest_method) {
             println!(
                 "cargo:warning=Forest implements an RPC method that Lotus does not: {}",
                 forest_method
             );
-        } else {
-            println!("cargo:warning=TODO: {}", forest_method);
         }
     }
 
@@ -230,8 +220,8 @@ fn main() {
                 method_header, method_pad, params_header, params_pad, result_header, result_pad
             );
 
-            for lotus_method in lotus_rpc.methods.iter() {
-                let forest_method = forest_rpc.get(&lotus_method.name);
+            for (lotus_name, lotus_method) in lotus_rpc.iter() {
+                let forest_method = forest_rpc.get(lotus_name);
 
                 let status = match forest_method {
                     Some(_method) => "✔️ ",
@@ -261,7 +251,7 @@ fn main() {
             }
 
             let forest_count = forest_rpc.len();
-            let lotus_count = lotus_rpc.methods.len();
+            let lotus_count = lotus_rpc.len();
 
             println!(
                 "cargo:warning=Forest: {}, Lotus: {}, {:.2}%",
