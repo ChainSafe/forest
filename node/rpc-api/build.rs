@@ -71,6 +71,10 @@ fn run() -> Result<
     let mut longest_params = 0;
     let mut longest_result = 0;
 
+    let mut name = "".to_owned();
+    let mut params = vec![];
+    let mut result = "".to_owned();
+
     for item in api_modules.iter() {
         if let Item::Mod(ItemMod {
             content: Some((_, items)),
@@ -78,10 +82,6 @@ fn run() -> Result<
         }) = item
         {
             for item in items.iter() {
-                let mut name = "".to_owned();
-                let mut params = vec![];
-                let mut result = "".to_owned();
-
                 if let Item::Const(ItemConst { expr, .. }) = item {
                     if let Expr::Lit(ExprLit {
                         lit: Lit::Str(token),
@@ -158,20 +158,24 @@ fn run() -> Result<
                                 println!("cargo:warning=TODO: Result - {}", result);
                             }
                             longest_result = cmp::max(longest_result, result.len());
+
+                            println!("cargo:warning=TODO: HELLO 1: {}", &name);
+
+                            forest_rpc.insert(
+                                name.clone(),
+                                RPCMethod {
+                                    name: name.clone(),
+                                    params: params.clone(),
+                                    result: result.clone(),
+                                },
+                            );
+
+                            println!("cargo:warning=TODO: HELLO 2");
                         }
 
-                        forest_rpc.insert(
-                            name.clone(),
-                            RPCMethod {
-                                name,
-                                params,
-                                result,
-                            },
-                        );
-
-                        // name = "".to_owned();
-                        // params = vec![];
-                        // result = "".to_owned();
+                        name = "".to_owned();
+                        params = vec![];
+                        result = "".to_owned();
                     }
                 }
             }
@@ -214,6 +218,18 @@ fn main() {
         Ok((forest_rpc, lotus_rpc, longest_strs)) => {
             let (longest_method, longest_params, longest_result) = longest_strs;
 
+            let method_header = "Method";
+            let params_header = "Params";
+            let result_header = "Result";
+            let method_pad = " ".repeat(longest_method - method_header.len());
+            let params_pad = " ".repeat(longest_params - params_header.len() + 2);
+            let result_pad = " ".repeat(longest_result - result_header.len());
+
+            println!(
+                "cargo:warning=    | {}{} | {}{} | {}{} |",
+                method_header, method_pad, params_header, params_pad, result_header, result_pad
+            );
+
             for lotus_method in lotus_rpc.methods.iter() {
                 let forest_method = forest_rpc.get(&lotus_method.name);
 
@@ -223,11 +239,8 @@ fn main() {
                 };
 
                 let (forest_params, forest_result) = match forest_method {
-                    Some(method) => {
-                        println!("cargo:warning={:?}", method);
-                        (method.params.join(", "), method.result.clone())
-                    }
-                    None => ("".to_owned(), "".to_owned()),
+                    Some(method) => (method.params.join(", "), method.result.clone()),
+                    None => ("".to_owned(), "()".to_owned()),
                 };
 
                 // Pad strings for display
