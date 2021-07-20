@@ -61,7 +61,7 @@ where
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RPCSyncState {
     #[serde(rename = "ActiveSyncs")]
     pub active_syncs: Vec<SyncState>,
