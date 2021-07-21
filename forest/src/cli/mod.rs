@@ -136,7 +136,17 @@ impl CLIOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => Config::default(),
+            None => {
+                // Check ENV VAR for config file
+                if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+                    // Read from config file
+                    let toml = read_file_to_string(&*config_file)?;
+                    // Parse and return the configuration file
+                    read_toml(&toml)?
+                } else {
+                    Config::default()
+                }
+            }
         };
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
