@@ -17,9 +17,7 @@ pub enum MpoolCommands {
     #[structopt(help = "Get pending messages")]
     Pending,
     #[structopt(help = "Print mempool stats")]
-    Stat,
-    #[structopt(help = "Subscribe to mempool changes")]
-    Subscribe {
+    Stat {
         #[structopt(
             short,
             help = "Number of blocks to lookback for minimum base fee",
@@ -27,6 +25,8 @@ pub enum MpoolCommands {
         )]
         base_fee_lookback: u32,
     },
+    #[structopt(help = "Subscribe to mempool changes")]
+    Subscribe,
 }
 
 impl MpoolCommands {
@@ -37,8 +37,7 @@ impl MpoolCommands {
                 let messages = res.map_err(handle_rpc_err).unwrap();
                 println!("{:#?}", messages);
             }
-            Self::Stat => {}
-            Self::Subscribe { base_fee_lookback } => {
+            Self::Stat { base_fee_lookback } => {
                 let base_fee_lookback = *base_fee_lookback;
                 let tipset_json = chain_head().await.map_err(handle_rpc_err).unwrap();
                 let tipset = tipset_json.0;
@@ -70,6 +69,7 @@ impl MpoolCommands {
                     println!("{:?}", addresses);
                 }
             }
+            Self::Subscribe => {}
         }
     }
 }
