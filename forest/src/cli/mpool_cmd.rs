@@ -1,13 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::tipset_json::TipsetJson;
+use address::Address;
 use blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
 use cid::json::vec::CidJsonVec;
 use rpc_client::chain_ops::*;
 use rpc_client::mpool_ops::*;
+use rpc_client::wallet_ops::wallet_list;
 
 use crate::cli::handle_rpc_err;
 
@@ -47,13 +48,26 @@ impl MpoolCommands {
 
                 let mut current_tipset = tipset.clone();
 
-                for i in 1..base_fee_lookback {
+                for _ in 1..base_fee_lookback {
                     current_tipset =
                         chain_get_tipset((TipsetKeysJson(current_tipset.parents().to_owned()),))
                             .await
                             .map_err(handle_rpc_err)
                             .unwrap()
                             .0;
+
+                    if current_tipset.blocks()[0].parent_base_fee() < &min_base_fee {
+                        min_base_fee = current_tipset.blocks()[0].parent_base_fee().clone();
+                    }
+
+                    let wallet_response = wallet_list().await.map_err(handle_rpc_err).unwrap();
+
+                    let addresses: Vec<Address> = wallet_response
+                        .into_iter()
+                        .map(|address| address.0)
+                        .collect();
+
+                    println!("{:?}", addresses);
                 }
             }
         }
