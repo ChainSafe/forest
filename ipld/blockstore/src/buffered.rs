@@ -6,18 +6,19 @@
 use super::BlockStore;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use cid::{Cid, Code, DAG_CBOR};
+use dashmap::DashMap;
 use db::{Error, Store};
-use std::collections::HashMap;
+
 use std::error::Error as StdError;
 use std::io::{Read, Seek};
-use std::{cell::RefCell, convert::TryFrom, io::Cursor};
+use std::{convert::TryFrom, io::Cursor};
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.
 #[derive(Debug)]
 pub struct BufferedBlockStore<'bs, BS> {
     base: &'bs BS,
-    write: RefCell<HashMap<Cid, Vec<u8>>>,
+    write: DashMap<Cid, Vec<u8>>,
 }
 
 impl<'bs, BS> BufferedBlockStore<'bs, BS>
@@ -30,12 +31,14 @@ where
             write: Default::default(),
         }
     }
+
     /// Flushes the buffered cache based on the root node.
     /// This will recursively traverse the cache and write all data connected by links to this
     /// root Cid.
-    pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError>> {
+    pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError + '_>> {
         let mut buffer = Vec::new();
-        copy_rec(self.base, &self.write.borrow(), *root, &mut buffer)?;
+        let s = &self.write;
+        copy_rec(self.base, s, *root, &mut buffer)?;
 
         self.base.bulk_write(&buffer)?;
         self.write = Default::default();
@@ -150,7 +153,7 @@ where
 /// Copies the IPLD DAG under `root` from the cache to the base store.
 fn copy_rec<BS>(
     base: &BS,
-    cache: &HashMap<Cid, Vec<u8>>,
+    cache: &DashMap<Cid, Vec<u8>>,
     root: Cid,
     buffer: &mut Vec<(Vec<u8>, Vec<u8>)>,
 ) -> Result<(), Box<dyn StdError>>
@@ -161,7 +164,8 @@ where
     if root.codec() != DAG_CBOR {
         return Ok(());
     }
-    let block = cache
+
+    let block = &*cache
         .get(&root)
         .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
 
@@ -190,7 +194,7 @@ where
     BS: BlockStore,
 {
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        if let Some(data) = self.write.borrow().get(cid) {
+        if let Some(data) = self.write.get(cid) {
             return Ok(Some(data.clone()));
         }
 
@@ -199,7 +203,7 @@ where
 
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
         let cid = cid::new_from_cbor(&bytes, code);
-        self.write.borrow_mut().insert(cid, bytes);
+        self.write.insert(cid, bytes);
         Ok(cid)
     }
 }
@@ -273,7 +277,7 @@ mod tests {
         buf_store.flush(&cid).unwrap();
         assert_eq!(buf_store.get::<u8>(&cid).unwrap(), Some(8));
         assert_eq!(mem.get::<u8>(&cid).unwrap(), Some(8));
-        assert_eq!(buf_store.write.borrow().get(&cid), None);
+        assert!(buf_store.write.get(&cid).is_none());
     }
 
     #[test]

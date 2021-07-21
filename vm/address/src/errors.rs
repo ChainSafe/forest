@@ -30,6 +30,8 @@ pub enum Error {
     Base32Decoding(#[from] DecodeError),
     #[error("Cannot get id from non id address")]
     NonIDAddress,
+    #[error("Invalid address ID payload")]
+    InvalidAddressIDPayload(Vec<u8>),
 }
 
 impl From<num::ParseIntError> for Error {

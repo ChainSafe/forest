@@ -1,9 +1,10 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use structopt::StructOpt;
+
 use fil_types::SectorSize;
 use paramfetch::{get_params_default, SectorSizeOpt};
-use structopt::StructOpt;
 
 #[allow(missing_docs)]
 #[derive(Debug, StructOpt)]

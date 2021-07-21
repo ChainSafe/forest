@@ -154,9 +154,7 @@ where
 
     match rpc_res {
         JsonRpcResponse::Result { result, .. } => Ok(result),
-        JsonRpcResponse::Error { error, .. } => {
-            return Err(error.message.into());
-        }
+        JsonRpcResponse::Error { error, .. } => Err(error.message.into()),
     }
 }
 
@@ -179,12 +177,17 @@ pub mod filecoin_rpc {
     use jsonrpc_v2::Error;
 
     use crate::call_params;
+<<<<<<< HEAD
     use rpc_api::{
         auth_api::*,
         chain_api::*,
         mpool_api::{MpoolPendingParams, MpoolPendingResult, MPOOL_PENDING},
     };
+=======
+    use rpc_api::{auth_api::*, chain_api::*, sync_api::*, wallet_api::*};
+>>>>>>> 1b57d550c3363d90f83b2235241fdcce2648ec9d
 
+    /// Auth
     pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
         call_params(AUTH_NEW, perm).await
     }
@@ -211,8 +214,67 @@ pub mod filecoin_rpc {
         call_params(CHAIN_READ_OBJ, cid).await
     }
 
+<<<<<<< HEAD
     /// Message Pool
     pub async fn mpool_pending(params: MpoolPendingParams) -> Result<MpoolPendingResult, Error> {
         call_params(MPOOL_PENDING, params).await
+=======
+    /// Wallet
+    pub async fn wallet_new(signature_type: WalletNewParams) -> Result<WalletNewResult, Error> {
+        call_params(WALLET_NEW, signature_type).await
+    }
+
+    pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, Error> {
+        call_params(WALLET_DEFAULT_ADDRESS, ()).await
+    }
+
+    pub async fn wallet_balance(
+        address: WalletBalanceParams,
+    ) -> Result<WalletBalanceResult, Error> {
+        call_params(WALLET_BALANCE, address).await
+    }
+
+    pub async fn wallet_export(address: WalletExportParams) -> Result<WalletExportResult, Error> {
+        call_params(WALLET_EXPORT, address).await
+    }
+
+    pub async fn wallet_import(key: WalletImportParams) -> Result<WalletImportResult, Error> {
+        call_params(WALLET_IMPORT, key).await
+    }
+
+    pub async fn wallet_list() -> Result<WalletListResult, Error> {
+        call_params(WALLET_LIST, ()).await
+    }
+
+    pub async fn wallet_has(key: WalletHasParams) -> Result<WalletHasResult, Error> {
+        call_params(WALLET_HAS, key).await
+    }
+
+    pub async fn wallet_set_default(
+        address: WalletSetDefaultParams,
+    ) -> Result<WalletSetDefaultResult, Error> {
+        call_params(WALLET_SET_DEFAULT, address).await
+    }
+
+    pub async fn wallet_sign(message: WalletSignParams) -> Result<WalletSignResult, Error> {
+        call_params(WALLET_SIGN, message).await
+    }
+
+    pub async fn wallet_verify(message: WalletVerifyParams) -> Result<WalletVerifyResult, Error> {
+        call_params(WALLET_VERIFY, message).await
+    }
+
+    /// Chain-Sync
+    pub async fn sync_check_bad(params: SyncCheckBadParams) -> Result<SyncCheckBadResult, Error> {
+        call_params(SYNC_CHECK_BAD, params).await
+    }
+
+    pub async fn sync_mark_bad(params: SyncMarkBadParams) -> Result<SyncMarkBadResult, Error> {
+        call_params(SYNC_MARK_BAD, params).await
+    }
+
+    pub async fn sync_state(params: SyncStateParams) -> Result<SyncStateResult, Error> {
+        call_params(SYNC_STATE, params).await
+>>>>>>> 1b57d550c3363d90f83b2235241fdcce2648ec9d
     }
 }

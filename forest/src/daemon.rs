@@ -19,7 +19,7 @@ use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 use rpassword::read_password;
 
 use std::io::prelude::*;
@@ -51,23 +51,27 @@ pub(super) async fn start(config: Config) {
             let gen_keypair = ed25519::Keypair::generate();
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
-            if let Err(e) = write_to_file(
+            match write_to_file(
                 &gen_keypair.encode(),
                 &format!("{}{}", &config.data_dir, "/libp2p/"),
                 "keypair",
             ) {
-                info!("Could not write keystore to disk!");
-                trace!("Error {:?}", e);
+                Ok(file) => {
+                    // Restrict permissions on files containing private keys
+                    #[cfg(unix)]
+                    utils::set_user_perm(&file).expect("Set user perms on unix systems");
+                }
+                Err(e) => {
+                    info!("Could not write keystore to disk!");
+                    trace!("Error {:?}", e);
+                }
             };
             Keypair::Ed25519(gen_keypair)
         });
 
-    let prometheus_registry = prometheus::Registry::new();
-
-    // Initialize keystore
     let mut ks = if config.encrypt_keystore {
         loop {
-            print!("keystore passphrase: ");
+            print!("Enter the keystore passphrase: ");
             std::io::stdout().flush().unwrap();
 
             let passphrase = read_password().expect("Error reading passphrase");
@@ -76,10 +80,13 @@ pub(super) async fn start(config: Config) {
             data_dir.push(ENCRYPTED_KEYSTORE_NAME);
 
             if !data_dir.exists() {
-                print!("confirm passphrase: ");
+                print!("Confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
 
-                read_password().expect("Passphrases do not match");
+                if passphrase != read_password().unwrap() {
+                    println!("Passphrases do not match. Please retry.");
+                    continue;
+                }
             }
 
             let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
@@ -90,11 +97,12 @@ pub(super) async fn start(config: Config) {
             match key_store_init_result {
                 Ok(ks) => break ks,
                 Err(_) => {
-                    log::error!("incorrect passphrase")
+                    log::error!("Incorrect passphrase entered. Please try again.")
                 }
             };
         }
     } else {
+        warn!("Warning: Keystore encryption disabled!");
         KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(&config.data_dir)))
             .expect("Error initializing keystore")
     };
@@ -113,10 +121,12 @@ pub(super) async fn start(config: Config) {
 
     // Initialize database (RocksDb will be default if both features enabled)
     #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(config.data_dir + "/sled").unwrap();
+    let db = db::sled::SledDb::open(format!("{}/{}", config.data_dir, "/sled"))
+        .expect("Opening SledDB must succeed");
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(config.data_dir + "/db").unwrap();
+    let db = db::rocks::RocksDb::open(format!("{}/{}", config.data_dir.clone(), "db"))
+        .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
 
@@ -187,7 +197,8 @@ pub(super) async fn start(config: Config) {
         chain_muxer_tipset_sink,
         tipset_stream,
         config.sync,
-    );
+    )
+    .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
     let sync_task = task::spawn(chain_muxer);
@@ -228,7 +239,7 @@ pub(super) async fn start(config: Config) {
         (format!("127.0.0.1:{}", config.metrics_port))
             .parse()
             .unwrap(),
-        prometheus_registry,
+        format!("{}/{}", config.data_dir.clone(), "db"),
     ));
 
     // Block until ctrl-c is hit

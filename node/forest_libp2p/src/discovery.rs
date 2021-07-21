@@ -20,6 +20,7 @@ use libp2p::{
 };
 use libp2p::{kad::record::store::MemoryStore, mdns::Mdns};
 use log::{debug, error, trace, warn};
+use std::collections::HashMap;
 use std::{
     cmp,
     collections::{HashSet, VecDeque},
@@ -103,6 +104,7 @@ impl<'a> DiscoveryConfig<'a> {
         } = self;
 
         let mut peers = HashSet::new();
+        let peer_addresses = HashMap::new();
 
         // Kademlia config
         let store = MemoryStore::new(local_peer_id.to_owned());
@@ -156,6 +158,7 @@ impl<'a> DiscoveryConfig<'a> {
             num_connections: 0,
             mdns: mdns_opt.into(),
             peers,
+            peer_addresses,
             discovery_max,
         }
     }
@@ -180,6 +183,8 @@ pub struct DiscoveryBehaviour {
     num_connections: u64,
     /// Keeps hash set of peers connected.
     peers: HashSet<PeerId>,
+    /// Keeps hash map of peers and their multiaddresses
+    peer_addresses: HashMap<PeerId, Vec<Multiaddr>>,
     /// Number of active connections to pause discovery on.
     discovery_max: u64,
 }
@@ -188,6 +193,11 @@ impl DiscoveryBehaviour {
     /// Returns reference to peer set.
     pub fn peers(&self) -> &HashSet<PeerId> {
         &self.peers
+    }
+
+    /// Returns a map of peer ids and their multiaddresses
+    pub fn peer_addresses(&self) -> &HashMap<PeerId, Vec<Multiaddr>> {
+        &self.peer_addresses
     }
 
     /// Bootstrap Kademlia network
@@ -244,6 +254,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
+        let multiaddr = self.addresses_of_peer(peer_id);
+        self.peer_addresses.insert(*peer_id, multiaddr);
         self.peers.insert(*peer_id);
         self.pending_events
             .push_back(DiscoveryOut::Connected(*peer_id));
