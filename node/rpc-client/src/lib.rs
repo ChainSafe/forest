@@ -1,17 +1,6 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-<<<<<<< HEAD
-mod auth_ops;
-mod chain_ops;
-mod client;
-pub mod mpool_ops;
-
-pub use self::auth_ops::*;
-pub use self::chain_ops::*;
-pub use self::client::*;
-pub use self::mpool_ops::*;
-=======
 /// Filecoin RPC client interface methods
 pub mod auth_ops;
 pub mod chain_ops;
@@ -205,4 +194,3 @@ where
         JsonRpcResponse::Error { error, .. } => Err(error.message.into()),
     }
 }
->>>>>>> 1b57d550c3363d90f83b2235241fdcce2648ec9d

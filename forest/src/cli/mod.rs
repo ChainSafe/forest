@@ -7,12 +7,9 @@ mod config;
 mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
-<<<<<<< HEAD
-=======
 mod net_cmd;
 mod sync_cmd;
 mod wallet_cmd;
->>>>>>> 1b57d550c3363d90f83b2235241fdcce2648ec9d
 
 pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
@@ -20,12 +17,9 @@ pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
-<<<<<<< HEAD
-=======
 pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
->>>>>>> 1b57d550c3363d90f83b2235241fdcce2648ec9d
 
 use jsonrpc_v2::Error as JsonRpcError;
 use serde::Serialize;
@@ -74,9 +68,6 @@ pub enum Subcommand {
     #[structopt(name = "genesis", about = "Work with blockchain genesis")]
     Genesis(GenesisCommands),
 
-<<<<<<< HEAD
-    #[structopt(name = "mpool", about = "work with message pool")]
-=======
     #[structopt(name = "net", about = "Manage P2P Network")]
     Net(NetCommands),
 
@@ -87,7 +78,6 @@ pub enum Subcommand {
     Sync(SyncCommands),
 
     #[structopt(name = "mpool", about = "Interact with the Message Pool")]
->>>>>>> 1b57d550c3363d90f83b2235241fdcce2648ec9d
     Mpool(MpoolCommands),
 }
 

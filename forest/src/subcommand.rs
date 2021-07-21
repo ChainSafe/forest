@@ -73,8 +73,6 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         Subcommand::Genesis(cmd) => {
             cmd.run().await;
         }
-<<<<<<< HEAD
-=======
         Subcommand::Net(cmd) => {
             cmd.run().await;
         }
@@ -84,7 +82,6 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         Subcommand::Sync(cmd) => {
             cmd.run().await;
         }
->>>>>>> 1b57d550c3363d90f83b2235241fdcce2648ec9d
         Subcommand::Mpool(cmd) => {
             cmd.run().await;
         }
