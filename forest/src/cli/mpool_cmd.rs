@@ -5,7 +5,6 @@ use std::collections::HashMap;
 
 use address::Address;
 use blocks::tipset_keys_json::TipsetKeysJson;
-use jsonrpc_v2::ErrorLike;
 use message::SignedMessage;
 use structopt::StructOpt;
 
