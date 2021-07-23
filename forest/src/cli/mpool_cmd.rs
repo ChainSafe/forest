@@ -84,7 +84,7 @@ impl MpoolCommands {
                         .unwrap();
 
                     struct StatBucket {
-                        msgs: HashMap<u64, SignedMessage>,
+                        messages: HashMap<Address, SignedMessage>,
                     }
 
                     let mut buckets = HashMap::<Address, StatBucket>::new();
@@ -100,6 +100,20 @@ impl MpoolCommands {
                                 continue;
                             }
                         }
+
+                        match buckets.get_mut(&message.message().from) {
+                            Some(bucket) => {
+                                bucket.messages.insert(message.message().from, message);
+                            }
+                            None => {
+                                buckets.insert(
+                                    message.message().from,
+                                    StatBucket {
+                                        messages: HashMap::new(),
+                                    },
+                                );
+                            }
+                        };
                     }
                 }
             }
