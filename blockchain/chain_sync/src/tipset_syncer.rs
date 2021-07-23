@@ -761,7 +761,7 @@ fn sync_tipset_range<
         tracker
             .write()
             .await
-            .init(proposed_head.clone(), current_head.clone());
+            .init(current_head.clone(), proposed_head.clone());
 
         let parent_tipsets = match sync_headers_in_reverse(
             tracker.clone(),
