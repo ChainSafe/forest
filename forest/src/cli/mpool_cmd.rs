@@ -1,8 +1,12 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::collections::HashMap;
+
 use address::Address;
 use blocks::tipset_keys_json::TipsetKeysJson;
+use jsonrpc_v2::ErrorLike;
+use message::SignedMessage;
 use structopt::StructOpt;
 
 use cid::json::vec::CidJsonVec;
@@ -78,6 +82,25 @@ impl MpoolCommands {
                         .await
                         .map_err(handle_rpc_err)
                         .unwrap();
+
+                    struct StatBucket {
+                        msgs: HashMap<u64, SignedMessage>,
+                    }
+
+                    let mut buckets = HashMap::<Address, StatBucket>::new();
+
+                    for message in messages {
+                        if !addresses.is_empty() {
+                            let filter: Vec<&Address> = addresses
+                                .iter()
+                                .filter(|&addr| addr == &message.message().from)
+                                .collect();
+
+                            if filter.is_empty() {
+                                continue;
+                            }
+                        }
+                    }
                 }
             }
         }
