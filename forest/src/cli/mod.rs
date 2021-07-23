@@ -7,6 +7,7 @@ mod config;
 mod fetch_params_cmd;
 mod genesis_cmd;
 mod net_cmd;
+mod sync_cmd;
 mod wallet_cmd;
 
 pub(super) use self::auth_cmd::AuthCommands;
@@ -15,6 +16,7 @@ pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::net_cmd::NetCommands;
+pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use jsonrpc_v2::Error as JsonRpcError;
@@ -69,6 +71,8 @@ pub enum Subcommand {
 
     #[structopt(name = "wallet", about = "Manage wallet")]
     Wallet(WalletCommands),
+    #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
+    Sync(SyncCommands),
 }
 
 /// CLI options
@@ -132,7 +136,17 @@ impl CLIOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => Config::default(),
+            None => {
+                // Check ENV VAR for config file
+                if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+                    // Read from config file
+                    let toml = read_file_to_string(&*config_file)?;
+                    // Parse and return the configuration file
+                    read_toml(&toml)?
+                } else {
+                    Config::default()
+                }
+            }
         };
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
@@ -229,6 +243,12 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
     }
 }
 
+/// Format a vector to a prettified string
+pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
+    format!("[{}]", vec.join(", "))
+}
+
+/// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid params
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
     println!("Error: {}", msg);

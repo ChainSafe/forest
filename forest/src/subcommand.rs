@@ -79,5 +79,8 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         Subcommand::Wallet(cmd) => {
             cmd.run().await;
         }
+        Subcommand::Sync(cmd) => {
+            cmd.run().await;
+        }
     }
 }
