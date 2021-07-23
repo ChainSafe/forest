@@ -19,10 +19,8 @@ use crate::{
 };
 use address::Address;
 use ahash::AHashMap;
-use byteorder::{BigEndian, ByteOrder};
 use cid::Prefix;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
-use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
 use fil_types::deadlines::QuantSpec;
 use fil_types::{PieceInfo, StoragePower};
