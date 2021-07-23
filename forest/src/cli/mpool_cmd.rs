@@ -24,9 +24,9 @@ pub enum MpoolCommands {
             default_value = "60"
         )]
         base_fee_lookback: u32,
+        #[structopt(short, help = "Print stats for local addresses only")]
+        local: bool,
     },
-    #[structopt(help = "Subscribe to mempool changes")]
-    Subscribe,
 }
 
 impl MpoolCommands {
@@ -37,8 +37,12 @@ impl MpoolCommands {
                 let messages = res.map_err(handle_rpc_err).unwrap();
                 println!("{:#?}", messages);
             }
-            Self::Stat { base_fee_lookback } => {
+            Self::Stat {
+                base_fee_lookback,
+                local,
+            } => {
                 let base_fee_lookback = *base_fee_lookback;
+                let local = *local;
                 let tipset_json = chain_head().await.map_err(handle_rpc_err).unwrap();
                 let tipset = tipset_json.0;
 
@@ -61,15 +65,21 @@ impl MpoolCommands {
 
                     let wallet_response = wallet_list().await.map_err(handle_rpc_err).unwrap();
 
-                    let addresses: Vec<Address> = wallet_response
-                        .into_iter()
-                        .map(|address| address.0)
-                        .collect();
+                    let mut addresses = Vec::new();
 
-                    println!("{:?}", addresses);
+                    if local {
+                        addresses = wallet_response
+                            .into_iter()
+                            .map(|address| address.0)
+                            .collect();
+                    }
+
+                    let messages = mpool_pending((CidJsonVec(vec![]),))
+                        .await
+                        .map_err(handle_rpc_err)
+                        .unwrap();
                 }
             }
-            Self::Subscribe => {}
         }
     }
 }
