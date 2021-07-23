@@ -1,13 +1,20 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_libp2p::{Multiaddr, Protocol};
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use log::{debug, error};
+use parity_multiaddr::{Multiaddr, Protocol};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::env;
 
-use crate::{API_INFO, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_PROTOCOL, RPC_ENDPOINT};
+const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
+const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
+const DEFAULT_PROTOCOL: &str = "http";
+const DEFAULT_HOST: &str = "127.0.0.1";
+const DEFAULT_PORT: &str = "1234";
+const API_INFO_KEY: &str = "FULLNODE_API_INFO";
+const RPC_ENDPOINT: &str = "rpc/v0";
 
 /// Error object in a response
 #[derive(Deserialize)]
@@ -38,9 +45,12 @@ struct URL {
 }
 
 /// Parses a multiaddress into a URL
-fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
+fn multiaddress_to_url(ma_str: String) -> String {
+    // Parse Multiaddress string
+    let ma: Multiaddr = ma_str.parse().expect("Parse multiaddress");
+
     // Fold Multiaddress into a URL struct
-    let addr = multiaddr.into_iter().fold(
+    let addr = ma.into_iter().fold(
         URL {
             protocol: DEFAULT_PROTOCOL.to_owned(),
             port: DEFAULT_PORT.to_owned(),
@@ -95,16 +105,24 @@ async fn call<R>(rpc_call: RequestObject) -> Result<R, Error>
 where
     R: DeserializeOwned,
 {
-    let api_info = API_INFO.read().await;
-    let api_url = multiaddress_to_url(api_info.multiaddr.to_owned());
+    // Get API INFO environment variable if exists, otherwise, use default multiaddress
+    let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
+
+    // Input sanity checks
+    if api_info.matches(':').count() > 1 {
+        return Err(jsonrpc_v2::Error::from(format!(
+            "Improperly formatted multiaddress value provided for the {} environment variable. Value was: {}",
+            API_INFO_KEY, api_info,
+        )));
+    }
 
     // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
-    let mut http_res = match api_info.token.to_owned() {
-        Some(jwt) => surf::post(api_url)
+    let mut http_res = match &api_info.split_once(':') {
+        Some((jwt, host)) => surf::post(multiaddress_to_url(host.to_string()))
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_call)?)
-            .header("Authorization", jwt),
-        None => surf::post(api_url)
+            .header("Authorization", jwt.to_string()),
+        None => surf::post(DEFAULT_URL)
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_call)?),
     }
@@ -159,15 +177,11 @@ pub mod filecoin_rpc {
     use jsonrpc_v2::Error;
 
     use crate::call_params;
-    use rpc_api::{auth_api::*, chain_api::*, wallet_api::*};
+    use rpc_api::{auth_api::*, chain_api::*, sync_api::*, wallet_api::*};
 
     /// Auth
     pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, Error> {
         call_params(AUTH_NEW, perm).await
-    }
-
-    pub async fn auth_verify(params: AuthVerifyParams) -> Result<AuthVerifyResult, Error> {
-        call_params(AUTH_VERIFY, params).await
     }
 
     pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockResult, Error> {
@@ -235,5 +249,18 @@ pub mod filecoin_rpc {
 
     pub async fn wallet_verify(message: WalletVerifyParams) -> Result<WalletVerifyResult, Error> {
         call_params(WALLET_VERIFY, message).await
+    }
+
+    /// Chain-Sync
+    pub async fn sync_check_bad(params: SyncCheckBadParams) -> Result<SyncCheckBadResult, Error> {
+        call_params(SYNC_CHECK_BAD, params).await
+    }
+
+    pub async fn sync_mark_bad(params: SyncMarkBadParams) -> Result<SyncMarkBadResult, Error> {
+        call_params(SYNC_MARK_BAD, params).await
+    }
+
+    pub async fn sync_state(params: SyncStateParams) -> Result<SyncStateResult, Error> {
+        call_params(SYNC_STATE, params).await
     }
 }

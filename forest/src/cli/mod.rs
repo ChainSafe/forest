@@ -6,6 +6,8 @@ mod chain_cmd;
 mod config;
 mod fetch_params_cmd;
 mod genesis_cmd;
+mod net_cmd;
+mod sync_cmd;
 mod wallet_cmd;
 
 pub(super) use self::auth_cmd::AuthCommands;
@@ -13,12 +15,14 @@ pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
+pub(super) use self::net_cmd::NetCommands;
+pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use jsonrpc_v2::Error as JsonRpcError;
 use serde::Serialize;
 use std::cell::RefCell;
-use std::io;
+use std::io::{self, Write};
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -62,8 +66,13 @@ pub enum Subcommand {
     #[structopt(name = "genesis", about = "Work with blockchain genesis")]
     Genesis(GenesisCommands),
 
+    #[structopt(name = "net", about = "Manage P2P Network")]
+    Net(NetCommands),
+
     #[structopt(name = "wallet", about = "Manage wallet")]
     Wallet(WalletCommands),
+    #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
+    Sync(SyncCommands),
 }
 
 /// CLI options
@@ -127,7 +136,17 @@ impl CLIOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => Config::default(),
+            None => {
+                // Check ENV VAR for config file
+                if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+                    // Read from config file
+                    let toml = read_file_to_string(&*config_file)?;
+                    // Parse and return the configuration file
+                    read_toml(&toml)?
+                } else {
+                    Config::default()
+                }
+            }
         };
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
@@ -224,6 +243,12 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
     }
 }
 
+/// Format a vector to a prettified string
+pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
+    format!("[{}]", vec.join(", "))
+}
+
+/// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid params
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
     println!("Error: {}", msg);
@@ -263,4 +288,32 @@ pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) {
         ),
         Err(err) => handle_rpc_err(err),
     };
+}
+
+/// Prints a bytes HTTP JSON-RPC response result
+pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) {
+    match res {
+        Ok(obj) => println!(
+            "{}",
+            String::from_utf8(obj)
+                .map_err(|e| handle_rpc_err(e.into()))
+                .unwrap()
+        ),
+        Err(err) => handle_rpc_err(err),
+    };
+}
+
+/// Prints a string HTTP JSON-RPC response result to a buffered stdout
+pub(super) fn print_stdout(out: String) {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    handle
+        .write_all(out.as_bytes())
+        .map_err(|e| handle_rpc_err(e.into()))
+        .unwrap();
+
+    handle
+        .write("\n".as_bytes())
+        .map_err(|e| handle_rpc_err(e.into()))
+        .unwrap();
 }

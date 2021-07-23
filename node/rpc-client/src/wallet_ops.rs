@@ -1,50 +1,48 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::filecoin_rpc;
-use jsonrpc_v2::Error as JsonRpcError;
+use crate::call;
+use jsonrpc_v2::Error;
 use rpc_api::wallet_api::*;
 
-pub async fn wallet_new(params: WalletNewParams) -> Result<WalletNewResult, JsonRpcError> {
-    filecoin_rpc::wallet_new(params).await
+pub async fn wallet_new(signature_type: WalletNewParams) -> Result<WalletNewResult, Error> {
+    call(WALLET_NEW, signature_type).await
 }
 
-pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, JsonRpcError> {
-    filecoin_rpc::wallet_default_address().await
+pub async fn wallet_default_address() -> Result<WalletDefaultAddressResult, Error> {
+    call(WALLET_DEFAULT_ADDRESS, ()).await
 }
 
-pub async fn wallet_balance(
-    params: WalletBalanceParams,
-) -> Result<WalletBalanceResult, JsonRpcError> {
-    filecoin_rpc::wallet_balance(params).await
+pub async fn wallet_balance(address: WalletBalanceParams) -> Result<WalletBalanceResult, Error> {
+    call(WALLET_BALANCE, address).await
 }
 
-pub async fn wallet_export(params: WalletExportParams) -> Result<WalletExportResult, JsonRpcError> {
-    filecoin_rpc::wallet_export(params).await
+pub async fn wallet_export(address: WalletExportParams) -> Result<WalletExportResult, Error> {
+    call(WALLET_EXPORT, address).await
 }
 
-pub async fn wallet_import(params: WalletImportParams) -> Result<WalletImportResult, JsonRpcError> {
-    filecoin_rpc::wallet_import(params).await
+pub async fn wallet_import(key: WalletImportParams) -> Result<WalletImportResult, Error> {
+    call(WALLET_IMPORT, key).await
 }
 
-pub async fn wallet_list() -> Result<WalletListResult, JsonRpcError> {
-    filecoin_rpc::wallet_list().await
+pub async fn wallet_list() -> Result<WalletListResult, Error> {
+    call(WALLET_LIST, ()).await
 }
 
-pub async fn wallet_has(params: WalletHasParams) -> Result<WalletHasResult, JsonRpcError> {
-    filecoin_rpc::wallet_has(params).await
+pub async fn wallet_has(key: WalletHasParams) -> Result<WalletHasResult, Error> {
+    call(WALLET_HAS, key).await
 }
 
 pub async fn wallet_set_default(
-    params: WalletSetDefaultParams,
-) -> Result<WalletSetDefaultResult, JsonRpcError> {
-    filecoin_rpc::wallet_set_default(params).await
+    address: WalletSetDefaultParams,
+) -> Result<WalletSetDefaultResult, Error> {
+    call(WALLET_SET_DEFAULT, address).await
 }
 
-pub async fn wallet_sign(params: WalletSignParams) -> Result<WalletSignResult, JsonRpcError> {
-    filecoin_rpc::wallet_sign(params).await
+pub async fn wallet_sign(message: WalletSignParams) -> Result<WalletSignResult, Error> {
+    call(WALLET_SIGN, message).await
 }
 
-pub async fn wallet_verify(params: WalletVerifyParams) -> Result<WalletVerifyResult, JsonRpcError> {
-    filecoin_rpc::wallet_verify(params).await
+pub async fn wallet_verify(message: WalletVerifyParams) -> Result<WalletVerifyResult, Error> {
+    call(WALLET_VERIFY, message).await
 }

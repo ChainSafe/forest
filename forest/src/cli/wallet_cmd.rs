@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
+use structopt::StructOpt;
 
 use address::{json::AddressJson, Address};
 use forest_crypto::{
@@ -11,8 +12,7 @@ use forest_crypto::{
     },
     Signature,
 };
-use rpc_client::*;
-use structopt::StructOpt;
+use rpc_client::wallet_ops::*;
 use wallet::json::KeyInfoJson;
 
 use super::{cli_error_and_die, handle_rpc_err};
