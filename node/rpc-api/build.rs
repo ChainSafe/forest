@@ -29,28 +29,100 @@ struct OpenRPCFile {
 struct OpenRPCMethod {
     name: String,
     params: Vec<OpenRPCParams>,
-    result: OpenRPCParams,
+    result: OpenRPCResult,
 }
 
 #[derive(Deserialize)]
 struct OpenRPCParams {
     description: String,
-    pub schema: OpenRPCSchema,
 }
 
 #[derive(Deserialize)]
 struct OpenRPCResult {
     description: String,
-    pub schema: OpenRPCSchema,
-}
-
-#[derive(Deserialize)]
-struct OpenRPCSchema {
-    pub r#type: Vec<String>,
 }
 
 type MethodMap = BTreeMap<String, RPCMethod>;
 type StringLengths = (usize, usize, usize);
+
+fn parse_generic(generic_type: String, arguments: PathArguments) -> String {
+    if let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) = arguments {
+        let mut generic_args = vec![];
+
+        for arg in args {
+            if let GenericArgument::Type(Type::Path(TypePath {
+                path: Path { segments, .. },
+                ..
+            })) = arg
+            {
+                for ps in segments {
+                    let PathSegment { ident, .. } = ps;
+                    let option_arg = ident.to_string();
+                    generic_args.push(option_arg);
+                }
+            }
+        }
+
+        format!("{}<{}>", generic_type, generic_args.join(", "))
+    } else {
+        generic_type
+    }
+}
+
+fn map_lotus_type(lotus_param: &str) -> String {
+    let mut param = lotus_param.to_owned();
+
+    if param.starts_with("[]") {
+        param = param.replace("[]", "");
+        param = format!("Vec<{}>", param);
+    }
+
+    if param.starts_with("map[string]") {
+        param = param.replace("map[string]", "HashMap<String, ");
+        param.push('>');
+    }
+
+    param = param.replace("*", "");
+    param = param.replace("TipSet", "Tipset");
+
+    // Strip namespaces
+    param = param.replace("abi.", "");
+    param = param.replace("address.", "");
+    param = param.replace("bitfield.", "");
+    param = param.replace("cid.", "");
+    param = param.replace("miner.", "");
+    param = param.replace("types.", "");
+
+    // Replace primitive types
+    param = param.replace("byte", "u8");
+    param = param.replace("float64", "f64");
+    param = param.replace("uint64", "u64");
+    param = param.replace("int64", "i64");
+
+    match param.as_ref() {
+        "TipsetKey" => "TipsetKeys".to_owned(), // Maybe?
+        "Message" => "UnsignedMessageJson".to_owned(),
+        "Actor" => "ActorState".to_owned(),
+        "dline.Info" => "DeadlineInfo".to_owned(),
+        "apiNetworkVersion" => "NetworkVersion".to_owned(),
+        "MsgLookup" => "MessageLookup".to_owned(),
+        "SyncState" => "RPCSyncState".to_owned(),
+        "crypto.Signature" => "SignatureJson".to_owned(),
+        _ => param,
+    }
+}
+
+fn compare_types(lotus: &str, forest: &str) -> bool {
+    let lotus = lotus.replace("Json", "");
+    let lotus = lotus.replace("Option<", "");
+    let lotus = lotus.replace(">", "");
+
+    let forest = forest.replace("Json", "");
+    let forest = forest.replace("Option<", "");
+    let forest = forest.replace(">", "");
+
+    lotus.trim_end_matches("Json") != forest.trim_end_matches("Json")
+}
 
 fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
     let mut lotus_rpc_file = File::open("static/full.json")?;
@@ -123,39 +195,11 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
                                 {
                                     for ps in segments {
                                         let PathSegment { ident, .. } = ps;
-                                        let mut param = ident.to_string();
+                                        let param = ident.to_string();
 
-                                        // Parse Option type
-                                        if param == "Option" {
-                                            if let PathArguments::AngleBracketed(
-                                                AngleBracketedGenericArguments { args, .. },
-                                            ) = ps.arguments
-                                            {
-                                                for arg in args {
-                                                    if let GenericArgument::Type(Type::Path(
-                                                        TypePath {
-                                                            path: Path { segments, .. },
-                                                            ..
-                                                        },
-                                                    )) = arg
-                                                    {
-                                                        let mut option_args = vec![];
-                                                        for ps in segments {
-                                                            let PathSegment { ident, .. } = ps;
-                                                            let option_arg = ident.to_string();
-                                                            option_args.push(option_arg);
-                                                        }
-                                                        param = format!(
-                                                            "Option<{}>",
-                                                            option_args.join(", ")
-                                                        );
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        params.push(param);
+                                        params.push(parse_generic(param, ps.arguments));
                                     }
+
                                     longest_params =
                                         cmp::max(longest_params, params.join(", ").len() + 2);
                                 }
@@ -171,33 +215,11 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
                                 let PathSegment {
                                     ident, arguments, ..
                                 } = ps;
-                                result = ident.to_string();
 
-                                // Parse Option type
-                                if result == "Option" {
-                                    if let PathArguments::AngleBracketed(
-                                        AngleBracketedGenericArguments { args, .. },
-                                    ) = arguments
-                                    {
-                                        for arg in args {
-                                            if let GenericArgument::Type(Type::Path(TypePath {
-                                                path: Path { segments, .. },
-                                                ..
-                                            })) = arg
-                                            {
-                                                let mut option_args = vec![];
-                                                for ps in segments {
-                                                    let PathSegment { ident, .. } = ps;
-                                                    let option_arg = ident.to_string();
-                                                    option_args.push(option_arg);
-                                                }
-                                                result =
-                                                    format!("Option<{}>", option_args.join(", "));
-                                            }
-                                        }
-                                    }
-                                }
+                                result = ident.to_string();
+                                result = parse_generic(result, arguments);
                             }
+
                             longest_result = cmp::max(longest_result, result.len());
 
                             forest_rpc.insert(
@@ -233,47 +255,45 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
                     .iter()
                     .map(|schema| schema.description.clone())
                     .collect(),
-                result: lotus_method.result.description,
+                result: lotus_method.result.description.clone(),
             },
         );
 
-        // Check params
         match forest_rpc.get(&lotus_method.name) {
             Some(forest_method) => {
+                // Check params
                 for (param_index, forest_param) in forest_method.params.iter().enumerate() {
                     let lotus_param = match lotus_method.params.get(param_index) {
-                        Some(lotus_param) => match lotus_param.description.as_ref() {
-                            "*bitfield.BitField" => "BitFieldJson",
-                            "*BlockTemplate" => "BlockTemplate",
-                            "*crypto.Signature" => "SignatureJson",
-                            "*MessageSendSpec" => "Option<MessageSendSpec>", // Not sure if this should be Option
-                            "*types.Message" => "UnsignedMessageJson",
-                            "*types.SignedMessage" => "SignedMessageJson",
-                            "abi.ChainEpoch" => "ChainEpoch",
-                            "abi.SectorNumber" => "SectorNumber",
-                            "address.Address" => "AddressJson",
-                            "cid.Cid" => "CidJson",
-                            "float64" => "f64",
-                            "int64" => "i64",
-                            "miner.SectorPreCommitInfo" => "SectorPreCommitInfo",
-                            "types.TipSetKey" => "TipsetKeysJson", // Plural?
-                            "uint64" => "u64",
-                            _ => &lotus_param.description,
-                        },
-                        None => "None",
+                        Some(lotus_param) => map_lotus_type(lotus_param.description.as_ref()),
+                        None => "()".to_owned(),
                     };
 
                     let method_pad = " ".repeat(longest_name - lotus_method.name.len());
 
-                    if lotus_param != forest_param {
+                    if compare_types(&lotus_param, forest_param) {
                         println!(
-                            "cargo:warning=Forest param mismatch for method: {}{} Forest: {}\t\t\tLotus: {}",
+                            "cargo:warning=Forest params type mismatch for method in param index {}: {}{} Forest: {}\t\t\tLotus: {}",
+                            param_index,
                             lotus_method.name,
                             method_pad,
                             forest_param,
                             lotus_param,
                         )
                     }
+                }
+
+                // Check result
+                let lotus_result = map_lotus_type(lotus_method.result.description.as_ref());
+                let method_pad = " ".repeat(longest_name - lotus_method.name.len());
+
+                if compare_types(&lotus_result, &forest_method.result) {
+                    println!(
+                        "cargo:warning=Forest result type mismatch for method: {}{}\t\t\t Forest: {}\t\t\tLotus: {}",
+                        lotus_method.name,
+                        method_pad,
+                        forest_method.result,
+                        lotus_result,
+                    )
                 }
             }
             None => {}
