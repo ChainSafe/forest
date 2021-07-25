@@ -5383,7 +5383,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_manager",
- "syn 1.0.67",
+ "syn 1.0.73",
 ]
 
 [[package]]

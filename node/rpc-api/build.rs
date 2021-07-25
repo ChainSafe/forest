@@ -28,6 +28,25 @@ struct OpenRPCFile {
 #[derive(Deserialize)]
 struct OpenRPCMethod {
     name: String,
+    params: Vec<OpenRPCParams>,
+    result: OpenRPCParams,
+}
+
+#[derive(Deserialize)]
+struct OpenRPCParams {
+    description: String,
+    pub schema: OpenRPCSchema,
+}
+
+#[derive(Deserialize)]
+struct OpenRPCResult {
+    description: String,
+    pub schema: OpenRPCSchema,
+}
+
+#[derive(Deserialize)]
+struct OpenRPCSchema {
+    pub r#type: Vec<String>,
 }
 
 type MethodMap = BTreeMap<String, RPCMethod>;
@@ -104,7 +123,37 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
                                 {
                                     for ps in segments {
                                         let PathSegment { ident, .. } = ps;
-                                        let param = ident.to_string();
+                                        let mut param = ident.to_string();
+
+                                        // Parse Option type
+                                        if param == "Option" {
+                                            if let PathArguments::AngleBracketed(
+                                                AngleBracketedGenericArguments { args, .. },
+                                            ) = ps.arguments
+                                            {
+                                                for arg in args {
+                                                    if let GenericArgument::Type(Type::Path(
+                                                        TypePath {
+                                                            path: Path { segments, .. },
+                                                            ..
+                                                        },
+                                                    )) = arg
+                                                    {
+                                                        let mut option_args = vec![];
+                                                        for ps in segments {
+                                                            let PathSegment { ident, .. } = ps;
+                                                            let option_arg = ident.to_string();
+                                                            option_args.push(option_arg);
+                                                        }
+                                                        param = format!(
+                                                            "Option<{}>",
+                                                            option_args.join(", ")
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+
                                         params.push(param);
                                     }
                                     longest_params =
@@ -124,6 +173,7 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
                                 } = ps;
                                 result = ident.to_string();
 
+                                // Parse Option type
                                 if result == "Option" {
                                     if let PathArguments::AngleBracketed(
                                         AngleBracketedGenericArguments { args, .. },
@@ -172,17 +222,65 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
     let lotus_rpc_file: OpenRPCFile = serde_json::from_str(&lotus_rpc_content)?;
 
     for lotus_method in lotus_rpc_file.methods {
+        // Check lotus methods against forest methods
         longest_name = cmp::max(longest_name, lotus_method.name.len());
         lotus_rpc.insert(
             lotus_method.name.clone(),
             RPCMethod {
-                name: lotus_method.name,
-                params: vec![],
-                result: "".to_owned(),
+                name: lotus_method.name.clone(),
+                params: lotus_method
+                    .params
+                    .iter()
+                    .map(|schema| schema.description.clone())
+                    .collect(),
+                result: lotus_method.result.description,
             },
         );
+
+        // Check params
+        match forest_rpc.get(&lotus_method.name) {
+            Some(forest_method) => {
+                for (param_index, forest_param) in forest_method.params.iter().enumerate() {
+                    let lotus_param = match lotus_method.params.get(param_index) {
+                        Some(lotus_param) => match lotus_param.description.as_ref() {
+                            "*bitfield.BitField" => "BitFieldJson",
+                            "*BlockTemplate" => "BlockTemplate",
+                            "*crypto.Signature" => "SignatureJson",
+                            "*MessageSendSpec" => "Option<MessageSendSpec>", // Not sure if this should be Option
+                            "*types.Message" => "UnsignedMessageJson",
+                            "*types.SignedMessage" => "SignedMessageJson",
+                            "abi.ChainEpoch" => "ChainEpoch",
+                            "abi.SectorNumber" => "SectorNumber",
+                            "address.Address" => "AddressJson",
+                            "cid.Cid" => "CidJson",
+                            "float64" => "f64",
+                            "int64" => "i64",
+                            "miner.SectorPreCommitInfo" => "SectorPreCommitInfo",
+                            "types.TipSetKey" => "TipsetKeysJson", // Plural?
+                            "uint64" => "u64",
+                            _ => &lotus_param.description,
+                        },
+                        None => "None",
+                    };
+
+                    let method_pad = " ".repeat(longest_name - lotus_method.name.len());
+
+                    if lotus_param != forest_param {
+                        println!(
+                            "cargo:warning=Forest param mismatch for method: {}{} Forest: {}\t\t\tLotus: {}",
+                            lotus_method.name,
+                            method_pad,
+                            forest_param,
+                            lotus_param,
+                        )
+                    }
+                }
+            }
+            None => {}
+        }
     }
 
+    // Check forest methods against lotus methods
     for forest_method in forest_rpc.keys() {
         if !lotus_rpc.contains_key(forest_method) {
             println!(
@@ -256,8 +354,11 @@ fn main() {
                 (forest_count as f32 / lotus_count as f32) * 100.0
             );
         }
-        Err(_) => {
-            println!("cargo:warning=Error parsing Lotus OpenRPC file, skipping...");
+        Err(err) => {
+            println!(
+                "cargo:warning=Error parsing Lotus OpenRPC file, skipping... Error was: {}",
+                err
+            );
         }
     }
 }
