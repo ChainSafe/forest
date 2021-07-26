@@ -6,11 +6,13 @@ use std::collections::HashMap;
 use address::Address;
 use blocks::tipset_keys_json::TipsetKeysJson;
 use message::SignedMessage;
+use num_bigint::BigInt;
 use structopt::StructOpt;
 
 use cid::json::vec::CidJsonVec;
 use rpc_client::chain_ops::*;
 use rpc_client::mpool_ops::*;
+use rpc_client::state_ops::state_get_actor;
 use rpc_client::wallet_ops::wallet_list;
 
 use crate::cli::handle_rpc_err;
@@ -86,6 +88,16 @@ impl MpoolCommands {
                         messages: HashMap<Address, SignedMessage>,
                     }
 
+                    struct MpStat {
+                        address: String,
+                        past: u64,
+                        current: u64,
+                        future: u64,
+                        below_current: u64,
+                        below_past: u64,
+                        gas_limit: BigInt,
+                    }
+
                     let mut buckets = HashMap::<Address, StatBucket>::new();
 
                     for message in messages {
@@ -113,6 +125,12 @@ impl MpoolCommands {
                                 );
                             }
                         };
+                    }
+
+                    let mut stats: Vec<MpStat> = Vec::new();
+
+                    for (address, bucket) in buckets.iter() {
+                        // let get_actor_result = state_get_actor();
                     }
                 }
             }

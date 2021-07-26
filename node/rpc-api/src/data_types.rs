@@ -111,7 +111,7 @@ pub struct Partition {
     pub active_sectors: BitFieldJson,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateJson {
     #[serde(with = "cid::json")]
