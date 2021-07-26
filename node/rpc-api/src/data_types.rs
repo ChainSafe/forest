@@ -123,6 +123,12 @@ pub struct ActorStateJson {
     balance: BigInt,
 }
 
+impl ActorStateJson {
+    pub fn nonce(&self) -> u64 {
+        self.nonce
+    }
+}
+
 impl From<ActorState> for ActorStateJson {
     fn from(a: ActorState) -> Self {
         Self {

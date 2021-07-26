@@ -231,7 +231,7 @@ pub(super) async fn block_until_sigint() {
     ctrlc_oneshot.await.unwrap();
 }
 
-/// Returns a stringified JSON-RPC error
+/// Print a stringified JSON-RPC error and exit
 pub(super) fn handle_rpc_err(e: JsonRpcError) {
     match e {
         JsonRpcError::Full {

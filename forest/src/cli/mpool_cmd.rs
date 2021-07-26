@@ -3,8 +3,10 @@
 
 use std::collections::HashMap;
 
+use address::json::AddressJson;
 use address::Address;
 use blocks::tipset_keys_json::TipsetKeysJson;
+use jsonrpc_v2::Error;
 use message::SignedMessage;
 use num_bigint::BigInt;
 use structopt::StructOpt;
@@ -130,7 +132,26 @@ impl MpoolCommands {
                     let mut stats: Vec<MpStat> = Vec::new();
 
                     for (address, bucket) in buckets.iter() {
-                        // let get_actor_result = state_get_actor();
+                        let get_actor_result = state_get_actor((
+                            AddressJson(address.to_owned()),
+                            TipsetKeysJson(tipset.key().to_owned()),
+                        ))
+                        .await;
+
+                        let actor_json = match get_actor_result {
+                            Ok(actor_json) => actor_json.unwrap(),
+                            Err(err) => {
+                                let error_message = match err {
+                                    Error::Full { message, .. } => message,
+                                    Error::Provided { message, .. } => message.to_string(),
+                                };
+
+                                println!("{}, err: {}", address, error_message);
+                                continue;
+                            }
+                        };
+
+                        let nonce = actor_json.nonce();
                     }
                 }
             }
