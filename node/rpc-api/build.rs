@@ -128,7 +128,7 @@ fn compare_types(lotus: &str, forest: &str) -> bool {
 }
 
 type MethodMap = BTreeMap<String, RPCMethod>;
-type StringLengths = (usize, usize, usize);
+type LongestMethodNameLen = usize;
 type ParamsMismatches = Vec<(String, usize, String, String)>;
 type ResultMismatches = Vec<(String, String, String)>;
 type ForestOnlyMethods = Vec<String>;
@@ -137,7 +137,7 @@ fn run() -> Result<
     (
         MethodMap,
         MethodMap,
-        StringLengths,
+        LongestMethodNameLen,
         ParamsMismatches,
         ResultMismatches,
         ForestOnlyMethods,
@@ -172,9 +172,7 @@ fn run() -> Result<
     let mut forest_rpc = BTreeMap::new();
     let mut lotus_rpc = BTreeMap::new();
 
-    let mut longest_name = 0;
-    let mut longest_params = 0;
-    let mut longest_result = 0;
+    let mut longest_method_name_len = 0;
 
     let mut params_mismatches = vec![];
     let mut result_mismatches = vec![];
@@ -198,7 +196,7 @@ fn run() -> Result<
                     }) = *expr.clone()
                     {
                         name = token.value();
-                        longest_name = cmp::max(longest_name, name.len());
+                        longest_method_name_len = cmp::max(longest_method_name_len, name.len());
                     }
                 }
 
@@ -219,9 +217,6 @@ fn run() -> Result<
 
                                         params.push(parse_generic(param, ps.arguments));
                                     }
-
-                                    longest_params =
-                                        cmp::max(longest_params, params.join(", ").len());
                                 }
                             }
                         }
@@ -239,8 +234,6 @@ fn run() -> Result<
                                 result = ident.to_string();
                                 result = parse_generic(result, arguments);
                             }
-
-                            longest_result = cmp::max(longest_result, result.len());
 
                             forest_rpc.insert(
                                 name.clone(),
@@ -265,7 +258,7 @@ fn run() -> Result<
 
     for lotus_method in lotus_rpc_file.methods {
         // Check lotus methods against forest methods
-        longest_name = cmp::max(longest_name, lotus_method.name.len());
+        longest_method_name_len = cmp::max(longest_method_name_len, lotus_method.name.len());
         lotus_rpc.insert(
             lotus_method.name.clone(),
             RPCMethod {
@@ -323,7 +316,7 @@ fn run() -> Result<
     Ok((
         forest_rpc,
         lotus_rpc,
-        (longest_name, longest_params, longest_result),
+        longest_method_name_len,
         params_mismatches,
         result_mismatches,
         forest_only_methods,
@@ -335,33 +328,24 @@ fn main() {
         Ok((
             forest_rpc,
             lotus_rpc,
-            longest_strs,
+            longest_method_name_len,
             params_mismatches,
             result_mismatches,
             forest_only_methods,
         )) => {
-            let (longest_method, longest_params, longest_result) = longest_strs;
-
             let method_header = "Method";
             let params_header = "Params";
             let result_header = "Result";
-            let method_pad_space = " ".repeat(longest_method - method_header.len());
-            let params_pad_space = " ".repeat(longest_params - params_header.len() + 2);
-            let result_pad_space = " ".repeat(longest_result - result_header.len());
-            let method_pad_dash = "-".repeat(longest_method);
-            let params_pad_dash = "-".repeat(longest_params + 2);
-            let result_pad_dash = "-".repeat(longest_result);
+            let method_pad_space = " ".repeat(longest_method_name_len - method_header.len());
+            let method_pad_dash = "-".repeat(longest_method_name_len);
+            let params_pad_dash = "-".repeat(params_header.len());
+            let result_pad_dash = "-".repeat(result_header.len());
 
             let mut method_table = vec![];
 
             method_table.push(format!(
-                "|   | {}{} | {}{} | {}{} |",
-                method_header,
-                method_pad_space,
-                params_header,
-                params_pad_space,
-                result_header,
-                result_pad_space
+                "|   | {}{} | {} | {} |",
+                method_header, method_pad_space, params_header, result_header,
             ));
             method_table.push(format!(
                 "| - | {} | {} | {}",
@@ -372,29 +356,24 @@ fn main() {
                 let forest_method = forest_rpc.get(lotus_name);
 
                 let status = match forest_method {
-                    Some(_method) => "✔️",
-                    None => "❌",
+                    Some(_method) => "[x]",
+                    None => "[ ]",
                 };
 
                 let (forest_params, forest_result) = match forest_method {
-                    Some(method) => (method.params.join(", "), method.result.clone()),
-                    None => ("".to_owned(), "()".to_owned()),
+                    Some(method) => (
+                        format!("({})", method.params.join(", ")),
+                        method.result.clone(),
+                    ),
+                    None => ("-".to_owned(), "-".to_owned()),
                 };
 
                 // Pad strings for display
-                let method_pad = " ".repeat(longest_method - lotus_method.name.len());
-                let params_pad = " ".repeat(longest_params - forest_params.len());
-                let result_pad = " ".repeat(longest_result - forest_result.len());
+                let method_pad = " ".repeat(longest_method_name_len - lotus_method.name.len());
 
                 method_table.push(format!(
-                    "{} | {}{} | ({}){} | {}{} |",
-                    status,
-                    lotus_method.name,
-                    method_pad,
-                    forest_params,
-                    params_pad,
-                    forest_result,
-                    result_pad
+                    "{} | `{}`{} | `{}` | `{}` |",
+                    status, lotus_method.name, method_pad, forest_params, forest_result,
                 ));
             }
 
@@ -406,9 +385,9 @@ fn main() {
                 .iter()
                 .map(|(method, param_index, forest_param, lotus_param)| {
                     format!(
-                        "| {method}{method_space} | {param_index} | {forest_param} | {lotus_param}",
+                        "| `{method}`{method_space} | `{param_index}` | `{forest_param}` | `{lotus_param}`",
                         method = method,
-                        method_space = " ".repeat(longest_method - method.len()),
+                        method_space = " ".repeat(longest_method_name_len - method.len()),
                         param_index = param_index,
                         forest_param = forest_param,
                         lotus_param = lotus_param
@@ -420,9 +399,9 @@ fn main() {
                 .iter()
                 .map(|(method, forest_result, lotus_result)| {
                     format!(
-                        "| {method}{method_space} | {forest_result} | {lotus_result}",
+                        "| `{method}`{method_space} | `{forest_result}` | `{lotus_result}`",
                         method = method,
-                        method_space = " ".repeat(longest_method - method.len()),
+                        method_space = " ".repeat(longest_method_name_len - method.len()),
                         forest_result = forest_result,
                         lotus_result = lotus_result
                     )
@@ -431,7 +410,7 @@ fn main() {
 
             let forest_only_methods_list = forest_only_methods
                 .iter()
-                .map(|method| format!("- {method}", method = method))
+                .map(|method| format!("- `{method}`", method = method))
                 .collect::<Vec<String>>();
 
             let report = format!(
