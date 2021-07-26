@@ -356,8 +356,8 @@ fn main() {
                 let forest_method = forest_rpc.get(lotus_name);
 
                 let status = match forest_method {
-                    Some(_method) => "[x]",
-                    None => "[ ]",
+                    Some(_method) => "✔️",
+                    None => "❌",
                 };
 
                 let (forest_params, forest_result) = match forest_method {
