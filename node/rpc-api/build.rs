@@ -4,7 +4,7 @@
 use std::cmp;
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::fs::File;
+use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 
 use serde::Deserialize;
@@ -12,6 +12,11 @@ use syn::{
     AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Item, ItemConst, ItemMod,
     ItemType, Lit, Path, PathArguments, PathSegment, Type, TypePath, TypeTuple,
 };
+
+const API_IMPLEMENTATION_MD_PATH: &str = "../../API_IMPLEMENTATION.md";
+const LOTUS_OPENRPC_JSON_PATH: &str = "static/full.json";
+const FOREST_RPC_API_LIB_PATH: &str = "src/lib.rs";
+const FOREST_RPC_API_AST_PATH: &str = "static/ast.ron";
 
 #[derive(Debug)]
 struct RPCMethod {
@@ -41,9 +46,6 @@ struct OpenRPCParams {
 struct OpenRPCResult {
     description: String,
 }
-
-type MethodMap = BTreeMap<String, RPCMethod>;
-type StringLengths = (usize, usize, usize);
 
 fn parse_generic(generic_type: String, arguments: PathArguments) -> String {
     if let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) = arguments {
@@ -100,14 +102,15 @@ fn map_lotus_type(lotus_param: &str) -> String {
     param = param.replace("int64", "i64");
 
     match param.as_ref() {
-        "TipsetKey" => "TipsetKeys".to_owned(), // Maybe?
-        "Message" => "UnsignedMessageJson".to_owned(),
         "Actor" => "ActorState".to_owned(),
-        "dline.Info" => "DeadlineInfo".to_owned(),
         "apiNetworkVersion" => "NetworkVersion".to_owned(),
-        "MsgLookup" => "MessageLookup".to_owned(),
-        "SyncState" => "RPCSyncState".to_owned(),
         "crypto.Signature" => "SignatureJson".to_owned(),
+        "dline.Info" => "DeadlineInfo".to_owned(),
+        "Message" => "UnsignedMessageJson".to_owned(),
+        "MsgLookup" => "MessageLookup".to_owned(),
+        "string" => "String".to_owned(),
+        "SyncState" => "RPCSyncState".to_owned(),
+        "TipsetKey" => "TipsetKeys".to_owned(), // Maybe?
         _ => param,
     }
 }
@@ -124,25 +127,38 @@ fn compare_types(lotus: &str, forest: &str) -> bool {
     lotus.trim_end_matches("Json") != forest.trim_end_matches("Json")
 }
 
-fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
-    let mut lotus_rpc_file = File::open("static/full.json")?;
+type MethodMap = BTreeMap<String, RPCMethod>;
+type StringLengths = (usize, usize, usize);
+type ParamsMismatches = Vec<(String, usize, String, String)>;
+type ResultMismatches = Vec<(String, String, String)>;
+type ForestOnlyMethods = Vec<String>;
+
+fn run() -> Result<
+    (
+        MethodMap,
+        MethodMap,
+        StringLengths,
+        ParamsMismatches,
+        ResultMismatches,
+        ForestOnlyMethods,
+    ),
+    Box<dyn Error>,
+> {
+    let mut lotus_rpc_file = File::open(LOTUS_OPENRPC_JSON_PATH)?;
     let mut lotus_rpc_content = String::new();
     lotus_rpc_file.read_to_string(&mut lotus_rpc_content)?;
 
-    let mut api_lib = File::open("src/lib.rs")?;
+    let mut api_lib = File::open(FOREST_RPC_API_LIB_PATH)?;
     let mut api_lib_content = String::new();
     api_lib.read_to_string(&mut api_lib_content)?;
 
     let ast = syn::parse_file(&api_lib_content)?;
     let out = format!("{:#?}", ast);
 
-    let mut ast_file = std::fs::File::create("static/ast.ron").expect("create failed");
-    ast_file.write_all(out.as_bytes()).expect("write failed");
-
-    println!(
-        "cargo:warning=wrote {} syntax tree items to static/ast.ron",
-        ast.items.len()
-    );
+    let mut ast_file = File::create(FOREST_RPC_API_AST_PATH).expect("Create static/ast.ron failed");
+    ast_file
+        .write_all(out.as_bytes())
+        .expect("Write static/ast.ron failed");
 
     let api_modules: Vec<&Item> = ast
         .items
@@ -159,6 +175,10 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
     let mut longest_name = 0;
     let mut longest_params = 0;
     let mut longest_result = 0;
+
+    let mut params_mismatches = vec![];
+    let mut result_mismatches = vec![];
+    let mut forest_only_methods = vec![];
 
     let mut name = "".to_owned();
     let mut params = vec![];
@@ -201,7 +221,7 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
                                     }
 
                                     longest_params =
-                                        cmp::max(longest_params, params.join(", ").len() + 2);
+                                        cmp::max(longest_params, params.join(", ").len());
                                 }
                             }
                         }
@@ -268,32 +288,25 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
                         None => "()".to_owned(),
                     };
 
-                    let method_pad = " ".repeat(longest_name - lotus_method.name.len());
-
                     if compare_types(&lotus_param, forest_param) {
-                        println!(
-                            "cargo:warning=Forest params type mismatch for method in param index {}: {}{} Forest: {}\t\t\tLotus: {}",
+                        params_mismatches.push((
+                            lotus_method.name.clone(),
                             param_index,
-                            lotus_method.name,
-                            method_pad,
-                            forest_param,
+                            forest_param.to_owned(),
                             lotus_param,
-                        )
+                        ));
                     }
                 }
 
                 // Check result
                 let lotus_result = map_lotus_type(lotus_method.result.description.as_ref());
-                let method_pad = " ".repeat(longest_name - lotus_method.name.len());
 
                 if compare_types(&lotus_result, &forest_method.result) {
-                    println!(
-                        "cargo:warning=Forest result type mismatch for method: {}{}\t\t\t Forest: {}\t\t\tLotus: {}",
+                    result_mismatches.push((
                         lotus_method.name,
-                        method_pad,
-                        forest_method.result,
+                        forest_method.result.clone(),
                         lotus_result,
-                    )
+                    ));
                 }
             }
             None => {}
@@ -303,10 +316,7 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
     // Check forest methods against lotus methods
     for forest_method in forest_rpc.keys() {
         if !lotus_rpc.contains_key(forest_method) {
-            println!(
-                "cargo:warning=Forest implements an RPC method that Lotus does not: {}",
-                forest_method
-            );
+            forest_only_methods.push(forest_method.to_owned());
         }
     }
 
@@ -314,31 +324,55 @@ fn run() -> Result<(MethodMap, MethodMap, StringLengths), Box<dyn Error>> {
         forest_rpc,
         lotus_rpc,
         (longest_name, longest_params, longest_result),
+        params_mismatches,
+        result_mismatches,
+        forest_only_methods,
     ))
 }
 
 fn main() {
     match run() {
-        Ok((forest_rpc, lotus_rpc, longest_strs)) => {
+        Ok((
+            forest_rpc,
+            lotus_rpc,
+            longest_strs,
+            params_mismatches,
+            result_mismatches,
+            forest_only_methods,
+        )) => {
             let (longest_method, longest_params, longest_result) = longest_strs;
 
             let method_header = "Method";
             let params_header = "Params";
             let result_header = "Result";
-            let method_pad = " ".repeat(longest_method - method_header.len());
-            let params_pad = " ".repeat(longest_params - params_header.len() + 2);
-            let result_pad = " ".repeat(longest_result - result_header.len());
+            let method_pad_space = " ".repeat(longest_method - method_header.len());
+            let params_pad_space = " ".repeat(longest_params - params_header.len() + 2);
+            let result_pad_space = " ".repeat(longest_result - result_header.len());
+            let method_pad_dash = "-".repeat(longest_method);
+            let params_pad_dash = "-".repeat(longest_params + 2);
+            let result_pad_dash = "-".repeat(longest_result);
 
-            println!(
-                "cargo:warning=    | {}{} | {}{} | {}{} |",
-                method_header, method_pad, params_header, params_pad, result_header, result_pad
-            );
+            let mut method_table = vec![];
+
+            method_table.push(format!(
+                "|   | {}{} | {}{} | {}{} |",
+                method_header,
+                method_pad_space,
+                params_header,
+                params_pad_space,
+                result_header,
+                result_pad_space
+            ));
+            method_table.push(format!(
+                "| - | {} | {} | {}",
+                method_pad_dash, params_pad_dash, result_pad_dash
+            ));
 
             for (lotus_name, lotus_method) in lotus_rpc.iter() {
                 let forest_method = forest_rpc.get(lotus_name);
 
                 let status = match forest_method {
-                    Some(_method) => "✔️ ",
+                    Some(_method) => "✔️",
                     None => "❌",
                 };
 
@@ -352,8 +386,8 @@ fn main() {
                 let params_pad = " ".repeat(longest_params - forest_params.len());
                 let result_pad = " ".repeat(longest_result - forest_result.len());
 
-                println!(
-                    "cargo:warning= {} | {}{} | ({}){} | {}{} |",
+                method_table.push(format!(
+                    "{} | {}{} | ({}){} | {}{} |",
                     status,
                     lotus_method.name,
                     method_pad,
@@ -361,18 +395,143 @@ fn main() {
                     params_pad,
                     forest_result,
                     result_pad
-                );
+                ));
             }
 
             let forest_count = forest_rpc.len();
             let lotus_count = lotus_rpc.len();
+            let api_coverage = (forest_count as f32 / lotus_count as f32) * 100.0;
 
-            println!(
-                "cargo:warning=Forest: {}, Lotus: {}, {:.2}%",
-                forest_count,
-                lotus_count,
-                (forest_count as f32 / lotus_count as f32) * 100.0
+            let params_mismatches_table = params_mismatches
+                .iter()
+                .map(|(method, param_index, forest_param, lotus_param)| {
+                    format!(
+                        "| {method}{method_space} | {param_index} | {forest_param} | {lotus_param}",
+                        method = method,
+                        method_space = " ".repeat(longest_method - method.len()),
+                        param_index = param_index,
+                        forest_param = forest_param,
+                        lotus_param = lotus_param
+                    )
+                })
+                .collect::<Vec<String>>();
+
+            let result_mismatches_list = result_mismatches
+                .iter()
+                .map(|(method, forest_result, lotus_result)| {
+                    format!(
+                        "| {method}{method_space} | {forest_result} | {lotus_result}",
+                        method = method,
+                        method_space = " ".repeat(longest_method - method.len()),
+                        forest_result = forest_result,
+                        lotus_result = lotus_result
+                    )
+                })
+                .collect::<Vec<String>>();
+
+            let forest_only_methods_list = forest_only_methods
+                .iter()
+                .map(|method| format!("- {method}", method = method))
+                .collect::<Vec<String>>();
+
+            let report = format!(
+                r####"# Forest API Implementation Report
+
+## Stats
+
+- Forest method count: {forest_count}
+- Lotus method count: {lotus_count}
+- API coverage: {api_coverage:.2}%
+
+## Forest-only Methods
+
+These methods exist in Forest only and cannot be compared:
+
+{forest_only_methods_list}
+
+## Type Mismatches
+
+Some methods contain possible inconsistencies between Forest and Lotus.
+
+### Params Mismatches
+
+| Method | Param Index | Forest Param | Lotus Param |
+| ------ | ----------- | ------------ | ----------- |
+{params_mismatches_table}
+
+### Results Mismatches
+
+| Method | Forest Result | Lotus Result |
+| ------ | ------------- | ------------ |
+{result_mismatches_list}
+
+## Method Table
+{method_table}
+
+## Help & Contributions
+
+If there's a particular API that's needed that we're missing, be sure to let us know.
+
+Feel free to reach out in #fil-forest-help in the [Filecoin Slack](https://docs.filecoin.io/community/chat-and-discussion-forums/), file a GitHub issue, or contribute a pull request.
+"####,
+                forest_count = forest_rpc.len(),
+                lotus_count = lotus_rpc.len(),
+                api_coverage = api_coverage,
+                params_mismatches_table = params_mismatches_table.join("\n"),
+                result_mismatches_list = result_mismatches_list.join("\n"),
+                forest_only_methods_list = forest_only_methods_list.join("\n"),
+                method_table = method_table.join("\n"),
             );
+
+            // Create if report already exists
+            let existing_report = match fs::metadata(API_IMPLEMENTATION_MD_PATH) {
+                Ok(metadata) => {
+                    if metadata.is_file() {
+                        let mut existing_report_file = File::open(API_IMPLEMENTATION_MD_PATH)
+                            .expect("Open existing API_IMPLEMENTATION.md file");
+
+                        let mut existing_report_content = String::new();
+
+                        existing_report_file
+                            .read_to_string(&mut existing_report_content)
+                            .expect("Read existing API_IMPLEMENTATION.md file");
+
+                        existing_report_content
+                    } else {
+                        println!(
+                            "cargo:warning=API_IMPLEMENTATION.md file exists but is not a file"
+                        );
+
+                        "Unexpected condition".to_owned()
+                    }
+                }
+                Err(_) => {
+                    File::create(API_IMPLEMENTATION_MD_PATH)
+                        .expect("Create API_IMPLEMENTATION.md failed");
+
+                    "".to_owned()
+                }
+            };
+
+            if existing_report != report {
+                println!(
+                    "cargo:warning=Forest API change detected. Writing new report to API_IMPLEMENTATION.md..."
+                );
+
+                let mut report_file = OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .open(API_IMPLEMENTATION_MD_PATH)
+                    .expect("Modify API_IMPLEMENTATION.md");
+
+                report_file
+                    .set_len(0)
+                    .expect("Truncate existing API_IMPLEMENTATION.md file");
+
+                report_file
+                    .write_all(report.as_bytes())
+                    .expect("Write API_IMPLEMENTATION.md failed");
+            }
         }
         Err(err) => {
             println!(
