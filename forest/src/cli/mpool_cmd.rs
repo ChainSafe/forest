@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashMap;
-use std::ops::Index;
 
 use address::json::AddressJson;
 use address::Address;
