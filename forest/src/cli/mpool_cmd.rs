@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashMap;
+use std::ops::Index;
 
 use address::json::AddressJson;
 use address::Address;
@@ -87,7 +88,7 @@ impl MpoolCommands {
                         .unwrap();
 
                     struct StatBucket {
-                        messages: HashMap<Address, SignedMessage>,
+                        messages: HashMap<u64, SignedMessage>,
                     }
 
                     struct MpStat {
@@ -116,7 +117,7 @@ impl MpoolCommands {
 
                         match buckets.get_mut(&message.message().from) {
                             Some(bucket) => {
-                                bucket.messages.insert(message.message().from, message);
+                                bucket.messages.insert(message.message().sequence, message);
                             }
                             None => {
                                 buckets.insert(
@@ -151,7 +152,14 @@ impl MpoolCommands {
                             }
                         };
 
-                        let nonce = actor_json.nonce();
+                        let mut cur = actor_json.nonce();
+
+                        loop {
+                            match bucket.messages.get(&cur) {
+                                Some(_) => cur += 1,
+                                None => break,
+                            };
+                        }
                     }
                 }
             }
