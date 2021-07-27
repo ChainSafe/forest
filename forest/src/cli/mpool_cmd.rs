@@ -7,6 +7,7 @@ use address::json::AddressJson;
 use address::Address;
 use blocks::tipset_keys_json::TipsetKeysJson;
 use jsonrpc_v2::Error;
+use message::Message;
 use message::SignedMessage;
 use num_bigint::BigInt;
 use structopt::StructOpt;
@@ -54,7 +55,7 @@ impl MpoolCommands {
                 let tipset = tipset_json.0;
 
                 let current_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
-                let mut min_base_fee = current_base_fee;
+                let mut min_base_fee = current_base_fee.clone();
 
                 let mut current_tipset = tipset.clone();
 
@@ -102,7 +103,7 @@ impl MpoolCommands {
 
                     let mut buckets = HashMap::<Address, StatBucket>::new();
 
-                    for message in messages {
+                    for message in &messages {
                         if !addresses.is_empty() {
                             let filter: Vec<&Address> = addresses
                                 .iter()
@@ -116,7 +117,9 @@ impl MpoolCommands {
 
                         match buckets.get_mut(&message.message().from) {
                             Some(bucket) => {
-                                bucket.messages.insert(message.message().sequence, message);
+                                bucket
+                                    .messages
+                                    .insert(message.message().sequence, message.to_owned());
                             }
                             None => {
                                 buckets.insert(
@@ -159,6 +162,38 @@ impl MpoolCommands {
                                 None => break,
                             };
                         }
+
+                        let mut stat = MpStat {
+                            address: String::new(),
+                            past: 0,
+                            current: 0,
+                            future: 0,
+                            below_current: 0,
+                            below_past: 0,
+                            gas_limit: BigInt::from(0),
+                        };
+
+                        for message in messages.iter() {
+                            if message.message().sequence < actor_json.nonce() {
+                                stat.past += 1;
+                            } else if message.message().sequence > cur {
+                                stat.future += 1;
+                            } else {
+                                stat.current += 1;
+                            }
+
+                            if message.gas_fee_cap() < &current_base_fee {
+                                stat.below_current += 1;
+                            }
+
+                            if message.gas_fee_cap() < &min_base_fee {
+                                stat.below_past += 1;
+                            }
+
+                            stat.gas_limit += message.message().gas_limit;
+                        }
+
+                        stats.push(stat);
                     }
                 }
             }
