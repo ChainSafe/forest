@@ -164,7 +164,7 @@ impl MpoolCommands {
                         }
 
                         let mut stat = MpStat {
-                            address: String::new(),
+                            address: address.to_string(),
                             past: 0,
                             current: 0,
                             future: 0,
@@ -195,6 +195,30 @@ impl MpoolCommands {
 
                         stats.push(stat);
                     }
+
+                    let mut total = MpStat {
+                        address: String::new(),
+                        past: 0,
+                        current: 0,
+                        future: 0,
+                        below_current: 0,
+                        below_past: 0,
+                        gas_limit: BigInt::from(0),
+                    };
+
+                    for stat in stats {
+                        total.past += stat.past;
+                        total.current += stat.current;
+                        total.future += stat.future;
+                        total.below_current += stat.below_current;
+                        total.below_past += stat.below_past;
+                        total.gas_limit += stat.gas_limit.clone();
+
+                        println!("{}: Nonce past: {}, cur: {}, future: {}; FeeCap cur: {}, min-{}: {}, gasLimit: {}", stat.address, stat.past, stat.current, stat.future, stat.below_current, base_fee_lookback, stat.below_past, stat.gas_limit);
+                    }
+
+                    println!("-----");
+                    println!("total: Nonce past: {}, cur: {}, future: {}; FeeCap cur: {}, min-{}: {}, gasLimit: {}", total.past, total.current, total.future, total.below_current, base_fee_lookback, total.below_past, total.gas_limit);
                 }
             }
         }
