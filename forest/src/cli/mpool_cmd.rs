@@ -156,11 +156,8 @@ impl MpoolCommands {
 
                         let mut cur = actor_json.nonce();
 
-                        loop {
-                            match bucket.messages.get(&cur) {
-                                Some(_) => cur += 1,
-                                None => break,
-                            };
+                        while bucket.messages.get(&cur).is_some() {
+                            cur += 1;
                         }
 
                         let mut stat = MpStat {
