@@ -181,7 +181,7 @@ where
         store: Arc<impl BlockStore + Send + Sync>,
     ) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
-            x if x == UPGRADE_ACTORS_V4_HEIGHT => {
+            UPGRADE_ACTORS_V4_HEIGHT => {
                 let start = std::time::Instant::now();
                 log::info!("Running actors_v4 state migration");
                 // need to flush since we run_cron before the migration
@@ -199,10 +199,10 @@ where
                         prev_state, new_state
                     )
                     .into());
-                    // Ok(None)
                 }
+
             }
-            x if x == UPGRADE_ACTORS_V3_HEIGHT => {
+            UPGRADE_ACTORS_V3_HEIGHT => {
                 let start = std::time::Instant::now();
                 log::info!("Running actors_v3 state migration");
                 // need to flush since we run_cron before the migration
@@ -221,8 +221,9 @@ where
                     )
                     .into());
                 }
+
             }
-            _ => Ok(None),
+            _ => Ok(None)
         }
     }
 
