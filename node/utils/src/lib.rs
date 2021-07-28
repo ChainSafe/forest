@@ -4,7 +4,7 @@
 use dirs::home_dir;
 use std::fs::{create_dir_all, File};
 use std::io::{prelude::*, Result};
-use std::path::Path;
+use std::path::PathBuf;
 
 /// Restricts permissions on a file to user-only: 0600
 #[cfg(unix)]
@@ -23,17 +23,16 @@ pub fn set_user_perm(file: &File) -> Result<()> {
 
 /// Writes a string to a specified file. Creates the desired path if it does not exist.
 /// Note: `path` and `filename` are appended to produce the resulting file path.
-pub fn write_to_file(message: &[u8], path: &str, file_name: &str) -> Result<File> {
+pub fn write_to_file(message: &[u8], path: &PathBuf, file_name: &str) -> Result<File> {
     // Create path if it doesn't exist
-    create_dir_all(Path::new(path))?;
-    let join = format!("{}{}", path, file_name);
-    let mut file = File::create(join)?;
+    create_dir_all(&path)?;
+    let mut file = File::create(path.join(file_name))?;
     file.write_all(message)?;
     Ok(file)
 }
 
 /// Read file as a `Vec<u8>`
-pub fn read_file_to_vec(path: &str) -> Result<Vec<u8>> {
+pub fn read_file_to_vec(path: &PathBuf) -> Result<Vec<u8>> {
     let mut file = File::open(path)?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
@@ -41,7 +40,7 @@ pub fn read_file_to_vec(path: &str) -> Result<Vec<u8>> {
 }
 
 /// Read file as a `String`.
-pub fn read_file_to_string(path: &str) -> Result<String> {
+pub fn read_file_to_string(path: &PathBuf) -> Result<String> {
     let mut file = File::open(path)?;
     let mut string = String::new();
     file.read_to_string(&mut string)?;

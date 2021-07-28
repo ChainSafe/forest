@@ -45,29 +45,26 @@ pub(super) async fn start(config: Config) {
         .expect("Failed to create global Rayon ThreadPool");
 
     info!("Starting Forest daemon");
-    let net_keypair = get_keypair(&format!("{}{}", &config.data_dir, "/libp2p/keypair"))
-        .unwrap_or_else(|| {
-            // Keypair not found, generate and save generated keypair
-            let gen_keypair = ed25519::Keypair::generate();
-            // Save Ed25519 keypair to file
-            // TODO rename old file to keypair.old(?)
-            match write_to_file(
-                &gen_keypair.encode(),
-                &format!("{}{}", &config.data_dir, "/libp2p/"),
-                "keypair",
-            ) {
-                Ok(file) => {
-                    // Restrict permissions on files containing private keys
-                    #[cfg(unix)]
-                    utils::set_user_perm(&file).expect("Set user perms on unix systems");
-                }
-                Err(e) => {
-                    info!("Could not write keystore to disk!");
-                    trace!("Error {:?}", e);
-                }
-            };
-            Keypair::Ed25519(gen_keypair)
-        });
+
+    let path: PathBuf = [&config.data_dir, "libp2p"].iter().collect();
+    let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
+        // Keypair not found, generate and save generated keypair
+        let gen_keypair = ed25519::Keypair::generate();
+        // Save Ed25519 keypair to file
+        // TODO rename old file to keypair.old(?)
+        match write_to_file(&gen_keypair.encode(), &path, "keypair") {
+            Ok(file) => {
+                // Restrict permissions on files containing private keys
+                #[cfg(unix)]
+                utils::set_user_perm(&file).expect("Set user perms on unix systems");
+            }
+            Err(e) => {
+                info!("Could not write keystore to disk!");
+                trace!("Error {:?}", e);
+            }
+        };
+        Keypair::Ed25519(gen_keypair)
+    });
 
     let mut ks = if config.encrypt_keystore {
         loop {
