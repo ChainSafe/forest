@@ -54,8 +54,10 @@ pub enum MigrationError {
     MigrateHAMT(String),
     #[error("AMT migration failed : {0}")]
     MigrateAMT(String),
-    #[error("Migration failed")]
-    Other,
+    #[error("State not found")]
+    StateNotFound,
+    #[error("Migration failed: {0}")]
+    Other(String),
 }
 
 pub struct StateMigration<BS> {

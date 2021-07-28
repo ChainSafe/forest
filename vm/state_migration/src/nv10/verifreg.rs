@@ -5,16 +5,21 @@ use crate::nv10::util::migrate_hamt_raw;
 use crate::{
     ActorMigration, ActorMigrationInput, MigrationError, MigrationOutput, MigrationResult,
 };
-use actor::verifreg::DataCap;
 use actor_interface::actorv2::verifreg::State as V2_VerifRegState;
-use actor_interface::actorv3::{self, verifreg::State as V3_VerifRegState};
+use actor_interface::actorv3::{verifreg::State as V3_VerifRegState};
 use async_std::sync::Arc;
-use cid::Code;
-use fil_types::{SealVerifyInfo, HAMT_BIT_WIDTH};
+use cid::{Cid, Code};
+use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntDe;
 
-struct VerifregMigrator;
+struct VerifregMigrator(Cid);
+
+pub fn verifreg_migrator_v3<BS: BlockStore + Send + Sync>(
+    cid: Cid,
+) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
+    Arc::new(VerifregMigrator(cid))
+}
 
 impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for VerifregMigrator {
     fn migrate_state(
@@ -45,7 +50,7 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for VerifregMigrator {
             .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         Ok(MigrationOutput {
-            new_code_cid: *actorv3::VERIFREG_ACTOR_CODE_ID,
+            new_code_cid: self.0,
             new_head,
         })
     }

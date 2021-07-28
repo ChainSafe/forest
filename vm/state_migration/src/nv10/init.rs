@@ -9,14 +9,18 @@ use crate::MigrationResult;
 use actor_interface::actorv2::init::State as V2InitState;
 use actor_interface::actorv3::init::State as V3InitState;
 use async_std::sync::Arc;
-use cid::Code;
+use cid::{Cid, Code};
 use ipld_blockstore::BlockStore;
-
-use actor_interface::actorv3;
 use fil_types::ActorID;
 use fil_types::HAMT_BIT_WIDTH;
 
-pub struct InitMigrator;
+pub struct InitMigrator(Cid);
+
+pub fn init_migrator_v3<BS: BlockStore + Send + Sync>(
+    cid: Cid,
+) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
+    Arc::new(InitMigrator(cid))
+}
 
 // each actor's state migration is read from blockstore, changes state tree, and writes back to the blocstore.
 impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for InitMigrator {
@@ -41,11 +45,11 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for InitMigrator {
             network_name: v2_in_state.network_name,
         };
 
-        let new_head = store.put(&out_state, Code::Blake2b256);
+        let new_head = store.put(&out_state, Code::Blake2b256).map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         Ok(MigrationOutput {
-            new_code_cid: *actorv3::INIT_ACTOR_CODE_ID,
-            new_head: new_head.unwrap(),
+            new_code_cid: self.0,
+            new_head
         })
     }
 }

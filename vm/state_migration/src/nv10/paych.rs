@@ -6,14 +6,18 @@ use crate::{ActorMigration, ActorMigrationInput};
 use crate::{MigrationError, MigrationOutput, MigrationResult};
 use actor::paych::{LaneState, LANE_STATES_AMT_BITWIDTH};
 use actor_interface::actorv2::paych::State as V2_PayChannelState;
-use actor_interface::actorv2::paych::State as V3_PayChannelState;
-use actor_interface::actorv3;
+use actor_interface::actorv3::paych::State as V3_PayChannelState;
 use async_std::sync::Arc;
-use cid::Cid;
-use cid::Code;
+use cid::{Cid, Code};
 use ipld_blockstore::BlockStore;
 
-struct PayChannelMigrator;
+struct PayChannelMigrator(Cid);
+
+pub fn paych_migrator_v3<BS: BlockStore + Send + Sync>(
+    cid: Cid,
+) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
+    Arc::new(PayChannelMigrator(cid))
+}
 
 impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for PayChannelMigrator {
     fn migrate_state(
@@ -47,7 +51,7 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for PayChannelMigrator {
             .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         Ok(MigrationOutput {
-            new_code_cid: *actorv3::PAYCH_ACTOR_CODE_ID,
+            new_code_cid: self.0,
             new_head,
         })
     }

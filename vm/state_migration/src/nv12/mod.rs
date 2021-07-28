@@ -12,7 +12,7 @@ use ipld_blockstore::BlockStore;
 
 impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
     // Initializes the migrations map with Nil migrators for network version 12 upgrade
-    pub fn set_nil_migrations(&mut self) {
+    pub fn set_nil_migrations_v4(&mut self) {
         self.migrations.insert(
             *actorv3::ACCOUNT_ACTOR_CODE_ID,
             nil_migrator(*actorv4::ACCOUNT_ACTOR_CODE_ID),

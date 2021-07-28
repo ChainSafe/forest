@@ -12,16 +12,16 @@ use actor::miner::{
     PRECOMMIT_EXPIRY_AMT_BITWIDTH, SECTORS_AMT_BITWIDTH,
 }; // FIXME: shouldn't these come from v2? Also most of them require cast from usize -> i32. check
 // Right now using them from the current actor crate.
-use actor_interface::actorv2::miner::{Deadline as V2Deadline, Deadlines, MinerInfo};
+use actor_interface::actorv2::miner::{Deadline as V2_Deadline, Deadlines, MinerInfo};
 use actor_interface::actorv2::miner::{
-    State as V2State, WPOST_PERIOD_DEADLINES as V2_WPOST_PERIOD_DEADLINES,
+    State as V2_MinerState, WPOST_PERIOD_DEADLINES as V2_WPOST_PERIOD_DEADLINES,
 };
 use actor_interface::actorv3::miner::{
-    Deadline as V3Deadline, Deadlines as V3Deadlines, PowerPair as V3PowerPair,
+    Deadline as V3_Deadline, Deadlines as V3_Deadlines, PowerPair as V3_PowerPair,
     WPOST_PERIOD_DEADLINES as V3_WPOST_PERIOD_DEADLINES,
 };
 use actor_interface::actorv3::miner::{
-    Partition as V3Partition, State as V3MinerState, WorkerKeyChange,
+    Partition as V3_Partition, State as V3_MinerState, WorkerKeyChange,
 };
 use async_std::sync::Arc;
 use cid::Cid;
@@ -29,7 +29,6 @@ use cid::Code;
 use ipld_blockstore::BlockStore;
 
 use actor_interface::actorv3;
-use fil_types::ActorID;
 use fil_types::HAMT_BIT_WIDTH;
 use actor_interface::ActorVersion;
 use actor_interface::Array;
@@ -37,7 +36,13 @@ use forest_bitfield::BitField;
 use ipld_amt::Amt;
 use actor::miner::ExpirationSet;
 
-pub struct MinerMigrator;
+pub struct MinerMigrator(Cid);
+
+pub fn miner_migrator_v3<BS: BlockStore + Send + Sync>(
+    cid: Cid,
+) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
+    Arc::new(MinerMigrator(cid))
+}
 
 impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MinerMigrator {
     fn migrate_state(
@@ -45,43 +50,37 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MinerMigrator {
         store: Arc<BS>,
         input: ActorMigrationInput,
     ) -> MigrationResult<MigrationOutput> {
-        let v2_in_state: Option<V2State> = store
+        let v2_in_state: V2_MinerState = store
             .get(&input.head)
-            .map_err(|e| MigrationError::BlockStoreRead(e.to_string()))?;
-
-        let v2_in_state = v2_in_state.unwrap();
+            .map_err(|e| MigrationError::BlockStoreRead(e.to_string()))?
+            .ok_or(MigrationError::StateNotFound)?;
 
         let info_out = self
-            .migrate_info(&*store, v2_in_state.info)
-            .map_err(|_| MigrationError::Other)?;
+            .migrate_info(&*store, v2_in_state.info)?;
 
         let pre_committed_sectors_out = migrate_hamt_raw::<_, BitField>(
             &*store,
             v2_in_state.pre_committed_sectors,
             HAMT_BIT_WIDTH,
-        )
-        .map_err(|_| MigrationError::Other)?;
+        )?;
 
         let pre_committed_sectors_expiry_out = migrate_amt_raw::<_, BitField>(
             &*store,
             v2_in_state.pre_committed_sectors_expiry,
             PRECOMMIT_EXPIRY_AMT_BITWIDTH as i32,
-        )
-        .map_err(|_| MigrationError::Other)?;
+        )?;
 
         // TODO load from cache when migration cache is implemented.
         let sectors_out = migrate_amt_raw::<_, SectorOnChainInfo>(
             &*store,
             v2_in_state.sectors,
             SECTORS_AMT_BITWIDTH as i32,
-        )
-        .map_err(|_| MigrationError::Other)?;
+        )?;
 
         let deadlines_out = self
-            .migrate_deadlines(&*store, v2_in_state.deadlines)
-            .map_err(|_| MigrationError::Other)?;
+            .migrate_deadlines(&*store, v2_in_state.deadlines)?;
 
-        let out_state = V3MinerState {
+        let out_state = V3_MinerState {
             info: info_out,
             pre_commit_deposits: v2_in_state.pre_commit_deposits,
             locked_funds: v2_in_state.locked_funds,
@@ -100,10 +99,10 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MinerMigrator {
 
         let new_head = store
             .put(&out_state, Code::Blake2b256)
-            .map_err(|_| MigrationError::Other)?;
+            .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         Ok(MigrationOutput {
-            new_code_cid: *actorv3::MINER_ACTOR_CODE_ID,
+            new_code_cid: self.0,
             new_head,
         })
     }
@@ -111,11 +110,10 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MinerMigrator {
 
 impl MinerMigrator {
     fn migrate_info<BS: BlockStore>(&self, store: &BS, info: Cid) -> MigrationResult<Cid> {
-        let old_info: Option<MinerInfo> = store
+        let old_info: MinerInfo = store
             .get(&info)
-            .map_err(|e| MigrationError::BlockStoreRead(e.to_string()))?;
-
-        let old_info = old_info.unwrap();
+            .map_err(|e| MigrationError::BlockStoreRead(e.to_string()))?
+            .ok_or(MigrationError::StateNotFound)?;
 
         let new_workerkey_change = if let Some(pending_worker_key) = old_info.pending_worker_key {
             Some(WorkerKeyChange {
@@ -126,18 +124,16 @@ impl MinerMigrator {
             None
         };
 
-        let new_workerkey_change = new_workerkey_change.unwrap();
-
         let window_post_proof = old_info
             .seal_proof_type
             .registered_winning_post_proof()
-            .map_err(|_| MigrationError::Other)?; // FIXME should be: registered window post proof.
+            .map_err(|_| MigrationError::Other("Failed fetching registered window".to_string()))?; // FIXME should be: registered window post proof.
 
         let new_info = actorv3::miner::MinerInfo {
             owner: old_info.owner,
             worker: old_info.worker,
             control_addresses: old_info.control_addresses,
-            pending_worker_key: Some(new_workerkey_change),
+            pending_worker_key: new_workerkey_change,
             peer_id: old_info.peer_id,
             multi_address: old_info.multi_address,
             window_post_proof_type: window_post_proof,
@@ -149,7 +145,7 @@ impl MinerMigrator {
 
         let root = store
             .put(&new_info, Code::Blake2b256)
-            .map_err(|_| MigrationError::Other);
+            .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()));
 
         root
     }
@@ -167,33 +163,35 @@ impl MinerMigrator {
         let v2_in_deadlines = v2_in_deadlines.unwrap();
 
         if V2_WPOST_PERIOD_DEADLINES != V3_WPOST_PERIOD_DEADLINES {
-            return Err(MigrationError::Other); // FIXME: use descriptive error.
+            let msg = format!("Unexpected V2_WPOST_PERIOD_DEADLINES changed from {} to {}",
+			V2_WPOST_PERIOD_DEADLINES, V3_WPOST_PERIOD_DEADLINES);
+            return Err(MigrationError::Other(msg));
         }
 
-        let mut out_deadlines = V3Deadlines { due: vec![] };
-
+        let mut out_deadlines = V3_Deadlines { due: vec![] };
         
-        for (i, d) in v2_in_deadlines.due.iter().enumerate() {
+        for d in v2_in_deadlines.due.iter() {
             let out_deadline_cid = {
-                let in_deadline: Option<V2Deadline> =
-                store.get(&d).map_err(|_| MigrationError::Other)?; // FIXME error handline
-                let in_deadline = in_deadline.unwrap();
-                let partitions = self.migrate_partitions(store, in_deadline.partitions)?;
+                let in_deadline: V2_Deadline =
+                store.get(&d).map_err(|e| MigrationError::BlockStoreRead(e.to_string()))?
+                .ok_or(MigrationError::StateNotFound)?;
+
+                let partitions = self.migrate_partitions(store, in_deadline.partitions)?; //FIXME 
                 let expiration_epochs = migrate_amt_raw::<_, BitField>(
                     store,
                     in_deadline.expirations_epochs,
                     DEADLINE_EXPIRATIONS_AMT_BITWIDTH as i32,
                 )
-                .map_err(|_| MigrationError::Other)?;
+                .map_err(|e| MigrationError::MigrateAMT(e.to_string()))?;
                 
-                let mut out_deadline = V3Deadline::new(store).map_err(|_| MigrationError::Other)?;
+                let mut out_deadline = V3_Deadline::new(store).map_err(|e| MigrationError::Other(e.to_string()))?;
                 out_deadline.partitions = partitions;
                 out_deadline.expirations_epochs = expiration_epochs;
                 out_deadline.partitions_posted = in_deadline.post_submissions;
                 out_deadline.early_terminations = in_deadline.early_terminations;
                 out_deadline.live_sectors = in_deadline.live_sectors;
                 out_deadline.total_sectors = in_deadline.total_sectors;
-                out_deadline.faulty_power = V3PowerPair {
+                out_deadline.faulty_power = V3_PowerPair {
                     raw: in_deadline.faulty_power.raw,
                     qa: in_deadline.faulty_power.qa,
                 };
@@ -213,36 +211,36 @@ impl MinerMigrator {
                 store.put(&out_deadline, Code::Blake2b256)
             };
 
-            out_deadlines.due[i] = out_deadline_cid.map_err(|_| MigrationError::Other)?;
+            let deadline_cid = out_deadline_cid.map_err(|e| MigrationError::Other(e.to_string()))?;
+
+            out_deadlines.due.push(deadline_cid);
         }
 
-        store.put(&out_deadlines, Code::Blake2b256).map_err(|_| MigrationError::Other)
+        store.put(&out_deadlines, Code::Blake2b256).map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))
     }
 
     fn migrate_partitions<BS: BlockStore>(&self, store: &BS, root: Cid) -> MigrationResult<Cid> {
         // AMT<PartitionNumber, Partition>
         let mut in_array =
-            Array::load(&root, store, ActorVersion::V2).map_err(|_| MigrationError::Other)?;
+            Array::load(&root, store, ActorVersion::V2).map_err(|e| MigrationError::AMTLoad(e.to_string()))?;
 
         let mut out_array = Amt::new_with_bit_width(store, DEADLINE_PARTITIONS_AMT_BITWIDTH);
 
         // let v2_in_partition;
-        in_array.for_each(|k: u64, part: &V3Partition| {
+        in_array.for_each(|k: u64, part: &V3_Partition| {
             let expirations_epochs = migrate_amt_raw::<_, ExpirationSet>(
                 store,
                 part.expirations_epochs,
                 PARTITION_EXPIRATION_AMT_BITWIDTH as i32,
-            )
-            .map_err(|_| MigrationError::Other)?;
+            )?;
 
             let early_terminated = migrate_amt_raw::<_, BitField>(
                 store,
                 part.early_terminated,
                 PARTITION_EARLY_TERMINATION_ARRAY_AMT_BITWIDTH as i32,
-            )
-            .map_err(|_| MigrationError::Other)?;
+            )?;
 
-            let out_partition = V3Partition {
+            let out_partition = V3_Partition {
                 sectors: part.sectors.clone(),
                 unproven: part.unproven.clone(),
                 faults: part.faults.clone(),
@@ -259,8 +257,8 @@ impl MinerMigrator {
             out_array.set(k as usize, out_partition)?;
 
             Ok(())
-        }).map_err(|_| MigrationError::Other)?;
+        }).map_err(|e| MigrationError::Other(e.to_string()))?;
 
-        in_array.flush().map_err(|_| MigrationError::Other)
+        in_array.flush().map_err(|e| MigrationError::FlushFailed(e.to_string()))
     }
 }

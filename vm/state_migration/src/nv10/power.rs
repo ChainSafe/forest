@@ -4,7 +4,6 @@
 use crate::{ActorMigration, ActorMigrationInput};
 use crate::{MigrationError, MigrationOutput, MigrationResult};
 use actor_interface::actorv2::power::State as V2_PowerState;
-use actor_interface::actorv3;
 use actor_interface::actorv3::power::State as V3_PowerState;
 use actor_interface::actorv3::smooth::FilterEstimate;
 use async_std::sync::Arc;
@@ -23,6 +22,12 @@ use forest_hash_utils::BytesKey;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub struct PowerMigrator(Cid);
+
+pub fn power_migrator_v3<BS: BlockStore + Send + Sync>(
+    cid: Cid,
+) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
+    Arc::new(PowerMigrator(cid))
+}
 
 // each actor's state migration is read from blockstore, changes state tree, and writes back to the blocstore.
 impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for PowerMigrator {
@@ -86,7 +91,7 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for PowerMigrator {
             .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         Ok(MigrationOutput {
-            new_code_cid: *actorv3::POWER_ACTOR_CODE_ID,
+            new_code_cid: self.0,
             new_head,
         })
     }
@@ -115,7 +120,7 @@ impl PowerMigrator {
                 out_claims.set(k.clone(), out_claim)?;
                 Ok(())
             })
-            .map_err(|_| MigrationError::Other)?;
+            .map_err(|_| MigrationError::Other("claims migration failed".to_string()))?;
 
         Ok(out_claims
             .flush()

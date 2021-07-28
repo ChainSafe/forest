@@ -8,7 +8,7 @@ use super::{
 use actor::{
     actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
 };
-use actor::{actorv3, actorv4};
+use actor::{actorv2, actorv3, actorv4};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -21,7 +21,7 @@ use forest_encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
+use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT, UPGRADE_ACTORS_V3_HEIGHT};
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -31,6 +31,7 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
+use state_migration::{StateMigration, MigrationError, nv10, nv12};
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
@@ -199,6 +200,26 @@ where
                     )
                     .into());
                     // Ok(None)
+                }
+            }
+            x if x == UPGRADE_ACTORS_V3_HEIGHT => {
+                let start = std::time::Instant::now();
+                log::info!("Running actors_v3 state migration");
+                // need to flush since we run_cron before the migration
+                let prev_state = self.flush()?;
+                let new_state = run_nv10_migration(store, prev_state, epoch)?;
+                if new_state != prev_state {
+                    log::info!(
+                        "network_v10/actors_v3 state migration successful, took: {}ms",
+                        start.elapsed().as_millis()
+                    );
+                    Ok(Some(new_state))
+                } else {
+                    return Err(format!(
+                        "state post migration must not match. previous state: {}: new state: {}",
+                        prev_state, new_state
+                    )
+                    .into());
                 }
             }
             _ => Ok(None),
@@ -624,18 +645,81 @@ fn run_nv12_migration(
     let mut migration = state_migration::StateMigration::new();
     // Initialize the map with a default set of no-op migrations (nil_migrator).
     // nv12 migration involves only the miner actor.
-    migration.set_nil_migrations();
+    migration.set_nil_migrations_v4();
     let (v4_miner_actor_cid, v3_miner_actor_cid) =
         (*actorv4::MINER_ACTOR_CODE_ID, *actorv3::MINER_ACTOR_CODE_ID);
     let store_ref = store.clone();
     let actors_in = StateTree::new_from_root(&*store_ref, &prev_state)
-        .map_err(|e| state_migration::MigrationError::StateTreeCreation(e.to_string()))?;
+        .map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
     let actors_out = StateTree::new(&*store_ref, StateTreeVersion::V3)
-        .map_err(|e| state_migration::MigrationError::StateTreeCreation(e.to_string()))?;
+        .map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
     migration.add_migrator(
         v3_miner_actor_cid,
-        state_migration::nv12::miner_migrator_v4(v4_miner_actor_cid),
+        nv12::miner_migrator_v4(v4_miner_actor_cid),
     );
+    let new_state = migration.migrate_state_tree(store, epoch, actors_in, actors_out)?;
+    Ok(new_state)
+}
+
+// Performs network version 10 / actors v3 state migration
+fn run_nv10_migration(
+    store: Arc<impl BlockStore + Send + Sync>,
+    prev_state: Cid,
+    epoch: i64,
+) -> Result<Cid, Box<dyn StdError>> {
+    let store_ref = store.clone();
+    let mut migration = StateMigration::new();
+    // Initialize the map with a default set of no-op migrations (nil_migrator).
+    // nv12 migration involves only the miner actor.
+    migration.set_nil_migrations_v3();
+    
+    let actors_in = StateTree::new_from_root(&*store_ref, &prev_state)
+    .map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
+    let actors_out = StateTree::new(&*store_ref, StateTreeVersion::V2)
+    .map_err(|e| MigrationError::StateTreeCreation(e.to_string()))?;
+
+    // Miner actor
+    migration.add_migrator(
+        *actorv2::MINER_ACTOR_CODE_ID,
+        nv10::miner_migrator_v3(*actorv3::MINER_ACTOR_CODE_ID),
+    );
+
+    // Init actor
+migration.add_migrator(
+    *actorv2::INIT_ACTOR_CODE_ID,
+    state_migration::nv10::init_migrator_v3(*actorv3::INIT_ACTOR_CODE_ID),
+);
+
+    // Market actor
+    migration.add_migrator(
+        *actorv2::MARKET_ACTOR_CODE_ID,
+        state_migration::nv10::market_migrator_v3(*actorv3::MARKET_ACTOR_CODE_ID),
+    );
+
+    // Multisig actor
+    migration.add_migrator(
+        *actorv2::MULTISIG_ACTOR_CODE_ID,
+        state_migration::nv10::multisig_migrator_v3(*actorv3::MULTISIG_ACTOR_CODE_ID),
+    );
+
+    // Paychannel actor
+    migration.add_migrator(
+        *actorv2::PAYCH_ACTOR_CODE_ID,
+        state_migration::nv10::paych_migrator_v3(*actorv3::PAYCH_ACTOR_CODE_ID),
+    );
+
+    // Power actor
+    migration.add_migrator(
+        *actorv2::POWER_ACTOR_CODE_ID,
+        state_migration::nv10::power_migrator_v3(*actorv3::POWER_ACTOR_CODE_ID),
+    );
+
+    // Verifreg actor
+    migration.add_migrator(
+        *actorv2::VERIFREG_ACTOR_CODE_ID,
+        state_migration::nv10::verifreg_migrator_v3(*actorv3::VERIFREG_ACTOR_CODE_ID),
+    );
+
     let new_state = migration.migrate_state_tree(store, epoch, actors_in, actors_out)?;
     Ok(new_state)
 }

@@ -5,15 +5,13 @@ use crate::nv10::util::{migrate_amt_raw, migrate_hamt_hamt_raw, migrate_hamt_raw
 use crate::{
     ActorMigration, ActorMigrationInput, MigrationError, MigrationOutput, MigrationResult,
 };
-use actor::BalanceTable;
 use actor::{Set, BALANCE_TABLE_BITWIDTH};
 use actor_interface::actorv2::market::State as V2MarketState;
-use actor_interface::actorv3;
 use actor_interface::actorv3::market::State as V3MarketState;
 use actor_interface::actorv3::market::{
     DealProposal, DealState, PROPOSALS_AMT_BITWIDTH, STATES_AMT_BITWIDTH,
 };
-use actor_interface::{ActorVersion, Array, Map as Map2};
+use actor_interface::{ActorVersion, Map as Map2};
 use address::Address;
 use async_std::sync::Arc;
 use cid::{Cid, Code};
@@ -22,7 +20,13 @@ use forest_hash_utils::BytesKey;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntDe;
 
-struct MarketMigrator;
+struct MarketMigrator(Cid);
+
+pub fn market_migrator_v3<BS: BlockStore + Send + Sync>(
+    cid: Cid,
+) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
+    Arc::new(MarketMigrator(cid))
+}
 
 impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MarketMigrator {
     fn migrate_state(
@@ -37,44 +41,38 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MarketMigrator {
         let v2_in_state = v2_in_state.unwrap();
 
         let pending_proposals_cid_out = self
-            .map_pending_proposals(&*store, v2_in_state.pending_proposals)
-            .map_err(|_| MigrationError::Other)?;
+            .map_pending_proposals(&*store, v2_in_state.pending_proposals)?;
 
         let proposals_cid_out = migrate_amt_raw::<_, DealProposal>(
             &*store,
             v2_in_state.proposals,
             PROPOSALS_AMT_BITWIDTH as i32,
-        )
-        .map_err(|_| MigrationError::Other)?;
+        )?;
 
         let states_cid_out = migrate_amt_raw::<_, DealState>(
             &*store,
             v2_in_state.states,
             STATES_AMT_BITWIDTH as i32,
-        )
-        .map_err(|_| MigrationError::Other)?;
+        )?;
 
         let escrow_table_cid_out = migrate_hamt_raw::<_, BigIntDe>(
             &*store,
             v2_in_state.escrow_table,
             BALANCE_TABLE_BITWIDTH,
-        )
-        .map_err(|_| MigrationError::Other)?;
+        )?;
 
         let locked_table_cid_out = migrate_hamt_raw::<_, BigIntDe>(
             &*store,
             v2_in_state.locked_table,
             BALANCE_TABLE_BITWIDTH,
-        )
-        .map_err(|_| MigrationError::Other)?;
+        )?;
 
         let dobe_cid_out = migrate_hamt_hamt_raw::<_, Address>(
             &*store,
             v2_in_state.deal_ops_by_epoch,
             HAMT_BIT_WIDTH,
             HAMT_BIT_WIDTH,
-        )
-        .map_err(|_| MigrationError::Other)?;
+        )?;
 
         let out_state = V3MarketState {
             proposals: proposals_cid_out,
@@ -92,10 +90,10 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MarketMigrator {
 
         let new_head = store
             .put(&out_state, Code::Blake2b256)
-            .map_err(|_| MigrationError::Other)?;
+            .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         Ok(MigrationOutput {
-            new_code_cid: *actorv3::MARKET_ACTOR_CODE_ID,
+            new_code_cid: self.0,
             new_head,
         })
     }
@@ -119,11 +117,11 @@ impl MarketMigrator {
                 new_pending_proposals.put(k.clone())?;
                 Ok(())
             })
-            .map_err(|_| MigrationError::Other)?; // FIXME error handling
+            .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         let new_pending_proposals_cid = new_pending_proposals
             .root()
-            .map_err(|_| MigrationError::Other)?; // FIXME: error handling
+            .map_err(|e| MigrationError::FlushFailed(e.to_string()))?;
 
         Ok(new_pending_proposals_cid)
     }

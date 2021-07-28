@@ -8,14 +8,19 @@ use crate::MigrationResult;
 use crate::{ActorMigration, ActorMigrationInput};
 use actor::multisig::Transaction;
 use actor_interface::actorv2::multisig::State as V2_MultiSigState;
-use actor_interface::actorv3;
 use actor_interface::actorv3::multisig::{State as V3_MultiSigState, TxnID as V3_TxnID};
 use async_std::sync::Arc;
-use cid::Code;
+use cid::{Cid, Code};
 use fil_types::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 
-pub struct MultisigMigrator;
+pub struct MultisigMigrator(Cid);
+
+pub fn multisig_migrator_v3<BS: BlockStore + Send + Sync>(
+    cid: Cid,
+) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
+    Arc::new(MultisigMigrator(cid))
+}
 
 impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MultisigMigrator {
     fn migrate_state(
@@ -47,7 +52,7 @@ impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MultisigMigrator {
             .map_err(|e| MigrationError::BlockStoreWrite(e.to_string()))?;
 
         Ok(MigrationOutput {
-            new_code_cid: *actorv3::MULTISIG_ACTOR_CODE_ID,
+            new_code_cid: self.0,
             new_head,
         })
     }
