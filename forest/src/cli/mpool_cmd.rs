@@ -51,6 +51,7 @@ impl MpoolCommands {
             } => {
                 let base_fee_lookback = *base_fee_lookback;
                 let local = *local;
+                println!("RPC CALL :: chain_head");
                 let tipset_json = chain_head().await.map_err(handle_rpc_err).unwrap();
                 let tipset = tipset_json.0;
 
@@ -60,17 +61,20 @@ impl MpoolCommands {
                 let mut current_tipset = tipset.clone();
 
                 for _ in 1..base_fee_lookback {
-                    current_tipset =
-                        chain_get_tipset((TipsetKeysJson(current_tipset.parents().to_owned()),))
-                            .await
-                            .map_err(handle_rpc_err)
-                            .unwrap()
-                            .0;
+                    println!("RPC CALL :: chain_get_tipset");
+                    let tipset_key_json = TipsetKeysJson(current_tipset.parents().to_owned());
+                    println!("tipset keys :: {:#?}", tipset_key_json.0);
+                    current_tipset = chain_get_tipset((tipset_key_json,))
+                        .await
+                        .map_err(handle_rpc_err)
+                        .unwrap()
+                        .0;
 
                     if current_tipset.blocks()[0].parent_base_fee() < &min_base_fee {
                         min_base_fee = current_tipset.blocks()[0].parent_base_fee().clone();
                     }
 
+                    println!("RPC CALL :: wallet_list");
                     let wallet_response = wallet_list().await.map_err(handle_rpc_err).unwrap();
 
                     let mut addresses = Vec::new();
@@ -82,6 +86,7 @@ impl MpoolCommands {
                             .collect();
                     }
 
+                    println!("RPC CALL :: mpool_pending");
                     let messages = mpool_pending((CidJsonVec(vec![]),))
                         .await
                         .map_err(handle_rpc_err)
@@ -135,6 +140,7 @@ impl MpoolCommands {
                     let mut stats: Vec<MpStat> = Vec::new();
 
                     for (address, bucket) in buckets.iter() {
+                        println!("RPC CALL :: state_get_actor");
                         let get_actor_result = state_get_actor((
                             AddressJson(address.to_owned()),
                             TipsetKeysJson(tipset.key().to_owned()),
