@@ -1,23 +1,21 @@
 #!/bin/bash
 
-if [ "$1" == "help" ]; then
-    echo "Smoke Test\nRun forest node; set FULLNODE_API_INFO; smoke test CLI"
-    exit
-fi
+# set temporary configuration
+FOREST_CONFIG="/tmp/temp_config.toml"
+echo "encrypt_keystore=false" > $FOREST_CONFIG
 
-ADDR=$FULLNODE_API_INFO
-
-if [ -z "$ADDR" ]; then
-    echo "FULLNODE_API_INFO is not set. Use $0 help for usage"
-    exit
-fi
+# get token and multiaddr info
+FULL_ADDR=$(forest -c $FOREST_CONFIG auth api-info -p admin)
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-TOKEN="$(cut -d':' -f1 <<< $ADDR)"
+# extract token from auth api-info output
+TOKEN="$(cut -d':' -f1 <<< $FULL_ADDR)"
+TOKEN=${TOKEN#"FULLNODE_API_INFO=\""}
 
+# set headers for http requests 
 AUTH_HEADER="Authorization: Bearer ${TOKEN}"
 CONTENT_TYPE_HEADER="Content-Type: application/json-rpc"
 
@@ -57,6 +55,7 @@ RPC_ENDPOINTS+=("STATE_GET_RECEIPT" "STATE_WAIT_MSG" "MINER_CREATE_BLOCK" "STATE
 RPC_ENDPOINTS+=("STATE_MINER_INITIAL_PLEDGE_COLLATERAL" "MINER_GET_BASE_INFO")
 
 
+# send requests programmatically
 for endpoint in ${RPC_ENDPOINTS[@]}; do
     METHOD="Filecoin.${endpoint}"
     REQUEST_BODY="{\"jsonrpc\": \"2.0\", \"method\": \"$METHOD\", \"params\":[], \"id\": 0}"
