@@ -47,12 +47,12 @@ RPC_ENDPOINTS+=("Version")
 RPC_ENDPOINTS+=("GasEstimateFeeCap" "GasEstimateGasPremium" "GasEstimateGasLimit" "GasEstimateMessageGas")
 
 # State
-RPC_ENDPOINTS+=("STATE_MINER_SECTORS" "STATE_CALL" "STATE_MINER_DEADLINES" "STATE_SECTOR_PRECOMMIT_INFO" "STATE_MINER_INFO")
-RPC_ENDPOINTS+=("STATE_SECTOR_GET_INFO" "STATE_MINER_PROVING_DEADLINE" "STATE_MINER_FAULTS" "STATE_MINER_ALL_FAULTS")
-RPC_ENDPOINTS+=("STATE_MINER_RECOVERIES" "STATE_MINER_PARTITIONS" "STATE_REPLAY" "STATE_NETWORK_NAME" "STATE_NETWORK_VERSION")
-RPC_ENDPOINTS+=("STATE_GET_ACTOR" "STATE_ACCOUNT_KEY" "STATE_LOOKUP_ID" "STATE_MARKET_BALANCE" "STATE_MARKET_DEALS")
-RPC_ENDPOINTS+=("STATE_GET_RECEIPT" "STATE_WAIT_MSG" "MINER_CREATE_BLOCK" "STATE_MINER_SECTOR_ALLOCATED" "STATE_MINER_PRECOMMIT_DEPOSIT_FOR_POWER")
-RPC_ENDPOINTS+=("STATE_MINER_INITIAL_PLEDGE_COLLATERAL" "MINER_GET_BASE_INFO")
+RPC_ENDPOINTS+=("StateMinerSectors" "StateCall" "StateMinerDeadlines" "StateSectorPrecommitInfo" "StateMinerInfo")
+RPC_ENDPOINTS+=("StateSectorGetInfo" "StateMinerProvingDeadline" "StateMinerFaults" "StateAllMinerFaults")
+RPC_ENDPOINTS+=("StateMinerRecoveries" "StateMinerPartitions" "StateReplay" "StateNetworkName" "StateNetworkVersion")
+RPC_ENDPOINTS+=("StateGetActor" "StateAccountKey" "StateLookupId" "StateMarketBalance" "StateMarketDeals")
+RPC_ENDPOINTS+=("StateGetReceipt" "StateWaitMsg" "MinerCreateBlock" "StateMinerSectorAllocated" "StateMinerPreCommitDepositForPower")
+RPC_ENDPOINTS+=("StateMinerInitialPledgeCollateral" "MinerGetBaseInfo")
 
 
 # send requests programmatically
@@ -65,7 +65,7 @@ for endpoint in ${RPC_ENDPOINTS[@]}; do
     if [ $RESPONSE_CODE = '200' ]; then
         echo -e "${METHOD} ${GREEN} OK ${NC}"
     else
-        echo -e "${METHOD} ${RED} FAIL ${NC}"
+        echo -e "${METHOD} ${RED} FAIL ${RESPONSE_CODE} ${NC}"
     fi
 
 done
