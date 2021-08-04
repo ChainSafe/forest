@@ -132,18 +132,16 @@ type LongestMethodNameLen = usize;
 type ParamsMismatches = Vec<(String, usize, String, String)>;
 type ResultMismatches = Vec<(String, String, String)>;
 type ForestOnlyMethods = Vec<String>;
+type Metrics = (
+    MethodMap,
+    MethodMap,
+    LongestMethodNameLen,
+    ParamsMismatches,
+    ResultMismatches,
+    ForestOnlyMethods,
+);
 
-fn run() -> Result<
-    (
-        MethodMap,
-        MethodMap,
-        LongestMethodNameLen,
-        ParamsMismatches,
-        ResultMismatches,
-        ForestOnlyMethods,
-    ),
-    Box<dyn Error>,
-> {
+fn run() -> Result<Metrics, Box<dyn Error>> {
     let mut lotus_rpc_file = File::open(LOTUS_OPENRPC_JSON_PATH)?;
     let mut lotus_rpc_content = String::new();
     lotus_rpc_file.read_to_string(&mut lotus_rpc_content)?;
@@ -272,37 +270,34 @@ fn run() -> Result<
             },
         );
 
-        match forest_rpc.get(&lotus_method.name) {
-            Some(forest_method) => {
-                // Check params
-                for (param_index, forest_param) in forest_method.params.iter().enumerate() {
-                    let lotus_param = match lotus_method.params.get(param_index) {
-                        Some(lotus_param) => map_lotus_type(lotus_param.description.as_ref()),
-                        None => "()".to_owned(),
-                    };
+        if let Some(forest_method) = forest_rpc.get(&lotus_method.name) {
+            // Check params
+            for (param_index, forest_param) in forest_method.params.iter().enumerate() {
+                let lotus_param = match lotus_method.params.get(param_index) {
+                    Some(lotus_param) => map_lotus_type(lotus_param.description.as_ref()),
+                    None => "()".to_owned(),
+                };
 
-                    if compare_types(&lotus_param, forest_param) {
-                        params_mismatches.push((
-                            lotus_method.name.clone(),
-                            param_index,
-                            forest_param.to_owned(),
-                            lotus_param,
-                        ));
-                    }
-                }
-
-                // Check result
-                let lotus_result = map_lotus_type(lotus_method.result.description.as_ref());
-
-                if compare_types(&lotus_result, &forest_method.result) {
-                    result_mismatches.push((
-                        lotus_method.name,
-                        forest_method.result.clone(),
-                        lotus_result,
+                if compare_types(&lotus_param, forest_param) {
+                    params_mismatches.push((
+                        lotus_method.name.clone(),
+                        param_index,
+                        forest_param.to_owned(),
+                        lotus_param,
                     ));
                 }
             }
-            None => {}
+
+            // Check result
+            let lotus_result = map_lotus_type(lotus_method.result.description.as_ref());
+
+            if compare_types(&lotus_result, &forest_method.result) {
+                result_mismatches.push((
+                    lotus_method.name,
+                    forest_method.result.clone(),
+                    lotus_result,
+                ));
+            }
         }
     }
 
