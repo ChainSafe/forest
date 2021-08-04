@@ -3,8 +3,8 @@
 ## Stats
 
 - Forest method count: 66
-- Lotus method count: 169
-- API coverage: 39.05%
+- Lotus method count: 172
+- API coverage: 38.37%
 
 ## Forest-only Methods
 
@@ -65,11 +65,14 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   | Method                                             | Params | Result |
 | - | -------------------------------------------------- | ------ | ------
 ✔️ | `Filecoin.BeaconGetEntry`                            | `(ChainEpoch)` | `BeaconEntryJson` |
+❌ | `Filecoin.ChainBlockstoreInfo`                       | `-` | `-` |
+❌ | `Filecoin.ChainCheckBlockstore`                      | `-` | `-` |
 ❌ | `Filecoin.ChainDeleteObj`                            | `-` | `-` |
 ✔️ | `Filecoin.ChainGetBlock`                             | `(CidJson)` | `BlockHeaderJson` |
 ✔️ | `Filecoin.ChainGetBlockMessages`                     | `(CidJson)` | `BlockMessages` |
 ✔️ | `Filecoin.ChainGetGenesis`                           | `()` | `Option<TipsetJson>` |
 ✔️ | `Filecoin.ChainGetMessage`                           | `(CidJson)` | `UnsignedMessageJson` |
+❌ | `Filecoin.ChainGetMessagesInTipset`                  | `-` | `-` |
 ❌ | `Filecoin.ChainGetNode`                              | `-` | `-` |
 ❌ | `Filecoin.ChainGetParentMessages`                    | `-` | `-` |
 ❌ | `Filecoin.ChainGetParentReceipts`                    | `-` | `-` |
