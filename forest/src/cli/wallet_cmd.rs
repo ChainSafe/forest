@@ -135,8 +135,7 @@ impl WalletCommands {
                     },
                     _ => {
                         println!("Enter the private key: ");
-                        let key = read_password().expect("Error reading private key");
-                        key
+                        read_password().expect("Error reading private key")
                     }
                 };
 
