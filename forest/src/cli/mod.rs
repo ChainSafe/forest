@@ -7,6 +7,7 @@ mod config;
 mod fetch_params_cmd;
 mod genesis_cmd;
 mod net_cmd;
+mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
 
@@ -16,6 +17,7 @@ pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::net_cmd::NetCommands;
+pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
@@ -74,6 +76,8 @@ pub enum Subcommand {
     Wallet(WalletCommands),
     #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
     Sync(SyncCommands),
+    #[structopt(name = "state", about = "Interact with and query filecoin chain state")]
+    State(StateCommands),
 }
 
 /// CLI options
