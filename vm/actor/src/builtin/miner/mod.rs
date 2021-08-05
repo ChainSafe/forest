@@ -419,16 +419,14 @@ impl Actor {
             ));
         }
 
-        // * This check is invalid because our randomness length is always == 32
-        // * and there is no clear need for less randomness
-        // if params.chain_commit_rand.0.len() > RANDOMNESS_LENGTH {
-        //     return Err(actor_error!(
-        //         ErrIllegalArgument,
-        //         "expected at most {} bytes of randomness, got {}",
-        //         RANDOMNESS_LENGTH,
-        //         params.chain_commit_rand.0.len()
-        //     ));
-        // }
+        if params.chain_commit_rand.0.len() > RANDOMNESS_LENGTH {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "expected at most {} bytes of randomness, got {}",
+                RANDOMNESS_LENGTH,
+                params.chain_commit_rand.0.len()
+            ));
+        }
 
         let post_result = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt.store(), state)?;
