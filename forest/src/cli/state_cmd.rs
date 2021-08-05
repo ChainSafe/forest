@@ -4,8 +4,18 @@
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-pub enum StateCommands {}
+pub enum StateCommands {
+    Power,
+    ListMiners,
+    ListActors,
+}
 
 impl StateCommands {
-    pub async fn run(&self) {}
+    pub async fn run(&self) {
+        match self {
+            Self::Power => {}
+            Self::ListMiners => {}
+            Self::ListActors => {}
+        }
+    }
 }
