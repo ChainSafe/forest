@@ -5,7 +5,11 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 pub enum StateCommands {
-    Power,
+    #[structopt(about = "Query network or miner power")]
+    Power {
+        #[structopt(about = "The miner address to query. Optional", short)]
+        miner_address: Option<String>,
+    },
     ListMiners,
     ListActors,
 }
@@ -13,7 +17,11 @@ pub enum StateCommands {
 impl StateCommands {
     pub async fn run(&self) {
         match self {
-            Self::Power => {}
+            Self::Power { miner_address } => {
+                let miner_address = miner_address.to_owned();
+
+                println!("{:?}", miner_address);
+            }
             Self::ListMiners => {}
             Self::ListActors => {}
         }
