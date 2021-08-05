@@ -4,6 +4,9 @@
 FOREST_CONFIG="/tmp/temp_config.toml"
 echo "encrypt_keystore=false" > $FOREST_CONFIG
 
+# start forest daemon
+RUST_LOG=off forest -c $FOREST_CONFIG > /dev/null &
+
 # get token and multiaddr info
 FULL_ADDR=$(forest -c $FOREST_CONFIG auth api-info -p admin)
 
@@ -71,3 +74,6 @@ for endpoint in ${RPC_ENDPOINTS[@]}; do
     fi
 
 done
+
+# Kill forest daemon
+ps -ef | grep forest | grep -v grep | awk '{print $2}' | xargs kill
