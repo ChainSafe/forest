@@ -6,9 +6,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use actor::{
+    actorv0::miner::MinerInfo,
     market,
-    miner::{self, SectorOnChainInfo},
-    power, reward,
+    miner::{self, MinerPower, SectorOnChainInfo},
+    power::{self, Claim},
+    reward,
 };
 use address::json::AddressJson;
 use beacon::{Beacon, BeaconEntry};
@@ -713,6 +715,34 @@ pub(crate) async fn state_miner_sector_allocated<
     };
 
     Ok(allocated_sectors)
+}
+
+pub(crate) async fn state_miner_power<
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<StateMinerPowerParams>,
+) -> Result<StateMinerPowerResult, JsonRpcError> {
+    let (AddressJson(address), TipsetKeysJson(tipset_keys)) = params;
+    let ts = data.chain_store.tipset_from_keys(&tipset_keys).await?;
+    let mp = data
+        .state_manager
+        .get_power(ts.parent_state(), Some(&address))?;
+    if let Some((miner_power, total_power)) = mp {
+        Ok(MinerPower {
+            miner_power,
+            total_power,
+            has_min_power: true,
+        })
+    } else {
+        Ok(MinerPower {
+            miner_power: Claim::default(),
+            total_power: Claim::default(),
+            has_min_power: false,
+        })
+    }
 }
 
 pub(crate) async fn state_miner_pre_commit_deposit_for_power<

@@ -141,6 +141,7 @@ where
                 STATE_MINER_SECTOR_ALLOCATED,
                 state_miner_sector_allocated::<DB, B>,
             )
+            .with_method(STATE_MINER_POWER, state_miner_power)
             .with_method(
                 STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
                 state_miner_pre_commit_deposit_for_power::<DB, B, V>,

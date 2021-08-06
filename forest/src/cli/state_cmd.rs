@@ -4,7 +4,7 @@
 use std::str::FromStr;
 
 use address::Address;
-use rpc_client::{chain_head, state_miner_info};
+use rpc_client::chain_head;
 use structopt::StructOpt;
 
 use super::handle_rpc_err;

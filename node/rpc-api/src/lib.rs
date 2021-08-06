@@ -81,6 +81,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_ALL_MINER_FAULTS, Access::Read);
     access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
     access.insert(state_api::STATE_MINER_PARTITIONS, Access::Read);
+    access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(
         state_api::STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
         Access::Read,
@@ -351,7 +352,7 @@ pub mod state_api {
         MiningBaseInfoJson, Partition,
     };
     use actor::miner::{
-        MinerInfo, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
+        MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
     use address::{json::AddressJson, Address};
     use bitfield::json::BitFieldJson;
@@ -457,6 +458,10 @@ pub mod state_api {
     pub const STATE_MINER_SECTOR_ALLOCATED: &str = "Filecoin.StateMinerSectorAllocated";
     pub type StateMinerSectorAllocatedParams = (AddressJson, u64, TipsetKeysJson);
     pub type StateMinerSectorAllocatedResult = bool;
+
+    pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
+    pub type StateMinerPowerParams = (AddressJson, TipsetKeysJson);
+    pub type StateMinerPowerResult = MinerPower;
 
     pub const STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER: &str =
         "Filecoin.StateMinerPreCommitDepositForPower";
