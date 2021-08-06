@@ -92,6 +92,9 @@ test-release:
 	cargo test --release -p forest_message --features blst --no-default-features
 	cargo test --release -p forest_message --features pairing --no-default-features
 
+smoke-test:
+	./scripts/smoke_test.sh
+
 test-all: test-release run-vectors
 
 # Checks if all headers are present and adds if not
