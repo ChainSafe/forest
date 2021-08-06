@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use actor::{
-    actorv0::miner::MinerInfo,
     market,
     miner::{self, MinerPower, SectorOnChainInfo},
     power::{self, Claim},

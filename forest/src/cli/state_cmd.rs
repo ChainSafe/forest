@@ -3,8 +3,9 @@
 
 use std::str::FromStr;
 
-use address::Address;
-use rpc_client::chain_head;
+use address::{json::AddressJson, Address};
+use blocks::tipset_keys_json::TipsetKeysJson;
+use rpc_client::{chain_head, state_get_actor};
 use structopt::StructOpt;
 
 use super::handle_rpc_err;
@@ -28,10 +29,14 @@ impl StateCommands {
 
                 match miner_address {
                     Some(miner_addr) => {
-                        let address = Address::from_str(&miner_addr);
+                        let address = Address::from_str(&miner_addr)
+                            .expect(&format!("Cannot read address {}", miner_addr));
                         let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
 
-                        let actor_state = state_get_actor(address, tipset);
+                        let _actor_state = state_get_actor((
+                            AddressJson(address),
+                            TipsetKeysJson(tipset.0.key().to_owned()),
+                        ));
                     }
                     None => {}
                 }
