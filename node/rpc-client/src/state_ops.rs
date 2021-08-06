@@ -8,3 +8,9 @@ use rpc_api::state_api::*;
 pub async fn state_get_actor(params: StateGetActorParams) -> Result<StateGetActorResult, Error> {
     call(STATE_GET_ACTOR, params).await
 }
+
+pub async fn state_miner_power(
+    params: StateMinerPowerParams,
+) -> Result<StateMinerPowerResult, Error> {
+    call(STATE_MINER_POWER, params).await
+}

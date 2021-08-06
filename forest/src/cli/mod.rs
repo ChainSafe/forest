@@ -22,6 +22,7 @@ pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use jsonrpc_v2::Error as JsonRpcError;
+use num_bigint::BigInt;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::io::{self, Write};
@@ -251,6 +252,13 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
 /// Format a vector to a prettified string
 pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
+}
+
+/// convert bigint to size string using byte postfixes (ie KiB, GiB, PiB, etc)
+pub(super) fn to_size_string(bi: BigInt) -> String {
+    let byte_size_units: [&str; 8] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB"];
+
+    let i = 0;
 }
 
 /// Print an error message and exit the program with an error code

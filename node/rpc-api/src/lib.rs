@@ -460,7 +460,7 @@ pub mod state_api {
     pub type StateMinerSectorAllocatedResult = bool;
 
     pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
-    pub type StateMinerPowerParams = (AddressJson, TipsetKeysJson);
+    pub type StateMinerPowerParams = (Option<AddressJson>, TipsetKeysJson);
     pub type StateMinerPowerResult = MinerPower;
 
     pub const STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER: &str =

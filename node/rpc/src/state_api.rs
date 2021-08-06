@@ -724,11 +724,22 @@ pub(crate) async fn state_miner_power<
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerPowerParams>,
 ) -> Result<StateMinerPowerResult, JsonRpcError> {
-    let (AddressJson(address), TipsetKeysJson(tipset_keys)) = params;
+    let (address_opt, TipsetKeysJson(tipset_keys)) = params;
+
     let ts = data.chain_store.tipset_from_keys(&tipset_keys).await?;
+
+    let address = match address_opt {
+        Some(addr) => {
+            let address = addr.0;
+            Some(address)
+        }
+        None => None,
+    };
+
     let mp = data
         .state_manager
-        .get_power(ts.parent_state(), Some(&address))?;
+        .get_power(ts.parent_state(), address.as_ref())?;
+
     if let Some((miner_power, total_power)) = mp {
         Ok(MinerPower {
             miner_power,
