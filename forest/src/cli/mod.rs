@@ -23,6 +23,7 @@ use jsonrpc_v2::Error as JsonRpcError;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -132,11 +133,21 @@ impl CLIOpts {
         let mut cfg: Config = match &self.config {
             Some(config_file) => {
                 // Read from config file
-                let toml = read_file_to_string(&*config_file)?;
+                let toml = read_file_to_string(&PathBuf::from(&config_file))?;
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => Config::default(),
+            None => {
+                // Check ENV VAR for config file
+                if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+                    // Read from config file
+                    let toml = read_file_to_string(&PathBuf::from(&config_file))?;
+                    // Parse and return the configuration file
+                    read_toml(&toml)?
+                } else {
+                    Config::default()
+                }
+            }
         };
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());

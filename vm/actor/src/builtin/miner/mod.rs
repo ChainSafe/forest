@@ -2720,9 +2720,9 @@ impl Actor {
 
         // The policy amounts we should burn and send to reporter
         // These may differ from actual funds send when miner goes into fee debt
-        let fault_penalty =
-            consensus_fault_penalty(reward_stats.this_epoch_reward_smoothed.estimate());
-        let slasher_reward = reward_for_consensus_slash_report(fault_age, &fault_penalty);
+        let this_epoch_reward = reward_stats.this_epoch_reward_smoothed.estimate();
+        let fault_penalty = consensus_fault_penalty(this_epoch_reward.clone());
+        let slasher_reward = reward_for_consensus_slash_report(&this_epoch_reward);
 
         let mut pledge_delta = TokenAmount::from(0);
 
