@@ -726,6 +726,7 @@ pub(crate) async fn state_miner_power<
 ) -> Result<StateMinerPowerResult, JsonRpcError> {
     let (address_opt, TipsetKeysJson(tipset_keys)) = params;
 
+    println!("CHAIN STORE GET TIPSET FROM KEYS");
     let ts = data.chain_store.tipset_from_keys(&tipset_keys).await?;
 
     let address = match address_opt {
@@ -736,6 +737,9 @@ pub(crate) async fn state_miner_power<
         None => None,
     };
 
+    println!("GET POWER");
+    println!("PARENT STATE :: {}", ts.parent_state());
+    println!("ADDRESS ::\n{:#?}", address);
     let mp = data
         .state_manager
         .get_power(ts.parent_state(), address.as_ref())?;

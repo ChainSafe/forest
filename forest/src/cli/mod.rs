@@ -21,12 +21,12 @@ pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
+use byte_unit::Byte;
 use jsonrpc_v2::Error as JsonRpcError;
 use num_bigint::BigInt;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::io::{self, Write};
-use std::ops::Mul;
 use std::path::PathBuf;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -256,22 +256,10 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
 }
 
 /// convert bigint to size string using byte size units (ie KiB, GiB, PiB, etc)
-pub(super) fn to_size_string(bi: BigInt) -> String {
-    let byte_size_units: [&str; 8] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB"];
-
-    let mut i = 0;
-    let mut r = bi.clone();
-    let f = bi.clone();
-
-    let den = 1 / 1024;
-    let t = BigInt::from(1024);
-
-    while i + 1 < byte_size_units.len() && f >= t {
-        i += 1;
-        r = r.mul(den)
-    }
-
-    format!("{:.4} {}", f, byte_size_units[i])
+pub(super) fn to_size_string(bi: &BigInt) -> String {
+    let bi = bi.clone();
+    let byte = Byte::from_bytes(bi.to_string().parse().expect("error parsing string to int"));
+    byte.get_appropriate_unit(false).to_string()
 }
 
 /// Print an error message and exit the program with an error code
