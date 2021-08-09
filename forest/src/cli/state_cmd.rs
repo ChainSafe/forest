@@ -85,13 +85,11 @@ impl StateCommands {
                         )
                     }
                     None => {
-                        println!("RPC CALL STATE MINER POWER");
                         let power = state_miner_power((None, tipset_keys_json))
                             .await
                             .map_err(handle_rpc_err)
                             .unwrap();
 
-                        println!("GOT MINER POWER");
                         let total_power = power.total_power;
                         println!(
                             "{}({})",
