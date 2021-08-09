@@ -9,6 +9,8 @@ use num_bigint::ToBigInt;
 use rpc_client::{chain_head, state_get_actor, state_miner_power};
 use structopt::StructOpt;
 
+use crate::cli::to_size_string;
+
 use super::handle_rpc_err;
 
 #[derive(Debug, StructOpt)]
