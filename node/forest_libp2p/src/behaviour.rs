@@ -19,10 +19,6 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
-use libp2p::gossipsub::{
-    error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
-    GossipsubEvent, IdentTopic as Topic, MessageAuthenticity, MessageId, TopicHash, ValidationMode,
-};
 use libp2p::identify::{Identify, IdentifyEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
@@ -36,6 +32,14 @@ use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollPa
 use libp2p::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
+use libp2p::{
+    gossipsub::{
+        error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
+        GossipsubEvent, IdentTopic as Topic, MessageAuthenticity, MessageId, TopicHash,
+        ValidationMode,
+    },
+    Multiaddr,
+};
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
 use std::collections::HashSet;
@@ -522,9 +526,14 @@ impl ForestBehaviour {
         self.cx_request_table.insert(req_id, response_channel);
     }
 
-    /// Adds peer to the peer set.
+    /// Returns a set of peer ids
     pub fn peers(&mut self) -> &HashSet<PeerId> {
         self.discovery.peers()
+    }
+
+    /// Returns a map of peer ids and their multiaddresses
+    pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Vec<Multiaddr>> {
+        self.discovery.peer_addresses()
     }
 
     /// Send a block to a peer over bitswap
