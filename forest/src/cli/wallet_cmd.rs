@@ -143,6 +143,8 @@ impl WalletCommands {
                     }
                 };
 
+                let key = key.trim();
+
                 let decoded_key_result = hex::decode(&key);
 
                 if decoded_key_result.is_err() {
@@ -162,10 +164,12 @@ impl WalletCommands {
 
                 let key = key_result.unwrap();
 
-                let _ = wallet_import(vec![KeyInfoJson(key.0)])
+                let key = wallet_import(vec![KeyInfoJson(key.0)])
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
+
+                println!("{}", key);
             }
             Self::List => {
                 let response = wallet_list().await.map_err(handle_rpc_err).unwrap();
