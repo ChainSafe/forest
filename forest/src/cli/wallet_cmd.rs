@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use rpassword::read_password;
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    path::PathBuf,
+    str::{self, FromStr},
+};
 use structopt::StructOpt;
 
 use address::{json::AddressJson, Address};
@@ -148,7 +151,7 @@ impl WalletCommands {
 
                 let decoded_key = decoded_key_result.unwrap();
 
-                let key_str = std::str::from_utf8(&decoded_key).unwrap();
+                let key_str = str::from_utf8(&decoded_key).unwrap();
 
                 let key_result: Result<KeyInfoJson, serde_json::error::Error> =
                     serde_json::from_str(&key_str);
