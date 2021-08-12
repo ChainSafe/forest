@@ -192,7 +192,7 @@ where
         JsonRpcResponse::Error { error, .. } => Err(Error::Full {
             data: None,
             code: error.code,
-            message: error.message.into(),
+            message: error.message,
         }),
     }
 }
