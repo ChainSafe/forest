@@ -49,7 +49,7 @@ genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 networks = { path = "../types/networks" }
-rpassword = "0.0.4"
+rpassword = "5.0.1"
 rayon = "1.5"
 prometheus = { version = "0.12.0", features = ["process"] }
 ticker = "0.1.1"

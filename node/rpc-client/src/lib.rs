@@ -189,6 +189,10 @@ where
 
     match rpc_res {
         JsonRpcResponse::Result { result, .. } => Ok(result),
-        JsonRpcResponse::Error { error, .. } => Err(error.message.into()),
+        JsonRpcResponse::Error { error, .. } => Err(Error::Full {
+            data: None,
+            code: error.code,
+            message: error.message,
+        }),
     }
 }
