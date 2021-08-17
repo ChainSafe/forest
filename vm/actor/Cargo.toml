@@ -42,5 +42,7 @@ hex = "0.4.2"
 libp2p = { version = "0.35", default-features = false }
 
 [features]
+default = ["mainnet"]
+mainnet = []
 devnet = []
 interopnet = []

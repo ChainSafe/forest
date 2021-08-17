@@ -3,8 +3,8 @@
 ## Stats
 
 - Forest method count: 66
-- Lotus method count: 172
-- API coverage: 38.37%
+- Lotus method count: 173
+- API coverage: 38.15%
 
 ## Forest-only Methods
 
@@ -80,6 +80,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.ChainGetRandomnessFromBeacon`              | `-` | `-` |
 |   ❌    | `Filecoin.ChainGetRandomnessFromTickets`             | `-` | `-` |
 |   ✔️    | `Filecoin.ChainGetTipSet`                            | `(TipsetKeysJson)` | `TipsetJson` |
+|   ❌    | `Filecoin.ChainGetTipSetAfterHeight`                 | `-` | `-` |
 |   ❌    | `Filecoin.ChainGetTipSetByHeight`                    | `-` | `-` |
 |   ✔️    | `Filecoin.ChainHasObj`                               | `(CidJson)` | `bool` |
 |   ✔️    | `Filecoin.ChainHead`                                 | `()` | `TipsetJson` |
