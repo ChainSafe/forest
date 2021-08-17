@@ -12,11 +12,10 @@ use forest_libp2p::{
     },
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
-    NetworkMessage,
+    NetworkMessage, PeerId,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
 use ipld_blockstore::BlockStore;
-use libp2p::core::PeerId;
 use log::{trace, warn};
 use std::convert::TryFrom;
 use std::sync::Arc;
