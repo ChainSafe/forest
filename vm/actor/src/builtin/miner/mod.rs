@@ -70,6 +70,7 @@ use fil_types::{
     deadlines::DeadlineInfo, InteractiveSealRandomness, PoStProof, PoStRandomness,
     RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
     SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
+    RANDOMNESS_LENGTH,
 };
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntSer;

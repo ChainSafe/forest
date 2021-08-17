@@ -1580,7 +1580,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
             &lookback_state,
             network_version,
             &header.miner_address(),
-            Randomness(rand),
+            Randomness(rand.to_vec()),
         )
         .map_err(|e| {
             TipsetRangeSyncerError::Validation(format!(
@@ -1589,14 +1589,18 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
             ))
         })?;
 
-    V::verify_winning_post(Randomness(rand), header.winning_post_proof(), &sectors, id).map_err(
-        |e| {
-            TipsetRangeSyncerError::Validation(format!(
-                "Failed to verify winning PoSt: {}",
-                e.to_string()
-            ))
-        },
+    V::verify_winning_post(
+        Randomness(rand.to_vec()),
+        header.winning_post_proof(),
+        &sectors,
+        id,
     )
+    .map_err(|e| {
+        TipsetRangeSyncerError::Validation(format!(
+            "Failed to verify winning PoSt: {}",
+            e.to_string()
+        ))
+    })
 }
 
 fn check_block_messages<

@@ -8,6 +8,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(PartialEq, Eq, Default, Clone, Debug)]
 pub struct Randomness(pub Vec<u8>);
 
+pub const RANDOMNESS_LENGTH: usize = 32;
+
 impl Serialize for Randomness {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
