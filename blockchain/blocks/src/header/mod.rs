@@ -386,6 +386,8 @@ impl BlockHeader {
                 .verify_entry(&self.beacon_entries[1], &self.beacon_entries[0])
                 .await
                 .map_err(|e| Error::Validation(e.to_string()))?;
+
+            return Ok(());
         }
 
         let max_round = curr_beacon.max_beacon_round_for_epoch(self.epoch);
