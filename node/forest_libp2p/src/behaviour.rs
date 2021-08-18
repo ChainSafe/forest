@@ -19,6 +19,7 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
+use libipld::{multihash::Code, store::StoreParams, IpldCodec};
 use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
@@ -28,33 +29,44 @@ use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
     RequestResponseMessage, ResponseChannel,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
-use libp2p::NetworkBehaviour;
-use libp2p::{core::identity::Keypair, kad::QueryId};
-use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
 use libp2p::{
+    core::{identity::Keypair, PeerId},
+    gossipsub::GossipsubMessage,
     gossipsub::{
         error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
         GossipsubEvent, IdentTopic as Topic, MessageAuthenticity, MessageId, TopicHash,
         ValidationMode,
     },
-    Multiaddr,
+    kad::QueryId,
+    swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters},
+    Multiaddr, NetworkBehaviour,
 };
 use libp2p_bitswap::{Bitswap, BitswapEvent};
 use log::{debug, trace, warn};
-use std::collections::HashSet;
-use std::convert::TryFrom;
-use std::error::Error;
-use std::pin::Pin;
-use std::time::Duration;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::{collections::HashMap, convert::TryInto};
-use std::{task::Context, task::Poll};
+use std::{
+    collections::HashSet,
+    convert::TryFrom,
+    error::Error,
+    pin::Pin,
+    time::Duration,
+    time::{SystemTime, UNIX_EPOCH},
+    {collections::HashMap, convert::TryInto},
+    {task::Context, task::Poll},
+};
 use tiny_cid::Cid as Cid2;
 
 lazy_static! {
     static ref VERSION: &'static str = env!("CARGO_PKG_VERSION");
     static ref CURRENT_COMMIT: &'static str = git_version!();
+}
+
+#[derive(Debug, Clone)]
+struct BitswapStore;
+
+impl StoreParams for BitswapStore {
+    type Hashes = Code;
+    type Codecs = IpldCodec;
+    const MAX_BLOCK_SIZE: usize = 1024 * 1024 * 4;
 }
 
 /// Libp2p behaviour for the Forest node. This handles all sub protocols needed for a Filecoin node.
@@ -69,7 +81,7 @@ pub(crate) struct ForestBehaviour {
     // but is fine for now, since the protocols are handled slightly differently.
     hello: RequestResponse<HelloCodec>,
     chain_exchange: RequestResponse<ChainExchangeCodec>,
-    bitswap: Bitswap,
+    bitswap: Bitswap<BitswapStore>,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
     /// Keeps track of Chain exchange requests to responses
@@ -121,11 +133,12 @@ pub(crate) enum ForestBehaviourEvent {
 impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
     fn inject_event(&mut self, event: DiscoveryOut) {
         match event {
-            DiscoveryOut::Connected(peer) => {
-                self.bitswap.connect(peer);
+            DiscoveryOut::Connected(peer, address) => {
+                self.bitswap.add_address(&peer, address);
                 self.events.push(ForestBehaviourEvent::PeerConnected(peer));
             }
-            DiscoveryOut::Disconnected(peer) => {
+            DiscoveryOut::Disconnected(peer, address) => {
+                self.bitswap.remove_address(&peer, &address);
                 self.events
                     .push(ForestBehaviourEvent::PeerDisconnected(peer));
             }
@@ -554,11 +567,11 @@ impl ForestBehaviour {
     }
 
     /// Send a request for data over bitswap
-    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
+    pub fn want_block(&mut self, cid: Cid) -> Result<(), Box<dyn Error>> {
         debug!("want {}", cid.to_string());
         let cid = cid.to_bytes();
         let cid = Cid2::try_from(cid)?;
-        self.bitswap.want_block(cid, priority);
+        self.bitswap.get(cid);
         Ok(())
     }
 }

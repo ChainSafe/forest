@@ -35,10 +35,10 @@ use std::{
 #[derive(Debug)]
 pub enum DiscoveryOut {
     /// Event that notifies that we connected to the node with the given peer id.
-    Connected(PeerId),
+    Connected(PeerId, Multiaddr),
 
     /// Event that notifies that we disconnected with the node with the given peer id.
-    Disconnected(PeerId),
+    Disconnected(PeerId, Multiaddr),
 }
 
 /// `DiscoveryBehaviour` configuration.
@@ -188,7 +188,7 @@ pub struct DiscoveryBehaviour {
     /// Keeps hash set of peers connected.
     peers: HashSet<PeerId>,
     /// Keeps hash map of peers and their multiaddresses
-    peer_addresses: HashMap<PeerId, Vec<Multiaddr>>,
+    peer_addresses: HashMap<PeerId, Multiaddr>,
     /// Number of active connections to pause discovery on.
     discovery_max: u64,
 }
@@ -200,7 +200,7 @@ impl DiscoveryBehaviour {
     }
 
     /// Returns a map of peer ids and their multiaddresses
-    pub fn peer_addresses(&self) -> &HashMap<PeerId, Vec<Multiaddr>> {
+    pub fn peer_addresses(&self) -> &HashMap<PeerId, Multiaddr> {
         &self.peer_addresses
     }
 
@@ -258,13 +258,18 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     }
 
     fn inject_connected(&mut self, peer_id: &PeerId) {
-        let multiaddr = self.addresses_of_peer(peer_id);
-        self.peer_addresses.insert(*peer_id, multiaddr);
-        self.peers.insert(*peer_id);
-        self.pending_events
-            .push_back(DiscoveryOut::Connected(*peer_id));
+        // Uses first address because it's documented as being sorted by reachability,
+        // and so is the address most likely to be reachable.
+        let multiaddr = self.addresses_of_peer(peer_id).into_iter().nth(0);
 
-        self.kademlia.inject_connected(peer_id)
+        if let Some(address) = multiaddr {
+            self.peer_addresses.insert(*peer_id, address);
+            self.peers.insert(*peer_id);
+            self.pending_events
+                .push_back(DiscoveryOut::Connected(*peer_id, address));
+
+            self.kademlia.inject_connected(peer_id)
+        }
     }
 
     fn inject_connection_closed(
@@ -280,11 +285,15 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     }
 
     fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        self.peers.remove(peer_id);
-        self.pending_events
-            .push_back(DiscoveryOut::Disconnected(*peer_id));
+        let multiaddr = self.addresses_of_peer(peer_id).into_iter().nth(0);
 
-        self.kademlia.inject_disconnected(peer_id)
+        if let Some(address) = multiaddr {
+            self.peers.remove(peer_id);
+            self.pending_events
+                .push_back(DiscoveryOut::Disconnected(*peer_id, address));
+
+            self.kademlia.inject_disconnected(peer_id);
+        }
     }
 
     fn inject_addr_reach_failure(
@@ -313,16 +322,16 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         self.kademlia.inject_new_external_addr(addr)
     }
 
-    fn inject_expired_listen_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia.inject_expired_listen_addr(addr);
+    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
+        self.kademlia.inject_expired_listen_addr(id, addr);
     }
 
     fn inject_dial_failure(&mut self, peer_id: &PeerId) {
         self.kademlia.inject_dial_failure(peer_id)
     }
 
-    fn inject_new_listen_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia.inject_new_listen_addr(addr)
+    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
+        self.kademlia.inject_new_listen_addr(id, addr)
     }
 
     fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
@@ -410,15 +419,20 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         })
                     }
                     NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                        Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address, score })
+                        return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                            address,
+                            score,
+                        })
                     }
                     NetworkBehaviourAction::CloseConnection {
                         peer_id,
                         connection,
-                    } => Poll::Ready(NetworkBehaviourAction::CloseConnection {
-                        peer_id,
-                        connection,
-                    }),
+                    } => {
+                        return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                            peer_id,
+                            connection,
+                        })
+                    }
                 }
             }
         }
@@ -451,15 +465,20 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     return Poll::Ready(NetworkBehaviourAction::DialPeer { peer_id, condition })
                 }
                 NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                    Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address, score })
+                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                        address,
+                        score,
+                    })
                 }
                 NetworkBehaviourAction::CloseConnection {
                     peer_id,
                     connection,
-                } => Poll::Ready(NetworkBehaviourAction::CloseConnection {
-                    peer_id,
-                    connection,
-                }),
+                } => {
+                    return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
+                    })
+                }
                 // Nothing to notify handler
                 NetworkBehaviourAction::NotifyHandler { event, .. } => match event {},
                 NetworkBehaviourAction::ReportObservedAddr { address, score } => {
