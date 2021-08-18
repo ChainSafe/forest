@@ -9,8 +9,11 @@ use libp2p::{
         connection::{ConnectionId, ListenerId},
         ConnectedPoint, Multiaddr, PeerId, PublicKey,
     },
-    kad::{handler::KademliaHandlerProto, Kademlia, KademliaConfig, KademliaEvent, QueryId},
-    mdns::MdnsEvent,
+    kad::{
+        handler::KademliaHandlerProto, record::store::MemoryStore, Kademlia, KademliaConfig,
+        KademliaEvent, QueryId,
+    },
+    mdns::{Mdns, MdnsConfig, MdnsEvent},
     multiaddr::Protocol,
     swarm::{
         toggle::{Toggle, ToggleIntoProtoHandler},
@@ -18,7 +21,6 @@ use libp2p::{
         ProtocolsHandler,
     },
 };
-use libp2p::{kad::record::store::MemoryStore, mdns::Mdns};
 use log::{debug, error, trace, warn};
 use std::collections::HashMap;
 use std::{
@@ -143,7 +145,9 @@ impl<'a> DiscoveryConfig<'a> {
 
         let mdns_opt = if enable_mdns {
             Some(task::block_on(async {
-                Mdns::new().await.expect("Could not start mDNS")
+                Mdns::new(MdnsConfig::default())
+                    .await
+                    .expect("Could not start mDNS")
             }))
         } else {
             None
@@ -405,6 +409,16 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                             score,
                         })
                     }
+                    NetworkBehaviourAction::ReportObservedAddr { address, score } => {
+                        Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address, score })
+                    }
+                    NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
+                    } => Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
+                    }),
                 }
             }
         }
@@ -436,6 +450,16 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 NetworkBehaviourAction::DialPeer { peer_id, condition } => {
                     return Poll::Ready(NetworkBehaviourAction::DialPeer { peer_id, condition })
                 }
+                NetworkBehaviourAction::ReportObservedAddr { address, score } => {
+                    Poll::Ready(NetworkBehaviourAction::ReportObservedAddr { address, score })
+                }
+                NetworkBehaviourAction::CloseConnection {
+                    peer_id,
+                    connection,
+                } => Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                    peer_id,
+                    connection,
+                }),
                 // Nothing to notify handler
                 NetworkBehaviourAction::NotifyHandler { event, .. } => match event {},
                 NetworkBehaviourAction::ReportObservedAddr { address, score } => {
