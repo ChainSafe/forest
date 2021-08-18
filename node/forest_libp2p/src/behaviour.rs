@@ -19,7 +19,7 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
-use libp2p::identify::{Identify, IdentifyEvent};
+use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
@@ -40,7 +40,7 @@ use libp2p::{
     },
     Multiaddr,
 };
-use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
+use libp2p_bitswap::{Bitswap, BitswapEvent};
 use log::{debug, trace, warn};
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -466,15 +466,18 @@ impl ForestBehaviour {
         req_res_config.set_request_timeout(Duration::from_secs(20));
         req_res_config.set_connection_keep_alive(Duration::from_secs(20));
 
+        let identify = IdentifyConfig {
+            protocol_version: "ipfs/0.1.0".into(),
+            local_public_key: local_key.public(),
+            agent_version: format!("forest-{}-{}", *VERSION, *CURRENT_COMMIT),
+            ..IdentifyConfig::default()
+        };
+
         ForestBehaviour {
             gossipsub,
             discovery: discovery_config.finish(),
             ping: Ping::default(),
-            identify: Identify::new(
-                "ipfs/0.1.0".into(),
-                format!("forest-{}-{}", *VERSION, *CURRENT_COMMIT),
-                local_key.public(),
-            ),
+            identify,
             bitswap,
             hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),
             chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
