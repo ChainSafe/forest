@@ -240,6 +240,8 @@ impl State {
         new_deadline_info(self.proving_period_start, deadline_idx, 0).quant_spec()
     }
 
+    /// Marks a set of sector numbers as having been allocated.
+    /// If policy is `DenyCollisions`, fails if the set intersects with the sector numbers already allocated.
     pub fn allocate_sector_numbers<BS: BlockStore>(
         &mut self,
         store: &BS,

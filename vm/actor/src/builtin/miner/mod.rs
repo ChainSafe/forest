@@ -894,9 +894,9 @@ impl Actor {
         Ok(())
     }
 
-    // Pledges to seal and commit a single sector.
-    // See PreCommitSectorBatch for details.
-    // This method may be deprecated and removed in the future
+    /// Pledges to seal and commit a single sector.
+    /// See PreCommitSectorBatch for details.
+    /// This method may be deprecated and removed in the future
     fn pre_commit_sector<BS, RT>(
         rt: &mut RT,
         params: PreCommitSectorParams,
@@ -1162,7 +1162,7 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ErrBalanceInvariantBroken,
-                    format!("balance invariant broken: {}", e),
+                    format!("balance invariants broken: {}", e),
                 )
             })?;
         if needs_cron {
