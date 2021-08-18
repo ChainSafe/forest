@@ -4,22 +4,23 @@
 use utils::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
 
 use serde_derive::Deserialize;
-use std::fs::remove_dir_all;
+use std::{fs::remove_dir_all, path::PathBuf};
 
 // Please use with caution, remove_dir_all will completely delete a directory
-fn cleanup_file(path: &str) {
+fn cleanup_file(path: &PathBuf) {
     remove_dir_all(path).expect("cleanup_file() path: {:?} failed: {:?}");
 }
 
 #[test]
 fn write_to_file_to_path() {
     let msg = "Hello World!".as_bytes();
-    let path = "./test-write/";
+    let path = PathBuf::from("./test-write");
     let file = "test.txt";
+
     match write_to_file(&msg, &path, file) {
-        Ok(_) => cleanup_file(path),
+        Ok(_) => cleanup_file(&path),
         Err(e) => {
-            cleanup_file(path);
+            cleanup_file(&path);
             panic!("{}", e);
         }
     }
@@ -28,12 +29,12 @@ fn write_to_file_to_path() {
 #[test]
 fn write_to_file_nested_dir() {
     let msg = "Hello World!".as_bytes();
-    let root = "./test_missing";
-    let path = format!("{}{}", root, "/test_write_string/");
-    match write_to_file(&msg, &path, "test-file") {
-        Ok(_) => cleanup_file(root),
+    let root = PathBuf::from("./test_missing");
+
+    match write_to_file(&msg, &root.join("test_write_string"), "test-file") {
+        Ok(_) => cleanup_file(&root),
         Err(e) => {
-            cleanup_file(root);
+            cleanup_file(&root);
             panic!("{}", e);
         }
     }
@@ -42,16 +43,17 @@ fn write_to_file_nested_dir() {
 #[test]
 fn read_from_file_vec() {
     let msg = "Hello World!".as_bytes();
-    let path = "./test_read_file/";
+    let path = PathBuf::from("./test_read_file");
     let file_name = "out.keystore";
     write_to_file(&msg, &path, file_name).unwrap();
-    match read_file_to_vec(&format!("{}{}", path, file_name)) {
+
+    match read_file_to_vec(&path.join(file_name)) {
         Ok(contents) => {
-            cleanup_file(path);
+            cleanup_file(&path);
             assert_eq!(contents, msg)
         }
         Err(e) => {
-            cleanup_file(path);
+            cleanup_file(&path);
             panic!("{}", e);
         }
     }
@@ -60,16 +62,17 @@ fn read_from_file_vec() {
 #[test]
 fn read_from_file_string() {
     let msg = "Hello World!";
-    let path = "./test_string_read_file/";
+    let path = PathBuf::from("./test_string_read_file");
     let file_name = "out.keystore";
+
     write_to_file(&msg.as_bytes(), &path, file_name).unwrap();
-    match read_file_to_string(&format!("{}{}", path, file_name)) {
+    match read_file_to_string(&path.join(file_name)) {
         Ok(contents) => {
-            cleanup_file(path);
+            cleanup_file(&path);
             assert_eq!(contents, msg)
         }
         Err(e) => {
-            cleanup_file(path);
+            cleanup_file(&path);
             panic!("{}", e);
         }
     }
