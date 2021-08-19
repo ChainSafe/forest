@@ -21,7 +21,10 @@ pub enum StateCommands {
         #[structopt(about = "The miner address to query. Optional", short)]
         miner_address: Option<String>,
     },
-    ListMiners,
+    ListMiners {
+        #[structop(about = "Criteria to sort miners by (none, num-deals")]
+        sort_by: String,
+    },
     ListActors,
 }
 
@@ -99,7 +102,7 @@ impl StateCommands {
                     }
                 }
             }
-            Self::ListMiners => {}
+            Self::ListMiners { sort_by } => {}
             Self::ListActors => {}
         }
     }
