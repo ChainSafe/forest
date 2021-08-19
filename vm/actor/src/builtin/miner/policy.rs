@@ -12,6 +12,13 @@ use num_bigint::{BigInt, Integer};
 use std::cmp;
 use vm::TokenAmount;
 
+/// The maximum number of sector pre-commitments in a single batch.
+/// 32 sectors per epoch would support a single miner onboarding 1EiB of 32GiB sectors in 1 year.
+pub const PRE_COMMIT_SECTOR_BATCH_MAX_SIZE: usize = 256;
+/// The delay between pre commit expiration and clean up from state. This enforces that expired pre-commits
+/// stay in state for a period of time creating a grace period during which a late-running aggregated prove-commit
+/// can still prove its non-expired precommits without resubmitting a message
+pub const EXPIRED_PRE_COMMIT_CLEAN_UP_DELAY: i64 = 8 * EPOCHS_IN_HOUR;
 /// The period over which all a miner's active sectors will be challenged.
 pub const WPOST_PROVING_PERIOD: ChainEpoch = EPOCHS_IN_DAY;
 /// The duration of a deadline's challenge window, the period before a deadline when the challenge is available.
@@ -84,7 +91,7 @@ pub const SEALED_CID_PREFIX: cid::Prefix = cid::Prefix {
 };
 
 /// List of proof types which can be used when creating new miner actors
-pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof, nv: NetworkVersion) -> bool {
+pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof) -> bool {
     use RegisteredSealProof::*;
 
     #[cfg(feature = "devnet")]
@@ -94,16 +101,7 @@ pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof, nv: NetworkVersion)
         }
     }
 
-    if nv >= NetworkVersion::V8 {
-        matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
-    } else if nv >= NetworkVersion::V7 {
-        matches!(
-            proof,
-            StackedDRG32GiBV1 | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1
-        )
-    } else {
-        matches!(proof, StackedDRG32GiBV1 | StackedDRG64GiBV1)
-    }
+    matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
 }
 
 /// Checks whether a seal proof type is supported for new miners and sectors.

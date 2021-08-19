@@ -36,7 +36,7 @@ pub use vesting_state::*;
 use crate::{
     account::Method as AccountMethod,
     actor_error,
-    market::{self, ActivateDealsParams},
+    market::{self, ActivateDealsParams, SectorDeals},
     power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
 use crate::{
@@ -58,7 +58,7 @@ use crate::{
     ActorDowncast,
 };
 use address::{Address, Payload, Protocol};
-use bitfield::{UnvalidatedBitField, Validate};
+use bitfield::{BitField, UnvalidatedBitField, Validate};
 use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use cid::{Cid, Code::Blake2b256, Prefix};
 use clock::ChainEpoch;
@@ -123,6 +123,7 @@ pub enum Method {
     RepayDebt = 22,
     ChangeOwnerAddress = 23,
     DisputeWindowedPoSt = 24,
+    PreCommitSectorBatch = 25,
 }
 
 /// Miner Actor
@@ -893,8 +894,9 @@ impl Actor {
         Ok(())
     }
 
-    /// Proposals must be posted on chain via sma.PublishStorageDeals before PreCommitSector.
-    /// Optimization: PreCommitSector could contain a list of deals that are not published yet.
+    /// Pledges to seal and commit a single sector.
+    /// See PreCommitSectorBatch for details.
+    /// This method may be deprecated and removed in the future
     fn pre_commit_sector<BS, RT>(
         rt: &mut RT,
         params: PreCommitSectorParams,
@@ -903,96 +905,143 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        if !can_pre_commit_seal_proof(params.seal_proof, rt.network_version()) {
+        let batch_params = PreCommitSectorBatchParams {
+            sectors: vec![params],
+        };
+        Self::pre_commit_sector_batch(rt, batch_params)
+    }
+
+    /// Pledges the miner to seal and commit some new sectors.
+    /// The caller specifies sector numbers, sealed sector data CIDs, seal randomness epoch, expiration, and the IDs
+    /// of any storage deals contained in the sector data. The storage deal proposals must be already submitted
+    /// to the storage market actor.
+    /// A pre-commitment may specify an existing committed-capacity sector that the committed sector will replace
+    /// when proven.
+    /// This method calculates the sector's power, locks a pre-commit deposit for the sector, stores information about the
+    /// sector in state and waits for it to be proven or expire.
+    fn pre_commit_sector_batch<BS, RT>(
+        rt: &mut RT,
+        params: PreCommitSectorBatchParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        let curr_epoch = rt.curr_epoch();
+        if params.sectors.is_empty() {
+            return Err(actor_error!(ErrIllegalArgument, "batch empty"));
+        } else if params.sectors.len() > PRE_COMMIT_SECTOR_BATCH_MAX_SIZE {
             return Err(actor_error!(
                 ErrIllegalArgument,
-                "unsupported seal proof type: {:?}",
-                params.seal_proof
+                "batch of {} too large, max {}",
+                params.sectors.len(),
+                PRE_COMMIT_SECTOR_BATCH_MAX_SIZE
             ));
         }
+        // Check per-sector preconditions before opening state transaction or sending other messages.
+        let challenge_earliest = curr_epoch - MAX_PRE_COMMIT_RANDOMNESS_LOOKBACK;
+        let mut sectors_deals = Vec::with_capacity(params.sectors.len());
+        let mut sector_numbers = BitField::new();
+        for precommit in params.sectors.iter() {
+            let set = sector_numbers.get(precommit.sector_number as usize);
+            if set {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "duplicate sector number {}",
+                    precommit.sector_number
+                ));
+            }
+            sector_numbers.set(precommit.sector_number as usize);
+            if !can_pre_commit_seal_proof(precommit.seal_proof) {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "unsupported seal proof type {}",
+                    i64::from(precommit.seal_proof)
+                ));
+            }
+            if precommit.sector_number > MAX_SECTOR_NUMBER {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "sector number {} out of range 0..(2^63-1)",
+                    precommit.sector_number
+                ));
+            }
+            // Skip checking if CID is defined because it cannot be so in Rust
 
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if params.sector_number > MAX_SECTOR_NUMBER {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "sector number {} out of range 0..(2^63-1)",
-                params.sector_number
-            ));
+            if Prefix::from(precommit.sealed_cid) != SEALED_CID_PREFIX {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "sealed CID had wrong prefix"
+                ));
+            }
+            if precommit.seal_rand_epoch >= curr_epoch {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "seal challenge epoch {} must be before now {}",
+                    precommit.seal_rand_epoch,
+                    curr_epoch
+                ));
+            }
+            if precommit.seal_rand_epoch < challenge_earliest {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "seal challenge epoch {} too old, must be after {}",
+                    precommit.seal_rand_epoch,
+                    challenge_earliest
+                ));
+            }
+
+            // Require sector lifetime meets minimum by assuming activation happens at last epoch permitted for seal proof.
+            // This could make sector maximum lifetime validation more lenient if the maximum sector limit isn't hit first.
+            let max_activation =
+                curr_epoch + max_prove_commit_duration(precommit.seal_proof).unwrap_or_default();
+            validate_expiration(
+                rt,
+                max_activation,
+                precommit.expiration,
+                precommit.seal_proof,
+            )?;
+
+            if precommit.replace_capacity && precommit.deal_ids.is_empty() {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "cannot replace sector without committing deals"
+                ));
+            }
+            if precommit.replace_sector_deadline as u64 >= WPOST_PERIOD_DEADLINES {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "invalid deadline {}",
+                    precommit.replace_sector_deadline
+                ));
+            }
+            if precommit.replace_sector_number > MAX_SECTOR_NUMBER {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "invalid sector number {}",
+                    precommit.replace_sector_number
+                ));
+            }
+            sectors_deals.push(SectorDeals {
+                sector_expiry: precommit.expiration,
+                deal_ids: precommit.deal_ids.clone(),
+            })
         }
-
-        if Prefix::from(params.sealed_cid) != SEALED_CID_PREFIX {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "sealed CID had wrong prefix"
-            ));
-        }
-
-        if params.seal_rand_epoch >= rt.curr_epoch() {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "seal challenge epoch {} must be before now {}",
-                params.seal_rand_epoch,
-                rt.curr_epoch()
-            ));
-        }
-
-        let challenge_earliest = rt.curr_epoch() - MAX_PRE_COMMIT_RANDOMNESS_LOOKBACK;
-        if params.seal_rand_epoch < challenge_earliest {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "seal challenge epoch {} too old, must be after {}",
-                params.seal_rand_epoch,
-                challenge_earliest
-            ));
-        }
-
-        // Require sector lifetime meets minimum by assuming activation happens at last epoch permitted for seal proof.
-        // This could make sector maximum lifetime validation more lenient if the maximum sector limit isn't hit first.
-        let max_activation =
-            rt.curr_epoch() + max_prove_commit_duration(params.seal_proof).unwrap_or_default();
-        validate_expiration(rt, max_activation, params.expiration, params.seal_proof)?;
-
-        if params.replace_capacity && params.deal_ids.is_empty() {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "cannot replace sector without committing deals"
-            ));
-        }
-
-        if params.replace_sector_deadline >= WPOST_PERIOD_DEADLINES as usize {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "invalid deadline {}",
-                params.replace_sector_deadline
-            ));
-        }
-
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if params.replace_sector_number >= MAX_SECTOR_NUMBER {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "invalid sector number {}",
-                params.replace_sector_number
-            ));
-        }
-
         // gather information from other actors
-
         let reward_stats = request_current_epoch_block_reward(rt)?;
         let power_total = request_current_total_power(rt)?;
-        let deal_weights = request_deal_weights(
-            rt,
-            &[market::SectorDeals {
-                sector_expiry: params.expiration,
-                deal_ids: params.deal_ids.clone(),
-            }],
-        )?;
-        let deal_weight = &deal_weights.sectors[0];
+        let deal_weights = request_deal_weights(rt, &sectors_deals)?;
+        if deal_weights.sectors.len() != params.sectors.len() {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "deal weight request returned {} records, expected {}",
+                deal_weights.sectors.len(),
+                params.sectors.len()
+            ));
+        }
         let mut fee_to_burn = TokenAmount::from(0);
         let mut needs_cron = false;
-        let (newly_vested, needs_cron) = rt.transaction(|state: &mut State, rt| {
-            let newly_vested = TokenAmount::from(0);
-
+        rt.transaction(|state: &mut State, rt|{
             // available balance already accounts for fee debt so it is correct to call
             // this before RepayDebts. We would have to
             // subtract fee debt explicitly if we called this after.
@@ -1014,173 +1063,98 @@ impl Actor {
                     .iter()
                     .chain(&[info.worker, info.owner]),
             )?;
-
-            if consensus_fault_active(&info, rt.curr_epoch()) {
-                return Err(actor_error!(
-                    ErrForbidden,
-                    "precommit not allowed during active consensus fault"
-                ));
-            }
-
-            // From network version 7, the pre-commit seal type must have the same Window PoSt proof type as the miner's
-            // recorded seal type has, rather than be exactly the same seal type.
-            // This permits a transition window from V1 to V1_1 seal types (which share Window PoSt proof type).
-            let sector_wpost_proof =
-                params
-                    .seal_proof
-                    .registered_window_post_proof()
-                    .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to lookup window PoSt proof type \
-                            for sector seal proof {:?}: {}",
-                            params.seal_proof,
-                            e
-                        )
-                    })?;
-            if sector_wpost_proof != info.window_post_proof_type {
-                return Err(actor_error!(
-                    ErrIllegalArgument,
-                    "sector window PoSt proof type {:?} must match miner \
-                        window PoSt proof type {:?}",
-                    sector_wpost_proof,
-                    info.window_post_proof_type
-                ));
-            }
-
             let store = rt.store();
+            if consensus_fault_active(&info, curr_epoch) {
+                return Err(actor_error!(ErrForbidden, "pre-commit not allowed during active consensus fault"));
+            }
 
+            let mut chain_infos = Vec::with_capacity(params.sectors.len());
+            let mut total_deposit_required= BigInt::zero();
+            let mut clean_up_events: HashMap<ChainEpoch,Vec<u64>> = HashMap::new();
             let deal_count_max = sector_deals_max(info.sector_size);
-            if params.deal_ids.len() as u64 > deal_count_max {
-                return Err(actor_error!(
-                    ErrIllegalArgument,
-                    "too many deals for sector {} > {}",
-                    params.deal_ids.len(),
-                    deal_count_max
-                ));
-            }
 
-            // Ensure total deal space does not exceed sector size.
-            if deal_weight.deal_space > info.sector_size as u64 {
-                return Err(actor_error!(
-                    ErrIllegalArgument,
-                    "deal size too large to fit in sector {} > {}",
-                    deal_weight.deal_space,
-                    info.sector_size
-                ));
-            }
+            for (i, precommit) in params.sectors.iter().enumerate() {
+                // Sector must have the same Window PoSt proof type as the miner's recorded seal type.
+                let sector_wpost_proof = precommit.seal_proof
+                .registered_window_post_proof()
+                .map_err(|_e|
+                    actor_error!(
+                        ErrIllegalArgument,
+                        "failed to lookup Window PoSt proof type for sector seal proof {}", 
+                        i64::from(precommit.seal_proof)
+                    ))?;
+                if sector_wpost_proof != info.window_post_proof_type {
+                    return Err(actor_error!(ErrIllegalArgument, "sector Window PoSt proof type %d must match miner Window PoSt proof type {} (seal proof type {})", i64::from(sector_wpost_proof), i64::from(info.window_post_proof_type)));
+                }
+                if precommit.deal_ids.len() > deal_count_max as usize {
+                    return Err(actor_error!(ErrIllegalArgument, "too many deals for sector {} > {}", precommit.deal_ids.len(), deal_count_max));
+                }
 
-            state
-                .allocate_sector_number(store, params.sector_number)
+                // Ensure total deal space does not exceed sector size.
+                let deal_weight = &deal_weights.sectors[i];
+                if deal_weight.deal_space > info.sector_size as u64 {
+                    return Err(actor_error!(ErrIllegalArgument, "deals too large to fit in sector {} > {}", deal_weight.deal_space, info.sector_size));
+                }
+                if precommit.replace_capacity {
+                    validate_replace_sector(state, store, &precommit)?
+                }
+                // Estimate the sector weight using the current epoch as an estimate for activation,
+            	// and compute the pre-commit deposit using that weight.
+		    	// The sector's power will be recalculated when it's proven.
+                let duration = precommit.expiration - curr_epoch;
+                let sector_weight = qa_power_for_weight(info.sector_size, duration, &deal_weight.deal_weight, &deal_weight.verified_deal_weight);
+                let deposit_req = pre_commit_deposit_for_power(&reward_stats.this_epoch_reward_smoothed,&power_total.quality_adj_power_smoothed , &sector_weight);
+                // Build on-chain record.
+                chain_infos.push(SectorPreCommitOnChainInfo{
+                    info: precommit.clone(),
+                    pre_commit_deposit: deposit_req.clone(),
+                    pre_commit_epoch: curr_epoch,
+                    deal_weight: deal_weight.deal_weight.clone(),
+                    verified_deal_weight: deal_weight.verified_deal_weight.clone(),
+                });
+                total_deposit_required += deposit_req;
+
+                // Calculate pre-commit cleanup
+                let msd = max_prove_commit_duration(precommit.seal_proof)
+                .ok_or_else(|| actor_error!(ErrIllegalArgument, "no max seal duration set for proof type: {}", i64::from(precommit.seal_proof)))?;
+                // PreCommitCleanUpDelay > 0 here is critical for the batch verification of proofs. Without it, if a proof arrived exactly on the
+			    // due epoch, ProveCommitSector would accept it, then the expiry event would remove it, and then
+			    // ConfirmSectorProofsValid would fail to find it.
+                let clean_up_bound = curr_epoch + msd + EXPIRED_PRE_COMMIT_CLEAN_UP_DELAY;
+                if let Some(cleanups) = clean_up_events.get_mut(&clean_up_bound) {
+                    cleanups.push(precommit.sector_number);
+                } else {
+                    clean_up_events.insert(clean_up_bound, vec![precommit.sector_number]);
+                }
+            }
+            // Batch update actor state.
+            if available_balance < total_deposit_required {
+                return Err(actor_error!(ErrInsufficientFunds, "insufficient funds {} for pre-commit deposit: {}", available_balance, total_deposit_required));
+            }
+            state.add_pre_commit_deposit(&total_deposit_required)
+                .map_err(|e|
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to add pre-commit deposit {}: {}",
+                        total_deposit_required, e
+                ))?;
+            state.allocate_sector_numbers(store, &sector_numbers, CollisionPolicy::DenyCollisions)
+                .map_err(|e|
+                     e.wrap("failed to allocate sector numbers")
+                )?;
+            state.put_precommitted_sectors(store, chain_infos)
+                .map_err(|e|
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to write pre-committed sectors")
+                )?;
+            state.add_pre_commit_clean_ups(store, clean_up_events)
                 .map_err(|e| {
-                    e.wrap(format!(
-                        "failed to allocate sector id {}",
-                        params.sector_number
-                    ))
+                    e.downcast_default(ExitCode::ErrIllegalState, "failed to add pre-commit expiry to queue")
                 })?;
-
-            // This sector check is redundant given the allocated sectors bitfield, but remains for safety.
-            let sector_found = state
-                .has_sector_number(store, params.sector_number)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to check sector {}", params.sector_number),
-                    )
-                })?;
-
-            if sector_found {
-                return Err(actor_error!(
-                    ErrIllegalState,
-                    "sector {} already committed",
-                    params.sector_number
-                ));
-            }
-
-            if params.replace_capacity {
-                validate_replace_sector(state, store, &params)?;
-            }
-
-            let duration = params.expiration - rt.curr_epoch();
-
-            let sector_weight = qa_power_for_weight(
-                info.sector_size,
-                duration,
-                &deal_weight.deal_weight,
-                &deal_weight.verified_deal_weight,
-            );
-
-            let deposit_req = pre_commit_deposit_for_power(
-                &reward_stats.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
-                &sector_weight,
-            );
-
-            if available_balance < deposit_req {
-                return Err(actor_error!(
-                    ErrInsufficientFunds,
-                    "insufficient funds for pre-commit deposit: {}",
-                    deposit_req
-                ));
-            }
-
-            state.add_pre_commit_deposit(&deposit_req).map_err(|e| {
-                actor_error!(
-                    ErrIllegalState,
-                    "failed to add pre-commit deposit {}: {}",
-                    deposit_req,
-                    e
-                )
-            })?;
-
-            let seal_proof = params.seal_proof;
-            let sector_number = params.sector_number;
-
-            state
-                .put_precommitted_sector(
-                    store,
-                    SectorPreCommitOnChainInfo {
-                        info: params,
-                        pre_commit_deposit: deposit_req,
-                        pre_commit_epoch: rt.curr_epoch(),
-                        deal_weight: deal_weight.deal_weight.clone(),
-                        verified_deal_weight: deal_weight.verified_deal_weight.clone(),
-                    },
-                )
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to write pre-committed sector {}", sector_number),
-                    )
-                })?;
-
-            // add precommit expiry to the queue
-            let max_seal_duration = max_prove_commit_duration(seal_proof).ok_or_else(|| {
-                actor_error!(
-                    ErrIllegalArgument,
-                    "no max seal duration set for proof type: {:?}",
-                    seal_proof
-                )
-            })?;
-
-            // The +1 here is critical for the batch verification of proofs. Without it, if a proof arrived exactly on the
-            // due epoch, ProveCommitSector would accept it, then the expiry event would remove it, and then
-            // ConfirmSectorProofsValid would fail to find it.
-            let expiry_bound = rt.curr_epoch() + max_seal_duration + 1;
-
-            state
-                .add_pre_commit_expiry(store, expiry_bound, sector_number)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to add pre-commit expiry to queue",
-                    )
-                })?;
+            // Activate miner cron
             needs_cron = !state.deadline_cron_active;
             state.deadline_cron_active = true;
-            Ok((newly_vested, needs_cron))
+            Ok(())
         })?;
-
         burn_funds(rt, fee_to_burn)?;
         let state: State = rt.state()?;
         state
@@ -1192,7 +1166,7 @@ impl Actor {
                 )
             })?;
         if needs_cron {
-            let new_dl_info = state.deadline_info(rt.curr_epoch());
+            let new_dl_info = state.deadline_info(curr_epoch);
             enroll_cron_event(
                 rt,
                 new_dl_info.last(),
@@ -1201,7 +1175,6 @@ impl Actor {
                 },
             )?;
         }
-        notify_pledge_changed(rt, &-newly_vested)?;
         Ok(())
     }
 
@@ -2573,7 +2546,11 @@ impl Actor {
                     .chain(&[info.worker, info.owner]),
             )?;
 
-            state.mask_sector_numbers(rt.store(), mask_sector_numbers)
+            state.allocate_sector_numbers(
+                rt.store(),
+                mask_sector_numbers,
+                CollisionPolicy::AllowCollisions,
+            )
         })?;
 
         Ok(())
@@ -3122,7 +3099,7 @@ where
         process_pending_worker(&mut info, rt, state)?;
 
         let deposit_to_burn = state
-            .expire_pre_commits(rt.store(), rt.curr_epoch())
+            .cleanup_expired_pre_commits(rt.store(), rt.curr_epoch())
             .map_err(|e| {
                 e.downcast_default(
                     ExitCode::ErrIllegalState,
@@ -4165,6 +4142,10 @@ impl ActorCode for Actor {
             }
             Some(Method::DisputeWindowedPoSt) => {
                 Self::dispute_windowed_post(rt, rt.deserialize_params(params)?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::PreCommitSectorBatch) => {
+                Self::pre_commit_sector_batch(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),
