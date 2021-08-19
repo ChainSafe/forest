@@ -20,8 +20,7 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-pub use libp2p::gossipsub::IdentTopic;
-pub use libp2p::gossipsub::Topic;
+use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::multiaddr::Protocol;
 use libp2p::request_response::ResponseChannel;
 use libp2p::{
@@ -131,7 +130,7 @@ impl<DB> Libp2pService<DB>
 where
     DB: BlockStore + Sync + Send + 'static,
 {
-    pub fn new(
+    pub async fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         net_keypair: Keypair,
@@ -139,7 +138,7 @@ where
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport = build_transport(net_keypair.clone());
+        let transport = build_transport(net_keypair.clone()).await.unwrap();
 
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -396,10 +395,12 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 }
 
 /// Builds the transport stack that LibP2P will communicate over.
-pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub async fn build_transport(
+    local_key: Keypair,
+) -> Result<Boxed<(PeerId, StreamMuxerBox)>, futures::io::Error> {
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
     let transport = libp2p::websocket::WsConfig::new(transport.clone()).or_transport(transport);
-    let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
+    let transport = libp2p::dns::GenDnsConfig::system(transport).await?;
 
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
@@ -420,12 +421,12 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
         core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
     };
 
-    transport
+    Ok(transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
         .multiplex(mplex_config)
         .timeout(Duration::from_secs(20))
-        .boxed()
+        .boxed())
 }
 
 /// Fetch keypair from disk, returning none if it cannot be decoded.

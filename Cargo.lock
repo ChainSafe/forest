@@ -1021,7 +1021,7 @@ dependencies = [
  "lockfree",
  "log",
  "lru",
- "multihash 0.13.2",
+ "multihash",
  "networks",
  "num-traits",
  "rayon",
@@ -1099,23 +1099,14 @@ dependencies = [
 
 [[package]]
 name = "cid"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff0e3bc0b6446b3f9663c1a6aba6ef06c5aeaa1bc92bd18077be337198ab9768"
-dependencies = [
- "multibase 0.8.0",
- "multihash 0.13.2",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
-name = "cid"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b8976b33648136e969aafa6eb33d58ff0d301fa0b4e8d513db58fd32cd81aa"
 dependencies = [
- "multibase 0.9.1",
- "multihash 0.14.0",
+ "multibase",
+ "multihash",
+ "quickcheck",
+ "rand 0.7.3",
  "unsigned-varint 0.7.0",
 ]
 
@@ -2098,7 +2089,7 @@ dependencies = [
  "log",
  "message_pool",
  "metrics",
- "multibase 0.9.1",
+ "multibase",
  "net_utils",
  "networks",
  "paramfetch",
@@ -2379,14 +2370,14 @@ dependencies = [
 name = "forest_cid"
 version = "0.3.0"
 dependencies = [
- "cid 0.6.1",
+ "cid",
  "cs_serde_bytes",
  "cs_serde_cbor",
  "forest_json_utils",
  "generic-array 0.14.4",
  "integer-encoding 3.0.2",
- "multibase 0.9.1",
- "multihash 0.13.2",
+ "multibase",
+ "multihash",
  "serde",
  "serde_json",
 ]
@@ -2453,7 +2444,7 @@ dependencies = [
  "forest_encoding",
  "indexmap",
  "ipld_blockstore",
- "multibase 0.9.1",
+ "multibase",
  "serde",
  "serde_json",
  "thiserror",
@@ -2498,11 +2489,10 @@ dependencies = [
  "libp2p",
  "libp2p-bitswap",
  "log",
- "multihash 0.13.2",
+ "multihash",
  "networks",
  "serde",
  "smallvec",
- "tiny-cid",
  "utils",
 ]
 
@@ -3601,7 +3591,7 @@ dependencies = [
  "libipld-core",
  "libipld-macro",
  "log",
- "multihash 0.14.0",
+ "multihash",
  "parking_lot",
  "thiserror",
 ]
@@ -3636,9 +3626,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f29a8a4ac024d51f15cc7b71d888b51bf3ab5d26a502e3f48fc9df33d7fd02ac"
 dependencies = [
  "anyhow",
- "cid 0.7.0",
- "multibase 0.9.1",
- "multihash 0.14.0",
+ "cid",
+ "multibase",
+ "multihash",
  "thiserror",
 ]
 
@@ -3712,7 +3702,7 @@ dependencies = [
 [[package]]
 name = "libp2p-bitswap"
 version = "0.19.0"
-source = "git+https://github.com/ChainSafe/libp2p-bitswap?branch=hunter/update-0.19#20cb2ea873e0f097e2c9303fff2e8e157eceb8e5"
+source = "git+https://github.com/ChainSafe/libp2p-bitswap?branch=hunter/update-0.19#ddf92186715124674b2d2e805c45c38ee4f1cc40"
 dependencies = [
  "async-trait",
  "fnv",
@@ -3743,7 +3733,7 @@ dependencies = [
  "libsecp256k1 0.5.0",
  "log",
  "multiaddr",
- "multihash 0.14.0",
+ "multihash",
  "multistream-select",
  "parking_lot",
  "pin-project 1.0.8",
@@ -4197,9 +4187,9 @@ dependencies = [
 
 [[package]]
 name = "memchr"
-version = "2.4.0"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b16bd47d9e329435e309c58469fe0791c2d0d1ba96ec0954152a5ae2b04387dc"
+checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
 
 [[package]]
 name = "memmap"
@@ -4346,23 +4336,12 @@ dependencies = [
  "bs58",
  "byteorder 1.4.3",
  "data-encoding",
- "multihash 0.14.0",
+ "multihash",
  "percent-encoding",
  "serde",
  "static_assertions",
  "unsigned-varint 0.7.0",
  "url",
-]
-
-[[package]]
-name = "multibase"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b78c60039650ff12e140ae867ef5299a58e19dded4d334c849dc7177083667e2"
-dependencies = [
- "base-x",
- "data-encoding",
- "data-encoding-macro",
 ]
 
 [[package]]
@@ -4378,28 +4357,17 @@ dependencies = [
 
 [[package]]
 name = "multihash"
-version = "0.13.2"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dac63698b887d2d929306ea48b63760431ff8a24fac40ddb22f9c7f49fb7cab"
+checksum = "752a61cd890ff691b4411423d23816d5866dd5621e4d1c5687a53b94b5a979d8"
 dependencies = [
  "blake2b_simd",
  "digest 0.9.0",
  "generic-array 0.14.4",
  "multihash-derive",
+ "quickcheck",
+ "rand 0.7.3",
  "serde",
- "sha2 0.9.5",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
-name = "multihash"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "752a61cd890ff691b4411423d23816d5866dd5621e4d1c5687a53b94b5a979d8"
-dependencies = [
- "digest 0.9.0",
- "generic-array 0.14.4",
- "multihash-derive",
  "sha2 0.9.5",
  "unsigned-varint 0.7.0",
 ]
@@ -4410,7 +4378,7 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "424f6e86263cd5294cbd7f1e95746b95aca0e0d66bff31e5a40d6baa87b4aa99"
 dependencies = [
- "proc-macro-crate 1.0.0",
+ "proc-macro-crate",
  "proc-macro-error",
  "proc-macro2 1.0.28",
  "quote 1.0.9",
@@ -4983,15 +4951,6 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-crate"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
-dependencies = [
- "toml",
-]
-
-[[package]]
-name = "proc-macro-crate"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41fdbd1df62156fbc5945f4762632564d7d038153091c3fcf1067f6aef7cff92"
@@ -5147,6 +5106,18 @@ name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
+
+[[package]]
+name = "quickcheck"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a44883e74aa97ad63db83c4bf8ca490f02b2fc02f92575e720c8551e843c945f"
+dependencies = [
+ "env_logger",
+ "log",
+ "rand 0.7.3",
+ "rand_core 0.5.1",
+]
 
 [[package]]
 name = "quicksink"
@@ -5497,7 +5468,7 @@ dependencies = [
  "key_management",
  "log",
  "message_pool",
- "multibase 0.9.1",
+ "multibase",
  "networks",
  "num-traits",
  "rand 0.7.3",
@@ -6672,42 +6643,6 @@ dependencies = [
  "quote 1.0.9",
  "standback",
  "syn 1.0.74",
-]
-
-[[package]]
-name = "tiny-cid"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8db0f10795d9047653976779741a9f5b763a87aadc7bf0c80be5a2361ecc7a9"
-dependencies = [
- "multibase 0.8.0",
- "tiny-multihash",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
-name = "tiny-multihash"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "632824c586db700f0fab27c2cca5b6bd7bf8e49b1f8ddce77f736c9fbe9401f2"
-dependencies = [
- "generic-array 0.14.4",
- "tiny-multihash-derive",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
-name = "tiny-multihash-derive"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfcc7989e2269ece9a93256298139f1f28b5d2cc483cd033b60c0c76f36d9377"
-dependencies = [
- "proc-macro-crate 0.1.5",
- "proc-macro-error",
- "proc-macro2 1.0.28",
- "quote 1.0.9",
- "syn 1.0.74",
- "synstructure",
 ]
 
 [[package]]

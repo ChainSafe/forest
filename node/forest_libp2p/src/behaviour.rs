@@ -19,7 +19,7 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
-use libipld::{multihash::Code, store::StoreParams, IpldCodec};
+use libipld::{cid::CidGeneric, multihash::Code, store::StoreParams, IpldCodec};
 use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
@@ -53,7 +53,6 @@ use std::{
     {collections::HashMap, convert::TryInto},
     {task::Context, task::Poll},
 };
-use tiny_cid::Cid as Cid2;
 
 lazy_static! {
     static ref VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -479,18 +478,14 @@ impl ForestBehaviour {
         req_res_config.set_request_timeout(Duration::from_secs(20));
         req_res_config.set_connection_keep_alive(Duration::from_secs(20));
 
-        let identify = IdentifyConfig {
-            protocol_version: "ipfs/0.1.0".into(),
-            local_public_key: local_key.public(),
-            agent_version: format!("forest-{}-{}", *VERSION, *CURRENT_COMMIT),
-            ..IdentifyConfig::default()
-        };
+        let identify_config = IdentifyConfig::new("ipfs/0.1.0".into(), local_key.public())
+            .with_agent_version(format!("forest-{}-{}", *VERSION, *CURRENT_COMMIT));
 
         ForestBehaviour {
             gossipsub,
             discovery: discovery_config.finish(),
             ping: Ping::default(),
-            identify,
+            identify: Identify::new(identify_config),
             bitswap,
             hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),
             chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
@@ -548,7 +543,7 @@ impl ForestBehaviour {
     }
 
     /// Returns a map of peer ids and their multiaddresses
-    pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Vec<Multiaddr>> {
+    pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Multiaddr> {
         self.discovery.peer_addresses()
     }
 
@@ -561,7 +556,7 @@ impl ForestBehaviour {
     ) -> Result<(), Box<dyn Error>> {
         debug!("send {}", cid.to_string());
         let cid = cid.to_bytes();
-        let cid = Cid2::try_from(cid)?;
+        let cid = Cid::try_from(cid)?;
         self.bitswap.send_block(peer_id, cid, data);
         Ok(())
     }
@@ -570,8 +565,9 @@ impl ForestBehaviour {
     pub fn want_block(&mut self, cid: Cid) -> Result<(), Box<dyn Error>> {
         debug!("want {}", cid.to_string());
         let cid = cid.to_bytes();
-        let cid = Cid2::try_from(cid)?;
-        self.bitswap.get(cid);
+        let cid = CidGeneric::try_from(cid)?;
+        let peers: Vec<PeerId> = self.peers().iter().map(|p| p.to_owned()).collect();
+        self.bitswap.get(cid, peers.into_iter());
         Ok(())
     }
 }

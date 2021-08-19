@@ -25,7 +25,7 @@ libp2p = { version = "0.39.1", default-features = false, features = [
 ] }
 libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", branch = "hunter/update-0.19" }
 # libp2p-bitswap = { version = "0.19.0", features = ["compat"] }
-multihash = { version = "0.13", default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+multihash = { version = "0.14", default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
 futures = "0.3.5"
 futures-util = "0.3.5"
 asynchronous-codec = "0.6.0"
@@ -44,7 +44,6 @@ clock = { package = "fil_clock", path = "../clock" }
 db = { package = "forest_db", version = "0.1" }
 forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-tiny-cid = "0.2.0"
 ipld_blockstore = "0.1"
 async-trait = "0.1"
 lazy_static = "1.4"
