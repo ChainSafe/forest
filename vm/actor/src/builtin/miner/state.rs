@@ -15,15 +15,15 @@ use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
     deadlines::{DeadlineInfo, QuantSpec},
-    RegisteredPoStProof, SectorNumber, SectorSize, HAMT_BIT_WIDTH, MAX_SECTOR_NUMBER,
+    RegisteredPoStProof, SectorNumber, SectorSize, HAMT_BIT_WIDTH,
 };
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Error as HamtError;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
-use std::ops::Neg;
 use std::{cmp, error::Error as StdError};
+use std::{collections::HashMap, ops::Neg};
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
 const PRECOMMIT_EXPIRY_AMT_BITWIDTH: usize = 6;
@@ -64,8 +64,8 @@ pub struct State {
     /// Map, HAMT<SectorNumber, SectorPreCommitOnChainInfo>
     pub pre_committed_sectors: Cid,
 
-    /// PreCommittedSectorsExpiry maintains the state required to expire PreCommittedSectors.
-    pub pre_committed_sectors_expiry: Cid, // BitFieldQueue (AMT[Epoch]*BitField)
+    // PreCommittedSectorsCleanUp maintains the state required to cleanup expired PreCommittedSectors.
+    pub pre_committed_sectors_cleanup: Cid, // BitFieldQueue (AMT[Epoch]*BitField)
 
     /// Allocated sector IDs. Sector IDs can never be reused once allocated.
     pub allocated_sectors: Cid, // BitField
@@ -102,6 +102,12 @@ pub struct State {
     pub deadline_cron_active: bool,
 }
 
+#[derive(PartialEq)]
+pub enum CollisionPolicy {
+    AllowCollisions,
+    DenyCollisions,
+}
+
 impl Cbor for State {}
 
 impl State {
@@ -120,7 +126,7 @@ impl State {
                     "failed to construct empty precommit map",
                 )
             })?;
-        let empty_precommits_expiry_array =
+        let empty_precommits_cleanup_array =
             Amt::<BitField, BS>::new_with_bit_width(store, PRECOMMIT_EXPIRY_AMT_BITWIDTH)
                 .flush()
                 .map_err(|e| {
@@ -180,7 +186,6 @@ impl State {
             fee_debt: TokenAmount::default(),
 
             pre_committed_sectors: empty_precommit_map,
-            pre_committed_sectors_expiry: empty_precommits_expiry_array,
             allocated_sectors: empty_bitfield,
             sectors: empty_sectors_array,
             proving_period_start: period_start,
@@ -188,6 +193,7 @@ impl State {
             deadlines: empty_deadlines,
             early_terminations: BitField::new(),
             deadline_cron_active: false,
+            pre_committed_sectors_cleanup: empty_precommits_cleanup_array,
         })
     }
 
@@ -234,20 +240,15 @@ impl State {
         new_deadline_info(self.proving_period_start, deadline_idx, 0).quant_spec()
     }
 
-    pub fn allocate_sector_number<BS: BlockStore>(
+    /// Marks a set of sector numbers as having been allocated.
+    /// If policy is `DenyCollisions`, fails if the set intersects with the sector numbers already allocated.
+    pub fn allocate_sector_numbers<BS: BlockStore>(
         &mut self,
         store: &BS,
-        sector_number: SectorNumber,
+        sector_numbers: &BitField,
+        policy: CollisionPolicy,
     ) -> Result<(), ActorError> {
-        // This will likely already have been checked, but this is a good place
-        // to catch any mistakes.
-        if sector_number > MAX_SECTOR_NUMBER {
-            return Err(
-                actor_error!(ErrIllegalArgument; "sector number out of range: {}", sector_number),
-            );
-        }
-
-        let mut allocated_sectors: BitField = store
+        let prior_allocation = store
             .get(&self.allocated_sectors)
             .map_err(|e| {
                 e.downcast_default(
@@ -257,90 +258,51 @@ impl State {
             })?
             .ok_or_else(|| actor_error!(ErrIllegalState, "allocated sectors bitfield not found"))?;
 
-        if allocated_sectors.get(sector_number as usize) {
-            return Err(
-                actor_error!(ErrIllegalArgument; "sector number {} has already been allocated", sector_number),
-            );
+        if policy != CollisionPolicy::AllowCollisions {
+            // NOTE: A fancy merge algorithm could extract this intersection while merging, below, saving
+            // one iteration of the runs
+            let collisions = &prior_allocation & sector_numbers;
+            if !collisions.is_empty() {
+                return Err(actor_error!(
+                    ErrIllegalArgument,
+                    "sector numbers {:?} already allocated",
+                    collisions
+                ));
+            }
         }
-
-        allocated_sectors.set(sector_number as usize);
-        self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(|e| {
+        let new_allocation = &prior_allocation | sector_numbers;
+        self.allocated_sectors = store.put(&new_allocation, Blake2b256).map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalArgument,
                 format!(
-                    "failed to store allocated sectors bitfield after adding sector {}",
-                    sector_number
+                    "failed to store allocated sectors bitfield after adding {:?}",
+                    sector_numbers,
                 ),
             )
         })?;
-
-        Ok(())
-    }
-
-    pub fn mask_sector_numbers<BS: BlockStore>(
-        &mut self,
-        store: &BS,
-        sector_numbers: &BitField,
-    ) -> Result<(), ActorError> {
-        let last_sector_number = match sector_numbers.iter().last() {
-            Some(sector_number) => sector_number as SectorNumber,
-            None => return Err(actor_error!(ErrIllegalArgument; "invalid mask bitfield")),
-        };
-
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if last_sector_number > MAX_SECTOR_NUMBER {
-            return Err(
-                actor_error!(ErrIllegalArgument; "masked sector number %d exceeded max sector number"),
-            );
-        }
-
-        let mut allocated_sectors: BitField = store
-            .get(&self.allocated_sectors)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::ErrIllegalState,
-                    "failed to load allocated sectors bitfield",
-                )
-            })?
-            .ok_or_else(|| {
-                actor_error!(
-                    ErrIllegalState,
-                    "failed to load allocated sectors bitfield: does not exist"
-                )
-            })?;
-
-        allocated_sectors |= sector_numbers;
-
-        self.allocated_sectors = store.put(&allocated_sectors, Blake2b256).map_err(|e| {
-            e.downcast_default(
-                ExitCode::ErrIllegalArgument,
-                "failed to mask allocated sectors bitfield",
-            )
-        })?;
-
         Ok(())
     }
 
     /// Stores a pre-committed sector info, failing if the sector number is already present.
-    pub fn put_precommitted_sector<BS: BlockStore>(
+    pub fn put_precommitted_sectors<BS: BlockStore>(
         &mut self,
         store: &BS,
-        info: SectorPreCommitOnChainInfo,
+        precommits: Vec<SectorPreCommitOnChainInfo>,
     ) -> Result<(), Box<dyn StdError>> {
         let mut precommitted =
             make_map_with_root_and_bitwidth(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
-        let sector_number = info.info.sector_number;
-        let modified = precommitted
-            .set_if_absent(u64_key(sector_number), info)
-            .map_err(|e| {
-                e.downcast_wrap(format!(
-                    "failed to store pre-commitment for {:?}",
-                    sector_number
-                ))
-            })?;
-        if !modified {
-            return Err(format!("sector {} already pre-commited", sector_number).into());
+        for precommit in precommits.into_iter() {
+            let sector_no = precommit.info.sector_number;
+            let modified = precommitted
+                .set_if_absent(u64_key(precommit.info.sector_number), precommit)
+                .map_err(|e| {
+                    e.downcast_wrap(format!("failed to store precommitment for {:?}", sector_no,))
+                })?;
+            if !modified {
+                return Err(format!("sector {} already pre-commited", sector_no).into());
+            }
         }
+
         self.pre_committed_sectors = precommitted.flush()?;
         Ok(())
     }
@@ -1011,42 +973,57 @@ impl State {
         }
     }
 
-    pub fn add_pre_commit_expiry<BS: BlockStore>(
+    pub fn add_pre_commit_clean_ups<BS: BlockStore>(
         &mut self,
         store: &BS,
-        expire_epoch: ChainEpoch,
-        sector_number: SectorNumber,
+        cleanup_events: HashMap<ChainEpoch, Vec<u64>>,
     ) -> Result<(), Box<dyn StdError>> {
         // Load BitField Queue for sector expiry
         let quant = self.quant_spec_every_deadline();
-        let mut queue = super::BitFieldQueue::new(store, &self.pre_committed_sectors_expiry, quant)
-            .map_err(|e| e.downcast_wrap("failed to load pre-commit sector queue"))?;
+        let mut queue =
+            super::BitFieldQueue::new(store, &self.pre_committed_sectors_cleanup, quant)
+                .map_err(|e| e.downcast_wrap("failed to load pre-commit clean up queue"))?;
 
-        // add entry for this sector to the queue
-        queue.add_to_queue_values(expire_epoch, &[sector_number as usize])?;
-        self.pre_committed_sectors_expiry = queue.amt.flush()?;
-
+        // Sort the epoch keys for stable iteration when manipulating the queue
+        let mut epochs = Vec::with_capacity(cleanup_events.len());
+        for (expire_epoch, _) in cleanup_events.iter() {
+            epochs.push(*expire_epoch);
+        }
+        epochs.sort_unstable();
+        for cleanup_epoch in epochs.iter() {
+            // Can unwrap here safely because cleanup epochs are taken from the keys of that hashmap.
+            queue.add_to_queue_values(
+                *cleanup_epoch,
+                &cleanup_events
+                    .get(cleanup_epoch)
+                    .unwrap()
+                    .iter()
+                    .map(|v| *v as usize)
+                    .collect::<Vec<usize>>(),
+            )?;
+        }
+        self.pre_committed_sectors_cleanup = queue.amt.flush()?;
         Ok(())
     }
 
-    pub fn expire_pre_commits<BS: BlockStore>(
+    pub fn cleanup_expired_pre_commits<BS: BlockStore>(
         &mut self,
         store: &BS,
         current_epoch: ChainEpoch,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         let mut deposit_to_burn = TokenAmount::zero();
 
-        // Expire pre-committed sectors
-        let mut expiry_queue = BitFieldQueue::new(
+        // cleanup expired pre-committed sectors
+        let mut cleanup_queue = BitFieldQueue::new(
             store,
-            &self.pre_committed_sectors_expiry,
+            &self.pre_committed_sectors_cleanup,
             self.quant_spec_every_deadline(),
         )?;
 
-        let (sectors, modified) = expiry_queue.pop_until(current_epoch)?;
+        let (sectors, modified) = cleanup_queue.pop_until(current_epoch)?;
 
         if modified {
-            self.pre_committed_sectors_expiry = expiry_queue.amt.flush()?;
+            self.pre_committed_sectors_cleanup = cleanup_queue.amt.flush()?;
         }
 
         let mut precommits_to_delete = Vec::new();
@@ -1075,7 +1052,7 @@ impl State {
         self.pre_commit_deposits -= &deposit_to_burn;
         if self.pre_commit_deposits.is_negative() {
             return Err(format!(
-                "pre-commit expiry caused negative deposits: {}",
+                "pre-commit clean up caused negative deposits: {}",
                 self.pre_commit_deposits
             )
             .into());
