@@ -101,6 +101,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_MINER_SECTOR_ALLOCATED, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
     access.insert(state_api::MINER_GET_BASE_INFO, Access::Read);
+    access.insert(state_api::STATE_LIST_ACTORS, Access::Read);
     access.insert(state_api::MINER_CREATE_BLOCK, Access::Write);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
 
