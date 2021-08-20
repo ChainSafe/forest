@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 67
+- Forest method count: 68
 - Lotus method count: 172
-- API coverage: 38.95%
+- API coverage: 39.53%
 
 ## Forest-only Methods
 
@@ -179,7 +179,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 ❌ | `Filecoin.StateDealProviderCollateralBounds`         | `-` | `-` |
 ❌ | `Filecoin.StateDecodeParams`                         | `-` | `-` |
 ✔️ | `Filecoin.StateGetActor`                             | `(AddressJson, TipsetKeysJson)` | `Option<ActorStateJson>` |
-❌ | `Filecoin.StateListActors`                           | `-` | `-` |
+✔️ | `Filecoin.StateListActors`                           | `(TipsetKeysJson)` | `Vec<Address>` |
 ❌ | `Filecoin.StateListMessages`                         | `-` | `-` |
 ❌ | `Filecoin.StateListMiners`                           | `-` | `-` |
 ❌ | `Filecoin.StateLookupID`                             | `-` | `-` |

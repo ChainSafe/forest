@@ -7,7 +7,7 @@ use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
 use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use num_bigint::BigInt;
-use rpc_client::{chain_head, state_get_actor, state_miner_power};
+use rpc_client::{chain_head, state_get_actor, state_list_actors, state_miner_power};
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, to_size_string};
@@ -131,7 +131,19 @@ impl StateCommands {
                     println!("No information for actor found")
                 }
             }
-            Self::ListActors => {}
+            Self::ListActors => {
+                let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
+                let tsk = TipsetKeysJson(tipset.key().to_owned());
+
+                let actors = state_list_actors((tsk,))
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
+
+                for a in actors {
+                    println!("{}", a.to_string());
+                }
+            }
         }
     }
 }

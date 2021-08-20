@@ -427,6 +427,10 @@ pub mod state_api {
     pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
     pub type StateGetActorResult = Option<ActorStateJson>;
 
+    pub const STATE_LIST_ACTORS: &str = "Filecoin.StateListActors";
+    pub type StateListActorsParams = (TipsetKeysJson,);
+    pub type StateListActorsResult = Vec<Address>;
+
     pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
     pub type StateAccountKeyParams = (AddressJson, TipsetKeysJson);
     pub type StateAccountKeyResult = Option<AddressJson>;

@@ -406,6 +406,26 @@ pub(crate) async fn state_get_actor<
     Ok(state.get_actor(&actor)?.map(ActorStateJson::from))
 }
 
+/// returns addresses of all actors on the network by tipset
+pub(crate) async fn state_list_actors<
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<StateListActorsParams>,
+) -> Result<StateListActorsResult, JsonRpcError> {
+    let (tipset,) = params;
+
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tipset.into())
+        .await?;
+
+    Ok(data.state_manager.list_miner_actors::<V>(&tipset)?)
+}
+
 /// returns the public key address of the given ID address
 pub(crate) async fn state_account_key<
     DB: BlockStore + Send + Sync + 'static,
