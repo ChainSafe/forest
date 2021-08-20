@@ -36,7 +36,7 @@ pub use vesting_state::*;
 use crate::{
     account::Method as AccountMethod,
     actor_error,
-    market::{self, ActivateDealsParams, SectorDeals},
+    market::{self, ActivateDealsParams, ComputeDataCommitmentReturn, SectorDataSpec, SectorDeals},
     power::MAX_MINER_PROVE_COMMITS_PER_EPOCH,
 };
 use crate::{
@@ -67,9 +67,10 @@ use crypto::DomainSeparationTag::{
 };
 use encoding::{BytesDe, Cbor};
 use fil_types::{
-    deadlines::DeadlineInfo, InteractiveSealRandomness, PoStProof, PoStRandomness,
-    RegisteredSealProof, SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID,
-    SectorInfo, SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
+    deadlines::DeadlineInfo, AggregateSealVerifyInfo, AggregateSealVerifyProofAndInfos,
+    InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredSealProof,
+    SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorInfo,
+    SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
 };
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntSer;
@@ -124,6 +125,7 @@ pub enum Method {
     ChangeOwnerAddress = 23,
     DisputeWindowedPoSt = 24,
     PreCommitSectorBatch = 25,
+    ProveCommitAggregate = 26,
 }
 
 /// Miner Actor
@@ -666,6 +668,191 @@ impl Actor {
                 )
             })?;
 
+        Ok(())
+    }
+    /// Checks state of the corresponding sector pre-commitments and verifies aggregate proof of replication
+    /// of these sectors. If valid, the sectors' deals are activated, sectors are assigned a deadline and charged pledge
+    /// and precommit state is removed.
+    fn prove_commit_aggregate<BS, RT>(
+        rt: &mut RT,
+        mut params: ProveCommitAggregateParams,
+    ) -> Result<(), ActorError>
+    where
+        BS: BlockStore,
+        RT: Runtime<BS>,
+    {
+        let sector_numbers = params
+            .sector_numbers
+            .validate()
+            .map_err(|e| actor_error!(ErrIllegalArgument, "Invalid Bitfield argument:{}", e))?;
+        let agg_sectors_count = sector_numbers.len();
+
+        if agg_sectors_count > MAX_AGGREGATED_SECTORS {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "too many sectors addressed, addressed {} want <= {}",
+                agg_sectors_count,
+                MAX_AGGREGATED_SECTORS
+            ));
+        } else if agg_sectors_count < MIN_AGGREGATED_SECTORS {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "too few sectors addressed, addressed {} want >= {}",
+                agg_sectors_count,
+                MIN_AGGREGATED_SECTORS
+            ));
+        }
+
+        if params.aggregate_proof.len() > MAX_AGGREGATED_PROOF_SIZE {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "sector prove-commit proof of size {} exceeds max size of {}",
+                params.aggregate_proof.len(),
+                MAX_AGGREGATED_PROOF_SIZE
+            ));
+        }
+        let state: State = rt.state()?;
+        let info = get_miner_info(rt.store(), &state)?;
+        rt.validate_immediate_caller_is(
+            info.control_addresses
+                .iter()
+                .chain(&[info.worker, info.owner]),
+        )?;
+        let store = rt.store();
+        let precommits = state
+            .get_all_precommitted_sectors(store, sector_numbers)
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to get precommits")
+            })?;
+
+        // compute data commitments and validate each precommit
+        let mut compute_data_commitments_inputs = Vec::with_capacity(precommits.len());
+        let mut precommits_to_confirm = Vec::new();
+        for (i, precommit) in precommits.iter().enumerate() {
+            let msd = max_prove_commit_duration(precommit.info.seal_proof).ok_or_else(|| {
+                actor_error!(
+                    ErrIllegalState,
+                    "no max seal duration for proof type: {}",
+                    i64::from(precommit.info.seal_proof)
+                )
+            })?;
+            let prove_commit_due = precommit.pre_commit_epoch + msd;
+            if rt.curr_epoch() > prove_commit_due {
+                log::warn!(
+                    "skipping commitment for sector {}, too late at {}, due {}",
+                    precommit.info.sector_number,
+                    rt.curr_epoch(),
+                    prove_commit_due,
+                )
+            } else {
+                precommits_to_confirm.push(precommit.clone());
+            }
+            // All seal proof types should match
+            if i >= 1 {
+                let prev_seal_proof = precommits[i - 1].info.seal_proof;
+                if prev_seal_proof != precommit.info.seal_proof {
+                    return Err(actor_error!(
+                        ErrIllegalState,
+                        "aggregate contains mismatched seal proofs {} and {}",
+                        i64::from(prev_seal_proof),
+                        i64::from(precommit.info.seal_proof)
+                    ));
+                }
+            }
+
+            compute_data_commitments_inputs.push(SectorDataSpec {
+                deal_ids: precommit.info.deal_ids.clone(),
+                sector_type: precommit.info.seal_proof,
+            });
+        }
+
+        let comm_ds = request_unsealed_sector_cids(rt, &compute_data_commitments_inputs)?;
+        let mut svis = Vec::new();
+        let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
+            *i
+        } else {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "runtime provided non-ID receiver address {}",
+                rt.message().receiver()
+            ));
+        };
+        let receiver_bytes = rt.message().receiver().marshal_cbor().map_err(|e| {
+            ActorError::from(e).wrap("failed to marshal address for seal verification challenge")
+        })?;
+
+        for (i, precommit) in precommits.iter().enumerate() {
+            let interactive_epoch = precommit.pre_commit_epoch + PRE_COMMIT_CHALLENGE_DELAY;
+            if rt.curr_epoch() <= interactive_epoch {
+                return Err(actor_error!(
+                    ErrForbidden,
+                    "too early to prove sector {}",
+                    precommit.info.sector_number
+                ));
+            }
+            let sv_info_randomness = rt.get_randomness_from_tickets(
+                SealRandomness,
+                precommit.info.seal_rand_epoch,
+                &receiver_bytes,
+            )?;
+            let sv_info_interactive_randomness = rt.get_randomness_from_beacon(
+                InteractiveSealChallengeSeed,
+                interactive_epoch,
+                &receiver_bytes,
+            )?;
+            let svi = AggregateSealVerifyInfo {
+                sector_number: precommit.info.sector_number,
+                randomness: sv_info_randomness,
+                interactive_randomness: sv_info_interactive_randomness,
+                sealed_cid: precommit.info.sealed_cid,
+                unsealed_cid: comm_ds[i],
+            };
+            svis.push(svi);
+        }
+
+        let seal_proof = precommits[0].info.seal_proof;
+        if precommits.is_empty() {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "bitfield non-empty but zero precommits read from state"
+            ));
+        }
+        rt.verify_aggregate_seals(&AggregateSealVerifyProofAndInfos {
+            miner: miner_actor_id,
+            seal_proof,
+            aggregate_proof: fil_types::RegisteredAggregateProof::SnarkPackV1,
+            proof: params.aggregate_proof,
+            infos: svis,
+        })
+        .map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalArgument, "aggregate seal verify failed")
+        })?;
+        confirm_sector_proofs_valid_internal(rt, precommits_to_confirm.clone())?;
+        // Compute and burn the aggregate network fee. We need to re-load the state as
+        // confirmSectorProofsValid can change it.
+        let state: State = rt.state()?;
+        let aggregate_fee =
+            aggregate_network_fee(precommits_to_confirm.len() as i64, rt.base_fee());
+        let unlocked_balance = state
+            .get_unlocked_balance(&rt.current_balance()?)
+            .map_err(|_e| actor_error!(ErrIllegalState, "failed to determine unlocked balance"))?;
+        if unlocked_balance < aggregate_fee {
+            return Err(actor_error!(
+                ErrInsufficientFunds,
+                "remaining unlocked funds after prove-commit {} are insufficient to pay aggregation fee of {}",
+                unlocked_balance,
+                aggregate_fee
+            ));
+        }
+        burn_funds(rt, aggregate_fee)?;
+        state
+            .check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariants broken: {}", e),
+                )
+            })?;
         Ok(())
     }
 
@@ -1288,278 +1475,18 @@ impl Actor {
                 MAX_MINER_PROVE_COMMITS_PER_EPOCH
             );
         }
-
-        // get network stats from other actors
-        let reward_stats = request_current_epoch_block_reward(rt)?;
-        let power_total = request_current_total_power(rt)?;
-        let circulating_supply = rt.total_fil_circ_supply()?;
-
-        // 1. Activate deals, skipping pre-commits with invalid deals.
-        //    - calls the market actor.
-        // 2. Reschedule replacement sector expiration.
-        //    - loads and saves sectors
-        //    - loads and saves deadlines/partitions
-        // 3. Add new sectors.
-        //    - loads and saves sectors.
-        //    - loads and saves deadlines/partitions
-        //
-        // Ideally, we'd combine some of these operations, but at least we have
-        // a constant number of them.
-
-        let state = rt.state()?;
-        let info = get_miner_info(rt.store(), &state)?;
-
-        //
-        // Activate storage deals.
-        //
-
+        let st: State = rt.state()?;
+        let store = rt.store();
         // This skips missing pre-commits.
-        let precommitted_sectors = state
-            .find_precommitted_sectors(rt.store(), &params.sectors)
+        let precommited_sectors = st
+            .find_precommitted_sectors(store, &params.sectors)
             .map_err(|e| {
                 e.downcast_default(
                     ExitCode::ErrIllegalState,
                     "failed to load pre-committed sectors",
                 )
             })?;
-
-        // Committed-capacity sectors licensed for early removal by new sectors being proven.
-        let mut replace_sectors = DeadlineSectorMap::new();
-
-        // Pre-commits for new sectors.
-        let mut pre_commits = Vec::<SectorPreCommitOnChainInfo>::new();
-
-        for pre_commit in precommitted_sectors {
-            if !pre_commit.info.deal_ids.is_empty() {
-                // Check (and activate) storage deals associated to sector. Abort if checks failed.
-                let res = rt.send(
-                    *STORAGE_MARKET_ACTOR_ADDR,
-                    crate::market::Method::ActivateDeals as MethodNum,
-                    Serialized::serialize(ActivateDealsParams {
-                        deal_ids: pre_commit.info.deal_ids.clone(),
-                        sector_expiry: pre_commit.info.expiration,
-                    })?,
-                    TokenAmount::zero(),
-                );
-
-                if let Err(e) = res {
-                    info!(
-                        "failed to activate deals on sector {}, dropping from prove commit set: {}",
-                        pre_commit.info.sector_number,
-                        e.msg()
-                    );
-                    continue;
-                }
-            }
-
-            if pre_commit.info.replace_capacity {
-                replace_sectors
-                    .add_values(
-                        pre_commit.info.replace_sector_deadline,
-                        pre_commit.info.replace_sector_partition,
-                        &[pre_commit.info.replace_sector_number],
-                    )
-                    .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalArgument,
-                            "failed to record sectors for replacement: {}",
-                            e
-                        )
-                    })?;
-            }
-
-            pre_commits.push(pre_commit);
-        }
-
-        // When all prove commits have failed abort early
-        if pre_commits.is_empty() {
-            return Err(actor_error!(
-                ErrIllegalArgument,
-                "all prove commits failed to validate"
-            ));
-        }
-
-        let (total_pledge, newly_vested) = rt.transaction(|state: &mut State, rt| {
-            let store = rt.store();
-
-            // Schedule expiration for replaced sectors to the end of their next deadline window.
-            // They can't be removed right now because we want to challenge them immediately before termination.
-            let replaced = state
-                .reschedule_sector_expirations(
-                    store,
-                    rt.curr_epoch(),
-                    info.sector_size,
-                    replace_sectors,
-                )
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to replace sector expirations",
-                    )
-                })?;
-
-            let replaced_by_sector_number: HashMap<u64, SectorOnChainInfo> =
-                replaced.into_iter().map(|s| (s.sector_number, s)).collect();
-
-            let mut new_sector_numbers = Vec::<SectorNumber>::with_capacity(pre_commits.len());
-            let mut deposit_to_unlock = TokenAmount::zero();
-            let mut new_sectors = Vec::<SectorOnChainInfo>::new();
-            let mut total_pledge = TokenAmount::zero();
-
-            for pre_commit in pre_commits {
-                // compute initial pledge
-                let activation = rt.curr_epoch();
-                let duration = pre_commit.info.expiration - activation;
-
-                // This should have been caught in precommit, but don't let other sectors fail because of it.
-                if duration < MIN_SECTOR_EXPIRATION {
-                    warn!(
-                        "precommit {} has lifetime {} less than minimum {}. ignoring",
-                        pre_commit.info.sector_number, duration, MIN_SECTOR_EXPIRATION,
-                    );
-                }
-
-                let power = qa_power_for_weight(
-                    info.sector_size,
-                    duration,
-                    &pre_commit.deal_weight,
-                    &pre_commit.verified_deal_weight,
-                );
-
-                let day_reward = expected_reward_for_power(
-                    &reward_stats.this_epoch_reward_smoothed,
-                    &power_total.quality_adj_power_smoothed,
-                    &power,
-                    crate::EPOCHS_IN_DAY,
-                );
-
-                // The storage pledge is recorded for use in computing the penalty if this sector is terminated
-                // before its declared expiration.
-                // It's not capped to 1 FIL, so can exceed the actual initial pledge requirement.
-                let storage_pledge = expected_reward_for_power(
-                    &reward_stats.this_epoch_reward_smoothed,
-                    &power_total.quality_adj_power_smoothed,
-                    &power,
-                    INITIAL_PLEDGE_PROJECTION_PERIOD,
-                );
-
-                let mut initial_pledge = initial_pledge_for_power(
-                    &power,
-                    &reward_stats.this_epoch_baseline_power,
-                    &reward_stats.this_epoch_reward_smoothed,
-                    &power_total.quality_adj_power_smoothed,
-                    &circulating_supply,
-                );
-
-                // Lower-bound the pledge by that of the sector being replaced.
-                // Record the replaced age and reward rate for termination fee calculations.
-                let (replaced_pledge, replaced_sector_age, replaced_day_reward) =
-                    replaced_sector_parameters(
-                        rt.curr_epoch(),
-                        &pre_commit,
-                        &replaced_by_sector_number,
-                    )?;
-                initial_pledge = std::cmp::max(initial_pledge, replaced_pledge);
-
-                deposit_to_unlock += &pre_commit.pre_commit_deposit;
-                total_pledge += &initial_pledge;
-
-                let new_sector_info = SectorOnChainInfo {
-                    sector_number: pre_commit.info.sector_number,
-                    seal_proof: pre_commit.info.seal_proof,
-                    sealed_cid: pre_commit.info.sealed_cid,
-                    deal_ids: pre_commit.info.deal_ids,
-                    expiration: pre_commit.info.expiration,
-                    activation,
-                    deal_weight: pre_commit.deal_weight,
-                    verified_deal_weight: pre_commit.verified_deal_weight,
-                    initial_pledge,
-                    expected_day_reward: day_reward,
-                    expected_storage_pledge: storage_pledge,
-                    replaced_sector_age,
-                    replaced_day_reward,
-                };
-
-                new_sector_numbers.push(new_sector_info.sector_number);
-                new_sectors.push(new_sector_info);
-            }
-
-            state.put_sectors(store, new_sectors.clone()).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to put new sectors")
-            })?;
-
-            state
-                .delete_precommitted_sectors(store, &new_sector_numbers)
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to delete precommited sectors",
-                    )
-                })?;
-
-            state
-                .assign_sectors_to_deadlines(
-                    store,
-                    rt.curr_epoch(),
-                    new_sectors,
-                    info.window_post_partition_sectors,
-                    info.sector_size,
-                )
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        "failed to assign new sectors to deadlines",
-                    )
-                })?;
-
-            let newly_vested = TokenAmount::zero();
-
-            // Unlock deposit for successful proofs, make it available for lock-up as initial pledge.
-            state
-                .add_pre_commit_deposit(&(-deposit_to_unlock))
-                .map_err(|e| {
-                    actor_error!(ErrIllegalState, "failed to add precommit deposit: {}", e)
-                })?;
-
-            let unlocked_balance =
-                state
-                    .get_unlocked_balance(&rt.current_balance()?)
-                    .map_err(|e| {
-                        actor_error!(
-                            ErrIllegalState,
-                            "failed to calculate unlocked balance: {}",
-                            e
-                        )
-                    })?;
-            if unlocked_balance < total_pledge {
-                return Err(actor_error!(
-                    ErrInsufficientFunds,
-                    "insufficient funds for aggregate initial pledge requirement {}, available: {}",
-                    total_pledge,
-                    unlocked_balance
-                ));
-            }
-
-            state.add_initial_pledge(&total_pledge).map_err(|e| {
-                actor_error!(ErrIllegalState, "failed to add initial pledge: {}", e)
-            })?;
-
-            state
-                .check_balance_invariants(&rt.current_balance()?)
-                .map_err(|e| {
-                    ActorError::new(
-                        ErrBalanceInvariantBroken,
-                        format!("balance invariant broken: {}", e),
-                    )
-                })?;
-
-            Ok((total_pledge, newly_vested))
-        })?;
-
-        // Request pledge update for activated sector.
-        notify_pledge_changed(rt, &(total_pledge - newly_vested))?;
-
-        Ok(())
+        confirm_sector_proofs_valid_internal(rt, precommited_sectors)
     }
 
     fn check_sector_proven<BS, RT>(
@@ -3527,7 +3454,13 @@ where
         return Err(actor_error!(ErrForbidden, "too early to prove sector"));
     }
 
-    let commd = request_unsealed_sector_cid(rt, params.registered_seal_proof, &params.deal_ids)?;
+    let commds = request_unsealed_sector_cids(
+        rt,
+        &[SectorDataSpec {
+            deal_ids: params.deal_ids.clone(),
+            sector_type: params.registered_seal_proof,
+        }],
+    )?;
 
     let miner_actor_id: u64 = if let Payload::ID(i) = rt.message().receiver().payload() {
         *i
@@ -3561,31 +3494,40 @@ where
         proof: params.proof,
         randomness,
         sealed_cid: params.sealed_cid,
-        unsealed_cid: commd,
+        unsealed_cid: commds[0],
     })
 }
 
 /// Requests the storage market actor compute the unsealed sector CID from a sector's deals.
-fn request_unsealed_sector_cid<BS, RT>(
+fn request_unsealed_sector_cids<BS, RT>(
     rt: &mut RT,
-    sector_type: RegisteredSealProof,
-    deal_ids: &[DealID],
-) -> Result<Cid, ActorError>
+    data_commitment_inputs: &[SectorDataSpec],
+) -> Result<Vec<Cid>, ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let ret = rt.send(
-        *STORAGE_MARKET_ACTOR_ADDR,
-        MarketMethod::ComputeDataCommitment as u64,
-        Serialized::serialize(ComputeDataCommitmentParamsRef {
-            deal_ids,
-            sector_type,
-        })?,
-        TokenAmount::zero(),
-    )?;
-    let unsealed_cid: Cid = ret.deserialize()?;
-    Ok(unsealed_cid)
+    if data_commitment_inputs.is_empty() {
+        return Ok(vec![]);
+    }
+    let ret: ComputeDataCommitmentReturn = rt
+        .send(
+            *STORAGE_MARKET_ACTOR_ADDR,
+            MarketMethod::ComputeDataCommitment as u64,
+            Serialized::serialize(ComputeDataCommitmentParamsRef {
+                inputs: &data_commitment_inputs,
+            })?,
+            TokenAmount::zero(),
+        )?
+        .deserialize()?;
+    if data_commitment_inputs.len() != ret.commds.len() {
+        return Err(actor_error!(ErrIllegalState,
+            "number of data commitments computed {} does not match number of data commitment inputs {}",
+            ret.commds.len(), data_commitment_inputs.len()
+        ));
+    }
+
+    Ok(ret.commds)
 }
 
 fn request_deal_weights<BS, RT>(
@@ -4036,6 +3978,254 @@ fn check_peer_info(peer_id: &[u8], multiaddrs: &[BytesDe]) -> Result<(), ActorEr
 
     Ok(())
 }
+fn confirm_sector_proofs_valid_internal<BS, RT>(
+    rt: &mut RT,
+    pre_commits: Vec<SectorPreCommitOnChainInfo>,
+) -> Result<(), ActorError>
+where
+    BS: BlockStore,
+    RT: Runtime<BS>,
+{
+    // get network stats from other actors
+    let reward_stats = request_current_epoch_block_reward(rt)?;
+    let power_total = request_current_total_power(rt)?;
+    let circulating_supply = rt.total_fil_circ_supply()?;
+
+    // Ideally, we'd combine some of these operations, but at least we have
+    // a constant number of them.
+    // Committed-capacity sectors licensed for early removal by new sectors being proven.
+    let mut replace_sectors = DeadlineSectorMap::new();
+    let activation = rt.curr_epoch();
+
+    // Pre-commits for new sectors.
+    let mut valid_pre_commits = Vec::<SectorPreCommitOnChainInfo>::new();
+
+    for pre_commit in pre_commits {
+        if !pre_commit.info.deal_ids.is_empty() {
+            // Check (and activate) storage deals associated to sector. Abort if checks failed.
+            let res = rt.send(
+                *STORAGE_MARKET_ACTOR_ADDR,
+                crate::market::Method::ActivateDeals as MethodNum,
+                Serialized::serialize(ActivateDealsParams {
+                    deal_ids: pre_commit.info.deal_ids.clone(),
+                    sector_expiry: pre_commit.info.expiration,
+                })?,
+                TokenAmount::zero(),
+            );
+
+            if let Err(e) = res {
+                info!(
+                    "failed to activate deals on sector {}, dropping from prove commit set: {}",
+                    pre_commit.info.sector_number,
+                    e.msg()
+                );
+                continue;
+            }
+        }
+        if pre_commit.info.replace_capacity {
+            replace_sectors
+                .add_values(
+                    pre_commit.info.replace_sector_deadline,
+                    pre_commit.info.replace_sector_partition,
+                    &[pre_commit.info.replace_sector_number],
+                )
+                .map_err(|e| {
+                    actor_error!(
+                        ErrIllegalArgument,
+                        "failed to record sectors for replacement: {}",
+                        e
+                    )
+                })?;
+        }
+        valid_pre_commits.push(pre_commit);
+    }
+
+    // When all prove commits have failed abort early
+    if valid_pre_commits.is_empty() {
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "all prove commits failed to validate"
+        ));
+    }
+
+    let (total_pledge, newly_vested) = rt.transaction(|state: &mut State, rt| {
+        let store = rt.store();
+        let info = get_miner_info(store, state)?;
+        // Schedule expiration for replaced sectors to the end of their next deadline window.
+        // They can't be removed right now because we want to challenge them immediately before termination.
+        let replaced = state
+            .reschedule_sector_expirations(
+                store,
+                rt.curr_epoch(),
+                info.sector_size,
+                replace_sectors,
+            )
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to replace sector expirations",
+                )
+            })?;
+
+        let replaced_by_sector_number: HashMap<u64, SectorOnChainInfo> =
+            replaced.into_iter().map(|s| (s.sector_number, s)).collect();
+
+        let mut new_sector_numbers = Vec::<SectorNumber>::with_capacity(valid_pre_commits.len());
+        let mut deposit_to_unlock = TokenAmount::zero();
+        let mut new_sectors = Vec::<SectorOnChainInfo>::new();
+        let mut total_pledge = TokenAmount::zero();
+
+        for pre_commit in valid_pre_commits {
+            // compute initial pledge
+            let duration = pre_commit.info.expiration - activation;
+
+            // This should have been caught in precommit, but don't let other sectors fail because of it.
+            if duration < MIN_SECTOR_EXPIRATION {
+                warn!(
+                    "precommit {} has lifetime {} less than minimum {}. ignoring",
+                    pre_commit.info.sector_number, duration, MIN_SECTOR_EXPIRATION,
+                );
+            }
+
+            let power = qa_power_for_weight(
+                info.sector_size,
+                duration,
+                &pre_commit.deal_weight,
+                &pre_commit.verified_deal_weight,
+            );
+
+            let day_reward = expected_reward_for_power(
+                &reward_stats.this_epoch_reward_smoothed,
+                &power_total.quality_adj_power_smoothed,
+                &power,
+                crate::EPOCHS_IN_DAY,
+            );
+
+            // The storage pledge is recorded for use in computing the penalty if this sector is terminated
+            // before its declared expiration.
+            // It's not capped to 1 FIL, so can exceed the actual initial pledge requirement.
+            let storage_pledge = expected_reward_for_power(
+                &reward_stats.this_epoch_reward_smoothed,
+                &power_total.quality_adj_power_smoothed,
+                &power,
+                INITIAL_PLEDGE_PROJECTION_PERIOD,
+            );
+
+            let mut initial_pledge = initial_pledge_for_power(
+                &power,
+                &reward_stats.this_epoch_baseline_power,
+                &reward_stats.this_epoch_reward_smoothed,
+                &power_total.quality_adj_power_smoothed,
+                &circulating_supply,
+            );
+
+            // Lower-bound the pledge by that of the sector being replaced.
+            // Record the replaced age and reward rate for termination fee calculations.
+            let (replaced_pledge, replaced_sector_age, replaced_day_reward) =
+                replaced_sector_parameters(
+                    rt.curr_epoch(),
+                    &pre_commit,
+                    &replaced_by_sector_number,
+                )?;
+            initial_pledge = std::cmp::max(initial_pledge, replaced_pledge);
+
+            deposit_to_unlock += &pre_commit.pre_commit_deposit;
+            total_pledge += &initial_pledge;
+
+            let new_sector_info = SectorOnChainInfo {
+                sector_number: pre_commit.info.sector_number,
+                seal_proof: pre_commit.info.seal_proof,
+                sealed_cid: pre_commit.info.sealed_cid,
+                deal_ids: pre_commit.info.deal_ids,
+                expiration: pre_commit.info.expiration,
+                activation,
+                deal_weight: pre_commit.deal_weight,
+                verified_deal_weight: pre_commit.verified_deal_weight,
+                initial_pledge,
+                expected_day_reward: day_reward,
+                expected_storage_pledge: storage_pledge,
+                replaced_sector_age,
+                replaced_day_reward,
+            };
+
+            new_sector_numbers.push(new_sector_info.sector_number);
+            new_sectors.push(new_sector_info);
+        }
+
+        state.put_sectors(store, new_sectors.clone()).map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to put new sectors")
+        })?;
+
+        state
+            .delete_precommitted_sectors(store, &new_sector_numbers)
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to delete precommited sectors",
+                )
+            })?;
+
+        state
+            .assign_sectors_to_deadlines(
+                store,
+                rt.curr_epoch(),
+                new_sectors,
+                info.window_post_partition_sectors,
+                info.sector_size,
+            )
+            .map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    "failed to assign new sectors to deadlines",
+                )
+            })?;
+
+        let newly_vested = TokenAmount::zero();
+
+        // Unlock deposit for successful proofs, make it available for lock-up as initial pledge.
+        state
+            .add_pre_commit_deposit(&(-deposit_to_unlock))
+            .map_err(|e| actor_error!(ErrIllegalState, "failed to add precommit deposit: {}", e))?;
+
+        let unlocked_balance = state
+            .get_unlocked_balance(&rt.current_balance()?)
+            .map_err(|e| {
+                actor_error!(
+                    ErrIllegalState,
+                    "failed to calculate unlocked balance: {}",
+                    e
+                )
+            })?;
+        if unlocked_balance < total_pledge {
+            return Err(actor_error!(
+                ErrInsufficientFunds,
+                "insufficient funds for aggregate initial pledge requirement {}, available: {}",
+                total_pledge,
+                unlocked_balance
+            ));
+        }
+
+        state
+            .add_initial_pledge(&total_pledge)
+            .map_err(|e| actor_error!(ErrIllegalState, "failed to add initial pledge: {}", e))?;
+
+        state
+            .check_balance_invariants(&rt.current_balance()?)
+            .map_err(|e| {
+                ActorError::new(
+                    ErrBalanceInvariantBroken,
+                    format!("balance invariant broken: {}", e),
+                )
+            })?;
+
+        Ok((total_pledge, newly_vested))
+    })?;
+
+    // Request pledge update for activated sector.
+    notify_pledge_changed(rt, &(total_pledge - newly_vested))?;
+
+    Ok(())
+}
 
 impl ActorCode for Actor {
     fn invoke_method<BS, RT>(
@@ -4146,6 +4336,10 @@ impl ActorCode for Actor {
             }
             Some(Method::PreCommitSectorBatch) => {
                 Self::pre_commit_sector_batch(rt, rt.deserialize_params(params)?)?;
+                Ok(Serialized::default())
+            }
+            Some(Method::ProveCommitAggregate) => {
+                Self::prove_commit_aggregate(rt, rt.deserialize_params(params)?)?;
                 Ok(Serialized::default())
             }
             None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),
