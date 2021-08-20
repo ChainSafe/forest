@@ -12,7 +12,6 @@ use num_bigint::{BigInt, Integer};
 use std::cmp;
 use vm::TokenAmount;
 
-
 /// Maximum amount of sectors that can be aggregated.
 pub const MAX_AGGREGATED_SECTORS: usize = 819;
 /// Minimum amount of sectors that can be aggregated.
