@@ -16,7 +16,7 @@ use vm::TokenAmount;
 /// Maximum amount of sectors that can be aggregated.
 pub const MAX_AGGREGATED_SECTORS: usize = 819;
 /// Minimum amount of sectors that can be aggregated.
-pub const MIN_AGGREGATED_SECTORS: usize = 1;
+pub const MIN_AGGREGATED_SECTORS: usize = 4;
 /// Maximum total aggregated proof size.
 pub const MAX_AGGREGATED_PROOF_SIZE: usize = 192000;
 
