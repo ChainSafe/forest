@@ -73,3 +73,29 @@ Usage: `forest wallet sign -m <hex message> -a <address>`
 Verify
 Verify the message's integrity with an address and signature
 Usage: `forest wallet verify -m <hex message> -a <address> -s <signature>`
+
+
+## Chain-Sync
+
+The chain-sync CLI can mark blocks to never be synced, provide information about the state
+of the syncing process, and check blocks that will never be synced (and for what reason).
+
+Wait
+Wait for the sync process to be complete
+Usage: `forest sync wait`
+Permissions: Read
+
+Status
+Check the current state of the syncing process, displaying some information
+Usage: `forest sync status`
+Permissions: Read
+
+Check Bad
+Check if a block has been marked by, identifying the block by CID
+Usage: `forest sync check-bad -c <block cid>`
+Permissions: Read
+
+Mark Bad
+Mark a block as bad, the syncer will never sync this block
+Usage: `forest sync mark-bad -c <block cid>`
+Permissions: Admin

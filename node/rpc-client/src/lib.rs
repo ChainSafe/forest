@@ -5,6 +5,7 @@
 pub mod auth_ops;
 pub mod chain_ops;
 pub mod net_ops;
+pub mod sync_ops;
 pub mod wallet_ops;
 
 use async_std::sync::RwLock;
@@ -28,6 +29,7 @@ pub const RPC_ENDPOINT: &str = "rpc/v0";
 pub use self::auth_ops::*;
 pub use self::chain_ops::*;
 pub use self::net_ops::*;
+pub use self::sync_ops::*;
 pub use self::wallet_ops::*;
 
 pub struct ApiInfo {
@@ -187,6 +189,10 @@ where
 
     match rpc_res {
         JsonRpcResponse::Result { result, .. } => Ok(result),
-        JsonRpcResponse::Error { error, .. } => Err(error.message.into()),
+        JsonRpcResponse::Error { error, .. } => Err(Error::Full {
+            data: None,
+            code: error.code,
+            message: error.message,
+        }),
     }
 }
