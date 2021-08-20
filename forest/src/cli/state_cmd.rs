@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
-use blocks::tipset_keys_json::TipsetKeysJson;
+use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use num_bigint::BigInt;
 use rpc_client::{chain_head, state_get_actor, state_miner_power};
 use structopt::StructOpt;
@@ -104,7 +104,33 @@ impl StateCommands {
                     }
                 }
             }
-            Self::GetActor { address } => {}
+            Self::GetActor { address } => {
+                let address = Address::from_str(&address.clone()).expect(&format!(
+                    "Failed to create address from argument {}",
+                    address
+                ));
+
+                let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
+
+                let tsk = TipsetKeysJson(tipset.key().to_owned());
+
+                let params = (AddressJson(address), tsk);
+
+                let actor = state_get_actor(params)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
+
+                if let Some(state) = actor {
+                    let a: ActorState = state.into();
+                    println!("Address:\t{}", address);
+                    println!("Balance:\t{}", a.balance);
+                    println!("Nonce:\t{}", a.sequence);
+                    println!("Code:\t{}", a.code);
+                } else {
+                    println!("No information for actor found")
+                }
+            }
             Self::ListActors => {}
         }
     }
