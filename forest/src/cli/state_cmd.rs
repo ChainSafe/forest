@@ -7,7 +7,7 @@ use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
 use blocks::tipset_keys_json::TipsetKeysJson;
 use num_bigint::BigInt;
-use rpc_client::{chain_head, state_get_actor, state_miner_info, state_miner_power};
+use rpc_client::{chain_head, state_get_actor, state_miner_power};
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, to_size_string};
@@ -21,12 +21,13 @@ pub enum StateCommands {
         #[structopt(about = "The miner address to query. Optional", short)]
         miner_address: Option<String>,
     },
-    #[structopt(about = "Retrieve miner information")]
-    MinerInfo {
-        #[structopt(about = "The address of the miner", short)]
-        miner_address: String,
+    #[structopt(about = "Print actor information")]
+    GetActor {
+        #[structopt(short)]
+        address: String,
     },
-    MarketBalance,
+    #[structopt(about = "List all actors on the network")]
+    ListActors,
 }
 
 impl StateCommands {
@@ -103,28 +104,8 @@ impl StateCommands {
                     }
                 }
             }
-            Self::MinerInfo { miner_address } => {
-                let miner_address = miner_address.to_owned();
-
-                let address_parse_result = Address::from_str(&miner_address);
-
-                if address_parse_result.is_err() {
-                    cli_error_and_die(&format!("Cannot build address from {}", &miner_address), 1);
-                }
-
-                let address = address_parse_result.unwrap();
-
-                let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
-                let tipset_keys_json = TipsetKeysJson(tipset.0.key().to_owned());
-
-                let params = (AddressJson(address), tipset_keys_json);
-
-                let miner_info = state_miner_info(params)
-                    .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
-            }
-            Self::MarketBalance => {}
+            Self::GetActor { address } => {}
+            Self::ListActors => {}
         }
     }
 }
