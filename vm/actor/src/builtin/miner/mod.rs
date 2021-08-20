@@ -736,7 +736,7 @@ impl Actor {
                     i64::from(precommit.info.seal_proof)
                 )
             })?;
-            let prove_commit_due = precommit.pre_commit_epoch.clone() + msd;
+            let prove_commit_due = precommit.pre_commit_epoch + msd;
             if rt.curr_epoch() > prove_commit_due {
                 log::warn!(
                     "skipping commitment for sector {}, too late at {}, due {}",
