@@ -3995,6 +3995,7 @@ where
     // a constant number of them.
     // Committed-capacity sectors licensed for early removal by new sectors being proven.
     let mut replace_sectors = DeadlineSectorMap::new();
+    let activation = rt.curr_epoch();
 
     // Pre-commits for new sectors.
     let mut valid_pre_commits = Vec::<SectorPreCommitOnChainInfo>::new();
@@ -4076,7 +4077,6 @@ where
 
         for pre_commit in valid_pre_commits {
             // compute initial pledge
-            let activation = rt.curr_epoch();
             let duration = pre_commit.info.expiration - activation;
 
             // This should have been caught in precommit, but don't let other sectors fail because of it.
