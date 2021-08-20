@@ -455,8 +455,15 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::BlockHeader;
+    use crate::{BlockHeader, TipsetKeys, Ticket, errors::Error};
+    use beacon::{BeaconSchedule, BeaconEntry, MockBeacon, BeaconPoint};
+    use address::Address;
+    use cid::{Code::Identity};
     use encoding::Cbor;
+    use num_bigint::BigInt;
+
+    use std::sync::Arc;
+    use std::time::Duration;
 
     #[test]
     fn symmetric_header_encoding() {
@@ -477,23 +484,42 @@ mod tests {
     }
     #[test]
     fn beacon_entry_exists() {
-        // let block_header = BlockHeader::builder()
-        //     .messages(cid::new_from_cbor(&[], Identity)) // required
-        //     .message_receipts(cid::new_from_cbor(&[], Identity)) // required
-        //     .state_root(cid::new_from_cbor(&[], Identity)) // required
-        //     .miner_address(Address::new_id(0)) // optional
-        //     .beacon_entries(Vec::new()) // optional
-        //     .winning_post_proof(Vec::new()) // optional
-        //     .election_proof(None) // optional
-        //     .bls_aggregate(None) // optional
-        //     .signature(None) // optional
-        //     .parents(TipsetKeys::default()) // optional
-        //     .weight(BigInt::from(0u8)) // optional
-        //     .epoch(0) // optional
-        //     .timestamp(0) // optional
-        //     .ticket(Some(Ticket::default())) // optional
-        //     .fork_signal(0) // optional
-        //     .build()
-        //     .unwrap();
+        // Setup
+        let block_header = BlockHeader::builder()
+            .messages(cid::new_from_cbor(&[], Identity)) // required
+            .message_receipts(cid::new_from_cbor(&[], Identity)) // required
+            .state_root(cid::new_from_cbor(&[], Identity)) // required
+            .miner_address(Address::new_id(0)) // optional
+            .beacon_entries(Vec::new()) // optional
+            .winning_post_proof(Vec::new()) // optional
+            .election_proof(None) // optional
+            .bls_aggregate(None) // optional
+            .signature(None) // optional
+            .parents(TipsetKeys::default()) // optional
+            .weight(BigInt::from(0u8)) // optional
+            .epoch(0) // optional
+            .timestamp(0) // optional
+            .ticket(Some(Ticket::default())) // optional
+            .fork_signal(0) // optional
+            .build()
+            .unwrap();
+        let beacon_schedule = Arc::new(BeaconSchedule(vec![BeaconPoint {
+            height: 0,
+            beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
+        }]));
+        let chain_epoch = 0;
+        let beacon_entry = BeaconEntry::new(1, vec![]);
+        // Validate_block_drand
+        if let Err(e) = async_std::task::block_on(block_header.validate_block_drand(&beacon_schedule, chain_epoch, &beacon_entry)) {
+            // Assert error is for not including a beacon entry in the block
+            match e {
+                Error::Validation(why) => {
+                    assert_eq!(why, "Block must include at least 1 beacon entry");
+                }
+                _ => {
+                    panic!("validate block drand must detect a beacon entry in the block header");
+                }
+            }
+        }
     }
 }
