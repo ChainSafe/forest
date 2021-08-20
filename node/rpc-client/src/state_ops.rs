@@ -14,3 +14,7 @@ pub async fn state_miner_power(
 ) -> Result<StateMinerPowerResult, Error> {
     call(STATE_MINER_POWER, params).await
 }
+
+pub async fn state_miner_info(params: StateMinerInfoParams) -> Result<StateMinerInfoResult, Error> {
+    call(STATE_MINER_INFO, params).await
+}

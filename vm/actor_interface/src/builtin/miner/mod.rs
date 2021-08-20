@@ -353,7 +353,7 @@ impl State {
 }
 
 /// Static information about miner
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerInfo {
     #[serde(with = "address::json")]
@@ -496,14 +496,34 @@ impl Partition<'_> {
 }
 
 mod peer_id_json {
+    use std::str::FromStr;
+
     use super::*;
-    use serde::Serializer;
+    use serde::{Deserializer, Serializer};
+
+    #[derive(Deserialize)]
+    struct JsonHelper {
+        peer_id: Option<String>,
+    }
 
     pub fn serialize<S>(m: &Option<PeerId>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         m.as_ref().map(|pid| pid.to_string()).serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<PeerId>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let m: JsonHelper = Deserialize::deserialize(deserializer)?;
+
+        if let Some(id) = m.peer_id {
+            Ok(Some(PeerId::from_str(&id).unwrap()))
+        } else {
+            Ok(None)
+        }
     }
 }
 

@@ -103,7 +103,20 @@ impl StateCommands {
                     }
                 }
             }
-            Self::MinerInfo { miner_address } => {}
+            Self::MinerInfo { miner_address } => {
+                let miner_address = miner_address.to_owned();
+
+                let address_parse_result = Address::from_str(&miner_address);
+
+                if address_parse_result.is_err() {
+                    cli_error_and_die(&format!("Cannot build address from {}", &miner_address), 1);
+                }
+
+                let address = address_parse_result.unwrap();
+
+                let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
+                let tipset_keys_json = TipsetKeysJson(tipset.0.key().to_owned());
+            }
             Self::MarketBalance => {}
         }
     }
