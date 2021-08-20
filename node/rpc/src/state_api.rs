@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use log::info;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -423,7 +424,13 @@ pub(crate) async fn state_list_actors<
         .tipset_from_keys(&tipset.into())
         .await?;
 
-    Ok(data.state_manager.list_miner_actors::<V>(&tipset)?)
+    info!("its not tipset");
+
+    let addresses = data.state_manager.list_miner_actors::<V>(&tipset)?;
+
+    info!("its not addresses");
+
+    Ok(addresses)
 }
 
 /// returns the public key address of the given ID address

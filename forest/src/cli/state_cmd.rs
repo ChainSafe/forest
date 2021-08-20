@@ -135,6 +135,8 @@ impl StateCommands {
                 let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
 
+                println!("tsk\n{:#?}", tsk);
+
                 let actors = state_list_actors((tsk,))
                     .await
                     .map_err(handle_rpc_err)
