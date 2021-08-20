@@ -7,7 +7,7 @@ use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
 use blocks::tipset_keys_json::TipsetKeysJson;
 use num_bigint::BigInt;
-use rpc_client::{chain_head, state_get_actor, state_miner_power};
+use rpc_client::{chain_head, state_get_actor, state_miner_info, state_miner_power};
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, to_size_string};
@@ -116,6 +116,13 @@ impl StateCommands {
 
                 let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
                 let tipset_keys_json = TipsetKeysJson(tipset.0.key().to_owned());
+
+                let params = (AddressJson(address), tipset_keys_json);
+
+                let miner_info = state_miner_info(params)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
             }
             Self::MarketBalance => {}
         }
