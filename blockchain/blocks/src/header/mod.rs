@@ -402,7 +402,9 @@ impl BlockHeader {
         let last = match self.beacon_entries.last() {
             Some(last) => last,
             None => {
-                return Err(Error::Validation("Block must include at least 1 beacon entry".to_string()));
+                return Err(Error::Validation(
+                    "Block must include at least 1 beacon entry".to_string(),
+                ));
             }
         };
         if last.round() != max_round {
@@ -453,10 +455,10 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BlockHeader, TipsetKeys, Ticket, errors::Error};
-    use beacon::{BeaconSchedule, BeaconEntry, MockBeacon, BeaconPoint};
+    use crate::{errors::Error, BlockHeader, Ticket, TipsetKeys};
     use address::Address;
-    use cid::{Code::Identity};
+    use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
+    use cid::Code::Identity;
     use encoding::Cbor;
     use num_bigint::BigInt;
 
@@ -508,7 +510,11 @@ mod tests {
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand
-        if let Err(e) = async_std::task::block_on(block_header.validate_block_drand(&beacon_schedule, chain_epoch, &beacon_entry)) {
+        if let Err(e) = async_std::task::block_on(block_header.validate_block_drand(
+            &beacon_schedule,
+            chain_epoch,
+            &beacon_entry,
+        )) {
             // Assert error is for not including a beacon entry in the block
             match e {
                 Error::Validation(why) => {
