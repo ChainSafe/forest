@@ -20,3 +20,7 @@ pub async fn state_list_actors(
 ) -> Result<StateListActorsResult, Error> {
     call(STATE_LIST_ACTORS, params).await
 }
+
+pub async fn state_lookup(params: StateLookupIdParams) -> Result<StateLookupIdResult, Error> {
+    call(STATE_LOOKUP_ID, params).await
+}

@@ -179,7 +179,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 ❌ | `Filecoin.StateDealProviderCollateralBounds`         | `-` | `-` |
 ❌ | `Filecoin.StateDecodeParams`                         | `-` | `-` |
 ✔️ | `Filecoin.StateGetActor`                             | `(AddressJson, TipsetKeysJson)` | `Option<ActorStateJson>` |
-✔️ | `Filecoin.StateListActors`                           | `(TipsetKeysJson)` | `Vec<Address>` |
+✔️ | `Filecoin.StateListActors`                           | `(TipsetKeysJson)` | `Vec<AddressJson>` |
 ❌ | `Filecoin.StateListMessages`                         | `-` | `-` |
 ❌ | `Filecoin.StateListMiners`                           | `-` | `-` |
 ❌ | `Filecoin.StateLookupID`                             | `-` | `-` |

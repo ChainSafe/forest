@@ -28,6 +28,13 @@ pub enum StateCommands {
     },
     #[structopt(about = "List all actors on the network")]
     ListActors,
+    #[structopt(about = "Find corresponding ID address")]
+    Lookup {
+        #[structopt(short)]
+        reverse: bool,
+        #[structopt(about = "address")]
+        address: String,
+    },
 }
 
 impl StateCommands {
@@ -135,17 +142,17 @@ impl StateCommands {
                 let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
 
-                println!("tsk\n{:#?}", tsk);
-
                 let actors = state_list_actors((tsk,))
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
 
                 for a in actors {
-                    println!("{}", a.to_string());
+                    let AddressJson(addr) = a;
+                    println!("{}", addr.to_string());
                 }
             }
+            Self::Lookup { reverse, address } => {}
         }
     }
 }
