@@ -27,7 +27,7 @@ pub enum StateCommands {
         address: String,
     },
     #[structopt(about = "List all actors on the network")]
-    ListActors,
+    ListMiners,
     #[structopt(about = "Find corresponding ID address")]
     Lookup {
         #[structopt(short)]
@@ -138,7 +138,7 @@ impl StateCommands {
                     println!("No information for actor found")
                 }
             }
-            Self::ListActors => {
+            Self::ListMiners => {
                 let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
 
