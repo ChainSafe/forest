@@ -486,7 +486,7 @@ mod tests {
     fn beacon_entry_exists() {
         // Setup
         let block_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0)) 
+            .miner_address(Address::new_id(0))
             .beacon_entries(Vec::new())
             .build()
             .unwrap();
