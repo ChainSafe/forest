@@ -10,9 +10,9 @@ use crate::{
 };
 use clock::ChainEpoch;
 use fil_types::{StoragePower, FILECOIN_PRECISION};
-use num_bigint::{BigInt, Integer};
+use num_bigint::{num_integer::div_floor, BigInt, Integer};
 use num_traits::Zero;
-use std::cmp;
+use std::cmp::{self, max};
 
 /// Projection period of expected sector block reward for deposit required to pre-commit a sector.
 /// This deposit is lost if the pre-commitment is not timely followed up by a commitment proof.
@@ -278,4 +278,20 @@ pub fn consensus_fault_penalty(this_epoch_reward: TokenAmount) -> TokenAmount {
 pub fn locked_reward_from_reward(reward: TokenAmount) -> (TokenAmount, &'static VestSpec) {
     let lock_amount = (reward * &*LOCKED_REWARD_FACTOR_NUM).div_floor(&*LOCKED_REWARD_FACTOR_DENOM);
     (lock_amount, &REWARD_VESTING_SPEC)
+}
+
+lazy_static! {
+    static ref ESTIMATED_SINGLE_PROOF_GAS_USAGE: BigInt = BigInt::from(65733297);
+    static ref BATCH_DISCOUNT_NUM: BigInt = BigInt::from(1);
+    static ref BATCH_DISCOUNT_DENOM: BigInt = BigInt::from(20);
+    static ref BATCH_BALANCER: BigInt = BigInt::from(2 * 1_000_000_000); // 2 * 1 nanoFIL
+}
+
+pub fn aggregate_network_fee(aggregate_size: i64, base_fee: &TokenAmount) -> TokenAmount {
+    let effective_gas_fee = max(base_fee, &*BATCH_BALANCER);
+    let network_fee_num = effective_gas_fee
+        * &*ESTIMATED_SINGLE_PROOF_GAS_USAGE
+        * aggregate_size
+        * &*BATCH_DISCOUNT_NUM;
+    div_floor(network_fee_num, BATCH_DISCOUNT_DENOM.clone())
 }
