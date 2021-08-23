@@ -486,21 +486,21 @@ mod tests {
     fn beacon_entry_exists() {
         // Setup
         let block_header = BlockHeader::builder()
-            .messages(cid::new_from_cbor(&[], Identity)) // required
-            .message_receipts(cid::new_from_cbor(&[], Identity)) // required
-            .state_root(cid::new_from_cbor(&[], Identity)) // required
-            .miner_address(Address::new_id(0)) // optional
-            .beacon_entries(Vec::new()) // optional
-            .winning_post_proof(Vec::new()) // optional
-            .election_proof(None) // optional
-            .bls_aggregate(None) // optional
-            .signature(None) // optional
-            .parents(TipsetKeys::default()) // optional
-            .weight(BigInt::from(0u8)) // optional
-            .epoch(0) // optional
-            .timestamp(0) // optional
-            .ticket(Some(Ticket::default())) // optional
-            .fork_signal(0) // optional
+            .messages(cid::new_from_cbor(&[], Identity))
+            .message_receipts(cid::new_from_cbor(&[], Identity))
+            .state_root(cid::new_from_cbor(&[], Identity))
+            .miner_address(Address::new_id(0)) 
+            .beacon_entries(Vec::new())
+            .winning_post_proof(Vec::new()) 
+            .election_proof(None)
+            .bls_aggregate(None)
+            .signature(None) 
+            .parents(TipsetKeys::default())
+            .weight(BigInt::from(0u8))
+            .epoch(0)
+            .timestamp(0)
+            .ticket(Some(Ticket::default()))
+            .fork_signal(0) 
             .build()
             .unwrap();
         let beacon_schedule = Arc::new(BeaconSchedule(vec![BeaconPoint {
