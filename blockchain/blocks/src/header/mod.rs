@@ -486,21 +486,8 @@ mod tests {
     fn beacon_entry_exists() {
         // Setup
         let block_header = BlockHeader::builder()
-            .messages(cid::new_from_cbor(&[], Identity))
-            .message_receipts(cid::new_from_cbor(&[], Identity))
-            .state_root(cid::new_from_cbor(&[], Identity))
             .miner_address(Address::new_id(0)) 
             .beacon_entries(Vec::new())
-            .winning_post_proof(Vec::new()) 
-            .election_proof(None)
-            .bls_aggregate(None)
-            .signature(None) 
-            .parents(TipsetKeys::default())
-            .weight(BigInt::from(0u8))
-            .epoch(0)
-            .timestamp(0)
-            .ticket(Some(Ticket::default()))
-            .fork_signal(0) 
             .build()
             .unwrap();
         let beacon_schedule = Arc::new(BeaconSchedule(vec![BeaconPoint {
