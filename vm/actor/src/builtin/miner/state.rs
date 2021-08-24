@@ -56,7 +56,7 @@ pub struct State {
     #[serde(with = "bigint_ser")]
     pub fee_debt: TokenAmount,
 
-    /// Sum of initial pledge requirements of all active sectors ///aaaa
+    /// Sum of initial pledge requirements of all active sectors.
     #[serde(with = "bigint_ser")]
     pub initial_pledge: TokenAmount,
 
@@ -73,7 +73,7 @@ pub struct State {
     /// Information for all proven and not-yet-garbage-collected sectors.
     ///
     /// Sectors are removed from this AMT when the partition to which the
-    /// sector belongs is compacted. ///aaaa
+    /// sector belongs is compacted.
     pub sectors: Cid, // Array, AMT[SectorNumber]SectorOnChainInfo (sparse)
 
     /// The first epoch in this miner's current proving period. This is the first epoch in which a PoSt for a
@@ -93,7 +93,7 @@ pub struct State {
     /// The sector numbers due for PoSt at each deadline in the current proving period, frozen at period start.
     /// New sectors are added and expired ones removed at proving period boundary.
     /// Faults are not subtracted from this in state, but on the fly.
-    pub deadlines: Cid, //aaaa
+    pub deadlines: Cid,
 
     /// Deadlines with outstanding fees for early sector termination.
     pub early_terminations: BitField,

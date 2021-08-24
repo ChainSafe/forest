@@ -31,24 +31,6 @@ fn actor_to_resolved(
 ) -> ActorStateResolved {
     let resolved =
         resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state));
-    match resolved.clone() {
-        Ipld::List(s) => {
-            if actor.code == Cid::from_str("bafkqaetgnfwc6njpon2g64tbm5sw22lomvzas").unwrap() {
-                let dlscid = match s[s.len() - 3] {
-                    Ipld::Link(c) => c,
-                    _ => {
-                        panic!("not a link we dun goofed");
-                    }
-                };
-                let dls: forest_actor::miner::Deadlines = bs.get(&dlscid).unwrap().unwrap();
-                for dl in dls.due.iter() {
-                    let d: forest_actor::miner::Deadline = bs.get(dl).unwrap().unwrap();
-                    println!("DeadLine: {:?}", d);
-                }
-            }
-        }
-        _ => {}
-    }
     ActorStateResolved {
         state: IpldJson(resolved),
         code: CidJson(actor.code),
