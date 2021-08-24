@@ -20,20 +20,21 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-use libp2p::gossipsub::{IdentTopic, Topic};
-use libp2p::multiaddr::Protocol;
-use libp2p::request_response::ResponseChannel;
+use libipld::multihash::Multihash;
 use libp2p::{
-    core,
-    core::connection::ConnectionLimits,
-    core::muxing::StreamMuxerBox,
-    core::transport::Boxed,
+    core::{
+        self, connection::ConnectionLimits, muxing::StreamMuxerBox, transport::Boxed, Multiaddr,
+    },
+    gossipsub::{IdentTopic, Topic},
     identity::{ed25519, Keypair},
-    mplex, noise, yamux, PeerId, Swarm, Transport,
+    mplex,
+    multiaddr::Protocol,
+    noise,
+    request_response::ResponseChannel,
+    swarm::{SwarmBuilder, SwarmEvent},
+    yamux, PeerId, Swarm, Transport,
 };
-use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
-use multihash::Multihash;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -107,9 +108,9 @@ pub enum NetworkMessage {
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
-    NetPeers(OneShotSender<HashMap<PeerId, Vec<Multiaddr>>>),
-    NetConnect(OneShotSender<bool>, PeerId, Vec<Multiaddr>),
+    NetAddrsListen(OneShotSender<(PeerId, Multiaddr)>),
+    NetPeers(OneShotSender<HashMap<PeerId, Multiaddr>>),
+    NetConnect(OneShotSender<bool>, PeerId, Multiaddr),
     NetDisconnect(OneShotSender<()>, PeerId),
 }
 
@@ -162,11 +163,11 @@ where
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
             let t = Topic::new(format!("{}/{}", topic, network_name));
-            swarm.subscribe(&t).unwrap();
+            swarm.behaviour_mut().subscribe(&t).unwrap();
         }
 
         // Bootstrap with Kademlia
-        if let Err(e) = swarm.bootstrap() {
+        if let Err(e) = swarm.behaviour_mut().bootstrap() {
             warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
@@ -198,19 +199,19 @@ where
                 swarm_event = swarm_stream.next() => match swarm_event {
                     // outbound events
                     Some(event) => match event {
-                        ForestBehaviourEvent::PeerConnected(peer_id) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::PeerConnected(peer_id)) => {
                             debug!("Peer connected, {:?}", peer_id);
                             emit_event(&self.network_sender_out,
                                 NetworkEvent::PeerConnected(peer_id)).await;
                         }
-                        ForestBehaviourEvent::PeerDisconnected(peer_id) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::PeerDisconnected(peer_id)) => {
                             emit_event(&self.network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
                         }
-                        ForestBehaviourEvent::GossipMessage {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::GossipMessage {
                             source,
                             topic,
                             message,
-                        } => {
+                        }) => {
                             trace!("Got a Gossip Message from {:?}", source);
                             let topic = topic.as_str();
                             if topic == pubsub_block_str {
@@ -241,14 +242,14 @@ where
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
                             }
                         }
-                        ForestBehaviourEvent::HelloRequest { request,  peer } => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::HelloRequest { request,  peer }) => {
                             debug!("Received hello request (peer_id: {:?})", peer);
                             emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
                                 source: peer,
                             }).await;
                         }
-                        ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request }) => {
                             debug!("Received chain_exchange request (peer_id: {:?})", peer);
                             let db = self.cs.clone();
 
@@ -256,7 +257,7 @@ where
                                 channel.send(make_chain_exchange_response(db.as_ref(), &request).await)
                             });
                         }
-                        ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block)) => {
                             let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
                             match res {
                                 Ok(actual_cid) => {
@@ -279,9 +280,9 @@ where
                                 }
                             }
                         },
-                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => match self.cs.blockstore().get(&cid) {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,)) => match self.cs.blockstore().get(&cid) {
                             Ok(Some(data)) => {
-                                match swarm_stream.get_mut().send_block(&peer_id, cid, data) {
+                                match self.swarm.behaviour_mut().send_block(&peer_id, cid, data) {
                                     Ok(_) => {
                                         trace!("Sent bitswap message successfully");
                                     },
@@ -304,18 +305,18 @@ where
                     // Inbound messages
                     Some(message) =>  match message {
                         NetworkMessage::PubsubMessage { topic, message } => {
-                            if let Err(e) = swarm_stream.get_mut().publish(topic, message) {
+                            if let Err(e) = self.swarm.behaviour_mut().publish(topic, message) {
                                 warn!("Failed to send gossipsub message: {:?}", e);
                             }
                         }
                         NetworkMessage::HelloRequest { peer_id, request, response_channel } => {
-                            swarm_stream.get_mut().send_hello_request(&peer_id, request, response_channel);
+                            self.swarm.behaviour_mut().send_hello_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
-                            swarm_stream.get_mut().send_chain_exchange_request(&peer_id, request, response_channel);
+                            self.swarm.behaviour_mut().send_chain_exchange_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::BitswapRequest { cid, response_channel } => {
-                            if let Err(e) = swarm_stream.get_mut().want_block(cid) {
+                            if let Err(e) = self.swarm.behaviour_mut().want_block(cid, 1000) {
                                 warn!("Failed to send a bitswap want_block: {}", e.to_string());
                             } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
                                     chans.push(response_channel);
@@ -334,7 +335,7 @@ where
                                     }
                                 }
                                 NetRPCMethods::NetPeers(response_channel) => {
-                                    let peer_addresses: &HashMap<PeerId, Vec<Multiaddr>> = swarm_stream.get_mut().peer_addresses();
+                                    let peer_addresses: &HashMap<PeerId, Multiaddr> = self.swarm.behaviour_mut().peer_addresses();
 
                                     if response_channel.send(peer_addresses.to_owned()).is_err() {
                                         warn!("Failed to get Libp2p peers");
@@ -371,7 +372,7 @@ where
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
-                    info!("Peers connected: {}", swarm_stream.get_mut().peers().len());
+                    info!("Peers connected: {}", swarm_stream.behaviour_mut().peers().len());
                 }
             };
         }

@@ -41,7 +41,7 @@ use libp2p::{
     swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters},
     Multiaddr, NetworkBehaviour,
 };
-use libp2p_bitswap::{Bitswap, BitswapEvent};
+use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
 use std::{
     collections::HashSet,
@@ -80,7 +80,7 @@ pub(crate) struct ForestBehaviour {
     // but is fine for now, since the protocols are handled slightly differently.
     hello: RequestResponse<HelloCodec>,
     chain_exchange: RequestResponse<ChainExchangeCodec>,
-    bitswap: Bitswap<BitswapStore>,
+    bitswap: Bitswap,
     #[behaviour(ignore)]
     events: Vec<ForestBehaviourEvent>,
     /// Keeps track of Chain exchange requests to responses
@@ -133,11 +133,10 @@ impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
     fn inject_event(&mut self, event: DiscoveryOut) {
         match event {
             DiscoveryOut::Connected(peer, address) => {
-                self.bitswap.add_address(&peer, address);
+                self.bitswap.connect(peer);
                 self.events.push(ForestBehaviourEvent::PeerConnected(peer));
             }
             DiscoveryOut::Disconnected(peer, address) => {
-                self.bitswap.remove_address(&peer, &address);
                 self.events
                     .push(ForestBehaviourEvent::PeerDisconnected(peer));
             }
@@ -223,18 +222,14 @@ impl NetworkBehaviourEventProcess<PingEvent> for ForestBehaviour {
 impl NetworkBehaviourEventProcess<IdentifyEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
-            IdentifyEvent::Received {
-                peer_id,
-                info,
-                observed_addr,
-            } => {
+            IdentifyEvent::Received { peer_id, info } => {
                 trace!("Identified Peer {}", peer_id);
                 trace!("protocol_version {}", info.protocol_version);
                 trace!("agent_version {}", info.agent_version);
                 trace!("listening_ addresses {:?}", info.listen_addrs);
-                trace!("observed_address {}", observed_addr);
                 trace!("protocols {:?}", info.protocols);
             }
+            IdentifyEvent::Pushed { .. } => (),
             IdentifyEvent::Sent { .. } => (),
             IdentifyEvent::Error { .. } => (),
         }
@@ -556,18 +551,17 @@ impl ForestBehaviour {
     ) -> Result<(), Box<dyn Error>> {
         debug!("send {}", cid.to_string());
         let cid = cid.to_bytes();
-        let cid = Cid::try_from(cid)?;
+        let cid = CidGeneric::try_from(cid)?;
         self.bitswap.send_block(peer_id, cid, data);
         Ok(())
     }
 
     /// Send a request for data over bitswap
-    pub fn want_block(&mut self, cid: Cid) -> Result<(), Box<dyn Error>> {
+    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
         debug!("want {}", cid.to_string());
         let cid = cid.to_bytes();
         let cid = CidGeneric::try_from(cid)?;
-        let peers: Vec<PeerId> = self.peers().iter().map(|p| p.to_owned()).collect();
-        self.bitswap.get(cid, peers.into_iter());
+        self.bitswap.want_block(cid, priority);
         Ok(())
     }
 }
