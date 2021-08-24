@@ -101,11 +101,13 @@ pub struct State {
     // True when miner cron is active, false otherwise
     pub deadline_cron_active: bool,
 }
+
 #[derive(PartialEq)]
 pub enum CollisionPolicy {
     AllowCollisions,
-    DenyCollisions
+    DenyCollisions,
 }
+
 impl Cbor for State {}
 
 impl State {
@@ -238,11 +240,13 @@ impl State {
         new_deadline_info(self.proving_period_start, deadline_idx, 0).quant_spec()
     }
 
+    /// Marks a set of sector numbers as having been allocated.
+    /// If policy is `DenyCollisions`, fails if the set intersects with the sector numbers already allocated.
     pub fn allocate_sector_numbers<BS: BlockStore>(
         &mut self,
         store: &BS,
         sector_numbers: &BitField,
-        collisions: CollisionPolicy,
+        policy: CollisionPolicy,
     ) -> Result<(), ActorError> {
         let prior_allocation = store
             .get(&self.allocated_sectors)
@@ -254,7 +258,7 @@ impl State {
             })?
             .ok_or_else(|| actor_error!(ErrIllegalState, "allocated sectors bitfield not found"))?;
 
-        if collisions != CollisionPolicy::AllowCollisions {
+        if policy != CollisionPolicy::AllowCollisions {
             // NOTE: A fancy merge algorithm could extract this intersection while merging, below, saving
             // one iteration of the runs
             let collisions = &prior_allocation & sector_numbers;
@@ -985,7 +989,7 @@ impl State {
         for (expire_epoch, _) in cleanup_events.iter() {
             epochs.push(*expire_epoch);
         }
-        epochs.sort_by_key(|i| *i);
+        epochs.sort_unstable();
         for cleanup_epoch in epochs.iter() {
             // Can unwrap here safely because cleanup epochs are taken from the keys of that hashmap.
             queue.add_to_queue_values(

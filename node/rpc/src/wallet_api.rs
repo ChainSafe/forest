@@ -18,7 +18,7 @@ use message::{
 use num_bigint::BigUint;
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
-use wallet::{json::KeyInfoJson, Key};
+use wallet::{json::KeyInfoJson, Error, Key};
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, B>(
@@ -123,9 +123,18 @@ where
     let addr = format!("wallet-{}", key.address.to_string());
 
     let mut keystore = data.keystore.write().await;
-    keystore.put(addr, key.key_info)?;
 
-    Ok(key.address.to_string())
+    if let Err(error) = keystore.put(addr, key.key_info) {
+        match error {
+            Error::KeyExists => Err(JsonRpcError::Provided {
+                code: 1,
+                message: "Key already exists",
+            }),
+            _ => Err(error.into()),
+        }
+    } else {
+        Ok(key.address.to_string())
+    }
 }
 
 /// List all Addresses in the Wallet

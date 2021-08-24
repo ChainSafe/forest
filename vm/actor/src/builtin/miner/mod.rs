@@ -712,15 +712,13 @@ impl Actor {
             ));
         }
         let state: State = rt.state()?;
-
         let info = get_miner_info(rt.store(), &state)?;
         rt.validate_immediate_caller_is(
-        info.control_addresses
-            .iter()
-            .chain(&[info.worker, info.owner]),
+            info.control_addresses
+                .iter()
+                .chain(&[info.worker, info.owner]),
         )?;
         let store = rt.store();
-        
         let precommits = state
             .get_all_precommitted_sectors(store, sector_numbers)
             .map_err(|e| {
@@ -738,7 +736,7 @@ impl Actor {
                     i64::from(precommit.info.seal_proof)
                 )
             })?;
-            let prove_commit_due = precommit.pre_commit_epoch.clone() + msd;
+            let prove_commit_due = precommit.pre_commit_epoch + msd;
             if rt.curr_epoch() > prove_commit_due {
                 log::warn!(
                     "skipping commitment for sector {}, too late at {}, due {}",
@@ -831,13 +829,13 @@ impl Actor {
         })?;
         confirm_sector_proofs_valid_internal(rt, precommits_to_confirm.clone())?;
         // Compute and burn the aggregate network fee. We need to re-load the state as
-	    // confirmSectorProofsValid can change it.
+        // confirmSectorProofsValid can change it.
         let state: State = rt.state()?;
-        let aggregate_fee = aggregate_network_fee(precommits_to_confirm.len() as i64, rt.base_fee());
-        let unlocked_balance = state.get_unlocked_balance(&rt.current_balance()?)
-            .map_err(|_e| {
-                actor_error!(ErrIllegalState, "failed to determine unlocked balance")
-            })?;
+        let aggregate_fee =
+            aggregate_network_fee(precommits_to_confirm.len() as i64, rt.base_fee());
+        let unlocked_balance = state
+            .get_unlocked_balance(&rt.current_balance()?)
+            .map_err(|_e| actor_error!(ErrIllegalState, "failed to determine unlocked balance"))?;
         if unlocked_balance < aggregate_fee {
             return Err(actor_error!(
                 ErrInsufficientFunds,
@@ -1083,9 +1081,9 @@ impl Actor {
         Ok(())
     }
 
-    // Pledges to seal and commit a single sector.
-    // See PreCommitSectorBatch for details.
-    // This method may be deprecated and removed in the future
+    /// Pledges to seal and commit a single sector.
+    /// See PreCommitSectorBatch for details.
+    /// This method may be deprecated and removed in the future
     fn pre_commit_sector<BS, RT>(
         rt: &mut RT,
         params: PreCommitSectorParams,
@@ -1265,15 +1263,13 @@ impl Actor {
             for (i, precommit) in params.sectors.iter().enumerate() {
                 // Sector must have the same Window PoSt proof type as the miner's recorded seal type.
                 let sector_wpost_proof = precommit.seal_proof
-                    .registered_window_post_proof()
-                    .map_err(|_e|
-                        actor_error!(
-                            ErrIllegalArgument,
-                            "failed to lookup Window PoSt proof type for sector seal proof {}", 
-                            i64::from(precommit.seal_proof)
-                        )
-                    )?;
-
+                .registered_window_post_proof()
+                .map_err(|_e|
+                    actor_error!(
+                        ErrIllegalArgument,
+                        "failed to lookup Window PoSt proof type for sector seal proof {}", 
+                        i64::from(precommit.seal_proof)
+                    ))?;
                 if sector_wpost_proof != info.window_post_proof_type {
                     return Err(actor_error!(ErrIllegalArgument, "sector Window PoSt proof type %d must match miner Window PoSt proof type {} (seal proof type {})", i64::from(sector_wpost_proof), i64::from(info.window_post_proof_type)));
                 }
@@ -2477,7 +2473,11 @@ impl Actor {
                     .chain(&[info.worker, info.owner]),
             )?;
 
-            state.allocate_sector_numbers(rt.store(), mask_sector_numbers, CollisionPolicy::AllowCollisions)
+            state.allocate_sector_numbers(
+                rt.store(),
+                mask_sector_numbers,
+                CollisionPolicy::AllowCollisions,
+            )
         })?;
 
         Ok(())
@@ -3991,15 +3991,6 @@ where
     let power_total = request_current_total_power(rt)?;
     let circulating_supply = rt.total_fil_circ_supply()?;
 
-    // 1. Activate deals, skipping pre-commits with invalid deals.
-	//    - calls the market actor.
-	// 2. Reschedule replacement sector expiration.
-	//    - loads and saves sectors
-	//    - loads and saves deadlines/partitions
-	// 3. Add new sectors.
-	//    - loads and saves sectors.
-	//    - loads and saves deadlines/partitions
-	//
     // Ideally, we'd combine some of these operations, but at least we have
     // a constant number of them.
     // Committed-capacity sectors licensed for early removal by new sectors being proven.

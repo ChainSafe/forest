@@ -10,7 +10,7 @@ use crate::{
 };
 use clock::ChainEpoch;
 use fil_types::{StoragePower, FILECOIN_PRECISION};
-use num_bigint::{BigInt, Integer, num_integer::div_floor};
+use num_bigint::{num_integer::div_floor, BigInt, Integer};
 use num_traits::Zero;
 use std::cmp::{self, max};
 
@@ -280,7 +280,7 @@ pub fn locked_reward_from_reward(reward: TokenAmount) -> (TokenAmount, &'static 
     (lock_amount, &REWARD_VESTING_SPEC)
 }
 
-lazy_static!{
+lazy_static! {
     static ref ESTIMATED_SINGLE_PROOF_GAS_USAGE: BigInt = BigInt::from(65733297);
     static ref BATCH_DISCOUNT_NUM: BigInt = BigInt::from(1);
     static ref BATCH_DISCOUNT_DENOM: BigInt = BigInt::from(20);
@@ -289,8 +289,9 @@ lazy_static!{
 
 pub fn aggregate_network_fee(aggregate_size: i64, base_fee: &TokenAmount) -> TokenAmount {
     let effective_gas_fee = max(base_fee, &*BATCH_BALANCER);
-    let network_fee_num = effective_gas_fee * &*ESTIMATED_SINGLE_PROOF_GAS_USAGE * aggregate_size * &*BATCH_DISCOUNT_NUM;
+    let network_fee_num = effective_gas_fee
+        * &*ESTIMATED_SINGLE_PROOF_GAS_USAGE
+        * aggregate_size
+        * &*BATCH_DISCOUNT_NUM;
     div_floor(network_fee_num, BATCH_DISCOUNT_DENOM.clone())
 }
-
-
