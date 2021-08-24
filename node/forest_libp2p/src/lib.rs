@@ -20,7 +20,10 @@ pub use self::config::*;
 pub use self::service::*;
 
 // Re-export some libp2p types
-pub use libipld::multihash::Multihash;
-pub use libp2p;
-pub use libp2p::core::PeerId;
-pub use libp2p::multiaddr::{Multiaddr, Protocol};
+pub use libipld::{multibase, multihash::Multihash};
+pub use libp2p::{
+    self,
+    core::PeerId,
+    gossipsub::Topic,
+    multiaddr::{Multiaddr, Protocol},
+};

@@ -9,8 +9,10 @@ use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
 };
-use async_std::channel::{unbounded, Receiver, Sender};
-use async_std::{stream, task};
+use async_std::{
+    channel::{unbounded, Receiver, Sender},
+    stream, task,
+};
 use chain::ChainStore;
 use forest_blocks::GossipBlock;
 use forest_cid::{Cid, Code::Blake2b256};
@@ -108,9 +110,9 @@ pub enum NetworkMessage {
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    NetAddrsListen(OneShotSender<(PeerId, Multiaddr)>),
-    NetPeers(OneShotSender<HashMap<PeerId, Multiaddr>>),
-    NetConnect(OneShotSender<bool>, PeerId, Multiaddr),
+    NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
+    NetPeers(OneShotSender<HashMap<PeerId, Vec<Multiaddr>>>),
+    NetConnect(OneShotSender<bool>, PeerId, Vec<Multiaddr>),
     NetDisconnect(OneShotSender<()>, PeerId),
 }
 
@@ -188,7 +190,9 @@ where
 
     /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
     pub async fn run(mut self) {
-        let mut swarm_stream = self.swarm.fuse();
+        // let swarm_behaviour = self.swarm.behaviour_mut();
+        // let peers_len = swarm_behaviour.peers().len();
+        // let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
         let mut interval = stream::interval(Duration::from_secs(15)).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
@@ -196,7 +200,7 @@ where
 
         loop {
             select! {
-                swarm_event = swarm_stream.next() => match swarm_event {
+                swarm_event = self.swarm.next() => match swarm_event {
                     // outbound events
                     Some(event) => match event {
                         SwarmEvent::Behaviour(ForestBehaviourEvent::PeerConnected(peer_id)) => {
@@ -298,6 +302,7 @@ where
                                 trace!("Failed to get data: {}", e.to_string());
                             }
                         },
+                        _ => { break; }
                     }
                     None => { break; }
                 },
@@ -327,15 +332,15 @@ where
                         NetworkMessage::JSONRPCRequest { method } => {
                             match method {
                                 NetRPCMethods::NetAddrsListen(response_channel) => {
-                                    let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
-                                    let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
+                                    let listeners: Vec<_> = self.swarm.listeners().cloned().collect();
+                                    let peer_id = self.swarm.local_peer_id();
 
                                     if response_channel.send((*peer_id, listeners)).is_err() {
                                         warn!("Failed to get Libp2p listeners");
                                     }
                                 }
                                 NetRPCMethods::NetPeers(response_channel) => {
-                                    let peer_addresses: &HashMap<PeerId, Multiaddr> = self.swarm.behaviour_mut().peer_addresses();
+                                    let peer_addresses: &HashMap<PeerId, Vec<Multiaddr>> = self.swarm.behaviour_mut().peer_addresses();
 
                                     if response_channel.send(peer_addresses.to_owned()).is_err() {
                                         warn!("Failed to get Libp2p peers");
@@ -348,7 +353,7 @@ where
                                     for multiaddr in addresses.iter_mut() {
                                         multiaddr.push(Protocol::P2p(Multihash::from_bytes(&peer_id.to_bytes()).unwrap()));
 
-                                        if Swarm::dial_addr(swarm_stream.get_mut(), multiaddr.clone()).is_ok() {
+                                        if  self.swarm.dial_addr(multiaddr.clone()).is_ok() {
                                             success = true;
                                             break;
                                         };
@@ -372,7 +377,8 @@ where
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
-                    info!("Peers connected: {}", swarm_stream.behaviour_mut().peers().len());
+                    let peers_len = self.swarm.behaviour_mut().peers().len();
+                    info!("Peers connected: {}", peers_len);
                 }
             };
         }

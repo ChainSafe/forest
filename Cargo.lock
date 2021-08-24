@@ -5737,6 +5737,7 @@ dependencies = [
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",
+ "libipld",
  "log",
  "message_pool",
  "networks",

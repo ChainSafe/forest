@@ -132,11 +132,11 @@ pub(crate) enum ForestBehaviourEvent {
 impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
     fn inject_event(&mut self, event: DiscoveryOut) {
         match event {
-            DiscoveryOut::Connected(peer, address) => {
+            DiscoveryOut::Connected(peer) => {
                 self.bitswap.connect(peer);
                 self.events.push(ForestBehaviourEvent::PeerConnected(peer));
             }
-            DiscoveryOut::Disconnected(peer, address) => {
+            DiscoveryOut::Disconnected(peer) => {
                 self.events
                     .push(ForestBehaviourEvent::PeerDisconnected(peer));
             }
@@ -533,12 +533,12 @@ impl ForestBehaviour {
     }
 
     /// Returns a set of peer ids
-    pub fn peers(&mut self) -> &HashSet<PeerId> {
+    pub fn peers(&self) -> &HashSet<PeerId> {
         self.discovery.peers()
     }
 
     /// Returns a map of peer ids and their multiaddresses
-    pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Multiaddr> {
+    pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Vec<Multiaddr>> {
         self.discovery.peer_addresses()
     }
 

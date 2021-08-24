@@ -7,7 +7,7 @@ use log::error;
 
 use beacon::Beacon;
 use blockstore::BlockStore;
-use forest_libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use forest_libp2p::{multibase, NetRPCMethods, NetworkMessage, PeerId};
 use rpc_api::{
     data_types::{AddrInfo, RPCState},
     net_api::*,
