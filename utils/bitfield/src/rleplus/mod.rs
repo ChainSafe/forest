@@ -84,7 +84,10 @@ impl Serialize for BitField {
     {
         let bytes = self.to_bytes();
         if bytes.len() > MAX_ENCODED_SIZE {
-            return Err(serde::ser::Error::custom(format!("encoded bitfield was too large {}", bytes.len())));
+            return Err(serde::ser::Error::custom(format!(
+                "encoded bitfield was too large {}",
+                bytes.len()
+            )));
         }
         serde_bytes::serialize(&bytes, serializer)
     }
