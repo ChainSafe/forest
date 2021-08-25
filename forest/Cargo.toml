@@ -26,6 +26,7 @@ forest_car = { path = "../ipld/car" }
 forest_crypto = { version = "0.5.2", features = ["json"] }
 tokio = { version = "1.0", features = ["sync"] }
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
+num-rational = "0.4.0"
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = "0.1"
 chain = { path = "../blockchain/chain" }

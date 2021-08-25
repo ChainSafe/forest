@@ -6,7 +6,9 @@ use std::str::FromStr;
 use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
 use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
-use num_bigint::BigInt;
+use fil_types::FILECOIN_PRECISION;
+use num_bigint::{BigInt, Sign};
+use num_rational::Ratio;
 use rpc_client::{chain_head, state_get_actor, state_list_actors, state_miner_power};
 use structopt::StructOpt;
 
@@ -130,10 +132,11 @@ impl StateCommands {
 
                 if let Some(state) = actor {
                     let a: ActorState = state.into();
+
                     println!("Address:\t{}", address);
-                    println!("Balance:\t{}", a.balance);
-                    println!("Nonce:\t{}", a.sequence);
-                    println!("Code:\t{}", a.code);
+                    println!("Balance:\t{} FIL", a.balance);
+                    println!("Nonce:  \t{}", a.sequence);
+                    println!("Code:   \t{}", a.code);
                 } else {
                     println!("No information for actor found")
                 }
