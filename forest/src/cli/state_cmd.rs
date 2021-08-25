@@ -6,10 +6,11 @@ use std::str::FromStr;
 use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
 use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
-use fil_types::FILECOIN_PRECISION;
-use num_bigint::{BigInt, Sign};
-use num_rational::Ratio;
-use rpc_client::{chain_head, state_get_actor, state_list_actors, state_miner_power};
+use num_bigint::BigInt;
+use rpc_client::{
+    chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
+    state_miner_power,
+};
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, to_size_string};
@@ -155,7 +156,34 @@ impl StateCommands {
                     println!("{}", addr.to_string());
                 }
             }
-            Self::Lookup { reverse, address } => {}
+            Self::Lookup { reverse, address } => {
+                let address =
+                    Address::from_str(address).expect(&format!("Invalid address: {}", address));
+
+                let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
+
+                let TipsetJson(ts) = tipset;
+
+                let params = (AddressJson(address), TipsetKeysJson(ts.key().to_owned()));
+
+                if !reverse {
+                    match state_lookup(params).await.map_err(handle_rpc_err).unwrap() {
+                        Some(AddressJson(addr)) => println!("{}", addr),
+                        None => println!("No address found"),
+                    };
+                } else {
+                    match state_account_key(params)
+                        .await
+                        .map_err(handle_rpc_err)
+                        .unwrap()
+                    {
+                        Some(AddressJson(addr)) => {
+                            println!("{}", addr)
+                        }
+                        None => println!("Nothing found"),
+                    };
+                }
+            }
         }
     }
 }

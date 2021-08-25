@@ -472,7 +472,12 @@ pub(crate) async fn state_lookup_id<
         .tipset_from_keys(&key.into())
         .await?;
     let state = state_for_ts::<DB, V>(&state_manager, tipset).await?;
-    state.lookup_id(&address).map_err(|e| e.into())
+    let lookup_result = state.lookup_id(&address)?;
+
+    match lookup_result {
+        Some(addr) => Ok(Some(AddressJson(addr))),
+        None => Ok(None),
+    }
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage Market

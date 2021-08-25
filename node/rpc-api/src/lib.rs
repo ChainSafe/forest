@@ -438,7 +438,7 @@ pub mod state_api {
 
     pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupId";
     pub type StateLookupIdParams = (AddressJson, TipsetKeysJson);
-    pub type StateLookupIdResult = Option<Address>;
+    pub type StateLookupIdResult = Option<AddressJson>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);

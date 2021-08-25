@@ -24,3 +24,9 @@ pub async fn state_list_actors(
 pub async fn state_lookup(params: StateLookupIdParams) -> Result<StateLookupIdResult, Error> {
     call(STATE_LOOKUP_ID, params).await
 }
+
+pub async fn state_account_key(
+    params: StateAccountKeyParams,
+) -> Result<StateAccountKeyResult, Error> {
+    call(STATE_ACCOUNT_KEY, params).await
+}
