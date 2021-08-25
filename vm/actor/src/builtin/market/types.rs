@@ -4,6 +4,7 @@
 use super::deal::{ClientDealProposal, DealProposal, DealState};
 use crate::DealWeight;
 use address::Address;
+use cid::Cid;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::RegisteredSealProof;
@@ -84,14 +85,17 @@ pub struct ActivateDealsParams {
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ComputeDataCommitmentParams {
-    pub deal_ids: Vec<DealID>,
-    pub sector_type: RegisteredSealProof,
+    pub inputs: Vec<SectorDataSpec>,
 }
 
 #[derive(Serialize_tuple)]
 pub struct ComputeDataCommitmentParamsRef<'a> {
-    pub deal_ids: &'a [DealID],
-    pub sector_type: RegisteredSealProof,
+    pub inputs: &'a [SectorDataSpec],
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct ComputeDataCommitmentReturn {
+    pub commds: Vec<Cid>,
 }
 
 /// A specialization of a array to deals.
@@ -99,3 +103,9 @@ pub type DealArray<'bs, BS> = Amt<'bs, DealProposal, BS>;
 
 /// A specialization of a array to deals.
 pub type DealMetaArray<'bs, BS> = Amt<'bs, DealState, BS>;
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct SectorDataSpec {
+    pub deal_ids: Vec<DealID>,
+    pub sector_type: RegisteredSealProof,
+}

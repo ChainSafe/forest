@@ -20,7 +20,7 @@ use crate::{
 use address::Address;
 use ahash::AHashMap;
 use byteorder::{BigEndian, ByteOrder};
-use cid::{Cid, Prefix};
+use cid::Prefix;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
@@ -653,7 +653,7 @@ impl Actor {
     fn compute_data_commitment<BS, RT>(
         rt: &mut RT,
         params: ComputeDataCommitmentParams,
-    ) -> Result<Cid, ActorError>
+    ) -> Result<ComputeDataCommitmentReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -665,35 +665,38 @@ impl Actor {
         let proposals = DealArray::load(&st.proposals, rt.store()).map_err(|e| {
             e.downcast_default(ExitCode::ErrIllegalState, "failed to load deal proposals")
         })?;
-
-        let mut pieces: Vec<PieceInfo> = Vec::with_capacity(params.deal_ids.len());
-        for deal_id in params.deal_ids {
-            let deal = proposals
-                .get(deal_id as usize)
+        let mut commds = Vec::with_capacity(params.inputs.len());
+        for comm_input in params.inputs.iter() {
+            let mut pieces: Vec<PieceInfo> = Vec::with_capacity(comm_input.deal_ids.len());
+            for deal_id in &comm_input.deal_ids {
+                let deal = proposals
+                    .get(*deal_id as usize)
+                    .map_err(|e| {
+                        e.downcast_default(
+                            ExitCode::ErrIllegalState,
+                            format!("failed to get deal_id ({})", deal_id),
+                        )
+                    })?
+                    .ok_or_else(|| {
+                        actor_error!(ErrNotFound, "proposal doesn't exist ({})", deal_id)
+                    })?;
+                pieces.push(PieceInfo {
+                    cid: deal.piece_cid,
+                    size: deal.piece_size,
+                });
+            }
+            let commd = rt
+                .compute_unsealed_sector_cid(comm_input.sector_type, &pieces)
                 .map_err(|e| {
                     e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("failed to get deal_id ({})", deal_id),
+                        ExitCode::SysErrIllegalArgument,
+                        "failed to compute unsealed sector CID",
                     )
-                })?
-                .ok_or_else(|| actor_error!(ErrNotFound, "proposal doesn't exist ({})", deal_id))?;
-
-            pieces.push(PieceInfo {
-                cid: deal.piece_cid,
-                size: deal.piece_size,
-            });
+                })?;
+            commds.push(commd);
         }
 
-        let commd = rt
-            .compute_unsealed_sector_cid(params.sector_type, &pieces)
-            .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::SysErrIllegalArgument,
-                    "failed to compute unsealed sector CID",
-                )
-            })?;
-
-        Ok(commd)
+        Ok(ComputeDataCommitmentReturn { commds })
     }
 
     fn cron_tick<BS, RT>(rt: &mut RT) -> Result<(), ActorError>

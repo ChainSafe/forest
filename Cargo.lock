@@ -2311,6 +2311,7 @@ dependencies = [
 name = "forest_blocks"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "base64 0.13.0",
  "beacon",
  "byteorder 1.4.3",

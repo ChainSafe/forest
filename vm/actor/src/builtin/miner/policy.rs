@@ -12,6 +12,13 @@ use num_bigint::{BigInt, Integer};
 use std::cmp;
 use vm::TokenAmount;
 
+/// Maximum amount of sectors that can be aggregated.
+pub const MAX_AGGREGATED_SECTORS: usize = 819;
+/// Minimum amount of sectors that can be aggregated.
+pub const MIN_AGGREGATED_SECTORS: usize = 4;
+/// Maximum total aggregated proof size.
+pub const MAX_AGGREGATED_PROOF_SIZE: usize = 192000;
+
 /// The maximum number of sector pre-commitments in a single batch.
 /// 32 sectors per epoch would support a single miner onboarding 1EiB of 32GiB sectors in 1 year.
 pub const PRE_COMMIT_SECTOR_BATCH_MAX_SIZE: usize = 256;
@@ -19,6 +26,7 @@ pub const PRE_COMMIT_SECTOR_BATCH_MAX_SIZE: usize = 256;
 /// stay in state for a period of time creating a grace period during which a late-running aggregated prove-commit
 /// can still prove its non-expired precommits without resubmitting a message
 pub const EXPIRED_PRE_COMMIT_CLEAN_UP_DELAY: i64 = 8 * EPOCHS_IN_HOUR;
+
 /// The period over which all a miner's active sectors will be challenged.
 pub const WPOST_PROVING_PERIOD: ChainEpoch = EPOCHS_IN_DAY;
 /// The duration of a deadline's challenge window, the period before a deadline when the challenge is available.
@@ -120,10 +128,9 @@ pub fn max_prove_commit_duration(proof: RegisteredSealProof) -> Option<ChainEpoc
     use RegisteredSealProof::*;
     match proof {
         StackedDRG32GiBV1 | StackedDRG2KiBV1 | StackedDRG8MiBV1 | StackedDRG512MiBV1
-        | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG2KiBV1P1 | StackedDRG8MiBV1P1
-        | StackedDRG512MiBV1P1 | StackedDRG64GiBV1P1 => {
-            Some(EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY)
-        }
+        | StackedDRG64GiBV1 => Some(EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
+        StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1 | StackedDRG512MiBV1P1 | StackedDRG8MiBV1P1
+        | StackedDRG2KiBV1P1 => Some(6 * EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
         _ => None,
     }
 }
