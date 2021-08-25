@@ -355,7 +355,7 @@ pub mod state_api {
     use actor::miner::{
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
-    use address::{json::AddressJson, Address};
+    use address::json::AddressJson;
     use bitfield::json::BitFieldJson;
     use blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
