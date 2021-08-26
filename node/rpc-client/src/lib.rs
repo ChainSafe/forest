@@ -156,7 +156,7 @@ where
         Some(jwt) => surf::post(api_url)
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_req)?)
-            .header("Authorization", jwt),
+            .header("Authorization", format!("Bearer: {}", jwt)),
         None => surf::post(api_url)
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_req)?),

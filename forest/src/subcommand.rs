@@ -3,7 +3,8 @@
 
 use auth::{create_token, ADMIN, JWT_IDENTIFIER};
 use rpassword::read_password;
-use rpc_client::API_INFO;
+use rpc_client::{API_INFO, API_INFO_KEY};
+use std::env;
 use std::path::PathBuf;
 use wallet::{KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME};
 
@@ -54,7 +55,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         }
     };
 
-    {
+    if env::var(API_INFO_KEY).is_err() {
         let mut api_info = API_INFO.write().await;
         api_info.token = Some(token);
     }
