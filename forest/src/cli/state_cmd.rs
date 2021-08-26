@@ -6,11 +6,13 @@ use std::str::FromStr;
 use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
 use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
+use fil_types::FILECOIN_PRECISION;
 use num_bigint::BigInt;
 use rpc_client::{
     chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
     state_miner_power,
 };
+use rug::Float;
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, to_size_string};
@@ -26,7 +28,7 @@ pub enum StateCommands {
     },
     #[structopt(about = "Print actor information")]
     GetActor {
-        #[structopt(short)]
+        #[structopt(about = "Address of actor to query")]
         address: String,
     },
     #[structopt(about = "List all actors on the network")]
@@ -72,17 +74,19 @@ impl StateCommands {
                     ),
                 };
 
-                let power = state_miner_power((
+                let params = (
                     Some(
                         Address::from_str(&miner_address)
                             .expect("error: invalid address")
                             .into(),
                     ),
                     tipset_keys_json,
-                ))
-                .await
-                .map_err(handle_rpc_err)
-                .unwrap();
+                );
+
+                let power = state_miner_power(params)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 let mp = power.miner_power;
                 let tp = power.total_power;
@@ -116,8 +120,16 @@ impl StateCommands {
                 if let Some(state) = actor {
                     let a: ActorState = state.into();
 
+                    let raw = Float::parse_radix(a.balance.to_string(), 10);
+                    let b = Float::with_val(128, raw.unwrap());
+
+                    let raw = Float::parse_radix(FILECOIN_PRECISION.to_string().as_bytes(), 10);
+                    let p = Float::with_val(64, raw.unwrap());
+
+                    let fil = Float::with_val(128, b / p);
+
                     println!("Address:\t{}", address);
-                    println!("Balance:\t{} FIL", a.balance);
+                    println!("Balance:\t{:.23} FIL", fil);
                     println!("Nonce:  \t{}", a.sequence);
                     println!("Code:   \t{}", a.code);
                 } else {

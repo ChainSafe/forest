@@ -552,6 +552,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "az"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d6dff4a1892b54d70af377bf7a17064192e822865791d812957f21e3108c325"
+
+[[package]]
 name = "backtrace"
 version = "0.3.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2083,6 +2089,7 @@ dependencies = [
  "rpc",
  "rpc-api",
  "rpc-client",
+ "rug",
  "serde",
  "serde_json",
  "state_manager",
@@ -2847,6 +2854,16 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "gmp-mpfr-sys"
+version = "1.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c909eb55443867ff73a36c7c28784f02496e657c9618cdfed0c70a8379b911a"
+dependencies = [
+ "libc",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -5435,6 +5452,17 @@ dependencies = [
  "serde",
  "serde_json",
  "surf",
+]
+
+[[package]]
+name = "rug"
+version = "1.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee0c6e98de59509e62e09f3456b23cebb75dad21928882016f169bb628843459"
+dependencies = [
+ "az",
+ "gmp-mpfr-sys",
+ "libc",
 ]
 
 [[package]]
