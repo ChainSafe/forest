@@ -22,8 +22,11 @@ pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
+use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use num_bigint::BigInt;
+use rug::float::ParseFloatError;
+use rug::Float;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::io::{self, Write};
@@ -330,4 +333,15 @@ pub(super) fn print_stdout(out: String) {
         .write("\n".as_bytes())
         .map_err(|e| handle_rpc_err(e.into()))
         .unwrap();
+}
+
+/// Convert an atto FIL balance to FIL
+pub(super) fn balance_to_fil(balance: BigInt) -> Result<Float, ParseFloatError> {
+    let raw = Float::parse_radix(balance.to_string(), 10)?;
+    let b = Float::with_val(128, raw);
+
+    let raw = Float::parse_radix(FILECOIN_PRECISION.to_string().as_bytes(), 10)?;
+    let p = Float::with_val(64, raw);
+
+    Ok(Float::with_val(128, b / p))
 }

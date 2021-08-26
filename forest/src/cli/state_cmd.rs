@@ -6,16 +6,14 @@ use std::str::FromStr;
 use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
 use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
-use fil_types::FILECOIN_PRECISION;
 use num_bigint::BigInt;
 use rpc_client::{
     chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
     state_miner_power,
 };
-use rug::Float;
 use structopt::StructOpt;
 
-use crate::cli::{cli_error_and_die, to_size_string};
+use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
 
 use super::handle_rpc_err;
 
@@ -120,16 +118,11 @@ impl StateCommands {
                 if let Some(state) = actor {
                     let a: ActorState = state.into();
 
-                    let raw = Float::parse_radix(a.balance.to_string(), 10);
-                    let b = Float::with_val(128, raw.unwrap());
-
-                    let raw = Float::parse_radix(FILECOIN_PRECISION.to_string().as_bytes(), 10);
-                    let p = Float::with_val(64, raw.unwrap());
-
-                    let fil = Float::with_val(128, b / p);
-
                     println!("Address:\t{}", address);
-                    println!("Balance:\t{:.23} FIL", fil);
+                    println!(
+                        "Balance:\t{:.23} FIL",
+                        balance_to_fil(a.balance).expect("Couldn't convert balance to fil")
+                    );
                     println!("Nonce:  \t{}", a.sequence);
                     println!("Code:   \t{}", a.code);
                 } else {
