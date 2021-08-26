@@ -111,7 +111,7 @@ pub struct Partition {
     pub active_sectors: BitFieldJson,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateJson {
     #[serde(with = "cid::json")]
@@ -121,6 +121,17 @@ pub struct ActorStateJson {
     nonce: u64,
     #[serde(with = "bigint_ser::json")]
     balance: BigInt,
+}
+
+impl From<ActorStateJson> for ActorState {
+    fn from(a: ActorStateJson) -> Self {
+        Self {
+            code: a.code,
+            state: a.head,
+            sequence: a.nonce,
+            balance: a.balance,
+        }
+    }
 }
 
 impl From<ActorState> for ActorStateJson {

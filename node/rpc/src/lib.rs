@@ -130,6 +130,7 @@ where
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_GET_ACTOR, state_get_actor::<DB, B, V>)
+            .with_method(STATE_LIST_ACTORS, state_list_actors::<DB, B, V>)
             .with_method(STATE_ACCOUNT_KEY, state_account_key::<DB, B, V>)
             .with_method(STATE_LOOKUP_ID, state_lookup_id::<DB, B, V>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB, B>)
@@ -141,6 +142,7 @@ where
                 STATE_MINER_SECTOR_ALLOCATED,
                 state_miner_sector_allocated::<DB, B>,
             )
+            .with_method(STATE_MINER_POWER, state_miner_power::<DB, B, V>)
             .with_method(
                 STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
                 state_miner_pre_commit_deposit_for_power::<DB, B, V>,

@@ -5,6 +5,7 @@
 pub mod auth_ops;
 pub mod chain_ops;
 pub mod net_ops;
+pub mod state_ops;
 pub mod sync_ops;
 pub mod wallet_ops;
 
@@ -29,6 +30,7 @@ pub const RPC_ENDPOINT: &str = "rpc/v0";
 pub use self::auth_ops::*;
 pub use self::chain_ops::*;
 pub use self::net_ops::*;
+pub use self::state_ops::*;
 pub use self::sync_ops::*;
 pub use self::wallet_ops::*;
 
@@ -164,6 +166,7 @@ where
     .await?;
 
     let res = http_res.body_string().await?;
+
     let code = http_res.status() as i64;
 
     if code != 200 {

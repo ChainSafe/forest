@@ -238,7 +238,7 @@ pub mod tipset_keys_json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    #[derive(Deserialize, Serialize)]
+    #[derive(Clone, Debug, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct TipsetKeysJson(#[serde(with = "self")] pub TipsetKeys);
 

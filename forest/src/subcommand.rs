@@ -82,5 +82,8 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         Subcommand::Sync(cmd) => {
             cmd.run().await;
         }
+        Subcommand::State(cmd) => {
+            cmd.run().await;
+        }
     }
 }
