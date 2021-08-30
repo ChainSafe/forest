@@ -12,63 +12,61 @@ use super::cli::{Config, Subcommand};
 
 /// Process CLI subcommand
 pub(super) async fn process(command: Subcommand, config: Config) {
-    let token = match config.rpc_token.to_owned() {
-        Some(token) => token,
-        // If no token argument is passed or configured, attempt to load it from the local keystore
-        None => {
-            let keystore = if config.encrypt_keystore {
-                loop {
-                    println!("Enter the keystore passphrase: ");
+    match env::var(API_INFO_KEY) {
+        Ok(env_var) => {
+            let mut api_info = API_INFO.write().await;
+            let (multiaddr, token) = parse_api_info(env_var);
+            api_info.token = token;
+            api_info.multiaddr = multiaddr;
+        }
+        Err(_) => {
+            let token = match config.rpc_token.to_owned() {
+                Some(token) => token,
+                // If no token argument is passed or configured, attempt to load it from the local keystore
+                None => {
+                    let keystore = if config.encrypt_keystore {
+                        loop {
+                            println!("Enter the keystore passphrase: ");
 
-                    let passphrase = read_password().expect("Error reading passphrase");
+                            let passphrase = read_password().expect("Error reading passphrase");
 
-                    let mut data_dir = PathBuf::from(&config.data_dir);
-                    data_dir.push(ENCRYPTED_KEYSTORE_NAME);
+                            let mut data_dir = PathBuf::from(&config.data_dir);
+                            data_dir.push(ENCRYPTED_KEYSTORE_NAME);
 
-                    if !data_dir.exists() {
-                        println!("The keystore cannot be found from defaults, the environment, or provided arguments");
-                    }
+                            if !data_dir.exists() {
+                                println!("The keystore cannot be found from defaults, the environment, or provided arguments");
+                            }
 
-                    let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
-                        PathBuf::from(&config.data_dir),
-                        passphrase,
-                    ));
+                            let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
+                                PathBuf::from(&config.data_dir),
+                                passphrase,
+                            ));
 
-                    match key_store_init_result {
-                        Ok(ks) => break ks,
-                        Err(_) => {
-                            log::error!("Incorrect passphrase entered.")
+                            match key_store_init_result {
+                                Ok(ks) => break ks,
+                                Err(_) => {
+                                    log::error!("Incorrect passphrase entered.")
+                                }
+                            };
                         }
+                    } else {
+                        KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(&config.data_dir)))
+                            .expect("Error finding keystore")
                     };
+
+                    let key_info = keystore
+                        .get(JWT_IDENTIFIER)
+                        .expect("Keystore initialized with a JWT private key");
+
+                    create_token(ADMIN.to_owned(), key_info.private_key())
+                        .expect("JWT private key parsed into a JWT")
                 }
-            } else {
-                KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(&config.data_dir)))
-                    .expect("Error finding keystore")
             };
 
-            let key_info = keystore
-                .get(JWT_IDENTIFIER)
-                .expect("Keystore initialized with a JWT private key");
-
-            create_token(ADMIN.to_owned(), key_info.private_key())
-                .expect("JWT private key parsed into a JWT")
+            let mut api_info = API_INFO.write().await;
+            api_info.token = Some(token);
         }
     };
-
-    {
-        let mut api_info = API_INFO.write().await;
-
-        match env::var(API_INFO_KEY) {
-            Ok(env_var) => {
-                let (multiaddr, token) = parse_api_info(env_var);
-                api_info.token = token;
-                api_info.multiaddr = multiaddr;
-            }
-            Err(_) => {
-                api_info.token = Some(token);
-            }
-        }
-    }
 
     // Run command
     match command {
