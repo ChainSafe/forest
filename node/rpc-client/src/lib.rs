@@ -37,11 +37,8 @@ pub struct ApiInfo {
     pub token: Option<String>,
 }
 
-pub static API_INFO: Lazy<RwLock<ApiInfo>> = Lazy::new(|| {
-    // Get API_INFO environment variable if exists, otherwise, use default multiaddress
-    let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
-
-    let (multiaddr, token) = match api_info.split_once(':') {
+pub fn parse_api_info(api_info: String) -> (Multiaddr, Option<String>) {
+    match api_info.split_once(':') {
         // Typically this is when a JWT was provided
         Some((jwt, host)) => (
             host.parse().expect("Parse multiaddress"),
@@ -49,8 +46,13 @@ pub static API_INFO: Lazy<RwLock<ApiInfo>> = Lazy::new(|| {
         ),
         // Use entire API_INFO env var as host string
         None => (api_info.parse().expect("Parse multiaddress"), None),
-    };
+    }
+}
 
+pub static API_INFO: Lazy<RwLock<ApiInfo>> = Lazy::new(|| {
+    // Get API_INFO environment variable if exists, otherwise, use default multiaddress
+    let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
+    let (multiaddr, token) = parse_api_info(api_info);
     RwLock::new(ApiInfo { multiaddr, token })
 });
 
