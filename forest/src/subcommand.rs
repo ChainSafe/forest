@@ -55,16 +55,18 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         }
     };
 
-    let mut api_info = API_INFO.write().await;
+    {
+        let mut api_info = API_INFO.write().await;
 
-    match env::var(API_INFO_KEY) {
-        Ok(env_var) => {
-            let (multiaddr, token) = parse_api_info(env_var);
-            api_info.token = token;
-            api_info.multiaddr = multiaddr;
-        }
-        Err(_) => {
-            api_info.token = Some(token);
+        match env::var(API_INFO_KEY) {
+            Ok(env_var) => {
+                let (multiaddr, token) = parse_api_info(env_var);
+                api_info.token = token;
+                api_info.multiaddr = multiaddr;
+            }
+            Err(_) => {
+                api_info.token = Some(token);
+            }
         }
     }
 
