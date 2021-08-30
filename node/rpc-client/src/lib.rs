@@ -20,10 +20,10 @@ use std::env;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
-pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
 pub const DEFAULT_PORT: &str = "1234";
 pub const DEFAULT_PROTOCOL: &str = "http";
 pub const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
+pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
 pub const RPC_ENDPOINT: &str = "rpc/v0";
 
 pub use self::auth_ops::*;
