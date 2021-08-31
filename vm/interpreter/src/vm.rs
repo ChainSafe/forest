@@ -221,7 +221,9 @@ where
         for i in parent_epoch..epoch {
             if i > parent_epoch {
                 // run cron for null rounds if any
-                self.run_cron(i, callback.as_mut())?;
+                if let Err(e) = self.run_cron(i, callback.as_mut()) {
+                    log::error!("Beginning of epoch cron failed to run: {}", e);
+                }
             }
             if let Some(new_state) = self.migrate_state(i, store.clone())? {
                 self.state = StateTree::new_from_root(self.store, &new_state)?
@@ -304,7 +306,9 @@ where
             }
         }
 
-        self.run_cron(epoch, callback.as_mut())?;
+        if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
+            log::error!("End of epoch cron failed to run: {}", e);
+        }
         Ok(receipts)
     }
 

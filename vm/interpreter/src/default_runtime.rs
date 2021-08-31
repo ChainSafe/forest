@@ -1004,8 +1004,7 @@ where
         &self,
         vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
-        // Gas charged for batch verify in actor
-
+        let internal_error = std::sync::atomic::AtomicBool::new(false);
         let out = vis
             .par_iter()
             .with_min_len(vis.len() / *NUM_CPUS)
@@ -1013,20 +1012,36 @@ where
                 let results = seals
                     .par_iter()
                     .map(|s| {
-                        if let Err(err) = V::verify_seal(s) {
-                            debug!(
-                                "seal verify in batch failed (miner: {}) (err: {})",
-                                addr, err
-                            );
-                            false
-                        } else {
-                            true
+                        let verify_seal_result = std::panic::catch_unwind(|| V::verify_seal(s));
+                        match verify_seal_result {
+                            Ok(res) => {
+                                if let Err(err) = res {
+                                    debug!(
+                                        "seal verify in batch failed (miner: {}) (err: {})",
+                                        addr, err
+                                    );
+                                    false
+                                } else {
+                                    true
+                                }
+                            }
+                            Err(e) => {
+                                internal_error.store(true, std::sync::atomic::Ordering::Relaxed);
+                                log::error!("seal verify internal fail (miner: {})", addr);
+                                false
+                            }
                         }
                     })
                     .collect();
                 (addr, results)
             })
             .collect();
+
+       // if internal_error.into_inner() {
+        //    return Err("There is an internal error in batch_verify_seals"
+         //       .to_owned()
+           //     .into());
+       // }
         Ok(out)
     }
 
