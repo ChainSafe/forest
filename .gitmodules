@@ -7,3 +7,6 @@
 [submodule "tests/conformance_tests/test-vectors"]
 	path = tests/conformance_tests/test-vectors
 	url = https://github.com/filecoin-project/test-vectors.git
+[submodule "tests/specs_actors/specs-actors"]
+	path = tests/specs_actors/specs-actors
+	url = git@github.com:filecoin-project/specs-actors.git
