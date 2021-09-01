@@ -399,7 +399,14 @@ impl BlockHeader {
             return Ok(());
         }
 
-        let last = self.beacon_entries.last().unwrap();
+        let last = match self.beacon_entries.last() {
+            Some(last) => last,
+            None => {
+                return Err(Error::Validation(
+                    "Block must include at least 1 beacon entry".to_string(),
+                ));
+            }
+        };
         if last.round() != max_round {
             return Err(Error::Validation(format!(
                 "expected final beacon entry in block to be at round {}, got: {}",
@@ -448,8 +455,15 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::BlockHeader;
+    use crate::{errors::Error, BlockHeader, Ticket, TipsetKeys};
+    use address::Address;
+    use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
+    use cid::Code::Identity;
     use encoding::Cbor;
+    use num_bigint::BigInt;
+
+    use std::sync::Arc;
+    use std::time::Duration;
 
     #[test]
     fn symmetric_header_encoding() {
@@ -467,5 +481,36 @@ mod tests {
                 .parse()
                 .unwrap())
             .unwrap();
+    }
+    #[test]
+    fn beacon_entry_exists() {
+        // Setup
+        let block_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .beacon_entries(Vec::new())
+            .build()
+            .unwrap();
+        let beacon_schedule = Arc::new(BeaconSchedule(vec![BeaconPoint {
+            height: 0,
+            beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
+        }]));
+        let chain_epoch = 0;
+        let beacon_entry = BeaconEntry::new(1, vec![]);
+        // Validate_block_drand
+        if let Err(e) = async_std::task::block_on(block_header.validate_block_drand(
+            &beacon_schedule,
+            chain_epoch,
+            &beacon_entry,
+        )) {
+            // Assert error is for not including a beacon entry in the block
+            match e {
+                Error::Validation(why) => {
+                    assert_eq!(why, "Block must include at least 1 beacon entry");
+                }
+                _ => {
+                    panic!("validate block drand must detect a beacon entry in the block header");
+                }
+            }
+        }
     }
 }

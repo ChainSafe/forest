@@ -207,6 +207,11 @@ pub struct WorkerKeyChange {
 pub type PreCommitSectorParams = SectorPreCommitInfo;
 
 #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
+pub struct PreCommitSectorBatchParams {
+    pub sectors: Vec<SectorPreCommitInfo>,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
 pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
@@ -292,4 +297,11 @@ pub struct ApplyRewardParams {
 pub struct DisputeWindowedPoStParams {
     pub deadline: usize,
     pub post_index: u64, // only one is allowed at a time to avoid loading too many sector infos.
+}
+
+#[derive(Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct ProveCommitAggregateParams {
+    pub sector_numbers: UnvalidatedBitField,
+    #[serde(with = "serde_bytes")]
+    pub aggregate_proof: Vec<u8>,
 }
