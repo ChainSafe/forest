@@ -6,6 +6,7 @@ mod chain_cmd;
 mod config;
 mod fetch_params_cmd;
 mod genesis_cmd;
+mod mpool_cmd;
 mod net_cmd;
 mod sync_cmd;
 mod wallet_cmd;
@@ -15,6 +16,7 @@ pub(super) use self::chain_cmd::ChainCommands;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
+pub(super) use self::mpool_cmd::MpoolCommands;
 pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
@@ -72,8 +74,12 @@ pub enum Subcommand {
 
     #[structopt(name = "wallet", about = "Manage wallet")]
     Wallet(WalletCommands),
+
     #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
     Sync(SyncCommands),
+
+    #[structopt(name = "mpool", about = "Interact with the Message Pool")]
+    Mpool(MpoolCommands),
 }
 
 /// CLI options
@@ -226,7 +232,7 @@ pub(super) async fn block_until_sigint() {
     ctrlc_oneshot.await.unwrap();
 }
 
-/// Returns a stringified JSON-RPC error
+/// Print a stringified JSON-RPC error and exit
 pub(super) fn handle_rpc_err(e: JsonRpcError) {
     match e {
         JsonRpcError::Full {
