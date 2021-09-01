@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["PRECISION",""]],"fn":[["poly_parse",""],["poly_val","polyval evaluates a polynomial given by coefficients `p` in Q.128 format at point `x` in Q.128 format. Output is in Q.128. Coefficients should be ordered from the highest order coefficient to the lowest."]]});

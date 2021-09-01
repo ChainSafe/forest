@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["metrics"] = [{"text":"impl Collector for <a class=\"struct\" href=\"metrics/db/struct.DBCollector.html\" title=\"struct metrics::db::DBCollector\">DBCollector</a>","synthetic":false,"types":["metrics::db::DBCollector"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

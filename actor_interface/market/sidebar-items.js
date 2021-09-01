@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["BalanceTable",""],["DealProposals",""],["DealStates",""],["State","Market actor state."]],"static":[["ADDRESS","Market actor address."]],"struct":[["DealProposal",""],["DealState",""]],"type":[["Method","Market actor method."]]});

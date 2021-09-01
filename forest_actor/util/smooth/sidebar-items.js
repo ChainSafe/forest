@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["extrapolated_cum_sum_of_ratio","Extrapolate the CumSumRatio given two filters."],["ln","The natural log of Q.128 x."]],"struct":[["AlphaBetaFilter",""],["DEFAULT_ALPHA",""],["DEFAULT_BETA",""],["DENOM",""],["EPSILON",""],["FilterEstimate",""],["LN_2",""],["NUM",""]]});

@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `vm/actor/src/builtin/reward/expneg.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>expneg.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../../forest_actor/index.html'><div class='logo-container rust-logo'><img src='../../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<span id="2"> 2</span>
+<span id="3"> 3</span>
+<span id="4"> 4</span>
+<span id="5"> 5</span>
+<span id="6"> 6</span>
+<span id="7"> 7</span>
+<span id="8"> 8</span>
+<span id="9"> 9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="comment">// Copyright 2020 ChainSafe Systems</span>
+<span class="comment">// SPDX-License-Identifier: Apache-2.0, MIT</span>
+
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::math</span>::{<span class="ident">poly_parse</span>, <span class="ident">poly_val</span>, <span class="ident">PRECISION</span>};
+<span class="kw">use</span> <span class="ident">num_bigint</span>::{<span class="ident">BigInt</span>, <span class="ident">Integer</span>};
+
+<span class="macro">lazy_static!</span> {
+    <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">EXP_NUM_COEF</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">BigInt</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">poly_parse</span>(<span class="kw-2">&amp;</span>[
+        <span class="string">&quot;-648770010757830093818553637600&quot;</span>,
+        <span class="string">&quot;67469480939593786226847644286976&quot;</span>,
+        <span class="string">&quot;-3197587544499098424029388939001856&quot;</span>,
+        <span class="string">&quot;89244641121992890118377641805348864&quot;</span>,
+        <span class="string">&quot;-1579656163641440567800982336819953664&quot;</span>,
+        <span class="string">&quot;17685496037279256458459817590917169152&quot;</span>,
+        <span class="string">&quot;-115682590513835356866803355398940131328&quot;</span>,
+        <span class="string">&quot;340282366920938463463374607431768211456&quot;</span>,
+    ])
+    .<span class="ident">unwrap</span>();
+    <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">EXP_DENO_COEF</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">BigInt</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">poly_parse</span>(<span class="kw-2">&amp;</span>[
+        <span class="string">&quot;1225524182432722209606361&quot;</span>,
+        <span class="string">&quot;114095592300906098243859450&quot;</span>,
+        <span class="string">&quot;5665570424063336070530214243&quot;</span>,
+        <span class="string">&quot;194450132448609991765137938448&quot;</span>,
+        <span class="string">&quot;5068267641632683791026134915072&quot;</span>,
+        <span class="string">&quot;104716890604972796896895427629056&quot;</span>,
+        <span class="string">&quot;1748338658439454459487681798864896&quot;</span>,
+        <span class="string">&quot;23704654329841312470660182937960448&quot;</span>,
+        <span class="string">&quot;259380097567996910282699886670381056&quot;</span>,
+        <span class="string">&quot;2250336698853390384720606936038375424&quot;</span>,
+        <span class="string">&quot;14978272436876548034486263159246028800&quot;</span>,
+        <span class="string">&quot;72144088983913131323343765784380833792&quot;</span>,
+        <span class="string">&quot;224599776407103106596571252037123047424&quot;</span>,
+        <span class="string">&quot;340282366920938463463374607431768211456&quot;</span>,
+    ])
+    .<span class="ident">unwrap</span>();
+}
+
+<span class="doccomment">/// expneg accepts x in Q.128 format and computes e^-x.</span>
+<span class="doccomment">/// It is most precise within [0, 1.725) range, where error is less than 3.4e-30.</span>
+<span class="doccomment">/// Over the [0, 5) range its error is less than 4.6e-15.</span>
+<span class="doccomment">/// Output is in Q.128 format.</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">expneg</span>(<span class="ident">x</span>: <span class="kw-2">&amp;</span><span class="ident">BigInt</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BigInt</span> {
+    <span class="kw">let</span> <span class="ident">num</span> <span class="op">=</span> <span class="ident">poly_val</span>(<span class="kw-2">&amp;</span><span class="ident">EXP_NUM_COEF</span>, <span class="ident">x</span>);
+    <span class="kw">let</span> <span class="ident">deno</span> <span class="op">=</span> <span class="ident">poly_val</span>(<span class="kw-2">&amp;</span><span class="ident">EXP_DENO_COEF</span>, <span class="ident">x</span>);
+
+    (<span class="ident">num</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">PRECISION</span>).<span class="ident">div_floor</span>(<span class="kw-2">&amp;</span><span class="ident">deno</span>)
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="forest_actor" data-search-index-js="../../../../search-index.js" data-search-js="../../../../search.js"></div>
+    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script></body></html>

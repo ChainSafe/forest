@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["import_chain","Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain state and instead accept the largest height as genesis."],["initialize_genesis","Uses an optional file path or the default genesis to parse the genesis and determine if chain store has existing data for the given genesis."]]});

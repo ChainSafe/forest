@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Method","Cron actor methods available"]],"struct":[["Actor","Cron actor"],["ConstructorParams","Constructor parameters for Cron actor, contains entries of actors and methods to call on each epoch"],["Entry",""],["State","Cron actor state which holds entries to call during epoch tick"]]});

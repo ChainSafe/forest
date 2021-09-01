@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["verify_vrf","Verifies raw VRF proof. This VRF proof is a BLS signature."]],"mod":[["json",""]],"struct":[["VRFProof","The output from running a VRF proof."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["go_vec_visitor",""]],"struct":[["GoVecVisitor","Helper visitor to match Go’s default behaviour of serializing uninitialized slices as null. This will be able to deserialize null as empty Vectors of the type."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["deserialize",""],["serialize",""]],"struct":[["AddressJsonSlice","Wrapper for serializing a cid slice to JSON."],["AddressJsonVec","Wrapper for serializing and deserializing a Cid vector from JSON."]]});

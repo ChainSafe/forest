@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["net_utils"] = [{"text":"impl&lt;R:&nbsp;AsyncRead + <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a>, W:&nbsp;<a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a>&gt; AsyncRead for <a class=\"struct\" href=\"net_utils/struct.FetchProgress.html\" title=\"struct net_utils::FetchProgress\">FetchProgress</a>&lt;R, W&gt;","synthetic":false,"types":["net_utils::download::FetchProgress"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

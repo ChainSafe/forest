@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["EPOCH_DURATION_SECONDS","Duration of each tipset epoch."],["EPOCH_UNDEFINED","Const used within the VM to denote an unset `ChainEpoch`"]],"type":[["ChainEpoch","Epoch number of a chain. This acts as a proxy for time within the VM."]]});

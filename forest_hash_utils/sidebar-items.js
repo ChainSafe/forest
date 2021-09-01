@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BytesKey","Key type to be used to serialize as byte string instead of a `u8` array. This type is used as a default for the `Hamt` as this is the only allowed type with the go implementation."]],"trait":[["Hash","Custom trait to avoid issues like https://github.com/rust-lang/rust/issues/27108."]]});

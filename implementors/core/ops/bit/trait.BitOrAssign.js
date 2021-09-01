@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["forest_bitfield"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/bit/trait.BitOrAssign.html\" title=\"trait core::ops::bit::BitOrAssign\">BitOrAssign</a>&lt;&amp;'_ <a class=\"struct\" href=\"forest_bitfield/struct.BitField.html\" title=\"struct forest_bitfield::BitField\">BitField</a>&gt; for <a class=\"struct\" href=\"forest_bitfield/struct.BitField.html\" title=\"struct forest_bitfield::BitField\">BitField</a>","synthetic":false,"types":["forest_bitfield::BitField"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

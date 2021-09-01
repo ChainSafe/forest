@@ -1,0 +1,299 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `ipld/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../forest_ipld/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="comment">// Copyright 2020 ChainSafe Systems</span>
+<span class="comment">// SPDX-License-Identifier: Apache-2.0, MIT</span>
+
+<span class="kw">mod</span> <span class="ident">de</span>;
+<span class="kw">mod</span> <span class="ident">error</span>;
+<span class="kw">mod</span> <span class="ident">path</span>;
+<span class="kw">mod</span> <span class="ident">path_segment</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">selector</span>;
+<span class="kw">mod</span> <span class="ident">ser</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">util</span>;
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;json&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">json</span>;
+
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">mod</span> <span class="ident">macros</span>;
+
+<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span><span class="ident">::error::Error</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">path::Path</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">path_segment::PathSegment</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">util</span>::<span class="kw-2">*</span>;
+
+<span class="kw">use</span> <span class="ident">cid::Cid</span>;
+<span class="kw">use</span> <span class="ident">encoding</span>::{<span class="ident">from_slice</span>, <span class="ident">to_vec</span>, <span class="ident">Cbor</span>};
+<span class="kw">use</span> <span class="ident">ser::Serializer</span>;
+<span class="kw">use</span> <span class="ident">serde::de::DeserializeOwned</span>;
+<span class="kw">use</span> <span class="ident">serde::Serialize</span>;
+<span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
+
+<span class="doccomment">/// Represents IPLD data structure used when serializing and deserializing data.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Ipld</span> {
+    <span class="doccomment">/// Represents a null value.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// let v = ipld!(null);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">Null</span>,
+
+    <span class="doccomment">/// Represents a boolean value.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// let v = ipld!(true);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">Bool</span>(<span class="ident">bool</span>),
+
+    <span class="doccomment">/// Represents a signed integer value.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// let v = ipld!(28);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">Integer</span>(<span class="ident">i128</span>),
+
+    <span class="doccomment">/// Represents a floating point value.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// let v = ipld!(8.5);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">Float</span>(<span class="ident">f64</span>),
+
+    <span class="doccomment">/// Represents a String.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// let v = ipld!(&quot;string&quot;);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">String</span>(<span class="ident">String</span>),
+
+    <span class="doccomment">/// Represents Bytes.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// let v = ipld!(Bytes(vec![0x98, 0x8, 0x2a, 0xff]));</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">Bytes</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
+
+    <span class="doccomment">/// Represents List of IPLD objects.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// let v = ipld!([1, &quot;string&quot;, null]);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">List</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ipld</span><span class="op">&gt;</span>),
+
+    <span class="doccomment">/// Represents a map of strings to Ipld objects.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```no_run</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// let v = ipld!({&quot;key&quot;: &quot;value&quot;, &quot;bool&quot;: true});</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">Map</span>(<span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Ipld</span><span class="op">&gt;</span>),
+
+    <span class="doccomment">/// Represents a link to another piece of data through a content identifier (`Cid`).</span>
+    <span class="doccomment">/// Using `ipld` macro, can wrap Cid with Link to be explicit of Link type, or let it resolve.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// # use forest_ipld::ipld;</span>
+    <span class="doccomment">/// # use cid::Cid;</span>
+    <span class="doccomment">/// let cid: Cid = &quot;QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n&quot;.parse().unwrap();</span>
+    <span class="doccomment">/// let v1 = ipld!(Link(cid.clone()));</span>
+    <span class="doccomment">/// let v2 = ipld!(cid);</span>
+    <span class="doccomment">/// assert_eq!(v1, v2);</span>
+    <span class="doccomment">/// ```</span>
+    <span class="ident">Link</span>(<span class="ident">Cid</span>),
+}
+
+<span class="kw">impl</span> <span class="ident">Ipld</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">lookup_segment</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">segment</span>: <span class="kw-2">&amp;</span><span class="ident">PathSegment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="self">Self</span><span class="ident">::Map</span>(<span class="ident">map</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">segment</span> {
+                <span class="ident">PathSegment::String</span>(<span class="ident">s</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">s</span>),
+                <span class="ident">PathSegment::Int</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">i</span>.<span class="ident">to_string</span>()),
+            },
+            <span class="self">Self</span><span class="ident">::List</span>(<span class="ident">list</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">list</span>.<span class="ident">get</span>(<span class="ident">segment</span>.<span class="ident">to_index</span>()<span class="question-mark">?</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Cbor</span> <span class="kw">for</span> <span class="ident">Ipld</span> {}
+
+<span class="doccomment">/// Convert any object into an IPLD object</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_ipld</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">ipld</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Ipld</span>, <span class="ident">Error</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">T</span>: <span class="ident">Serialize</span>,
+{
+    <span class="ident">ipld</span>.<span class="ident">serialize</span>(<span class="ident">Serializer</span>)
+}
+
+<span class="doccomment">/// Convert a `Ipld` structure into a type `T`</span>
+<span class="doccomment">/// Currently converts using a byte buffer with serde_cbor</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_ipld</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="ident">Ipld</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">String</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">T</span>: <span class="ident">DeserializeOwned</span>,
+{
+    <span class="comment">// TODO update to not go through byte buffer to convert</span>
+    <span class="comment">// There is a good amount of overhead for this (having to implement serde::Deserializer)</span>
+    <span class="comment">// for Ipld, but possible. The benefit isn&#39;t worth changing yet since if the value is not</span>
+    <span class="comment">// passed by reference as needed by HAMT, then the values will have to be cloned.</span>
+    <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">to_vec</span>(<span class="ident">value</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
+    <span class="ident">from_slice</span>(<span class="ident">buf</span>.<span class="ident">as_slice</span>()).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">to_string</span>())
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="forest_ipld" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

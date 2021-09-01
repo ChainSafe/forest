@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["deserialize",""],["serialize",""]],"struct":[["BigUintDe","Wrapper for deserializing as BigUint from bytes."],["BigUintSer","Wrapper for serializing big ints to match filecoin spec. Serializes as bytes."]]});

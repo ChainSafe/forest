@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["deserialize",""],["serialize",""]],"struct":[["IpldJson","Wrapper for serializing and deserializing a Ipld from JSON."],["IpldJsonRef","Wrapper for serializing a ipld reference to JSON."]]});

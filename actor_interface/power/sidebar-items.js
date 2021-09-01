@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["State","Power actor state."]],"static":[["ADDRESS","Power actor address. TODO: Select based on actors version"]],"struct":[["Claim",""]],"type":[["Method","Power actor method. TODO: Select based on actor version"]]});

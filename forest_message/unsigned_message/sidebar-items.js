@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["json",""]],"struct":[["MessageBuilder","Builder for `UnsignedMessage`."],["UnsignedMessage","Default Unsigned VM message type which includes all data needed for a state transition"]]});

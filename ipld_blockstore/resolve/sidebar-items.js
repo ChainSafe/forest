@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["resolve_cids_recursive","Resolves link to recursively resolved [Ipld] with no hash links."],["resolve_ipld","Resolves [Ipld] links recursively, building an [Ipld] structure with no hash links."]]});

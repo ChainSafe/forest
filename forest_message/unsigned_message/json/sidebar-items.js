@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["deserialize",""],["serialize",""]],"mod":[["vec",""]],"struct":[["UnsignedMessageJson","Wrapper for serializing and deserializing a UnsignedMessage from JSON."],["UnsignedMessageJsonRef","Wrapper for serializing a UnsignedMessage reference to JSON."]]});

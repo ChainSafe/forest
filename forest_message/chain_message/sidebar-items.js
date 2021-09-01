@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ChainMessage","Enum to encpasulate signed and unsigned messages. Useful when working with both types"]]});

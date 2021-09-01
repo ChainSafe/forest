@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["deserialize",""],["serialize",""]],"struct":[["TipsetJson","Wrapper for serializing and deserializing a SignedMessage from JSON."],["TipsetJsonRef","Wrapper for serializing a SignedMessage reference to JSON."]]});

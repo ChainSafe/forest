@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `vm/actor/src/builtin/reward/logic.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>logic.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../../forest_actor/index.html'><div class='logo-container rust-logo'><img src='../../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="comment">// Copyright 2020 ChainSafe Systems</span>
+<span class="comment">// SPDX-License-Identifier: Apache-2.0, MIT</span>
+
+<span class="kw">use</span> <span class="kw">super</span><span class="ident">::expneg::expneg</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::math::PRECISION</span>;
+<span class="kw">use</span> <span class="ident">clock::ChainEpoch</span>;
+<span class="kw">use</span> <span class="ident">fil_types</span>::{<span class="ident">StoragePower</span>, <span class="ident">FILECOIN_PRECISION</span>};
+<span class="kw">use</span> <span class="ident">num_bigint</span>::{<span class="ident">BigInt</span>, <span class="ident">Integer</span>};
+<span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
+<span class="kw">use</span> <span class="ident">vm::TokenAmount</span>;
+
+<span class="macro">lazy_static!</span> {
+    <span class="doccomment">/// Floor(e^(ln[1 + 200%] / epochsInYear) * 2^128</span>
+    <span class="doccomment">/// Q.128 formatted number such that f(epoch) = baseExponent^epoch grows 200% in one</span>
+    <span class="doccomment">/// year of epochs</span>
+    <span class="doccomment">/// Calculation here: https://www.wolframalpha.com/input/?i=IntegerPart%5BExp%5BLog%5B1%2B200%25%5D%2F%28%28365+days%29%2F%2830+seconds%29%29%5D*2%5E128%5D</span>
+    <span class="kw">pub</span> <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">BASELINE_EXPONENT</span>: <span class="ident">StoragePower</span> <span class="op">=</span>
+        <span class="ident">StoragePower::from_str</span>(<span class="string">&quot;340282591298641078465964189926313473653&quot;</span>).<span class="ident">unwrap</span>();
+
+    <span class="comment">// 2.5057116798121726 EiB</span>
+    <span class="kw">pub</span> <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">BASELINE_INITIAL_VALUE</span>: <span class="ident">StoragePower</span> <span class="op">=</span> <span class="ident">StoragePower::from</span>(<span class="number">2_888_888_880_000_000_000u128</span>);
+
+    <span class="doccomment">/// 1EiB</span>
+    <span class="kw">pub</span> <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">INIT_BASELINE_POWER</span>: <span class="ident">StoragePower</span> <span class="op">=</span>
+    ((<span class="ident">BASELINE_INITIAL_VALUE</span>.<span class="ident">clone</span>() <span class="op">&lt;</span><span class="op">&lt;</span> (<span class="number">2</span><span class="kw-2">*</span><span class="ident">PRECISION</span>)) <span class="op">/</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">BASELINE_EXPONENT</span>) <span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">PRECISION</span>;
+
+    <span class="doccomment">/// 330M for mainnet</span>
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">SIMPLE_TOTAL</span>: <span class="ident">BigInt</span> <span class="op">=</span> <span class="ident">BigInt::from</span>(<span class="number">330_000_000</span>) <span class="op">*</span> <span class="ident">FILECOIN_PRECISION</span>;
+    <span class="doccomment">/// 770M for mainnet</span>
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">BASELINE_TOTAL</span>: <span class="ident">BigInt</span> <span class="op">=</span> <span class="ident">BigInt::from</span>(<span class="number">770_000_000</span>) <span class="op">*</span> <span class="ident">FILECOIN_PRECISION</span>;
+    <span class="doccomment">/// expLamSubOne = e^lambda - 1</span>
+    <span class="doccomment">/// for Q.128: int(expLamSubOne * 2^128)</span>
+    <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">EXP_LAM_SUB_ONE</span>: <span class="ident">BigInt</span> <span class="op">=</span> <span class="ident">BigInt::from</span>(<span class="number">37396273494747879394193016954629u128</span>);
+    <span class="doccomment">/// lambda = ln(2) / (6 * epochsInYear)</span>
+    <span class="doccomment">/// for Q.128: int(lambda * 2^128)</span>
+    <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">LAMBDA</span>: <span class="ident">BigInt</span> <span class="op">=</span> <span class="ident">BigInt::from</span>(<span class="number">37396271439864487274534522888786u128</span>);
+}
+
+<span class="doccomment">/// Compute BaselinePower(t) from BaselinePower(t-1) with an additional multiplication</span>
+<span class="doccomment">/// of the base exponent.</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">baseline_power_from_prev</span>(<span class="ident">prev_power</span>: <span class="kw-2">&amp;</span><span class="ident">StoragePower</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">StoragePower</span> {
+    (<span class="ident">prev_power</span> <span class="op">*</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">BASELINE_EXPONENT</span>) <span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">PRECISION</span>
+}
+
+<span class="doccomment">/// Computes RewardTheta which is is precise fractional value of effectiveNetworkTime.</span>
+<span class="doccomment">/// The effectiveNetworkTime is defined by CumsumBaselinePower(theta) == CumsumRealizedPower</span>
+<span class="doccomment">/// As baseline power is defined over integers and the RewardTheta is required to be fractional,</span>
+<span class="doccomment">/// we perform linear interpolation between CumsumBaseline(⌊theta⌋) and CumsumBaseline(⌈theta⌉).</span>
+<span class="doccomment">/// The effectiveNetworkTime argument is ceiling of theta.</span>
+<span class="doccomment">/// The result is a fractional effectiveNetworkTime (theta) in Q.128 format.</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">compute_r_theta</span>(
+    <span class="ident">effective_network_time</span>: <span class="ident">ChainEpoch</span>,
+    <span class="ident">baseline_power_at_effective_network_time</span>: <span class="kw-2">&amp;</span><span class="ident">BigInt</span>,
+    <span class="ident">cumsum_realized</span>: <span class="kw-2">&amp;</span><span class="ident">BigInt</span>,
+    <span class="ident">cumsum_baseline</span>: <span class="kw-2">&amp;</span><span class="ident">BigInt</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BigInt</span> {
+    <span class="kw">if</span> <span class="ident">effective_network_time</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+        <span class="kw">let</span> <span class="ident">reward_theta</span> <span class="op">=</span> <span class="ident">BigInt::from</span>(<span class="ident">effective_network_time</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">PRECISION</span>;
+        <span class="kw">let</span> <span class="ident">diff</span> <span class="op">=</span> ((<span class="ident">cumsum_baseline</span> <span class="op">-</span> <span class="ident">cumsum_realized</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">PRECISION</span>)
+            .<span class="ident">div_floor</span>(<span class="kw-2">&amp;</span><span class="ident">baseline_power_at_effective_network_time</span>);
+
+        <span class="ident">reward_theta</span> <span class="op">-</span> <span class="ident">diff</span>
+    } <span class="kw">else</span> {
+        <span class="ident">Default::default</span>()
+    }
+}
+
+<span class="doccomment">/// Computes a reward for all expected leaders when effective network time changes</span>
+<span class="doccomment">/// from prevTheta to currTheta. Inputs are in Q.128 format</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">compute_reward</span>(
+    <span class="ident">epoch</span>: <span class="ident">ChainEpoch</span>,
+    <span class="ident">prev_theta</span>: <span class="ident">BigInt</span>,
+    <span class="ident">curr_theta</span>: <span class="ident">BigInt</span>,
+    <span class="ident">simple_total</span>: <span class="kw-2">&amp;</span><span class="ident">BigInt</span>,
+    <span class="ident">baseline_total</span>: <span class="kw-2">&amp;</span><span class="ident">BigInt</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenAmount</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">simple_reward</span> <span class="op">=</span> <span class="ident">simple_total</span> <span class="op">*</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">EXP_LAM_SUB_ONE</span>;
+    <span class="kw">let</span> <span class="ident">epoch_lam</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">LAMBDA</span> <span class="op">*</span> <span class="ident">epoch</span>;
+
+    <span class="ident">simple_reward</span> <span class="kw-2">*</span><span class="op">=</span> <span class="ident">expneg</span>(<span class="kw-2">&amp;</span><span class="ident">epoch_lam</span>);
+    <span class="ident">simple_reward</span> <span class="op">&gt;</span><span class="op">&gt;</span><span class="op">=</span> <span class="ident">PRECISION</span>;
+
+    <span class="kw">let</span> <span class="ident">baseline_reward</span> <span class="op">=</span> <span class="ident">compute_baseline_supply</span>(<span class="ident">curr_theta</span>, <span class="ident">baseline_total</span>)
+        <span class="op">-</span> <span class="ident">compute_baseline_supply</span>(<span class="ident">prev_theta</span>, <span class="ident">baseline_total</span>);
+
+    (<span class="ident">simple_reward</span> <span class="op">+</span> <span class="ident">baseline_reward</span>) <span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">PRECISION</span>
+}
+
+<span class="doccomment">/// Computes baseline supply based on theta in Q.128 format.</span>
+<span class="doccomment">/// Return is in Q.128 format</span>
+<span class="kw">fn</span> <span class="ident">compute_baseline_supply</span>(<span class="ident">theta</span>: <span class="ident">BigInt</span>, <span class="ident">baseline_total</span>: <span class="kw-2">&amp;</span><span class="ident">BigInt</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BigInt</span> {
+    <span class="kw">let</span> <span class="ident">theta_lam</span> <span class="op">=</span> (<span class="ident">theta</span> <span class="op">*</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">LAMBDA</span>) <span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">PRECISION</span>;
+
+    <span class="kw">let</span> <span class="ident">etl</span> <span class="op">=</span> <span class="ident">expneg</span>(<span class="kw-2">&amp;</span><span class="ident">theta_lam</span>);
+
+    <span class="kw">let</span> <span class="ident">one</span> <span class="op">=</span> <span class="ident">BigInt::from</span>(<span class="number">1</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">PRECISION</span>;
+    <span class="kw">let</span> <span class="ident">one_sub</span> <span class="op">=</span> <span class="ident">one</span> <span class="op">-</span> <span class="ident">etl</span>;
+
+    <span class="ident">one_sub</span> <span class="op">*</span> <span class="ident">baseline_total</span>
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="forest_actor" data-search-index-js="../../../../search-index.js" data-search-js="../../../../search.js"></div>
+    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script></body></html>

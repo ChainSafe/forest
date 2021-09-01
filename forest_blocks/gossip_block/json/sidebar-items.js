@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["deserialize",""],["serialize",""]],"struct":[["GossipBlockJson","Wrapper for serializing and deserializing a GossipBlock from JSON."],["GossipBlockJsonRef","Wrapper for serializing a GossipBlock reference to JSON."]]});

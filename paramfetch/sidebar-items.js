@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["SectorSizeOpt","Sector size options for fetching."]],"fn":[["get_params","Get proofs parameters and all verification keys for a given sector size given a param JSON manifest."],["get_params_default","Get proofs parameters and all verification keys for a given sector size using default manifest."]]});

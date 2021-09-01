@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["deserialize",""],["serialize",""]],"mod":[["opt",""],["signature_type",""]],"struct":[["SignatureJson",""],["SignatureJsonRef","Wrapper for serializing a Signature reference to JSON."]]});

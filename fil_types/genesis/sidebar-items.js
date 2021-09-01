@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ActorType","Different account variants. This is used with genesis utils to define the possible genesis allocated actors."]],"struct":[["Actor","All information needed to initialize an actor in genesis."],["Miner","Defines all information needed for a miner in genesis."],["Template","Format of genesis file."]]});

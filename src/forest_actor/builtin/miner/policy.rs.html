@@ -1,0 +1,603 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `vm/actor/src/builtin/miner/policy.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>policy.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../../forest_actor/index.html'><div class='logo-container rust-logo'><img src='../../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="comment">// Copyright 2020 ChainSafe Systems</span>
+<span class="comment">// SPDX-License-Identifier: Apache-2.0, MIT</span>
+
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">types::SectorOnChainInfo</span>, <span class="ident">PowerPair</span>, <span class="ident">BASE_REWARD_FOR_DISPUTED_WINDOW_POST</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">network</span>::<span class="kw-2">*</span>, <span class="ident">DealWeight</span>};
+<span class="kw">use</span> <span class="ident">clock::ChainEpoch</span>;
+<span class="kw">use</span> <span class="ident">fil_types</span>::{
+    <span class="ident">NetworkVersion</span>, <span class="ident">RegisteredPoStProof</span>, <span class="ident">RegisteredSealProof</span>, <span class="ident">SectorQuality</span>, <span class="ident">SectorSize</span>,
+    <span class="ident">StoragePower</span>,
+};
+<span class="kw">use</span> <span class="ident">num_bigint</span>::{<span class="ident">BigInt</span>, <span class="ident">Integer</span>};
+<span class="kw">use</span> <span class="ident">std::cmp</span>;
+<span class="kw">use</span> <span class="ident">vm::TokenAmount</span>;
+
+<span class="doccomment">/// Maximum amount of sectors that can be aggregated.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_AGGREGATED_SECTORS</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">819</span>;
+<span class="doccomment">/// Minimum amount of sectors that can be aggregated.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MIN_AGGREGATED_SECTORS</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">4</span>;
+<span class="doccomment">/// Maximum total aggregated proof size.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_AGGREGATED_PROOF_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">192000</span>;
+
+<span class="doccomment">/// The maximum number of sector pre-commitments in a single batch.</span>
+<span class="doccomment">/// 32 sectors per epoch would support a single miner onboarding 1EiB of 32GiB sectors in 1 year.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PRE_COMMIT_SECTOR_BATCH_MAX_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">256</span>;
+<span class="doccomment">/// The delay between pre commit expiration and clean up from state. This enforces that expired pre-commits</span>
+<span class="doccomment">/// stay in state for a period of time creating a grace period during which a late-running aggregated prove-commit</span>
+<span class="doccomment">/// can still prove its non-expired precommits without resubmitting a message</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">EXPIRED_PRE_COMMIT_CLEAN_UP_DELAY</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="number">8</span> <span class="op">*</span> <span class="ident">EPOCHS_IN_HOUR</span>;
+
+<span class="doccomment">/// The period over which all a miner&#39;s active sectors will be challenged.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WPOST_PROVING_PERIOD</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="ident">EPOCHS_IN_DAY</span>;
+<span class="doccomment">/// The duration of a deadline&#39;s challenge window, the period before a deadline when the challenge is available.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WPOST_CHALLENGE_WINDOW</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="number">30</span> <span class="op">*</span> <span class="number">60</span> <span class="op">/</span> <span class="ident">EPOCH_DURATION_SECONDS</span>; <span class="comment">// Half an hour (=48 per day)</span>
+<span class="doccomment">/// The number of non-overlapping PoSt deadlines in each proving period.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WPOST_PERIOD_DEADLINES</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">48</span>;
+<span class="doccomment">/// The maximum distance back that a valid Window PoSt must commit to the current chain.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WPOST_MAX_CHAIN_COMMIT_AGE</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="ident">WPOST_CHALLENGE_WINDOW</span>;
+<span class="comment">// WPoStDisputeWindow is the period after a challenge window ends during which</span>
+<span class="comment">// PoSts submitted during that period may be disputed.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WPOST_DISPUTE_WINDOW</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="number">2</span> <span class="op">*</span> <span class="ident">CHAIN_FINALITY</span>;
+
+<span class="doccomment">/// The maximum number of sectors that a miner can have simultaneously active.</span>
+<span class="doccomment">/// This also bounds the number of faults that can be declared, etc.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SECTORS_MAX</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">32</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">20</span>;
+
+<span class="doccomment">/// Maximum number of partitions that will be assigned to a deadline.</span>
+<span class="doccomment">/// For a minimum storage of upto 1Eib, we need 300 partitions per deadline.</span>
+<span class="doccomment">/// 48 * 32GiB * 2349 * 300 = 1.00808144 EiB</span>
+<span class="doccomment">/// So, to support upto 10Eib storage, we set this to 3000.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_PARTITIONS_PER_DEADLINE</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">3000</span>;
+
+<span class="doccomment">/// Maximum number of control addresses a miner may register.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_CONTROL_ADDRESSES</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">10</span>;
+
+<span class="doccomment">/// MaxPeerIDLength is the maximum length allowed for any on-chain peer ID.</span>
+<span class="doccomment">/// Most Peer IDs are expected to be less than 50 bytes.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_PEER_ID_LENGTH</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">128</span>;
+
+<span class="doccomment">/// MaxMultiaddrData is the maximum amount of data that can be stored in multiaddrs.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_MULTIADDR_DATA</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">1024</span>;
+
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_PROVE_COMMIT_SIZE_V4</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">1024</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_PROVE_COMMIT_SIZE_V5</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">10240</span>;
+
+<span class="doccomment">/// The maximum number of partitions that may be required to be loaded in a single invocation.</span>
+<span class="doccomment">/// This limits the number of simultaneous fault, recovery, or sector-extension declarations.</span>
+<span class="doccomment">/// With 48 deadlines (half-hour), 200 partitions per declaration permits loading a full EiB of 32GiB</span>
+<span class="doccomment">/// sectors with 1 message per epoch within a single half-hour deadline. A miner can of course submit more messages.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ADDRESSED_PARTITIONS_MAX</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">MAX_PARTITIONS_PER_DEADLINE</span>;
+
+<span class="doccomment">/// Maximum number of unique &quot;declarations&quot; in batch operations.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DELCARATIONS_MAX</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">ADDRESSED_PARTITIONS_MAX</span>;
+
+<span class="doccomment">/// The maximum number of sector infos that may be required to be loaded in a single invocation.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ADDRESSED_SECTORS_MAX</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">10_000</span>;
+
+<span class="doccomment">/// The maximum number of partitions that may be required to be loaded in a single invocation,</span>
+<span class="doccomment">/// when all the sector infos for the partitions will be loaded.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">load_partitions_sectors_max</span>(<span class="ident">partition_sector_count</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="ident">cmp::min</span>(
+        <span class="ident">ADDRESSED_SECTORS_MAX</span> <span class="op">/</span> <span class="ident">partition_sector_count</span>,
+        <span class="ident">ADDRESSED_PARTITIONS_MAX</span>,
+    )
+}
+
+<span class="doccomment">/// The maximum number of new sectors that may be staged by a miner during a single proving period.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">NEW_SECTORS_PER_PERIOD_MAX</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">128</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">10</span>;
+
+<span class="doccomment">/// Epochs after which chain state is final with overwhelming probability (hence the likelihood of two fork of this size is negligible)</span>
+<span class="doccomment">/// This is a conservative value that is chosen via simulations of all known attacks.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CHAIN_FINALITY</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="number">900</span>;
+
+<span class="doccomment">/// Prefix for sealed sector CIDs (CommR).</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">SEALED_CID_PREFIX</span>: <span class="ident">cid::Prefix</span> <span class="op">=</span> <span class="ident">cid::Prefix</span> {
+    <span class="ident">version</span>: <span class="ident">cid::Version::V1</span>,
+    <span class="ident">codec</span>: <span class="ident">cid::FIL_COMMITMENT_SEALED</span>,
+    <span class="ident">mh_type</span>: <span class="ident">cid::POSEIDON_BLS12_381_A1_FC1</span>,
+    <span class="ident">mh_len</span>: <span class="number">32</span>,
+};
+
+<span class="doccomment">/// List of proof types which can be used when creating new miner actors</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">can_pre_commit_seal_proof</span>(<span class="ident">proof</span>: <span class="ident">RegisteredSealProof</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">use</span> <span class="ident">RegisteredSealProof</span>::<span class="kw-2">*</span>;
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;devnet&quot;</span>)]</span>
+    {
+        <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">proof</span>, <span class="ident">StackedDRG2KiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG2KiBV1P1</span>) {
+            <span class="kw">return</span> <span class="bool-val">true</span>;
+        }
+    }
+
+    <span class="macro">matches!</span>(<span class="ident">proof</span>, <span class="ident">StackedDRG32GiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG64GiBV1P1</span>)
+}
+
+<span class="doccomment">/// Checks whether a seal proof type is supported for new miners and sectors.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">can_extend_seal_proof_type</span>(<span class="ident">proof</span>: <span class="ident">RegisteredSealProof</span>, <span class="ident">nv</span>: <span class="ident">NetworkVersion</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">use</span> <span class="ident">RegisteredSealProof</span>::<span class="kw-2">*</span>;
+    <span class="comment">// Between V7 and V11, older seal proof types could not be extended (see FIP 0014).</span>
+    <span class="kw">if</span> <span class="ident">nv</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">NetworkVersion::V7</span> <span class="op">&amp;&amp;</span> <span class="ident">nv</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">NetworkVersion::V10</span> {
+        <span class="kw">return</span> <span class="macro">matches!</span>(<span class="ident">proof</span>, <span class="ident">StackedDRG32GiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG64GiBV1P1</span>);
+    }
+    <span class="bool-val">true</span>
+}
+
+<span class="doccomment">/// Maximum duration to allow for the sealing process for seal algorithms.</span>
+<span class="doccomment">/// Dependent on algorithm and sector size</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">max_prove_commit_duration</span>(<span class="ident">proof</span>: <span class="ident">RegisteredSealProof</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ChainEpoch</span><span class="op">&gt;</span> {
+    <span class="kw">use</span> <span class="ident">RegisteredSealProof</span>::<span class="kw-2">*</span>;
+    <span class="kw">match</span> <span class="ident">proof</span> {
+        <span class="ident">StackedDRG32GiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG2KiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG8MiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG512MiBV1</span>
+        <span class="op">|</span> <span class="ident">StackedDRG64GiBV1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">EPOCHS_IN_DAY</span> <span class="op">+</span> <span class="ident">PRE_COMMIT_CHALLENGE_DELAY</span>),
+        <span class="ident">StackedDRG32GiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG64GiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG512MiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG8MiBV1P1</span>
+        <span class="op">|</span> <span class="ident">StackedDRG2KiBV1P1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="number">6</span> <span class="op">*</span> <span class="ident">EPOCHS_IN_DAY</span> <span class="op">+</span> <span class="ident">PRE_COMMIT_CHALLENGE_DELAY</span>),
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+    }
+}
+
+<span class="doccomment">/// Maximum duration to allow for the sealing process for seal algorithms.</span>
+<span class="doccomment">/// Dependent on algorithm and sector size</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">seal_proof_sector_maximum_lifetime</span>(
+    <span class="ident">proof</span>: <span class="ident">RegisteredSealProof</span>,
+    <span class="ident">nv</span>: <span class="ident">NetworkVersion</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ChainEpoch</span><span class="op">&gt;</span> {
+    <span class="kw">use</span> <span class="ident">RegisteredSealProof</span>::<span class="kw-2">*</span>;
+    <span class="kw">if</span> <span class="ident">nv</span> <span class="op">&lt;</span> <span class="ident">NetworkVersion::V11</span> {
+        <span class="kw">return</span> <span class="kw">match</span> <span class="ident">proof</span> {
+            <span class="ident">StackedDRG32GiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG2KiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG8MiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG512MiBV1</span>
+            <span class="op">|</span> <span class="ident">StackedDRG64GiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG32GiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG2KiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG8MiBV1P1</span>
+            <span class="op">|</span> <span class="ident">StackedDRG512MiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG64GiBV1P1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">EPOCHS_IN_YEAR</span> <span class="op">*</span> <span class="number">5</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+        };
+    }
+    <span class="comment">// In NetworkVersion 11, we allow for sectors using the old proofs to be extended by 540 days.</span>
+    <span class="kw">match</span> <span class="ident">proof</span> {
+        <span class="ident">StackedDRG32GiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG2KiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG8MiBV1</span> <span class="op">|</span> <span class="ident">StackedDRG512MiBV1</span>
+        <span class="op">|</span> <span class="ident">StackedDRG64GiBV1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">EPOCHS_IN_DAY</span> <span class="op">*</span> <span class="number">540</span>),
+        <span class="ident">StackedDRG32GiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG2KiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG8MiBV1P1</span> <span class="op">|</span> <span class="ident">StackedDRG512MiBV1P1</span>
+        <span class="op">|</span> <span class="ident">StackedDRG64GiBV1P1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">EPOCHS_IN_YEAR</span> <span class="op">*</span> <span class="number">5</span>),
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+    }
+}
+
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_PRE_COMMIT_RANDOMNESS_LOOKBACK</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="ident">EPOCHS_IN_DAY</span> <span class="op">+</span> <span class="ident">CHAIN_FINALITY</span>;
+
+<span class="doccomment">/// Number of epochs between publishing the precommit and when the challenge for interactive PoRep is drawn</span>
+<span class="doccomment">/// used to ensure it is not predictable by miner.</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;devnet&quot;</span>))]</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PRE_COMMIT_CHALLENGE_DELAY</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="number">150</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;devnet&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PRE_COMMIT_CHALLENGE_DELAY</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="number">10</span>;
+
+<span class="doccomment">/// Lookback from the deadline&#39;s challenge window opening from which to sample chain randomness for the challenge seed.</span>
+
+<span class="doccomment">/// This lookback exists so that deadline windows can be non-overlapping (which make the programming simpler)</span>
+<span class="doccomment">/// but without making the miner wait for chain stability before being able to start on PoSt computation.</span>
+<span class="doccomment">/// The challenge is available this many epochs before the window is actually open to receiving a PoSt.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WPOST_CHALLENGE_LOOKBACK</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="number">20</span>;
+
+<span class="doccomment">/// Minimum period before a deadline&#39;s challenge window opens that a fault must be declared for that deadline.</span>
+<span class="doccomment">/// This lookback must not be less than WPoStChallengeLookback lest a malicious miner be able to selectively declare</span>
+<span class="doccomment">/// faults after learning the challenge value.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">FAULT_DECLARATION_CUTOFF</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="ident">WPOST_CHALLENGE_LOOKBACK</span> <span class="op">+</span> <span class="number">50</span>;
+
+<span class="doccomment">/// The maximum age of a fault before the sector is terminated.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">FAULT_MAX_AGE</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="ident">WPOST_PROVING_PERIOD</span> <span class="op">*</span> <span class="number">14</span>;
+
+<span class="doccomment">/// Staging period for a miner worker key change.</span>
+<span class="doccomment">/// Finality is a harsh delay for a miner who has lost their worker key, as the miner will miss Window PoSts until</span>
+<span class="doccomment">/// it can be changed. It&#39;s the only safe value, though. We may implement a mitigation mechanism such as a second</span>
+<span class="doccomment">/// key or allowing the owner account to submit PoSts while a key change is pending.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WORKER_KEY_CHANGE_DELAY</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="ident">CHAIN_FINALITY</span>;
+
+<span class="doccomment">/// Minimum number of epochs past the current epoch a sector may be set to expire.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MIN_SECTOR_EXPIRATION</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="number">180</span> <span class="op">*</span> <span class="ident">EPOCHS_IN_DAY</span>;
+
+<span class="doccomment">/// Maximum number of epochs past the current epoch a sector may be set to expire.</span>
+<span class="doccomment">/// The actual maximum extension will be the minimum of CurrEpoch + MaximumSectorExpirationExtension</span>
+<span class="doccomment">/// and sector.ActivationEpoch+sealProof.SectorMaximumLifetime()</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAX_SECTOR_EXPIRATION_EXTENSION</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="number">540</span> <span class="op">*</span> <span class="ident">EPOCHS_IN_DAY</span>;
+
+<span class="doccomment">/// Ratio of sector size to maximum deals per sector.</span>
+<span class="doccomment">/// The maximum number of deals is the sector size divided by this number (2^27)</span>
+<span class="doccomment">/// which limits 32GiB sectors to 256 deals and 64GiB sectors to 512</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DEAL_LIMIT_DENOMINATOR</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">134217728</span>;
+
+<span class="doccomment">/// Number of epochs after a consensus fault for which a miner is ineligible</span>
+<span class="doccomment">/// for permissioned actor methods and winning block elections.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CONSENSUS_FAULT_INELIGIBILITY_DURATION</span>: <span class="ident">ChainEpoch</span> <span class="op">=</span> <span class="ident">CHAIN_FINALITY</span>;
+
+<span class="doccomment">/// DealWeight and VerifiedDealWeight are spacetime occupied by regular deals and verified deals in a sector.</span>
+<span class="doccomment">/// Sum of DealWeight and VerifiedDealWeight should be less than or equal to total SpaceTime of a sector.</span>
+<span class="doccomment">/// Sectors full of VerifiedDeals will have a SectorQuality of VerifiedDealWeightMultiplier/QualityBaseMultiplier.</span>
+<span class="doccomment">/// Sectors full of Deals will have a SectorQuality of DealWeightMultiplier/QualityBaseMultiplier.</span>
+<span class="doccomment">/// Sectors with neither will have a SectorQuality of QualityBaseMultiplier/QualityBaseMultiplier.</span>
+<span class="doccomment">/// SectorQuality of a sector is a weighted average of multipliers based on their proportions.</span>
+<span class="kw">fn</span> <span class="ident">quality_for_weight</span>(
+    <span class="ident">size</span>: <span class="ident">SectorSize</span>,
+    <span class="ident">duration</span>: <span class="ident">ChainEpoch</span>,
+    <span class="ident">deal_weight</span>: <span class="kw-2">&amp;</span><span class="ident">DealWeight</span>,
+    <span class="ident">verified_weight</span>: <span class="kw-2">&amp;</span><span class="ident">DealWeight</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SectorQuality</span> {
+    <span class="kw">let</span> <span class="ident">sector_space_time</span> <span class="op">=</span> <span class="ident">BigInt::from</span>(<span class="ident">size</span> <span class="kw">as</span> <span class="ident">u64</span>) <span class="op">*</span> <span class="ident">BigInt::from</span>(<span class="ident">duration</span>);
+    <span class="kw">let</span> <span class="ident">total_deal_space_time</span> <span class="op">=</span> <span class="ident">deal_weight</span> <span class="op">+</span> <span class="ident">verified_weight</span>;
+
+    <span class="kw">let</span> <span class="ident">weighted_base_space_time</span> <span class="op">=</span>
+        (<span class="kw-2">&amp;</span><span class="ident">sector_space_time</span> <span class="op">-</span> <span class="ident">total_deal_space_time</span>) <span class="op">*</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">QUALITY_BASE_MULTIPLIER</span>;
+    <span class="kw">let</span> <span class="ident">weighted_deal_space_time</span> <span class="op">=</span> <span class="ident">deal_weight</span> <span class="op">*</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">DEAL_WEIGHT_MULTIPLIER</span>;
+    <span class="kw">let</span> <span class="ident">weighted_verified_space_time</span> <span class="op">=</span> <span class="ident">verified_weight</span> <span class="op">*</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">VERIFIED_DEAL_WEIGHT_MULTIPLIER</span>;
+    <span class="kw">let</span> <span class="ident">weighted_sum_space_time</span> <span class="op">=</span>
+        <span class="ident">weighted_base_space_time</span> <span class="op">+</span> <span class="ident">weighted_deal_space_time</span> <span class="op">+</span> <span class="ident">weighted_verified_space_time</span>;
+    <span class="kw">let</span> <span class="ident">scaled_up_weighted_sum_space_time</span>: <span class="ident">SectorQuality</span> <span class="op">=</span>
+        <span class="ident">weighted_sum_space_time</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">SECTOR_QUALITY_PRECISION</span>;
+
+    <span class="ident">scaled_up_weighted_sum_space_time</span>
+        .<span class="ident">div_floor</span>(<span class="kw-2">&amp;</span><span class="ident">sector_space_time</span>)
+        .<span class="ident">div_floor</span>(<span class="kw-2">&amp;</span><span class="ident">QUALITY_BASE_MULTIPLIER</span>)
+}
+
+<span class="doccomment">/// Returns the power for a sector size and weight.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">qa_power_for_weight</span>(
+    <span class="ident">size</span>: <span class="ident">SectorSize</span>,
+    <span class="ident">duration</span>: <span class="ident">ChainEpoch</span>,
+    <span class="ident">deal_weight</span>: <span class="kw-2">&amp;</span><span class="ident">DealWeight</span>,
+    <span class="ident">verified_weight</span>: <span class="kw-2">&amp;</span><span class="ident">DealWeight</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">StoragePower</span> {
+    <span class="kw">let</span> <span class="ident">quality</span> <span class="op">=</span> <span class="ident">quality_for_weight</span>(<span class="ident">size</span>, <span class="ident">duration</span>, <span class="ident">deal_weight</span>, <span class="ident">verified_weight</span>);
+    (<span class="ident">BigInt::from</span>(<span class="ident">size</span> <span class="kw">as</span> <span class="ident">u64</span>) <span class="op">*</span> <span class="ident">quality</span>) <span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">SECTOR_QUALITY_PRECISION</span>
+}
+
+<span class="doccomment">/// Returns the quality-adjusted power for a sector.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">qa_power_for_sector</span>(<span class="ident">size</span>: <span class="ident">SectorSize</span>, <span class="ident">sector</span>: <span class="kw-2">&amp;</span><span class="ident">SectorOnChainInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">StoragePower</span> {
+    <span class="kw">let</span> <span class="ident">duration</span> <span class="op">=</span> <span class="ident">sector</span>.<span class="ident">expiration</span> <span class="op">-</span> <span class="ident">sector</span>.<span class="ident">activation</span>;
+    <span class="ident">qa_power_for_weight</span>(
+        <span class="ident">size</span>,
+        <span class="ident">duration</span>,
+        <span class="kw-2">&amp;</span><span class="ident">sector</span>.<span class="ident">deal_weight</span>,
+        <span class="kw-2">&amp;</span><span class="ident">sector</span>.<span class="ident">verified_deal_weight</span>,
+    )
+}
+
+<span class="doccomment">/// Determine maximum number of deal miner&#39;s sector can hold</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sector_deals_max</span>(<span class="ident">size</span>: <span class="ident">SectorSize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="ident">cmp::max</span>(<span class="number">256</span>, <span class="ident">size</span> <span class="kw">as</span> <span class="ident">u64</span> <span class="op">/</span> <span class="ident">DEAL_LIMIT_DENOMINATOR</span>)
+}
+<span class="doccomment">/// Specification for a linear vesting schedule.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VestSpec</span> {
+    <span class="kw">pub</span> <span class="ident">initial_delay</span>: <span class="ident">ChainEpoch</span>, <span class="comment">// Delay before any amount starts vesting.</span>
+    <span class="kw">pub</span> <span class="ident">vest_period</span>: <span class="ident">ChainEpoch</span>, <span class="comment">// Period over which the total should vest, after the initial delay.</span>
+    <span class="kw">pub</span> <span class="ident">step_duration</span>: <span class="ident">ChainEpoch</span>, <span class="comment">// Duration between successive incremental vests (independent of vesting period).</span>
+    <span class="kw">pub</span> <span class="ident">quantization</span>: <span class="ident">ChainEpoch</span>, <span class="comment">// Maximum precision of vesting table (limits cardinality of table).</span>
+}
+
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">REWARD_VESTING_SPEC</span>: <span class="ident">VestSpec</span> <span class="op">=</span> <span class="ident">VestSpec</span> {
+    <span class="ident">initial_delay</span>: <span class="number">0</span>,                  <span class="comment">// PARAM_FINISH</span>
+    <span class="ident">vest_period</span>: <span class="number">180</span> <span class="op">*</span> <span class="ident">EPOCHS_IN_DAY</span>,  <span class="comment">// PARAM_FINISH</span>
+    <span class="ident">step_duration</span>: <span class="ident">EPOCHS_IN_DAY</span>,      <span class="comment">// PARAM_FINISH</span>
+    <span class="ident">quantization</span>: <span class="number">12</span> <span class="op">*</span> <span class="ident">EPOCHS_IN_HOUR</span>, <span class="comment">// PARAM_FINISH</span>
+};
+
+<span class="comment">// Default share of block reward allocated as reward to the consensus fault reporter.</span>
+<span class="comment">// Applied as epochReward / (expectedLeadersPerEpoch * consensusFaultReporterDefaultShare)</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CONSENSUS_FAULT_REPORTER_DEFAULT_SHARE</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="number">4</span>;
+
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reward_for_consensus_slash_report</span>(<span class="ident">epoch_reward</span>: <span class="kw-2">&amp;</span><span class="ident">TokenAmount</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenAmount</span> {
+    <span class="ident">epoch_reward</span>.<span class="ident">div_floor</span>(
+        <span class="kw-2">&amp;</span>(<span class="ident">BigInt::from</span>(<span class="ident">EXPECTED_LEADERS_PER_EPOCH</span>)
+            <span class="op">*</span> <span class="ident">BigInt::from</span>(<span class="ident">CONSENSUS_FAULT_REPORTER_DEFAULT_SHARE</span>)),
+    )
+}
+
+<span class="comment">// The reward given for successfully disputing a window post.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reward_for_disputed_window_post</span>(
+    <span class="ident">_proof_type</span>: <span class="ident">RegisteredPoStProof</span>,
+    <span class="ident">_disputed_power</span>: <span class="ident">PowerPair</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TokenAmount</span> {
+    <span class="comment">// This is currently just the base. In the future, the fee may scale based on the disputed power.</span>
+    <span class="ident">BASE_REWARD_FOR_DISPUTED_WINDOW_POST</span>.<span class="ident">clone</span>()
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="forest_actor" data-search-index-js="../../../../search-index.js" data-search-js="../../../../search.js"></div>
+    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script></body></html>

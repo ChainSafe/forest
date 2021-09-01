@@ -1,0 +1,375 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `node/rpc/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../rpc/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="comment">// Copyright 2020 ChainSafe Systems</span>
+<span class="comment">// SPDX-License-Identifier: Apache-2.0, MIT</span>
+
+<span class="kw">mod</span> <span class="ident">auth_api</span>;
+<span class="kw">mod</span> <span class="ident">beacon_api</span>;
+<span class="kw">mod</span> <span class="ident">chain_api</span>;
+<span class="kw">mod</span> <span class="ident">common_api</span>;
+<span class="kw">mod</span> <span class="ident">gas_api</span>;
+<span class="kw">mod</span> <span class="ident">mpool_api</span>;
+<span class="kw">mod</span> <span class="ident">net_api</span>;
+<span class="kw">mod</span> <span class="ident">rpc_http_handler</span>;
+<span class="kw">mod</span> <span class="ident">rpc_util</span>;
+<span class="kw">mod</span> <span class="ident">rpc_ws_handler</span>;
+<span class="kw">mod</span> <span class="ident">state_api</span>;
+<span class="kw">mod</span> <span class="ident">sync_api</span>;
+<span class="kw">mod</span> <span class="ident">wallet_api</span>;
+
+<span class="kw">use</span> <span class="ident">async_std::sync::Arc</span>;
+<span class="kw">use</span> <span class="ident">jsonrpc_v2</span>::{<span class="ident">Data</span>, <span class="ident">Error</span> <span class="kw">as</span> <span class="ident">JSONRPCError</span>, <span class="ident">Server</span>};
+<span class="kw">use</span> <span class="ident">log::info</span>;
+<span class="kw">use</span> <span class="ident">tide_websockets::WebSocket</span>;
+
+<span class="kw">use</span> <span class="ident">beacon::Beacon</span>;
+<span class="kw">use</span> <span class="ident">blockstore::BlockStore</span>;
+<span class="kw">use</span> <span class="ident">fil_types::verifier::ProofVerifier</span>;
+<span class="kw">use</span> <span class="ident">rpc_api::data_types::RPCState</span>;
+
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::rpc_http_handler::rpc_http_handler</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::rpc_ws_handler::rpc_ws_handler</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">beacon_api::beacon_get_entry</span>, <span class="ident">common_api::version</span>, <span class="ident">state_api</span>::<span class="kw-2">*</span>};
+
+<span class="kw">use</span> <span class="ident">rpc_api</span>::{
+    <span class="ident">auth_api</span>::<span class="kw-2">*</span>, <span class="ident">beacon_api</span>::<span class="kw-2">*</span>, <span class="ident">chain_api</span>::<span class="kw-2">*</span>, <span class="ident">common_api</span>::<span class="kw-2">*</span>, <span class="ident">gas_api</span>::<span class="kw-2">*</span>, <span class="ident">mpool_api</span>::<span class="kw-2">*</span>, <span class="ident">net_api</span>::<span class="kw-2">*</span>,
+    <span class="ident">state_api</span>::<span class="kw-2">*</span>, <span class="ident">sync_api</span>::<span class="kw-2">*</span>, <span class="ident">wallet_api</span>::<span class="kw-2">*</span>,
+};
+
+<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">start_rpc</span><span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>(
+    <span class="ident">state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RPCState</span><span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">rpc_endpoint</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">JSONRPCError</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">DB</span>: <span class="ident">BlockStore</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">B</span>: <span class="ident">Beacon</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+    <span class="ident">V</span>: <span class="ident">ProofVerifier</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+{
+    <span class="kw">use</span> <span class="ident">auth_api</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">chain_api</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">gas_api</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">mpool_api</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">sync_api</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">wallet_api</span>::<span class="kw-2">*</span>;
+
+    <span class="kw">let</span> <span class="ident">rpc_server</span> <span class="op">=</span> <span class="ident">Arc::new</span>(
+        <span class="ident">Server::new</span>()
+            .<span class="ident">with_data</span>(<span class="ident">Data</span>(<span class="ident">state</span>))
+            <span class="comment">// Auth API</span>
+            .<span class="ident">with_method</span>(<span class="ident">AUTH_NEW</span>, <span class="ident">auth_new</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">AUTH_VERIFY</span>, <span class="ident">auth_verify</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            <span class="comment">// Beacon API</span>
+            .<span class="ident">with_method</span>(<span class="ident">BEACON_GET_ENTRY</span>, <span class="ident">beacon_get_entry</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            <span class="comment">// Chain API</span>
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_GET_MESSAGE</span>, <span class="ident">chain_api::chain_get_message</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_READ_OBJ</span>, <span class="ident">chain_read_obj</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_HAS_OBJ</span>, <span class="ident">chain_has_obj</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_GET_BLOCK_MESSAGES</span>, <span class="ident">chain_get_block_messages</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(
+                <span class="ident">CHAIN_GET_TIPSET_BY_HEIGHT</span>,
+                <span class="ident">chain_get_tipset_by_height</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>,
+            )
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_GET_GENESIS</span>, <span class="ident">chain_get_genesis</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_TIPSET_WEIGHT</span>, <span class="ident">chain_tipset_weight</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_GET_TIPSET</span>, <span class="ident">chain_get_tipset</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_HEAD</span>, <span class="ident">chain_head</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_HEAD_SUBSCRIPTION</span>, <span class="ident">chain_head_subscription</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            <span class="comment">// * Filecoin.ChainNotify is handled specifically in middleware for streaming</span>
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_NOTIFY</span>, <span class="ident">chain_notify</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(
+                <span class="ident">CHAIN_GET_RANDOMNESS_FROM_TICKETS</span>,
+                <span class="ident">chain_get_randomness_from_tickets</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>,
+            )
+            .<span class="ident">with_method</span>(
+                <span class="ident">CHAIN_GET_RANDOMNESS_FROM_BEACON</span>,
+                <span class="ident">chain_get_randomness_from_beacon</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>,
+            )
+            .<span class="ident">with_method</span>(<span class="ident">CHAIN_GET_BLOCK</span>, <span class="ident">chain_api::chain_get_block</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            <span class="comment">// Message Pool API</span>
+            .<span class="ident">with_method</span>(<span class="ident">MPOOL_ESTIMATE_GAS_PRICE</span>, <span class="ident">estimate_gas_premium</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">MPOOL_GET_NONCE</span>, <span class="ident">mpool_get_sequence</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">MPOOL_PENDING</span>, <span class="ident">mpool_pending</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">MPOOL_PUSH</span>, <span class="ident">mpool_push</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">MPOOL_PUSH_MESSAGE</span>, <span class="ident">mpool_push_message</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">MPOOL_SELECT</span>, <span class="ident">mpool_select</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            <span class="comment">// Sync API</span>
+            .<span class="ident">with_method</span>(<span class="ident">SYNC_CHECK_BAD</span>, <span class="ident">sync_check_bad</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">SYNC_MARK_BAD</span>, <span class="ident">sync_mark_bad</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">SYNC_STATE</span>, <span class="ident">sync_state</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">SYNC_SUBMIT_BLOCK</span>, <span class="ident">sync_submit_block</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            <span class="comment">// Wallet API</span>
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_BALANCE</span>, <span class="ident">wallet_balance</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_DEFAULT_ADDRESS</span>, <span class="ident">wallet_default_address</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_EXPORT</span>, <span class="ident">wallet_export</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_HAS</span>, <span class="ident">wallet_has</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_IMPORT</span>, <span class="ident">wallet_import</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_LIST</span>, <span class="ident">wallet_list</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_NEW</span>, <span class="ident">wallet_new</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_SET_DEFAULT</span>, <span class="ident">wallet_set_default</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_SIGN</span>, <span class="ident">wallet_sign</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_SIGN_MESSAGE</span>, <span class="ident">wallet_sign_message</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">WALLET_VERIFY</span>, <span class="ident">wallet_verify</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            <span class="comment">// State API</span>
+            .<span class="ident">with_method</span>(<span class="ident">STATE_MINER_SECTORS</span>, <span class="ident">state_miner_sectors</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_CALL</span>, <span class="ident">state_call</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_MINER_DEADLINES</span>, <span class="ident">state_miner_deadlines</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(
+                <span class="ident">STATE_SECTOR_PRECOMMIT_INFO</span>,
+                <span class="ident">state_sector_precommit_info</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>,
+            )
+            .<span class="ident">with_method</span>(<span class="ident">STATE_MINER_INFO</span>, <span class="ident">state_miner_info</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_SECTOR_GET_INFO</span>, <span class="ident">state_sector_info</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(
+                <span class="ident">STATE_MINER_PROVING_DEADLINE</span>,
+                <span class="ident">state_miner_proving_deadline</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>,
+            )
+            .<span class="ident">with_method</span>(<span class="ident">STATE_MINER_FAULTS</span>, <span class="ident">state_miner_faults</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_ALL_MINER_FAULTS</span>, <span class="ident">state_all_miner_faults</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_MINER_RECOVERIES</span>, <span class="ident">state_miner_recoveries</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_MINER_PARTITIONS</span>, <span class="ident">state_miner_partitions</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_REPLAY</span>, <span class="ident">state_replay</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_NETWORK_NAME</span>, <span class="ident">state_network_name</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_NETWORK_VERSION</span>, <span class="ident">state_get_network_version</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_REPLAY</span>, <span class="ident">state_replay</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_GET_ACTOR</span>, <span class="ident">state_get_actor</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_ACCOUNT_KEY</span>, <span class="ident">state_account_key</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_LOOKUP_ID</span>, <span class="ident">state_lookup_id</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_MARKET_BALANCE</span>, <span class="ident">state_market_balance</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_MARKET_DEALS</span>, <span class="ident">state_market_deals</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_GET_RECEIPT</span>, <span class="ident">state_get_receipt</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">STATE_WAIT_MSG</span>, <span class="ident">state_wait_msg</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">MINER_CREATE_BLOCK</span>, <span class="ident">miner_create_block</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(
+                <span class="ident">STATE_MINER_SECTOR_ALLOCATED</span>,
+                <span class="ident">state_miner_sector_allocated</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>,
+            )
+            .<span class="ident">with_method</span>(
+                <span class="ident">STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER</span>,
+                <span class="ident">state_miner_pre_commit_deposit_for_power</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>,
+            )
+            .<span class="ident">with_method</span>(
+                <span class="ident">STATE_MINER_INITIAL_PLEDGE_COLLATERAL</span>,
+                <span class="ident">state_miner_initial_pledge_collateral</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>,
+            )
+            .<span class="ident">with_method</span>(<span class="ident">MINER_GET_BASE_INFO</span>, <span class="ident">miner_get_base_info</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>)
+            <span class="comment">// Gas API</span>
+            .<span class="ident">with_method</span>(<span class="ident">GAS_ESTIMATE_FEE_CAP</span>, <span class="ident">gas_estimate_fee_cap</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">GAS_ESTIMATE_GAS_LIMIT</span>, <span class="ident">gas_estimate_gas_limit</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">GAS_ESTIMATE_GAS_PREMIUM</span>, <span class="ident">gas_estimate_gas_premium</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(
+                <span class="ident">GAS_ESTIMATE_MESSAGE_GAS</span>,
+                <span class="ident">gas_estimate_message_gas</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span>, <span class="ident">V</span><span class="op">&gt;</span>,
+            )
+            <span class="comment">// Common API</span>
+            .<span class="ident">with_method</span>(<span class="ident">VERSION</span>, <span class="ident">version</span>)
+            <span class="comment">// Net API</span>
+            .<span class="ident">with_method</span>(<span class="ident">NET_ADDRS_LISTEN</span>, <span class="ident">net_api::net_addrs_listen</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">NET_PEERS</span>, <span class="ident">net_api::net_peers</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">NET_CONNECT</span>, <span class="ident">net_api::net_connect</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">with_method</span>(<span class="ident">NET_DISCONNECT</span>, <span class="ident">net_api::net_disconnect</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>)
+            .<span class="ident">finish_unwrapped</span>(),
+    );
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">app</span> <span class="op">=</span> <span class="ident">tide::with_state</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">rpc_server</span>));
+
+    <span class="ident">app</span>.<span class="ident">at</span>(<span class="string">&quot;/rpc/v0&quot;</span>)
+        .<span class="ident">get</span>(<span class="ident">WebSocket::new</span>(<span class="ident">rpc_ws_handler</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>))
+        .<span class="ident">post</span>(<span class="ident">rpc_http_handler</span>::<span class="op">&lt;</span><span class="ident">DB</span>, <span class="ident">B</span><span class="op">&gt;</span>);
+
+    <span class="macro">info!</span>(<span class="string">&quot;Ready for RPC connections&quot;</span>);
+
+    <span class="ident">app</span>.<span class="ident">listen</span>(<span class="ident">rpc_endpoint</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="macro">info!</span>(<span class="string">&quot;Stopped accepting RPC connections&quot;</span>);
+
+    <span class="prelude-val">Ok</span>(())
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="rpc" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

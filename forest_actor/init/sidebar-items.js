@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Method","Init actor methods available"]],"struct":[["Actor","Init actor"],["ConstructorParams","Init actor Constructor parameters"],["ExecParams","Init actor Exec Params"],["ExecReturn","Init actor Exec Return value"],["State","State is reponsible for creating"]]});

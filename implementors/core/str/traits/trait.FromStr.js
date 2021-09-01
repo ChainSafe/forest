@@ -1,0 +1,4 @@
+(function() {var implementors = {};
+implementors["forest_address"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/str/traits/trait.FromStr.html\" title=\"trait core::str::traits::FromStr\">FromStr</a> for <a class=\"struct\" href=\"forest_address/struct.Address.html\" title=\"struct forest_address::Address\">Address</a>","synthetic":false,"types":["forest_address::Address"]}];
+implementors["forest_cid"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/str/traits/trait.FromStr.html\" title=\"trait core::str::traits::FromStr\">FromStr</a> for <a class=\"struct\" href=\"forest_cid/struct.Cid.html\" title=\"struct forest_cid::Cid\">Cid</a>","synthetic":false,"types":["forest_cid::Cid"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
