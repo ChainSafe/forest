@@ -582,8 +582,8 @@ impl Actor {
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to get deal proposal")
                     })?;
-                // deal could have terminated and hence deleted before the sector is terminated.
-                // we should simply continue instead of aborting execution here if a deal is not found.
+                // The deal may have expired and been deleted before the sector is terminated.
+                // Nothing to do, but continue execution for the other deals.
                 if deal.is_none() {
                     continue;
                 }
@@ -612,6 +612,8 @@ impl Actor {
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to get deal state")
                     })?
+                    // A deal with a proposal but no state is not activated, but then it should not be
+                    // part of a sector that is terminating.
                     .ok_or_else(|| actor_error!(ErrIllegalArgument, "no state for deal {}", id))?;
 
                 // If a deal is already slashed, don't need to do anything
@@ -792,7 +794,7 @@ impl Actor {
                             timed_out_verified_deals.push(deal);
                         }
 
-                        // we should not attempt to delete the DealState because it does NOT exist
+                        // Delete the proposal (but not state, which doesn't exist).
                         let deleted = msm
                             .deal_proposals
                             .as_mut()
@@ -801,7 +803,7 @@ impl Actor {
                             .map_err(|e| {
                                 e.downcast_default(
                                     ExitCode::ErrIllegalState,
-                                    format!("failed to delete deal {}", deal_id),
+                                    format!("failed to delete deal proposal {}", deal_id),
                                 )
                             })?;
                         if deleted.is_none() {
@@ -877,24 +879,8 @@ impl Actor {
                         }
 
                         amount_slashed += slash_amount;
-                        let deleted = msm
-                            .deal_proposals
-                            .as_mut()
-                            .unwrap()
-                            .delete(deal_id as usize)
-                            .map_err(|e| {
-                                e.downcast_default(
-                                    ExitCode::ErrIllegalState,
-                                    "failed to delete deal proposal",
-                                )
-                            })?;
-                        if deleted.is_none() {
-                            return Err(actor_error!(
-                                ErrIllegalState,
-                                "failed to delete deal proposal: does not exist"
-                            ));
-                        }
 
+                        // Delete proposal and state simultaneously.
                         let deleted = msm
                             .deal_states
                             .as_mut()
@@ -910,6 +896,24 @@ impl Actor {
                             return Err(actor_error!(
                                 ErrIllegalState,
                                 "failed to delete deal state: does not exist"
+                            ));
+                        }
+
+                        let deleted = msm
+                            .deal_proposals
+                            .as_mut()
+                            .unwrap()
+                            .delete(deal_id as usize)
+                            .map_err(|e| {
+                                e.downcast_default(
+                                    ExitCode::ErrIllegalState,
+                                    "failed to delete deal proposal",
+                                )
+                            })?;
+                        if deleted.is_none() {
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                "failed to delete deal proposal: does not exist"
                             ));
                         }
                     } else {
