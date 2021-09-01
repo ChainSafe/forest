@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
 use std::error::Error as StdError;
-use std::str::FromStr;
 use vm::ActorState;
 
 #[derive(Serialize, Deserialize)]
