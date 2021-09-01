@@ -331,19 +331,19 @@ fn main() {
             let method_header = "Method";
             let params_header = "Params";
             let result_header = "Result";
-            let method_pad_space = " ".repeat(longest_method_name_len - method_header.len());
-            let method_pad_dash = "-".repeat(longest_method_name_len);
+            let method_pad_space = " ".repeat(longest_method_name_len - method_header.len() + 2);
+            let method_pad_dash = "-".repeat(longest_method_name_len + 2);
             let params_pad_dash = "-".repeat(params_header.len());
             let result_pad_dash = "-".repeat(result_header.len());
 
             let mut method_table = vec![];
 
             method_table.push(format!(
-                "|   | {}{} | {} | {} |",
+                "| Present | {}{} | {} | {} |",
                 method_header, method_pad_space, params_header, result_header,
             ));
             method_table.push(format!(
-                "| - | {} | {} | {}",
+                "| ------- | {} | {} | {}",
                 method_pad_dash, params_pad_dash, result_pad_dash
             ));
 
@@ -351,8 +351,8 @@ fn main() {
                 let forest_method = forest_rpc.get(lotus_name);
 
                 let status = match forest_method {
-                    Some(_method) => "✔️",
-                    None => "❌",
+                    Some(_method) => "  ✔️   ",
+                    None => "  ❌   ",
                 };
 
                 let (forest_params, forest_result) = match forest_method {
@@ -367,7 +367,7 @@ fn main() {
                 let method_pad = " ".repeat(longest_method_name_len - lotus_method.name.len());
 
                 method_table.push(format!(
-                    "{} | `{}`{} | `{}` | `{}` |",
+                    "| {} | `{}`{} | `{}` | `{}` |",
                     status, lotus_method.name, method_pad, forest_params, forest_result,
                 ));
             }
