@@ -11,7 +11,8 @@ pub mod power;
 pub mod reward;
 pub mod system;
 
-use cid::Cid;
+use actorv5::CURRENT_ACTOR_VERSION;
+use cid::{multihash::MultihashDigest, Cid, Code::Identity, RAW};
 use num_bigint::BigInt;
 
 pub const EPOCH_DURATION_SECONDS: clock::ChainEpoch = actorv0::EPOCH_DURATION_SECONDS;
@@ -55,6 +56,37 @@ pub fn is_miner_actor(code: &Cid) -> bool {
         || code == &*actorv4::MINER_ACTOR_CODE_ID
 }
 
+/// Returns the actors name as [String] given the actors [Cid]
+pub fn actor_name_by_code(code: &Cid) -> String {
+    let actor_types = [
+        "system",
+        "init",
+        "cron",
+        "account",
+        "storagepower",
+        "storageminer",
+        "storagemarket",
+        "paymentchannel",
+        "multisig",
+        "reward",
+        "verifiedregistry",
+        "chaos",
+    ];
+
+    for version in 1..CURRENT_ACTOR_VERSION + 1 {
+        for actor in actor_types {
+            let name = format!("fil/{}/{}", version, actor);
+            let cid = Cid::new_v1(RAW, Identity.digest(name.as_bytes()));
+
+            if cid == *code {
+                return name;
+            }
+        }
+    }
+
+    String::from("<unknown>")
+}
+
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct FilterEstimate {
     pub position: BigInt,
@@ -94,5 +126,20 @@ impl From<actorv4::util::smooth::FilterEstimate> for FilterEstimate {
             position: filter_est.position,
             velocity: filter_est.velocity,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_actor_name_by_code() {
+        let name = String::from("fil/4/paymentchannel");
+        let cid = Cid::new_v1(RAW, Identity.digest(&name.as_bytes()));
+
+        let actual = actor_name_by_code(&cid);
+
+        assert_eq!(name, actual);
     }
 }

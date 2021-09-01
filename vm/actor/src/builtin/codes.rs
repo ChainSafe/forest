@@ -3,6 +3,8 @@
 
 use cid::{multihash::MultihashDigest, Cid, Code::Identity, RAW};
 
+pub const CURRENT_ACTOR_VERSION: u32 = 4;
+
 lazy_static! {
     pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/system");
     pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/init");
