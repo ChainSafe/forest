@@ -1,7 +1,7 @@
 [package]
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
-name = "rpc-client"
+name = "filecoin-rpc-client"
 version = "0.1.0"
 
 [dependencies]
@@ -20,7 +20,7 @@ cid = { package="forest_cid", version="0.3", features=["json"] }
 crypto = { package="forest_crypto", version="0.5", features=["json", "blst"] }
 forest_libp2p = { path="../forest_libp2p" }
 message = { package="forest_message", version="0.7", features=["json"] }
-rpc-api = { path="../rpc-api", version="0.1" }
+rpc-api = { package = "filecoin-rpc-api", path="../rpc-api", version="0.1" }
 wallet = { package="key_management", path="../../key_management", features=["json"] }
 
 [dependencies.jsonrpc-v2]

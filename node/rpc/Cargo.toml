@@ -43,7 +43,7 @@ message = { package = "forest_message", version = "0.7", features = ["json", "bl
 message_pool = { path = "../../blockchain/message_pool" }
 networks = { path = "../../types/networks" }
 num-bigint = { version = "0.1.1", package = "forest_bigint" }
-rpc-api = { path = "../rpc-api", version = "0.1" }
+rpc-api = { package = "filecoin-rpc-api", path = "../rpc-api", version = "0.1" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
 state_tree = { path = "../../vm/state_tree" }
 wallet = { package = "key_management", path = "../../key_management", features = ["json"] }

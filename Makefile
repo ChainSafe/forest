@@ -1,8 +1,9 @@
 SER_TESTS = "tests/serialization_tests"
 CONF_TESTS = "tests/conformance_tests"
 
+# See 'native' comment here: https://rust-lang.github.io/packed_simd/perf-guide/target-feature/rustflags.html#target-cpu
 install:
-	cargo install --locked --path forest --force
+	RUSTFLAGS="-Ctarget-cpu=native -Ctarget-feature=+aes,+sse2,+sse4.1,+ssse3" cargo install --locked --path forest --force
 
 clean-all:
 	cargo clean
