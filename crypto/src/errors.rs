@@ -3,7 +3,7 @@
 
 use address::Error as AddressError;
 use encoding::Error as EncodingError;
-use secp256k1::Error as SecpError;
+use libsecp256k1::Error as SecpError;
 use std::error;
 use thiserror::Error;
 
