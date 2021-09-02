@@ -25,8 +25,8 @@ use std::{
 use vm::{ActorError, ExitCode, TokenAmount};
 
 // Bitwidth of AMTs determined empirically from mutation patterns and projections of mainnet data.
-const PARTITION_EXPIRATION_AMT_BITWIDTH: usize = 4;
-const PARTITION_EARLY_TERMINATION_ARRAY_AMT_BITWIDTH: usize = 3;
+pub const PARTITION_EXPIRATION_AMT_BITWIDTH: usize = 4;
+pub const PARTITION_EARLY_TERMINATION_ARRAY_AMT_BITWIDTH: usize = 3;
 
 #[derive(Serialize_tuple, Deserialize_tuple, Clone)]
 pub struct Partition {

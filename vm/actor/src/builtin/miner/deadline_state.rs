@@ -17,8 +17,8 @@ use num_traits::{Signed, Zero};
 use std::{cmp, collections::HashMap, collections::HashSet, error::Error as StdError};
 
 // Bitwidth of AMTs determined empirically from mutation patterns and projections of mainnet data.
-const DEADLINE_PARTITIONS_AMT_BITWIDTH: usize = 3; // Usually a small array
-const DEADLINE_EXPIRATIONS_AMT_BITWIDTH: usize = 5;
+pub const DEADLINE_PARTITIONS_AMT_BITWIDTH: usize = 3; // Usually a small array
+pub const DEADLINE_EXPIRATIONS_AMT_BITWIDTH: usize = 5;
 
 // Given that 4 partitions can be proven in one post, this AMT's height will
 // only exceed the partition AMT's height at ~0.75EiB of storage.

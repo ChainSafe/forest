@@ -26,7 +26,7 @@ const ENTRY_SECTORS_MAX: usize = 10_000;
 /// Note that there is not a direct correspondence between on-time sectors and active power;
 /// a sector may be faulty but expiring on-time if it faults just prior to expected termination.
 /// Early sectors are always faulty, and active power always represents on-time sectors.
-#[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug, Default)]
+#[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug, Default, PartialEq)]
 pub struct ExpirationSet {
     /// Sectors expiring "on time" at the end of their committed life
     pub on_time_sectors: BitField,
