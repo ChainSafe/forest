@@ -11,7 +11,7 @@ repository = "https://github.com/ChainSafe/forest"
 features = ["cbor", "json"]
 
 [dependencies]
-cid = { version = "0.7", default-features = false, features = ["std", "arb"] }
+cid = { version = "0.7", default-features = false, features = ["std"] }
 multihash = { version = "0.14", default-features = false, features = [
     "std",
     "blake2b",
