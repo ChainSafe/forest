@@ -498,6 +498,7 @@ where
                     Ok(event) => event,
                     Err(why) => {
                         error!("Receiving event from p2p event stream failed: {}", why);
+                        break;
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };

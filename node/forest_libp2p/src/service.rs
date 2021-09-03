@@ -141,7 +141,11 @@ where
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
+        println!("libp2p service 1");
+
         let transport = build_transport(net_keypair.clone()).await.unwrap();
+
+        println!("libp2p service 2");
 
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -149,6 +153,8 @@ where
             .with_max_established_incoming(Some(config.target_peer_count))
             .with_max_established_outgoing(Some(config.target_peer_count))
             .with_max_established_per_peer(Some(5));
+
+        println!("libp2p service 3");
 
         let mut swarm = SwarmBuilder::new(
             transport,
@@ -160,13 +166,19 @@ where
         .connection_event_buffer_size(64)
         .build();
 
-        Swarm::listen_on(&mut swarm, config.listening_multiaddr).unwrap();
+        println!("libp2p service 4");
+
+        swarm.listen_on(config.listening_multiaddr).unwrap();
+
+        println!("libp2p service 5");
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
             let t = Topic::new(format!("{}/{}", topic, network_name));
             swarm.behaviour_mut().subscribe(&t).unwrap();
         }
+
+        println!("libp2p service 6");
 
         // Bootstrap with Kademlia
         if let Err(e) = swarm.behaviour_mut().bootstrap() {
@@ -175,6 +187,8 @@ where
 
         let (network_sender_in, network_receiver_in) = unbounded();
         let (network_sender_out, network_receiver_out) = unbounded();
+
+        println!("libp2p service 7");
 
         Libp2pService {
             swarm,
@@ -193,12 +207,17 @@ where
         // let swarm_behaviour = self.swarm.behaviour_mut();
         // let peers_len = swarm_behaviour.peers().len();
         // let mut swarm_stream = self.swarm.fuse();
+        println!("libp2p service run 1");
         let mut network_stream = self.network_receiver_in.fuse();
+        println!("libp2p service run 2");
         let mut interval = stream::interval(Duration::from_secs(15)).fuse();
+        println!("libp2p service run 3");
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
+        println!("libp2p service run 4: {}", &pubsub_block_str);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
         loop {
+            println!("libp2p service run loop");
             select! {
                 swarm_event = self.swarm.next() => match swarm_event {
                     // outbound events
@@ -405,9 +424,14 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 pub async fn build_transport(
     local_key: Keypair,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>, futures::io::Error> {
+    println!("build transport 1");
+
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
+    println!("build transport 2");
     let transport = libp2p::websocket::WsConfig::new(transport.clone()).or_transport(transport);
-    let transport = libp2p::dns::GenDnsConfig::system(transport).await?;
+    println!("build transport 3");
+    let transport = libp2p::dns::DnsConfig::system(transport).await?;
+    println!("build transport 4");
 
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
@@ -416,6 +440,7 @@ pub async fn build_transport(
 
         noise::NoiseConfig::xx(dh_keys).into_authenticated()
     };
+    println!("build transport 5");
 
     let mplex_config = {
         let mut mplex_config = mplex::MplexConfig::new();
@@ -427,6 +452,7 @@ pub async fn build_transport(
         // yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
         core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
     };
+    println!("build transport 6");
 
     Ok(transport
         .upgrade(core::upgrade::Version::V1)
