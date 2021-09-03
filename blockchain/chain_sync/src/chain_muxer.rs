@@ -16,10 +16,10 @@ use chain::{ChainStore, Error as ChainStoreError};
 use cid::Cid;
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
-    hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
+    hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
+    PubsubMessage,
 };
 use ipld_blockstore::BlockStore;
-use libp2p::core::PeerId;
 use message::{SignedMessage, UnsignedMessage};
 use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
@@ -498,6 +498,7 @@ where
                     Ok(event) => event,
                     Err(why) => {
                         error!("Receiving event from p2p event stream failed: {}", why);
+                        break;
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };

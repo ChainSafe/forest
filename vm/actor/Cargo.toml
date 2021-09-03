@@ -21,7 +21,7 @@ serde = { version = "1.0", features = ["derive"] }
 lazy_static = "1.4.0"
 ipld_blockstore = "0.1"
 ipld_hamt = { path = "../../ipld/hamt" }
-ipld_amt = { path = "../../ipld/amt", features = ["go-interop"]}
+ipld_amt = { path = "../../ipld/amt", features = ["go-interop"] }
 forest_ipld = "0.1.1"
 unsigned-varint = "0.6"
 integer-encoding = { version = "3.0", default-features = false }
@@ -36,10 +36,9 @@ commcid = { path = "../../utils/commcid", version = "0.1.1" }
 indexmap = { version = "1.7.0", features = ["serde-1"] }
 
 [dev-dependencies]
-derive_builder = "0.9"
 db = { package = "forest_db", version = "0.1" }
+derive_builder = "0.9"
 hex = "0.4.2"
-libp2p = { version = "0.35", default-features = false }
 
 [features]
 devnet = []

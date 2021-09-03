@@ -9,8 +9,10 @@ use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
 };
-use async_std::channel::{unbounded, Receiver, Sender};
-use async_std::{stream, task};
+use async_std::{
+    channel::{unbounded, Receiver, Sender},
+    stream, task,
+};
 use chain::ChainStore;
 use forest_blocks::GossipBlock;
 use forest_cid::{Cid, Code::Blake2b256};
@@ -20,21 +22,21 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use ipld_blockstore::BlockStore;
-pub use libp2p::gossipsub::IdentTopic;
-pub use libp2p::gossipsub::Topic;
-use libp2p::multiaddr::Protocol;
-use libp2p::request_response::ResponseChannel;
+use libipld::multihash::Multihash;
 use libp2p::{
-    core,
-    core::connection::ConnectionLimits,
-    core::muxing::StreamMuxerBox,
-    core::transport::Boxed,
+    core::{
+        self, connection::ConnectionLimits, muxing::StreamMuxerBox, transport::Boxed, Multiaddr,
+    },
+    gossipsub::{IdentTopic, Topic},
     identity::{ed25519, Keypair},
-    mplex, noise, yamux, PeerId, Swarm, Transport,
+    mplex,
+    multiaddr::Protocol,
+    noise,
+    request_response::ResponseChannel,
+    swarm::{SwarmBuilder, SwarmEvent},
+    yamux, PeerId, Swarm, Transport,
 };
-use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
-use multihash::Multihash;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -131,7 +133,7 @@ impl<DB> Libp2pService<DB>
 where
     DB: BlockStore + Sync + Send + 'static,
 {
-    pub fn new(
+    pub async fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         net_keypair: Keypair,
@@ -139,7 +141,11 @@ where
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport = build_transport(net_keypair.clone());
+        println!("libp2p service 1");
+
+        let transport = build_transport(net_keypair.clone()).await.unwrap();
+
+        println!("libp2p service 2");
 
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -147,6 +153,8 @@ where
             .with_max_established_incoming(Some(config.target_peer_count))
             .with_max_established_outgoing(Some(config.target_peer_count))
             .with_max_established_per_peer(Some(5));
+
+        println!("libp2p service 3");
 
         let mut swarm = SwarmBuilder::new(
             transport,
@@ -158,21 +166,29 @@ where
         .connection_event_buffer_size(64)
         .build();
 
-        Swarm::listen_on(&mut swarm, config.listening_multiaddr).unwrap();
+        println!("libp2p service 4");
+
+        swarm.listen_on(config.listening_multiaddr).unwrap();
+
+        println!("libp2p service 5");
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
             let t = Topic::new(format!("{}/{}", topic, network_name));
-            swarm.subscribe(&t).unwrap();
+            swarm.behaviour_mut().subscribe(&t).unwrap();
         }
 
+        println!("libp2p service 6");
+
         // Bootstrap with Kademlia
-        if let Err(e) = swarm.bootstrap() {
+        if let Err(e) = swarm.behaviour_mut().bootstrap() {
             warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
         let (network_sender_in, network_receiver_in) = unbounded();
         let (network_sender_out, network_receiver_out) = unbounded();
+
+        println!("libp2p service 7");
 
         Libp2pService {
             swarm,
@@ -188,30 +204,37 @@ where
 
     /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
     pub async fn run(mut self) {
-        let mut swarm_stream = self.swarm.fuse();
+        // let swarm_behaviour = self.swarm.behaviour_mut();
+        // let peers_len = swarm_behaviour.peers().len();
+        // let mut swarm_stream = self.swarm.fuse();
+        println!("libp2p service run 1");
         let mut network_stream = self.network_receiver_in.fuse();
+        println!("libp2p service run 2");
         let mut interval = stream::interval(Duration::from_secs(15)).fuse();
+        println!("libp2p service run 3");
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
+        println!("libp2p service run 4: {}", &pubsub_block_str);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
         loop {
+            println!("libp2p service run loop");
             select! {
-                swarm_event = swarm_stream.next() => match swarm_event {
+                swarm_event = self.swarm.next() => match swarm_event {
                     // outbound events
                     Some(event) => match event {
-                        ForestBehaviourEvent::PeerConnected(peer_id) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::PeerConnected(peer_id)) => {
                             debug!("Peer connected, {:?}", peer_id);
                             emit_event(&self.network_sender_out,
                                 NetworkEvent::PeerConnected(peer_id)).await;
                         }
-                        ForestBehaviourEvent::PeerDisconnected(peer_id) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::PeerDisconnected(peer_id)) => {
                             emit_event(&self.network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
                         }
-                        ForestBehaviourEvent::GossipMessage {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::GossipMessage {
                             source,
                             topic,
                             message,
-                        } => {
+                        }) => {
                             trace!("Got a Gossip Message from {:?}", source);
                             let topic = topic.as_str();
                             if topic == pubsub_block_str {
@@ -242,14 +265,14 @@ where
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
                             }
                         }
-                        ForestBehaviourEvent::HelloRequest { request,  peer } => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::HelloRequest { request,  peer }) => {
                             debug!("Received hello request (peer_id: {:?})", peer);
                             emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
                                 source: peer,
                             }).await;
                         }
-                        ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request }) => {
                             debug!("Received chain_exchange request (peer_id: {:?})", peer);
                             let db = self.cs.clone();
 
@@ -257,7 +280,7 @@ where
                                 channel.send(make_chain_exchange_response(db.as_ref(), &request).await)
                             });
                         }
-                        ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block)) => {
                             let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
                             match res {
                                 Ok(actual_cid) => {
@@ -280,9 +303,9 @@ where
                                 }
                             }
                         },
-                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => match self.cs.blockstore().get(&cid) {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,)) => match self.cs.blockstore().get(&cid) {
                             Ok(Some(data)) => {
-                                match swarm_stream.get_mut().send_block(&peer_id, cid, data) {
+                                match self.swarm.behaviour_mut().send_block(&peer_id, cid, data) {
                                     Ok(_) => {
                                         trace!("Sent bitswap message successfully");
                                     },
@@ -298,6 +321,7 @@ where
                                 trace!("Failed to get data: {}", e.to_string());
                             }
                         },
+                        _ => { break; }
                     }
                     None => { break; }
                 },
@@ -305,18 +329,18 @@ where
                     // Inbound messages
                     Some(message) =>  match message {
                         NetworkMessage::PubsubMessage { topic, message } => {
-                            if let Err(e) = swarm_stream.get_mut().publish(topic, message) {
+                            if let Err(e) = self.swarm.behaviour_mut().publish(topic, message) {
                                 warn!("Failed to send gossipsub message: {:?}", e);
                             }
                         }
                         NetworkMessage::HelloRequest { peer_id, request, response_channel } => {
-                            swarm_stream.get_mut().send_hello_request(&peer_id, request, response_channel);
+                            self.swarm.behaviour_mut().send_hello_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
-                            swarm_stream.get_mut().send_chain_exchange_request(&peer_id, request, response_channel);
+                            self.swarm.behaviour_mut().send_chain_exchange_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::BitswapRequest { cid, response_channel } => {
-                            if let Err(e) = swarm_stream.get_mut().want_block(cid, 1000) {
+                            if let Err(e) = self.swarm.behaviour_mut().want_block(cid, 1000) {
                                 warn!("Failed to send a bitswap want_block: {}", e.to_string());
                             } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
                                     chans.push(response_channel);
@@ -327,15 +351,15 @@ where
                         NetworkMessage::JSONRPCRequest { method } => {
                             match method {
                                 NetRPCMethods::NetAddrsListen(response_channel) => {
-                                    let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
-                                    let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
+                                    let listeners: Vec<_> = self.swarm.listeners().cloned().collect();
+                                    let peer_id = self.swarm.local_peer_id();
 
                                     if response_channel.send((*peer_id, listeners)).is_err() {
                                         warn!("Failed to get Libp2p listeners");
                                     }
                                 }
                                 NetRPCMethods::NetPeers(response_channel) => {
-                                    let peer_addresses: &HashMap<PeerId, Vec<Multiaddr>> = swarm_stream.get_mut().peer_addresses();
+                                    let peer_addresses: &HashMap<PeerId, Vec<Multiaddr>> = self.swarm.behaviour_mut().peer_addresses();
 
                                     if response_channel.send(peer_addresses.to_owned()).is_err() {
                                         warn!("Failed to get Libp2p peers");
@@ -348,7 +372,7 @@ where
                                     for multiaddr in addresses.iter_mut() {
                                         multiaddr.push(Protocol::P2p(Multihash::from_bytes(&peer_id.to_bytes()).unwrap()));
 
-                                        if Swarm::dial_addr(swarm_stream.get_mut(), multiaddr.clone()).is_ok() {
+                                        if  self.swarm.dial_addr(multiaddr.clone()).is_ok() {
                                             success = true;
                                             break;
                                         };
@@ -372,7 +396,8 @@ where
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
-                    info!("Peers connected: {}", swarm_stream.get_mut().peers().len());
+                    let peers_len = self.swarm.behaviour_mut().peers().len();
+                    info!("Peers connected: {}", peers_len);
                 }
             };
         }
@@ -396,10 +421,17 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 }
 
 /// Builds the transport stack that LibP2P will communicate over.
-pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub async fn build_transport(
+    local_key: Keypair,
+) -> Result<Boxed<(PeerId, StreamMuxerBox)>, futures::io::Error> {
+    println!("build transport 1");
+
     let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
+    println!("build transport 2");
     let transport = libp2p::websocket::WsConfig::new(transport.clone()).or_transport(transport);
-    let transport = libp2p::dns::DnsConfig::new(transport).unwrap();
+    println!("build transport 3");
+    let transport = libp2p::dns::DnsConfig::system(transport).await?;
+    println!("build transport 4");
 
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
@@ -408,6 +440,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
 
         noise::NoiseConfig::xx(dh_keys).into_authenticated()
     };
+    println!("build transport 5");
 
     let mplex_config = {
         let mut mplex_config = mplex::MplexConfig::new();
@@ -419,13 +452,14 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
         // yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
         core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
     };
+    println!("build transport 6");
 
-    transport
+    Ok(transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
         .multiplex(mplex_config)
         .timeout(Duration::from_secs(20))
-        .boxed()
+        .boxed())
 }
 
 /// Fetch keypair from disk, returning none if it cannot be decoded.

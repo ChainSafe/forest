@@ -1,7 +1,7 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_libp2p::{Multiaddr, Protocol};
+use forest_libp2p::{multibase, Multiaddr, Protocol};
 use rpc_api::data_types::AddrInfo;
 use std::collections::HashSet;
 use structopt::StructOpt;

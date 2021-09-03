@@ -18,7 +18,7 @@ use wallet::ENCRYPTED_KEYSTORE_NAME;
 use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
-use libp2p::identity::{ed25519, Keypair};
+use forest_libp2p::libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace, warn};
 use rpassword::read_password;
 
@@ -158,7 +158,8 @@ pub(super) async fn start(config: Config) {
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
-    );
+    )
+    .await;
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
