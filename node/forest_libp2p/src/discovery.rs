@@ -260,7 +260,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     fn inject_connected(&mut self, peer_id: &PeerId) {
         // Uses first address because it's documented as being sorted by reachability,
         // and so is the address most likely to be reachable.
-        let multiaddr = self.addresses_of_peer(peer_id).into_iter().nth(0);
+        let multiaddr = self.addresses_of_peer(peer_id).into_iter().next();
 
         if let Some(address) = multiaddr {
             self.peer_addresses.insert(*peer_id, vec![address]);
