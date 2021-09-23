@@ -606,9 +606,9 @@ dependencies = [
 
 [[package]]
 name = "bellperson"
-version = "0.14.2"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7edb7b07cab660137847825b90d1c88e82907689ee1e935eb2101579bc649e0a"
+checksum = "cf45c8be6eb74ede124851a228809faa882cae0685f5449613817cc4a633245b"
 dependencies = [
  "bincode",
  "bit-vec",
@@ -631,6 +631,7 @@ dependencies = [
  "serde",
  "sha2 0.9.5",
  "thiserror",
+ "yastl",
 ]
 
 [[package]]
@@ -1907,9 +1908,9 @@ dependencies = [
 
 [[package]]
 name = "filecoin-hashers"
-version = "3.0.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64d4dbf998e165e1f29e4ea3af74dd35afb0ae4d9dc90242b2e05d6f54f908a"
+checksum = "8d0c68cd87bd5899ca5d305daac3133b77dcaa8ab90f6c780ec34deb62a15f66"
 dependencies = [
  "anyhow",
  "bellperson",
@@ -1926,9 +1927,9 @@ dependencies = [
 
 [[package]]
 name = "filecoin-proofs"
-version = "8.0.2"
+version = "9.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e21d7e3bf0c9980c50f36c1e668a88796c34c5bf4dc4d0158af33d4f8a578d9"
+checksum = "3f3290452b555122b635efc6bb213e0ba33fbe475368c3dc4e9bfd6f40bef07e"
 dependencies = [
  "anyhow",
  "bellperson",
@@ -1950,6 +1951,7 @@ dependencies = [
  "log",
  "memmap",
  "merkletree",
+ "once_cell",
  "rand 0.7.3",
  "rand_xorshift",
  "rayon",
@@ -1964,9 +1966,9 @@ dependencies = [
 
 [[package]]
 name = "filecoin-proofs-api"
-version = "8.0.1"
+version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81509cfc2486a67d850c3583576a49f251dc4e51fdfd6fac8bc1751341e64813"
+checksum = "1b3e43c2c1921b23f0a2d50cdd77f44c6c7f7459e9a66ba0b9f31dd56596dd09"
 dependencies = [
  "anyhow",
  "bellperson",
@@ -2019,6 +2021,15 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "spinning_top",
+]
+
+[[package]]
+name = "flume"
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24c3fd473b3a903a62609e413ed7538f99e10b665ecb502b5e481a95283f8ab4"
+dependencies = [
+ "spin 0.9.2",
 ]
 
 [[package]]
@@ -2276,7 +2287,7 @@ name = "forest_bigint"
 version = "0.1.4"
 dependencies = [
  "cs_serde_bytes",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-integer",
  "serde",
 ]
@@ -2536,9 +2547,9 @@ dependencies = [
 
 [[package]]
 name = "fr32"
-version = "1.0.2"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dedf8113967195ca3c674f0e1c9793cc686bf8a80efc84d1de8dd045c3ab0553"
+checksum = "d50f88cd4bf2ecb51589b7400e1217e597bbd19a4f81f47159a3a26b33330cd2"
 dependencies = [
  "anyhow",
  "bellperson",
@@ -3325,7 +3336,7 @@ dependencies = [
  "curl",
  "curl-sys",
  "encoding_rs",
- "flume",
+ "flume 0.9.2",
  "futures-lite",
  "http",
  "log",
@@ -4247,9 +4258,9 @@ dependencies = [
 
 [[package]]
 name = "neptune"
-version = "3.0.0"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec660e9f6f2ff666996be8d34fa70142f05bf25b4268d0ab9f325d80378bf4e5"
+checksum = "e700fb2356a1c9cecd590b789a919b727f8885747587fc4659114e6a98e12583"
 dependencies = [
  "bellperson",
  "blake2s_simd",
@@ -4329,9 +4340,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d0a3d5e207573f948a9e5376662aa743a2ea13f7c50a554d7af443a73fbfeba"
+checksum = "5f6f7833f2cbf2360a6cfd58cd41a53aa7a90bd4c202f5b1c7dd2ed73c57b2c3"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -4375,7 +4386,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
 dependencies = [
  "autocfg",
- "num-bigint 0.3.2",
+ "num-bigint 0.3.3",
  "num-integer",
  "num-traits",
 ]
@@ -5267,7 +5278,7 @@ dependencies = [
  "cc",
  "libc",
  "once_cell",
- "spin",
+ "spin 0.5.2",
  "untrusted",
  "web-sys",
  "winapi 0.3.9",
@@ -5710,9 +5721,9 @@ dependencies = [
 
 [[package]]
 name = "sha2raw"
-version = "3.0.2"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94fad39b7b5a95c5b6aa822d1b5a2246306ca8913084687cb5f03cd217ad2514"
+checksum = "cb6909ab9d47f7fc10071094faf29333aa9d08fb3bdcd445dddbcb4d21ed8003"
 dependencies = [
  "block-buffer 0.9.0",
  "byteorder 1.4.3",
@@ -5921,6 +5932,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
+name = "spin"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "511254be0c5bcf062b019a6c89c01a664aa359ded62f78aa72c6fc137c0590e5"
+dependencies = [
+ "lock_api",
+]
+
+[[package]]
 name = "spinning_top"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6118,9 +6138,9 @@ checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
 
 [[package]]
 name = "storage-proofs-core"
-version = "8.0.2"
+version = "9.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21b6344ca35feeda13a5dbe282f00d85a0bb86bc6a78a619dc2858fe81ee2d9c"
+checksum = "beab1b4c0b9ddf29673244c4fab9988e4b22358dfcf4223a5c97f7ae7b8467b1"
 dependencies = [
  "aes 0.6.0",
  "anyhow",
@@ -6157,9 +6177,9 @@ dependencies = [
 
 [[package]]
 name = "storage-proofs-porep"
-version = "8.0.2"
+version = "9.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "191fd7c7a2743199263629d6dbd32c52db1a50430eca150c0345a20259649077"
+checksum = "bb1bd60ee3d764e8e4774a101d13bc1e2e74d996321ac0b69cfed112bf875f99"
 dependencies = [
  "anyhow",
  "bellperson",
@@ -6191,13 +6211,14 @@ dependencies = [
  "sha2 0.9.5",
  "sha2raw",
  "storage-proofs-core",
+ "yastl",
 ]
 
 [[package]]
 name = "storage-proofs-post"
-version = "8.0.2"
+version = "9.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8379954982a7669bef1b272bef7d0158ae8edddaf60a83e31e142aabbce40935"
+checksum = "f1a14aeaee17e853608b6d8eeee65df2b188924990907d77624e89c63222e480"
 dependencies = [
  "anyhow",
  "bellperson",
@@ -7129,6 +7150,16 @@ name = "yansi"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fc79f4a1e39857fc00c3f662cbf2651c771f00e9c15fe2abc341806bd46bd71"
+
+[[package]]
+name = "yastl"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ca6c5a4d66c1a9ea261811cf4773c27343de7e5033e1b75ea3f297dc7db3c1a"
+dependencies = [
+ "flume 0.10.9",
+ "scopeguard",
+]
 
 [[package]]
 name = "zeroize"

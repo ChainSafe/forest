@@ -1349,7 +1349,7 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ErrBalanceInvariantBroken,
-                    format!("balance invariants broken: {}", e),
+                    format!("balance invariant broken: {}", e),
                 )
             })?;
         if needs_cron {
@@ -3996,7 +3996,6 @@ where
     // Committed-capacity sectors licensed for early removal by new sectors being proven.
     let mut replace_sectors = DeadlineSectorMap::new();
     let activation = rt.curr_epoch();
-
     // Pre-commits for new sectors.
     let mut valid_pre_commits = Vec::<SectorPreCommitOnChainInfo>::new();
 

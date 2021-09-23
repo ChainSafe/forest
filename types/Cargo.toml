@@ -16,7 +16,7 @@ chrono = "0.4.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.56"
 commcid = { path = "../utils/commcid", version = "0.1.1", optional = true }
-filecoin-proofs-api = { version = "8", features = ["blst"], default_features = false, optional = true }
+filecoin-proofs-api = { version = "9", features = ["blst"], default_features = false, optional = true }
 vm = { package = "forest_vm", version = "0.3" }
 cid = { package = "forest_cid", features = ["cbor"], version = "0.3" }
 num-bigint = { path = "../utils/bigint", package = "forest_bigint", version = "0.1.1" }

@@ -277,35 +277,28 @@ impl Actor {
                     )
                 })?;
 
-            // This is a one-time, upfront allocation.
-            // This allowance cannot be changed by calls to AddVerifiedClient as long as the
-            // client has not been removed. If parties need more allowance, they need to create a
-            // new verified client or use up the the current allowance and then create a new
-            // verified client.
-            let found = verified_clients
-                .contains_key(&client.to_bytes())
-                .map_err(|e| {
-                    e.downcast_default(
-                        ExitCode::ErrIllegalState,
-                        format!("Failed to get verified client {}", client),
-                    )
-                })?;
-            if found {
-                return Err(actor_error!(
-                    ErrIllegalArgument,
-                    "verified client already exists: {}",
-                    client
-                ));
-            }
+            let client_cap = verified_clients.get(&client.to_bytes()).map_err(|e| {
+                e.downcast_default(
+                    ExitCode::ErrIllegalState,
+                    format!("Failed to get verified client {}", client),
+                )
+            })?;
+            // if verified client exists, add allowance to existing cap
+            // otherwise, create new client with allownace
+            let client_cap = if let Some(BigIntDe(client_cap)) = client_cap {
+                client_cap + params.allowance
+            } else {
+                params.allowance
+            };
 
             verified_clients
-                .set(client.to_bytes().into(), BigIntDe(params.allowance.clone()))
+                .set(client.to_bytes().into(), BigIntDe(client_cap.clone()))
                 .map_err(|e| {
                     e.downcast_default(
                         ExitCode::ErrIllegalState,
                         format!(
                             "Failed to add verified client {} with cap {}",
-                            client, params.allowance,
+                            client, client_cap,
                         ),
                     )
                 })?;

@@ -19,8 +19,13 @@ use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 /// Market actor state
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
+    /// Proposals are deals that have been proposed and not yet cleaned up after expiry or termination.
     /// Amt<DealID, DealProposal>
     pub proposals: Cid,
+
+    // States contains state for deals that have been activated and not yet cleaned up after expiry or termination.
+    // After expiration, the state exists until the proposal is cleaned up too.
+    // Invariant: keys(States) ⊆ keys(Proposals).
     /// Amt<DealID, DealState>
     pub states: Cid,
 
@@ -571,7 +576,7 @@ where
         if &prev_locked + amount > escrow_balance {
             return Err(actor_error!(ErrInsufficientFunds;
                     "not enough balance to lock for addr{}: \
-                    escrow balance {} < prev locked {} + amount {}", 
+                    escrow balance {} < prev locked {} + amount {}",
                     addr, escrow_balance, prev_locked, amount));
         }
 

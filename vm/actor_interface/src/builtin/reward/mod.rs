@@ -22,6 +22,7 @@ pub enum State {
     V2(actorv2::reward::State),
     V3(actorv3::reward::State),
     V4(actorv4::reward::State),
+    V5(actorv5::reward::State),
 }
 
 impl State {
@@ -49,6 +50,11 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V4)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv5::REWARD_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V5)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
         }
@@ -61,6 +67,7 @@ impl State {
             State::V2(st) => st.into_total_storage_power_reward(),
             State::V3(st) => st.into_total_storage_power_reward(),
             State::V4(st) => st.into_total_storage_power_reward(),
+            State::V5(st) => st.into_total_storage_power_reward(),
         }
     }
 
@@ -97,6 +104,14 @@ impl State {
             State::V4(st) => actorv4::miner::pre_commit_deposit_for_power(
                 &st.this_epoch_reward_smoothed,
                 &actorv4::util::smooth::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                sector_weight,
+            ),
+            State::V5(st) => actorv5::miner::pre_commit_deposit_for_power(
+                &st.this_epoch_reward_smoothed,
+                &actorv5::util::smooth::FilterEstimate {
                     position: network_qa_power.position,
                     velocity: network_qa_power.velocity,
                 },
@@ -148,6 +163,16 @@ impl State {
                 &st.this_epoch_baseline_power,
                 &st.this_epoch_reward_smoothed,
                 &actorv4::util::smooth::FilterEstimate {
+                    position: network_qa_power.position,
+                    velocity: network_qa_power.velocity,
+                },
+                circ_supply,
+            ),
+            State::V5(st) => actorv5::miner::initial_pledge_for_power(
+                sector_weight,
+                &st.this_epoch_baseline_power,
+                &st.this_epoch_reward_smoothed,
+                &actorv5::util::smooth::FilterEstimate {
                     position: network_qa_power.position,
                     velocity: network_qa_power.velocity,
                 },

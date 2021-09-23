@@ -56,7 +56,7 @@ pub struct State {
     #[serde(with = "bigint_ser")]
     pub fee_debt: TokenAmount,
 
-    /// Sum of initial pledge requirements of all active sectors
+    /// Sum of initial pledge requirements of all active sectors.
     #[serde(with = "bigint_ser")]
     pub initial_pledge: TokenAmount,
 

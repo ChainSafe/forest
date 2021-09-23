@@ -71,12 +71,24 @@ use super::{BitField, Result};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 
+// MaxEncodedSize is the maximum encoded size of a bitfield. When expanded into
+// a slice of runs, a bitfield of this size should not exceed 2MiB of memory.
+//
+// This bitfield can fit at least 3072 sparse elements.
+const MAX_ENCODED_SIZE: usize = 32 << 10;
+
 impl Serialize for BitField {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let bytes = self.to_bytes();
+        if bytes.len() > MAX_ENCODED_SIZE {
+            return Err(serde::ser::Error::custom(format!(
+                "encoded bitfield was too large {}",
+                bytes.len()
+            )));
+        }
         serde_bytes::serialize(&bytes, serializer)
     }
 }

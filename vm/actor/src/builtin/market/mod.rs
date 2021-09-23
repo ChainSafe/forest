@@ -19,11 +19,10 @@ use crate::{
 };
 use address::Address;
 use ahash::AHashMap;
-use byteorder::{BigEndian, ByteOrder};
 use cid::Prefix;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
-use crypto::DomainSeparationTag;
 use encoding::{to_vec, Cbor};
+use fil_types::deadlines::QuantSpec;
 use fil_types::{PieceInfo, StoragePower};
 use ipld_blockstore::BlockStore;
 use num_bigint::BigInt;
@@ -330,13 +329,7 @@ impl Actor {
 
                 // We should randomize the first epoch for when the deal will be processed so an attacker isn't able to
                 // schedule too many deals for the same tick.
-                let process_epoch = gen_rand_next_epoch(rt, rt.curr_epoch(), &deal.proposal)
-                    .map_err(|e| {
-                        e.downcast_default(
-                            ExitCode::ErrIllegalState,
-                            "failed to generate random process epoch",
-                        )
-                    })?;
+                let process_epoch = gen_rand_next_epoch(deal.proposal.start_epoch, id);
 
                 msm.deals_by_epoch
                     .as_mut()
@@ -589,8 +582,8 @@ impl Actor {
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to get deal proposal")
                     })?;
-                // deal could have terminated and hence deleted before the sector is terminated.
-                // we should simply continue instead of aborting execution here if a deal is not found.
+                // The deal may have expired and been deleted before the sector is terminated.
+                // Nothing to do, but continue execution for the other deals.
                 if deal.is_none() {
                     continue;
                 }
@@ -619,6 +612,8 @@ impl Actor {
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to get deal state")
                     })?
+                    // A deal with a proposal but no state is not activated, but then it should not be
+                    // part of a sector that is terminating.
                     .ok_or_else(|| actor_error!(ErrIllegalArgument, "no state for deal {}", id))?;
 
                 // If a deal is already slashed, don't need to do anything
@@ -799,7 +794,7 @@ impl Actor {
                             timed_out_verified_deals.push(deal);
                         }
 
-                        // we should not attempt to delete the DealState because it does NOT exist
+                        // Delete the proposal (but not state, which doesn't exist).
                         let deleted = msm
                             .deal_proposals
                             .as_mut()
@@ -808,7 +803,7 @@ impl Actor {
                             .map_err(|e| {
                                 e.downcast_default(
                                     ExitCode::ErrIllegalState,
-                                    format!("failed to delete deal {}", deal_id),
+                                    format!("failed to delete deal proposal {}", deal_id),
                                 )
                             })?;
                         if deleted.is_none() {
@@ -884,24 +879,8 @@ impl Actor {
                         }
 
                         amount_slashed += slash_amount;
-                        let deleted = msm
-                            .deal_proposals
-                            .as_mut()
-                            .unwrap()
-                            .delete(deal_id as usize)
-                            .map_err(|e| {
-                                e.downcast_default(
-                                    ExitCode::ErrIllegalState,
-                                    "failed to delete deal proposal",
-                                )
-                            })?;
-                        if deleted.is_none() {
-                            return Err(actor_error!(
-                                ErrIllegalState,
-                                "failed to delete deal proposal: does not exist"
-                            ));
-                        }
 
+                        // Delete proposal and state simultaneously.
                         let deleted = msm
                             .deal_states
                             .as_mut()
@@ -917,6 +896,24 @@ impl Actor {
                             return Err(actor_error!(
                                 ErrIllegalState,
                                 "failed to delete deal state: does not exist"
+                            ));
+                        }
+
+                        let deleted = msm
+                            .deal_proposals
+                            .as_mut()
+                            .unwrap()
+                            .delete(deal_id as usize)
+                            .map_err(|e| {
+                                e.downcast_default(
+                                    ExitCode::ErrIllegalState,
+                                    "failed to delete deal proposal",
+                                )
+                            })?;
+                        if deleted.is_none() {
+                            return Err(actor_error!(
+                                ErrIllegalState,
+                                "failed to delete deal proposal: does not exist"
                             ));
                         }
                     } else {
@@ -1096,27 +1093,18 @@ where
     ))
 }
 
-fn gen_rand_next_epoch<BS, RT>(
-    rt: &RT,
-    curr_epoch: ChainEpoch,
-    deal: &DealProposal,
-) -> Result<ChainEpoch, Box<dyn StdError>>
-where
-    BS: BlockStore,
-    RT: Runtime<BS>,
-{
-    let bytes = deal.marshal_cbor()?;
-
-    let rb = rt.get_randomness_from_beacon(
-        DomainSeparationTag::MarketDealCronSeed,
-        curr_epoch - 1,
-        &bytes,
-    )?;
-
-    // generate a random epoch in [baseEpoch, baseEpoch + DealUpdatesInterval)
-    let offset = BigEndian::read_u64(&rb.0);
-
-    Ok(deal.start_epoch + (offset % DEAL_UPDATES_INTERVAL as u64) as ChainEpoch)
+fn gen_rand_next_epoch(start_epoch: ChainEpoch, deal_id: DealID) -> ChainEpoch {
+    let offset = deal_id as i64 % DEAL_UPDATES_INTERVAL;
+    let q = QuantSpec {
+        unit: DEAL_UPDATES_INTERVAL,
+        offset: 0,
+    };
+    let prev_day = q.quantize_down(start_epoch);
+    if prev_day + offset >= start_epoch {
+        return prev_day + offset;
+    }
+    let next_day = q.quantize_up(start_epoch);
+    next_day + offset
 }
 ////////////////////////////////////////////////////////////////////////////////
 // Checks

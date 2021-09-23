@@ -221,7 +221,9 @@ where
         for i in parent_epoch..epoch {
             if i > parent_epoch {
                 // run cron for null rounds if any
-                self.run_cron(i, callback.as_mut())?;
+                if let Err(e) = self.run_cron(i, callback.as_mut()) {
+                    log::error!("Beginning of epoch cron failed to run: {}", e);
+                }
             }
             if let Some(new_state) = self.migrate_state(i, store.clone())? {
                 self.state = StateTree::new_from_root(self.store, &new_state)?
@@ -304,7 +306,9 @@ where
             }
         }
 
-        self.run_cron(epoch, callback.as_mut())?;
+        if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
+            log::error!("End of epoch cron failed to run: {}", e);
+        }
         Ok(receipts)
     }
 
@@ -593,21 +597,23 @@ where
         msg: &ChainMessage,
         exit_code: ExitCode,
     ) -> Result<bool, Box<dyn StdError>> {
-        // Check to see if we should burn funds. We avoid burning on successful
-        // window post. This won't catch _indirect_ window post calls, but this
-        // is the best we can get for now.
-        if self.epoch > UPGRADE_CLAUS_HEIGHT
-            && exit_code.is_success()
-            && msg.method_num() == miner::Method::SubmitWindowedPoSt as u64
-        {
-            // Ok, we've checked the _method_, but we still need to check
-            // the target actor.
-            let to_actor = st.get_actor(msg.to())?;
+        if self.epoch <= UPGRADE_ACTORS_V4_HEIGHT {
+            // Check to see if we should burn funds. We avoid burning on successful
+            // window post. This won't catch _indirect_ window post calls, but this
+            // is the best we can get for now.
+            if self.epoch > UPGRADE_CLAUS_HEIGHT
+                && exit_code.is_success()
+                && msg.method_num() == miner::Method::SubmitWindowedPoSt as u64
+            {
+                // Ok, we've checked the _method_, but we still need to check
+                // the target actor.
+                let to_actor = st.get_actor(msg.to())?;
 
-            if let Some(actor) = to_actor {
-                if actor::is_miner_actor(&actor.code) {
-                    // This is a storage miner and processed a window post, remove burn
-                    return Ok(false);
+                if let Some(actor) = to_actor {
+                    if actor::is_miner_actor(&actor.code) {
+                        // This is a storage miner and processed a window post, remove burn
+                        return Ok(false);
+                    }
                 }
             }
         }

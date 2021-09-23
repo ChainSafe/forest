@@ -12,6 +12,7 @@ pub use actorv0;
 pub use actorv2;
 pub use actorv3;
 pub use actorv4;
+pub use actorv5;
 use fil_types::{NetworkVersion, StateTreeVersion};
 
 pub enum ActorVersion {
@@ -19,6 +20,7 @@ pub enum ActorVersion {
     V2,
     V3,
     V4,
+    V5,
 }
 
 impl From<NetworkVersion> for ActorVersion {
@@ -34,7 +36,8 @@ impl From<NetworkVersion> for ActorVersion {
             | NetworkVersion::V8
             | NetworkVersion::V9 => ActorVersion::V2,
             NetworkVersion::V10 | NetworkVersion::V11 => ActorVersion::V3,
-            _ => ActorVersion::V4,
+            NetworkVersion::V12 => ActorVersion::V4,
+            NetworkVersion::V13 => ActorVersion::V5,
         }
     }
 }
@@ -46,6 +49,7 @@ impl From<StateTreeVersion> for ActorVersion {
             StateTreeVersion::V1 => ActorVersion::V2,
             StateTreeVersion::V2 => ActorVersion::V3,
             StateTreeVersion::V3 => ActorVersion::V4,
+            StateTreeVersion::V4 => ActorVersion::V5,
         }
     }
 }
