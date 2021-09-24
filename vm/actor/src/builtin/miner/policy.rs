@@ -17,7 +17,7 @@ pub const MAX_AGGREGATED_SECTORS: usize = 819;
 /// Minimum amount of sectors that can be aggregated.
 pub const MIN_AGGREGATED_SECTORS: usize = 4;
 /// Maximum total aggregated proof size.
-pub const MAX_AGGREGATED_PROOF_SIZE: usize = 192000;
+pub const MAX_AGGREGATED_PROOF_SIZE: usize = 81960;
 
 /// The maximum number of sector pre-commitments in a single batch.
 /// 32 sectors per epoch would support a single miner onboarding 1EiB of 32GiB sectors in 1 year.
@@ -72,7 +72,7 @@ pub const ADDRESSED_PARTITIONS_MAX: u64 = MAX_PARTITIONS_PER_DEADLINE;
 pub const DELCARATIONS_MAX: u64 = ADDRESSED_PARTITIONS_MAX;
 
 /// The maximum number of sector infos that may be required to be loaded in a single invocation.
-pub const ADDRESSED_SECTORS_MAX: u64 = 10_000;
+pub const ADDRESSED_SECTORS_MAX: u64 = 25_000;
 
 /// The maximum number of partitions that may be required to be loaded in a single invocation,
 /// when all the sector infos for the partitions will be loaded.
@@ -130,7 +130,7 @@ pub fn max_prove_commit_duration(proof: RegisteredSealProof) -> Option<ChainEpoc
         StackedDRG32GiBV1 | StackedDRG2KiBV1 | StackedDRG8MiBV1 | StackedDRG512MiBV1
         | StackedDRG64GiBV1 => Some(EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
         StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1 | StackedDRG512MiBV1P1 | StackedDRG8MiBV1P1
-        | StackedDRG2KiBV1P1 => Some(6 * EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
+        | StackedDRG2KiBV1P1 => Some(30 * EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
         _ => None,
     }
 }
