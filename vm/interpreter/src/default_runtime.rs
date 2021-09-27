@@ -7,7 +7,7 @@ use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
     account, actorv0,
     actorv2::{self, ActorDowncast},
-    actorv3, actorv4, ActorVersion,
+    actorv3, actorv4, actorv5, ActorVersion,
 };
 use address::{Address, Protocol};
 use blocks::BlockHeader;
@@ -438,6 +438,7 @@ where
                 ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
                 ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
                 ActorVersion::V4 => actorv4::invoke_code(&code, self, method_num, params),
+                ActorVersion::V5 => actorv5::invoke_code(&code, self, method_num, params),
             }
         } {
             ret
@@ -615,7 +616,7 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = if rand_epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT {
+        let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
                 .get_chain_randomness_looking_forward(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
@@ -634,7 +635,7 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = if rand_epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT {
+        let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
                 .get_beacon_randomness_looking_forward(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
@@ -1003,8 +1004,6 @@ where
         &self,
         vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
-        // Gas charged for batch verify in actor
-
         let out = vis
             .par_iter()
             .with_min_len(vis.len() / *NUM_CPUS)
@@ -1012,14 +1011,23 @@ where
                 let results = seals
                     .par_iter()
                     .map(|s| {
-                        if let Err(err) = V::verify_seal(s) {
-                            debug!(
-                                "seal verify in batch failed (miner: {}) (err: {})",
-                                addr, err
-                            );
-                            false
-                        } else {
-                            true
+                        let verify_seal_result = std::panic::catch_unwind(|| V::verify_seal(s));
+                        match verify_seal_result {
+                            Ok(res) => {
+                                if let Err(err) = res {
+                                    debug!(
+                                        "seal verify in batch failed (miner: {}) (err: {})",
+                                        addr, err
+                                    );
+                                    false
+                                } else {
+                                    true
+                                }
+                            }
+                            Err(_) => {
+                                log::error!("seal verify internal fail (miner: {})", addr);
+                                false
+                            }
                         }
                     })
                     .collect();
@@ -1144,6 +1152,7 @@ fn new_account_actor(version: ActorVersion) -> ActorState {
             ActorVersion::V2 => *actorv2::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V3 => *actorv3::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V4 => *actorv4::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V5 => *actorv5::ACCOUNT_ACTOR_CODE_ID,
         },
         balance: TokenAmount::from(0),
         state: *EMPTY_ARR_CID,
