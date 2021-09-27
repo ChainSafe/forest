@@ -17,7 +17,7 @@ fn version() -> String {
     .args(&["rev-parse", "--short", "HEAD"])
     .output()
     .expect("Git references should be available on a build system");
-  let git_hash = String::from_utf8(git_cmd.stdout).unwrap_or("".to_string());
+  let git_hash = String::from_utf8(git_cmd.stdout).unwrap_or(String::new());
   format!(
     "v{}/{}/{}",
     env!("CARGO_PKG_VERSION"),
