@@ -56,7 +56,7 @@ pub struct State {
     #[serde(with = "bigint_ser")]
     pub fee_debt: TokenAmount,
 
-    /// Sum of initial pledge requirements of all active sectors
+    /// Sum of initial pledge requirements of all active sectors.
     #[serde(with = "bigint_ser")]
     pub initial_pledge: TokenAmount,
 
@@ -1142,6 +1142,24 @@ impl State {
             detected_faulty_power,
             total_faulty_power,
         })
+    }
+
+    pub fn get_all_precommitted_sectors<BS: BlockStore>(
+        &self,
+        store: &BS,
+        sector_nos: &BitField,
+    ) -> Result<Vec<SectorPreCommitOnChainInfo>, Box<dyn StdError>> {
+        let mut precommits = Vec::new();
+        let precommitted =
+            make_map_with_root_and_bitwidth(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
+        for sector_no in sector_nos.iter() {
+            let info: &SectorPreCommitOnChainInfo =
+                precommitted
+                    .get(&u64_key(sector_no as u64))?
+                    .ok_or_else(|| actor_error!(ErrNotFound, "sector {} not found", sector_no))?;
+            precommits.push(info.clone());
+        }
+        Ok(precommits)
     }
 }
 

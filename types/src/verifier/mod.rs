@@ -62,13 +62,12 @@ pub trait ProofVerifier {
         }
         let spt: proofs::RegisteredSealProof = aggregate.seal_proof.try_into()?;
         let prover_id = prover_id_from_u64(aggregate.miner);
-
         struct AggregationInputs {
             // replica
             commr: [u8; 32],
             // data
             commd: [u8; 32],
-            sector_id: u64,
+            sector_id: SectorId,
             ticket: [u8; 32],
             seed: [u8; 32],
         }
@@ -81,9 +80,9 @@ pub trait ProofVerifier {
                 Ok(AggregationInputs {
                     commr,
                     commd,
-                    sector_id: info.sector_number,
                     ticket: bytes_32(&info.randomness.0),
                     seed: bytes_32(&info.interactive_randomness.0),
+                    sector_id: SectorId::from(info.sector_number),
                 })
             })
             .collect::<Result<Vec<_>, &'static str>>()?;
@@ -96,7 +95,7 @@ pub trait ProofVerifier {
                     input.commr,
                     input.commd,
                     prover_id,
-                    input.sector_id.try_into()?,
+                    input.sector_id,
                     input.ticket,
                     input.seed,
                 )

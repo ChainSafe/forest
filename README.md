@@ -133,7 +133,7 @@ We take all security issues seriously, if you believe you have found a security 
 project please notify us immediately. If an issue is confirmed, we will take all necessary precautions
 to ensure a statement and patch release is made in a timely manner.
 
-Please email us a description of the flaw and any related information (e.g. reproduction steps, version) to
+Please email a description of the flaw and any related information (e.g. reproduction steps, version) to
 [security at chainsafe dot io](mailto:security@chainsafe.io).
 
 ## License
