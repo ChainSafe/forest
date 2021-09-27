@@ -626,7 +626,7 @@ where
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
 
-        Ok(Randomness(r))
+        Ok(Randomness(r.to_vec()))
     }
 
     fn get_randomness_from_beacon(
@@ -644,7 +644,7 @@ where
                 .get_beacon_randomness(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
-        Ok(Randomness(r))
+        Ok(Randomness(r.to_vec()))
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
@@ -894,7 +894,12 @@ where
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_post(vi))?;
 
-        V::verify_window_post(vi.randomness, &vi.proofs, &vi.challenged_sectors, vi.prover)
+        V::verify_window_post(
+            vi.randomness.clone(),
+            &vi.proofs,
+            &vi.challenged_sectors,
+            vi.prover,
+        )
     }
     fn verify_consensus_fault(
         &self,
