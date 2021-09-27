@@ -3,7 +3,7 @@
 # docker build -t forest/rust:latest -f ./Dockerfile-ci .
 # docker run forest/rust cargo c
 
-FROM rust:1.42-stretch
+FROM rust:1-buster
 
 WORKDIR /usr/src/forest
 COPY . .
