@@ -4,10 +4,10 @@
 use std::process::Command;
 
 #[cfg(not(feature = "release"))]
-const RELEASE_TRACK: &'static str = "unstable";
+const RELEASE_TRACK: &str = "unstable";
 
 #[cfg(feature = "release")]
-const RELEASE_TRACK: &'static str = "alpha";
+const RELEASE_TRACK: &str = "alpha";
 
 fn main(){
   // expose environment variable FOREST_VERSON at build time
@@ -20,7 +20,7 @@ fn version() -> String {
     .args(&["rev-parse", "--short", "HEAD"])
     .output()
     .expect("Git references should be available on a build system");
-  let git_hash = String::from_utf8(git_cmd.stdout).unwrap_or(String::new());
+  let git_hash = String::from_utf8(git_cmd.stdout).unwrap_or_default();
   format!(
     "v{}/{}/{}",
     env!("CARGO_PKG_VERSION"),
