@@ -3,8 +3,11 @@
 
 use std::process::Command;
 
-// we reserve this space once we start releasing
+#[cfg(not(feature = "release"))]
 const RELEASE_TRACK: &'static str = "unstable";
+
+#[cfg(feature = "release")]
+const RELEASE_TRACK: &'static str = "alpha";
 
 fn main(){
   // expose environment variable FOREST_VERSON at build time
