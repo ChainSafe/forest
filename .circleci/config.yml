@@ -309,13 +309,16 @@ workflows:
   build-check:
     jobs:
       - prefetch-crates
-      - nightly-build-check:
+      - linux-build-stable:
           requires:
             - prefetch-crates
-      - msrv-build-check:
+      - linux-build-nightly:
           requires:
             - prefetch-crates
-      - macos-build-check:
+      - macos-build-stable:
+          requires:
+            - prefetch-crates
+      - macos-build-nightly:
           requires:
             - prefetch-crates
   daily-check:
