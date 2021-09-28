@@ -1,8 +1,33 @@
 [package]
-name = "spec_actors"
+name = "specs_actors"
 version = "0.1.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+submodule_tests = [
+    "serde",
+    "base64",
+    "cid",
+    "clock",
+    "vm"
+]
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }
+base64 = { version = "0.13", optional = true }
+cid = { package = "forest_cid", version = "0.3", features = [
+    "cbor",
+    "json"
+], optional = true }
+clock = { package = "fil_clock", path = "../../node/clock", optional = true }
+vm = { package = "forest_vm", version = "0.3.1", optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"
+walkdir = "2.3"
+lazy_static = "1.4"
+pretty_env_logger = "0.4.0"
+log = "0.4"
+async-std = { version = "1.9", features = ["attributes"] }

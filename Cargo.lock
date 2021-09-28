@@ -6289,6 +6289,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "specs_actors"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "base64 0.13.0",
+ "fil_clock",
+ "forest_cid",
+ "forest_vm",
+ "lazy_static",
+ "log",
+ "pretty_env_logger",
+ "serde",
+ "serde_json",
+ "walkdir",
+]
+
+[[package]]
 name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

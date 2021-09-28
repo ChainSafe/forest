@@ -35,6 +35,7 @@ members = [
     "key_management",
     "tests/conformance_tests",
     "tests/serialization_tests",
+    "tests/specs_actors",
     "types",
     "types/networks",
     "utils/auth",
