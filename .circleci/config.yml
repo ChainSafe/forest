@@ -135,7 +135,7 @@ jobs:
 ################################################################################
   linux-build-stable:
     executor: linux-executor
-    description: Check nightly build
+    description: Check linux build on stable
     steps:
       - checkout
       - install_rust_linux
@@ -144,19 +144,19 @@ jobs:
       - run:
           name: Set rustc version
           command: |
-            rustup default nightly
-            rustup update nightly
+            rustup default stable
+            rustup update stable
             rustup show
       - run:
-          name: Nightly Build
+          name: Linux build stable
           command: |
-            rustup run nightly rustc --version --verbose
-            rustup run nightly cargo --version --verbose
-            cargo +nightly check -p forest
-            cargo +nightly check
+            rustup run stable rustc --version --verbose
+            rustup run stable cargo --version --verbose
+            cargo +stable check -p forest
+            cargo +stable check
   linux-build-nightly:
     executor: linux-executor
-    description: Check nightly build
+    description: Check Linux build on nightly
     steps:
       - checkout
       - install_rust_linux
@@ -169,7 +169,7 @@ jobs:
             rustup update nightly
             rustup show
       - run:
-          name: Nightly Build
+          name: Linux build nightly
           command: |
             rustup run nightly rustc --version --verbose
             rustup run nightly cargo --version --verbose
@@ -177,7 +177,7 @@ jobs:
             cargo +nightly check
   macos-build-stable:
     executor: macos-executor
-    description: Check MacOS build
+    description: Check MacOS build on stable
     steps:
       - checkout
       - install_rust_macos
@@ -188,7 +188,7 @@ jobs:
           command: |
             brew install hwloc
       - run:
-          name: MacOS build
+          name: MacOS build stable
           command: |
             rustup run stable rustc --version --verbose
             rustup run stable cargo --version --verbose
@@ -196,7 +196,7 @@ jobs:
             cargo +stable check
   macos-build-nightly:
     executor: macos-executor
-    description: Check MacOS build
+    description: Check MacOS build on nightly
     steps:
       - checkout
       - install_rust_macos
@@ -207,12 +207,12 @@ jobs:
           command: |
             brew install hwloc
       - run:
-          name: MacOS build
+          name: MacOS build nightly
           command: |
-            rustup run stable rustc --version --verbose
-            rustup run stable cargo --version --verbose
-            cargo +stable check -p forest
-            cargo +stable check
+            rustup run nightly rustc --version --verbose
+            rustup run nightly cargo --version --verbose
+            cargo +nightly check -p forest
+            cargo +nightly check
   install:
     executor: linux-executor
     description: Install forest binary
