@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{de, from_slice, ser, serde_bytes, to_vec, Cbor, Error as EncodingError};
