@@ -1,5 +1,10 @@
 version: 2.1
 
+parameters:
+  msrv-version:
+    type: string
+    default: "1.52.1"
+
 executors:
   linux-executor:
     machine:
@@ -142,6 +147,25 @@ jobs:
 ################################################################################
 #  Build related jobs
 ################################################################################
+  linux-build-msrv:
+    executor: linux-executor
+    description: Check linux build on MSRV
+    steps:
+      - checkout
+      - install_rust_linux
+      - install_deps
+      - env_setup
+      - run:
+          name: Set MSRV
+          command: |
+            rustup toolchain install << pipeline.parameters.msrv-version >>
+      - run:
+          name: Linux build MSRV
+          command: |
+            rustup run << pipeline.parameters.msrv-version >> rustc --version --verbose
+            rustup run << pipeline.parameters.msrv-version >> cargo --version --verbose
+            cargo +<< pipeline.parameters.msrv-version >> check -p forest
+            cargo +<< pipeline.parameters.msrv-version >> check
   linux-build-stable:
     executor: linux-executor
     description: Check linux build on stable
@@ -193,25 +217,6 @@ jobs:
             rustup run stable cargo --version --verbose
             cargo +stable check -p forest
             cargo +stable check
-  macos-build-nightly:
-    executor: macos-executor
-    description: Check MacOS build on nightly
-    steps:
-      - checkout
-      - install_rust_macos
-      - set_rustc_nightly
-      - env_setup
-      - run:
-          name: Install deps
-          command: |
-            brew install hwloc
-      - run:
-          name: MacOS build nightly
-          command: |
-            rustup run nightly rustc --version --verbose
-            rustup run nightly cargo --version --verbose
-            cargo +nightly check -p forest
-            cargo +nightly check
   install:
     executor: linux-executor
     description: Install forest binary
@@ -308,6 +313,9 @@ workflows:
   build-checks:
     jobs:
       - prefetch-crates
+      - linux-build-msrv:
+          requires:
+            - prefetch-crates
       - linux-build-stable:
           requires:
             - prefetch-crates
@@ -315,9 +323,6 @@ workflows:
           requires:
             - prefetch-crates
       - macos-build-stable:
-          requires:
-            - prefetch-crates
-      - macos-build-nightly:
           requires:
             - prefetch-crates
   nightly-checks:
