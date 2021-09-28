@@ -41,6 +41,12 @@ impl<'de> Deserialize<'de> for Byte32De {
     }
 }
 
+pub fn bytes_32(buf: &[u8]) -> [u8; 32] {
+    let mut array = [0; 32];
+    array.copy_from_slice(buf.as_ref());
+    array
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

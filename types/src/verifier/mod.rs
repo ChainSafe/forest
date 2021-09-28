@@ -11,6 +11,7 @@ use crate::{
 };
 use address::Address;
 use commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1};
+use encoding::bytes_32;
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
     post, seal::verify_aggregate_seal_commit_proofs, seal::verify_seal as proofs_verify_seal,
@@ -43,8 +44,8 @@ pub trait ProofVerifier {
             commd,
             prover_id,
             SectorId::from(vi.sector_id.number),
-            vi.randomness.0,
-            vi.interactive_randomness.0,
+            bytes_32(&vi.randomness.0),
+            bytes_32(&vi.interactive_randomness.0),
             &vi.proof,
         )? {
             Err("Invalid Seal proof".into())
@@ -79,9 +80,9 @@ pub trait ProofVerifier {
                 Ok(AggregationInputs {
                     commr,
                     commd,
+                    ticket: bytes_32(&info.randomness.0),
+                    seed: bytes_32(&info.interactive_randomness.0),
                     sector_id: SectorId::from(info.sector_number),
-                    ticket: info.randomness.0,
-                    seed: info.interactive_randomness.0,
                 })
             })
             .collect::<Result<Vec<_>, &'static str>>()?;
@@ -143,7 +144,7 @@ pub trait ProofVerifier {
         let prover_id = prover_id_from_u64(prover);
 
         // Verify Proof
-        if !post::verify_winning_post(&randomness, &proof_bytes, &replicas, prover_id)? {
+        if !post::verify_winning_post(&bytes_32(&randomness), &proof_bytes, &replicas, prover_id)? {
             Err("Winning post was invalid".into())
         } else {
             Ok(())
@@ -175,7 +176,7 @@ pub trait ProofVerifier {
         let prover_id = prover_id_from_u64(prover);
 
         // Verify Proof
-        if !post::verify_window_post(&randomness, &proofs, &replicas, prover_id)? {
+        if !post::verify_window_post(&bytes_32(&randomness), &proofs, &replicas, prover_id)? {
             Err("Window post was invalid".into())
         } else {
             Ok(())
@@ -194,7 +195,7 @@ pub trait ProofVerifier {
 
         Ok(post::generate_winning_post_sector_challenge(
             proof.try_into()?,
-            &randomness,
+            &bytes_32(&randomness),
             eligible_sector_count,
             prover_id_from_u64(prover_id),
         )?)

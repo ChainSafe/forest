@@ -669,8 +669,12 @@ where
         )?;
 
         let nv = get_network_version_default(tipset.epoch());
-        let sectors =
-            self.get_sectors_for_winning_post::<V>(&lbst, nv, &address, Randomness(prand))?;
+        let sectors = self.get_sectors_for_winning_post::<V>(
+            &lbst,
+            nv,
+            &address,
+            Randomness(prand.to_vec()),
+        )?;
 
         if sectors.is_empty() {
             return Ok(None);
