@@ -42,14 +42,23 @@ commands:
             export PATH="${HOME}/.cargo/bin:${PATH}"
             rustup show
             rustc -V
-  rust_setup:
-    description: Set rustc version
+  set_rustc_stable:
+    description: Set rustc version to stable
     steps:
       - run:
-          name: Set rustc version
+          name: Set rustc stable
           command: |
             rustup default stable
             rustup update stable
+            rustup show
+  set_rustc_nightly:
+    description: Set rustc version to nightly
+    steps:
+      - run:
+          name: Set rustc nightly
+          command: |
+            rustup default nightly
+            rustup update nightly
             rustup show
   print_versions:
     description: Version Info
@@ -113,7 +122,7 @@ commands:
     steps:
       - checkout
       - install_rust_linux
-      - rust_setup
+      - set_rustc_stable
       - print_versions
       - env_setup
       - install_deps
@@ -141,12 +150,7 @@ jobs:
       - install_rust_linux
       - install_deps
       - env_setup
-      - run:
-          name: Set rustc version
-          command: |
-            rustup default stable
-            rustup update stable
-            rustup show
+      - set_rustc_stable
       - run:
           name: Linux build stable
           command: |
@@ -162,12 +166,7 @@ jobs:
       - install_rust_linux
       - install_deps
       - env_setup
-      - run:
-          name: Set rustc version
-          command: |
-            rustup default nightly
-            rustup update nightly
-            rustup show
+      - set_rustc_nightly
       - run:
           name: Linux build nightly
           command: |
@@ -181,7 +180,7 @@ jobs:
     steps:
       - checkout
       - install_rust_macos
-      - rust_setup
+      - set_rustc_stable
       - env_setup
       - run:
           name: Install deps
@@ -200,7 +199,7 @@ jobs:
     steps:
       - checkout
       - install_rust_macos
-      - rust_setup
+      - set_rustc_nightly
       - env_setup
       - run:
           name: Install deps
@@ -294,7 +293,7 @@ jobs:
           command: cargo audit
 
 workflows:
-  setup_test:
+  test-checks:
     jobs:
       - prefetch-crates
       - lint:
@@ -306,7 +305,7 @@ workflows:
       - test-vectors:
           requires:
             - prefetch-crates
-  build-check:
+  build-checks:
     jobs:
       - prefetch-crates
       - linux-build-stable:
@@ -321,7 +320,7 @@ workflows:
       - macos-build-nightly:
           requires:
             - prefetch-crates
-  daily-check:
+  nightly-checks:
     triggers:
       - schedule:
           cron: "0 0 * * *"
