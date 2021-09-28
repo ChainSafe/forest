@@ -1,12 +1,14 @@
 // Copyright 2020 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{Byte32De, BytesSer};
+use encoding::{BytesDe, BytesSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// String of random bytes usually generated from a randomness beacon or from tickets on chain.
-#[derive(PartialEq, Eq, Default, Copy, Clone, Debug)]
-pub struct Randomness(pub [u8; 32]);
+#[derive(PartialEq, Eq, Default, Clone, Debug)]
+pub struct Randomness(pub Vec<u8>);
+
+pub const RANDOMNESS_LENGTH: usize = 32;
 
 impl Serialize for Randomness {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -22,7 +24,7 @@ impl<'de> Deserialize<'de> for Randomness {
     where
         D: Deserializer<'de>,
     {
-        let bytes = Byte32De::deserialize(deserializer)?;
+        let bytes = BytesDe::deserialize(deserializer)?;
         Ok(Self(bytes.0))
     }
 }
