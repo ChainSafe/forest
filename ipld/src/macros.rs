@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 /// Construct a `forest_ipld::Ipld` roughly matching JSON format. This code is a modified version

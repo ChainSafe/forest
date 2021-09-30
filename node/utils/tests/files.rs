@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use utils::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
