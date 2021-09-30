@@ -1385,9 +1385,7 @@ async fn validate_block<
         .map_err(|e| TipsetRangeSyncerError::DrawingChainRandomness(e.to_string()))?;
         verify_election_post_vrf(&work_addr, &vrf_base, election_proof.vrfproof.as_bytes())?;
 
-        if v_state_manager
-            .is_miner_slashed(header.miner_address(), v_base_tipset.parent_state())?
-        {
+        if v_state_manager.is_miner_slashed(header.miner_address(), v_base_tipset.parent_state())? {
             return Err(TipsetRangeSyncerError::InvalidOrSlashedMiner);
         }
         let (mpow, tpow) = v_state_manager
