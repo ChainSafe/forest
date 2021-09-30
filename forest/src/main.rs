@@ -6,14 +6,14 @@ mod daemon;
 mod logger;
 mod subcommand;
 
-use cli::{cli_error_and_die, CLI};
+use cli::{cli_error_and_die, Cli};
 use structopt::StructOpt;
 
 #[async_std::main]
 async fn main() {
     logger::setup_logger();
-    // Capture CLI inputs
-    let CLI { opts, cmd } = CLI::from_args();
+    // Capture Cli inputs
+    let Cli { opts, cmd } = Cli::from_args();
 
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
