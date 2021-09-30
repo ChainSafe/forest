@@ -3,7 +3,7 @@
 # docker build -t forest:latest -f ./Dockerfile .
 # docker run forest
 
-FROM rust:1.47-buster AS build-env
+FROM rust:1-buster AS build-env
 
 WORKDIR /usr/src/forest
 COPY . .
