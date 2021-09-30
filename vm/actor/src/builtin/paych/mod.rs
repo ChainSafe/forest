@@ -136,7 +136,7 @@ impl Actor {
             .map_err(|e| ActorError::from(e).wrap("failed to serialized SignedVoucher"))?;
 
         // Validate signature
-        rt.verify_signature(&sig, &signer, &sv_bz).map_err(|e| {
+        rt.verify_signature(sig, &signer, &sv_bz).map_err(|e| {
             e.downcast_default(ExitCode::ErrIllegalArgument, "voucher signature invalid")
         })?;
 

@@ -322,7 +322,7 @@ where
             } else {
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
-                self.compute_tipset_state::<V, _>(&tipset, no_func).await?
+                self.compute_tipset_state::<V, _>(tipset, no_func).await?
             };
 
             // Fill entry with calculated cid pair
@@ -456,7 +456,7 @@ where
         )?;
 
         for msg in prior_messages {
-            vm.apply_message(&msg)?;
+            vm.apply_message(msg)?;
         }
         let from_actor = vm
             .state()
@@ -465,7 +465,7 @@ where
             .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
         message.set_sequence(from_actor.sequence);
 
-        let ret = vm.apply_message(&message)?;
+        let ret = vm.apply_message(message)?;
 
         Ok(InvocResult {
             msg: message.message().clone(),
@@ -499,7 +499,7 @@ where
 
             Ok(())
         };
-        let result = self.compute_tipset_state::<V, _>(&ts, Some(callback)).await;
+        let result = self.compute_tipset_state::<V, _>(ts, Some(callback)).await;
 
         if let Err(error_message) = result {
             if error_message.to_string() != "halt" {
@@ -604,7 +604,7 @@ where
 
         // Non-empty power claim.
         let claim = power_state
-            .miner_power(self.blockstore(), &address)?
+            .miner_power(self.blockstore(), address)?
             .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
         if claim.quality_adj_power <= BigInt::zero() {
             return Ok(false);
@@ -691,7 +691,7 @@ where
 
         let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
 
-        let eligible = self.eligible_to_mine(&address, &tipset.as_ref(), &lbts)?;
+        let eligible = self.eligible_to_mine(&address, tipset.as_ref(), &lbts)?;
 
         Ok(Some(MiningBaseInfo {
             miner_power: Some(mpow.quality_adj_power),
@@ -1174,7 +1174,7 @@ where
         Ok(interpreter::resolve_to_key_addr(
             &state,
             self.blockstore(),
-            &addr,
+            addr,
         )?)
     }
 
@@ -1239,7 +1239,7 @@ where
                 ts.epoch(),
                 ts.cids()
             );
-            let (st, msg_root) = self.tipset_state::<V>(&ts).await?;
+            let (st, msg_root) = self.tipset_state::<V>(ts).await?;
             last_state = st;
             last_receipt = msg_root;
         }

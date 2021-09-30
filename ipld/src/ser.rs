@@ -25,8 +25,8 @@ impl serde::Serialize for Ipld {
     {
         match self {
             Ipld::Integer(v) => serializer.serialize_i128(*v),
-            Ipld::Bytes(v) => serializer.serialize_bytes(&v),
-            Ipld::String(v) => serializer.serialize_str(&v),
+            Ipld::Bytes(v) => serializer.serialize_bytes(v),
+            Ipld::String(v) => serializer.serialize_str(v),
             Ipld::List(v) => v.serialize(serializer),
             Ipld::Map(v) => v.serialize(serializer),
             Ipld::Link(cid) => cid.serialize(serializer),

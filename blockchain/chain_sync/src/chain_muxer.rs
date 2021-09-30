@@ -238,7 +238,7 @@ where
         let ts = chain_store.tipset_from_keys(&tipset_keys).await?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) = chain::block_messages(chain_store.blockstore(), &header)?;
+            let (bls_msgs, secp_msgs) = chain::block_messages(chain_store.blockstore(), header)?;
             // Construct a full block
             blocks.push(Block {
                 header: header.clone(),
