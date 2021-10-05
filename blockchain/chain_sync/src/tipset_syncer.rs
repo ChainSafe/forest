@@ -52,11 +52,11 @@ const MAX_TIPSETS_TO_REQUEST: u64 = 100;
 #[derive(Debug, Error)]
 pub enum TipsetProcessorError {
     #[error("TipsetRangeSyncer error: {0}")]
-    TipsetRangeSyncer(#[from] TipsetRangeSyncerError),
+    RangeSyncer(#[from] TipsetRangeSyncerError),
     #[error("Tipset stream closed")]
-    TipsetStreamClosed,
+    StreamClosed,
     #[error("Tipset has already been synced")]
-    TipsetAlreadySynced,
+    AlreadySynced,
 }
 
 #[derive(Debug, Error)]
@@ -291,7 +291,7 @@ where
             let proposed_head = tipset_group.take_heaviest_tipset().unwrap();
 
             if current_head.key().eq(proposed_head.key()) {
-                return Err(TipsetProcessorError::TipsetAlreadySynced);
+                return Err(TipsetProcessorError::AlreadySynced);
             }
 
             let mut tipset_range_syncer = TipsetRangeSyncer::new(
@@ -370,7 +370,7 @@ where
                 }
                 Poll::Ready(None) => {
                     // Stream should never close
-                    return Poll::Ready(Err(TipsetProcessorError::TipsetStreamClosed));
+                    return Poll::Ready(Err(TipsetProcessorError::StreamClosed));
                 }
                 // The current task is registered for wakeup when this
                 // stream has a new item available. Break here to make
@@ -533,8 +533,8 @@ where
                         match why {
                             // Do not log for these errors since they are expected to occur
                             // throughout the syncing process
-                            TipsetProcessorError::TipsetAlreadySynced
-                            | TipsetProcessorError::TipsetRangeSyncer(
+                            TipsetProcessorError::AlreadySynced
+                            | TipsetProcessorError::RangeSyncer(
                                 TipsetRangeSyncerError::InvalidTipsetRangeLength,
                             ) => (),
                             why => {
