@@ -2,7 +2,9 @@
 name = "forest"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
+description = "Filecoin implementation in Rust. This command will start the daemon process."
 edition = "2018"
+build = "build.rs"
 
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
@@ -67,3 +69,4 @@ devnet = ["actor/devnet", "networks/devnet", "testnet"]
 interopnet = ["actor/interopnet", "networks/interopnet", "testnet"]
 insecure_post = ["chain_sync/insecure_post"]
 testnet = []
+release = []
