@@ -737,9 +737,11 @@ pub(crate) async fn tipset_from_keys<BS>(
 where
     BS: BlockStore + Send + Sync + 'static,
 {
+    info!("tipset_from_keys cache get 1");
     if let Some(ts) = cache.write().await.get(tsk) {
         return Ok(ts.clone());
     }
+    info!("tipset_from_keys cache release 1");
 
     let block_headers: Vec<BlockHeader> = tsk
         .cids()
@@ -754,7 +756,9 @@ where
 
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
+    info!("tipset_from_keys cache get 2");
     cache.write().await.put(tsk.clone(), ts.clone());
+    info!("tipset_from_keys cache release 2");
     Ok(ts)
 }
 
