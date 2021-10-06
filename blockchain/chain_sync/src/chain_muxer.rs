@@ -622,7 +622,6 @@ where
         let mem_pool = self.mpool.clone();
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
-                error!("Bootstrap process waiting for message");
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
@@ -630,7 +629,6 @@ where
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
-                debug!("Bootstrap process got new message");
                 let (_tipset, _) = match Self::process_gossipsub_event(
                     event,
                     network.clone(),
@@ -644,7 +642,6 @@ where
                 {
                     Ok(Some((tipset, source))) => (tipset, source),
                     Ok(None) => {
-                        debug!("Bootstrap process Ok(None)");
                         continue
                     },
                     Err(why) => {
@@ -654,7 +651,6 @@ where
                 };
 
                 // Drop tipsets while we are bootstrapping
-                debug!("Bootstrap process Ok(Some)");
             }
         });
 
