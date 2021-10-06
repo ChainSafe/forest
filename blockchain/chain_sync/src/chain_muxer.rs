@@ -219,17 +219,17 @@ where
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
-        info!("get_full_tipset attempt to load from store");
+        trace!("get_full_tipset attempt to load from store");
         if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()).await {
             return Ok(full_tipset);
-    }
-        info!("get_full_tipset attempt to load from network");
+        }
+        trace!("get_full_tipset attempt to load from network");
         // Load from the network
         let ret = network
             .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
             .await
             .map_err(ChainMuxerError::ChainExchange);
-        info!("get_full_tipset success");
+        trace!("get_full_tipset success");
         ret
     }
 
