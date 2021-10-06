@@ -622,7 +622,7 @@ where
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
-
+                debug!("Bootstrap process got new message");
                 let (_tipset, _) = match Self::process_gossipsub_event(
                     event,
                     network.clone(),
@@ -635,7 +635,10 @@ where
                 .await
                 {
                     Ok(Some((tipset, source))) => (tipset, source),
-                    Ok(None) => continue,
+                    Ok(None) => {
+                        debug!("Bootstrap process Ok(None)");
+                        continue
+                    },
                     Err(why) => {
                         debug!("Processing GossipSub event failed: {:?}", why);
                         continue;
@@ -643,6 +646,7 @@ where
                 };
 
                 // Drop tipsets while we are bootstrapping
+                debug!("Bootstrap process Ok(Some)");
             }
         });
 
