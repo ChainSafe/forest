@@ -337,7 +337,12 @@ where
                 Ok(msgs) => msgs,
                 Err(e) => return Err(ChainMuxerError::Bitswap(e)),
             };
-
+        debug!(
+            "Finished Received block over GossipSub: {} height {} from {}",
+            block.header.cid(),
+            block.header.epoch(),
+            source,
+        );
         let block = Block {
             header: block.header,
             bls_messages,
@@ -609,6 +614,7 @@ where
         let mem_pool = self.mpool.clone();
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
+                error!("Bootstrap process waiting for message");
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
