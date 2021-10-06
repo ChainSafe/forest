@@ -745,7 +745,7 @@ where
 
     let block_headers: Vec<BlockHeader> = tsk
         .cids()
-        .par_iter()
+        .iter()
         .map(|c| {
             store
                 .get(c)
