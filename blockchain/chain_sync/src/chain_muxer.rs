@@ -376,7 +376,6 @@ where
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
-                info!("Process gossipsub event start");
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_REQUEST])
                     .inc();
@@ -390,11 +389,10 @@ where
                 .await
                 {
                     Ok(tipset) => {
-                        info!("Process gossipsub event success");
                         tipset
                     },
                     Err(why) => {
-                        debug!("Querying full tipset failed: {}", why);
+                        error!("Querying full tipset failed: {}", why);
                         return Err(why);
                     }
                 };
