@@ -38,11 +38,11 @@ pub(super) async fn start(config: Config) {
         .set(address::Network::Mainnet)
         .unwrap();
 
-    // Configure the Rayon Threadpool
-    rayon::ThreadPoolBuilder::new()
-        .thread_name(|n| format!("rayon-thread-{}", n))
-        .build_global()
-        .expect("Failed to create global Rayon ThreadPool");
+    // // Configure the Rayon Threadpool
+    // rayon::ThreadPoolBuilder::new()
+    //     .thread_name(|n| format!("rayon-thread-{}", n))
+    //     .build_global()
+    //     .expect("Failed to create global Rayon ThreadPool");
 
     info!(
         "Starting Forest daemon, version {}",
