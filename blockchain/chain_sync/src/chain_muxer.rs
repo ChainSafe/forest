@@ -223,11 +223,10 @@ where
             return Ok(full_tipset);
         }
         // Load from the network
-        let ret = network
+        network
             .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
             .await
-            .map_err(ChainMuxerError::ChainExchange);
-        ret
+            .map_err(ChainMuxerError::ChainExchange)
     }
 
     async fn load_full_tipset(
@@ -617,6 +616,7 @@ where
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
+
                 let (_tipset, _) = match Self::process_gossipsub_event(
                     event,
                     network.clone(),
