@@ -219,17 +219,14 @@ where
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
-        trace!("get_full_tipset attempt to load from store");
         if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()).await {
             return Ok(full_tipset);
         }
-        trace!("get_full_tipset attempt to load from network");
         // Load from the network
         let ret = network
             .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
             .await
             .map_err(ChainMuxerError::ChainExchange);
-        trace!("get_full_tipset success");
         ret
     }
 
@@ -341,12 +338,7 @@ where
                 Ok(msgs) => msgs,
                 Err(e) => return Err(ChainMuxerError::Bitswap(e)),
             };
-        debug!(
-            "Finished Received block over GossipSub: {} height {} from {}",
-            block.header.cid(),
-            block.header.epoch(),
-            source,
-        );
+
         let block = Block {
             header: block.header,
             bls_messages,
@@ -388,9 +380,7 @@ where
                 )
                 .await
                 {
-                    Ok(tipset) => {
-                        tipset
-                    },
+                    Ok(tipset) => tipset,
                     Err(why) => {
                         error!("Querying full tipset failed: {}", why);
                         return Err(why);
@@ -639,9 +629,7 @@ where
                 .await
                 {
                     Ok(Some((tipset, source))) => (tipset, source),
-                    Ok(None) => {
-                        continue
-                    },
+                    Ok(None) => continue,
                     Err(why) => {
                         debug!("Processing GossipSub event failed: {:?}", why);
                         continue;
