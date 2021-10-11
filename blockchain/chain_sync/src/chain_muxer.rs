@@ -381,7 +381,7 @@ where
                 {
                     Ok(tipset) => tipset,
                     Err(why) => {
-                        debug!("Querying full tipset failed: {}", why);
+                        error!("Querying full tipset failed: {}", why);
                         return Err(why);
                     }
                 };

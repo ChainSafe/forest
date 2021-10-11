@@ -606,9 +606,9 @@ dependencies = [
 
 [[package]]
 name = "bellperson"
-version = "0.16.1"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf45c8be6eb74ede124851a228809faa882cae0685f5449613817cc4a633245b"
+checksum = "d936525a63f5e7754bb104979e8664da3e82cf483d66e251df6d0d7a0b982b12"
 dependencies = [
  "bincode",
  "bit-vec",
@@ -1027,7 +1027,6 @@ dependencies = [
  "multihash",
  "networks",
  "num-traits",
- "rayon",
  "serde",
  "state_tree",
  "test_utils",
@@ -1349,9 +1348,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-deque"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94af6efb46fef72616855b036a624cf27ba656ffc9be1b9a3c931cfc7749a9a9"
+checksum = "6455c0ca19f0d2fbf751b908d5c55c1f5cbc65e03c4225427254b46890bdde1e"
 dependencies = [
  "cfg-if 1.0.0",
  "crossbeam-epoch",
@@ -1927,9 +1926,9 @@ dependencies = [
 
 [[package]]
 name = "filecoin-proofs"
-version = "9.0.1"
+version = "9.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f3290452b555122b635efc6bb213e0ba33fbe475368c3dc4e9bfd6f40bef07e"
+checksum = "bee1b8ce8684fae16c01d3058f0351032481736cebf599a751b723635fa5a7a1"
 dependencies = [
  "anyhow",
  "bellperson",
