@@ -19,7 +19,7 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
-use libp2p::identify::{Identify, IdentifyEvent};
+use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
 use libp2p::ping::{
     handler::{PingFailure, PingSuccess},
     Ping, PingEvent,
@@ -214,16 +214,16 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ForestBehaviour {
             IdentifyEvent::Received {
                 peer_id,
                 info,
-                observed_addr,
             } => {
                 trace!("Identified Peer {}", peer_id);
                 trace!("protocol_version {}", info.protocol_version);
                 trace!("agent_version {}", info.agent_version);
                 trace!("listening_ addresses {:?}", info.listen_addrs);
-                trace!("observed_address {}", observed_addr);
+                trace!("observed_address {}", info.observed_addr);
                 trace!("protocols {:?}", info.protocols);
             }
             IdentifyEvent::Sent { .. } => (),
+            IdentifyEvent::Pushed{ .. } => (),
             IdentifyEvent::Error { .. } => (),
         }
     }
@@ -471,9 +471,7 @@ impl ForestBehaviour {
             discovery: discovery_config.finish(),
             ping: Ping::default(),
             identify: Identify::new(
-                "ipfs/0.1.0".into(),
-                format!("forest-{}-{}", *VERSION, *CURRENT_COMMIT),
-                local_key.public(),
+                IdentifyConfig::new("ipfs/0.1.0".into(), local_key.public()) 
             ),
             bitswap,
             hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),

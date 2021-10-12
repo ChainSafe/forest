@@ -143,7 +143,7 @@ impl<'a> DiscoveryConfig<'a> {
 
         let mdns_opt = if enable_mdns {
             Some(task::block_on(async {
-                Mdns::new().await.expect("Could not start mDNS")
+                Mdns::new(Default::default()).await.expect("Could not start mDNS")
             }))
         } else {
             None
@@ -309,16 +309,16 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         self.kademlia.inject_new_external_addr(addr)
     }
 
-    fn inject_expired_listen_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia.inject_expired_listen_addr(addr);
+    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
+        self.kademlia.inject_expired_listen_addr(id, addr);
     }
 
     fn inject_dial_failure(&mut self, peer_id: &PeerId) {
         self.kademlia.inject_dial_failure(peer_id)
     }
 
-    fn inject_new_listen_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia.inject_new_listen_addr(addr)
+    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
+        self.kademlia.inject_new_listen_addr(id, addr)
     }
 
     fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
