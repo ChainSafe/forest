@@ -2692,7 +2692,7 @@ impl Actor {
     fn withdraw_balance<BS, RT>(
         rt: &mut RT,
         params: WithdrawBalanceParams,
-    ) -> Result<(), ActorError>
+    ) -> Result<WithdrawBalanceReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -2755,7 +2755,7 @@ impl Actor {
                 ))
             })?;
 
-        let amount_withdrawn = std::cmp::min(&available_balance, &params.amount_requested);
+        let amount_withdrawn = std::cmp::min(&available_balance, &params.amount_requested).clone();
         assert!(!amount_withdrawn.is_negative());
         if amount_withdrawn.is_negative() {
             return Err(actor_error!(
@@ -2764,7 +2764,7 @@ impl Actor {
                 amount_withdrawn
             ));
         }
-        if amount_withdrawn > &available_balance {
+        if amount_withdrawn > available_balance {
             return Err(actor_error!(
                 ErrIllegalState,
                 "amount to withdraw {} < available {}",
@@ -2793,7 +2793,7 @@ impl Actor {
                     format!("balance invariants broken: {}", e),
                 )
             })?;
-        Ok(())
+        Ok(WithdrawBalanceReturn{amount_withdrawn: amount_withdrawn})
     }
 
     fn repay_debt<BS, RT>(rt: &mut RT) -> Result<(), ActorError>

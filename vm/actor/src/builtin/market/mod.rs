@@ -126,7 +126,7 @@ impl Actor {
     fn withdraw_balance<BS, RT>(
         rt: &mut RT,
         params: WithdrawBalanceParams,
-    ) -> Result<(), ActorError>
+    ) -> Result<WithdrawBalanceReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -183,14 +183,14 @@ impl Actor {
 
             Ok(ex)
         })?;
-
+        let amount_withdrawn = amount_extracted.clone();
         rt.send(
             recipient,
             METHOD_SEND,
             Serialized::default(),
             amount_extracted,
         )?;
-        Ok(())
+        Ok(WithdrawBalanceReturn{amount_withdrawn: amount_withdrawn})
     }
 
     /// Publish a new set of storage deals (not yet included in a sector).

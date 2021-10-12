@@ -23,6 +23,12 @@ pub struct WithdrawBalanceParams {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct WithdrawBalanceReturn {
+    #[serde(with = "bigint_ser")]
+    pub amount_withdrawn: TokenAmount,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct OnMinerSectorsTerminateParams {
     pub epoch: ChainEpoch,
     pub deal_ids: Vec<DealID>,
