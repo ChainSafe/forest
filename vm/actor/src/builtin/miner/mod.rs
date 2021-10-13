@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use log::{error, info, warn};
@@ -70,7 +70,7 @@ use fil_types::{
     deadlines::DeadlineInfo, AggregateSealVerifyInfo, AggregateSealVerifyProofAndInfos,
     InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredSealProof,
     SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorInfo,
-    SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER,
+    SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER, RANDOMNESS_LENGTH,
 };
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::BigIntSer;
@@ -422,16 +422,14 @@ impl Actor {
             ));
         }
 
-        // * This check is invalid because our randomness length is always == 32
-        // * and there is no clear need for less randomness
-        // if params.chain_commit_rand.0.len() > RANDOMNESS_LENGTH {
-        //     return Err(actor_error!(
-        //         ErrIllegalArgument,
-        //         "expected at most {} bytes of randomness, got {}",
-        //         RANDOMNESS_LENGTH,
-        //         params.chain_commit_rand.0.len()
-        //     ));
-        // }
+        if params.chain_commit_rand.0.len() > RANDOMNESS_LENGTH {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "expected at most {} bytes of randomness, got {}",
+                RANDOMNESS_LENGTH,
+                params.chain_commit_rand.0.len()
+            ));
+        }
 
         let post_result = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt.store(), state)?;
@@ -1349,7 +1347,7 @@ impl Actor {
             .map_err(|e| {
                 ActorError::new(
                     ErrBalanceInvariantBroken,
-                    format!("balance invariants broken: {}", e),
+                    format!("balance invariant broken: {}", e),
                 )
             })?;
         if needs_cron {
@@ -3996,7 +3994,6 @@ where
     // Committed-capacity sectors licensed for early removal by new sectors being proven.
     let mut replace_sectors = DeadlineSectorMap::new();
     let activation = rt.curr_epoch();
-
     // Pre-commits for new sectors.
     let mut valid_pre_commits = Vec::<SectorPreCommitOnChainInfo>::new();
 

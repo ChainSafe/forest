@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod auth_cmd;
@@ -43,10 +43,10 @@ use utils::{read_file_to_string, read_toml};
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
 #[structopt(
-    name = "forest",
-    version = "0.0.1",
-    about = "Filecoin implementation in Rust. This command will start the daemon process",
-    author = "ChainSafe Systems <info@chainsafe.io>"
+    name = env!("CARGO_PKG_NAME"),
+    version = option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+    about = env!("CARGO_PKG_DESCRIPTION"),
+    author = env!("CARGO_PKG_AUTHORS")
 )]
 pub struct CLI {
     #[structopt(flatten)]

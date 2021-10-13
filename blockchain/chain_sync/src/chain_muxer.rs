@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
@@ -381,7 +381,7 @@ where
                 {
                     Ok(tipset) => tipset,
                     Err(why) => {
-                        debug!("Querying full tipset failed: {}", why);
+                        error!("Querying full tipset failed: {}", why);
                         return Err(why);
                     }
                 };

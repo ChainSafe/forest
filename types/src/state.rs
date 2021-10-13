@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
@@ -16,8 +16,10 @@ pub enum StateTreeVersion {
     V1,
     /// Corresponds to actors = v3
     V2,
-    /// Corresponds to actors >= v4
+    /// Corresponds to actors = v4
     V3,
+    /// Corresponds to actors >= v5
+    V4,
 }
 
 /// State root information. Contains information about the version of the state tree,
