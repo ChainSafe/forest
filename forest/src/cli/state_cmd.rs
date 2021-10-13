@@ -1,9 +1,5 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-// Copyright 2019-2022 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0, MIT
-// Copyright 2020 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
 
