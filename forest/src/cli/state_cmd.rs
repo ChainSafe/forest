@@ -6,7 +6,6 @@ use std::str::FromStr;
 use actor::{actorv3::ActorState, is_miner_actor};
 use address::{json::AddressJson, Address};
 use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
-use num_bigint::BigInt;
 use rpc_client::{
     chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
     state_miner_power,
@@ -50,7 +49,7 @@ impl StateCommands {
                 let tipset_keys_json = TipsetKeysJson(tipset.0.key().to_owned());
 
                 let address = Address::from_str(&miner_address)
-                    .expect(&format!("Cannot read address {}", miner_address));
+                    .unwrap_or_else(|_| panic!("Cannot read address {}", miner_address));
 
                 match state_get_actor((AddressJson(address), tipset_keys_json.clone()))
                     .await
@@ -95,14 +94,13 @@ impl StateCommands {
                     to_size_string(&mp.quality_adj_power),
                     tp.quality_adj_power.to_string(),
                     to_size_string(&tp.quality_adj_power),
-                    BigInt::from((mp.quality_adj_power * 100) / tp.quality_adj_power).to_string()
+                    (mp.quality_adj_power * 100) / tp.quality_adj_power
                 );
             }
             Self::GetActor { address } => {
-                let address = Address::from_str(&address.clone()).expect(&format!(
-                    "Failed to create address from argument {}",
-                    address
-                ));
+                let address = Address::from_str(&address.clone()).unwrap_or_else(|_| {
+                    panic!("Failed to create address from argument {}", address)
+                });
 
                 let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
 
@@ -144,8 +142,8 @@ impl StateCommands {
                 }
             }
             Self::Lookup { reverse, address } => {
-                let address =
-                    Address::from_str(address).expect(&format!("Invalid address: {}", address));
+                let address = Address::from_str(address)
+                    .unwrap_or_else(|_| panic!("Invalid address: {}", address));
 
                 let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
 
