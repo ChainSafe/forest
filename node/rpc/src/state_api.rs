@@ -7,8 +7,9 @@ use std::sync::Arc;
 
 use actor::{
     market,
-    miner::{self, SectorOnChainInfo},
-    power, reward,
+    miner::{self, MinerPower, SectorOnChainInfo},
+    power::{self, Claim},
+    reward,
 };
 use address::json::AddressJson;
 use beacon::{Beacon, BeaconEntry};
@@ -405,6 +406,33 @@ pub(crate) async fn state_get_actor<
     Ok(state.get_actor(&actor)?.map(ActorStateJson::from))
 }
 
+/// returns addresses of all actors on the network by tipset
+pub(crate) async fn state_list_actors<
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<StateListActorsParams>,
+) -> Result<StateListActorsResult, JsonRpcError> {
+    let (tipset,) = params;
+
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tipset.into())
+        .await?;
+
+    let addresses = data.state_manager.list_miner_actors::<V>(&tipset)?;
+
+    let addresses_json = addresses
+        .iter()
+        .map(|addr| AddressJson(addr.to_owned()))
+        .collect();
+
+    Ok(addresses_json)
+}
+
 /// returns the public key address of the given ID address
 pub(crate) async fn state_account_key<
     DB: BlockStore + Send + Sync + 'static,
@@ -444,7 +472,12 @@ pub(crate) async fn state_lookup_id<
         .tipset_from_keys(&key.into())
         .await?;
     let state = state_for_ts::<DB, V>(&state_manager, tipset).await?;
-    state.lookup_id(&address).map_err(|e| e.into())
+    let lookup_result = state.lookup_id(&address)?;
+
+    match lookup_result {
+        Some(addr) => Ok(Some(AddressJson(addr))),
+        None => Ok(None),
+    }
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
@@ -719,6 +752,45 @@ pub(crate) async fn state_miner_sector_allocated<
     };
 
     Ok(allocated_sectors)
+}
+
+pub(crate) async fn state_miner_power<
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+    V: ProofVerifier + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<StateMinerPowerParams>,
+) -> Result<StateMinerPowerResult, JsonRpcError> {
+    let (address_opt, TipsetKeysJson(tipset_keys)) = params;
+
+    let ts = data.chain_store.tipset_from_keys(&tipset_keys).await?;
+
+    let address = match address_opt {
+        Some(addr) => {
+            let address = addr.0;
+            Some(address)
+        }
+        None => None,
+    };
+
+    let mp = data
+        .state_manager
+        .get_power(ts.parent_state(), address.as_ref())?;
+
+    if let Some((miner_power, total_power)) = mp {
+        Ok(MinerPower {
+            miner_power,
+            total_power,
+            has_min_power: true,
+        })
+    } else {
+        Ok(MinerPower {
+            miner_power: Claim::default(),
+            total_power: Claim::default(),
+            has_min_power: false,
+        })
+    }
 }
 
 pub(crate) async fn state_miner_pre_commit_deposit_for_power<
