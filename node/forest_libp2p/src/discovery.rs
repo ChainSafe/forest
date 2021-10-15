@@ -215,10 +215,6 @@ impl DiscoveryBehaviour {
 
 impl NetworkBehaviour for DiscoveryBehaviour {
     type ProtocolsHandler = ToggleIntoProtoHandler<KademliaHandlerProto<QueryId>>;
-    // type ProtocolsHandler = ProtocolsHandlerSelect<
-    //     KademliaHandlerProto<QueryId>,
-    //     ToggleIntoProtoHandler<DummyProtocolsHandler>,
-    // >;
     type OutEvent = DiscoveryOut;
 
     fn new_handler(&mut self) -> Self::ProtocolsHandler {
@@ -444,12 +440,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     }
                     MdnsEvent::Expired(_) => {}
                 },
-                NetworkBehaviourAction::DialAddress { .. } => {
-                    // return Poll::Ready(NetworkBehaviourAction::DialAddress { address, handler })
-                }
-                NetworkBehaviourAction::DialPeer { .. } => {
-                    // return Poll::Ready(NetworkBehaviourAction::DialPeer { peer_id, condition, handler })
-                }
+                NetworkBehaviourAction::DialAddress { .. } => {}
+                NetworkBehaviourAction::DialPeer { .. } => {}
                 // Nothing to notify handler
                 NetworkBehaviourAction::NotifyHandler { event, .. } => match event {},
                 NetworkBehaviourAction::ReportObservedAddr { address, score } => {

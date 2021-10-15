@@ -124,46 +124,6 @@ pub(crate) enum ForestBehaviourEvent {
     },
 }
 
-// impl From<DiscoveryOut> for ForestBehaviourEvent {
-//     fn from(a: DiscoveryOut) -> Self {
-//         todo!()
-//     }
-// }
-
-// impl From<BitswapEvent> for ForestBehaviourEvent {
-//     fn from(_: BitswapEvent) -> Self {
-//         todo!()
-//     }
-// }
-// impl From<RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>> for ForestBehaviourEvent{
-//     fn from(_: RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>) -> Self {
-//         todo!()
-//     }
-// }
-
-// impl From<RequestResponseEvent<HelloRequest, HelloResponse>> for ForestBehaviourEvent{
-//     fn from(_: RequestResponseEvent<HelloRequest, HelloResponse>) -> Self {
-//         todo!()
-//     }
-// }
-
-// impl From<PingEvent> for ForestBehaviourEvent{
-//     fn from(_: PingEvent) -> Self {
-//         todo!()
-//     }
-// }
-
-// impl From<IdentifyEvent> for ForestBehaviourEvent{
-//     fn from(_: IdentifyEvent) -> Self {
-//         todo!()
-//     }
-// }
-// impl From<GossipsubEvent> for ForestBehaviourEvent{
-//     fn from(_: GossipsubEvent) -> Self {
-//         todo!()
-//     }
-// }
-
 impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
     fn inject_event(&mut self, event: DiscoveryOut) {
         match event {
@@ -461,7 +421,6 @@ impl ForestBehaviour {
                 // later on reported as a `InboundFailure::Omission`.
                 None => break,
             };
-            // Poll<NetworkBehaviourAction<<<Self::ProtocolsHandler as IntoProtocolsHandler>::Handler as ProtocolsHandler>::InEvent, Self::OutEvent>>
             if self
                 .chain_exchange
                 .send_response(inner_channel, response)
