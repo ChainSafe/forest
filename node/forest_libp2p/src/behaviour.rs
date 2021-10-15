@@ -19,16 +19,15 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
-use libp2p::identify::{Identify, IdentifyConfig, IdentifyEvent};
+use libp2p::{identify::{Identify, IdentifyConfig, IdentifyEvent}, ping::{PingFailure, PingSuccess}, swarm::{IntoProtocolsHandler, ProtocolsHandler}};
 use libp2p::ping::{
-    handler::{PingFailure, PingSuccess},
-    Ping, PingEvent,
+     Ping, PingEvent,
 };
 use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
     RequestResponseMessage, ResponseChannel,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters};
+use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters, NetworkBehaviour};
 use libp2p::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
@@ -59,7 +58,7 @@ lazy_static! {
 
 /// Libp2p behaviour for the Forest node. This handles all sub protocols needed for a Filecoin node.
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll")]
+#[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll", event_process=true)]
 pub(crate) struct ForestBehaviour {
     gossipsub: Gossipsub,
     discovery: DiscoveryBehaviour,
@@ -117,6 +116,46 @@ pub(crate) enum ForestBehaviourEvent {
         channel: OneShotSender<ChainExchangeResponse>,
     },
 }
+
+// impl From<DiscoveryOut> for ForestBehaviourEvent {
+//     fn from(a: DiscoveryOut) -> Self {
+//         todo!()
+//     }
+// }
+
+// impl From<BitswapEvent> for ForestBehaviourEvent {
+//     fn from(_: BitswapEvent) -> Self {
+//         todo!()
+//     }
+// }
+// impl From<RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>> for ForestBehaviourEvent{
+//     fn from(_: RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>) -> Self {
+//         todo!()
+//     }
+// }
+
+// impl From<RequestResponseEvent<HelloRequest, HelloResponse>> for ForestBehaviourEvent{
+//     fn from(_: RequestResponseEvent<HelloRequest, HelloResponse>) -> Self {
+//         todo!()
+//     }
+// }
+
+// impl From<PingEvent> for ForestBehaviourEvent{
+//     fn from(_: PingEvent) -> Self {
+//         todo!()
+//     }
+// }
+
+// impl From<IdentifyEvent> for ForestBehaviourEvent{
+//     fn from(_: IdentifyEvent) -> Self {
+//         todo!()
+//     }
+// }
+// impl From<GossipsubEvent> for ForestBehaviourEvent{
+//     fn from(_: GossipsubEvent) -> Self {
+//         todo!()
+//     }
+// }
 
 impl NetworkBehaviourEventProcess<DiscoveryOut> for ForestBehaviour {
     fn inject_event(&mut self, event: DiscoveryOut) {
@@ -188,21 +227,24 @@ impl NetworkBehaviourEventProcess<GossipsubEvent> for ForestBehaviour {
 impl NetworkBehaviourEventProcess<PingEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: PingEvent) {
         match event.result {
-            Result::Ok(PingSuccess::Ping { rtt }) => {
+            Ok(PingSuccess::Ping { rtt }) => {
                 trace!(
                     "PingSuccess::Ping rtt to {} is {} ms",
                     event.peer.to_base58(),
                     rtt.as_millis()
                 );
             }
-            Result::Ok(PingSuccess::Pong) => {
+            Ok(PingSuccess::Pong) => {
                 trace!("PingSuccess::Pong from {}", event.peer.to_base58());
             }
-            Result::Err(PingFailure::Timeout) => {
+            Err(PingFailure::Timeout) => {
                 debug!("PingFailure::Timeout {}", event.peer.to_base58());
             }
-            Result::Err(PingFailure::Other { error }) => {
+            Err(PingFailure::Other { error }) => {
                 debug!("PingFailure::Other {}: {}", event.peer.to_base58(), error);
+            }
+            Err(PingFailure::Unsupported) => {
+                debug!("PingFailure::Unsupported {}", event.peer.to_base58());
             }
         }
     }
@@ -394,11 +436,11 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
 
 impl ForestBehaviour {
     /// Consumes the events list when polled.
-    fn poll<TBehaviourIn>(
+    fn poll(
         &mut self,
         cx: &mut Context,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<TBehaviourIn, ForestBehaviourEvent>> {
+    ) -> Poll<NetworkBehaviourAction<<Self as NetworkBehaviour>::OutEvent, <Self as NetworkBehaviour>::ProtocolsHandler>> {
         // Poll to see if any response is ready to be sent back.
         while let Poll::Ready(Some(outcome)) = self.cx_pending_responses.poll_next_unpin(cx) {
             let RequestProcessingOutcome {
@@ -410,7 +452,7 @@ impl ForestBehaviour {
                 // later on reported as a `InboundFailure::Omission`.
                 None => break,
             };
-
+            // Poll<NetworkBehaviourAction<<<Self::ProtocolsHandler as IntoProtocolsHandler>::Handler as ProtocolsHandler>::InEvent, Self::OutEvent>>
             if self
                 .chain_exchange
                 .send_response(inner_channel, response)

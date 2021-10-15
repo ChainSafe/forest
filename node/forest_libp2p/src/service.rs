@@ -23,7 +23,9 @@ use ipld_blockstore::BlockStore;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::multiaddr::Protocol;
+use libp2p::multihash::Multihash;
 use libp2p::request_response::ResponseChannel;
+use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core,
     core::connection::ConnectionLimits,
@@ -34,7 +36,6 @@ use libp2p::{
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
-use multihash::Multihash;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -199,19 +200,19 @@ where
                 swarm_event = swarm_stream.next() => match swarm_event {
                     // outbound events
                     Some(event) => match event {
-                        ForestBehaviourEvent::PeerConnected(peer_id) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::PeerConnected(peer_id)) => {
                             debug!("Peer connected, {:?}", peer_id);
                             emit_event(&self.network_sender_out,
                                 NetworkEvent::PeerConnected(peer_id)).await;
                         }
-                        ForestBehaviourEvent::PeerDisconnected(peer_id) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::PeerDisconnected(peer_id)) => {
                             emit_event(&self.network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
                         }
-                        ForestBehaviourEvent::GossipMessage {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::GossipMessage {
                             source,
                             topic,
                             message,
-                        } => {
+                        }) => {
                             trace!("Got a Gossip Message from {:?}", source);
                             let topic = topic.as_str();
                             if topic == pubsub_block_str {
@@ -242,14 +243,14 @@ where
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
                             }
                         }
-                        ForestBehaviourEvent::HelloRequest { request,  peer } => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::HelloRequest { request,  peer } )=> {
                             debug!("Received hello request (peer_id: {:?})", peer);
                             emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                 request,
                                 source: peer,
                             }).await;
                         }
-                        ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request } => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request }) => {
                             debug!("Received chain_exchange request (peer_id: {:?})", peer);
                             let db = self.cs.clone();
 
@@ -257,7 +258,7 @@ where
                                 channel.send(make_chain_exchange_response(db.as_ref(), &request).await)
                             });
                         }
-                        ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block) => {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block)) => {
                             let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
                             match res {
                                 Ok(actual_cid) => {
@@ -280,7 +281,7 @@ where
                                 }
                             }
                         },
-                        ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,) => match self.cs.blockstore().get(&cid) {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,)) => match self.cs.blockstore().get(&cid) {
                             Ok(Some(data)) => {
                                 match swarm_stream.get_mut().behaviour_mut().send_block(&peer_id, cid, data) {
                                     Ok(_) => {
@@ -298,6 +299,9 @@ where
                                 trace!("Failed to get data: {}", e.to_string());
                             }
                         },
+                        _ => {
+                            continue;
+                        }
                     }
                     None => { break; }
                 },
