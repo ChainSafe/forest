@@ -28,7 +28,7 @@ submodule_tests = [
     "futures",
     "networks",
     "crypto",
-    "forest_blocks"
+    "forest_blocks",
 ]
 
 [dependencies]

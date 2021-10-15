@@ -3,10 +3,17 @@
 
 #![cfg(feature = "submodule_tests")]
 
+pub mod rand_replay;
+
+use address::{Address, Protocol};
 use cid::Cid;
 use clock::ChainEpoch;
-use serde::{Deserialize, Serialize, Deserializer};
-use vm::ExitCode;
+use crypto::Signature;
+use forest_message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use serde::{Deserialize, Deserializer, Serialize};
+use vm::{ExitCode, TokenAmount};
+
+use rand_replay::*;
 
 mod base64_bytes {
     use super::*;
@@ -37,25 +44,35 @@ mod base64_bytes {
     }
 }
 
-/// Encoded VM randomness used to be replayed
-pub type Randomness = Vec<()>;
+pub struct ExecuteMessageParams<'a> {
+    pub pre_root: &'a Cid,
+    pub epoch: ChainEpoch,
+    pub msg: &'a ChainMessage,
+    pub circ_supply: TokenAmount,
+    pub basefee: TokenAmount,
+    pub randomness: ReplayingRand<'a>,
+}
 
-#[derive(Debug, Deserialize, Clone)]
+/// Encoded VM randomness used to be replayed
+pub type Randomness = Vec<RandomnessMatch>;
+
+#[derive(Debug, Deserialize)]
 pub struct TestVector {
     pub class: String,
     #[serde(rename = "_meta")]
     pub meta: Metadata,
     #[serde(with = "base64_bytes")]
     pub car: Vec<u8>,
-    pub pre_conditions: PreConditions,
+    pub preconditions: PreConditions,
     pub apply_messages: Vec<ApplyMessage>,
-    pub post_conditions: PostConditions, 
+    pub postconditions: PostConditions,
+    pub randomness: Randomness,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApplyMessage {
-   #[serde(with = "base64_bytes")]
-   pub bytes: Vec<u8>,
+    #[serde(with = "base64_bytes")]
+    pub bytes: Vec<u8>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -100,16 +117,19 @@ pub struct StateTree {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct MessageReceipt {
-    pub exit_code: ExitCode,
-    #[serde(rename = "return", with = "base64_bytes")]
-    pub return_value: Vec<u8>,
-    pub gas_used: u64,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct Variant {
     pub id: String,
     pub epoch: ChainEpoch,
-    pub nv: u32,    
+    pub nv: u32,
+}
+
+pub fn to_chain_msg(msg: UnsignedMessage) -> ChainMessage {
+    if msg.from().protocol() == Protocol::Secp256k1 {
+        ChainMessage::Signed(SignedMessage {
+            message: msg,
+            signature: Signature::new_secp256k1(vec![0, 65]),
+        })
+    } else {
+        ChainMessage::Unsigned(msg)
+    }
 }
