@@ -207,7 +207,7 @@ mod tests {
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
-    use secp256k1::{sign, PublicKey, SecretKey};
+    use libsecp256k1::{sign, PublicKey, SecretKey};
 
     #[test]
     fn bls_agg_verify() {
