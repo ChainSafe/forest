@@ -16,7 +16,7 @@ ipld_blockstore = "0.1"
 clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
 forest_encoding = "0.2.1"
 commcid = { path = "../../utils/commcid", version = "0.1.1" }
-filecoin-proofs-api = { version = "8", features = ["blst"], default_features = false }
+filecoin-proofs-api = { version = "9", features = ["blst"], default_features = false }
 base64 = "0.13"
 fil_types = { features = ["proofs"], version = "0.2" }
 log = "0.4.8"

@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 /// Filecoin RPC client interface methods
@@ -168,6 +168,7 @@ where
     .await?;
 
     let res = http_res.body_string().await?;
+
     let code = http_res.status() as i64;
 
     if code != 200 {
@@ -193,6 +194,10 @@ where
 
     match rpc_res {
         JsonRpcResponse::Result { result, .. } => Ok(result),
-        JsonRpcResponse::Error { error, .. } => Err(error.message.into()),
+        JsonRpcResponse::Error { error, .. } => Err(Error::Full {
+            data: None,
+            code: error.code,
+            message: error.message,
+        }),
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -39,6 +39,12 @@ impl<'de> Deserialize<'de> for Byte32De {
         array.copy_from_slice(bz_buf.as_ref());
         Ok(Byte32De(array))
     }
+}
+
+pub fn bytes_32(buf: &[u8]) -> [u8; 32] {
+    let mut array = [0; 32];
+    array.copy_from_slice(buf.as_ref());
+    array
 }
 
 #[cfg(test)]

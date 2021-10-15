@@ -1,52 +1,79 @@
 version: 2.1
 
 parameters:
-  rustc-version:
+  msrv-version:
     type: string
     default: "1.52.1"
 
 executors:
-  test-executor:
+  linux-executor:
     machine:
-      image: ubuntu-1604:202004-01
+      image: ubuntu-2004:202107-02
     resource_class: xlarge
-  mac-executor:
+  macos-executor:
     macos:
-      xcode: 12.0.1
+      xcode: 13.0.0
     resource_class: xlarge
 
-######################################################################################################################
+################################################################################
 #  Reusable single command definitions
-######################################################################################################################
+################################################################################
 commands:
-  install_rust:
-    description: Install Rust Toolchain
+  install_rust_linux:
+    description: Install Rust Toolchain on Linux
     steps:
       - run:
-          name: Install Rust Toolchain
+          name: Install Rust Toolchain on Linux
           command: |
-            curl -O https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && \
-            chmod +x rustup-init && \
-            ./rustup-init -y --no-modify-path --default-toolchain stable && \
-            rm rustup-init && \
-            echo 'export PATH=$HOME/.cargo/bin:$PATH' >> $BASH_ENV && \
+            curl -O https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
+            chmod +x rustup-init
+            ./rustup-init -y --no-modify-path --default-toolchain stable
+            rm rustup-init
+            echo 'export PATH=$HOME/.cargo/bin:$PATH' >> $BASH_ENV
             source $BASH_ENV
-            rustc --version && \
-            cargo --version \
-  rust_setup:
-    description: Set rustc version
+            rustup show
+            rustc --version
+            cargo --version
+  install_rust_macos:
+    description: Install Rust Toolchain on MacOS
     steps:
       - run:
-          name: Set rustc version
+          name: Install Rust Toolchain on MacOS
+          command: |
+            curl https://sh.rustup.rs -sSf -o install_rust_linux.sh
+            chmod +x install_rust_linux.sh
+            ./install_rust_linux.sh -q -y
+            rm install_rust_linux.sh
+            export PATH="${HOME}/.cargo/bin:${PATH}"
+            rustup show
+            rustc -V
+  set_rustc_stable:
+    description: Set rustc version to stable
+    steps:
+      - run:
+          name: Set rustc stable
           command: |
             rustup default stable
             rustup update stable
+            rustup show
+  set_rustc_nightly:
+    description: Set rustc version to nightly
+    steps:
+      - run:
+          name: Set rustc nightly
+          command: |
+            rustup default nightly
+            rustup update nightly
+            rustup show
   print_versions:
     description: Version Info
     steps:
       - run:
           name: Version Info
-          command: rustc --version; cargo --version; rustup --version
+          command: |
+            rustc --version
+            cargo --version
+            rustup --version
   env_setup:
     description: Environment Setup
     steps:
@@ -72,19 +99,11 @@ commands:
                 xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
             rustup component add clippy rustfmt
             git submodule update --init
-
-          # TODO enable when protoc used again
-          # PROTOC_ZIP=protoc-3.7.1-linux-x86_64.zip
-          # curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/$PROTOC_ZIP
-          # sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
-          # sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
-          # rm -f $PROTOC_ZIP
   save_cargo_package_cache:
     description: Save cargo package cache for subsequent jobs
     steps:
       - save_cache:
           key: cargo-package-cache-{{ checksum "Cargo.lock" }}
-          # paths are relative to /home/circleci/project/
           paths:
             - ../.cargo/git
             - ../.cargo/registry
@@ -107,15 +126,15 @@ commands:
     description: Sets up environment for future jobs
     steps:
       - checkout
-      - install_rust
-      - rust_setup
+      - install_rust_linux
+      - set_rustc_stable
       - print_versions
       - env_setup
       - install_deps
 
 jobs:
   prefetch-crates:
-    executor: test-executor
+    executor: linux-executor
     description: Prefetch cargo crates for subsequent jobs.
     steps:
       - build_setup
@@ -125,75 +144,81 @@ jobs:
           command: cargo fetch
       - save_cargo_package_cache
 
-  ######################################################################################################################
-  #  Build related jobs
-  ######################################################################################################################
-  # TODO change builds over to matrix style once Windows build is ready
-  nightly-build-check:
-    executor: test-executor
-    description: Check nightly build
+################################################################################
+#  Build related jobs
+################################################################################
+  linux-build-msrv:
+    executor: linux-executor
+    description: Check linux build on MSRV
     steps:
       - checkout
-      - install_rust
+      - install_rust_linux
       - install_deps
       - env_setup
       - run:
-          name: Set rustc version
+          name: Set MSRV
           command: |
-            rustup default nightly
-            rustup update nightly
+            rustup toolchain install << pipeline.parameters.msrv-version >>
       - run:
-          name: Nightly Build
+          name: Linux build MSRV
+          command: |
+            rustup run << pipeline.parameters.msrv-version >> rustc --version --verbose
+            rustup run << pipeline.parameters.msrv-version >> cargo --version --verbose
+            cargo +<< pipeline.parameters.msrv-version >> check -p forest
+            cargo +<< pipeline.parameters.msrv-version >> check
+  linux-build-stable:
+    executor: linux-executor
+    description: Check linux build on stable
+    steps:
+      - checkout
+      - install_rust_linux
+      - install_deps
+      - env_setup
+      - set_rustc_stable
+      - run:
+          name: Linux build stable
+          command: |
+            rustup run stable rustc --version --verbose
+            rustup run stable cargo --version --verbose
+            cargo +stable check -p forest
+            cargo +stable check
+  linux-build-nightly:
+    executor: linux-executor
+    description: Check Linux build on nightly
+    steps:
+      - checkout
+      - install_rust_linux
+      - install_deps
+      - env_setup
+      - set_rustc_nightly
+      - run:
+          name: Linux build nightly
           command: |
             rustup run nightly rustc --version --verbose
             rustup run nightly cargo --version --verbose
             cargo +nightly check -p forest
             cargo +nightly check
-  msrv-build-check:
-    executor: test-executor
-    description: Check minimum supported rust version
+  macos-build-stable:
+    executor: macos-executor
+    description: Check MacOS build on stable
     steps:
       - checkout
-      - install_rust
-      - install_deps
-      - env_setup
-      - run:
-          name: Install minimum version
-          command: rustup toolchain install << pipeline.parameters.rustc-version >>
-      - run:
-          name: Minimum supported rust version check
-          command: |
-            cargo +<< pipeline.parameters.rustc-version >> check -p forest
-            cargo +<< pipeline.parameters.rustc-version >> check
-  macos-build-check:
-    executor: mac-executor
-    description: Check macos build
-    steps:
-      - checkout
-      - run:
-          name: Install rust toolchain
-          command: |
-            curl https://sh.rustup.rs -sSf -o install_rust.sh
-            chmod +x install_rust.sh
-            ./install_rust.sh -q -y
-            rm install_rust.sh
-            export PATH="${HOME}/.cargo/bin:${PATH}"
-            rustc -V
-      - rust_setup
+      - install_rust_macos
+      - set_rustc_stable
       - env_setup
       - run:
           name: Install deps
           command: |
             brew install hwloc
       - run:
-          name: Macos build
+          name: MacOS build stable
           command: |
             rustup run stable rustc --version --verbose
             rustup run stable cargo --version --verbose
             cargo +stable check -p forest
             cargo +stable check
   install:
-    executor: test-executor
+    executor: linux-executor
     description: Install forest binary
     steps:
       - build_setup
@@ -202,11 +227,11 @@ jobs:
           name: Install binary
           command: make install
 
-  ######################################################################################################################
-  #  Testing, linting and doc publishing
-  ######################################################################################################################
+################################################################################
+#  Testing, linting and doc publishing
+################################################################################
   lint:
-    executor: test-executor
+    executor: linux-executor
     description: Run Rust linting tools.
     steps:
       - build_setup
@@ -216,12 +241,12 @@ jobs:
           command: make license
       - run:
           name: cargo clippy
-          command: cargo clippy -- -D warnings -A clippy::upper_case_acronyms
+          command: cargo clippy -- -D warnings -A clippy::upper_case_acronyms -A clippy::needless_collect -A clippy::enum_variant_names -A clippy::needless_borrow
       - run:
           name: cargo fmt
           command: cargo fmt --all -- --check
   test:
-    executor: test-executor
+    executor: linux-executor
     description: Run Rust tests
     steps:
       - build_setup
@@ -230,7 +255,7 @@ jobs:
           name: Run Unit Tests
           command: make test
   test-vectors:
-    executor: test-executor
+    executor: linux-executor
     description: Run serialization and conformance tests
     steps:
       - build_setup
@@ -239,7 +264,7 @@ jobs:
           name: Run test vectors
           command: make run-vectors
   publish-docs:
-    executor: test-executor
+    executor: linux-executor
     description: Publish documentation to GitHub pages
     steps:
       - checkout
@@ -256,11 +281,11 @@ jobs:
                 name: Publish Docs
                 command: bash ./scripts/build-rust-docs.sh
 
-  ######################################################################################################################
-  #  Security audit
-  ######################################################################################################################
+################################################################################
+#  Security audit
+################################################################################
   security:
-    executor: test-executor
+    executor: linux-executor
     description: Cargo audit
     steps:
       - build_setup
@@ -270,11 +295,10 @@ jobs:
           command: cargo install cargo-audit
       - run:
           name: Check for known security issues in dependencies
-          # TODO remove ignore when https://github.com/filecoin-project/rust-fil-proofs/issues/1403 resolved
-          command: cargo audit --ignore RUSTSEC-2021-0011 --ignore RUSTSEC-2021-0070
+          command: cargo audit
 
 workflows:
-  setup_test:
+  test-checks:
     jobs:
       - prefetch-crates
       - lint:
@@ -286,19 +310,22 @@ workflows:
       - test-vectors:
           requires:
             - prefetch-crates
-  build-check:
+  build-checks:
     jobs:
       - prefetch-crates
-      - nightly-build-check:
+      - linux-build-msrv:
           requires:
             - prefetch-crates
-      - msrv-build-check:
+      - linux-build-stable:
           requires:
             - prefetch-crates
-      # - macos-build-check:
-      #     requires:
-      #       - prefetch-crates
-  daily-check:
+      - linux-build-nightly:
+          requires:
+            - prefetch-crates
+      - macos-build-stable:
+          requires:
+            - prefetch-crates
+  nightly-checks:
     triggers:
       - schedule:
           cron: "0 0 * * *"

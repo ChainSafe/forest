@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::channel::Sender;
@@ -126,6 +126,17 @@ pub struct ActorStateJson {
 impl ActorStateJson {
     pub fn nonce(&self) -> u64 {
         self.nonce
+    }
+}
+
+impl From<ActorStateJson> for ActorState {
+    fn from(a: ActorStateJson) -> Self {
+        Self {
+            code: a.code,
+            state: a.head,
+            sequence: a.nonce,
+            balance: a.balance,
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -18,7 +18,7 @@ use message::{
 use num_bigint::BigUint;
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
-use wallet::{json::KeyInfoJson, Key};
+use wallet::{json::KeyInfoJson, Error, Key};
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, B>(
@@ -113,15 +113,28 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let key_info: wallet::KeyInfo = params.first().cloned().unwrap().into();
+    let key_info: wallet::KeyInfo = match params.first().cloned() {
+        Some(key_info) => key_info.into(),
+        None => return Err(JsonRpcError::INTERNAL_ERROR),
+    };
+
     let key = Key::try_from(key_info)?;
 
     let addr = format!("wallet-{}", key.address.to_string());
 
     let mut keystore = data.keystore.write().await;
-    keystore.put(addr, key.key_info)?;
 
-    Ok(key.address.to_string())
+    if let Err(error) = keystore.put(addr, key.key_info) {
+        match error {
+            Error::KeyExists => Err(JsonRpcError::Provided {
+                code: 1,
+                message: "Key already exists",
+            }),
+            _ => Err(error.into()),
+        }
+    } else {
+        Ok(key.address.to_string())
+    }
 }
 
 /// List all Addresses in the Wallet

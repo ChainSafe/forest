@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
@@ -29,7 +29,6 @@ use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
-use rayon::prelude::*;
 use serde::Serialize;
 use state_tree::StateTree;
 use std::error::Error as StdError;
@@ -743,7 +742,7 @@ where
 
     let block_headers: Vec<BlockHeader> = tsk
         .cids()
-        .par_iter()
+        .iter()
         .map(|c| {
             store
                 .get(c)

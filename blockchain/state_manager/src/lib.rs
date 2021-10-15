@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #[macro_use]
@@ -322,7 +322,9 @@ where
             } else {
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
-                self.compute_tipset_state::<V, _>(&tipset, no_func).await?
+                let ts_state = self.compute_tipset_state::<V, _>(&tipset, no_func).await?;
+                debug!("completed tipset state calculation {:?}", tipset.cids());
+                ts_state
             };
 
             // Fill entry with calculated cid pair
@@ -669,8 +671,12 @@ where
         )?;
 
         let nv = get_network_version_default(tipset.epoch());
-        let sectors =
-            self.get_sectors_for_winning_post::<V>(&lbst, nv, &address, Randomness(prand))?;
+        let sectors = self.get_sectors_for_winning_post::<V>(
+            &lbst,
+            nv,
+            &address,
+            Randomness(prand.to_vec()),
+        )?;
 
         if sectors.is_empty() {
             return Ok(None);
