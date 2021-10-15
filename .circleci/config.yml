@@ -3,7 +3,7 @@ version: 2.1
 parameters:
   msrv-version:
     type: string
-    default: "1.52.1"
+    default: "1.55.0"
 
 executors:
   linux-executor:
