@@ -9,7 +9,7 @@ use bls_signatures::{
 use encoding::{blake2b_256, de, repr::*, ser, serde_bytes};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
+use libsecp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 use std::borrow::Cow;
 
 /// BLS signature length in bytes.
@@ -193,7 +193,7 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Addr
     let mut s = [0u8; 64];
     s.clone_from_slice(signature[..64].as_ref());
     // generate Signature
-    let sig = EcsdaSignature::parse(&s);
+    let sig = EcsdaSignature::parse_standard(&s)?;
 
     let key = recover(&message, &sig, &rec_id)?;
     let ret = key.serialize();
