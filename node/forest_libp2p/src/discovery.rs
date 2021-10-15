@@ -4,8 +4,8 @@
 use async_std::stream::{self, Interval};
 use async_std::task;
 use futures::prelude::*;
-use libp2p::swarm::DialError;
 use libp2p::swarm::protocols_handler::DummyProtocolsHandler;
+use libp2p::swarm::DialError;
 use libp2p::{
     core::{
         connection::{ConnectionId, ListenerId},
@@ -145,7 +145,9 @@ impl<'a> DiscoveryConfig<'a> {
 
         let mdns_opt = if enable_mdns {
             Some(task::block_on(async {
-                Mdns::new(Default::default()).await.expect("Could not start mDNS")
+                Mdns::new(Default::default())
+                    .await
+                    .expect("Could not start mDNS")
             }))
         } else {
             None
@@ -311,7 +313,12 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         self.kademlia.inject_expired_listen_addr(id, addr);
     }
 
-    fn inject_dial_failure(&mut self, peer_id: Option<PeerId>, handler: Self::ProtocolsHandler, err: &DialError) {
+    fn inject_dial_failure(
+        &mut self,
+        peer_id: Option<PeerId>,
+        handler: Self::ProtocolsHandler,
+        err: &DialError,
+    ) {
         self.kademlia.inject_dial_failure(peer_id, handler, err)
     }
 
@@ -328,16 +335,11 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     }
 
     #[allow(clippy::type_complexity)]
-	fn poll(
-		&mut self,
-		cx: &mut Context,
-		params: &mut impl PollParameters,
-	) -> Poll<
-		NetworkBehaviourAction<
-            Self::OutEvent,
-			Self::ProtocolsHandler,
-		>,
-    >{
+    fn poll(
+        &mut self,
+        cx: &mut Context,
+        params: &mut impl PollParameters,
+    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ProtocolsHandler>> {
         // Immediately process the content of `discovered`.
         if let Some(ev) = self.pending_events.pop_front() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(ev));
@@ -365,52 +367,62 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         }
 
         // Poll Kademlia.
-            while let Poll::Ready(ev) = self.kademlia.poll(cx, params) {
-                match ev {
-                    NetworkBehaviourAction::GenerateEvent(ev) => match ev {
-                        // Adding to Kademlia buckets is automatic with our config,
-                        // no need to do manually.
-                        KademliaEvent::RoutingUpdated { .. } => {}
-                        KademliaEvent::RoutablePeer { .. } => {}
-                        KademliaEvent::PendingRoutablePeer { .. } => {
-                            // Intentionally ignore
-                        }
-                        other => {
-                            debug!("Libp2p => Unhandled Kademlia event: {:?}", other)
-                        }
-                    },
-                    NetworkBehaviourAction::DialAddress { address, handler } => {
-                        return Poll::Ready(NetworkBehaviourAction::DialAddress { address, handler })
+        while let Poll::Ready(ev) = self.kademlia.poll(cx, params) {
+            match ev {
+                NetworkBehaviourAction::GenerateEvent(ev) => match ev {
+                    // Adding to Kademlia buckets is automatic with our config,
+                    // no need to do manually.
+                    KademliaEvent::RoutingUpdated { .. } => {}
+                    KademliaEvent::RoutablePeer { .. } => {}
+                    KademliaEvent::PendingRoutablePeer { .. } => {
+                        // Intentionally ignore
                     }
-                    NetworkBehaviourAction::DialPeer { peer_id, condition, handler } => {
-                        return Poll::Ready(NetworkBehaviourAction::DialPeer { peer_id, condition, handler })
+                    other => {
+                        debug!("Libp2p => Unhandled Kademlia event: {:?}", other)
                     }
-                    NetworkBehaviourAction::NotifyHandler {
+                },
+                NetworkBehaviourAction::DialAddress { address, handler } => {
+                    return Poll::Ready(NetworkBehaviourAction::DialAddress { address, handler })
+                }
+                NetworkBehaviourAction::DialPeer {
+                    peer_id,
+                    condition,
+                    handler,
+                } => {
+                    return Poll::Ready(NetworkBehaviourAction::DialPeer {
+                        peer_id,
+                        condition,
+                        handler,
+                    })
+                }
+                NetworkBehaviourAction::NotifyHandler {
+                    peer_id,
+                    handler,
+                    event,
+                } => {
+                    return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
                         peer_id,
                         handler,
                         event,
-                    } => {
-                        return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
-                            peer_id,
-                            handler,
-                            event,
-                        })
-                    }
-                    NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                        return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
-                            address,
-                            score,
-                        })
-                    }
-                    NetworkBehaviourAction::CloseConnection { peer_id, connection } => {
-                        return Poll::Ready(NetworkBehaviourAction::CloseConnection {
-                            peer_id,
-                            connection,
-                        })
-                    },
+                    })
+                }
+                NetworkBehaviourAction::ReportObservedAddr { address, score } => {
+                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                        address,
+                        score,
+                    })
+                }
+                NetworkBehaviourAction::CloseConnection {
+                    peer_id,
+                    connection,
+                } => {
+                    return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
+                    })
                 }
             }
-        
+        }
 
         // Poll mdns.
         while let Poll::Ready(ev) = self.mdns.poll(cx, params) {
@@ -447,9 +459,15 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         score,
                     })
                 }
-                NetworkBehaviourAction::CloseConnection { peer_id, connection } => {
-                    return Poll::Ready(NetworkBehaviourAction::CloseConnection{ peer_id, connection })
-                },
+                NetworkBehaviourAction::CloseConnection {
+                    peer_id,
+                    connection,
+                } => {
+                    return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
+                    })
+                }
             }
         }
 

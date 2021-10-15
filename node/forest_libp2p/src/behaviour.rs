@@ -19,15 +19,14 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
-use libp2p::{identify::{Identify, IdentifyConfig, IdentifyEvent}, ping::{PingFailure, PingSuccess}, swarm::{IntoProtocolsHandler, ProtocolsHandler}};
-use libp2p::ping::{
-     Ping, PingEvent,
-};
+use libp2p::ping::{Ping, PingEvent};
 use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
     RequestResponseMessage, ResponseChannel,
 };
-use libp2p::swarm::{NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters, NetworkBehaviour};
+use libp2p::swarm::{
+    NetworkBehaviour, NetworkBehaviourAction, NetworkBehaviourEventProcess, PollParameters,
+};
 use libp2p::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
@@ -38,6 +37,11 @@ use libp2p::{
         ValidationMode,
     },
     Multiaddr,
+};
+use libp2p::{
+    identify::{Identify, IdentifyConfig, IdentifyEvent},
+    ping::{PingFailure, PingSuccess},
+    swarm::{IntoProtocolsHandler, ProtocolsHandler},
 };
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
@@ -58,7 +62,11 @@ lazy_static! {
 
 /// Libp2p behaviour for the Forest node. This handles all sub protocols needed for a Filecoin node.
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "ForestBehaviourEvent", poll_method = "poll", event_process=true)]
+#[behaviour(
+    out_event = "ForestBehaviourEvent",
+    poll_method = "poll",
+    event_process = true
+)]
 pub(crate) struct ForestBehaviour {
     gossipsub: Gossipsub,
     discovery: DiscoveryBehaviour,
@@ -253,10 +261,7 @@ impl NetworkBehaviourEventProcess<PingEvent> for ForestBehaviour {
 impl NetworkBehaviourEventProcess<IdentifyEvent> for ForestBehaviour {
     fn inject_event(&mut self, event: IdentifyEvent) {
         match event {
-            IdentifyEvent::Received {
-                peer_id,
-                info,
-            } => {
+            IdentifyEvent::Received { peer_id, info } => {
                 trace!("Identified Peer {}", peer_id);
                 trace!("protocol_version {}", info.protocol_version);
                 trace!("agent_version {}", info.agent_version);
@@ -265,7 +270,7 @@ impl NetworkBehaviourEventProcess<IdentifyEvent> for ForestBehaviour {
                 trace!("protocols {:?}", info.protocols);
             }
             IdentifyEvent::Sent { .. } => (),
-            IdentifyEvent::Pushed{ .. } => (),
+            IdentifyEvent::Pushed { .. } => (),
             IdentifyEvent::Error { .. } => (),
         }
     }
@@ -440,7 +445,12 @@ impl ForestBehaviour {
         &mut self,
         cx: &mut Context,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<<Self as NetworkBehaviour>::OutEvent, <Self as NetworkBehaviour>::ProtocolsHandler>> {
+    ) -> Poll<
+        NetworkBehaviourAction<
+            <Self as NetworkBehaviour>::OutEvent,
+            <Self as NetworkBehaviour>::ProtocolsHandler,
+        >,
+    > {
         // Poll to see if any response is ready to be sent back.
         while let Poll::Ready(Some(outcome)) = self.cx_pending_responses.poll_next_unpin(cx) {
             let RequestProcessingOutcome {
@@ -512,9 +522,7 @@ impl ForestBehaviour {
             gossipsub,
             discovery: discovery_config.finish(),
             ping: Ping::default(),
-            identify: Identify::new(
-                IdentifyConfig::new("ipfs/0.1.0".into(), local_key.public()) 
-            ),
+            identify: Identify::new(IdentifyConfig::new("ipfs/0.1.0".into(), local_key.public())),
             bitswap,
             hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),
             chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
