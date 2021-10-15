@@ -28,6 +28,7 @@ forest_car = { path = "../ipld/car" }
 forest_crypto = { version = "0.5.2", features = ["json"] }
 tokio = { version = "1.0", features = ["sync"] }
 num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
+num-rational = "0.4.0"
 blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore = "0.1"
 chain = { path = "../blockchain/chain" }
@@ -55,6 +56,8 @@ rpassword = "5.0.1"
 rayon = "1.5"
 prometheus = { version = "0.12.0", features = ["process"] }
 ticker = "0.1.1"
+byte-unit = "4.0.12"
+rug = "1.13.0"
 
 [dependencies.jsonrpc-v2]
 version = "0.10.1"

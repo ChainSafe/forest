@@ -81,6 +81,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_ALL_MINER_FAULTS, Access::Read);
     access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
     access.insert(state_api::STATE_MINER_PARTITIONS, Access::Read);
+    access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(
         state_api::STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
         Access::Read,
@@ -100,6 +101,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_MINER_SECTOR_ALLOCATED, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
     access.insert(state_api::MINER_GET_BASE_INFO, Access::Read);
+    access.insert(state_api::STATE_LIST_ACTORS, Access::Read);
     access.insert(state_api::MINER_CREATE_BLOCK, Access::Write);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
 
@@ -351,9 +353,9 @@ pub mod state_api {
         MiningBaseInfoJson, Partition,
     };
     use actor::miner::{
-        MinerInfo, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
+        MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
-    use address::{json::AddressJson, Address};
+    use address::json::AddressJson;
     use bitfield::json::BitFieldJson;
     use blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
@@ -426,13 +428,17 @@ pub mod state_api {
     pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
     pub type StateGetActorResult = Option<ActorStateJson>;
 
+    pub const STATE_LIST_ACTORS: &str = "Filecoin.StateListActors";
+    pub type StateListActorsParams = (TipsetKeysJson,);
+    pub type StateListActorsResult = Vec<AddressJson>;
+
     pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
     pub type StateAccountKeyParams = (AddressJson, TipsetKeysJson);
     pub type StateAccountKeyResult = Option<AddressJson>;
 
     pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupId";
     pub type StateLookupIdParams = (AddressJson, TipsetKeysJson);
-    pub type StateLookupIdResult = Option<Address>;
+    pub type StateLookupIdResult = Option<AddressJson>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);
@@ -457,6 +463,10 @@ pub mod state_api {
     pub const STATE_MINER_SECTOR_ALLOCATED: &str = "Filecoin.StateMinerSectorAllocated";
     pub type StateMinerSectorAllocatedParams = (AddressJson, u64, TipsetKeysJson);
     pub type StateMinerSectorAllocatedResult = bool;
+
+    pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
+    pub type StateMinerPowerParams = (Option<AddressJson>, TipsetKeysJson);
+    pub type StateMinerPowerResult = MinerPower;
 
     pub const STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER: &str =
         "Filecoin.StateMinerPreCommitDepositForPower";
