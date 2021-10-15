@@ -4,7 +4,6 @@
 use async_std::stream::{self, Interval};
 use async_std::task;
 use futures::prelude::*;
-use libp2p::swarm::protocols_handler::DummyProtocolsHandler;
 use libp2p::swarm::DialError;
 use libp2p::{
     core::{
@@ -17,7 +16,7 @@ use libp2p::{
     swarm::{
         toggle::{Toggle, ToggleIntoProtoHandler},
         IntoProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
-        ProtocolsHandler, ProtocolsHandlerSelect,
+        ProtocolsHandler,
     },
 };
 use libp2p::{kad::record::store::MemoryStore, mdns::Mdns};

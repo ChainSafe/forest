@@ -41,7 +41,6 @@ use libp2p::{
 use libp2p::{
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     ping::{PingFailure, PingSuccess},
-    swarm::{IntoProtocolsHandler, ProtocolsHandler},
 };
 use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
