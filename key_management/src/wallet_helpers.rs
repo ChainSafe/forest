@@ -6,8 +6,8 @@ use address::Address;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use crypto::{Signature, SignatureType};
 use encoding::blake2b_256;
-use rand::rngs::OsRng;
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
+use rand::rngs::OsRng;
 
 /// Return the public key for a given private_key and SignatureType
 pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>, Error> {
