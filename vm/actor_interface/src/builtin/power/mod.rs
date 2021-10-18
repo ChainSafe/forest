@@ -6,7 +6,7 @@ use address::Address;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 use vm::{ActorState, TokenAmount};
 
@@ -221,7 +221,7 @@ impl State {
     }
 }
 
-#[derive(Default, Debug, Serialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Claim {
     /// Sum of raw byte power for a miner's sectors.
     #[serde(with = "bigint_ser::json")]

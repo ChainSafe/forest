@@ -322,7 +322,9 @@ where
             } else {
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
-                self.compute_tipset_state::<V, _>(&tipset, no_func).await?
+                let ts_state = self.compute_tipset_state::<V, _>(&tipset, no_func).await?;
+                debug!("completed tipset state calculation {:?}", tipset.cids());
+                ts_state
             };
 
             // Fill entry with calculated cid pair
