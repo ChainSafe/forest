@@ -430,7 +430,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
 
 /// Fetch keypair from disk, returning none if it cannot be decoded.
 pub fn get_keypair(path: &Path) -> Option<Keypair> {
-    match read_file_to_vec(&path) {
+    match read_file_to_vec(path) {
         Err(e) => {
             info!("Networking keystore not found!");
             trace!("Error {:?}", e);

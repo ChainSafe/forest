@@ -37,6 +37,6 @@ where
     let (header_raw,) = params;
     let token = header_raw.trim_start_matches("Bearer ");
     let ki = ks.get(JWT_IDENTIFIER)?;
-    let perms = verify_token(&token, ki.private_key())?;
+    let perms = verify_token(token, ki.private_key())?;
     Ok(perms)
 }

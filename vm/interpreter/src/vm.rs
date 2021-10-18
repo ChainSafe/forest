@@ -519,7 +519,7 @@ where
 
             self.state
                 .mutate_actor(addr, |act| {
-                    act.deposit_funds(&amt);
+                    act.deposit_funds(amt);
                     Ok(())
                 })
                 .map_err(|e| e.to_string())?;
@@ -570,7 +570,7 @@ where
             self.store,
             0,
             self.base_fee.clone(),
-            &msg,
+            msg,
             self.epoch,
             *msg.from(),
             msg.sequence(),

@@ -78,7 +78,7 @@ fn poly_val(poly: &[BigInt], x: &BigInt) -> BigInt {
 /// computes lambda in Q.256
 #[inline]
 fn lambda(power: &BigInt, total_power: &BigInt) -> BigInt {
-    ((power * BLOCKS_PER_EPOCH) << PRECISION).div_floor(&total_power)
+    ((power * BLOCKS_PER_EPOCH) << PRECISION).div_floor(total_power)
 }
 
 /// Poisson inverted CDF

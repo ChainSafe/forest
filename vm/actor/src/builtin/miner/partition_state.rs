@@ -217,7 +217,7 @@ impl Partition {
         sector_size: SectorSize,
         quant: QuantSpec,
     ) -> Result<(BitField, PowerPair, PowerPair), Box<dyn StdError>> {
-        validate_partition_contains_sectors(&self, sector_numbers)
+        validate_partition_contains_sectors(self, sector_numbers)
             .map_err(|e| actor_error!(ErrIllegalArgument; "failed fault declaration: {}", e))?;
 
         let sector_numbers = sector_numbers
@@ -744,7 +744,7 @@ impl Partition {
         }
 
         // Check that the declared sectors are actually in the partition.
-        if !self.sectors.contains_all(&skipped) {
+        if !self.sectors.contains_all(skipped) {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "skipped faults contains sectors outside partition"

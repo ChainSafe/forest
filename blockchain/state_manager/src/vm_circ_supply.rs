@@ -64,7 +64,7 @@ impl GenesisInfo {
         // Parent state of genesis tipset is tipset state
         let st = genesis_block.state_root();
 
-        let state_tree = StateTree::new_from_root(bs, &st)?;
+        let state_tree = StateTree::new_from_root(bs, st)?;
 
         let _ = self
             .genesis_market_funds
@@ -110,7 +110,7 @@ impl CircSupplyCalc for GenesisInfo {
             .calico
             .get_or_init(setup_calico_vesting_schedule);
 
-        get_circulating_supply(&self, height, state_tree)
+        get_circulating_supply(self, height, state_tree)
     }
 }
 
@@ -119,7 +119,7 @@ fn get_actor_state<DB: BlockStore>(
     addr: &Address,
 ) -> Result<ActorState, Box<dyn StdError>> {
     Ok(state_tree
-        .get_actor(&addr)?
+        .get_actor(addr)?
         .ok_or_else(|| format!("Failed to get Actor for address {}", addr))?)
 }
 
@@ -208,7 +208,7 @@ fn get_fil_power_locked<DB: BlockStore>(
 fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
+    let reserve_actor = get_actor_state(state_tree, RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
     Ok(&*FIL_RESERVED - reserve_actor.balance)
@@ -217,8 +217,8 @@ fn get_fil_reserve_disbursed<DB: BlockStore>(
 fn get_fil_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let market_locked = get_fil_market_locked(&state_tree)?;
-    let power_locked = get_fil_power_locked(&state_tree)?;
+    let market_locked = get_fil_market_locked(state_tree)?;
+    let power_locked = get_fil_power_locked(state_tree)?;
     Ok(power_locked + market_locked)
 }
 
@@ -236,11 +236,11 @@ fn get_circulating_supply<'a, DB: BlockStore>(
     state_tree: &StateTree<'a, DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
     let fil_vested = get_fil_vested(genesis_info, height);
-    let fil_mined = get_fil_mined(&state_tree)?;
-    let fil_burnt = get_fil_burnt(&state_tree)?;
-    let fil_locked = get_fil_locked(&state_tree)?;
+    let fil_mined = get_fil_mined(state_tree)?;
+    let fil_burnt = get_fil_burnt(state_tree)?;
+    let fil_locked = get_fil_locked(state_tree)?;
     let fil_reserve_distributed = if height > UPGRADE_ACTORS_V2_HEIGHT {
-        get_fil_reserve_disbursed(&state_tree)?
+        get_fil_reserve_disbursed(state_tree)?
     } else {
         TokenAmount::default()
     };

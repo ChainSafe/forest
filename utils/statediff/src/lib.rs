@@ -131,8 +131,8 @@ where
             "Could not resolve actor states: {}\nUsing default resolution:",
             e
         );
-        let expected = resolve_cids_recursive(bs, &expected_root, depth)?;
-        let actual = resolve_cids_recursive(bs, &root, depth)?;
+        let expected = resolve_cids_recursive(bs, expected_root, depth)?;
+        let actual = resolve_cids_recursive(bs, root, depth)?;
 
         let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
         let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;

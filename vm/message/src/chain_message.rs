@@ -21,8 +21,8 @@ pub enum ChainMessage {
 impl ChainMessage {
     pub fn message(&self) -> &UnsignedMessage {
         match self {
-            Self::Unsigned(m) => &m,
-            Self::Signed(sm) => &sm.message(),
+            Self::Unsigned(m) => m,
+            Self::Signed(sm) => sm.message(),
         }
     }
 }
