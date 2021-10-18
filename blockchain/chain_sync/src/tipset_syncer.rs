@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::cmp::min;
@@ -52,11 +52,11 @@ const MAX_TIPSETS_TO_REQUEST: u64 = 100;
 #[derive(Debug, Error)]
 pub enum TipsetProcessorError {
     #[error("TipsetRangeSyncer error: {0}")]
-    TipsetRangeSyncer(#[from] TipsetRangeSyncerError),
+    RangeSyncer(#[from] TipsetRangeSyncerError),
     #[error("Tipset stream closed")]
-    TipsetStreamClosed,
+    StreamClosed,
     #[error("Tipset has already been synced")]
-    TipsetAlreadySynced,
+    AlreadySynced,
 }
 
 #[derive(Debug, Error)]
@@ -179,7 +179,7 @@ impl TipsetGroup {
         if !self.epoch.eq(&tipset.epoch()) || !self.parents.eq(tipset.parents()) {
             return Some(tipset);
         }
-        if self.tipsets.iter().any(|ts| tipset.key().eq(&ts.key())) {
+        if self.tipsets.iter().any(|ts| tipset.key().eq(ts.key())) {
             return Some(tipset);
         }
         self.tipsets.push(tipset);
@@ -291,7 +291,7 @@ where
             let proposed_head = tipset_group.take_heaviest_tipset().unwrap();
 
             if current_head.key().eq(proposed_head.key()) {
-                return Err(TipsetProcessorError::TipsetAlreadySynced);
+                return Err(TipsetProcessorError::AlreadySynced);
             }
 
             let mut tipset_range_syncer = TipsetRangeSyncer::new(
@@ -370,7 +370,7 @@ where
                 }
                 Poll::Ready(None) => {
                     // Stream should never close
-                    return Poll::Ready(Err(TipsetProcessorError::TipsetStreamClosed));
+                    return Poll::Ready(Err(TipsetProcessorError::StreamClosed));
                 }
                 // The current task is registered for wakeup when this
                 // stream has a new item available. Break here to make
@@ -434,7 +434,7 @@ where
                             if ns.is_mergeable(&heaviest_tipset_group) {
                                 // Both tipsets groups have the same epoch & parents, so merge them
                                 ns.merge(heaviest_tipset_group);
-                            } else if heaviest_tipset_group.is_heavier_than(&ns) {
+                            } else if heaviest_tipset_group.is_heavier_than(ns) {
                                 // The tipset group received is heavier than the one saved, replace it.
                                 *next_sync = Some(heaviest_tipset_group);
                             }
@@ -481,7 +481,7 @@ where
                             if ns.is_mergeable(&heaviest_tipset_group) {
                                 // Both tipsets groups have the same epoch & parents, so merge them
                                 ns.merge(heaviest_tipset_group);
-                            } else if heaviest_tipset_group.is_heavier_than(&ns) {
+                            } else if heaviest_tipset_group.is_heavier_than(ns) {
                                 // The tipset group received is heavier than the one saved, replace it.
                                 *next_sync = Some(heaviest_tipset_group);
                             } else {
@@ -533,8 +533,8 @@ where
                         match why {
                             // Do not log for these errors since they are expected to occur
                             // throughout the syncing process
-                            TipsetProcessorError::TipsetAlreadySynced
-                            | TipsetProcessorError::TipsetRangeSyncer(
+                            TipsetProcessorError::AlreadySynced
+                            | TipsetProcessorError::RangeSyncer(
                                 TipsetRangeSyncerError::InvalidTipsetRangeLength,
                             ) => (),
                             why => {
@@ -881,7 +881,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             if tipset.epoch() < current_head.epoch() {
                 break 'sync;
             }
-            validate_tipset_against_cache(bad_block_cache.clone(), &tipset.key(), &parent_blocks)
+            validate_tipset_against_cache(bad_block_cache.clone(), tipset.key(), &parent_blocks)
                 .await?;
             parent_blocks.extend_from_slice(tipset.cids());
             tracker.write().await.set_epoch(tipset.epoch());
@@ -1196,7 +1196,7 @@ async fn validate_block<
     let header = block.header();
 
     // Check to ensure all optional values exist
-    block_sanity_checks(&header).map_err(|e| (*block_cid, e))?;
+    block_sanity_checks(header).map_err(|e| (*block_cid, e))?;
 
     let base_tipset = chain_store
         .tipset_from_keys(header.parents())
@@ -1385,9 +1385,7 @@ async fn validate_block<
         .map_err(|e| TipsetRangeSyncerError::DrawingChainRandomness(e.to_string()))?;
         verify_election_post_vrf(&work_addr, &vrf_base, election_proof.vrfproof.as_bytes())?;
 
-        if v_state_manager
-            .is_miner_slashed(header.miner_address(), &v_base_tipset.parent_state())?
-        {
+        if v_state_manager.is_miner_slashed(header.miner_address(), v_base_tipset.parent_state())? {
             return Err(TipsetRangeSyncerError::InvalidOrSlashedMiner);
         }
         let (mpow, tpow) = v_state_manager
@@ -1577,10 +1575,10 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
     })?;
     let sectors = state_manager
         .get_sectors_for_winning_post::<V>(
-            &lookback_state,
+            lookback_state,
             network_version,
-            &header.miner_address(),
-            Randomness(rand),
+            header.miner_address(),
+            Randomness(rand.to_vec()),
         )
         .map_err(|e| {
             TipsetRangeSyncerError::Validation(format!(
@@ -1589,14 +1587,18 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
             ))
         })?;
 
-    V::verify_winning_post(Randomness(rand), header.winning_post_proof(), &sectors, id).map_err(
-        |e| {
-            TipsetRangeSyncerError::Validation(format!(
-                "Failed to verify winning PoSt: {}",
-                e.to_string()
-            ))
-        },
+    V::verify_winning_post(
+        Randomness(rand.to_vec()),
+        header.winning_post_proof(),
+        &sectors,
+        id,
     )
+    .map_err(|e| {
+        TipsetRangeSyncerError::Validation(format!(
+            "Failed to verify winning PoSt: {}",
+            e.to_string()
+        ))
+    })
 }
 
 fn check_block_messages<
@@ -1634,7 +1636,7 @@ fn check_block_messages<
                 .map(|x| &x[..])
                 .collect::<Vec<&[u8]>>()
                 .as_slice(),
-            &sig,
+            sig,
         ) {
             return Err(TipsetRangeSyncerError::BlsAggregateSignatureInvalid(
                 format!("{:?}", sig),
@@ -1691,7 +1693,7 @@ fn check_block_messages<
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
     let block_store = state_manager.blockstore();
     let (state_root, _) =
-        task::block_on(state_manager.tipset_state::<V>(&base_tipset)).map_err(|e| {
+        task::block_on(state_manager.tipset_state::<V>(base_tipset)).map_err(|e| {
             TipsetRangeSyncerError::Calculation(format!("Could not update state: {}", e))
         })?;
     let tree = StateTree::new_from_root(block_store, &state_root).map_err(|e| {

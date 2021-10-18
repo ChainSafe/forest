@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{multihash::MultihashDigest, Cid, Code::Identity, RAW};
@@ -17,18 +17,18 @@ pub const VERIFREG_ACTOR_CODE_ID_NAME: &str = "fil/4/verifiedregistry";
 pub const CHAOS_ACTOR_CODE_ID_NAME: &str = "fil/4/chaos";
 
 lazy_static! {
-    pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/system");
-    pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/init");
-    pub static ref CRON_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/cron");
-    pub static ref ACCOUNT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/account");
-    pub static ref POWER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/storagepower");
-    pub static ref MINER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/storageminer");
-    pub static ref MARKET_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/storagemarket");
-    pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/paymentchannel");
-    pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/multisig");
-    pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/reward");
-    pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/verifiedregistry");
-    pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/4/chaos");
+    pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/system");
+    pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/init");
+    pub static ref CRON_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/cron");
+    pub static ref ACCOUNT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/account");
+    pub static ref POWER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/storagepower");
+    pub static ref MINER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/storageminer");
+    pub static ref MARKET_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/storagemarket");
+    pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/paymentchannel");
+    pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/multisig");
+    pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/reward");
+    pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/verifiedregistry");
+    pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/chaos");
 
     /// Set of actor code types that can represent external signing parties.
     pub static ref CALLER_TYPES_SIGNABLE: [Cid; 2] =

@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
@@ -101,7 +101,7 @@ where
         .ok_or("can't find block with that cid")?;
     let blk_msgs = blk.messages();
     let (unsigned_cids, signed_cids) =
-        chain::read_msg_cids(data.state_manager.blockstore(), &blk_msgs)?;
+        chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
     let (bls_msg, secp_msg) = chain::block_messages_from_cids(
         data.state_manager.blockstore(),
         &unsigned_cids,
@@ -277,7 +277,7 @@ where
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
             &base64::decode(entropy)?,
-            epoch <= networks::UPGRADE_PLACEHOLDER_HEIGHT,
+            epoch <= networks::UPGRADE_HYPERDRIVE_HEIGHT,
         )
         .await?)
 }
@@ -301,7 +301,7 @@ where
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
             &base64::decode(entropy)?,
-            epoch <= networks::UPGRADE_PLACEHOLDER_HEIGHT,
+            epoch <= networks::UPGRADE_HYPERDRIVE_HEIGHT,
         )
         .await?)
 }

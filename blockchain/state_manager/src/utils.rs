@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::errors::*;
@@ -50,8 +50,8 @@ where
                 mas.for_each_deadline(store, |_, deadline| {
                     let mut fault_sectors = BitField::new();
                     deadline.for_each(store, |_, partition: miner::Partition| {
-                        proving_sectors |= &partition.all_sectors();
-                        fault_sectors |= &partition.faulty_sectors();
+                        proving_sectors |= partition.all_sectors();
+                        fault_sectors |= partition.faulty_sectors();
                         Ok(())
                     })?;
 
@@ -231,7 +231,7 @@ where
         let mut out = BitField::new();
 
         self.for_each_deadline_partition::<V, _>(tipset, address, |part| {
-            out |= &part.faulty_sectors();
+            out |= part.faulty_sectors();
             Ok(())
         })?;
 
@@ -250,7 +250,7 @@ where
         let mut out = BitField::new();
 
         self.for_each_deadline_partition::<V, _>(tipset, address, |part| {
-            out |= &part.recovering_sectors();
+            out |= part.recovering_sectors();
             Ok(())
         })?;
 

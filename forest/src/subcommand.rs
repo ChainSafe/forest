@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use auth::{create_token, ADMIN, JWT_IDENTIFIER};
@@ -80,6 +80,9 @@ pub(super) async fn process(command: Subcommand, config: Config) {
             cmd.run().await;
         }
         Subcommand::Sync(cmd) => {
+            cmd.run().await;
+        }
+        Subcommand::State(cmd) => {
             cmd.run().await;
         }
     }

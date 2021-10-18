@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -40,7 +40,7 @@ where
         .ok_or("No heaviest tipset")?;
     let cid = heaviest_ts.parent_state();
 
-    let state = StateTree::new_from_root(data.state_manager.blockstore(), &cid)?;
+    let state = StateTree::new_from_root(data.state_manager.blockstore(), cid)?;
     match state.get_actor(&address) {
         Ok(act) => {
             if let Some(actor) = act {

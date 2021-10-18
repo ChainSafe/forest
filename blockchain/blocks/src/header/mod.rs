@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
@@ -326,7 +326,7 @@ impl BlockHeader {
             .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
 
         signature
-            .verify(&self.to_signing_bytes(), &addr)
+            .verify(&self.to_signing_bytes(), addr)
             .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
 
         // Set validated cache to true
@@ -386,6 +386,8 @@ impl BlockHeader {
                 .verify_entry(&self.beacon_entries[1], &self.beacon_entries[0])
                 .await
                 .map_err(|e| Error::Validation(e.to_string()))?;
+
+            return Ok(());
         }
 
         let max_round = curr_beacon.max_beacon_round_for_epoch(self.epoch);
@@ -418,7 +420,7 @@ impl BlockHeader {
         let mut prev = prev_entry;
         for curr in &self.beacon_entries {
             if !curr_beacon
-                .verify_entry(&curr, &prev)
+                .verify_entry(curr, prev)
                 .await
                 .map_err(|e| Error::Validation(e.to_string()))?
             {
@@ -427,7 +429,7 @@ impl BlockHeader {
                     curr, prev
                 )));
             }
-            prev = &curr;
+            prev = curr;
         }
         Ok(())
     }

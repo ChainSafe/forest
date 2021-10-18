@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
@@ -56,7 +56,7 @@ pub struct State {
     #[serde(with = "bigint_ser")]
     pub fee_debt: TokenAmount,
 
-    /// Sum of initial pledge requirements of all active sectors
+    /// Sum of initial pledge requirements of all active sectors.
     #[serde(with = "bigint_ser")]
     pub initial_pledge: TokenAmount,
 
@@ -429,7 +429,7 @@ impl State {
         F: FnMut(&SectorOnChainInfo) -> Result<(), Box<dyn StdError>>,
     {
         let sectors = Sectors::load(store, &self.sectors)?;
-        sectors.amt.for_each(|_, v| f(&v))
+        sectors.amt.for_each(|_, v| f(v))
     }
 
     /// Returns the deadline and partition index for a sector number.

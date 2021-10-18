@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod auth_cmd;
@@ -7,6 +7,7 @@ mod config;
 mod fetch_params_cmd;
 mod genesis_cmd;
 mod net_cmd;
+mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
 
@@ -16,10 +17,16 @@ pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::net_cmd::NetCommands;
+pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
+use byte_unit::Byte;
+use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
+use num_bigint::BigInt;
+use rug::float::ParseFloatError;
+use rug::Float;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::io::{self, Write};
@@ -36,14 +43,14 @@ use utils::{read_file_to_string, read_toml};
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
 #[structopt(
-    name = "forest",
-    version = "0.0.1",
-    about = "Filecoin implementation in Rust. This command will start the daemon process",
-    author = "ChainSafe Systems <info@chainsafe.io>"
+    name = env!("CARGO_PKG_NAME"),
+    version = option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+    about = env!("CARGO_PKG_DESCRIPTION"),
+    author = env!("CARGO_PKG_AUTHORS")
 )]
-pub struct CLI {
+pub struct Cli {
     #[structopt(flatten)]
-    pub opts: CLIOpts,
+    pub opts: CliOpts,
     #[structopt(subcommand)]
     pub cmd: Option<Subcommand>,
 }
@@ -74,11 +81,13 @@ pub enum Subcommand {
     Wallet(WalletCommands),
     #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
     Sync(SyncCommands),
+    #[structopt(name = "state", about = "Interact with and query filecoin chain state")]
+    State(StateCommands),
 }
 
 /// CLI options
 #[derive(StructOpt, Debug)]
-pub struct CLIOpts {
+pub struct CliOpts {
     #[structopt(short, long, help = "A toml file containing relevant configurations")]
     pub config: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
@@ -128,7 +137,7 @@ pub struct CLIOpts {
     pub encrypt_keystore: Option<bool>,
 }
 
-impl CLIOpts {
+impl CliOpts {
     pub fn to_config(&self) -> Result<Config, io::Error> {
         let mut cfg: Config = match &self.config {
             Some(config_file) => {
@@ -249,6 +258,13 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
 }
 
+/// convert bigint to size string using byte size units (ie KiB, GiB, PiB, etc)
+pub(super) fn to_size_string(bi: &BigInt) -> String {
+    let bi = bi.clone();
+    let byte = Byte::from_bytes(bi.to_string().parse().expect("error parsing string to int"));
+    byte.get_appropriate_unit(false).to_string()
+}
+
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid params
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
@@ -317,4 +333,15 @@ pub(super) fn print_stdout(out: String) {
         .write("\n".as_bytes())
         .map_err(|e| handle_rpc_err(e.into()))
         .unwrap();
+}
+
+/// Convert an atto FIL balance to FIL
+pub(super) fn balance_to_fil(balance: BigInt) -> Result<Float, ParseFloatError> {
+    let raw = Float::parse_radix(balance.to_string(), 10)?;
+    let b = Float::with_val(128, raw);
+
+    let raw = Float::parse_radix(FILECOIN_PRECISION.to_string().as_bytes(), 10)?;
+    let p = Float::with_val(64, raw);
+
+    Ok(Float::with_val(128, b / p))
 }

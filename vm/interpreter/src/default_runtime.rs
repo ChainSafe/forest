@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas_block_store::GasBlockStore;
@@ -7,7 +7,7 @@ use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
     account, actorv0,
     actorv2::{self, ActorDowncast},
-    actorv3, actorv4, ActorVersion,
+    actorv3, actorv4, actorv5, ActorVersion,
 };
 use address::{Address, Protocol};
 use blocks::BlockHeader;
@@ -145,7 +145,7 @@ where
         };
 
         let caller_id = state
-            .lookup_id(&message.from())
+            .lookup_id(message.from())
             .map_err(|e| e.downcast_fatal("failed to lookup id"))?
             .ok_or_else(|| {
                 actor_error!(SysErrInvalidReceiver, "resolve msg from address failed")
@@ -155,7 +155,7 @@ where
             *message.to()
         } else {
             state
-                .lookup_id(&message.to())
+                .lookup_id(message.to())
                 .map_err(|e| e.downcast_fatal("failed to lookup id"))?
                 // * Go implementation changes this to undef address. To avoid using optional
                 // * value here, the non-id address is kept here (should never be used)
@@ -217,7 +217,7 @@ where
     fn get_balance(&self, addr: &Address) -> Result<BigInt, ActorError> {
         Ok(self
             .state
-            .get_actor(&addr)
+            .get_actor(addr)
             .map_err(|e| e.downcast_fatal("failed to get actor in get balance"))?
             .map(|act| act.balance)
             .unwrap_or_default())
@@ -412,7 +412,7 @@ where
         )?;
 
         if !msg.value().is_zero() {
-            transfer(self.state, &msg.from(), &msg.to(), &msg.value())
+            transfer(self.state, msg.from(), msg.to(), msg.value())
                 .map_err(|e| e.wrap("failed to transfer funds"))?;
         }
 
@@ -438,6 +438,7 @@ where
                 ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
                 ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
                 ActorVersion::V4 => actorv4::invoke_code(&code, self, method_num, params),
+                ActorVersion::V5 => actorv5::invoke_code(&code, self, method_num, params),
             }
         } {
             ret
@@ -532,7 +533,7 @@ where
 
         let worker = ms.info(&self.store)?.worker;
 
-        resolve_to_key_addr(&self.state, &self.store, &worker)
+        resolve_to_key_addr(self.state, &self.store, &worker)
     }
 }
 
@@ -597,14 +598,14 @@ where
 
     fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
         self.state
-            .lookup_id(&address)
+            .lookup_id(address)
             .map_err(|e| e.downcast_fatal("failed to look up id"))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {
         Ok(self
             .state
-            .get_actor(&addr)
+            .get_actor(addr)
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
             .map(|act| act.code))
     }
@@ -615,7 +616,7 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = if rand_epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT {
+        let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
                 .get_chain_randomness_looking_forward(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
@@ -625,7 +626,7 @@ where
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
 
-        Ok(Randomness(r))
+        Ok(Randomness(r.to_vec()))
     }
 
     fn get_randomness_from_beacon(
@@ -634,7 +635,7 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = if rand_epoch > networks::UPGRADE_PLACEHOLDER_HEIGHT {
+        let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
                 .get_beacon_randomness_looking_forward(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
@@ -643,7 +644,7 @@ where
                 .get_beacon_randomness(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
-        Ok(Randomness(r))
+        Ok(Randomness(r.to_vec()))
     }
 
     fn create<C: Cbor>(&mut self, obj: &C) -> Result<(), ActorError> {
@@ -783,7 +784,7 @@ where
         self.charge_gas(self.price_list.on_create_actor())?;
         self.state
             .set_actor(
-                &address,
+                address,
                 ActorState::new(code_id, *EMPTY_ARR_CID, 0.into(), 0),
             )
             .map_err(|e| e.downcast_fatal("creating actor entry"))
@@ -804,7 +805,7 @@ where
             .map(|act| act.balance)?;
         if balance != 0.into() {
             if self.version >= NetworkVersion::V7 {
-                let beneficiary_id = self.resolve_address(&beneficiary)?.ok_or_else(|| {
+                let beneficiary_id = self.resolve_address(beneficiary)?.ok_or_else(|| {
                     actor_error!(SysErrIllegalArgument, "beneficiary doesn't exist")
                 })?;
 
@@ -893,7 +894,12 @@ where
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_post(vi))?;
 
-        V::verify_window_post(vi.randomness, &vi.proofs, &vi.challenged_sectors, vi.prover)
+        V::verify_window_post(
+            vi.randomness.clone(),
+            &vi.proofs,
+            &vi.challenged_sectors,
+            vi.prover,
+        )
     }
     fn verify_consensus_fault(
         &self,
@@ -1003,8 +1009,7 @@ where
         &self,
         vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
-        // Gas charged for batch verify in actor
-
+        debug!("batch verify seals start");
         let out = vis
             .par_iter()
             .with_min_len(vis.len() / *NUM_CPUS)
@@ -1012,20 +1017,30 @@ where
                 let results = seals
                     .par_iter()
                     .map(|s| {
-                        if let Err(err) = V::verify_seal(s) {
-                            debug!(
-                                "seal verify in batch failed (miner: {}) (err: {})",
-                                addr, err
-                            );
-                            false
-                        } else {
-                            true
+                        let verify_seal_result = std::panic::catch_unwind(|| V::verify_seal(s));
+                        match verify_seal_result {
+                            Ok(res) => {
+                                if let Err(err) = res {
+                                    debug!(
+                                        "seal verify in batch failed (miner: {}) (err: {})",
+                                        addr, err
+                                    );
+                                    false
+                                } else {
+                                    true
+                                }
+                            }
+                            Err(_) => {
+                                log::error!("seal verify internal fail (miner: {})", addr);
+                                false
+                            }
                         }
                     })
                     .collect();
                 (addr, results)
             })
             .collect();
+        debug!("batch verify seals end");
         Ok(out)
     }
 
@@ -1035,7 +1050,7 @@ where
     ) -> Result<(), Box<dyn StdError>> {
         self.gas_tracker
             .borrow_mut()
-            .charge_gas(self.price_list.on_verify_aggregate_seals(&aggregate))?;
+            .charge_gas(self.price_list.on_verify_aggregate_seals(aggregate))?;
         V::verify_aggregate_seals(aggregate)
     }
 }
@@ -1086,11 +1101,11 @@ fn transfer<BS: BlockStore>(
             ))
         })?;
 
-    f.deduct_funds(&value).map_err(|e| {
+    f.deduct_funds(value).map_err(|e| {
         actor_error!(SysErrInsufficientFunds;
         "transfer failed when deducting funds ({}): {}", value, e)
     })?;
-    t.deposit_funds(&value);
+    t.deposit_funds(value);
 
     state
         .set_actor(from, f)
@@ -1118,7 +1133,7 @@ where
     }
 
     let act = st
-        .get_actor(&addr)
+        .get_actor(addr)
         .map_err(|e| e.downcast_wrap("Failed to get actor"))?
         .ok_or_else(|| format!("Failed to retrieve actor: {}", addr))?;
 
@@ -1144,6 +1159,7 @@ fn new_account_actor(version: ActorVersion) -> ActorState {
             ActorVersion::V2 => *actorv2::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V3 => *actorv3::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V4 => *actorv4::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V5 => *actorv5::ACCOUNT_ACTOR_CODE_ID,
         },
         balance: TokenAmount::from(0),
         state: *EMPTY_ARR_CID,

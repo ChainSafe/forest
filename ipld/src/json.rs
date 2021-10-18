@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ipld, Ipld};
@@ -28,7 +28,7 @@ where
         Ipld::Bool(bool) => serializer.serialize_bool(*bool),
         Ipld::Integer(i128) => serializer.serialize_i128(*i128),
         Ipld::Float(f64) => serializer.serialize_f64(*f64),
-        Ipld::String(string) => serializer.serialize_str(&string),
+        Ipld::String(string) => serializer.serialize_str(string),
         Ipld::Bytes(bytes) => serialize(
             &ipld!({ "/": { BYTES_JSON_KEY: multibase::encode(Base::Base64, bytes) } }),
             serializer,

@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::sync::RwLock;
@@ -75,7 +75,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
                 // TODO: maybe cache the parents tipset keys to avoid having to do a blockstore lookup here
                 let h = self
                     .db
-                    .get::<BlockHeader>(&cid)
+                    .get::<BlockHeader>(cid)
                     .ok()
                     .flatten()
                     .ok_or_else(|| {

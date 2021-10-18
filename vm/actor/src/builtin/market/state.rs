@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{policy::*, types::*, DealProposal, DealState, DEAL_UPDATES_INTERVAL};
@@ -19,8 +19,13 @@ use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 /// Market actor state
 #[derive(Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
+    /// Proposals are deals that have been proposed and not yet cleaned up after expiry or termination.
     /// Amt<DealID, DealProposal>
     pub proposals: Cid,
+
+    // States contains state for deals that have been activated and not yet cleaned up after expiry or termination.
+    // After expiration, the state exists until the proposal is cleaned up too.
+    // Invariant: keys(States) ⊆ keys(Proposals).
     /// Amt<DealID, DealState>
     pub states: Cid,
 
@@ -398,7 +403,7 @@ where
 
         if ever_slashed {
             // unlock client collateral and locked storage fee
-            let payment_remaining = deal_get_payment_remaining(&deal, state.slash_epoch)?;
+            let payment_remaining = deal_get_payment_remaining(deal, state.slash_epoch)?;
 
             // Unlock remaining storage fee
             self.unlock_balance(&deal.client, &payment_remaining, Reason::ClientStorageFee)
@@ -431,7 +436,7 @@ where
         }
 
         if epoch >= deal.end_epoch {
-            self.process_deal_expired(&deal, state)?;
+            self.process_deal_expired(deal, state)?;
             return Ok((TokenAmount::zero(), EPOCH_UNDEFINED, true));
         }
 
@@ -571,7 +576,7 @@ where
         if &prev_locked + amount > escrow_balance {
             return Err(actor_error!(ErrInsufficientFunds;
                     "not enough balance to lock for addr{}: \
-                    escrow balance {} < prev locked {} + amount {}", 
+                    escrow balance {} < prev locked {} + amount {}",
                     addr, escrow_balance, prev_locked, amount));
         }
 
@@ -659,17 +664,17 @@ where
         self.escrow_table
             .as_mut()
             .unwrap()
-            .must_subtract(from_addr, &amount)
+            .must_subtract(from_addr, amount)
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "subtract from escrow"))?;
 
-        self.unlock_balance(from_addr, &amount, Reason::ClientStorageFee)
+        self.unlock_balance(from_addr, amount, Reason::ClientStorageFee)
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "subtract from locked"))?;
 
         // Add subtracted amount to the recipient
         self.escrow_table
             .as_mut()
             .unwrap()
-            .add(to_addr, &amount)
+            .add(to_addr, amount)
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "add to escrow"))?;
 
         Ok(())
@@ -693,7 +698,7 @@ where
         self.escrow_table
             .as_mut()
             .unwrap()
-            .must_subtract(addr, &amount)?;
+            .must_subtract(addr, amount)?;
         self.unlock_balance(addr, amount, lock_reason)
     }
 }

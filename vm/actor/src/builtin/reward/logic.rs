@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::expneg::expneg;
@@ -57,7 +57,7 @@ pub(crate) fn compute_r_theta(
     if effective_network_time != 0 {
         let reward_theta = BigInt::from(effective_network_time) << PRECISION;
         let diff = ((cumsum_baseline - cumsum_realized) << PRECISION)
-            .div_floor(&baseline_power_at_effective_network_time);
+            .div_floor(baseline_power_at_effective_network_time);
 
         reward_theta - diff
     } else {
