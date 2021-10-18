@@ -254,7 +254,6 @@ async fn specs_actors_test_runner() {
                     e,
                 ));
             } else {
-                panic!("Test succeeded: {}", test_name);
                 println!("{} succeeded", test_name);
                 succeeded += 1;
             }
