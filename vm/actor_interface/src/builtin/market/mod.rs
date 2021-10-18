@@ -204,7 +204,7 @@ impl State {
     {
         match self {
             State::V0(st) => actorv0::market::validate_deals_for_activation(
-                &st,
+                st,
                 store,
                 deal_ids,
                 miner_addr,
@@ -212,7 +212,7 @@ impl State {
                 curr_epoch,
             ),
             State::V2(st) => actorv2::market::validate_deals_for_activation(
-                &st,
+                st,
                 store,
                 deal_ids,
                 miner_addr,
@@ -221,7 +221,7 @@ impl State {
             )
             .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
             State::V3(st) => actorv3::market::validate_deals_for_activation(
-                &st,
+                st,
                 store,
                 deal_ids,
                 miner_addr,
@@ -230,7 +230,7 @@ impl State {
             )
             .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
             State::V4(st) => actorv4::market::validate_deals_for_activation(
-                &st,
+                st,
                 store,
                 deal_ids,
                 miner_addr,
@@ -239,7 +239,7 @@ impl State {
             )
             .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
             State::V5(st) => actorv5::market::validate_deals_for_activation(
-                &st,
+                st,
                 store,
                 deal_ids,
                 miner_addr,

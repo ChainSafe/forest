@@ -28,7 +28,7 @@ where
         Ipld::Bool(bool) => serializer.serialize_bool(*bool),
         Ipld::Integer(i128) => serializer.serialize_i128(*i128),
         Ipld::Float(f64) => serializer.serialize_f64(*f64),
-        Ipld::String(string) => serializer.serialize_str(&string),
+        Ipld::String(string) => serializer.serialize_str(string),
         Ipld::Bytes(bytes) => serialize(
             &ipld!({ "/": { BYTES_JSON_KEY: multibase::encode(Base::Base64, bytes) } }),
             serializer,

@@ -132,7 +132,7 @@ pub trait ProofVerifier {
         randomness[31] &= 0x3f;
 
         // Convert sector info into public replica
-        let replicas = to_fil_public_replica_infos(&challenge_sectors, ProofType::Winning)?;
+        let replicas = to_fil_public_replica_infos(challenge_sectors, ProofType::Winning)?;
 
         // Convert PoSt proofs into proofs-api format
         let proof_bytes = proofs.iter().fold(Vec::new(), |mut proof, p| {
@@ -164,7 +164,7 @@ pub trait ProofVerifier {
         randomness[31] &= 0x3f;
 
         // Convert sector info into public replica
-        let replicas = to_fil_public_replica_infos(&challenge_sectors, ProofType::Window)?;
+        let replicas = to_fil_public_replica_infos(challenge_sectors, ProofType::Window)?;
 
         // Convert PoSt proofs into proofs-api format
         let proofs: Vec<(proofs::RegisteredPoStProof, _)> = proofs

@@ -81,7 +81,7 @@ impl Cid {
 
     /// Returns the cid multihash.
     pub fn hash(&self) -> &Multihash {
-        &self.0.hash()
+        self.0.hash()
     }
 
     /// Reads the bytes from a byte stream.

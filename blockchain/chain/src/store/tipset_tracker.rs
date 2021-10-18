@@ -75,7 +75,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
                 // TODO: maybe cache the parents tipset keys to avoid having to do a blockstore lookup here
                 let h = self
                     .db
-                    .get::<BlockHeader>(&cid)
+                    .get::<BlockHeader>(cid)
                     .ok()
                     .flatten()
                     .ok_or_else(|| {

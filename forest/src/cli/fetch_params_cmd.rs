@@ -24,7 +24,7 @@ impl FetchCommands {
         let sizes = if self.all {
             SectorSizeOpt::All
         } else if let Some(size) = &self.params_size {
-            let sector_size = ram_to_int(&size).unwrap();
+            let sector_size = ram_to_int(size).unwrap();
             SectorSizeOpt::Size(sector_size)
         } else if self.keys {
             SectorSizeOpt::Keys

@@ -155,7 +155,7 @@ impl WalletCommands {
                 let key_str = str::from_utf8(&decoded_key).unwrap();
 
                 let key_result: Result<KeyInfoJson, serde_json::error::Error> =
-                    serde_json::from_str(&key_str);
+                    serde_json::from_str(key_str);
 
                 if key_result.is_err() {
                     cli_error_and_die(&format!("{} is not a valid key to import", key), 1);

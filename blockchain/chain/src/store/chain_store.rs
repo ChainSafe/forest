@@ -919,7 +919,7 @@ where
 
         for message in unsigned_box.chain(signed_box) {
             let from_address = message.from();
-            if applied.contains_key(&from_address) {
+            if applied.contains_key(from_address) {
                 let actor_state = state
                     .get_actor(from_address)
                     .map_err(|e| Error::Other(e.to_string()))?
