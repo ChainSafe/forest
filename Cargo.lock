@@ -6292,6 +6292,7 @@ dependencies = [
 name = "specs_actors"
 version = "0.1.0"
 dependencies = [
+ "actor_interface",
  "async-std",
  "base64 0.13.0",
  "chain",
@@ -6311,6 +6312,7 @@ dependencies = [
  "futures",
  "genesis",
  "interpreter",
+ "ipld_blockstore",
  "lazy_static",
  "log",
  "networks",
@@ -6319,6 +6321,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_manager",
+ "state_tree",
  "statediff",
  "walkdir",
 ]

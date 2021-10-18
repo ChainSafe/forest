@@ -6,14 +6,18 @@
 pub mod rand_replay;
 
 use address::{Address, Protocol};
+use blockstore::BlockStore;
 use cid::Cid;
 use clock::ChainEpoch;
 use crypto::Signature;
+use db::MemoryDB;
 use forest_message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use serde::{Deserialize, Deserializer, Serialize};
-use vm::{ExitCode, TokenAmount};
-
+use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use rand_replay::*;
+use serde::{Deserialize, Deserializer, Serialize};
+use vm::{ExitCode, Serialized, TokenAmount};
+
+use std::error::Error;
 
 mod base64_bytes {
     use super::*;
@@ -44,6 +48,53 @@ mod base64_bytes {
     }
 }
 
+mod message_receipt_vec {
+    use super::*;
+
+    #[derive(Deserialize)]
+    pub struct MessageReceiptVector {
+        exit_code: ExitCode,
+        #[serde(rename = "return", with = "base64_bytes")]
+        return_value: Vec<u8>,
+        gas_used: i64,
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<MessageReceipt>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: Vec<MessageReceiptVector> = Deserialize::deserialize(deserializer)?;
+        Ok(s.into_iter()
+            .map(|v| MessageReceipt {
+                exit_code: v.exit_code,
+                return_data: Serialized::new(v.return_value),
+                gas_used: v.gas_used,
+            })
+            .collect())
+    }
+}
+
+pub struct MockCircSupply(pub TokenAmount);
+impl CircSupplyCalc for MockCircSupply {
+    fn get_supply<DB: BlockStore>(
+        &self,
+        _: ChainEpoch,
+        _: &state_tree::StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn Error>> {
+        Ok(self.0.clone())
+    }
+}
+
+pub struct MockStateLB<'db, MemoryDB>(pub &'db MemoryDB);
+impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
+    fn state_lookback(
+        &self,
+        _: ChainEpoch,
+    ) -> Result<state_tree::StateTree<'db, MemoryDB>, Box<dyn Error>> {
+        Err("Lotus runner doesn't seem to initialize this?".into())
+    }
+}
+
 pub struct ExecuteMessageParams<'a> {
     pub pre_root: &'a Cid,
     pub epoch: ChainEpoch,
@@ -66,6 +117,7 @@ pub struct TestVector {
     pub preconditions: PreConditions,
     pub apply_messages: Vec<ApplyMessage>,
     pub postconditions: PostConditions,
+    #[serde(default)]
     pub randomness: Randomness,
 }
 
@@ -107,6 +159,7 @@ pub struct PreConditions {
 #[derive(Debug, Deserialize, Clone)]
 pub struct PostConditions {
     pub state_tree: StateTree,
+    #[serde(with = "message_receipt_vec")]
     pub receipts: Vec<MessageReceipt>,
 }
 

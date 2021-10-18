@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![cfg(feature = "submodule_tests")]
+use actor::actorv2::CHAOS_ACTOR_CODE_ID;
 use chain::ChainStore;
 use cid::Cid;
 use encoding::Cbor;
@@ -10,7 +11,9 @@ use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use futures::AsyncRead;
 use interpreter::ApplyRet;
+use interpreter::VM;
 use lazy_static::lazy_static;
+use networks::get_network_version_default;
 use num_bigint::{BigInt, ToBigInt};
 use regex::Regex;
 use specs_actors::*;
@@ -27,6 +30,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::rand_replay::ReplayingRand;
+use crate::{MockCircSupply, MockStateLB};
 
 lazy_static! {
     static ref DEFAULT_BASE_FEE: BigInt = BigInt::from(100);
@@ -72,7 +76,22 @@ fn execute_message(
     block_store: &db::MemoryDB,
     params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    unimplemented!()
+    let circ_supply = MockCircSupply(params.circ_supply);
+    let lb = MockStateLB(block_store);
+    let mut vm = VM::<_, _, _, _, _>::new(
+        params.pre_root,
+        block_store,
+        params.epoch,
+        &params.randomness,
+        params.basefee,
+        get_network_version_default,
+        &circ_supply,
+        &lb,
+    )?;
+
+    let ret = vm.apply_message(params.msg)?;
+    let root = vm.flush()?;
+    Ok((ret, root))
 }
 
 async fn load_car(gzip_bz: &[u8]) -> Result<db::MemoryDB, Box<dyn StdError>> {
@@ -135,21 +154,15 @@ async fn execute_message_vector(
     randomness: &Randomness,
     variant: &Variant,
 ) -> Result<(), Box<dyn StdError>> {
-    let block_store = Arc::new(load_car(car).await?);
-    let state_manager = Arc::new(StateManager::new(Arc::new(ChainStore::new(block_store))));
-    genesis::initialize_genesis(None, &state_manager)
-        .await
-        .unwrap();
+    let block_store = load_car(car).await?;
 
     let base_epoch = variant.epoch;
     let mut root = root_cid;
 
-    let mut receipt_idx = 0;
-    let mut parent_epoch = base_epoch;
-    for (i, msg) in apply_messages.into_iter().enumerate() {
+    for (i, msg) in apply_messages.iter().enumerate() {
         let unsigned_msg = UnsignedMessage::unmarshal_cbor(&msg.bytes)?;
         let (ret, post_root) = execute_message(
-            state_manager.blockstore(),
+            &block_store,
             ExecuteMessageParams {
                 pre_root: &root,
                 epoch: base_epoch,
@@ -169,11 +182,7 @@ async fn execute_message_vector(
         check_msg_result(receipt, &ret, i)?;
     }
 
-    compare_state_roots(
-        state_manager.blockstore(),
-        &root,
-        &postconditions.state_tree.root_cid,
-    )?;
+    compare_state_roots(&block_store, &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }
