@@ -13,7 +13,7 @@ blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 beacon = { path = "../beacon" }
 db = { package = "forest_db", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
-libp2p = { version = "0.35", default-features = false }
+libp2p = { version = "0.40.0-rc.1", default-features = false }
 cid = { package = "forest_cid", version = "0.3" }
 ipld_blockstore = "0.1"
 chain = { path = "../chain" }

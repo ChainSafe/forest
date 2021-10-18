@@ -19,7 +19,7 @@ serde = { version = "1.0", features = ["derive"] }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 clock = { package = "fil_clock", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
-libp2p = { version = "0.35", default-features = false }
+libp2p = { version = "0.40.0-rc.1", default-features = false }
 forest_bitfield = "0.1"
 num-bigint = { version = "0.1.1", package = "forest_bigint", features = ["json"] }
 forest_hash_utils = "0.1"
