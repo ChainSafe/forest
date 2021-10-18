@@ -1009,6 +1009,7 @@ where
         &self,
         vis: &[(&Address, &Vec<SealVerifyInfo>)],
     ) -> Result<HashMap<Address, Vec<bool>>, Box<dyn StdError>> {
+        debug!("batch verify seals start");
         let out = vis
             .par_iter()
             .with_min_len(vis.len() / *NUM_CPUS)
@@ -1039,6 +1040,7 @@ where
                 (addr, results)
             })
             .collect();
+        debug!("batch verify seals end");
         Ok(out)
     }
 
