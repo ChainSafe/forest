@@ -241,7 +241,7 @@ jobs:
           command: make license
       - run:
           name: cargo clippy
-          command: cargo clippy -- -D warnings -A clippy::needless_collect
+          command: cargo clippy -- -D warnings
       - run:
           name: cargo fmt
           command: cargo fmt --all -- --check
