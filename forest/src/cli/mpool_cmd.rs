@@ -105,12 +105,7 @@ impl MpoolCommands {
                     let mut buckets = HashMap::<Address, StatBucket>::new();
 
                     for message in &messages {
-                        if addresses
-                            .iter()
-                            .filter(|&addr| addr == &message.message().from)
-                            .next()
-                            .is_none()
-                        {
+                        if !addresses.iter().any(|&addr| addr == message.message().from) {
                             continue;
                         }
 
