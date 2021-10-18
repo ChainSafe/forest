@@ -264,7 +264,7 @@ impl Actor {
                 })?;
 
             for deal in &mut params.deals {
-                validate_deal(rt, &deal, &network_raw_power, &baseline_power)?;
+                validate_deal(rt, deal, &network_raw_power, &baseline_power)?;
 
                 if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
                     return Err(actor_error!(
@@ -440,7 +440,7 @@ impl Actor {
         // Update deal states
         rt.transaction(|st: &mut State, rt| {
             validate_deals_for_activation(
-                &st,
+                st,
                 rt.store(),
                 &params.deal_ids,
                 &miner_addr,
@@ -1074,11 +1074,11 @@ where
             .get(*deal_id as usize)?
             .ok_or_else(|| actor_error!(ErrNotFound, "no such deal {}", deal_id))?;
 
-        validate_deal_can_activate(&proposal, miner_addr, sector_expiry, sector_activation)
+        validate_deal_can_activate(proposal, miner_addr, sector_expiry, sector_activation)
             .map_err(|e| e.wrap(&format!("cannot activate deal {}", deal_id)))?;
 
         total_deal_space += proposal.piece_size.0;
-        let deal_space_time = deal_weight(&proposal);
+        let deal_space_time = deal_weight(proposal);
         if proposal.verified_deal {
             total_verified_space_time += deal_space_time;
         } else {

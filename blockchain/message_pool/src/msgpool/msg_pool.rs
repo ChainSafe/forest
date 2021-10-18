@@ -237,7 +237,7 @@ where
                             repub_trigger.clone(),
                             republished.as_ref(),
                             pending.as_ref(),
-                            &cur.as_ref(),
+                            cur.as_ref(),
                             rev,
                             app,
                         )
@@ -374,7 +374,7 @@ where
             return Err(Error::SequenceTooLow);
         }
 
-        let publish = verify_msg_before_add(&msg, &cur_ts, local)?;
+        let publish = verify_msg_before_add(&msg, cur_ts, local)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
@@ -425,14 +425,14 @@ where
 
     /// Get the state of the sequence for a given address in cur_ts.
     async fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let actor = self.api.read().await.get_actor_after(&addr, cur_ts)?;
+        let actor = self.api.read().await.get_actor_after(addr, cur_ts)?;
         Ok(actor.sequence)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error.
     async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
-        let actor = self.api.read().await.get_actor_after(&addr, &ts)?;
+        let actor = self.api.read().await.get_actor_after(addr, ts)?;
         Ok(actor.balance)
     }
 
@@ -447,20 +447,20 @@ where
             Protocol::ID => {
                 let api = self.api.read().await;
 
-                api.state_account_key::<V>(&addr, &self.cur_tipset.read().await.clone())
+                api.state_account_key::<V>(addr, &self.cur_tipset.read().await.clone())
                     .await?
             }
             _ => *addr,
         };
 
-        let sequence = self.get_sequence(&addr).await?;
+        let sequence = self.get_sequence(addr).await?;
         let msg = cb(from_key, sequence)?;
         self.check_message(&msg).await?;
         if *self.cur_tipset.read().await != cur_ts {
             return Err(Error::TryAgain);
         }
 
-        if self.get_sequence(&addr).await? != sequence {
+        if self.get_sequence(addr).await? != sequence {
             return Err(Error::TryAgain);
         }
 
@@ -483,7 +483,7 @@ where
     }
 
     async fn check_balance(&self, m: &SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
-        let bal = self.get_state_balance(m.from(), &cur_ts).await?;
+        let bal = self.get_state_balance(m.from(), cur_ts).await?;
         let mut required_funds = m.required_funds();
         if bal < required_funds {
             return Err(Error::NotEnoughFunds);
@@ -555,7 +555,7 @@ where
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
 
         for block in blks {
-            let (umsg, mut smsgs) = self.api.read().await.messages_for_block(&block)?;
+            let (umsg, mut smsgs) = self.api.read().await.messages_for_block(block)?;
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
@@ -588,9 +588,7 @@ where
     /// Loads local messages to the message pool to be applied.
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write().await;
-        let msg_vec: Vec<SignedMessage> = local_msgs.iter().cloned().collect();
-
-        for k in msg_vec.into_iter() {
+        for k in local_msgs.iter().cloned().collect::<Vec<SignedMessage>>() {
             self.add(k.clone()).await.unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
@@ -607,9 +605,9 @@ where
         if local {
             let local_addrs = self.local_addrs.read().await;
             for a in local_addrs.iter() {
-                if let Some(mset) = self.pending.read().await.get(&a) {
+                if let Some(mset) = self.pending.read().await.get(a) {
                     for m in mset.msgs.values() {
-                        if !self.local_msgs.write().await.remove(&m) {
+                        if !self.local_msgs.write().await.remove(m) {
                             warn!("error deleting local message");
                         }
                     }
@@ -620,7 +618,7 @@ where
         } else {
             let mut pending = self.pending.write().await;
             let local_addrs = self.local_addrs.read().await;
-            pending.retain(|a, _| local_addrs.contains(&a));
+            pending.retain(|a, _| local_addrs.contains(a));
         }
     }
     pub fn get_config(&self) -> &MpoolConfig {

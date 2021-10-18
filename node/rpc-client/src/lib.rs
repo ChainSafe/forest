@@ -78,17 +78,17 @@ pub enum JsonRpcResponse<R> {
     },
 }
 
-struct URL {
+struct Url {
     protocol: String,
     port: String,
     host: String,
 }
 
-/// Parses a multiaddress into a URL
+/// Parses a multiaddress into a Url
 fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
-    // Fold Multiaddress into a URL struct
+    // Fold Multiaddress into a Url struct
     let addr = multiaddr.into_iter().fold(
-        URL {
+        Url {
             protocol: DEFAULT_PROTOCOL.to_owned(),
             port: DEFAULT_PORT.to_owned(),
             host: DEFAULT_HOST.to_owned(),

@@ -62,18 +62,18 @@ where
         cur_ts: &Tipset,
         ts: &Tipset,
     ) -> Result<Vec<SignedMessage>, Error> {
-        let base_fee = self.api.read().await.chain_compute_base_fee(&ts)?;
+        let base_fee = self.api.read().await.chain_compute_base_fee(ts)?;
 
         // 0. Load messages from the target tipset; if it is the same as the current tipset in
         //    the mpool, then this is just the pending messages
-        let mut pending = self.get_pending_messages(&cur_ts, &ts).await?;
+        let mut pending = self.get_pending_messages(cur_ts, ts).await?;
 
         if pending.is_empty() {
             return Ok(Vec::new());
         }
         // 0b. Select all priority messages that fit in the block
         let (result, gas_limit) = self
-            .select_priority_messages(&mut pending, &base_fee, &ts)
+            .select_priority_messages(&mut pending, &base_fee, ts)
             .await?;
 
         // check if block has been filled
@@ -84,7 +84,7 @@ where
         // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
         let mut chains = Chains::new();
         for (actor, mset) in pending.into_iter() {
-            create_message_chains(&self.api, &actor, &mset, &base_fee, &ts, &mut chains).await?;
+            create_message_chains(&self.api, &actor, &mset, &base_fee, ts, &mut chains).await?;
         }
 
         let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS);
@@ -101,11 +101,11 @@ where
             .api
             .read()
             .await
-            .chain_compute_base_fee(&target_tipset)?;
+            .chain_compute_base_fee(target_tipset)?;
 
         // 0. Load messages from the target tipset; if it is the same as the current tipset in
         //    the mpool, then this is just the pending messages
-        let mut pending = self.get_pending_messages(&cur_ts, &target_tipset).await?;
+        let mut pending = self.get_pending_messages(cur_ts, target_tipset).await?;
 
         if pending.is_empty() {
             return Ok(Vec::new());
@@ -113,7 +113,7 @@ where
 
         // 0b. Select all priority messages that fit in the block
         let (mut result, mut gas_limit) = self
-            .select_priority_messages(&mut pending, &base_fee, &target_tipset)
+            .select_priority_messages(&mut pending, &base_fee, target_tipset)
             .await?;
 
         // check if block has been filled
@@ -129,7 +129,7 @@ where
                 &actor,
                 &mset,
                 &base_fee,
-                &target_tipset,
+                target_tipset,
                 &mut chains,
             )
             .await?;
@@ -563,7 +563,7 @@ fn merge_and_trim(
                 // slot_chains
                 let cur_node = &chains[i];
                 let next_node = &chains[i + 1];
-                if cur_node.compare(&next_node) == Ordering::Greater {
+                if cur_node.compare(next_node) == Ordering::Greater {
                     break;
                 }
 
@@ -632,7 +632,7 @@ where
     for ts in left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
-            let (_, smsgs) = api.read().await.messages_for_block(&block)?;
+            let (_, smsgs) = api.read().await.messages_for_block(block)?;
             msgs.extend(smsgs);
         }
         for msg in msgs {

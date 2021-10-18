@@ -145,7 +145,7 @@ where
         };
 
         let caller_id = state
-            .lookup_id(&message.from())
+            .lookup_id(message.from())
             .map_err(|e| e.downcast_fatal("failed to lookup id"))?
             .ok_or_else(|| {
                 actor_error!(SysErrInvalidReceiver, "resolve msg from address failed")
@@ -155,7 +155,7 @@ where
             *message.to()
         } else {
             state
-                .lookup_id(&message.to())
+                .lookup_id(message.to())
                 .map_err(|e| e.downcast_fatal("failed to lookup id"))?
                 // * Go implementation changes this to undef address. To avoid using optional
                 // * value here, the non-id address is kept here (should never be used)
@@ -217,7 +217,7 @@ where
     fn get_balance(&self, addr: &Address) -> Result<BigInt, ActorError> {
         Ok(self
             .state
-            .get_actor(&addr)
+            .get_actor(addr)
             .map_err(|e| e.downcast_fatal("failed to get actor in get balance"))?
             .map(|act| act.balance)
             .unwrap_or_default())
@@ -412,7 +412,7 @@ where
         )?;
 
         if !msg.value().is_zero() {
-            transfer(self.state, &msg.from(), &msg.to(), &msg.value())
+            transfer(self.state, msg.from(), msg.to(), msg.value())
                 .map_err(|e| e.wrap("failed to transfer funds"))?;
         }
 
@@ -533,7 +533,7 @@ where
 
         let worker = ms.info(&self.store)?.worker;
 
-        resolve_to_key_addr(&self.state, &self.store, &worker)
+        resolve_to_key_addr(self.state, &self.store, &worker)
     }
 }
 
@@ -598,14 +598,14 @@ where
 
     fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
         self.state
-            .lookup_id(&address)
+            .lookup_id(address)
             .map_err(|e| e.downcast_fatal("failed to look up id"))
     }
 
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {
         Ok(self
             .state
-            .get_actor(&addr)
+            .get_actor(addr)
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
             .map(|act| act.code))
     }
@@ -784,7 +784,7 @@ where
         self.charge_gas(self.price_list.on_create_actor())?;
         self.state
             .set_actor(
-                &address,
+                address,
                 ActorState::new(code_id, *EMPTY_ARR_CID, 0.into(), 0),
             )
             .map_err(|e| e.downcast_fatal("creating actor entry"))
@@ -805,7 +805,7 @@ where
             .map(|act| act.balance)?;
         if balance != 0.into() {
             if self.version >= NetworkVersion::V7 {
-                let beneficiary_id = self.resolve_address(&beneficiary)?.ok_or_else(|| {
+                let beneficiary_id = self.resolve_address(beneficiary)?.ok_or_else(|| {
                     actor_error!(SysErrIllegalArgument, "beneficiary doesn't exist")
                 })?;
 
@@ -1050,7 +1050,7 @@ where
     ) -> Result<(), Box<dyn StdError>> {
         self.gas_tracker
             .borrow_mut()
-            .charge_gas(self.price_list.on_verify_aggregate_seals(&aggregate))?;
+            .charge_gas(self.price_list.on_verify_aggregate_seals(aggregate))?;
         V::verify_aggregate_seals(aggregate)
     }
 }
@@ -1101,11 +1101,11 @@ fn transfer<BS: BlockStore>(
             ))
         })?;
 
-    f.deduct_funds(&value).map_err(|e| {
+    f.deduct_funds(value).map_err(|e| {
         actor_error!(SysErrInsufficientFunds;
         "transfer failed when deducting funds ({}): {}", value, e)
     })?;
-    t.deposit_funds(&value);
+    t.deposit_funds(value);
 
     state
         .set_actor(from, f)
@@ -1133,7 +1133,7 @@ where
     }
 
     let act = st
-        .get_actor(&addr)
+        .get_actor(addr)
         .map_err(|e| e.downcast_wrap("Failed to get actor"))?
         .ok_or_else(|| format!("Failed to retrieve actor: {}", addr))?;
 

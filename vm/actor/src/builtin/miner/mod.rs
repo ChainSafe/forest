@@ -282,7 +282,7 @@ impl Actor {
         RT: Runtime<BS>,
     {
         rt.transaction(|state: &mut State, rt| {
-            let mut info = get_miner_info(rt.store(), &state)?;
+            let mut info = get_miner_info(rt.store(), state)?;
 
             rt.validate_immediate_caller_is(std::iter::once(&info.owner))?;
 
@@ -313,7 +313,7 @@ impl Actor {
         }
 
         rt.transaction(|state: &mut State, rt| {
-            let mut info = get_miner_info(rt.store(), &state)?;
+            let mut info = get_miner_info(rt.store(), state)?;
 
             if rt.message().caller() == &info.owner || info.pending_owner_address.is_none() {
                 rt.validate_immediate_caller_is(std::iter::once(&info.owner))?;
@@ -1265,7 +1265,7 @@ impl Actor {
                 .map_err(|_e|
                     actor_error!(
                         ErrIllegalArgument,
-                        "failed to lookup Window PoSt proof type for sector seal proof {}", 
+                        "failed to lookup Window PoSt proof type for sector seal proof {}",
                         i64::from(precommit.seal_proof)
                     ))?;
                 if sector_wpost_proof != info.window_post_proof_type {
@@ -1281,7 +1281,7 @@ impl Actor {
                     return Err(actor_error!(ErrIllegalArgument, "deals too large to fit in sector {} > {}", deal_weight.deal_space, info.sector_size));
                 }
                 if precommit.replace_capacity {
-                    validate_replace_sector(state, store, &precommit)?
+                    validate_replace_sector(state, store, precommit)?
                 }
                 // Estimate the sector weight using the current epoch as an estimate for activation,
             	// and compute the pre-commit deposit using that weight.
@@ -2028,7 +2028,7 @@ impl Actor {
             })?;
 
         let power_delta = rt.transaction(|state: &mut State, rt| {
-            let info = get_miner_info(rt.store(), &state)?;
+            let info = get_miner_info(rt.store(), state)?;
 
             rt.validate_immediate_caller_is(
                 info.control_addresses
@@ -2177,7 +2177,7 @@ impl Actor {
             // and repay fee debt now.
             let fee_to_burn = repay_debts_or_abort(rt, state)?;
 
-            let info = get_miner_info(rt.store(), &state)?;
+            let info = get_miner_info(rt.store(), state)?;
 
             rt.validate_immediate_caller_is(
                 info.control_addresses
@@ -2629,7 +2629,7 @@ impl Actor {
         let mut pledge_delta = TokenAmount::from(0);
 
         let (burn_amount, reward_amount) = rt.transaction(|st: &mut State, rt| {
-            let mut info = get_miner_info(rt.store(), &st)?;
+            let mut info = get_miner_info(rt.store(), st)?;
 
             // Verify miner hasn't already been faulted
             if fault.epoch < info.consensus_fault_elapsed {
@@ -3020,7 +3020,7 @@ where
         pledge_delta_total -= newly_vested;
 
         // Process pending worker change if any
-        let mut info = get_miner_info(rt.store(), &state)?;
+        let mut info = get_miner_info(rt.store(), state)?;
         process_pending_worker(&mut info, rt, state)?;
 
         let deposit_to_burn = state
@@ -3513,7 +3513,7 @@ where
             *STORAGE_MARKET_ACTOR_ADDR,
             MarketMethod::ComputeDataCommitment as u64,
             Serialized::serialize(ComputeDataCommitmentParamsRef {
-                inputs: &data_commitment_inputs,
+                inputs: data_commitment_inputs,
             })?,
             TokenAmount::zero(),
         )?
@@ -3879,7 +3879,7 @@ where
     info.pending_worker_key = None;
 
     state
-        .save_info(rt.store(), &info)
+        .save_info(rt.store(), info)
         .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to save miner info"))
 }
 

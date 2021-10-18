@@ -7,9 +7,9 @@ use bls_signatures::{
     verify_messages, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
 };
 use encoding::{blake2b_256, de, repr::*, ser, serde_bytes};
+use libsecp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use secp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 use std::borrow::Cow;
 
 /// BLS signature length in bytes.
@@ -187,13 +187,13 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
 pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Address, Error> {
     // generate types to recover key from
     let rec_id = RecoveryId::parse(signature[64])?;
-    let message = Message::parse(&hash);
+    let message = Message::parse(hash);
 
     // Signature value without recovery byte
     let mut s = [0u8; 64];
     s.clone_from_slice(signature[..64].as_ref());
     // generate Signature
-    let sig = EcsdaSignature::parse(&s);
+    let sig = EcsdaSignature::parse_standard(&s)?;
 
     let key = recover(&message, &sig, &rec_id)?;
     let ret = key.serialize();
@@ -205,9 +205,9 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Addr
 mod tests {
     use super::*;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
+    use libsecp256k1::{sign, PublicKey, SecretKey};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
-    use secp256k1::{sign, PublicKey, SecretKey};
 
     #[test]
     fn bls_agg_verify() {

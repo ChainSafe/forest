@@ -74,7 +74,7 @@ where
     #[inline]
     pub fn get(&self, key: ChainEpoch) -> Result<Option<Set<'a, BS>>, Box<dyn StdError>> {
         match self.0.get(&u64_key(key as u64))? {
-            Some(cid) => Ok(Some(Set::from_root(self.0.store(), &cid)?)),
+            Some(cid) => Ok(Some(Set::from_root(self.0.store(), cid)?)),
             None => Ok(None),
         }
     }
@@ -117,7 +117,7 @@ where
         };
 
         set.for_each(|k| {
-            let v = parse_uint_key(&k)
+            let v = parse_uint_key(k)
                 .map_err(|e| format!("Could not parse key: {:?}, ({})", &k.0, e))?;
 
             // Run function on all parsed keys

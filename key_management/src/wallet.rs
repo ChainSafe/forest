@@ -65,7 +65,7 @@ impl Wallet {
     /// If this key does not exist in the keys hashmap, check if this key is in
     /// the keystore, if it is, then add it to keys, otherwise return Error
     pub fn find_key(&mut self, addr: &Address) -> Result<Key, Error> {
-        if let Some(k) = self.keys.get(&addr) {
+        if let Some(k) = self.keys.get(addr) {
             return Ok(k.clone());
         }
         let key_string = format!("wallet-{}", addr.to_string());
@@ -226,7 +226,7 @@ mod tests {
     use super::*;
     use crate::{generate, KeyStoreConfig};
     use encoding::blake2b_256;
-    use secp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
+    use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
     fn construct_priv_keys() -> Vec<Key> {
         let mut secp_keys = Vec::new();
@@ -296,7 +296,7 @@ mod tests {
         let msg_complete = blake2b_256(&msg);
         let message = SecpMessage::parse(&msg_complete);
         let priv_key = SecpPrivate::parse_slice(&priv_key_bytes).unwrap();
-        let (sig, recovery_id) = secp256k1::sign(&message, &priv_key);
+        let (sig, recovery_id) = libsecp256k1::sign(&message, &priv_key);
         let mut new_bytes = [0; 65];
         new_bytes[..64].copy_from_slice(&sig.serialize());
         new_bytes[64] = recovery_id.serialize();

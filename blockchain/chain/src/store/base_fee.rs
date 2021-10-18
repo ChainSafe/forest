@@ -74,7 +74,7 @@ where
 
     // Add all unique messages' gas limit to get the total for the Tipset.
     for b in ts.blocks() {
-        let (msg1, msg2) = crate::block_messages(db, &b)?;
+        let (msg1, msg2) = crate::block_messages(db, b)?;
         for m in msg1 {
             let m_cid = m.cid()?;
             if !seen.contains(&m_cid) {

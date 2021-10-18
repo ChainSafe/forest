@@ -459,7 +459,7 @@ impl EncryptedKeyStore {
         let nonce = secretbox::Nonce::from_slice(&msg[msg.len() - 24..])
             .ok_or(EncryptedKeyStoreError::DecryptionError)?;
 
-        let plaintext = secretbox::open(&ciphertext, &nonce, &encryption_key)
+        let plaintext = secretbox::open(ciphertext, &nonce, &encryption_key)
             .map_err(|_| EncryptedKeyStoreError::DecryptionError)?;
 
         Ok(plaintext)

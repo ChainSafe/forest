@@ -208,7 +208,7 @@ pub(crate) async fn state_miner_proving_deadline<
         .await?;
 
     let actor = state_manager
-        .get_actor(&addr, &tipset.parent_state())?
+        .get_actor(&addr, tipset.parent_state())?
         .ok_or_else(|| format!("Address {} not found", addr))?;
 
     let mas = miner::State::load(state_manager.blockstore(), &actor)?;
@@ -402,7 +402,7 @@ pub(crate) async fn state_get_actor<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts::<DB, V>(&state_manager, tipset).await?;
+    let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
     Ok(state.get_actor(&actor)?.map(ActorStateJson::from))
 }
 
@@ -450,7 +450,7 @@ pub(crate) async fn state_account_key<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts::<DB, V>(&state_manager, tipset).await?;
+    let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
     let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
 }
@@ -471,7 +471,7 @@ pub(crate) async fn state_lookup_id<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts::<DB, V>(&state_manager, tipset).await?;
+    let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
     let lookup_result = state.lookup_id(&address)?;
 
     match lookup_result {
@@ -668,8 +668,8 @@ pub(crate) async fn miner_create_block<
             .as_bytes(),
         ))
     };
-    let pweight = chain::weight(data.chain_store.blockstore(), &pts.as_ref())?;
-    let base_fee = chain::compute_base_fee(data.chain_store.blockstore(), &pts.as_ref())?;
+    let pweight = chain::weight(data.chain_store.blockstore(), pts.as_ref())?;
+    let base_fee = chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref())?;
 
     let mut next = BlockHeader::builder()
         .messages(mmcid)

@@ -55,9 +55,9 @@ impl Chains {
             let a = self.map.get(*a).unwrap();
             let b = self.map.get(*b).unwrap();
             if rev {
-                b.compare(&a)
+                b.compare(a)
             } else {
-                a.compare(&b)
+                a.compare(b)
             }
         });
         let _ = mem::replace(&mut self.key_vec, chains);
@@ -81,7 +81,7 @@ impl Chains {
             self.map
                 .get(*a)
                 .unwrap()
-                .cmp_effective(&self.map.get(*b).unwrap())
+                .cmp_effective(self.map.get(*b).unwrap())
         });
         let _ = mem::replace(&mut self.key_vec, chains);
     }
@@ -356,7 +356,7 @@ where
     //   cannot exceed the block limit; drop all messages that exceed the limit
     // - the total gasReward cannot exceed the actor's balance; drop all messages that exceed
     //   the balance
-    let actor_state = api.read().await.get_actor_after(&actor, &ts)?;
+    let actor_state = api.read().await.get_actor_after(actor, ts)?;
     let mut cur_seq = actor_state.sequence;
     let mut balance = actor_state.balance;
 
@@ -405,7 +405,7 @@ where
         let value = m.value();
         balance -= value;
 
-        let gas_reward = get_gas_reward(&m, base_fee);
+        let gas_reward = get_gas_reward(m, base_fee);
         rewards.push(gas_reward);
         i += 1;
     }

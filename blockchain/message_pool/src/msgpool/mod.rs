@@ -49,7 +49,7 @@ async fn get_state_sequence<T>(
 where
     T: Provider,
 {
-    let actor = api.read().await.get_actor_after(&addr, cur_ts)?;
+    let actor = api.read().await.get_actor_after(addr, cur_ts)?;
     let base_sequence = actor.sequence;
 
     Ok(base_sequence)
@@ -94,7 +94,7 @@ where
 
     let mut chains = Chains::new();
     for (actor, mset) in pending_map.iter() {
-        create_message_chains(&api, actor, mset, &base_fee_lower_bound, &ts, &mut chains).await?;
+        create_message_chains(api, actor, mset, &base_fee_lower_bound, &ts, &mut chains).await?;
     }
 
     if chains.is_empty() {
@@ -198,7 +198,7 @@ where
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
-            let (umsg, smsgs) = api.read().await.messages_for_block(&block)?;
+            let (umsg, smsgs) = api.read().await.messages_for_block(block)?;
             msgs.extend(smsgs);
             for msg in umsg {
                 let mut bls_sig_cache = bls_sig_cache.write().await;
@@ -242,7 +242,7 @@ where
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let sequence =
-                get_state_sequence(api, &msg.from(), &cur_tipset.read().await.clone()).await?;
+                get_state_sequence(api, msg.from(), &cur_tipset.read().await.clone()).await?;
             if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence).await {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
