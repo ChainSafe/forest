@@ -265,6 +265,10 @@ pub mod mpool_api {
     pub const MPOOL_SELECT: &str = "Filecoin.MpoolSelect";
     pub type MpoolSelectParams = (TipsetKeysJson, f64);
     pub type MpoolSelectResult = Vec<SignedMessageJson>;
+
+    pub const MPOOL_UPDATES: &str = "Filecoin.MpoolUpdates";
+    pub type MpoolUpdatesParams = ();
+    pub type MpoolUpdatesResult = ();
 }
 
 /// Sync API
