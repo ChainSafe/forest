@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message;
@@ -21,8 +21,8 @@ pub enum ChainMessage {
 impl ChainMessage {
     pub fn message(&self) -> &UnsignedMessage {
         match self {
-            Self::Unsigned(m) => &m,
-            Self::Signed(sm) => &sm.message(),
+            Self::Unsigned(m) => m,
+            Self::Signed(sm) => sm.message(),
         }
     }
 }

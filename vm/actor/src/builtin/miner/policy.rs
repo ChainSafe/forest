@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{types::SectorOnChainInfo, PowerPair, BASE_REWARD_FOR_DISPUTED_WINDOW_POST};
@@ -8,11 +8,24 @@ use fil_types::{
     NetworkVersion, RegisteredPoStProof, RegisteredSealProof, SectorQuality, SectorSize,
     StoragePower,
 };
-use num_bigint::BigUint;
 use num_bigint::{BigInt, Integer};
-use num_traits::Pow;
 use std::cmp;
 use vm::TokenAmount;
+
+/// Maximum amount of sectors that can be aggregated.
+pub const MAX_AGGREGATED_SECTORS: usize = 819;
+/// Minimum amount of sectors that can be aggregated.
+pub const MIN_AGGREGATED_SECTORS: usize = 4;
+/// Maximum total aggregated proof size.
+pub const MAX_AGGREGATED_PROOF_SIZE: usize = 81960;
+
+/// The maximum number of sector pre-commitments in a single batch.
+/// 32 sectors per epoch would support a single miner onboarding 1EiB of 32GiB sectors in 1 year.
+pub const PRE_COMMIT_SECTOR_BATCH_MAX_SIZE: usize = 256;
+/// The delay between pre commit expiration and clean up from state. This enforces that expired pre-commits
+/// stay in state for a period of time creating a grace period during which a late-running aggregated prove-commit
+/// can still prove its non-expired precommits without resubmitting a message
+pub const EXPIRED_PRE_COMMIT_CLEAN_UP_DELAY: i64 = 8 * EPOCHS_IN_HOUR;
 
 /// The period over which all a miner's active sectors will be challenged.
 pub const WPOST_PROVING_PERIOD: ChainEpoch = EPOCHS_IN_DAY;
@@ -59,7 +72,7 @@ pub const ADDRESSED_PARTITIONS_MAX: u64 = MAX_PARTITIONS_PER_DEADLINE;
 pub const DELCARATIONS_MAX: u64 = ADDRESSED_PARTITIONS_MAX;
 
 /// The maximum number of sector infos that may be required to be loaded in a single invocation.
-pub const ADDRESSED_SECTORS_MAX: u64 = 10_000;
+pub const ADDRESSED_SECTORS_MAX: u64 = 25_000;
 
 /// The maximum number of partitions that may be required to be loaded in a single invocation,
 /// when all the sector infos for the partitions will be loaded.
@@ -86,7 +99,7 @@ pub const SEALED_CID_PREFIX: cid::Prefix = cid::Prefix {
 };
 
 /// List of proof types which can be used when creating new miner actors
-pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof, nv: NetworkVersion) -> bool {
+pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof) -> bool {
     use RegisteredSealProof::*;
 
     #[cfg(feature = "devnet")]
@@ -96,16 +109,7 @@ pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof, nv: NetworkVersion)
         }
     }
 
-    if nv >= NetworkVersion::V8 {
-        matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
-    } else if nv >= NetworkVersion::V7 {
-        matches!(
-            proof,
-            StackedDRG32GiBV1 | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1
-        )
-    } else {
-        matches!(proof, StackedDRG32GiBV1 | StackedDRG64GiBV1)
-    }
+    matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
 }
 
 /// Checks whether a seal proof type is supported for new miners and sectors.
@@ -124,10 +128,9 @@ pub fn max_prove_commit_duration(proof: RegisteredSealProof) -> Option<ChainEpoc
     use RegisteredSealProof::*;
     match proof {
         StackedDRG32GiBV1 | StackedDRG2KiBV1 | StackedDRG8MiBV1 | StackedDRG512MiBV1
-        | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG2KiBV1P1 | StackedDRG8MiBV1P1
-        | StackedDRG512MiBV1P1 | StackedDRG64GiBV1P1 => {
-            Some(EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY)
-        }
+        | StackedDRG64GiBV1 => Some(EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
+        StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1 | StackedDRG512MiBV1P1 | StackedDRG8MiBV1P1
+        | StackedDRG2KiBV1P1 => Some(30 * EPOCHS_IN_DAY + PRE_COMMIT_CHALLENGE_DELAY),
         _ => None,
     }
 }
@@ -259,12 +262,6 @@ pub fn qa_power_for_sector(size: SectorSize, sector: &SectorOnChainInfo) -> Stor
 pub fn sector_deals_max(size: SectorSize) -> u64 {
     cmp::max(256, size as u64 / DEAL_LIMIT_DENOMINATOR)
 }
-
-struct BigFrac {
-    numerator: BigInt,
-    denominator: BigInt,
-}
-
 /// Specification for a linear vesting schedule.
 pub struct VestSpec {
     pub initial_delay: ChainEpoch, // Delay before any amount starts vesting.
@@ -280,44 +277,14 @@ pub const REWARD_VESTING_SPEC: VestSpec = VestSpec {
     quantization: 12 * EPOCHS_IN_HOUR, // PARAM_FINISH
 };
 
-pub fn reward_for_consensus_slash_report(
-    elapsed_epoch: ChainEpoch,
-    collateral: &TokenAmount,
-) -> TokenAmount {
-    // var growthRate = SLASHER_SHARE_GROWTH_RATE_NUM / SLASHER_SHARE_GROWTH_RATE_DENOM
-    // var multiplier = growthRate^elapsedEpoch
-    // var slasherProportion = min(INITIAL_SLASHER_SHARE * multiplier, 1.0)
-    // return collateral * slasherProportion
-    // BigInt Operation
-    // NUM = SLASHER_SHARE_GROWTH_RATE_NUM^elapsedEpoch * INITIAL_SLASHER_SHARE_NUM * collateral
-    // DENOM = SLASHER_SHARE_GROWTH_RATE_DENOM^elapsedEpoch * INITIAL_SLASHER_SHARE_DENOM
-    // slasher_amount = min(NUM/DENOM, collateral)
-    let consensus_fault_reporter_share_growth_rate = BigFrac {
-        numerator: BigInt::from(100_785_473_384u64),
-        denominator: BigInt::from(100_000_000_000u64),
-    };
-    let consensus_fault_reporter_initial_share = BigFrac {
-        numerator: BigInt::from(1),
-        denominator: BigInt::from(1000),
-    };
-    let max_reporter_share = BigFrac {
-        numerator: BigInt::from(1),
-        denominator: BigInt::from(20),
-    };
-    let elapsed = BigUint::from(elapsed_epoch as u64);
-    let slasher_share_numerator = consensus_fault_reporter_share_growth_rate
-        .numerator
-        .pow(&elapsed);
-    let slasher_share_denominator = consensus_fault_reporter_share_growth_rate
-        .denominator
-        .pow(&elapsed);
-    let num: BigInt =
-        (slasher_share_numerator * consensus_fault_reporter_initial_share.numerator) * collateral;
-    let denom = slasher_share_denominator * consensus_fault_reporter_initial_share.denominator;
+// Default share of block reward allocated as reward to the consensus fault reporter.
+// Applied as epochReward / (expectedLeadersPerEpoch * consensusFaultReporterDefaultShare)
+pub const CONSENSUS_FAULT_REPORTER_DEFAULT_SHARE: i64 = 4;
 
-    cmp::min(
-        num.div_floor(&denom),
-        (collateral * max_reporter_share.numerator).div_floor(&max_reporter_share.denominator),
+pub fn reward_for_consensus_slash_report(epoch_reward: &TokenAmount) -> TokenAmount {
+    epoch_reward.div_floor(
+        &(BigInt::from(EXPECTED_LEADERS_PER_EPOCH)
+            * BigInt::from(CONSENSUS_FAULT_REPORTER_DEFAULT_SHARE)),
     )
 }
 

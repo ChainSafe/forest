@@ -1,8 +1,9 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_libp2p::{Multiaddr, Protocol};
 use rpc_api::data_types::AddrInfo;
+use std::collections::HashSet;
 use structopt::StructOpt;
 
 use crate::cli::cli_error_and_die;
@@ -50,12 +51,26 @@ impl NetCommands {
             Self::Peers => match net_peers(()).await {
                 Ok(addrs) => {
                     let output: Vec<String> = addrs
-                        .iter()
-                        .map(|info| {
-                            let addresses: Vec<String> =
-                                info.addrs.iter().map(|addr| addr.to_string()).collect();
+                        .into_iter()
+                        .filter_map(|info| {
+                            let addresses: Vec<String> = info
+                                .addrs
+                                .into_iter()
+                                .filter(|addr| match addr.iter().next().unwrap() {
+                                    Protocol::Ip4(ip_addr) => !ip_addr.is_loopback(),
+                                    Protocol::Ip6(ip_addr) => !ip_addr.is_loopback(),
+                                    _ => true,
+                                })
+                                .map(|addr| addr.to_string())
+                                .collect::<HashSet<_>>()
+                                .into_iter()
+                                .collect();
 
-                            format!("{}, [{}]", info.id, addresses.join(", "))
+                            if addresses.is_empty() {
+                                return None;
+                            }
+
+                            Some(format!("{}, [{}]", info.id, addresses.join(", ")))
                         })
                         .collect();
 

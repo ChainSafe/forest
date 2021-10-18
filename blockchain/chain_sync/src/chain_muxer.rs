@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
@@ -238,7 +238,7 @@ where
         let ts = chain_store.tipset_from_keys(&tipset_keys).await?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) = chain::block_messages(chain_store.blockstore(), &header)?;
+            let (bls_msgs, secp_msgs) = chain::block_messages(chain_store.blockstore(), header)?;
             // Construct a full block
             blocks.push(Block {
                 header: header.clone(),
@@ -381,7 +381,7 @@ where
                 {
                     Ok(tipset) => tipset,
                     Err(why) => {
-                        debug!("Querying full tipset failed: {}", why);
+                        error!("Querying full tipset failed: {}", why);
                         return Err(why);
                     }
                 };

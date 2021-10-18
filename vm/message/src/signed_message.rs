@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Message, UnsignedMessage};
@@ -98,10 +98,10 @@ impl Message for SignedMessage {
         self.message.required_funds()
     }
     fn gas_fee_cap(&self) -> &TokenAmount {
-        &self.message.gas_fee_cap()
+        self.message.gas_fee_cap()
     }
     fn gas_premium(&self) -> &TokenAmount {
-        &self.message.gas_premium()
+        self.message.gas_premium()
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {

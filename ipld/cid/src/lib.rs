@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod mh_code;
@@ -81,7 +81,7 @@ impl Cid {
 
     /// Returns the cid multihash.
     pub fn hash(&self) -> &Multihash {
-        &self.0.hash()
+        self.0.hash()
     }
 
     /// Reads the bytes from a byte stream.

@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod state;
@@ -654,7 +654,7 @@ where
         })?;
 
     if check_hash {
-        let calculated_hash = compute_proposal_hash(&txn, rt).map_err(|e| {
+        let calculated_hash = compute_proposal_hash(txn, rt).map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
                 format!("failed to compute proposal hash for (tx: {:?})", txn_id),

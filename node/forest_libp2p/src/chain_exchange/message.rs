@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
@@ -231,8 +231,8 @@ fn fts_from_bundle_parts(
                     i, message_count, BLOCK_MESSAGE_LIMIT
                 ));
             }
-            let bls_messages = values_from_indexes(&bls_msg_includes[i], &bls_msgs)?;
-            let secp_messages = values_from_indexes(&secp_msg_includes[i], &secp_msgs)?;
+            let bls_messages = values_from_indexes(&bls_msg_includes[i], bls_msgs)?;
+            let secp_messages = values_from_indexes(&secp_msg_includes[i], secp_msgs)?;
 
             Ok(Block {
                 header,

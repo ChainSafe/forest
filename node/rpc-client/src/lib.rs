@@ -1,10 +1,12 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 /// Filecoin RPC client interface methods
 pub mod auth_ops;
 pub mod chain_ops;
 pub mod net_ops;
+pub mod state_ops;
+pub mod sync_ops;
 pub mod wallet_ops;
 
 use async_std::sync::RwLock;
@@ -28,6 +30,8 @@ pub const RPC_ENDPOINT: &str = "rpc/v0";
 pub use self::auth_ops::*;
 pub use self::chain_ops::*;
 pub use self::net_ops::*;
+pub use self::state_ops::*;
+pub use self::sync_ops::*;
 pub use self::wallet_ops::*;
 
 pub struct ApiInfo {
@@ -74,17 +78,17 @@ pub enum JsonRpcResponse<R> {
     },
 }
 
-struct URL {
+struct Url {
     protocol: String,
     port: String,
     host: String,
 }
 
-/// Parses a multiaddress into a URL
+/// Parses a multiaddress into a Url
 fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
-    // Fold Multiaddress into a URL struct
+    // Fold Multiaddress into a Url struct
     let addr = multiaddr.into_iter().fold(
-        URL {
+        Url {
             protocol: DEFAULT_PROTOCOL.to_owned(),
             port: DEFAULT_PORT.to_owned(),
             host: DEFAULT_HOST.to_owned(),
@@ -162,6 +166,7 @@ where
     .await?;
 
     let res = http_res.body_string().await?;
+
     let code = http_res.status() as i64;
 
     if code != 200 {
@@ -187,6 +192,10 @@ where
 
     match rpc_res {
         JsonRpcResponse::Result { result, .. } => Ok(result),
-        JsonRpcResponse::Error { error, .. } => Err(error.message.into()),
+        JsonRpcResponse::Error { error, .. } => Err(Error::Full {
+            data: None,
+            code: error.code,
+            message: error.message,
+        }),
     }
 }

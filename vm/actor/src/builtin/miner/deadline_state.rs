@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{
@@ -95,7 +95,7 @@ impl Deadlines {
 }
 
 /// Deadline holds the state for all sectors due at a specific deadline.
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Deadline {
     /// Partitions in this deadline, in order.
     /// The keys of this AMT are always sequential integers beginning with zero.

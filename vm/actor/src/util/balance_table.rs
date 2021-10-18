@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{make_empty_map, make_map_with_root_and_bitwidth, Map};
@@ -49,7 +49,7 @@ where
 
     /// Adds token amount to previously initialized account.
     pub fn add(&mut self, key: &Address, value: &TokenAmount) -> Result<(), Box<dyn StdError>> {
-        let prev = self.get(&key)?;
+        let prev = self.get(key)?;
         let sum = &prev + value;
         if sum.is_negative() {
             Err(format!("New balance in table cannot be negative: {}", sum).into())

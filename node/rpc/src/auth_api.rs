@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -37,6 +37,6 @@ where
     let (header_raw,) = params;
     let token = header_raw.trim_start_matches("Bearer ");
     let ki = ks.get(JWT_IDENTIFIER)?;
-    let perms = verify_token(&token, ki.private_key())?;
+    let perms = verify_token(token, ki.private_key())?;
     Ok(perms)
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Block, BlockHeader, Error, Ticket};
@@ -238,7 +238,7 @@ pub mod tipset_keys_json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    #[derive(Deserialize, Serialize)]
+    #[derive(Clone, Debug, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct TipsetKeysJson(#[serde(with = "self")] pub TipsetKeys);
 

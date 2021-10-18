@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::chain_exchange::{
@@ -36,6 +36,7 @@ use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
 use multihash::Multihash;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use utils::read_file_to_vec;
@@ -428,8 +429,8 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
 }
 
 /// Fetch keypair from disk, returning none if it cannot be decoded.
-pub fn get_keypair(path: &str) -> Option<Keypair> {
-    match read_file_to_vec(&path) {
+pub fn get_keypair(path: &Path) -> Option<Keypair> {
+    match read_file_to_vec(path) {
         Err(e) => {
             info!("Networking keystore not found!");
             trace!("Error {:?}", e);

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PAT_APA="^// Copyright 2020 ChainSafe Systems // SPDX-License-Identifier: Apache-2.0, MIT$"
+PAT_APA="^// Copyright 2019-2022 ChainSafe Systems // SPDX-License-Identifier: Apache-2.0, MIT$"
 
 valid=true
 for file in $(find . -type f -not -path "./target/*" -not -path "./blockchain/beacon/src/drand_api/*" -not -path "./ipld/graphsync/src/message/proto/message.rs" | egrep '\.(rs)$'); do

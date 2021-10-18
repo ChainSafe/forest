@@ -1,7 +1,11 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
+use rpassword::read_password;
+use std::{
+    path::PathBuf,
+    str::{self, FromStr},
+};
 use structopt::StructOpt;
 
 use address::{json::AddressJson, Address};
@@ -13,6 +17,7 @@ use forest_crypto::{
     Signature,
 };
 use rpc_client::wallet_ops::*;
+use utils::read_file_to_string;
 use wallet::json::KeyInfoJson;
 
 use super::{cli_error_and_die, handle_rpc_err};
@@ -46,8 +51,8 @@ pub enum WalletCommands {
     },
     #[structopt(about = "Import keys from existing wallet")]
     Import {
-        #[structopt(help = "The key to import")]
-        key: String,
+        #[structopt(help = "The path to the private key")]
+        path: Option<String>,
     },
     #[structopt(about = "List addresses of the wallet")]
     List,
@@ -123,9 +128,23 @@ impl WalletCommands {
                     .unwrap();
                 println!("{}", response);
             }
-            Self::Import { key } => {
-                use std::str;
-                let decoded_key_result = hex::decode(key);
+            Self::Import { path } => {
+                let key = match path {
+                    Some(path) => match read_file_to_string(&PathBuf::from(path)) {
+                        Ok(key) => key,
+                        _ => {
+                            return cli_error_and_die(&format!("{} is not a valid path", path), 1);
+                        }
+                    },
+                    _ => {
+                        println!("Enter the private key: ");
+                        read_password().expect("Error reading private key")
+                    }
+                };
+
+                let key = key.trim();
+
+                let decoded_key_result = hex::decode(&key);
 
                 if decoded_key_result.is_err() {
                     cli_error_and_die("Key must be hex encoded", 1);
@@ -136,7 +155,7 @@ impl WalletCommands {
                 let key_str = str::from_utf8(&decoded_key).unwrap();
 
                 let key_result: Result<KeyInfoJson, serde_json::error::Error> =
-                    serde_json::from_str(&key_str);
+                    serde_json::from_str(key_str);
 
                 if key_result.is_err() {
                     cli_error_and_die(&format!("{} is not a valid key to import", key), 1);
@@ -144,10 +163,12 @@ impl WalletCommands {
 
                 let key = key_result.unwrap();
 
-                let _ = wallet_import(vec![KeyInfoJson(key.0)])
+                let key = wallet_import(vec![KeyInfoJson(key.0)])
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
+
+                println!("{}", key);
             }
             Self::List => {
                 let response = wallet_list().await.map_err(handle_rpc_err).unwrap();

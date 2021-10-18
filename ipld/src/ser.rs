@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // Copyright 2017 Serde Developers
@@ -25,8 +25,8 @@ impl serde::Serialize for Ipld {
     {
         match self {
             Ipld::Integer(v) => serializer.serialize_i128(*v),
-            Ipld::Bytes(v) => serializer.serialize_bytes(&v),
-            Ipld::String(v) => serializer.serialize_str(&v),
+            Ipld::Bytes(v) => serializer.serialize_bytes(v),
+            Ipld::String(v) => serializer.serialize_str(v),
             Ipld::List(v) => v.serialize(serializer),
             Ipld::Map(v) => v.serialize(serializer),
             Ipld::Link(cid) => cid.serialize(serializer),

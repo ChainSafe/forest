@@ -1,4 +1,4 @@
-// Copyright 2020 ChainSafe Systems
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::stream::{self, Interval};
@@ -130,7 +130,7 @@ impl<'a> DiscoveryConfig<'a> {
         let kademlia_opt = if enable_kademlia {
             let mut kademlia = Kademlia::with_config(local_peer_id, store, kad_config);
             for (peer_id, addr) in user_defined.iter() {
-                kademlia.add_address(&peer_id, addr.clone());
+                kademlia.add_address(peer_id, addr.clone());
                 peers.insert(*peer_id);
             }
             if let Err(e) = kademlia.bootstrap() {
