@@ -48,9 +48,9 @@ use utils::{read_file_to_string, read_toml};
     about = env!("CARGO_PKG_DESCRIPTION"),
     author = env!("CARGO_PKG_AUTHORS")
 )]
-pub struct CLI {
+pub struct Cli {
     #[structopt(flatten)]
-    pub opts: CLIOpts,
+    pub opts: CliOpts,
     #[structopt(subcommand)]
     pub cmd: Option<Subcommand>,
 }
@@ -87,7 +87,7 @@ pub enum Subcommand {
 
 /// CLI options
 #[derive(StructOpt, Debug)]
-pub struct CLIOpts {
+pub struct CliOpts {
     #[structopt(short, long, help = "A toml file containing relevant configurations")]
     pub config: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
@@ -137,7 +137,7 @@ pub struct CLIOpts {
     pub encrypt_keystore: Option<bool>,
 }
 
-impl CLIOpts {
+impl CliOpts {
     pub fn to_config(&self) -> Result<Config, io::Error> {
         let mut cfg: Config = match &self.config {
             Some(config_file) => {

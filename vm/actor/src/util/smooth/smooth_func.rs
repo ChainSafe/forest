@@ -73,7 +73,7 @@ pub fn extrapolated_cum_sum_of_ratio(
     let mut x1m: BigInt = velo_1 * (t0 + half_delta);
     x1m = (x1m >> PRECISION) + pos_1;
 
-    (x1m * delta_t).div_floor(&pos_2)
+    (x1m * delta_t).div_floor(pos_2)
 }
 
 /// The natural log of Q.128 x.

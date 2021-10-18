@@ -909,7 +909,7 @@ fn group_new_sectors_by_declared_expiration<'a>(
 
             for sector in epoch_sectors {
                 sector_numbers.push(sector.sector_number);
-                total_power += &power_for_sector(sector_size, &sector);
+                total_power += &power_for_sector(sector_size, sector);
                 total_pledge += &sector.initial_pledge;
             }
 

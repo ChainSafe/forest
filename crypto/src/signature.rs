@@ -187,7 +187,7 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
 pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Address, Error> {
     // generate types to recover key from
     let rec_id = RecoveryId::parse(signature[64])?;
-    let message = Message::parse(&hash);
+    let message = Message::parse(hash);
 
     // Signature value without recovery byte
     let mut s = [0u8; 64];

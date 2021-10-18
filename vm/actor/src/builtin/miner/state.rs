@@ -429,7 +429,7 @@ impl State {
         F: FnMut(&SectorOnChainInfo) -> Result<(), Box<dyn StdError>>,
     {
         let sectors = Sectors::load(store, &self.sectors)?;
-        sectors.amt.for_each(|_, v| f(&v))
+        sectors.amt.for_each(|_, v| f(v))
     }
 
     /// Returns the deadline and partition index for a sector number.

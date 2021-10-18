@@ -305,7 +305,7 @@ impl State {
         miner: &Address,
     ) -> Result<(), Box<dyn StdError>> {
         let (rbp, qap) =
-            match get_claim(&claims, &miner).map_err(|e| e.downcast_wrap("failed to get claim"))? {
+            match get_claim(claims, miner).map_err(|e| e.downcast_wrap("failed to get claim"))? {
                 None => {
                     return Ok(());
                 }
@@ -316,7 +316,7 @@ impl State {
             };
 
         // Subtract from stats to remove power
-        self.add_to_claim(claims, &miner, &rbp.neg(), &qap.neg())
+        self.add_to_claim(claims, miner, &rbp.neg(), &qap.neg())
             .map_err(|e| e.downcast_wrap("failed to subtract miner power before deleting claim"))?;
 
         claims

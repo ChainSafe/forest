@@ -40,7 +40,7 @@ where
         .ok_or("No heaviest tipset")?;
     let cid = heaviest_ts.parent_state();
 
-    let state = StateTree::new_from_root(data.state_manager.blockstore(), &cid)?;
+    let state = StateTree::new_from_root(data.state_manager.blockstore(), cid)?;
     match state.get_actor(&address) {
         Ok(act) => {
             if let Some(actor) = act {

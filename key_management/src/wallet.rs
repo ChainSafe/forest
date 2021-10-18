@@ -65,7 +65,7 @@ impl Wallet {
     /// If this key does not exist in the keys hashmap, check if this key is in
     /// the keystore, if it is, then add it to keys, otherwise return Error
     pub fn find_key(&mut self, addr: &Address) -> Result<Key, Error> {
-        if let Some(k) = self.keys.get(&addr) {
+        if let Some(k) = self.keys.get(addr) {
             return Ok(k.clone());
         }
         let key_string = format!("wallet-{}", addr.to_string());
