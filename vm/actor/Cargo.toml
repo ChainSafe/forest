@@ -39,7 +39,7 @@ indexmap = { version = "1.7.0", features = ["serde-1"] }
 derive_builder = "0.9"
 db = { package = "forest_db", version = "0.1" }
 hex = "0.4.2"
-libp2p = { version = "0.35", default-features = false }
+libp2p = { version = "0.40.0-rc.1", default-features = false }
 
 [features]
 devnet = []

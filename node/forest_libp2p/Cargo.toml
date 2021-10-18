@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 utils = { path = "../utils" }
 networks = { path = "../../types/networks" }
-libp2p = { version = "0.35", default-features = false, features = [
+libp2p = { version = "0.40.0-rc.1" , default-features = false, features = [
     "gossipsub",
     "kad",
     "identify",
@@ -16,7 +16,7 @@ libp2p = { version = "0.35", default-features = false, features = [
     "noise",
     "yamux",
     "tcp-async-io",
-    "dns",
+    "dns-async-std",
     "mplex",
     "request-response",
     "websocket"
@@ -40,7 +40,7 @@ clock = { package = "fil_clock", path = "../clock" }
 db = { package = "forest_db", version = "0.1" }
 forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "1ee048077cfdfc0a3bb16b236c0c308b1c4b52fa" }
+libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
 tiny-cid = "0.2.0"
 ipld_blockstore = "0.1"
 async-trait = "0.1"
