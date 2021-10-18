@@ -295,7 +295,7 @@ jobs:
           command: cargo install cargo-audit
       - run:
           name: Check for known security issues in dependencies
-          command: cargo audit
+          command: cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071
 
 workflows:
   test-checks:
