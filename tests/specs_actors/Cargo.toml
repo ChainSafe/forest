@@ -53,7 +53,7 @@ crypto = { package = "forest_crypto", version = "0.5", features = ["blst"], opti
 fil_types = { version = "0.2", optional = true }
 runtime = { package = "forest_runtime", version = "0.2", optional = true }
 blockstore = { package = "ipld_blockstore", version = "0.1", features = ["resolve"], optional = true }
-interpreter = { path = "../../vm/interpreter/", optional = true }
+interpreter = { path = "../../vm/interpreter/", optional = true, features = ["test_vectors"] }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }
 state_tree = { path = "../../vm/state_tree/", optional = true }
 
