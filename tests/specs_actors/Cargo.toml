@@ -69,3 +69,4 @@ forest_car = { path = "../../ipld/car" }
 genesis = { path = "../../utils/genesis" }
 lazy_static = "1.4"
 statediff = { path = "../../utils/statediff" }
+paramfetch = { path = "../../utils/paramfetch" }

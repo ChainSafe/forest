@@ -15,6 +15,7 @@ use interpreter::VM;
 use lazy_static::lazy_static;
 use networks::get_network_version_default;
 use num_bigint::{BigInt, ToBigInt};
+use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
 use specs_actors::*;
 use state_manager::StateManager;
@@ -155,6 +156,11 @@ async fn execute_message_vector(
     variant: &Variant,
 ) -> Result<(), Box<dyn StdError>> {
     let block_store = load_car(car).await?;
+    let bs = Arc::new(block_store);
+    let state_manager = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs.clone()))));
+    genesis::initialize_genesis(None, &state_manager)
+        .await
+        .expect("Initializing genesis must succeed in order to run the test");
 
     let base_epoch = variant.epoch;
     let mut root = root_cid;
@@ -162,7 +168,7 @@ async fn execute_message_vector(
     for (i, msg) in apply_messages.iter().enumerate() {
         let unsigned_msg = UnsignedMessage::unmarshal_cbor(&msg.bytes)?;
         let (ret, post_root) = execute_message(
-            &block_store,
+            &bs,
             ExecuteMessageParams {
                 pre_root: &root,
                 epoch: base_epoch,
@@ -182,7 +188,7 @@ async fn execute_message_vector(
         check_msg_result(receipt, &ret, i)?;
     }
 
-    compare_state_roots(&block_store, &root, &postconditions.state_tree.root_cid)?;
+    compare_state_roots(&bs, &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }
@@ -210,6 +216,10 @@ fn compare_state_roots(
 #[async_std::test]
 async fn specs_actors_test_runner() {
     pretty_env_logger::init();
+
+    get_params_default(SectorSizeOpt::Keys, false)
+        .await
+        .unwrap();
 
     let walker = WalkDir::new("specs-actors/test-vectors/determinism").into_iter();
     let mut failed = vec![];
@@ -244,6 +254,7 @@ async fn specs_actors_test_runner() {
                     e,
                 ));
             } else {
+                panic!("Test succeeded: {}", test_name);
                 println!("{} succeeded", test_name);
                 succeeded += 1;
             }
