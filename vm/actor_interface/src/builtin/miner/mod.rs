@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
+
+use crate::power::Claim;
 /// Miner actor method.
 pub type Method = actorv3::miner::Method;
 
@@ -440,6 +442,13 @@ impl MinerInfo {
     pub fn sector_size(&self) -> SectorSize {
         self.sector_size
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MinerPower {
+    pub miner_power: Claim,
+    pub total_power: Claim,
+    pub has_min_power: bool,
 }
 
 /// Deadline holds the state for all sectors due at a specific deadline.

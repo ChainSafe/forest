@@ -130,7 +130,7 @@ impl<'a> DiscoveryConfig<'a> {
         let kademlia_opt = if enable_kademlia {
             let mut kademlia = Kademlia::with_config(local_peer_id, store, kad_config);
             for (peer_id, addr) in user_defined.iter() {
-                kademlia.add_address(&peer_id, addr.clone());
+                kademlia.add_address(peer_id, addr.clone());
                 peers.insert(*peer_id);
             }
             if let Err(e) = kademlia.bootstrap() {

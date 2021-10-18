@@ -101,7 +101,7 @@ where
         .ok_or("can't find block with that cid")?;
     let blk_msgs = blk.messages();
     let (unsigned_cids, signed_cids) =
-        chain::read_msg_cids(data.state_manager.blockstore(), &blk_msgs)?;
+        chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
     let (bls_msg, secp_msg) = chain::block_messages_from_cids(
         data.state_manager.blockstore(),
         &unsigned_cids,

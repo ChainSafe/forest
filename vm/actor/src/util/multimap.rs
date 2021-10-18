@@ -70,7 +70,7 @@ where
         V: DeserializeOwned + Serialize,
     {
         match self.0.get(key)? {
-            Some(cid) => Ok(Some(Amt::load(&cid, self.0.store())?)),
+            Some(cid) => Ok(Some(Amt::load(cid, self.0.store())?)),
             None => Ok(None),
         }
     }
@@ -106,7 +106,7 @@ where
         F: FnMut(&BytesKey, &Amt<V, BS>) -> Result<(), Box<dyn StdError>>,
     {
         self.0.for_each::<_>(|key, arr_root| {
-            let arr = Amt::load(&arr_root, self.0.store())?;
+            let arr = Amt::load(arr_root, self.0.store())?;
             f(key, &arr)
         })?;
 

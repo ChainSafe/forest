@@ -40,7 +40,7 @@ impl UnvalidatedBitField {
     /// reference to the decoded bit field.
     pub fn validate_mut(&mut self) -> Result<&mut BitField> {
         if let Self::Unvalidated(bytes) = self {
-            *self = Self::Validated(BitField::from_bytes(&bytes)?);
+            *self = Self::Validated(BitField::from_bytes(bytes)?);
         }
 
         match self {

@@ -29,7 +29,6 @@ use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
 use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
-use rayon::prelude::*;
 use serde::Serialize;
 use state_tree::StateTree;
 use std::error::Error as StdError;
@@ -743,7 +742,7 @@ where
 
     let block_headers: Vec<BlockHeader> = tsk
         .cids()
-        .par_iter()
+        .iter()
         .map(|c| {
             store
                 .get(c)
@@ -920,7 +919,7 @@ where
 
         for message in unsigned_box.chain(signed_box) {
             let from_address = message.from();
-            if applied.contains_key(&from_address) {
+            if applied.contains_key(from_address) {
                 let actor_state = state
                     .get_actor(from_address)
                     .map_err(|e| Error::Other(e.to_string()))?

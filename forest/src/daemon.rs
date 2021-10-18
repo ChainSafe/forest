@@ -38,13 +38,10 @@ pub(super) async fn start(config: Config) {
         .set(address::Network::Mainnet)
         .unwrap();
 
-    // Configure the Rayon Threadpool
-    rayon::ThreadPoolBuilder::new()
-        .thread_name(|n| format!("rayon-thread-{}", n))
-        .build_global()
-        .expect("Failed to create global Rayon ThreadPool");
-
-    info!("Starting Forest daemon");
+    info!(
+        "Starting Forest daemon, version {}",
+        option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
+    );
 
     let path: PathBuf = [&config.data_dir, "libp2p"].iter().collect();
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {

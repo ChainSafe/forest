@@ -34,7 +34,7 @@ impl<V> Deref for ValueMut<'_, V> {
     type Target = V;
 
     fn deref(&self) -> &Self::Target {
-        &self.value
+        self.value
     }
 }
 

@@ -12,7 +12,7 @@ use secp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as Se
 /// Return the public key for a given private_key and SignatureType
 pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>, Error> {
     match sig_type {
-        SignatureType::BLS => Ok(BlsPrivate::from_bytes(&private_key)
+        SignatureType::BLS => Ok(BlsPrivate::from_bytes(private_key)
             .map_err(|err| Error::Other(err.to_string()))?
             .public_key()
             .as_bytes()),

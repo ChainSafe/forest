@@ -269,15 +269,15 @@ where
 {
     let mut msg = msg;
     if msg.gas_limit() == 0 {
-        let gl = estimate_gas_limit::<DB, B, V>(&data, msg.clone(), tsk.clone()).await?;
+        let gl = estimate_gas_limit::<DB, B, V>(data, msg.clone(), tsk.clone()).await?;
         msg.gas_limit = gl;
     }
     if msg.gas_premium().is_zero() {
-        let gp = estimate_gas_premium(&data, 10).await?;
+        let gp = estimate_gas_premium(data, 10).await?;
         msg.gas_premium = gp;
     }
     if msg.gas_fee_cap().is_zero() {
-        let gfp = estimate_fee_cap(&data, msg.clone(), 20, tsk).await?;
+        let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk).await?;
         msg.gas_fee_cap = gfp;
     }
     // TODO: Cap Gas Fee https://github.com/ChainSafe/forest/issues/901
