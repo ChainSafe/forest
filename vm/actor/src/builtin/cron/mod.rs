@@ -9,6 +9,7 @@ use encoding::tuple::*;
 use ipld_blockstore::BlockStore;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use log::error;
 use runtime::{ActorCode, Runtime};
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
@@ -60,12 +61,15 @@ impl Actor {
         let st: State = rt.state()?;
         for entry in st.entries {
             // Intentionally ignore any error when calling cron methods
-            let _ = rt.send(
+            let res = rt.send(
                 entry.receiver,
                 entry.method_num,
                 Serialized::default(),
                 TokenAmount::from(0u8),
             );
+            if let Err(e) = res {
+                error!("cron failed to send entry to {}, send error code {}", entry.receiver, e);
+            }
         }
         Ok(())
     }
