@@ -26,7 +26,7 @@ pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
 /// V6 network upgrade
 pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = 170000;
 /// V7 network upgrade
-pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = 256200;
+pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = 265200;
 /// V8 network upgrade
 pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 272400;
 /// V9 network upgrade
@@ -36,7 +36,7 @@ pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 343200;
 /// V10 network upgrade
 pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 550321;
 /// V11 network upgrade
-pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 665200;
+pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 665280;
 /// V12 network upgrade
 pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 712320;
 /// V13 network upgrade
