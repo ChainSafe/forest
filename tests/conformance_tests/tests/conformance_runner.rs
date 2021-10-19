@@ -9,7 +9,7 @@ extern crate lazy_static;
 use chain::ChainStore;
 use cid::Cid;
 use clock::ChainEpoch;
-use conformance_tests::*
+use conformance_tests::*;
 use encoding::Cbor;
 use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
