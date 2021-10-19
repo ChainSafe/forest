@@ -1,6 +1,6 @@
 ## Forest v0.1.0 _alpha_ (2021-10-19)
 ChainSafe System's first _alpha_ release of the _Forest_ Filecoin Rust protocol implementation.
-* It synchornizes and verifies the latest Filecoin main network and is able to query the latest state.
+* It synchronizes and verifies the latest Filecoin main network and is able to query the latest state.
 * It implements all core systems of the Filecoin protocol specification exposed through a command-line interface.
 * The set of functionalities for this first alpha-release include: Message Pool, State Manager, Chain and Wallet CLI functionality, Prometheus Metrics, and a JSON-RPC Server.
 
