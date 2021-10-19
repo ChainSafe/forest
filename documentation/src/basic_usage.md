@@ -12,19 +12,9 @@
 make release
 ```
 
-## Run Forest
+## Forest Import Snapshot Mode
 
-### Commands
-
-#### Mainnet
-
-Start the `forest` node:
-
-```bash
-./target/release/forest --target-peer-count 50 --encrypt-keystore false
-```
-
-## Import Snapshot
+Before running `forest` in the normal mode you must seed the database with the Filecoin state tree from the latest snapshot. To do that, we will download the latest snapshot provided by Protocol Labs and start `forest` using the `--import-snapshot` flag. After the snapshot has been successfully imported, you can start `forest` without the `--import-snapshot` flag.
 
 ### Commands
 
@@ -38,4 +28,16 @@ Import the snapshot using `forest`:
 
 ```bash
 ./target/release/forest --target-peer-count 50 --encrypt-keystore false --import-snapshot /path/to/snapshot/file
+```
+
+## Forest Synchronization Mode
+
+### Commands
+
+#### Mainnet
+
+Start the `forest` node:
+
+```bash
+./target/release/forest --target-peer-count 50 --encrypt-keystore false
 ```
