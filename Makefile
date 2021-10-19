@@ -104,4 +104,7 @@ license:
 docs:
 	cargo doc --no-deps
 
+mdbook:
+	mdbook serve documentation
+
 .PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors
