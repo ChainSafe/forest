@@ -18,3 +18,7 @@ The implementation takes a modular approach to building a full Filecoin node in 
 - Ergonomic Message Pool
 - Wallet CLI
 - Process Metrics & Monitoring
+
+## Disclaimer
+
+The Forest implementation of the Filecoin protocol is alpha software which should not yet be integrated into production workflows. The team is working to provide reliable, secure, and efficient interfaces to the Filecoin ecosystem. If you would like to chat, please reach out over Discord on the ChainSafe server linked above.

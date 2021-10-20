@@ -4,7 +4,34 @@
 
 ### Toolchain
 
-- [Rust](https://www.rust-lang.org/tools/install) 
+- [Rust](https://www.rust-lang.org/tools/install)
+
+### Dependencies
+
+The following commands will install the required dependencies for Forest:
+
+```bash
+# Install protoc
+ENV PROTOC_ZIP protoc-3.7.1-linux-x86_64.zip
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/$PROTOC_ZIP
+RUN unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
+RUN unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
+RUN rm -f $PROTOC_ZIP
+
+# Extra dependencies needed for rust-fil-proofs
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y curl file gcc g++ hwloc libhwloc-dev git make openssh-client \
+    ca-certificates autoconf automake cmake libtool libcurl4 libcurl4-openssl-dev libssl-dev \
+    libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+    xz-utils pkg-config python clang ocl-icd-opencl-dev
+
+# Install binary dependencies
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y curl file gcc g++ hwloc libhwloc-dev make openssh-client \
+    autoconf automake cmake libtool libcurl4 libcurl4-openssl-dev libssl-dev \
+    libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+    xz-utils pkg-config python clang ocl-icd-opencl-dev ca-certificates
+```
 
 ### Commands
 
