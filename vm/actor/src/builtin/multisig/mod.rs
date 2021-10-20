@@ -660,7 +660,7 @@ where
             )
         })?;
 
-        if proposal_hash != calculated_hash{
+        if proposal_hash != calculated_hash {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "hash does not match proposal params (ensure requester is an ID address)"

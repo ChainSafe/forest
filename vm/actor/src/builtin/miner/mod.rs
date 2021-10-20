@@ -2839,7 +2839,9 @@ impl Actor {
                     format!("balance invariants broken: {}", e),
                 )
             })?;
-        Ok(WithdrawBalanceReturn{  amount_withdrawn: amount_withdrawn.clone() })
+        Ok(WithdrawBalanceReturn {
+            amount_withdrawn: amount_withdrawn.clone(),
+        })
     }
 
     fn repay_debt<BS, RT>(rt: &mut RT) -> Result<(), ActorError>

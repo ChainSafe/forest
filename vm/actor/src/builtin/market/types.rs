@@ -10,6 +10,7 @@ use encoding::tuple::*;
 use fil_types::RegisteredSealProof;
 use ipld_amt::Amt;
 use num_bigint::bigint_ser;
+use bitfield::BitField;
 use vm::{DealID, TokenAmount};
 
 pub const PROPOSALS_AMT_BITWIDTH: usize = 5;
@@ -20,6 +21,11 @@ pub struct WithdrawBalanceParams {
     pub provider_or_client: Address,
     #[serde(with = "bigint_ser")]
     pub amount: TokenAmount,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct WithdrawBalanceReturn {
+    #[serde(with = "bigint_ser")]
+    pub amount_withdrawn: TokenAmount,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -42,6 +48,7 @@ pub struct PublishStorageDealsParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PublishStorageDealsReturn {
     pub ids: Vec<DealID>,
+    pub valid_deals: BitField,
 }
 
 // Changed since V2:
