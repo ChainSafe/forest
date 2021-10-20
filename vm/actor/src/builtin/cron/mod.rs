@@ -7,9 +7,9 @@ pub use self::state::{Entry, State};
 use crate::SYSTEM_ACTOR_ADDR;
 use encoding::tuple::*;
 use ipld_blockstore::BlockStore;
+use log::error;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use log::error;
 use runtime::{ActorCode, Runtime};
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
@@ -68,7 +68,10 @@ impl Actor {
                 TokenAmount::from(0u8),
             );
             if let Err(e) = res {
-                error!("cron failed to send entry to {}, send error code {}", entry.receiver, e);
+                error!(
+                    "cron failed to send entry to {}, send error code {}",
+                    entry.receiver, e
+                );
             }
         }
         Ok(())
