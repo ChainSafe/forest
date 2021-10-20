@@ -265,6 +265,7 @@ impl Actor {
         let mut state: State = rt.state::<State>()?.clone();
         let store = rt.store();
         let mut msm = state.mutator(store);
+        // let mut ttt = Vec::new();
         msm.with_pending_proposals(Permission::ReadOnly)
             .with_escrow_table(Permission::ReadOnly)
             .with_locked_table(Permission::ReadOnly)
@@ -380,6 +381,7 @@ impl Actor {
             // check VerifiedClient allowed cap and deduct PieceSize from cap
             // drop deals with a DealSize that cannot be fully covered by VerifiedClient's available DataCap
             if deal.proposal.verified_deal {
+                // ttt.push((client, BigInt::from(deal.proposal.piece_size.0), di));
                 let ret = rt.send(
                     *VERIFIED_REGISTRY_ACTOR_ADDR,
                     crate::verifreg::Method::UseBytes as u64,
@@ -392,7 +394,7 @@ impl Actor {
                 if let Err(e) = ret {
                     info!(
                         "invalid deal {}: failed to acquire datacap exitcode: {}",
-                        di,e 
+                        di, e 
                     );
                     continue;
                 }
@@ -428,6 +430,25 @@ impl Actor {
                 "All deal proposals invalid"
             ));
         }
+
+        // for (a,b,di) in ttt {
+        //     let ret = rt.send(
+        //         *VERIFIED_REGISTRY_ACTOR_ADDR,
+        //         crate::verifreg::Method::UseBytes as u64,
+        //         Serialized::serialize(UseBytesParams {
+        //             address: a,
+        //             deal_size: b,
+        //         })?,
+        //         TokenAmount::zero(),
+        //     );
+        //     if let Err(e) = ret {
+        //         info!(
+        //             "invalid deal {}: failed to acquire datacap exitcode: {}",
+        //             di,e 
+        //         );
+        //         continue;
+        //     }
+        // }
 
         let mut new_deal_ids = Vec::new();
 
