@@ -107,4 +107,7 @@ docs:
 mdbook:
 	mdbook serve documentation
 
+mdbook-build:
+	mdbook build ./documentation
+
 .PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors
