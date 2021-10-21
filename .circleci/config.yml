@@ -278,6 +278,12 @@ jobs:
                 name: Build Docs
                 command: cargo doc --no-deps
             - run:
+                name: Install MdBook
+                command: cargo install mdbook
+            - run:
+                name: Compile MdBook
+                command: mdbook build ./documentation
+            - run:
                 name: Publish Docs
                 command: bash ./scripts/build-rust-docs.sh
 
