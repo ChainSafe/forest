@@ -275,9 +275,6 @@ jobs:
             - build_setup
             - restore_cargo_package_cache
             - run:
-                name: Build Docs
-                command: cargo doc --no-deps
-            - run:
                 name: Install MdBook
                 command: cargo install mdbook
             - run:
