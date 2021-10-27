@@ -99,7 +99,10 @@ impl WalletCommands {
                 println!("{}", response);
             }
             Self::Balance { address } => {
-                let response = wallet_balance((address.to_string(),))
+                let address = Address::from_str(address)
+                    .map_err(|e| cli_error_and_die(&e.to_string(), 1))
+                    .unwrap();
+                let response = wallet_balance((address,))
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -113,7 +116,10 @@ impl WalletCommands {
                 println!("{}", response);
             }
             Self::Export { address } => {
-                let response = wallet_export((address.to_string(),))
+                let address = Address::from_str(address)
+                    .map_err(|e| cli_error_and_die(&e.to_string(), 1))
+                    .unwrap();
+                let response = wallet_export((address,))
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -122,10 +128,11 @@ impl WalletCommands {
                 println!("{}", hex::encode(encoded_key))
             }
             Self::Has { key } => {
-                let response = wallet_has((key.to_string(),))
-                    .await
-                    .map_err(handle_rpc_err)
+                let key = Address::from_str(key)
+                    .map_err(|e| cli_error_and_die(&e.to_string(), 1))
                     .unwrap();
+
+                let response = wallet_has((key,)).await.map_err(handle_rpc_err).unwrap();
                 println!("{}", response);
             }
             Self::Import { path } => {
@@ -227,9 +234,13 @@ impl WalletCommands {
                     }
                 };
 
+                let address = Address::from_str(address)
+                    .map_err(|e| cli_error_and_die(&e.to_string(), 1))
+                    .unwrap();
+
                 let response = wallet_verify((
-                    address.to_string(),
-                    message.to_string(),
+                    address,
+                    message.as_bytes().to_vec(),
                     SignatureJson(signature),
                 ))
                 .await

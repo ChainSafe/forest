@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use std::collections::HashMap;
 use std::sync::Arc;
+use std::{collections::HashMap, convert::TryInto};
 
 use actor::{
     market,
@@ -338,12 +338,11 @@ pub(crate) async fn state_replay<
     Params(params): Params<StateReplayParams>,
 ) -> Result<StateReplayResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (cidjson, key) = params;
-    let cid = cidjson.into();
+    let (key, cid) = params;
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into())
+        .tipset_from_keys(&key)
         .await?;
     let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, cid).await?;
 
@@ -571,7 +570,9 @@ pub(crate) async fn state_wait_msg<
     let (cidjson, confidence) = params;
     let state_manager = &data.state_manager;
     let cid: Cid = cidjson.into();
-    let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
+    let (tipset, receipt) = state_manager
+        .wait_for_message(cid, confidence.try_into().unwrap())
+        .await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
     let ipld: Ipld = if receipt.return_data.bytes().is_empty() {

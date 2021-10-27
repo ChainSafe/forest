@@ -296,7 +296,7 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use address::json::AddressJson;
+    use address::{json::AddressJson, Address};
     use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
     use message::{
         signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
@@ -304,7 +304,7 @@ pub mod wallet_api {
     use wallet::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
-    pub type WalletBalanceParams = (String,);
+    pub type WalletBalanceParams = (Address,);
     pub type WalletBalanceResult = String;
 
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
@@ -312,11 +312,11 @@ pub mod wallet_api {
     pub type WalletDefaultAddressResult = String;
 
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
-    pub type WalletExportParams = (String,);
+    pub type WalletExportParams = (Address,);
     pub type WalletExportResult = KeyInfoJson;
 
     pub const WALLET_HAS: &str = "Filecoin.WalletHas";
-    pub type WalletHasParams = (String,);
+    pub type WalletHasParams = (Address,);
     pub type WalletHasResult = bool;
 
     pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
@@ -340,11 +340,11 @@ pub mod wallet_api {
     pub type WalletSignResult = SignatureJson;
 
     pub const WALLET_SIGN_MESSAGE: &str = "Filecoin.WalletSignMessage";
-    pub type WalletSignMessageParams = (String, UnsignedMessageJson);
+    pub type WalletSignMessageParams = (Address, UnsignedMessageJson);
     pub type WalletSignMessageResult = SignedMessageJson;
 
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub type WalletVerifyParams = (String, String, SignatureJson);
+    pub type WalletVerifyParams = (Address, Vec<u8>, SignatureJson);
     pub type WalletVerifyResult = bool;
 }
 
@@ -363,8 +363,9 @@ pub mod state_api {
     use bitfield::json::BitFieldJson;
     use blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
+        TipsetKeys,
     };
-    use cid::json::CidJson;
+    use cid::{json::CidJson, Cid};
     use clock::ChainEpoch;
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
     use message::{
@@ -417,7 +418,7 @@ pub mod state_api {
     pub type StateMinerPartitionsResult = Vec<Partition>;
 
     pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-    pub type StateReplayParams = (CidJson, TipsetKeysJson);
+    pub type StateReplayParams = (TipsetKeys, Cid);
     pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
@@ -457,7 +458,7 @@ pub mod state_api {
     pub type StateGetReceiptResult = MessageReceiptJson;
 
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
-    pub type StateWaitMsgParams = (CidJson, i64);
+    pub type StateWaitMsgParams = (CidJson, u64);
     pub type StateWaitMsgResult = MessageLookup;
 
     pub const MINER_CREATE_BLOCK: &str = "Filecoin.MinerCreateBlock";
@@ -465,7 +466,7 @@ pub mod state_api {
     pub type MinerCreateBlockResult = BlockMsgJson;
 
     pub const STATE_MINER_SECTOR_ALLOCATED: &str = "Filecoin.StateMinerSectorAllocated";
-    pub type StateMinerSectorAllocatedParams = (AddressJson, u64, TipsetKeysJson);
+    pub type StateMinerSectorAllocatedParams = (AddressJson, SectorNumber, TipsetKeysJson);
     pub type StateMinerSectorAllocatedResult = bool;
 
     pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";

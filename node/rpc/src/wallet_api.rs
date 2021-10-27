@@ -3,9 +3,8 @@
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
-use std::str::FromStr;
 
-use address::{json::AddressJson, Address};
+use address::json::AddressJson;
 use beacon::Beacon;
 use blockstore::BlockStore;
 use crypto::signature::json::SignatureJson;
@@ -29,8 +28,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (addr_str,) = params;
-    let address = Address::from_str(&addr_str)?;
+    let (address,) = params;
 
     let heaviest_ts = data
         .state_manager
@@ -77,12 +75,11 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (addr_str,) = params;
-    let addr = Address::from_str(&addr_str)?;
+    let (address,) = params;
 
     let keystore = data.keystore.read().await;
 
-    let key_info = wallet::export_key_info(&addr, &*keystore)?;
+    let key_info = wallet::export_key_info(&address, &*keystore)?;
     Ok(KeyInfoJson(key_info))
 }
 
@@ -95,12 +92,11 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (addr_str,) = params;
-    let addr = Address::from_str(&addr_str)?;
+    let (address,) = params;
 
     let keystore = data.keystore.read().await;
 
-    let key = wallet::find_key(&addr, &*keystore).is_ok();
+    let key = wallet::find_key(&address, &*keystore).is_ok();
     Ok(key)
 }
 
@@ -242,8 +238,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (addr_str, UnsignedMessageJson(msg)) = params;
-    let address = Address::from_str(&addr_str)?;
+    let (address, UnsignedMessageJson(msg)) = params;
     let msg_cid = msg.cid()?;
 
     let keystore = data.keystore.write().await;
@@ -270,8 +265,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (addr_str, msg_str, SignatureJson(sig)) = params;
-    let address = Address::from_str(&addr_str)?;
+    let (address, msg_str, SignatureJson(sig)) = params;
     let msg = hex::decode(&msg_str)?;
 
     let ret = sig.verify(&msg, &address).is_ok();
