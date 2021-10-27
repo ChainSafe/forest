@@ -31,8 +31,6 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 
 | Method | Param Index | Forest Param | Lotus Param |
 | ------ | ----------- | ------------ | ----------- |
-| `Filecoin.MpoolGetNonce`                             | `0` | `String` | `Address`
-| `Filecoin.MpoolPending`                              | `0` | `CidJsonVec` | `TipsetKeys`
 | `Filecoin.StateMinerSectorAllocated`                 | `1` | `u64` | `SectorNumber`
 | `Filecoin.StateReplay`                               | `0` | `CidJson` | `TipsetKeys`
 | `Filecoin.StateReplay`                               | `1` | `TipsetKeysJson` | `Cid`
@@ -131,8 +129,8 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.MpoolCheckReplaceMessages`                 | `-` | `-` |
 |   ❌    | `Filecoin.MpoolClear`                                | `-` | `-` |
 |   ❌    | `Filecoin.MpoolGetConfig`                            | `-` | `-` |
-|   ✔️    | `Filecoin.MpoolGetNonce`                             | `(String)` | `u64` |
-|   ✔️    | `Filecoin.MpoolPending`                              | `(CidJsonVec)` | `Vec<SignedMessage>` |
+|   ✔️    | `Filecoin.MpoolGetNonce`                             | `(Address)` | `u64` |
+|   ✔️    | `Filecoin.MpoolPending`                              | `(TipsetKeys)` | `Vec<SignedMessage>` |
 |   ✔️    | `Filecoin.MpoolPush`                                 | `(SignedMessageJson)` | `CidJson` |
 |   ✔️    | `Filecoin.MpoolPushMessage`                          | `(UnsignedMessageJson, Option<MessageSendSpec>)` | `SignedMessageJson` |
 |   ❌    | `Filecoin.MpoolPushUntrusted`                        | `-` | `-` |

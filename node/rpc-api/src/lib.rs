@@ -233,6 +233,7 @@ pub mod chain_api {
 /// Message Pool API
 pub mod mpool_api {
     use crate::data_types::MessageSendSpec;
+    use address::Address;
     use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
     use cid::json::CidJson;
     use message::{
@@ -244,14 +245,13 @@ pub mod mpool_api {
     pub type MpoolEstimateGasPriceResult = String;
 
     pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
-    pub type MpoolGetNonceParams = (String,);
+    pub type MpoolGetNonceParams = (Address,);
     pub type MpoolGetNonceResult = u64;
 
-    use cid::json::vec::CidJsonVec;
     use message::SignedMessage;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
-    pub type MpoolPendingParams = (CidJsonVec,);
+    pub type MpoolPendingParams = (TipsetKeys,);
     pub type MpoolPendingResult = Vec<SignedMessage>;
 
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";

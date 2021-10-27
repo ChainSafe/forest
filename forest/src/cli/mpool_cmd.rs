@@ -6,13 +6,13 @@ use std::collections::HashMap;
 use address::json::AddressJson;
 use address::Address;
 use blocks::tipset_keys_json::TipsetKeysJson;
+use blocks::TipsetKeys;
 use jsonrpc_v2::Error;
 use message::Message;
 use message::SignedMessage;
 use num_bigint::BigInt;
 use structopt::StructOpt;
 
-use cid::json::vec::CidJsonVec;
 use rpc_client::chain_ops::*;
 use rpc_client::mpool_ops::*;
 use rpc_client::state_ops::state_get_actor;
@@ -41,7 +41,7 @@ impl MpoolCommands {
     pub async fn run(&self) {
         match self {
             Self::Pending => {
-                let res = mpool_pending((CidJsonVec(vec![]),)).await;
+                let res = mpool_pending((TipsetKeys::new(vec![]),)).await;
                 let messages = res.map_err(handle_rpc_err).unwrap();
                 println!("{:#?}", messages);
             }
@@ -83,7 +83,7 @@ impl MpoolCommands {
                             .collect();
                     }
 
-                    let messages = mpool_pending((CidJsonVec(vec![]),))
+                    let messages = mpool_pending((TipsetKeys::new(vec![]),))
                         .await
                         .map_err(handle_rpc_err)
                         .unwrap();

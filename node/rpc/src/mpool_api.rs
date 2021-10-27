@@ -4,9 +4,8 @@
 use super::gas_api::estimate_message_gas;
 use address::{Address, Protocol};
 use beacon::Beacon;
-use blocks::TipsetKeys;
 use blockstore::BlockStore;
-use cid::json::{vec::CidJsonVec, CidJson};
+use cid::json::CidJson;
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
 use message::Message;
@@ -47,8 +46,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (addr_str,) = params;
-    let address = Address::from_str(&addr_str)?;
+    let (address,) = params;
     let sequence = data.mpool.get_sequence(&address).await?;
     Ok(sequence)
 }
@@ -62,8 +60,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (CidJsonVec(cid_vec),) = params;
-    let tsk = TipsetKeys::new(cid_vec);
+    let (tsk,) = params;
     let mut ts = data
         .state_manager
         .chain_store()
