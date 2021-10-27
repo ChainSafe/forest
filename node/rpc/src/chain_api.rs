@@ -66,7 +66,7 @@ where
         .blockstore()
         .get_bytes(&obj_cid)?
         .ok_or("can't find object with that cid")?;
-    Ok(hex::encode(ret))
+    Ok(ret)
 }
 
 pub(crate) async fn chain_has_obj<DB, B>(
@@ -222,7 +222,7 @@ where
         .chain_store()
         .tipset_from_keys(&tsk.into())
         .await?;
-    Ok(ts.weight().to_str_radix(10))
+    Ok(ts.weight().to_owned())
 }
 
 pub(crate) async fn chain_get_block<DB, B>(

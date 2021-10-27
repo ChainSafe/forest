@@ -37,17 +37,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 
 | Method | Forest Result | Lotus Result |
 | ------ | ------------- | ------------ |
-| `Filecoin.ChainReadObj`                              | `String` | `Vec<u8>`
-| `Filecoin.ChainTipSetWeight`                         | `String` | `BigInt`
-| `Filecoin.GasEstimateFeeCap`                         | `String` | `BigInt`
-| `Filecoin.GasEstimateGasPremium`                     | `String` | `BigInt`
-| `Filecoin.StateMinerInitialPledgeCollateral`         | `String` | `BigInt`
-| `Filecoin.StateMinerPreCommitDepositForPower`        | `String` | `BigInt`
 | `Filecoin.StateNetworkName`                          | `String` | `dNetworkName`
-| `Filecoin.WalletBalance`                             | `String` | `BigInt`
-| `Filecoin.WalletDefaultAddress`                      | `String` | `Address`
-| `Filecoin.WalletImport`                              | `String` | `Address`
-| `Filecoin.WalletNew`                                 | `String` | `Address`
 
 ## Method Table
 | Present | Method                                               | Params | Result |
@@ -72,10 +62,10 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.ChainGetTipSetByHeight`                    | `-` | `-` |
 |   ✔️    | `Filecoin.ChainHasObj`                               | `(CidJson)` | `bool` |
 |   ✔️    | `Filecoin.ChainHead`                                 | `()` | `TipsetJson` |
-|   ✔️    | `Filecoin.ChainReadObj`                              | `(CidJson)` | `String` |
+|   ✔️    | `Filecoin.ChainReadObj`                              | `(CidJson)` | `Vec<u8>` |
 |   ❌    | `Filecoin.ChainSetHead`                              | `-` | `-` |
 |   ❌    | `Filecoin.ChainStatObj`                              | `-` | `-` |
-|   ✔️    | `Filecoin.ChainTipSetWeight`                         | `(TipsetKeysJson)` | `String` |
+|   ✔️    | `Filecoin.ChainTipSetWeight`                         | `(TipsetKeysJson)` | `BigInt` |
 |   ❌    | `Filecoin.ClientCalcCommP`                           | `-` | `-` |
 |   ❌    | `Filecoin.ClientCancelDataTransfer`                  | `-` | `-` |
 |   ❌    | `Filecoin.ClientCancelRetrievalDeal`                 | `-` | `-` |
@@ -100,9 +90,9 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.ClientStartDeal`                           | `-` | `-` |
 |   ❌    | `Filecoin.ClientStatelessDeal`                       | `-` | `-` |
 |   ❌    | `Filecoin.CreateBackup`                              | `-` | `-` |
-|   ✔️    | `Filecoin.GasEstimateFeeCap`                         | `(UnsignedMessageJson, i64, TipsetKeysJson)` | `String` |
+|   ✔️    | `Filecoin.GasEstimateFeeCap`                         | `(UnsignedMessageJson, i64, TipsetKeysJson)` | `BigInt` |
 |   ✔️    | `Filecoin.GasEstimateGasLimit`                       | `(UnsignedMessageJson, TipsetKeysJson)` | `i64` |
-|   ✔️    | `Filecoin.GasEstimateGasPremium`                     | `(u64, AddressJson, i64, TipsetKeysJson)` | `String` |
+|   ✔️    | `Filecoin.GasEstimateGasPremium`                     | `(u64, AddressJson, i64, TipsetKeysJson)` | `BigInt` |
 |   ✔️    | `Filecoin.GasEstimateMessageGas`                     | `(UnsignedMessageJson, Option<MessageSendSpec>, TipsetKeysJson)` | `UnsignedMessageJson` |
 |   ❌    | `Filecoin.MarketAddBalance`                          | `-` | `-` |
 |   ❌    | `Filecoin.MarketGetReserved`                         | `-` | `-` |
@@ -181,10 +171,10 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ✔️    | `Filecoin.StateMinerDeadlines`                       | `(AddressJson, TipsetKeysJson)` | `Vec<Deadline>` |
 |   ✔️    | `Filecoin.StateMinerFaults`                          | `(AddressJson, TipsetKeysJson)` | `BitFieldJson` |
 |   ✔️    | `Filecoin.StateMinerInfo`                            | `(AddressJson, TipsetKeysJson)` | `MinerInfo` |
-|   ✔️    | `Filecoin.StateMinerInitialPledgeCollateral`         | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `String` |
+|   ✔️    | `Filecoin.StateMinerInitialPledgeCollateral`         | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `BigInt` |
 |   ✔️    | `Filecoin.StateMinerPartitions`                      | `(AddressJson, u64, TipsetKeysJson)` | `Vec<Partition>` |
 |   ✔️    | `Filecoin.StateMinerPower`                           | `(Option<AddressJson>, TipsetKeysJson)` | `MinerPower` |
-|   ✔️    | `Filecoin.StateMinerPreCommitDepositForPower`        | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `String` |
+|   ✔️    | `Filecoin.StateMinerPreCommitDepositForPower`        | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `BigInt` |
 |   ✔️    | `Filecoin.StateMinerProvingDeadline`                 | `(AddressJson, TipsetKeysJson)` | `DeadlineInfo` |
 |   ✔️    | `Filecoin.StateMinerRecoveries`                      | `(AddressJson, TipsetKeysJson)` | `BitFieldJson` |
 |   ✔️    | `Filecoin.StateMinerSectorAllocated`                 | `(AddressJson, SectorNumber, TipsetKeysJson)` | `bool` |
@@ -212,14 +202,14 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.SyncUnmarkAllBad`                          | `-` | `-` |
 |   ❌    | `Filecoin.SyncUnmarkBad`                             | `-` | `-` |
 |   ❌    | `Filecoin.SyncValidateTipset`                        | `-` | `-` |
-|   ✔️    | `Filecoin.WalletBalance`                             | `(Address)` | `String` |
-|   ✔️    | `Filecoin.WalletDefaultAddress`                      | `()` | `String` |
+|   ✔️    | `Filecoin.WalletBalance`                             | `(Address)` | `BigInt` |
+|   ✔️    | `Filecoin.WalletDefaultAddress`                      | `()` | `Address` |
 |   ❌    | `Filecoin.WalletDelete`                              | `-` | `-` |
 |   ✔️    | `Filecoin.WalletExport`                              | `(Address)` | `KeyInfoJson` |
 |   ✔️    | `Filecoin.WalletHas`                                 | `(Address)` | `bool` |
-|   ✔️    | `Filecoin.WalletImport`                              | `()` | `String` |
+|   ✔️    | `Filecoin.WalletImport`                              | `()` | `Address` |
 |   ✔️    | `Filecoin.WalletList`                                | `()` | `Vec<AddressJson>` |
-|   ✔️    | `Filecoin.WalletNew`                                 | `(SignatureTypeJson)` | `String` |
+|   ✔️    | `Filecoin.WalletNew`                                 | `(SignatureTypeJson)` | `Address` |
 |   ❌    | `Filecoin.WalletSetDefault`                          | `-` | `-` |
 |   ✔️    | `Filecoin.WalletSign`                                | `(AddressJson, Vec<u8>)` | `SignatureJson` |
 |   ✔️    | `Filecoin.WalletSignMessage`                         | `(Address, UnsignedMessageJson)` | `SignedMessageJson` |

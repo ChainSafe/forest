@@ -835,7 +835,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
         .pre_commit_deposit_for_power(power_smoothed, &sector_weight);
 
     let ret: BigInt = (deposit * 110) / 100;
-    Ok(ret.to_string())
+    Ok(ret)
 }
 
 pub(crate) async fn state_miner_initial_pledge_collateral<
@@ -885,7 +885,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
         .initial_pledge_for_power(&sector_weight, &total_locked, power_smoothed, &circ_supply);
 
     let ret: BigInt = (initial_pledge * 110) / 100;
-    Ok(ret.to_string())
+    Ok(ret)
 }
 
 /// returns the indicated actor's nonce and balance.

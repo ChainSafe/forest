@@ -14,7 +14,7 @@ use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
-use num_bigint::BigUint;
+use num_bigint::BigInt;
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
 use wallet::{json::KeyInfoJson, Error, Key};
@@ -43,9 +43,9 @@ where
         Ok(act) => {
             if let Some(actor) = act {
                 let actor_balance = actor.balance;
-                Ok(actor_balance.to_string())
+                Ok(actor_balance)
             } else {
-                Ok(BigUint::default().to_string())
+                Ok(BigInt::default())
             }
         }
         Err(e) => Err(e.into()),
@@ -63,7 +63,7 @@ where
     let keystore = data.keystore.read().await;
 
     let addr = wallet::get_default(&*keystore)?;
-    Ok(addr.to_string())
+    Ok(addr)
 }
 
 /// Export KeyInfo from the Wallet given its address
@@ -104,7 +104,7 @@ where
 pub(crate) async fn wallet_import<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletImportParams>,
-) -> Result<WalletBalanceResult, JsonRpcError>
+) -> Result<WalletImportResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -129,7 +129,7 @@ where
             _ => Err(error.into()),
         }
     } else {
-        Ok(key.address.to_string())
+        Ok(key.address)
     }
 }
 
@@ -168,7 +168,7 @@ where
         keystore.put("default".to_string(), key.key_info)?
     }
 
-    Ok(key.address.to_string())
+    Ok(key.address)
 }
 
 /// Set the default Address for the Wallet

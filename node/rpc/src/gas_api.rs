@@ -32,9 +32,7 @@ where
 {
     let (UnsignedMessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
-    estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk)
-        .await
-        .map(|n| BigInt::to_string(&n))
+    estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk).await
 }
 
 async fn estimate_fee_cap<DB, B>(
@@ -76,9 +74,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
-    estimate_gas_premium::<DB, B>(&data, nblocksincl)
-        .await
-        .map(|n| BigInt::to_string(&n))
+    estimate_gas_premium::<DB, B>(&data, nblocksincl).await
 }
 
 async fn estimate_gas_premium<DB, B>(
