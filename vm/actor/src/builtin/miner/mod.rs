@@ -2896,7 +2896,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
 
-        let payload: CronEventPayload = from_slice(&params.event_payload).map_err(|e| {
+        let payload: CronEventPayload = from_slice(&params.event_payload).map_err(|_e| {
             actor_error!(
                 ErrIllegalState,
                 "failed to unmarshal miner cron payload into expected structure"
@@ -2949,8 +2949,9 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let reward_stats = request_current_epoch_block_reward(rt)?;
-    let power_total = request_current_total_power(rt)?;
+    // XXX: why are these unused right now?
+    let _reward_stats = request_current_epoch_block_reward(rt)?;
+    let _power_total = request_current_total_power(rt)?;
     let (result, more, deals_to_terminate, penalty, pledge_delta) =
         rt.transaction(|state: &mut State, rt| {
             let store = rt.store();

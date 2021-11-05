@@ -252,7 +252,7 @@ impl Actor {
         }
 
         let baseline_power = request_current_baseline_power(rt)?;
-        let (network_raw_power, network_qa_power) = request_current_network_power(rt)?;
+        let (network_raw_power, _network_qa_power) = request_current_network_power(rt)?;
 
         // Drop invalid deals
         let mut proposal_cid_lookup = HashSet::new();

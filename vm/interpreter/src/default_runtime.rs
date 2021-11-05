@@ -83,8 +83,8 @@ impl MessageInfo for VMMsg {
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DefaultNetworkParams> {
     version: NetworkVersion,
-    state: &'vm mut StateTree<'db, BS>,
-    store: GasBlockStore<'db, BS>,
+    state: Rc<RefCell<&'vm mut StateTree<'db, BS>>>,
+    store: Rc<GasBlockStore<'db, BS>>,
     gas_tracker: Rc<RefCell<GasTracker>>,
     vm_msg: VMMsg,
     epoch: ChainEpoch,
@@ -94,7 +94,7 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DefaultNetworkParams> {
 
     depth: u64,
     num_actors_created: u64,
-    price_list: PriceList,
+    price_list: Rc<PriceList>,
     rand: &'vm R,
     caller_validated: bool,
     allow_internal: bool,
@@ -170,8 +170,8 @@ where
 
         Ok(DefaultRuntime {
             version,
-            state,
-            store: gas_block_store,
+            state: Rc::new(RefCell::new(state)),
+            store: Rc::new(gas_block_store),
             gas_tracker,
             vm_msg,
             epoch,
@@ -179,7 +179,7 @@ where
             origin_nonce,
             depth,
             num_actors_created,
-            price_list,
+            price_list: Rc::new(price_list),
             rand,
             registered_actors,
             circ_supply_calc,
@@ -194,7 +194,7 @@ where
 
     /// Adds to amount of used.
     /// * Will borrow gas tracker RefCell, do not call if any reference to this exists
-    pub fn charge_gas(&mut self, gas: GasCharge) -> Result<(), ActorError> {
+    pub fn charge_gas(&self, gas: GasCharge) -> Result<(), ActorError> {
         self.gas_tracker.borrow_mut().charge_gas(gas)
     }
 
@@ -217,6 +217,7 @@ where
     fn get_balance(&self, addr: &Address) -> Result<BigInt, ActorError> {
         Ok(self
             .state
+            .borrow()
             .get_actor(addr)
             .map_err(|e| e.downcast_fatal("failed to get actor in get balance"))?
             .map(|act| act.balance)
@@ -228,6 +229,7 @@ where
         let to_addr = *self.message().receiver();
         let mut actor = self
             .state
+            .borrow()
             .get_actor(&to_addr)
             .map_err(|e| e.downcast_fatal("failed to get actor to commit state"))?
             .ok_or_else(|| actor_error!(fatal("failed to get actor to commit state")))?;
@@ -239,6 +241,7 @@ where
         }
         actor.state = new_h;
         self.state
+            .borrow_mut()
             .set_actor(&to_addr, actor)
             .map_err(|e| e.downcast_fatal("failed to set actor in state_commit"))?;
 
@@ -276,7 +279,7 @@ where
     }
 
     fn internal_send(
-        &mut self,
+        &self,
         from: Address,
         to: Address,
         method: MethodNum,
@@ -298,19 +301,20 @@ where
 
         // snapshot state tree
         self.state
+            .borrow_mut()
             .snapshot()
             .map_err(|e| actor_error!(fatal("failed to create snapshot: {}", e)))?;
 
         let send_res = self.send(&msg, None);
 
         let ret = send_res.map_err(|e| {
-            if let Err(e) = self.state.revert_to_snapshot() {
+            if let Err(e) = self.state.borrow_mut().revert_to_snapshot() {
                 actor_error!(fatal("failed to revert snapshot: {}", e))
             } else {
                 e
             }
         });
-        if let Err(e) = self.state.clear_snapshot() {
+        if let Err(e) = self.state.borrow_mut().clear_snapshot() {
             actor_error!(fatal("failed to clear snapshot: {}", e));
         }
 
@@ -321,7 +325,7 @@ where
     /// It invokes methods on different Actors based on the Message.
     /// This function is somewhat equivalent to the go implementation's vm send.
     pub fn send(
-        &mut self,
+        &self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
@@ -330,15 +334,15 @@ where
         // This logic is the equivalent to the go implementation creating a new runtime with
         // shared values.
         // All other fields will be updated from the execution.
-        let prev_val = self.caller_validated;
-        let prev_depth = self.depth;
-        let prev_msg = self.vm_msg.clone();
+        // let prev_val = self.caller_validated;
+        // let prev_depth = self.depth;
+        // let prev_msg = self.vm_msg.clone();
         let res = self.execute_send(msg, gas_cost);
 
         // Reset values back to their values before the call
-        self.vm_msg = prev_msg;
-        self.caller_validated = prev_val;
-        self.depth = prev_depth;
+        // self.vm_msg = prev_msg;
+        // self.caller_validated = prev_val;
+        // self.depth = prev_depth;
 
         res
     }
@@ -347,15 +351,14 @@ where
     /// This is necessary to follow to follow the same control flow of the go implementation
     /// cleanly without doing anything memory unsafe.
     fn execute_send(
-        &mut self,
+        &self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
         // * Following logic would be called in the go runtime initialization.
         // * Since We reuse the runtime, all of these things need to happen on each call
-        self.caller_validated = false;
-        self.depth += 1;
-        if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
+
+        if self.depth + 1 > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
             return Err(actor_error!(
                 SysErrForbidden,
                 "message execution exceeds call depth"
@@ -377,48 +380,70 @@ where
             msg.to
         };
 
-        self.vm_msg = VMMsg {
-            caller,
-            receiver,
-            value_received: msg.value().clone(),
+        let mut new_rt = DefaultRuntime {
+            version: self.version,
+            state: Rc::clone(&self.state),
+            store: Rc::clone(&self.store),
+            depth: self.depth + 1,
+            num_actors_created: self.num_actors_created,
+            price_list: Rc::clone(&self.price_list),
+            rand: self.rand,
+            caller_validated: false,
+            allow_internal: self.allow_internal,
+            registered_actors: self.registered_actors,
+            circ_supply_calc: self.circ_supply_calc,
+            lb_state: self.lb_state,
+            base_fee: self.base_fee.clone(),
+            verifier: self.verifier,
+            vm_msg: VMMsg {
+                caller,
+                receiver,
+                value_received: msg.value().clone(),
+            },
+            epoch: self.epoch,
+            origin: self.origin,
+            gas_tracker: Rc::clone(&self.gas_tracker),
+            origin_nonce: self.origin_nonce,
+            params: self.params,
         };
 
         // * End of logic that is performed on go runtime initialization
 
         if let Some(cost) = gas_cost {
-            self.charge_gas(cost)?;
+            new_rt.charge_gas(cost)?;
         }
 
-        let to_actor = match self
-            .state
+        let to_actor = match (*new_rt
+            .state)
+            .borrow()
             .get_actor(msg.to())
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
         {
             Some(act) => act,
             None => {
                 // Try to create actor if not exist
-                let (to_actor, id_addr) = self.try_create_account_actor(msg.to())?;
-                if self.network_version() > NetworkVersion::V3 {
+                let (to_actor, id_addr) = new_rt.try_create_account_actor(msg.to())?;
+                if new_rt.network_version() > NetworkVersion::V3 {
                     // Update the receiver to the created ID address
-                    self.vm_msg.receiver = id_addr;
+                    new_rt.vm_msg.receiver = id_addr;
                 }
                 to_actor
             }
         };
 
-        self.charge_gas(
-            self.price_list()
+        new_rt.charge_gas(
+            new_rt.price_list()
                 .on_method_invocation(msg.value(), msg.method_num()),
         )?;
 
         if !msg.value().is_zero() {
-            transfer(self.state, msg.from(), msg.to(), msg.value())
+            transfer(*new_rt.state.borrow_mut(), msg.from(), msg.to(), msg.value())
                 .map_err(|e| e.wrap("failed to transfer funds"))?;
         }
 
         if msg.method_num() != METHOD_SEND {
-            self.charge_gas(ACTOR_EXEC_GAS)?;
-            return self.invoke(to_actor.code, msg.method_num(), msg.params(), msg.to());
+            new_rt.charge_gas(ACTOR_EXEC_GAS)?;
+            return new_rt.invoke(to_actor.code, msg.method_num(), msg.params(), msg.to());
         }
 
         Ok(Serialized::default())
@@ -463,20 +488,22 @@ where
 
     /// creates account actors from only BLS/SECP256K1 addresses.
     pub fn try_create_account_actor(
-        &mut self,
+        & self,
         addr: &Address,
     ) -> Result<(ActorState, Address), ActorError> {
         self.charge_gas(self.price_list().on_create_actor())?;
 
-        let addr_id = self
-            .state
+        let addr_id = (*self
+            .state)
+            .borrow_mut()
             .register_new_address(addr)
             .map_err(|e| e.downcast_fatal("failed to register new address"))?;
 
         let version = ActorVersion::from(self.network_version());
         let act = make_actor(addr, version)?;
 
-        self.state
+        (*self.state)
+            .borrow_mut()
             .set_actor(&addr_id, act)
             .map_err(|e| e.downcast_fatal("failed to set actor"))?;
 
@@ -498,6 +525,7 @@ where
 
         let act = self
             .state
+            .borrow()
             .get_actor(&addr_id)
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
             .ok_or_else(|| actor_error!(fatal("failed to retrieve created actor state")))?;
@@ -529,11 +557,11 @@ where
             .get_actor(self.vm_msg.receiver())?
             .ok_or_else(|| format!("actor not found {:?}", self.vm_msg.receiver()))?;
 
-        let ms = actor::miner::State::load(&self.store, &actor)?;
+        let ms = actor::miner::State::load(self.store.as_ref(), &actor)?;
 
-        let worker = ms.info(&self.store)?.worker;
+        let worker = ms.info(self.store.as_ref())?.worker;
 
-        resolve_to_key_addr(self.state, &self.store, &worker)
+        resolve_to_key_addr(&self.state.borrow(), self.store.as_ref(), &worker)
     }
 }
 
@@ -598,6 +626,7 @@ where
 
     fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
         self.state
+            .borrow()
             .lookup_id(address)
             .map_err(|e| e.downcast_fatal("failed to look up id"))
     }
@@ -605,6 +634,7 @@ where
     fn get_actor_code_cid(&self, addr: &Address) -> Result<Option<Cid>, ActorError> {
         Ok(self
             .state
+            .borrow()
             .get_actor(addr)
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
             .map(|act| act.code))
@@ -656,6 +686,7 @@ where
     fn state<C: Cbor>(&self) -> Result<C, ActorError> {
         let actor = self
             .state
+            .borrow()
             .get_actor(self.message().receiver())
             .map_err(|e| {
                 e.downcast_default(
@@ -683,6 +714,7 @@ where
         // get actor
         let act = self
             .state
+            .borrow()
             .get_actor(self.message().receiver())
             .map_err(|e| {
                 e.downcast_default(
@@ -720,7 +752,7 @@ where
     }
 
     fn send(
-        &mut self,
+        &self,
         to: Address,
         method: MethodNum,
         params: Serialized,
@@ -744,7 +776,7 @@ where
     }
     fn new_actor_address(&mut self) -> Result<Address, ActorError> {
         // ! Go implementation doesn't handle the error for some reason here and will panic
-        let oa = resolve_to_key_addr(self.state, self.store.store, &self.origin)
+        let oa = resolve_to_key_addr(&self.state.borrow(), self.store.store, &self.origin)
             .map_err(|e| e.downcast_fatal("failed to resolve key addr"))?;
         let mut b = to_vec(&oa).map_err(|e| {
             actor_error!(fatal(
@@ -765,7 +797,7 @@ where
         self.num_actors_created += 1;
         Ok(addr)
     }
-    fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
+    fn create_actor(&self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
         // * Lotus does undef address check here, should be impossible to hit.
         // * if diff with `SysErrIllegalArgument` check here
         if !actor::is_builtin_actor(&code_id) {
@@ -777,12 +809,13 @@ where
                     "Can only have one instance of singleton actors."));
         }
 
-        if let Ok(Some(_)) = self.state.get_actor(address) {
+        if let Ok(Some(_)) = self.state.borrow().get_actor(address) {
             return Err(actor_error!(SysErrIllegalArgument; "Actor address already exists"));
         }
 
         self.charge_gas(self.price_list.on_create_actor())?;
         self.state
+            .borrow_mut()
             .set_actor(
                 address,
                 ActorState::new(code_id, *EMPTY_ARR_CID, 0.into(), 0),
@@ -794,11 +827,12 @@ where
     /// any balance to beneficiary.
     /// Aborts if the beneficiary does not exist.
     /// May only be called by the actor itself.
-    fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError> {
+    fn delete_actor(&self, beneficiary: &Address) -> Result<(), ActorError> {
         self.charge_gas(self.price_list.on_delete_actor())?;
         let receiver = *self.message().receiver();
         let balance = self
             .state
+            .borrow()
             .get_actor(&receiver)
             .map_err(|e| e.downcast_fatal(format!("failed to get actor {}", receiver)))?
             .ok_or_else(|| actor_error!(SysErrIllegalActor; "failed to load actor in delete actor"))
@@ -817,22 +851,23 @@ where
                 }
             }
             // Transfer the executing actor's balance to the beneficiary
-            transfer(self.state, &receiver, beneficiary, &balance)
+            transfer(*self.state.borrow_mut(), &receiver, beneficiary, &balance)
                 .map_err(|e| e.wrap("failed to transfer balance to beneficiary actor"))?;
         }
 
         // Delete the executing actor
         self.state
+            .borrow_mut()
             .delete_actor(&receiver)
             .map_err(|e| e.downcast_fatal("failed to delete actor"))
     }
 
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         self.circ_supply_calc
-            .get_supply(self.epoch, self.state)
+            .get_supply(self.epoch, *self.state.borrow())
             .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
     }
-    fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
+    fn charge_gas(&self, name: &'static str, compute: i64) -> Result<(), ActorError> {
         self.charge_gas(GasCharge::new(name, compute, 0))
     }
     fn base_fee(&self) -> &TokenAmount {
@@ -861,7 +896,8 @@ where
         )?;
 
         // Resolve to key address before verifying signature.
-        let signing_addr = resolve_to_key_addr(self.state, &self.store, signer)?;
+        let signing_addr = resolve_to_key_addr(&self.state.borrow(), self.store.as_ref(), signer)?;
+
         Ok(signature.verify(plaintext, &signing_addr)?)
     }
     fn hash_blake2b(&self, data: &[u8]) -> Result<[u8; 32], Box<dyn StdError>> {

@@ -26,7 +26,7 @@ use log::{debug, error};
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Signed, Zero};
-use runtime::Syscalls;
+//use runtime::Syscalls;
 use runtime::{ActorCode, Runtime};
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
@@ -471,7 +471,7 @@ impl Actor {
                     infos.push(svi.clone());
                     Ok(())
                 })
-                .map_err(|e| {
+                .map_err(|_e| {
                     format!(
                         "failed to iterate over proof verify array for miner {}",
                         addr
@@ -504,7 +504,7 @@ impl Actor {
         let verif_arr: Vec<(&Address, &Vec<SealVerifyInfo>)> = verifies.iter().collect();
         let res = rt
             .batch_verify_seals(verif_arr.as_slice())
-            .map_err(|e| "failed to batch verify".to_owned())?;
+            .map_err(|_e| "failed to batch verify".to_owned())?;
 
         for (m, verifs) in verifies.iter() {
             let vres = res.get(m).ok_or_else(
