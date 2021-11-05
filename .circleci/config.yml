@@ -275,8 +275,11 @@ jobs:
             - build_setup
             - restore_cargo_package_cache
             - run:
-                name: Build Docs
-                command: cargo doc --no-deps
+                name: Install MdBook
+                command: cargo install mdbook
+            - run:
+                name: Compile MdBook
+                command: mdbook build ./documentation
             - run:
                 name: Publish Docs
                 command: bash ./scripts/build-rust-docs.sh
