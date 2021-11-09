@@ -462,7 +462,7 @@ where
             }
         }
 
-        let gas_used = if let Some(mut rt) = rt {
+        let gas_used = if let Some(rt) = rt {
             if !ret_data.is_empty() {
                 if let Err(e) = rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
                 {
@@ -583,7 +583,7 @@ where
         );
 
         match res {
-            Ok(mut rt) => match rt.send(msg, gas_cost) {
+            Ok(rt) => match rt.send(msg, gas_cost) {
                 Ok(ser) => (ser, Some(rt), None),
                 Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
             },
