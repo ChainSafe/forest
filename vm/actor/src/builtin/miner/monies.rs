@@ -285,7 +285,7 @@ lazy_static! {
     static ref ESTIMATED_SINGLE_PRE_COMMIT_GAS_USAGE: BigInt = BigInt::from(16433324);
     static ref BATCH_DISCOUNT_NUM: BigInt = BigInt::from(1);
     static ref BATCH_DISCOUNT_DENOM: BigInt = BigInt::from(20);
-    static ref BATCH_BALANCER: BigInt = BigInt::from(5 * 1_000_000_000); // 5 * 1 nanoFIL
+    static ref BATCH_BALANCER: BigInt = BigInt::from(1_000_000_000) * BigInt::from(5); // 5 * 1 nanoFIL
 }
 pub fn aggregate_prove_commit_network_fee(
     aggregate_size: i64,
