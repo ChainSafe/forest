@@ -25,6 +25,7 @@ use rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
+use num_bigint::bigint_ser::BigIntSer;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -211,7 +212,7 @@ where
 pub(crate) async fn chain_tipset_weight<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainTipSetWeightParams>,
-) -> Result<ChainTipSetWeightResult, JsonRpcError>
+) -> Result<ChainTipSetWeightResult<'static>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -222,7 +223,7 @@ where
         .chain_store()
         .tipset_from_keys(&tsk.into())
         .await?;
-    Ok(ts.weight().to_owned())
+    Ok(BigIntSer(ts.weight().to_owned()))
 }
 
 pub(crate) async fn chain_get_block<DB, B>(

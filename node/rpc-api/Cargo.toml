@@ -22,7 +22,7 @@ forest_libp2p = { path = "../forest_libp2p" }
 ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
 message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1.1" }
+num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
 vm = { package = "forest_vm", version = "0.3" }
 wallet = { package = "key_management", path = "../../key_management", features = ["json"] }

@@ -32,7 +32,7 @@ use fil_types::{
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
 use message::{signed_message::SignedMessage, unsigned_message::UnsignedMessage};
-use num_bigint::BigInt;
+use num_bigint::bigint_ser::BigIntDe;
 use rpc_api::{
     data_types::{
         ActorStateJson, Deadline, MarketDeal, MessageLookup, MiningBaseInfoJson, Partition,
@@ -834,7 +834,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     let deposit = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
         .pre_commit_deposit_for_power(power_smoothed, &sector_weight);
 
-    let ret: BigInt = (deposit * 110) / 100;
+    let ret: BigIntDe = BigIntDe((deposit * 110) / 100);
     Ok(ret)
 }
 
@@ -884,7 +884,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
     let initial_pledge = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
         .initial_pledge_for_power(&sector_weight, &total_locked, power_smoothed, &circ_supply);
 
-    let ret: BigInt = (initial_pledge * 110) / 100;
+    let ret = BigIntDe((initial_pledge * 110) / 100);
     Ok(ret)
 }
 

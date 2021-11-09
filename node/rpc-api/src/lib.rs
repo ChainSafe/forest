@@ -3,6 +3,7 @@
 
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
+//use num_bigint::{bigint_ser::BigIntSer, BigInt};
 
 pub mod data_types;
 
@@ -171,7 +172,8 @@ pub mod chain_api {
     use cid::json::CidJson;
     use clock::ChainEpoch;
     use message::unsigned_message::json::UnsignedMessageJson;
-    use num_bigint::BigInt;
+    //use num_bigint::BigInt;
+    use num_bigint::bigint_ser::BigIntSer;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
@@ -211,7 +213,7 @@ pub mod chain_api {
 
     pub const CHAIN_TIPSET_WEIGHT: &str = "Filecoin.ChainTipSetWeight";
     pub type ChainTipSetWeightParams = (TipsetKeysJson,);
-    pub type ChainTipSetWeightResult = BigInt;
+    pub type ChainTipSetWeightResult<'a> = BigIntSer<'a>;
 
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
     pub type ChainGetBlockParams = (CidJson,);
@@ -302,12 +304,12 @@ pub mod wallet_api {
     use message::{
         signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     };
-    use num_bigint::BigInt;
+    use num_bigint::bigint_ser::BigIntDe;
     use wallet::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
     pub type WalletBalanceParams = (Address,);
-    pub type WalletBalanceResult = BigInt;
+    pub type WalletBalanceResult = BigIntDe;
 
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
     pub type WalletDefaultAddressParams = ();
@@ -374,6 +376,7 @@ pub mod state_api {
         message_receipt::json::MessageReceiptJson, unsigned_message::json::UnsignedMessageJson,
     };
     use num_bigint::BigInt;
+    use num_bigint::bigint_ser::BigIntDe;
     use state_manager::{InvocResult, MarketBalance};
 
     pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
@@ -480,13 +483,13 @@ pub mod state_api {
         "Filecoin.StateMinerPreCommitDepositForPower";
     pub type StateMinerPreCommitDepositForPowerParams =
         (AddressJson, SectorPreCommitInfo, TipsetKeysJson);
-    pub type StateMinerPreCommitDepositForPowerResult = BigInt;
+    pub type StateMinerPreCommitDepositForPowerResult = BigIntDe;
 
     pub const STATE_MINER_INITIAL_PLEDGE_COLLATERAL: &str =
         "Filecoin.StateMinerInitialPledgeCollateral";
     pub type StateMinerInitialPledgeCollateralParams =
         (AddressJson, SectorPreCommitInfo, TipsetKeysJson);
-    pub type StateMinerInitialPledgeCollateralResult = BigInt;
+    pub type StateMinerInitialPledgeCollateralResult = BigIntDe;
 
     pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
     pub type MinerGetBaseInfoParams = (AddressJson, ChainEpoch, TipsetKeysJson);
@@ -503,11 +506,11 @@ pub mod gas_api {
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
     pub type GasEstimateFeeCapParams = (UnsignedMessageJson, i64, TipsetKeysJson);
-    pub type GasEstimateFeeCapResult = BigInt;
+    pub type GasEstimateFeeCapResult = BigIntDe;
 
     pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
     pub type GasEstimateGasPremiumParams = (u64, AddressJson, i64, TipsetKeysJson);
-    pub type GasEstimateGasPremiumResult = BigInt;
+    pub type GasEstimateGasPremiumResult = BigIntDe;
 
     pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
     pub type GasEstimateGasLimitParams = (UnsignedMessageJson, TipsetKeysJson);

@@ -14,7 +14,7 @@ use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
-use num_bigint::BigInt;
+use num_bigint::bigint_ser::BigIntDe;
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
 use wallet::{json::KeyInfoJson, Error, Key};
@@ -43,9 +43,9 @@ where
         Ok(act) => {
             if let Some(actor) = act {
                 let actor_balance = actor.balance;
-                Ok(actor_balance)
+                Ok(BigIntDe(actor_balance))
             } else {
-                Ok(BigInt::default())
+                Ok(BigIntDe::default())
             }
         }
         Err(e) => Err(e.into()),
