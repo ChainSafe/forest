@@ -273,12 +273,7 @@ impl Actor {
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
         for (di, deal) in params.deals.iter_mut().enumerate() {
             // drop malformed deals
-            if let Err(e) = validate_deal(
-                rt,
-                deal,
-                &network_raw_power,
-                &baseline_power,
-            ) {
+            if let Err(e) = validate_deal(rt, deal, &network_raw_power, &baseline_power) {
                 info!("invalid deal {}: {}", di, e);
                 continue;
             }
@@ -351,24 +346,22 @@ impl Actor {
             deal.proposal.client = client;
             // TODO resolved_addr add
             let pcid = deal.proposal.cid().map_err(|e| {
-                ActorError::from(e).wrap(
-                    format!("failed to take cid of proposal {}", di),
-                )
+                ActorError::from(e).wrap(format!("failed to take cid of proposal {}", di))
             })?;
 
             // check proposalCids for duplication within message batch
             // check state PendingProposals for duplication across messages
-            let duplicate_in_state =
-                msm.pending_deals
-                    .as_ref()
-                    .unwrap()
-                    .has(&pcid.to_bytes())
-                    .map_err(|e| {
-                        e.downcast_default(
-                            ExitCode::ErrIllegalState,
-                            "failed to check for existence of deal proposal",
-                        )
-                    })?;
+            let duplicate_in_state = msm
+                .pending_deals
+                .as_ref()
+                .unwrap()
+                .has(&pcid.to_bytes())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to check for existence of deal proposal",
+                    )
+                })?;
             let duplicate_in_message = proposal_cid_lookup.contains(&pcid);
             if duplicate_in_state || duplicate_in_message {
                 info!(
@@ -394,7 +387,7 @@ impl Actor {
                 if let Err(e) = ret {
                     info!(
                         "invalid deal {}: failed to acquire datacap exitcode: {}",
-                        di, e 
+                        di, e
                     );
                     continue;
                 }
@@ -444,7 +437,7 @@ impl Actor {
         //     if let Err(e) = ret {
         //         info!(
         //             "invalid deal {}: failed to acquire datacap exitcode: {}",
-        //             di,e 
+        //             di,e
         //         );
         //         continue;
         //     }
@@ -1298,9 +1291,8 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    deal_proposal_is_internally_valid(rt, deal).map_err(|e| {
-        format!("invalid deal proposal {}", e)
-    })?;
+    deal_proposal_is_internally_valid(rt, deal)
+        .map_err(|e| format!("invalid deal proposal {}", e))?;
 
     let proposal = &deal.proposal;
 
