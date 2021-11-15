@@ -10,7 +10,7 @@ cid = { package = "forest_cid", version = "0.3" }
 forest_ipld = "0.1.1"
 fnv = "1.0.6"
 encoding = { package = "forest_encoding", version = "0.2.1" }
-libp2p = { version = "0.35", default-features = false }
+libp2p = { version = "0.40.0-rc.1", default-features = false }
 futures = "0.3.5"
 futures-util = "0.3.5"
 futures_codec = "0.4.0"

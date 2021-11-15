@@ -4,32 +4,35 @@
 
 
 [<img alt="build status" src="https://img.shields.io/circleci/build/gh/ChainSafe/forest/main?style=for-the-badge" height="20">](https://app.circleci.com/pipelines/github/ChainSafe/forest?branch=main)
+[<img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge" height="20">](https://github.com/ChainSafe/forest/releases/latest)
 [<img alt="Apache License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/Apache-2.0)
 [<img alt="MIT License" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/MIT)
+[<img alt="Twitter" src="https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2" height="20">](https://twitter.com/ChainSafeth)
 [<img alt="Discord" src="https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord" height="20">](https://discord.gg/Q6A3YA2)
-[<img alt="Twitter" src="https://img.shields.io/twitter/follow/espadrine.svg?style=for-the-badge&label=Twitter&color=1DA1F2" height="20">](https://twitter.com/chainsafeth)
 
-
-Forest is an implementation of [Filecoin](https://filecoin.io/) written in Rust. The implementation will take a modular approach to building a full Filecoin node in two parts — (i) building Filecoin’s security critical systems in Rust from the [Filecoin Protocol Specification](https://filecoin-project.github.io/specs/), specifically the virtual machine, blockchain, and node system, and (ii) integrating functional components for storage mining and storage & retrieval markets to compose a fully functional Filecoin node implementation.
-
-❗**Current development should be considered a work in progress.**
+Forest is an implementation of [Filecoin](https://filecoin.io/) written in Rust. The implementation will take a modular approach to building a full Filecoin node in Rust from the [Filecoin Protocol Specification](https://filecoin-project.github.io/specs/), specifically the virtual machine, blockchain, and node system.
 
 Our crates:
 
-| crate | description |
-|-|-|
-| `blockchain` | Chain structures and syncing functionality |
-| `crypto` | Verification and signature definitions |
-| `encoding` | Forest encoding and decoding |
-| `ipld` | IPLD data model for content-addressable data |
-| `node` | Networking synchronization and storage |
-| `vm` | State transition and actors, message and address definitions |
+| component | description/crates |
+| - | - |
+| `forest` | the command-line interface and daemon (1 crate/workspace) |
+| `node` | the networking stack and storage (7 crates) |
+| `blockchain` | the chain structure and synchronization (6 crates) |
+| `vm` | state transition and actors, messages, addresses (9 crates) |
+| `key_management` | Filecoin account management (1 crate) |
+| `crypto` | cryptographic functions, signatures, and verification (1 crate) |
+| `encoding` | serialization library for encoding and decoding (1 crate) |
+| `ipld` | the IPLD model for content-addressable data (9 crates) |
+| `types` | the forest types (2 crates) |
+| `utils` | the forest toolbox (12 crates) |
+
 
 ## Dependencies
-rustc >= 1.46.0
+`rustc >= 1.55.0`
 
 ## Usage
-```bash
+```shell
 # Clone repository
 git clone --recursive https://github.com/chainsafe/forest
 cd forest
@@ -37,6 +40,14 @@ cd forest
 # Install binary to $HOME/.cargo/bin and run node
 make install
 forest
+```
+
+To create release binaries, checkout the latest tag and compile with the release feature.
+[<img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge" height="20">](https://github.com/ChainSafe/forest/releases/latest)
+
+```shell
+git checkout $TAG
+cargo build --release --bin forest --features release
 ```
 
 > `OpenCL`, `hwloc` and a compatible assembly linker (ex. `clang`) are also required to build Filecoin proofs.
@@ -119,11 +130,12 @@ FULLNODE_API_INFO="..." forest auth api-info -p admin
 ```
 
 ### Documentation
-https://chainsafe.github.io/forest/
+_Work in progress_.
+- https://chainsafe.github.io/forest/
 
 ## Contributing
 - Check out our contribution guidelines: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Have questions? Say hi on [Discord](https://discord.gg/Q6A3YA2)!
+- Have questions? Say _hi_ on [Discord](https://discord.gg/Q6A3YA2)!
 
 ## ChainSafe Security Policy
 

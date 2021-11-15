@@ -3,7 +3,7 @@ version: 2.1
 parameters:
   msrv-version:
     type: string
-    default: "1.52.1"
+    default: "1.55.0"
 
 executors:
   linux-executor:
@@ -275,8 +275,11 @@ jobs:
             - build_setup
             - restore_cargo_package_cache
             - run:
-                name: Build Docs
-                command: cargo doc --no-deps
+                name: Install MdBook
+                command: cargo install mdbook
+            - run:
+                name: Compile MdBook
+                command: mdbook build ./documentation
             - run:
                 name: Publish Docs
                 command: bash ./scripts/build-rust-docs.sh
@@ -295,7 +298,7 @@ jobs:
           command: cargo install cargo-audit
       - run:
           name: Check for known security issues in dependencies
-          command: cargo audit
+          command: cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071
 
 workflows:
   test-checks:
