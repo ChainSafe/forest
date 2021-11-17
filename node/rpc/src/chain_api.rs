@@ -20,12 +20,12 @@ use message::{
     unsigned_message::{self, json::UnsignedMessageJson},
     UnsignedMessage,
 };
+use num_bigint::bigint_ser::BigIntDe;
 use num_traits::FromPrimitive;
 use rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
-use num_bigint::bigint_ser::BigIntSer;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -67,7 +67,7 @@ where
         .blockstore()
         .get_bytes(&obj_cid)?
         .ok_or("can't find object with that cid")?;
-    Ok(ret)
+    Ok(format!("{:?}", ret))
 }
 
 pub(crate) async fn chain_has_obj<DB, B>(
@@ -212,7 +212,7 @@ where
 pub(crate) async fn chain_tipset_weight<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainTipSetWeightParams>,
-) -> Result<ChainTipSetWeightResult<'static>, JsonRpcError>
+) -> Result<ChainTipSetWeightResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -223,7 +223,7 @@ where
         .chain_store()
         .tipset_from_keys(&tsk.into())
         .await?;
-    Ok(BigIntSer(ts.weight().to_owned()))
+    Ok(BigIntDe(ts.weight().to_owned()))
 }
 
 pub(crate) async fn chain_get_block<DB, B>(

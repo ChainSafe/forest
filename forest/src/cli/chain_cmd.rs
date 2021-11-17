@@ -60,7 +60,8 @@ impl ChainCommands {
             }
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res(chain_read_obj((CidJson(cid),)).await);
+                let res = chain_read_obj((CidJson(cid),)).await;
+                print_rpc_res(res);
             }
         }
     }

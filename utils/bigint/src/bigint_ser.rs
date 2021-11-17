@@ -4,6 +4,7 @@
 use num_bigint::{BigInt, Sign};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::fmt;
 
 /// Wrapper for serializing big ints to match filecoin spec. Serializes as bytes.
 #[derive(Serialize)]
@@ -11,7 +12,7 @@ use std::borrow::Cow;
 pub struct BigIntSer<'a>(#[serde(with = "self")] pub &'a BigInt);
 
 /// Wrapper for deserializing as BigInt from bytes.
-#[derive(Deserialize, Serialize, Clone, Default, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Default, PartialEq, Debug)]
 #[serde(transparent)]
 pub struct BigIntDe(#[serde(with = "self")] pub BigInt);
 
@@ -53,6 +54,18 @@ where
         }
     };
     Ok(BigInt::from_bytes_be(sign, &bz[1..]))
+}
+
+impl BigIntDe {
+    pub fn as_big_int(&self) -> BigInt {
+        self.0.to_owned()
+    }
+}
+
+impl fmt::Display for BigIntDe {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 #[cfg(feature = "json")]

@@ -173,7 +173,7 @@ pub mod chain_api {
     use clock::ChainEpoch;
     use message::unsigned_message::json::UnsignedMessageJson;
     //use num_bigint::BigInt;
-    use num_bigint::bigint_ser::BigIntSer;
+    use num_bigint::bigint_ser::BigIntDe;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
@@ -181,7 +181,7 @@ pub mod chain_api {
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
     pub type ChainReadObjParams = (CidJson,);
-    pub type ChainReadObjResult = Vec<u8>;
+    pub type ChainReadObjResult = String; //Vec<u8>;
 
     pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
     pub type ChainHasObjParams = (CidJson,);
@@ -213,7 +213,7 @@ pub mod chain_api {
 
     pub const CHAIN_TIPSET_WEIGHT: &str = "Filecoin.ChainTipSetWeight";
     pub type ChainTipSetWeightParams = (TipsetKeysJson,);
-    pub type ChainTipSetWeightResult<'a> = BigIntSer<'a>;
+    pub type ChainTipSetWeightResult = BigIntDe;
 
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
     pub type ChainGetBlockParams = (CidJson,);
@@ -375,7 +375,6 @@ pub mod state_api {
     use message::{
         message_receipt::json::MessageReceiptJson, unsigned_message::json::UnsignedMessageJson,
     };
-    use num_bigint::BigInt;
     use num_bigint::bigint_ser::BigIntDe;
     use state_manager::{InvocResult, MarketBalance};
 
@@ -502,7 +501,7 @@ pub mod gas_api {
     use address::json::AddressJson;
     use blocks::tipset_keys_json::TipsetKeysJson;
     use message::unsigned_message::json::UnsignedMessageJson;
-    use num_bigint::BigInt;
+    use num_bigint::bigint_ser::BigIntDe;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
     pub type GasEstimateFeeCapParams = (UnsignedMessageJson, i64, TipsetKeysJson);

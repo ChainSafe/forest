@@ -13,6 +13,7 @@ use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
 use message::{unsigned_message::json::UnsignedMessageJson, UnsignedMessage};
 use message::{ChainMessage, Message};
+use num_bigint::bigint_ser::BigIntDe;
 use num_bigint::BigInt;
 use rpc_api::{
     data_types::{MessageSendSpec, RPCState},
@@ -40,7 +41,7 @@ async fn estimate_fee_cap<DB, B>(
     msg: UnsignedMessage,
     max_queue_blks: i64,
     _tsk: TipsetKeys,
-) -> Result<BigInt, JsonRpcError>
+) -> Result<BigIntDe, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -60,8 +61,8 @@ where
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
     let mut out = fee_in_future / (1 << 8);
-    out += msg.gas_premium();
-    Ok(out)
+    out += msg.gas_premium().to_owned();
+    Ok(BigIntDe(out))
 }
 
 /// Estimate the fee cap
@@ -80,7 +81,7 @@ where
 async fn estimate_gas_premium<DB, B>(
     data: &Data<RPCState<DB, B>>,
     mut nblocksincl: u64,
-) -> Result<BigInt, JsonRpcError>
+) -> Result<BigIntDe, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -142,7 +143,7 @@ where
         }
         if prev == 0.into() {
             let ret: BigInt = price.price + 1;
-            return Ok(ret);
+            return Ok(BigIntDe(ret));
         }
         premium = (&price.price + &prev) / 2 + 1
     }
@@ -167,7 +168,7 @@ where
         .ok_or("failed to converrt gas premium f64 to bigint")?;
     premium /= 1i64 << precision;
 
-    Ok(premium)
+    Ok(BigIntDe(premium))
 }
 
 /// Estimate the gas limit
@@ -270,11 +271,11 @@ where
     }
     if msg.gas_premium().is_zero() {
         let gp = estimate_gas_premium(data, 10).await?;
-        msg.gas_premium = gp;
+        msg.gas_premium = gp.as_big_int(); // TODO: should this be changed to a BigIntDe? how is the message serialization working?
     }
     if msg.gas_fee_cap().is_zero() {
-        let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk).await?;
-        msg.gas_fee_cap = gfp;
+        let gfp: BigIntDe = estimate_fee_cap(data, msg.clone(), 20, tsk).await?;
+        msg.gas_fee_cap = gfp.as_big_int(); // TODO: same
     }
     // TODO: Cap Gas Fee https://github.com/ChainSafe/forest/issues/901
     Ok(msg)
