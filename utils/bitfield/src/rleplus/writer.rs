@@ -69,6 +69,18 @@ impl BitWriter {
         }
         self.bytes
     }
+
+    /// Writes any remaining bits to the buffer and returns it.
+    /// We write remaining bits even if they are are 0s.
+    /// This method is for testing purpose only.
+    #[cfg(test)]
+    pub fn finish_test(mut self) -> Vec<u8> {
+        if self.num_bits > 0 {
+            self.bytes.push(self.bits as u8);
+        }
+
+        self.bytes
+    }
 }
 
 #[cfg(test)]

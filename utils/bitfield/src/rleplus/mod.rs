@@ -182,7 +182,19 @@ mod tests {
     #[test]
     fn test() {
         for (bits, expected) in vec![
-            (vec![], bitfield![]),
+            (
+                vec![],
+                Ok(bitfield![]),
+            ),
+            (
+                vec![
+                    1, 0, // incorrect version
+                    1, // starts with 1
+                    0, 1, // fits into 4 bits
+                    0, 0, 0, 1, // 8 - 1
+                ],
+                Err("incorrect version"),
+            ),
             (
                 vec![
                     0, 0, // version
@@ -190,7 +202,7 @@ mod tests {
                     0, 1, // fits into 4 bits
                     0, 0, 0, 1, // 8 - 1
                 ],
-                bitfield![1, 1, 1, 1, 1, 1, 1, 1],
+                Ok(bitfield![1, 1, 1, 1, 1, 1, 1, 1]),
             ),
             (
                 vec![
@@ -202,7 +214,7 @@ mod tests {
                     0, 1, // fits into 4 bits
                     1, 1, 0, 0, // 3 - 1
                 ],
-                bitfield![1, 1, 1, 1, 0, 1, 1, 1],
+                Ok(bitfield![1, 1, 1, 1, 0, 1, 1, 1]),
             ),
             (
                 vec![
@@ -211,9 +223,9 @@ mod tests {
                     0, 0, // does not fit into 4 bits
                     1, 0, 0, 1, 1, 0, 0, 0, // 25 - 1
                 ],
-                bitfield![
+                Ok(bitfield![
                     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-                ],
+                ]),
             ),
             // when a length of 0 is encountered, the rest of the encoded bits should be ignored
             (
@@ -225,15 +237,16 @@ mod tests {
                     0, 0, 0, 0, // 0 - 0
                     1, // 1 - 1
                 ],
-                bitfield![1],
+                Ok(bitfield![1]),
             ),
         ] {
             let mut writer = BitWriter::new();
-            for bit in bits {
+            for bit in bits.into_iter() {
+                assert!(bit < 2, "must be a binary digit");
                 writer.write(bit, 1);
             }
-            let bf = BitField::from_bytes(&writer.finish()).unwrap();
-            assert_eq!(bf, expected);
+            let res = BitField::from_bytes(&writer.finish_test());
+            assert_eq!(res, expected);
         }
     }
 
