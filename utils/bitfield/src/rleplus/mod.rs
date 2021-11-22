@@ -262,6 +262,17 @@ mod tests {
                 ],
                 Err("not minimally encoded")
             ),
+            // a valid varint
+            (
+                vec![
+                    0, 0, // version
+                    1, // starts with 1
+                    0, 0, // fits into a varint
+                    1, 0, 0, 0, 1, 0, 0, 0, // 17 - 1
+                    0, 0, 0
+                ],
+                Ok(bitfield![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+            ),
             // a varint that is not minimally encoded
             (
                 vec![
