@@ -250,6 +250,18 @@ mod tests {
                 ],
                 Ok(bitfield![1]),
             ),
+            // when a length of 0 is encountered, the rest of the encoded bits should be ignored
+            (
+                vec![
+                    0, 0, // version
+                    1, // starts with 1
+                    1, // 1 - 1
+                    0, 0, // fits into a varint
+                    0, 0, 0, 0, 0, 0, 0, 0, // 0 - 0
+                    1, // 1 - 1
+                ],
+                Ok(bitfield![1]),
+            ),
             // when the last byte is zero, this should fail
             (
                 vec![
