@@ -269,6 +269,25 @@ mod tests {
                 ],
                 Err("Invalid varint"),
             ),
+            // a varint must not take more than 9 bytes
+            (
+                vec![
+                    0, 0, // version
+                    1, // starts with 1
+                    0, 0, // fits into a varint
+                    1, 0, 0, 0, 0, 0, 0, 1, // 1 - 1
+                    0, 0, 0, 0, 0, 0, 0, 1,
+                    0, 0, 0, 0, 0, 0, 0, 1,
+                    0, 0, 0, 0, 0, 0, 0, 1,
+                    0, 0, 0, 0, 0, 0, 0, 1,
+                    0, 0, 0, 0, 0, 0, 0, 1,
+                    0, 0, 0, 0, 0, 0, 0, 1,
+                    0, 0, 0, 0, 0, 0, 0, 1,
+                    0, 0, 0, 0, 0, 0, 0, 1,
+                    0, 0, 0,
+                ],
+                Err("Invalid varint"),
+            ),
         ] {
             let mut writer = BitWriter::new();
             for bit in bits.into_iter() {
