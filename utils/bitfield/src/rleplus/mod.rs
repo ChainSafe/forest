@@ -348,6 +348,49 @@ mod tests {
                 ],
                 Err("RLE+ overflow"),
             ),
+            // block_long that could have fit on block_short. TODO: is this legit?
+            (
+                vec![
+                    0, 0, // version
+                    1, // starts with 1
+                    0, 0, // fits into a varint
+                    1, 1, 0, 0, 0, 0, 0, 0, // 3 - 1
+                    1,
+                    1,
+                    1,
+                ],
+                Ok(bitfield![1, 1, 1, 0, 1, 0]),
+            ),
+            // block_long that could have fit on block_single. TODO: is this legit?
+            (
+                vec![
+                    0, 0, // version
+                    1, // starts with 1
+                    0, 0, // fits into a varint
+                    1, 0, 0, 0, 0, 0, 0, 0, // 1 - 1
+                    1,
+                    1,
+                    1,
+                ],
+                Ok(bitfield![1, 0, 1, 0]),
+            ),
+            // block_short that could have fit on block_single. TODO: is this legit?
+            (
+                vec![
+                    0, 0, // version
+                    1, // starts with 1
+                    0, 1, // fits into 4 bits
+                    1, 0, 0, 0, // 1 - 1
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                ],
+                Ok(bitfield![1, 0, 1, 0, 1, 0, 1, 0]),
+            ),
         ] {
             let mut writer = BitWriter::new();
             for bit in bits.into_iter() {
