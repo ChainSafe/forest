@@ -254,7 +254,21 @@ mod tests {
                     0, 0, 0, 0, 0, 0
                 ],
                 Err("not minimally encoded")
-            )
+            ),
+            // a varint that is not minimally encoded
+            (
+                vec![
+                    0, 0, // version
+                    1, // starts with 1
+                    0, 0, // fits into a varint
+                    1, 1, 0, 0, 0, 0, 0, 1, // 3 - 1
+                    0, 0, 0, 0, 0, 0, 0, 0,
+                    1,
+                    1,
+                    1,
+                ],
+                Err("Invalid varint"),
+            ),
         ] {
             let mut writer = BitWriter::new();
             for bit in bits.into_iter() {

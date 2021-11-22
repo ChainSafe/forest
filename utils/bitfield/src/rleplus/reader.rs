@@ -84,12 +84,18 @@ impl<'a> BitReader<'a> {
 
             // strip off the most significant bit and add
             // it to the output
-            len |= (byte as usize & 0x7f) << (i * 7);
+            let masked_byte = byte as usize & 0x7f;
+            len |= masked_byte << (i * 7);
 
             // if the most significant bit is a 0, we've
             // reached the end of the varint
             if byte & 0x80 == 0 {
-                return Ok(len);
+                if i == 0 || byte != 0 {
+                    // only the first byte can be zero in a varint
+                    return Ok(len);
+                }
+                // not minimally encoded
+                break;
             }
         }
 
