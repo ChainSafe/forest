@@ -120,8 +120,15 @@ impl BitField {
         let mut next_value = reader.read(1) == 1;
         let mut ranges = Vec::new();
         let mut index = 0;
+        let mut total_len: u64 = 0;
 
         while let Some(len) = reader.read_len()? {
+            let (new_total_len, ovf) = total_len.overflowing_add(len as u64);
+            if ovf {
+                return Err("RLE+ overflow");
+            }
+            total_len = new_total_len;
+
             let start = index;
             index += len;
             let end = index;
@@ -287,6 +294,36 @@ mod tests {
                     0, 0, 0,
                 ],
                 Err("Invalid varint"),
+            ),
+            // total running length should not overflow
+            (
+                vec![
+                    0, 0, // version
+                    1, // starts with 1
+                    0, 0, // fits into a varint
+                    1, 1, 1, 1, 1, 1, 1, 1, // 9223372036854775807 - 1
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 0,
+                    0, 0, // fits into a varint
+                    1, 1, 1, 1, 1, 1, 1, 1, // 9223372036854775807 - 0
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 1, 1, 1, 1, 1, 1, 0,
+                    0, 1, // fits into 4 bits
+                    0, 1, 0, 0 // 2 - 1
+                ],
+                Err("RLE+ overflow"),
             ),
         ] {
             let mut writer = BitWriter::new();
