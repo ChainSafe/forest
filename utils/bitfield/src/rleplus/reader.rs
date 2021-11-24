@@ -84,8 +84,7 @@ impl<'a> BitReader<'a> {
 
             // strip off the most significant bit and add
             // it to the output
-            let masked_byte = byte as usize & 0x7f;
-            len |= masked_byte << (i * 7);
+            len |= (byte as usize & 0x7f) << (i * 7);
 
             // if the most significant bit is a 0, we've
             // reached the end of the varint
