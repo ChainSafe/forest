@@ -395,8 +395,7 @@ mod tests {
             ),
         ] {
             let mut writer = BitWriter::new();
-            for bit in bits.into_iter() {
-                assert!(bit < 2, "must be a binary digit");
+            for bit in bits {
                 writer.write(bit, 1);
             }
             let res = BitField::from_bytes(&writer.finish_test());
