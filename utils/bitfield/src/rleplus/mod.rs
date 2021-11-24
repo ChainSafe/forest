@@ -106,8 +106,10 @@ impl<'de> Deserialize<'de> for BitField {
 impl BitField {
     /// Decodes RLE+ encoded bytes into a bit field.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        if !bytes.is_empty() && (*bytes.last().unwrap() == 0) {
-            return Err("not minimally encoded");
+        if let Some(value) = bytes.last() {
+            if *value == 0 {
+                return Err("not minimally encoded");
+            }
         }
 
         let mut reader = BitReader::new(bytes);
