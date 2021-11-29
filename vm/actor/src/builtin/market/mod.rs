@@ -1231,8 +1231,8 @@ where
 
     let (min_client_collateral, max_client_collateral) =
         deal_client_collateral_bounds(proposal.piece_size, proposal.duration());
-    if proposal.provider_collateral < min_client_collateral
-        || &proposal.provider_collateral > max_client_collateral
+    if proposal.client_collateral < min_client_collateral
+        || &proposal.client_collateral > max_client_collateral
     {
         return Err(actor_error!(
             ErrIllegalArgument,
