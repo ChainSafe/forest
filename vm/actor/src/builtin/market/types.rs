@@ -4,13 +4,13 @@
 use super::deal::{ClientDealProposal, DealProposal, DealState};
 use crate::DealWeight;
 use address::Address;
+use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::tuple::*;
 use fil_types::RegisteredSealProof;
 use ipld_amt::Amt;
 use num_bigint::bigint_ser;
-use bitfield::BitField;
 use vm::{DealID, TokenAmount};
 
 pub const PROPOSALS_AMT_BITWIDTH: usize = 5;

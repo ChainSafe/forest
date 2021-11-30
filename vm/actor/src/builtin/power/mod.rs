@@ -26,7 +26,6 @@ use log::{debug, error};
 use num_bigint::bigint_ser::{BigIntDe, BigIntSer};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Signed, Zero};
-use runtime::Syscalls;
 use runtime::{ActorCode, Runtime};
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
