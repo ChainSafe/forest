@@ -220,7 +220,16 @@ impl TipsetGroup {
             }
         }
 
-        todo!()
+        if heaviest_tipsets.len() == 1 {
+            heaviest_tipsets
+                .first()
+                .cloned()
+                .unwrap()
+                .weight()
+                .to_owned()
+        } else {
+            todo!()
+        }
     }
 
     fn merge(&mut self, other: Self) {
