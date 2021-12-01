@@ -284,7 +284,7 @@ impl Actor {
         //     .with_locked_table(Permission::ReadOnly)
         //     .build()
         //     .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
-        let mut store =  rt.store();
+        let mut store = rt.store();
 
         let mut msm = state.mutator(store);
         // let mut ttt = Vec::new();
@@ -293,7 +293,6 @@ impl Actor {
         //     .with_locked_table(Permission::ReadOnly)
         //     .build()
         //     .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
-        
 
         // So actually the for loop too use rt store immutably and also needs to mutably access it.
         // so we will need to isolate them. See below on how it's done in this case.
@@ -304,7 +303,7 @@ impl Actor {
             to: Address,
             method: u64,
             params: Serialized,
-            value: TokenAmount
+            value: TokenAmount,
         }
         let mut method_queue: Vec<Foo> = vec![];
 
@@ -422,7 +421,7 @@ impl Actor {
                         address: client,
                         deal_size: BigInt::from(deal.proposal.piece_size.0),
                     })?,
-                    value: TokenAmount::zero()
+                    value: TokenAmount::zero(),
                 });
                 // let ret = rt.send(
                 //     *VERIFIED_REGISTRY_ACTOR_ADDR,
@@ -443,8 +442,6 @@ impl Actor {
                 // }
             }
 
-
-
             // update valid deal state
             proposal_cid_lookup.insert(pcid.clone());
             valid_proposal_cids.push(pcid);
@@ -456,22 +453,22 @@ impl Actor {
         // BTW: i think that the for loop has many things going on and we should probably refactor them into separate
         // methods.
         for i in method_queue {
-            let Foo{ to, method, params, value} = i; 
-            let ret = rt.send(
-                    to,
-                    method,
-                    params,
-                    value,
-                );
+            let Foo {
+                to,
+                method,
+                params,
+                value,
+            } = i;
+            let ret = rt.send(to, method, params, value);
 
-                if let Err(e) = ret {
-                    // TODO: can also pass di as a field in the Foo struct if we want that info
-                    // info!(
-                    //     "invalid deal {}: failed to acquire datacap exitcode: {}",
-                    //     di, e
-                    // );
-                    continue;
-                }
+            if let Err(e) = ret {
+                // TODO: can also pass di as a field in the Foo struct if we want that info
+                // info!(
+                //     "invalid deal {}: failed to acquire datacap exitcode: {}",
+                //     di, e
+                // );
+                continue;
+            }
         }
 
         let valid_deal_count = valid_input_bf.len();
