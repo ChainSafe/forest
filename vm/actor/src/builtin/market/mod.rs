@@ -55,6 +55,19 @@ pub enum Method {
     CronTick = 9,
 }
 
+fn get_msm<RT: Runtime<BS>, BS: BlockStore>(rt: &RT) -> Result<&BS, ActorError> {
+    let state: State = rt.state::<State>()?.clone();
+    let mut store = rt.store();
+    Ok(&mut store)
+    // let mut msm = state.mutator(store);
+    // msm.with_pending_proposals(Permission::ReadOnly)
+    //     .with_escrow_table(Permission::ReadOnly)
+    //     .with_locked_table(Permission::ReadOnly)
+    //     .build()
+    //     .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
+    // Ok(&mut msm)
+}
+
 /// Market Actor
 pub struct Actor;
 impl Actor {
@@ -263,7 +276,21 @@ impl Actor {
 
         let mut valid_input_bf = BitField::default();
         let mut state: State = rt.state::<State>()?.clone();
-        let store = rt.store();
+        // let store = rt.store();
+        // let mut msm = state.mutator(store);
+        // // let mut ttt = Vec::new();
+        // msm.with_pending_proposals(Permission::ReadOnly)
+        //     .with_escrow_table(Permission::ReadOnly)
+        //     .with_locked_table(Permission::ReadOnly)
+        //     .build()
+        //     .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
+        let mut store = {
+            match get_msm(rt) {
+                Ok(store) => store,
+                Err(err) => return Err(err),
+            }
+        };
+
         let mut msm = state.mutator(store);
         // let mut ttt = Vec::new();
         msm.with_pending_proposals(Permission::ReadOnly)
@@ -271,6 +298,7 @@ impl Actor {
             .with_locked_table(Permission::ReadOnly)
             .build()
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
+
         for (di, deal) in params.deals.iter_mut().enumerate() {
             // drop malformed deals
             if let Err(e) = validate_deal(rt, deal, &network_raw_power, &baseline_power) {

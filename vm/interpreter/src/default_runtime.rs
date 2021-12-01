@@ -413,8 +413,7 @@ where
             new_rt.charge_gas(cost)?;
         }
 
-        let to_actor = match (*new_rt
-            .state)
+        let to_actor = match (*new_rt.state)
             .borrow()
             .get_actor(msg.to())
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
@@ -432,13 +431,19 @@ where
         };
 
         new_rt.charge_gas(
-            new_rt.price_list()
+            new_rt
+                .price_list()
                 .on_method_invocation(msg.value(), msg.method_num()),
         )?;
 
         if !msg.value().is_zero() {
-            transfer(*new_rt.state.borrow_mut(), msg.from(), msg.to(), msg.value())
-                .map_err(|e| e.wrap("failed to transfer funds"))?;
+            transfer(
+                *new_rt.state.borrow_mut(),
+                msg.from(),
+                msg.to(),
+                msg.value(),
+            )
+            .map_err(|e| e.wrap("failed to transfer funds"))?;
         }
 
         if msg.method_num() != METHOD_SEND {
@@ -488,13 +493,12 @@ where
 
     /// creates account actors from only BLS/SECP256K1 addresses.
     pub fn try_create_account_actor(
-        & self,
+        &self,
         addr: &Address,
     ) -> Result<(ActorState, Address), ActorError> {
         self.charge_gas(self.price_list().on_create_actor())?;
 
-        let addr_id = (*self
-            .state)
+        let addr_id = (*self.state)
             .borrow_mut()
             .register_new_address(addr)
             .map_err(|e| e.downcast_fatal("failed to register new address"))?;

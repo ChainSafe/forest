@@ -106,7 +106,7 @@ pub trait Runtime<BS: BlockStore>: Syscalls {
     /// If the invoked method does not return successfully, its state changes
     /// (and that of any messages it sent in turn) will be rolled back.
     fn send(
-        &self,
+        &mut self,
         to: Address,
         method: MethodNum,
         params: Serialized,
@@ -121,12 +121,12 @@ pub trait Runtime<BS: BlockStore>: Syscalls {
 
     /// Creates an actor with code `codeID` and address `address`, with empty state.
     /// May only be called by Init actor.
-    fn create_actor(&self, code_id: Cid, address: &Address) -> Result<(), ActorError>;
+    fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError>;
 
     /// Deletes the executing actor from the state tree, transferring any balance to beneficiary.
     /// Aborts if the beneficiary does not exist.
     /// May only be called by the actor itself.
-    fn delete_actor(&self, beneficiary: &Address) -> Result<(), ActorError>;
+    fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError>;
 
     /// Returns the total token supply in circulation at the beginning of the current epoch.
     /// The circulating supply is the sum of:
@@ -140,7 +140,7 @@ pub trait Runtime<BS: BlockStore>: Syscalls {
 
     /// ChargeGas charges specified amount of `gas` for execution.
     /// `name` provides information about gas charging point
-    fn charge_gas(&self, name: &'static str, compute: i64) -> Result<(), ActorError>;
+    fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError>;
 
     /// This function is a workaround for go-implementation's faulty exit code handling of
     /// parameters before version 7
