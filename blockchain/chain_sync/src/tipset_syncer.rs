@@ -204,6 +204,25 @@ impl TipsetGroup {
             .unwrap()
     }
 
+    fn heaviest_weight_compared(&self) -> BigInt {
+        let mut tipset_map: HashMap<Tipset, Weight> = HashMap::new();
+        let mut heaviest_weight: BigInt = 0;
+
+        self.tipsets.iter().map(|ts| {
+            let weight = ts.weight().clone();
+            tipset_map.insert(tipset.clone(), weight.clone());
+            if weight > heaviest_weight {
+                heaviest_weight = weight;
+            }
+        });
+
+        tipset_map
+            .into_iter()
+            .filter(|(ts, weight)| weight == heaviest_weight);
+
+        if tipset_map.len() > 1 {}
+    }
+
     fn merge(&mut self, other: Self) {
         other.tipsets.into_iter().for_each(|ts| {
             self.try_add_tipset(ts);
