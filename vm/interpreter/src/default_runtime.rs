@@ -413,8 +413,7 @@ where
             new_rt.charge_gas(cost)?;
         }
 
-        let to_actor = match (*new_rt
-            .state)
+        let to_actor = match (*new_rt.state)
             .borrow()
             .get_actor(msg.to())
             .map_err(|e| e.downcast_fatal("failed to get actor"))?
@@ -432,13 +431,19 @@ where
         };
 
         new_rt.charge_gas(
-            new_rt.price_list()
+            new_rt
+                .price_list()
                 .on_method_invocation(msg.value(), msg.method_num()),
         )?;
 
         if !msg.value().is_zero() {
-            transfer(*new_rt.state.borrow_mut(), msg.from(), msg.to(), msg.value())
-                .map_err(|e| e.wrap("failed to transfer funds"))?;
+            transfer(
+                *new_rt.state.borrow_mut(),
+                msg.from(),
+                msg.to(),
+                msg.value(),
+            )
+            .map_err(|e| e.wrap("failed to transfer funds"))?;
         }
 
         if msg.method_num() != METHOD_SEND {
@@ -488,13 +493,12 @@ where
 
     /// creates account actors from only BLS/SECP256K1 addresses.
     pub fn try_create_account_actor(
-        & self,
+        &self,
         addr: &Address,
     ) -> Result<(ActorState, Address), ActorError> {
         self.charge_gas(self.price_list().on_create_actor())?;
 
-        let addr_id = (*self
-            .state)
+        let addr_id = (*self.state)
             .borrow_mut()
             .register_new_address(addr)
             .map_err(|e| e.downcast_fatal("failed to register new address"))?;
@@ -752,7 +756,7 @@ where
     }
 
     fn send(
-        &self,
+        &mut self,
         to: Address,
         method: MethodNum,
         params: Serialized,
@@ -797,7 +801,7 @@ where
         self.num_actors_created += 1;
         Ok(addr)
     }
-    fn create_actor(&self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
+    fn create_actor(&mut self, code_id: Cid, address: &Address) -> Result<(), ActorError> {
         // * Lotus does undef address check here, should be impossible to hit.
         // * if diff with `SysErrIllegalArgument` check here
         if !actor::is_builtin_actor(&code_id) {
@@ -813,7 +817,8 @@ where
             return Err(actor_error!(SysErrIllegalArgument; "Actor address already exists"));
         }
 
-        self.charge_gas(self.price_list.on_create_actor())?;
+        let gas_charge = self.price_list.on_create_actor();
+        self.charge_gas(gas_charge.name, gas_charge.compute_gas)?;
         self.state
             .borrow_mut()
             .set_actor(
@@ -827,8 +832,9 @@ where
     /// any balance to beneficiary.
     /// Aborts if the beneficiary does not exist.
     /// May only be called by the actor itself.
-    fn delete_actor(&self, beneficiary: &Address) -> Result<(), ActorError> {
-        self.charge_gas(self.price_list.on_delete_actor())?;
+    fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError> {
+        let gas_charge = self.price_list.on_delete_actor();
+        self.charge_gas(gas_charge.name, gas_charge.compute_gas)?;
         let receiver = *self.message().receiver();
         let balance = self
             .state
@@ -867,8 +873,8 @@ where
             .get_supply(self.epoch, *self.state.borrow())
             .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
     }
-    fn charge_gas(&self, name: &'static str, compute: i64) -> Result<(), ActorError> {
-        self.charge_gas(GasCharge::new(name, compute, 0))
+    fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
+        self.charge_gas(name, compute)
     }
     fn base_fee(&self) -> &TokenAmount {
         &self.base_fee
