@@ -190,14 +190,7 @@ impl Actor {
             params.peer_id,
             params.multi_addresses,
             params.window_post_proof_type,
-        )
-        .map_err(|e| {
-            actor_error!(
-                ErrIllegalState,
-                "failed to construct initial miner info: {}",
-                e
-            )
-        })?;
+        )?;
         let info_cid = rt.store().put(&info, Blake2b256).map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
