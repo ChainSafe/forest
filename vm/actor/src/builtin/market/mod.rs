@@ -55,19 +55,6 @@ pub enum Method {
     CronTick = 9,
 }
 
-fn get_msm<RT: Runtime<BS>, BS: BlockStore>(rt: &RT) -> Result<&BS, ActorError> {
-    let state: State = rt.state::<State>()?.clone();
-    let mut store = rt.store();
-    Ok(&mut store)
-    // let mut msm = state.mutator(store);
-    // msm.with_pending_proposals(Permission::ReadOnly)
-    //     .with_escrow_table(Permission::ReadOnly)
-    //     .with_locked_table(Permission::ReadOnly)
-    //     .build()
-    //     .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
-    // Ok(&mut msm)
-}
-
 /// Market Actor
 pub struct Actor;
 impl Actor {
