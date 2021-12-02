@@ -407,6 +407,22 @@ impl Actor {
     {
         let current_epoch = rt.curr_epoch();
 
+        if params.proofs.len() != 1 {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "expected exactly one proof, got {}",
+                params.proofs.len()
+            ));
+        }
+
+        if check_valid_post_proof_type(params.proofs[0].post_proof).is_err() {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "proof type {:?} not allowed",
+                params.proofs[0].post_proof
+            ));
+        }
+
         if params.deadline >= WPOST_PERIOD_DEADLINES as usize {
             return Err(actor_error!(
                 ErrIllegalArgument,
