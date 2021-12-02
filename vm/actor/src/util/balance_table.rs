@@ -72,7 +72,7 @@ where
         floor: &TokenAmount,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         let prev = self.get(key)?;
-        let available = std::cmp::max(TokenAmount::zero(), prev-floor);
+        let available = std::cmp::max(TokenAmount::zero(), prev - floor);
         let sub: TokenAmount = std::cmp::min(&available, req).clone();
 
         if sub.is_positive() {
