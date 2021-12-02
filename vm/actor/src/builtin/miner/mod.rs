@@ -2756,7 +2756,6 @@ impl Actor {
             })?;
 
         let amount_withdrawn = std::cmp::min(&available_balance, &params.amount_requested);
-        assert!(!amount_withdrawn.is_negative());
         if amount_withdrawn.is_negative() {
             return Err(actor_error!(
                 ErrIllegalState,
