@@ -1227,6 +1227,7 @@ fn new_account_actor(version: ActorVersion) -> ActorState {
             ActorVersion::V3 => *actorv3::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V4 => *actorv4::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V5 => *actorv5::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V6 => *actorv6::ACCOUNT_ACTOR_CODE_ID,
         },
         balance: TokenAmount::from(0),
         state: *EMPTY_ARR_CID,
