@@ -229,7 +229,7 @@ pub mod json {
             S: Serializer,
         {
             v.as_ref()
-                .map(|s| ElectionProofJsonRef(s))
+                .map(ElectionProofJsonRef)
                 .serialize(serializer)
         }
 
