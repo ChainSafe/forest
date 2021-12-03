@@ -263,23 +263,9 @@ impl Actor {
 
         let mut valid_input_bf = BitField::default();
         let mut state: State = rt.state::<State>()?.clone();
-        // let store = rt.store();
-        // let mut msm = state.mutator(store);
-        // // let mut ttt = Vec::new();
-        // msm.with_pending_proposals(Permission::ReadOnly)
-        //     .with_escrow_table(Permission::ReadOnly)
-        //     .with_locked_table(Permission::ReadOnly)
-        //     .build()
-        //     .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
-        let mut store = rt.store();
 
-        let mut msm = state.mutator(store);
-        // let mut ttt = Vec::new();
-        // msm.with_pending_proposals(Permission::ReadOnly)
-        //     .with_escrow_table(Permission::ReadOnly)
-        //     .with_locked_table(Permission::ReadOnly)
-        //     .build()
-        //     .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load state"))?;
+        let store = rt.store();
+        let msm = state.mutator(store);
 
         // So actually the for loop too use rt store immutably and also needs to mutably access it.
         // so we will need to isolate them. See below on how it's done in this case.
@@ -410,23 +396,6 @@ impl Actor {
                     })?,
                     value: TokenAmount::zero(),
                 });
-                // let ret = rt.send(
-                //     *VERIFIED_REGISTRY_ACTOR_ADDR,
-                //     crate::verifreg::Method::UseBytes as u64,
-                //     Serialized::serialize(UseBytesParams {
-                //         address: client,
-                //         deal_size: BigInt::from(deal.proposal.piece_size.0),
-                //     })?,
-                //     TokenAmount::zero(),
-                // );
-
-                // if let Err(e) = ret {
-                //     info!(
-                //         "invalid deal {}: failed to acquire datacap exitcode: {}",
-                //         di, e
-                //     );
-                //     continue;
-                // }
             }
 
             // update valid deal state

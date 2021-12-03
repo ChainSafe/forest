@@ -891,14 +891,15 @@ where
             .get_supply(self.epoch, *self.state.borrow())
             .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
     }
+
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
         // TODO: fix this, causes infinite recursion
         //self.charge_gas(GasCharge::new(name, compute, 0))
         self.gas_tracker
             .borrow_mut()
             .charge_gas(GasCharge::new(name, compute, 0))
-        //Ok(())
     }
+
     fn base_fee(&self) -> &TokenAmount {
         &self.base_fee
     }
