@@ -7,7 +7,7 @@ use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
     account, actorv0,
     actorv2::{self, ActorDowncast},
-    actorv3, actorv4, actorv5, ActorVersion,
+    actorv3, actorv4, actorv5, actorv6, ActorVersion,
 };
 use address::{Address, Protocol};
 use blocks::BlockHeader;
@@ -487,6 +487,7 @@ where
                 ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
                 ActorVersion::V4 => actorv4::invoke_code(&code, self, method_num, params),
                 ActorVersion::V5 => actorv5::invoke_code(&code, self, method_num, params),
+                ActorVersion::V6 => actorv6::invoke_code(&code, self, method_num, params),
             }
         } {
             ret
