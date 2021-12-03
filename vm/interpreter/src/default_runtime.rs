@@ -413,11 +413,29 @@ where
             new_rt.charge_gas(cost)?;
         }
 
-        let to_actor = match (*new_rt.state)
+        // let to_actor = match (*new_rt.state)
+        //     .borrow()
+        //     .get_actor(msg.to())
+        //     .map_err(|e| e.downcast_fatal("failed to get actor"))?
+        // {
+        //     Some(act) => act,
+        //     None => {
+        //         // Try to create actor if not exist
+        //         let (to_actor, id_addr) = new_rt.try_create_account_actor(msg.to())?;
+        //         if new_rt.network_version() > NetworkVersion::V3 {
+        //             // Update the receiver to the created ID address
+        //             new_rt.vm_msg.receiver = id_addr;
+        //         }
+        //         to_actor
+        //     }
+        // };
+
+        let maybe_to_actor = (*new_rt.state)
             .borrow()
             .get_actor(msg.to())
-            .map_err(|e| e.downcast_fatal("failed to get actor"))?
-        {
+            .map_err(|e| e.downcast_fatal("failed to get actor"))?;
+
+        let to_actor = match maybe_to_actor {
             Some(act) => act,
             None => {
                 // Try to create actor if not exist
@@ -876,7 +894,10 @@ where
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
         // TODO: fix this, causes infinite recursion
         //self.charge_gas(GasCharge::new(name, compute, 0))
-        Ok(())
+        self.gas_tracker
+            .borrow_mut()
+            .charge_gas(GasCharge::new(name, compute, 0))
+        //Ok(())
     }
     fn base_fee(&self) -> &TokenAmount {
         &self.base_fee
