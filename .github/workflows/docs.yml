@@ -1,0 +1,19 @@
+name: Publish docs
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish-docs:
+    name: publish docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+      - run: |
+          cargo install mdbook
+          mdbook build ./documentation
+          bash ./scripts/build-rust-docs.sh
