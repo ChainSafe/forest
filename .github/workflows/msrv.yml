@@ -45,7 +45,6 @@ jobs:
           override: true
 
       - name: Run cargo test
-        uses: actions-rs/toolchain@v1
         run: make test
 
   fmt:
@@ -123,7 +122,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: build
-        uses: actions-rs/toolchain@v1
         run: |
           git submodule update --init
           make run-vectors
@@ -145,7 +143,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - name: build
-        uses: actions-rs/toolchain@v1
         run: |
           cargo install cargo-audit
           cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071
