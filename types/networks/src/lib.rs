@@ -15,6 +15,12 @@ mod mainnet;
 #[cfg(feature = "mainnet")]
 pub use self::mainnet::*;
 
+#[cfg(feature = "conformance")]
+mod mainnet;
+#[cfg(feature = "conformace")]
+pub use self::mainnet::*;
+pub use crate::mainnet::*;
+
 #[cfg(all(
     feature = "interopnet",
     not(feature = "devnet"),

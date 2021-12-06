@@ -481,7 +481,11 @@ where
         to: &Address,
     ) -> Result<Serialized, ActorError> {
         let actor_version = actor::ActorVersion::from(self.network_version());
-        println!("invoke network_version {:?} actor_version {}", self.network_version(), actor_version);
+        println!(
+            "invoke network_version {:?} actor_version {}",
+            self.network_version(),
+            actor_version
+        );
 
         let ret = if let Some(ret) = {
             match actor_version {
@@ -828,7 +832,9 @@ where
         // * Lotus does undef address check here, should be impossible to hit.
         // * if diff with `SysErrIllegalArgument` check here
         if !actor::is_builtin_actor(&code_id) {
-            return Err(actor_error!(SysErrIllegalArgument; "Can only create built-in actors."));
+            return Err(
+                actor_error!(SysErrIllegalArgument; "Can only create built-in actors. code={}", code_id),
+            );
         }
 
         if actor::is_singleton_actor(&code_id) {
