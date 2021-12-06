@@ -303,6 +303,7 @@ async fn conformance_test_runner() {
                     )
                     .await
                     {
+                        println!("{} failed, variant {}", test_name, variant.id);
                         failed.push((
                             format!("{} variant {}", test_name, variant.id),
                             meta.clone(),

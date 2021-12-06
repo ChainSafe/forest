@@ -390,19 +390,19 @@ where
         };
 
         // If from actor is not an account actor, return error.
-        #[cfg(not(test_vectors))]
-        if !actor::is_account_actor(&from_act.code) {
-            return Ok(ApplyRet {
-                msg_receipt: MessageReceipt {
-                    return_data: Serialized::default(),
-                    exit_code: ExitCode::SysErrSenderInvalid,
-                    gas_used: 0,
-                },
-                penalty: miner_penalty_amount,
-                act_error: Some(actor_error!(SysErrSenderInvalid; "send not from account actor")),
-                miner_tip: 0.into(),
-            });
-        };
+        // #[cfg(not(test_vectors))]
+        // if !actor::is_account_actor(&from_act.code) {
+        //     return Ok(ApplyRet {
+        //         msg_receipt: MessageReceipt {
+        //             return_data: Serialized::default(),
+        //             exit_code: ExitCode::SysErrSenderInvalid,
+        //             gas_used: 0,
+        //         },
+        //         penalty: miner_penalty_amount,
+        //         act_error: Some(actor_error!(SysErrSenderInvalid; "send not from account actor")),
+        //         miner_tip: 0.into(),
+        //     });
+        // };
 
         // Check sequence is correct
         if msg.sequence() != from_act.sequence {

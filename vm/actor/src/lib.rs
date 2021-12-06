@@ -114,6 +114,7 @@ where
     } else if code == &*VERIFREG_ACTOR_CODE_ID {
         Some(verifreg::Actor::invoke_method(rt, method_num, params))
     } else {
+        println!("couldn't invoke code {}", code);
         None
     }
 }

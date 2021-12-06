@@ -480,8 +480,11 @@ where
         params: &Serialized,
         to: &Address,
     ) -> Result<Serialized, ActorError> {
+        let actor_version = actor::ActorVersion::from(self.network_version());
+        println!("invoke network_version {:?} actor_version {}", self.network_version(), actor_version);
+
         let ret = if let Some(ret) = {
-            match actor::ActorVersion::from(self.network_version()) {
+            match actor_version {
                 ActorVersion::V0 => actorv0::invoke_code(&code, self, method_num, params),
                 ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
                 ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
@@ -496,8 +499,9 @@ where
         } else {
             Err(actor_error!(
                 SysErrIllegalActor,
-                "no code for actor at address {}",
-                to
+                "no code for actor at address {} with code {}",
+                to,
+                code
             ))
         }?;
 
