@@ -362,7 +362,6 @@ where
         let from_act = match self.state.get_actor(msg.from()) {
             Ok(Some(from_act)) => from_act,
             Ok(None) => {
-                println!("NONE!!!!!!");
                 return Ok(ApplyRet {
                     msg_receipt: MessageReceipt {
                         return_data: Serialized::default(),
@@ -370,7 +369,7 @@ where
                         gas_used: 0,
                     },
                     penalty: miner_penalty_amount,
-                    act_error: Some(actor_error!(SysErrSenderInvalid; "Sender invalid NONE!!!!!")),
+                    act_error: Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
                     miner_tip: 0.into(),
                 });
             }

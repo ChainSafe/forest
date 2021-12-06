@@ -358,7 +358,7 @@ async fn conformance_test_runner() {
         }
     }
 
-    println!("{}/{} tests passed:", succeeded, failed.len() + succeeded);
+    println!("conformance tests result: {}/{} tests passed:", succeeded, failed.len() + succeeded);
     if !failed.is_empty() {
         for (path, meta, e) in failed {
             eprintln!(
