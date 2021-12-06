@@ -319,7 +319,7 @@ pub mod json {
             S: Serializer,
         {
             v.as_ref()
-                .map(|s| SignatureJsonRef(s))
+                .map(SignatureJsonRef)
                 .serialize(serializer)
         }
 

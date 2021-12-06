@@ -110,7 +110,7 @@ pub mod json {
             S: Serializer,
         {
             v.as_ref()
-                .map(|s| MessageReceiptJsonRef(s))
+                .map(MessageReceiptJsonRef)
                 .serialize(serializer)
         }
 
