@@ -1,10 +1,10 @@
 on: [pull_request]
 
-name: MSRV
+name: msrv
 
 jobs:
   check:
-    name: Check
+    name: check
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -78,7 +78,7 @@ jobs:
           args: --all -- --check
 
   clippy:
-    name: Clippy
+    name: clippy
     runs-on: ubuntu-latest
     strategy:
       matrix:
