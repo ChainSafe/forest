@@ -26,7 +26,9 @@ use crate::validation::TipsetValidator;
 use actor::{is_account_actor, power};
 use address::Address;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys};
+use blocks::{
+    Block, BlockHeader, Error as ForestBlockError, FullTipset, Ticket, Tipset, TipsetKeys,
+};
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
@@ -196,15 +198,6 @@ impl TipsetGroup {
     }
 
     fn heaviest_weight(&self) -> BigInt {
-        // Unwrapping is safe because we initialize the struct with at least one tipset
-        self.tipsets
-            .iter()
-            .map(|ts| ts.weight().clone())
-            .max()
-            .unwrap()
-    }
-
-    fn heaviest_weight_compared(&self) -> BigInt {
         let mut sorted_tipsets = self.tipsets.clone();
         sorted_tipsets.sort_by_key(|ts| ts.weight().clone());
 
@@ -220,16 +213,28 @@ impl TipsetGroup {
             }
         }
 
+        // no need to check if there aren't any tipsets
+        // struct gets initialized with atleast 1
         if heaviest_tipsets.len() == 1 {
-            heaviest_tipsets
-                .first()
-                .cloned()
-                .unwrap()
-                .weight()
-                .to_owned()
-        } else {
-            todo!()
+            return heaviest_tipsets.first().unwrap().weight().to_owned();
         }
+
+        let mut smallest_ticket: Option<Ticket> = None;
+        let mut heaviest_tipset = BigInt::default();
+
+        for tipset in heaviest_tipsets {
+            // Ticket comparison is done by interpreting the tickets' Bytes as unsigned integers (little endian representation)
+            let ticket = tipset.min_ticket().cloned().unwrap();
+
+            if let Some(ref t) = smallest_ticket {
+                if smallest_ticket.is_none() || t.vrfproof < ticket.vrfproof {
+                    smallest_ticket = Some(ticket);
+                    heaviest_tipset = tipset.weight().clone();
+                }
+            }
+        }
+
+        heaviest_tipset
     }
 
     fn merge(&mut self, other: Self) {
