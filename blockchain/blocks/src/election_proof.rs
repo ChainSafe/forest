@@ -228,9 +228,7 @@ pub mod json {
         where
             S: Serializer,
         {
-            v.as_ref()
-                .map(|s| ElectionProofJsonRef(s))
-                .serialize(serializer)
+            v.as_ref().map(ElectionProofJsonRef).serialize(serializer)
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<ElectionProof>, D::Error>

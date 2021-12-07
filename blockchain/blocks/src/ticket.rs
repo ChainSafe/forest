@@ -67,7 +67,7 @@ pub mod json {
         where
             S: Serializer,
         {
-            v.as_ref().map(|s| TicketJsonRef(s)).serialize(serializer)
+            v.as_ref().map(TicketJsonRef).serialize(serializer)
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Ticket>, D::Error>
