@@ -357,12 +357,19 @@ where
     ) -> Result<Serialized, ActorError> {
         // * Following logic would be called in the go runtime initialization.
         // * Since We reuse the runtime, all of these things need to happen on each call
+<<<<<<< HEAD
 
         if self.depth + 1 > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
             return Err(actor_error!(
+=======
+        self.caller_validated = false;
+        self.depth += 1;
+        if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
+            return Err(actor_error!(recovered(
+>>>>>>> 77843b326d64f072a8db37bb6e94c15ae4b32042
                 SysErrForbidden,
                 "message execution exceeds call depth"
-            ));
+            )));
         }
 
         let caller = self.resolve_address(msg.from())?.ok_or_else(|| {
@@ -790,7 +797,10 @@ where
         value: TokenAmount,
     ) -> Result<Serialized, ActorError> {
         if !self.allow_internal {
-            return Err(actor_error!(SysErrIllegalActor; "runtime.send() is not allowed"));
+            return Err(actor_error!(recovered(
+                SysErrIllegalActor,
+                "runtime.send() is not allowed"
+            )));
         }
 
         let ret = self

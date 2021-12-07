@@ -596,6 +596,9 @@ where
                 out = ser;
             }
             Err(e) => {
+                if e.is_recovered() {
+                    return Err(e);
+                }
                 code = e.exit_code();
             }
         }

@@ -190,14 +190,7 @@ impl Actor {
             params.peer_id,
             params.multi_addresses,
             params.window_post_proof_type,
-        )
-        .map_err(|e| {
-            actor_error!(
-                ErrIllegalState,
-                "failed to construct initial miner info: {}",
-                e
-            )
-        })?;
+        )?;
         let info_cid = rt.store().put(&info, Blake2b256).map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
@@ -679,10 +672,9 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let sector_numbers = params
-            .sector_numbers
-            .validate()
-            .map_err(|e| actor_error!(ErrIllegalArgument, "Invalid Bitfield argument:{}", e))?;
+        let sector_numbers = params.sector_numbers.validate().map_err(|e| {
+            actor_error!(ErrIllegalState, "fail to count aggregated sectors: {}", e)
+        })?;
         let agg_sectors_count = sector_numbers.len();
 
         if agg_sectors_count > MAX_AGGREGATED_SECTORS {
@@ -2802,7 +2794,6 @@ impl Actor {
             })?;
 
         let amount_withdrawn = std::cmp::min(&available_balance, &params.amount_requested);
-        assert!(!amount_withdrawn.is_negative());
         if amount_withdrawn.is_negative() {
             return Err(actor_error!(
                 ErrIllegalState,
@@ -4182,6 +4173,7 @@ where
                     "precommit {} has lifetime {} less than minimum {}. ignoring",
                     pre_commit.info.sector_number, duration, MIN_SECTOR_EXPIRATION,
                 );
+                continue;
             }
 
             let power = qa_power_for_weight(
