@@ -260,6 +260,7 @@ impl StepCost {
 
 /// Provides prices for operations in the VM
 #[derive(Clone, Debug)]
+#[allow(clippy::all)]
 pub struct PriceList {
     /// Compute gas charge multiplier
     // * This multiplier is not currently applied to anything, but is matching lotus.

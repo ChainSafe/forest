@@ -684,7 +684,7 @@ impl Actor {
                 .compute_unsealed_sector_cid(comm_input.sector_type, &pieces)
                 .map_err(|e| {
                     e.downcast_default(
-                        ExitCode::SysErrIllegalArgument,
+                        ExitCode::ErrIllegalArgument,
                         "failed to compute unsealed sector CID",
                     )
                 })?;
@@ -1185,7 +1185,7 @@ where
     if proposal.end_epoch <= proposal.start_epoch {
         return Err(actor_error!(
             ErrIllegalArgument,
-            "proposal end before start"
+            "proposal end before proposal start"
         ));
     }
 
@@ -1231,8 +1231,8 @@ where
 
     let (min_client_collateral, max_client_collateral) =
         deal_client_collateral_bounds(proposal.piece_size, proposal.duration());
-    if proposal.provider_collateral < min_client_collateral
-        || &proposal.provider_collateral > max_client_collateral
+    if proposal.client_collateral < min_client_collateral
+        || &proposal.client_collateral > max_client_collateral
     {
         return Err(actor_error!(
             ErrIllegalArgument,
@@ -1251,12 +1251,6 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if proposal.proposal.end_epoch <= proposal.proposal.start_epoch {
-        return Err(actor_error!(
-            ErrIllegalArgument,
-            "proposal end epoch before start epoch"
-        ));
-    }
     // Generate unsigned bytes
     let sv_bz = to_vec(&proposal.proposal)
         .map_err(|e| ActorError::from(e).wrap("failed to serialize DealProposal"))?;
