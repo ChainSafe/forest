@@ -356,10 +356,10 @@ where
         self.caller_validated = false;
         self.depth += 1;
         if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
-            return Err(actor_error!(
+            return Err(actor_error!(recovered(
                 SysErrForbidden,
                 "message execution exceeds call depth"
-            ));
+            )));
         }
 
         let caller = self.resolve_address(msg.from())?.ok_or_else(|| {
@@ -727,7 +727,10 @@ where
         value: TokenAmount,
     ) -> Result<Serialized, ActorError> {
         if !self.allow_internal {
-            return Err(actor_error!(SysErrIllegalActor; "runtime.send() is not allowed"));
+            return Err(actor_error!(recovered(
+                SysErrIllegalActor,
+                "runtime.send() is not allowed"
+            )));
         }
 
         let ret = self
