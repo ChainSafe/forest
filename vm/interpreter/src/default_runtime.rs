@@ -334,15 +334,15 @@ where
         // This logic is the equivalent to the go implementation creating a new runtime with
         // shared values.
         // All other fields will be updated from the execution.
-        // let prev_val = self.caller_validated;
-        // let prev_depth = self.depth;
-        // let prev_msg = self.vm_msg.clone();
+        let prev_val = self.caller_validated;
+        let prev_depth = self.depth;
+        let prev_msg = self.vm_msg.clone();
         let res = self.execute_send(msg, gas_cost);
 
         // Reset values back to their values before the call
-        // self.vm_msg = prev_msg;
-        // self.caller_validated = prev_val;
-        // self.depth = prev_depth;
+        self.vm_msg = prev_msg;
+        self.caller_validated = prev_val;
+        self.depth = prev_depth;
 
         res
     }
@@ -357,7 +357,8 @@ where
     ) -> Result<Serialized, ActorError> {
         // * Following logic would be called in the go runtime initialization.
         // * Since We reuse the runtime, all of these things need to happen on each call
-        self.caller_validated = false;
+        // TODO: fix this?
+        //self.caller_validated = false;
         self.depth += 1;
         if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
             return Err(actor_error!(recovered(
@@ -413,23 +414,6 @@ where
         if let Some(cost) = gas_cost {
             new_rt.charge_gas(cost)?;
         }
-
-        // let to_actor = match (*new_rt.state)
-        //     .borrow()
-        //     .get_actor(msg.to())
-        //     .map_err(|e| e.downcast_fatal("failed to get actor"))?
-        // {
-        //     Some(act) => act,
-        //     None => {
-        //         // Try to create actor if not exist
-        //         let (to_actor, id_addr) = new_rt.try_create_account_actor(msg.to())?;
-        //         if new_rt.network_version() > NetworkVersion::V3 {
-        //             // Update the receiver to the created ID address
-        //             new_rt.vm_msg.receiver = id_addr;
-        //         }
-        //         to_actor
-        //     }
-        // };
 
         let maybe_to_actor = (*new_rt.state)
             .borrow()
@@ -630,7 +614,7 @@ where
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| a == imm) {
             return Err(
-                actor_error!(SysErrForbidden; // TODO: this should be SysErrForbidden but test vectors want this???
+                actor_error!(SysErrForbidden; // TODO: this should be SysErrForbidden but test vectors want ErrForbidden???
                     "caller {} is not one of supported", self.message().caller()
                 ),
             );

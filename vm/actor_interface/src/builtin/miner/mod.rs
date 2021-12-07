@@ -466,7 +466,7 @@ impl State {
             State::V2(_) => actorv2::miner::WPOST_PERIOD_DEADLINES,
             State::V3(_) => actorv3::miner::WPOST_PERIOD_DEADLINES,
             State::V4(_) => actorv4::miner::WPOST_PERIOD_DEADLINES,
-            State::V5(_) => actorv4::miner::WPOST_PERIOD_DEADLINES, // TODO: should this be v5?
+            State::V5(_) => actorv5::miner::WPOST_PERIOD_DEADLINES,
             State::V6(_) => actorv6::miner::WPOST_PERIOD_DEADLINES,
         }
     }

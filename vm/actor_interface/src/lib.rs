@@ -67,7 +67,7 @@ impl From<StateTreeVersion> for ActorVersion {
             StateTreeVersion::V2 => ActorVersion::V3,
             StateTreeVersion::V3 => ActorVersion::V4,
             StateTreeVersion::V4 => ActorVersion::V5,
-            //StateTreeVersion::V4 => ActorVersion::V6,
+            //StateTreeVersion::V4 => ActorVersion::V6, // TODO: what version should it point to?
         }
     }
 }
