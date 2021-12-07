@@ -318,9 +318,7 @@ pub mod json {
         where
             S: Serializer,
         {
-            v.as_ref()
-                .map(|s| SignatureJsonRef(s))
-                .serialize(serializer)
+            v.as_ref().map(SignatureJsonRef).serialize(serializer)
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Signature>, D::Error>
