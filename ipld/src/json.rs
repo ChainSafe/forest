@@ -34,7 +34,7 @@ where
             serializer,
         ),
         Ipld::List(list) => {
-            let wrapped = list.iter().map(|ipld| IpldJsonRef(ipld));
+            let wrapped = list.iter().map(IpldJsonRef);
             serializer.collect_seq(wrapped)
         }
         Ipld::Map(map) => {
