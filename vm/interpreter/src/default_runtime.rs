@@ -727,7 +727,10 @@ where
         value: TokenAmount,
     ) -> Result<Serialized, ActorError> {
         if !self.allow_internal {
-            return Err(actor_error!(recovered(SysErrIllegalActor, "runtime.send() is not allowed")));
+            return Err(actor_error!(recovered(
+                SysErrIllegalActor,
+                "runtime.send() is not allowed"
+            )));
         }
 
         let ret = self
