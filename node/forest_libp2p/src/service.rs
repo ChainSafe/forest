@@ -50,6 +50,7 @@ pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
 /// Events emitted by this Service.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum NetworkEvent {
     PubsubMessage {
@@ -72,6 +73,7 @@ pub enum NetworkEvent {
 }
 
 /// Message types that can come over GossipSub
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum PubsubMessage {
     /// Messages that come over the block topic
