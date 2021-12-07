@@ -1185,7 +1185,7 @@ where
     if proposal.end_epoch <= proposal.start_epoch {
         return Err(actor_error!(
             ErrIllegalArgument,
-            "proposal end before start"
+            "proposal end before proposal start"
         ));
     }
 
@@ -1251,12 +1251,6 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    if proposal.proposal.end_epoch <= proposal.proposal.start_epoch {
-        return Err(actor_error!(
-            ErrIllegalArgument,
-            "proposal end epoch before start epoch"
-        ));
-    }
     // Generate unsigned bytes
     let sv_bz = to_vec(&proposal.proposal)
         .map_err(|e| ActorError::from(e).wrap("failed to serialize DealProposal"))?;
