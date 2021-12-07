@@ -597,6 +597,9 @@ impl Actor {
                         );
                         continue;
                     }
+
+                    // Decrement miner count to keep stats consistent.
+                    st.miner_count -= 1;
                 }
 
                 st.claims = claims.flush().map_err(|e| {
