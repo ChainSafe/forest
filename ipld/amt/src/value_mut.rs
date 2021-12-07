@@ -41,6 +41,6 @@ impl<V> Deref for ValueMut<'_, V> {
 impl<V> DerefMut for ValueMut<'_, V> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.value_mutated = true;
-        &mut self.value
+        self.value
     }
 }

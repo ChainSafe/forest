@@ -84,7 +84,7 @@ pub mod opt {
     where
         S: Serializer,
     {
-        v.as_ref().map(|s| CidJsonRef(s)).serialize(serializer)
+        v.as_ref().map(CidJsonRef).serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Cid>, D::Error>

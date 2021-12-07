@@ -353,7 +353,7 @@ where
         let sub_i = i / nodes_for_height(bit_width, height);
 
         match self {
-            Self::Leaf { vals } => Ok(vals.get_mut(i).map(|v| std::mem::take(v)).flatten()),
+            Self::Leaf { vals } => Ok(vals.get_mut(i).map(std::mem::take).flatten()),
             Self::Link { links } => {
                 let (deleted, replace) = match &mut links[sub_i] {
                     Some(Link::Dirty(n)) => {
