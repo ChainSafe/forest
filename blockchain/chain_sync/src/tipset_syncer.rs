@@ -226,6 +226,7 @@ impl TipsetGroup {
             // Ticket comparison is done by interpreting the tickets' Bytes as unsigned integers (little endian representation)
             let ticket = tipset.min_ticket().cloned().unwrap();
 
+            // TODO: if tickets match, find next minimum and compare
             if let Some(ref t) = smallest_ticket {
                 if smallest_ticket.is_none() || t.vrfproof < ticket.vrfproof {
                     smallest_ticket = Some(ticket);
