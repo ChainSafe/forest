@@ -109,9 +109,7 @@ pub mod json {
         where
             S: Serializer,
         {
-            v.as_ref()
-                .map(|s| MessageReceiptJsonRef(s))
-                .serialize(serializer)
+            v.as_ref().map(MessageReceiptJsonRef).serialize(serializer)
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<MessageReceipt>, D::Error>

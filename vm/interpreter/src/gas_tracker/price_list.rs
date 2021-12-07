@@ -15,7 +15,7 @@ use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
 lazy_static! {
     static ref BASE_PRICES: PriceList = PriceList {
-        compute_gas_multiplier: 1,
+        _compute_gas_multiplier: 1,
         storage_gas_multiplier: 1000,
 
         on_chain_message_compute_base: 38863,
@@ -44,7 +44,7 @@ lazy_static! {
         compute_unsealed_sector_cid_base: 98647,
         verify_seal_base: 2000, // TODO revisit potential removal of this
 
-        verify_aggregate_seal_base: 0,
+        _verify_aggregate_seal_base: 0,
         verify_aggregate_seal_per: [
             (
                 RegisteredSealProof::StackedDRG32GiBV1P1,
@@ -121,7 +121,7 @@ lazy_static! {
     };
 
     static ref CALICO_PRICES: PriceList = PriceList {
-        compute_gas_multiplier: 1,
+        _compute_gas_multiplier: 1,
         storage_gas_multiplier: 1300,
 
         on_chain_message_compute_base: 38863,
@@ -150,7 +150,7 @@ lazy_static! {
         compute_unsealed_sector_cid_base: 98647,
         verify_seal_base: 2000, // TODO revisit potential removal of this
 
-        verify_aggregate_seal_base: 0,
+        _verify_aggregate_seal_base: 0,
         verify_aggregate_seal_per: [
             (
                 RegisteredSealProof::StackedDRG32GiBV1P1,
@@ -264,7 +264,7 @@ pub struct PriceList {
     /// Compute gas charge multiplier
     // * This multiplier is not currently applied to anything, but is matching lotus.
     // * If the possible values are non 1 or if Lotus adds, we should change also.
-    pub(crate) compute_gas_multiplier: i64,
+    pub(crate) _compute_gas_multiplier: i64,
     /// Storage gas charge multiplier
     pub(crate) storage_gas_multiplier: i64,
 
@@ -335,7 +335,7 @@ pub struct PriceList {
 
     pub(crate) compute_unsealed_sector_cid_base: i64,
     pub(crate) verify_seal_base: i64,
-    pub(crate) verify_aggregate_seal_base: i64,
+    pub(crate) _verify_aggregate_seal_base: i64,
     pub(crate) verify_aggregate_seal_per: AHashMap<RegisteredSealProof, i64>,
     pub(crate) verify_aggregate_seal_steps: AHashMap<RegisteredSealProof, StepCost>,
 
