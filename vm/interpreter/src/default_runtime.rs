@@ -194,7 +194,7 @@ where
 
     /// Adds to amount of used.
     /// * Will borrow gas tracker RefCell, do not call if any reference to this exists
-    pub fn charge_gas(&self, gas: GasCharge) -> Result<(), ActorError> {
+    pub fn charge_gas(&mut self, gas: GasCharge) -> Result<(), ActorError> {
         self.gas_tracker.borrow_mut().charge_gas(gas)
     }
 
@@ -279,7 +279,7 @@ where
     }
 
     fn internal_send(
-        &self,
+        &mut self,
         from: Address,
         to: Address,
         method: MethodNum,
@@ -325,7 +325,7 @@ where
     /// It invokes methods on different Actors based on the Message.
     /// This function is somewhat equivalent to the go implementation's vm send.
     pub fn send(
-        &self,
+        &mut self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
@@ -351,22 +351,16 @@ where
     /// This is necessary to follow to follow the same control flow of the go implementation
     /// cleanly without doing anything memory unsafe.
     fn execute_send(
-        &self,
+        &mut self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
         // * Following logic would be called in the go runtime initialization.
         // * Since We reuse the runtime, all of these things need to happen on each call
-<<<<<<< HEAD
-
-        if self.depth + 1 > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
-            return Err(actor_error!(
-=======
         self.caller_validated = false;
         self.depth += 1;
         if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
             return Err(actor_error!(recovered(
->>>>>>> 77843b326d64f072a8db37bb6e94c15ae4b32042
                 SysErrForbidden,
                 "message execution exceeds call depth"
             )));
@@ -527,7 +521,7 @@ where
 
     /// creates account actors from only BLS/SECP256K1 addresses.
     pub fn try_create_account_actor(
-        &self,
+        &mut self,
         addr: &Address,
     ) -> Result<(ActorState, Address), ActorError> {
         self.charge_gas(self.price_list().on_create_actor())?;
@@ -635,9 +629,11 @@ where
 
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| a == imm) {
-            return Err(actor_error!(SysErrForbidden; // TODO: this should be SysErrForbidden but test vectors want this???
-                "caller {} is not one of supported", self.message().caller()
-            ));
+            return Err(
+                actor_error!(SysErrForbidden; // TODO: this should be SysErrForbidden but test vectors want this???
+                    "caller {} is not one of supported", self.message().caller()
+                ),
+            );
         }
         Ok(())
     }
@@ -857,7 +853,7 @@ where
         }
 
         let gas_charge = self.price_list.on_create_actor();
-        self.charge_gas(gas_charge.name, gas_charge.compute_gas)?;
+        self.charge_gas(gas_charge)?;
         self.state
             .borrow_mut()
             .set_actor(
@@ -873,7 +869,7 @@ where
     /// May only be called by the actor itself.
     fn delete_actor(&mut self, beneficiary: &Address) -> Result<(), ActorError> {
         let gas_charge = self.price_list.on_delete_actor();
-        self.charge_gas(gas_charge.name, gas_charge.compute_gas)?;
+        self.charge_gas(gas_charge)?;
         let receiver = *self.message().receiver();
         let balance = self
             .state

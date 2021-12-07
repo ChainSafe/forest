@@ -272,11 +272,13 @@ impl Actor {
         // This is fine if it doesn't affect the semantics of market actor send method call.
         // like if the send calls needs to happen immediately within the loop, then this won't work
         // but if it doesn't affect, we can use the approach below.
-        struct Foo {
+        struct Foo<'a> {
             to: Address,
             method: u64,
             params: Serialized,
             value: TokenAmount,
+            di: usize,
+            deal: &'a mut deal::ClientDealProposal,
         }
         let mut method_queue: Vec<Foo> = vec![];
 
@@ -395,14 +397,16 @@ impl Actor {
                         deal_size: BigInt::from(deal.proposal.piece_size.0),
                     })?,
                     value: TokenAmount::zero(),
+                    di: di,
+                    deal: deal,
                 });
             }
 
-            // update valid deal state
+            // // update valid deal state
             proposal_cid_lookup.insert(pcid.clone());
-            valid_proposal_cids.push(pcid);
-            valid_deals.push(deal.clone());
-            valid_input_bf.set(di);
+            // valid_proposal_cids.push(pcid);
+            // valid_deals.push(deal.clone());
+            // valid_input_bf.set(di);
         }
 
         // we then loop over it and call rt.send()
@@ -414,17 +418,29 @@ impl Actor {
                 method,
                 params,
                 value,
+                di,
+                deal,
             } = i;
             let ret = rt.send(to, method, params, value);
 
             if let Err(e) = ret {
                 // TODO: can also pass di as a field in the Foo struct if we want that info
-                // info!(
-                //     "invalid deal {}: failed to acquire datacap exitcode: {}",
-                //     di, e
-                // );
+                info!(
+                    "invalid deal {}: failed to acquire datacap exitcode: {}",
+                    di, e
+                );
                 continue;
             }
+
+            let pcid = deal.proposal.cid().map_err(|e| {
+                ActorError::from(e).wrap(format!("failed to take cid of proposal {}", di))
+            })?;
+
+            // update valid deal state
+            proposal_cid_lookup.insert(pcid.clone());
+            valid_proposal_cids.push(pcid);
+            valid_deals.push(deal.clone());
+            valid_input_bf.set(di);
         }
 
         let valid_deal_count = valid_input_bf.len();
@@ -1313,18 +1329,18 @@ fn validate_deal<BS, RT>(
     deal: &ClientDealProposal,
     network_raw_power: &StoragePower,
     baseline_power: &StoragePower,
-) -> Result<(), String>
+) -> Result<(), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    deal_proposal_is_internally_valid(rt, deal)
-        .map_err(|e| format!("invalid deal proposal {}", e))?;
+    deal_proposal_is_internally_valid(rt, deal)?;
 
     let proposal = &deal.proposal;
 
     if proposal.label.len() > DEAL_MAX_LABEL_SIZE {
-        return Err(format!(
+        return Err(actor_error!(
+            ErrIllegalArgument,
             "deal label can be at most {} bytes, is {}",
             DEAL_MAX_LABEL_SIZE,
             proposal.label.len()
@@ -1334,52 +1350,62 @@ where
     proposal
         .piece_size
         .validate()
-        .map_err(|e| format!("proposal piece size is invalid: {}", e))?;
+        .map_err(|e| actor_error!(ErrIllegalArgument, "proposal piece size is invalid: {}", e))?;
 
     // * we are skipping the check for if Cid is defined, but this shouldn't be possible
 
     if Prefix::from(proposal.piece_cid) != PIECE_CID_PREFIX {
-        return Err(String::from("proposal PieceCID undefined"));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "proposal PieceCID undefined"
+        ));
     }
 
     if proposal.end_epoch <= proposal.start_epoch {
-// <<<<<<< HEAD
-//         return Err(format!("proposal end before start"));
-// =======
         return Err(actor_error!(
             ErrIllegalArgument,
             "proposal end before proposal start"
         ));
-//>>>>>>> 77843b326d64f072a8db37bb6e94c15ae4b32042
     }
 
     if rt.curr_epoch() > proposal.start_epoch {
-        return Err(String::from("Deal start epoch has already elapsed."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Deal start epoch has already elapsed."
+        ));
     };
 
     let (min_dur, max_dur) = deal_duration_bounds(proposal.piece_size);
     if proposal.duration() < min_dur || proposal.duration() > max_dur {
-        return Err(String::from("Deal duration out of bounds."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Deal duration out of bounds."
+        ));
     };
 
     let (min_price, max_price) =
         deal_price_per_epoch_bounds(proposal.piece_size, proposal.duration());
     if proposal.storage_price_per_epoch < min_price || &proposal.storage_price_per_epoch > max_price
     {
-        return Err(String::from("Storage price out of bounds."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Storage price out of bounds."
+        ));
     };
 
     let (min_provider_collateral, max_provider_collateral) = deal_provider_collateral_bounds(
         proposal.piece_size,
         network_raw_power,
         baseline_power,
-        &rt.total_fil_circ_supply()
-            .map_err(|e| format!("failed to load total fil circ supply: {}", e))?,
+        &rt.total_fil_circ_supply()?,
     );
     if proposal.provider_collateral < min_provider_collateral
         || &proposal.provider_collateral > max_provider_collateral
     {
-        return Err(String::from("Provider collateral out of bounds."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Provider collateral out of bounds."
+        ));
     };
 
     let (min_client_collateral, max_client_collateral) =
@@ -1387,7 +1413,10 @@ where
     if proposal.client_collateral < min_client_collateral
         || &proposal.client_collateral > max_client_collateral
     {
-        return Err(String::from("Client collateral out of bounds."));
+        return Err(actor_error!(
+            ErrIllegalArgument,
+            "Client collateral out of bounds."
+        ));
     };
 
     Ok(())
