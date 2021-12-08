@@ -389,7 +389,6 @@ where
         };
 
         // If from actor is not an account actor, return error.
-        // TODO: fix this
         #[cfg(not(test_vectors))]
         if !actor::is_account_actor(&from_act.code) {
             return Ok(ApplyRet {
