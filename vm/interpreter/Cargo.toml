@@ -34,3 +34,5 @@ state_migration = { path = "../state_migration" }
 ipld_hamt = "1.0"
 interpreter = { path = "../interpreter/" }
 
+[features]
+test_vectors = []

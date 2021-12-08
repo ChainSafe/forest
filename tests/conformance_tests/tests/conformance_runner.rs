@@ -61,6 +61,14 @@ fn is_valid_file(entry: &DirEntry) -> bool {
             return false;
         }
     }
+
+    // only run v6 vectors
+    let v6_filepath = Regex::new(r"specs_actors_v6").unwrap();
+    if !v6_filepath.is_match(file_name) {
+        println!("SKIPPING: {}", file_name);
+        return false;
+    }
+
     file_name.ends_with(".json")
 }
 
@@ -105,21 +113,21 @@ fn check_msg_result(
         ));
     }
 
+    let (expected, actual) = (&expected_rec.return_data, &actual_rec.return_data);
+    if expected != actual {
+        return Err(format!(
+            "return data of msg {} did not match; expected: {:?}, got {:?}",
+            label,
+            expected.as_slice(),
+            actual.as_slice()
+        ));
+    }
+
     let (expected, actual) = (expected_rec.gas_used, actual_rec.gas_used);
     if expected != actual {
         return Err(format!(
             "gas used of msg {} did not match; expected: {}, got {}",
             label, expected, actual
-        ));
-    }
-
-    let (expected, actual) = (&expected_rec.return_data, &actual_rec.return_data);
-    if expected != actual {
-        return Err(format!(
-            "return data of msg {} did not match; expected: {}, got {}",
-            label,
-            base64::encode(expected.as_slice()),
-            base64::encode(actual.as_slice())
         ));
     }
 
@@ -303,6 +311,7 @@ async fn conformance_test_runner() {
                     )
                     .await
                     {
+                        println!("{} failed, variant {}", test_name, variant.id);
                         failed.push((
                             format!("{} variant {}", test_name, variant.id),
                             meta.clone(),
@@ -349,7 +358,11 @@ async fn conformance_test_runner() {
         }
     }
 
-    println!("{}/{} tests passed:", succeeded, failed.len() + succeeded);
+    println!(
+        "conformance tests result: {}/{} tests passed:",
+        succeeded,
+        failed.len() + succeeded
+    );
     if !failed.is_empty() {
         for (path, meta, e) in failed {
             eprintln!(

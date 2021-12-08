@@ -15,6 +15,12 @@ mod mainnet;
 #[cfg(feature = "mainnet")]
 pub use self::mainnet::*;
 
+#[cfg(feature = "conformance")]
+mod mainnet;
+#[cfg(feature = "conformace")]
+pub use self::mainnet::*;
+pub use crate::mainnet::*;
+
 #[cfg(all(
     feature = "interopnet",
     not(feature = "devnet"),
@@ -54,7 +60,7 @@ struct DrandPoint<'a> {
     pub config: &'a DrandConfig<'a>,
 }
 
-const VERSION_SCHEDULE: [Upgrade; 13] = [
+const VERSION_SCHEDULE: [Upgrade; 14] = [
     Upgrade {
         height: UPGRADE_BREEZE_HEIGHT,
         network: NetworkVersion::V1,
@@ -106,6 +112,10 @@ const VERSION_SCHEDULE: [Upgrade; 13] = [
     Upgrade {
         height: UPGRADE_HYPERDRIVE_HEIGHT,
         network: NetworkVersion::V13,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V6_HEIGHT,
+        network: NetworkVersion::V14,
     },
 ];
 

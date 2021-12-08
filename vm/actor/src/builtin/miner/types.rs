@@ -1,13 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::DealWeight;
+use crate::{smooth::FilterEstimate, DealWeight};
 use address::Address;
 use bitfield::UnvalidatedBitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::{serde_bytes, tuple::*, BytesDe};
-use fil_types::{PoStProof, Randomness, RegisteredPoStProof, RegisteredSealProof, SectorNumber};
+use fil_types::{
+    PoStProof, Randomness, RegisteredPoStProof, RegisteredSealProof, SectorNumber, StoragePower,
+};
 use num_bigint::bigint_ser;
 use vm::{DealID, TokenAmount};
 
@@ -67,6 +69,17 @@ pub struct ChangeMultiaddrsParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ConfirmSectorProofsParams {
     pub sectors: Vec<SectorNumber>,
+    pub reward_smoothed: FilterEstimate,
+    #[serde(with = "bigint_ser")]
+    pub reward_baseline_power: StoragePower,
+    pub quality_adj_power_smoothed: FilterEstimate,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+pub struct DeferredCronEventParams {
+    #[serde(with = "serde_bytes")]
+    pub event_payload: Vec<u8>,
+    pub reward_smoothed: FilterEstimate,
+    pub quality_adj_power_smoothed: FilterEstimate,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -195,6 +208,13 @@ pub struct ReportConsensusFaultParams {
 pub struct WithdrawBalanceParams {
     #[serde(with = "bigint_ser")]
     pub amount_requested: TokenAmount,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple)]
+#[serde(transparent)]
+pub struct WithdrawBalanceReturn {
+    #[serde(with = "bigint_ser")]
+    pub amount_withdrawn: TokenAmount,
 }
 
 #[derive(Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
