@@ -471,7 +471,7 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         sector_size: SectorSize,
     ) -> Result<(ExpirationSet, PowerPair), Box<dyn StdError>> {
         let mut remaining: HashSet<_> = sectors.iter().map(|sector| sector.sector_number).collect();
-        
+
         // ADDRESSED_SECTORS_MAX is defined as 25000, so this will not error.
         let faults_map: HashSet<_> = faults
             .bounded_iter(ADDRESSED_SECTORS_MAX.try_into().unwrap())
