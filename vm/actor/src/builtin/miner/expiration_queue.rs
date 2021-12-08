@@ -54,12 +54,15 @@ impl ExpirationSet {
         on_time_pledge: &TokenAmount,
         active_power: &PowerPair,
         faulty_power: &PowerPair,
-    ) {
+    ) -> Result<(), Box<dyn StdError>> {
         self.on_time_sectors |= on_time_sectors;
         self.early_sectors |= early_sectors;
         self.on_time_pledge += on_time_pledge;
         self.active_power += active_power;
         self.faulty_power += faulty_power;
+
+        self.validate_state()?;
+        Ok(())
     }
 
     /// Removes sectors and power from the expiration set in place.
@@ -101,6 +104,7 @@ impl ExpirationSet {
             return Err(format!("expiration set power underflow: {:?}", self).into());
         }
 
+        self.validate_state()?;
         Ok(())
     }
 
@@ -320,7 +324,6 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                     );
                 }
                 rescheduled_sectors |= &expiration_set.on_time_sectors;
-                rescheduled_sectors |= &expiration_set.early_sectors;
                 rescheduled_power += &expiration_set.active_power;
                 rescheduled_power += &expiration_set.faulty_power;
             }
@@ -629,13 +632,15 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         let epoch = self.quant.quantize_up(raw_epoch);
         let mut expiration_set = self.may_get(epoch)?;
 
-        expiration_set.add(
-            on_time_sectors,
-            early_sectors,
-            pledge,
-            active_power,
-            faulty_power,
-        );
+        expiration_set
+            .add(
+                on_time_sectors,
+                early_sectors,
+                pledge,
+                active_power,
+                faulty_power,
+            )
+            .map_err(|e| format!("failed to add expiration values for epoch {}: {}", epoch, e))?;
 
         self.must_update(epoch, expiration_set)?;
         Ok(())
