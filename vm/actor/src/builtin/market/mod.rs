@@ -252,7 +252,7 @@ impl Actor {
         }
 
         let baseline_power = request_current_baseline_power(rt)?;
-        let (network_raw_power, network_qa_power) = request_current_network_power(rt)?;
+        let (network_raw_power, _) = request_current_network_power(rt)?;
 
         // Drop invalid deals
         let mut proposal_cid_lookup = HashSet::new();
@@ -391,8 +391,8 @@ impl Actor {
                         deal_size: BigInt::from(deal.proposal.piece_size.0),
                     })?,
                     value: TokenAmount::zero(),
-                    di: di,
-                    deal: deal,
+                    di,
+                    deal,
                 });
             }
 

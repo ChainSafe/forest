@@ -2890,7 +2890,10 @@ impl Actor {
         let payload: CronEventPayload = from_slice(&params.event_payload).map_err(|e| {
             actor_error!(
                 ErrIllegalState,
-                "failed to unmarshal miner cron payload into expected structure"
+                format!(
+                    "failed to unmarshal miner cron payload into expected structure: {}",
+                    e
+                )
             )
         })?;
         match payload.event_type {
