@@ -27,6 +27,7 @@ pub enum State {
     V3(actorv3::power::State),
     V4(actorv4::power::State),
     V5(actorv5::power::State),
+    V6(actorv6::power::State),
 }
 
 impl State {
@@ -59,6 +60,11 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V5)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv6::POWER_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V6)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
         }
@@ -72,6 +78,7 @@ impl State {
             State::V3(st) => st.total_quality_adj_power,
             State::V4(st) => st.total_quality_adj_power,
             State::V5(st) => st.total_quality_adj_power,
+            State::V6(st) => st.total_quality_adj_power,
         }
     }
 
@@ -98,6 +105,10 @@ impl State {
                 raw_byte_power: st.total_raw_byte_power.clone(),
                 quality_adj_power: st.total_quality_adj_power.clone(),
             },
+            State::V6(st) => Claim {
+                raw_byte_power: st.total_raw_byte_power.clone(),
+                quality_adj_power: st.total_quality_adj_power.clone(),
+            },
         }
     }
 
@@ -109,6 +120,7 @@ impl State {
             State::V3(st) => st.into_total_locked(),
             State::V4(st) => st.into_total_locked(),
             State::V5(st) => st.into_total_locked(),
+            State::V6(st) => st.into_total_locked(),
         }
     }
 
@@ -124,6 +136,7 @@ impl State {
             State::V3(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
             State::V4(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
             State::V5(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
+            State::V6(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
         }
     }
 
@@ -180,6 +193,16 @@ impl State {
 
                 Ok(miners)
             }
+            State::V6(st) => {
+                let claims = actorv6::make_map_with_root(&st.claims, s)?;
+                let mut miners = Vec::new();
+                claims.for_each(|k, _: &actorv3::power::Claim| {
+                    miners.push(Address::from_bytes(&k.0)?);
+                    Ok(())
+                })?;
+
+                Ok(miners)
+            }
         }
     }
 
@@ -195,6 +218,7 @@ impl State {
             State::V3(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
             State::V4(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
             State::V5(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
+            State::V6(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
         }
     }
 
@@ -206,6 +230,7 @@ impl State {
             State::V3(st) => st.this_epoch_qa_power_smoothed.clone().into(),
             State::V4(st) => st.this_epoch_qa_power_smoothed.clone().into(),
             State::V5(st) => st.this_epoch_qa_power_smoothed.clone().into(),
+            State::V6(st) => st.this_epoch_qa_power_smoothed.clone().into(),
         }
     }
 
@@ -217,6 +242,7 @@ impl State {
             State::V3(st) => st.total_pledge_collateral.clone(),
             State::V4(st) => st.total_pledge_collateral.clone(),
             State::V5(st) => st.total_pledge_collateral.clone(),
+            State::V6(st) => st.total_pledge_collateral.clone(),
         }
     }
 }
@@ -269,6 +295,15 @@ impl From<actorv4::power::Claim> for Claim {
 
 impl From<actorv5::power::Claim> for Claim {
     fn from(cl: actorv5::power::Claim) -> Self {
+        Self {
+            raw_byte_power: cl.raw_byte_power,
+            quality_adj_power: cl.quality_adj_power,
+        }
+    }
+}
+
+impl From<actorv6::power::Claim> for Claim {
+    fn from(cl: actorv6::power::Claim) -> Self {
         Self {
             raw_byte_power: cl.raw_byte_power,
             quality_adj_power: cl.quality_adj_power,

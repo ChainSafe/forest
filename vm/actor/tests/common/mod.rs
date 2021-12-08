@@ -564,7 +564,9 @@ impl Runtime<MemoryDB> for MockRuntime {
 
         let expected_msg = self.expect_sends.pop_front().unwrap();
 
-        assert!(expected_msg.to == to && expected_msg.method == method && expected_msg.params == params && expected_msg.value == value, "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}", to, method, value, params, self.expect_sends[0]);
+        assert!(expected_msg.to == to && expected_msg.method == method && expected_msg.params == params && expected_msg.value == value,
+            "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}",
+            to, method, value, params, expected_msg);
 
         if value > self.balance {
             return Err(actor_error!(SysErrSenderStateInvalid;
