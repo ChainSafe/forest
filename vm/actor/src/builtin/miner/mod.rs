@@ -68,7 +68,7 @@ use crypto::DomainSeparationTag::{
 use encoding::{from_slice, BytesDe, Cbor};
 use fil_types::{
     deadlines::DeadlineInfo, AggregateSealVerifyInfo, AggregateSealVerifyProofAndInfos,
-    InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredSealProof,
+    InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredPoStProof, RegisteredSealProof,
     SealRandomness as SealRandom, SealVerifyInfo, SealVerifyParams, SectorID, SectorInfo,
     SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER, RANDOMNESS_LENGTH,
 };
@@ -145,6 +145,7 @@ impl Actor {
 
         check_control_addresses(&params.control_addresses)?;
         check_peer_info(&params.peer_id, &params.multi_addresses)?;
+        check_valid_post_proof_type(params.window_post_proof_type)?;
 
         let owner = resolve_control_address(rt, params.owner)?;
         let worker = resolve_worker_address(rt, params.worker)?;
@@ -405,6 +406,22 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let current_epoch = rt.curr_epoch();
+
+        if params.proofs.len() != 1 {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "expected exactly one proof, got {}",
+                params.proofs.len()
+            ));
+        }
+
+        if check_valid_post_proof_type(params.proofs[0].post_proof).is_err() {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "proof type {:?} not allowed",
+                params.proofs[0].post_proof
+            ));
+        }
 
         if params.deadline >= WPOST_PERIOD_DEADLINES as usize {
             return Err(actor_error!(
@@ -4036,6 +4053,18 @@ fn check_control_addresses(control_addrs: &[Address]) -> Result<(), ActorError> 
     }
 
     Ok(())
+}
+
+fn check_valid_post_proof_type(proof_type: RegisteredPoStProof) -> Result<(), ActorError> {
+    match proof_type {
+        RegisteredPoStProof::StackedDRGWindow32GiBV1
+        | RegisteredPoStProof::StackedDRGWindow64GiBV1 => Ok(()),
+        _ => Err(actor_error!(
+            ErrIllegalArgument,
+            "proof type {:?} not allowed for new miner actors",
+            proof_type
+        )),
+    }
 }
 
 fn check_peer_info(peer_id: &[u8], multiaddrs: &[BytesDe]) -> Result<(), ActorError> {
