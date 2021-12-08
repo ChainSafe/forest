@@ -12,40 +12,105 @@ use fil_types::NetworkVersion;
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 
 /// V1 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = 41280;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = -15;
+
 /// V2 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_SMOKE_HEIGHT: ChainEpoch = 51000;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_SMOKE_HEIGHT: ChainEpoch = -14;
+
 /// V3 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_IGNITION_HEIGHT: ChainEpoch = 94000;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_IGNITION_HEIGHT: ChainEpoch = -13;
+
 /// V4 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = 138720;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = -12;
+
 /// V5 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = 140760;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = -11;
+
 /// Switching to mainnet network name
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_LIFTOFF_HEIGHT: i64 = -10;
+
 /// V6 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = 170000;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = -9;
+
 /// V7 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = 265200;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = -8;
+
 /// V8 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 272400;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = -7;
+
 /// V9 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 336458;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = -6;
+
 /// Remove burn on window PoSt fork
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 343200;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = -5;
+
 /// V10 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 550321;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = -4;
+
 /// V11 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 665280;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = -3;
+
 /// V12 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 712320;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = -2;
+
 /// V13 network upgrade
+#[cfg(feature = "mainnet")]
 pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = 892800;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = -1;
+
+/// V14 network update
+#[cfg(feature = "mainnet")]
+pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = 1231620;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = -16;
 
 pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 
 /// Current network version for the network
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V11;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
 
 /// Bootstrap peer ids
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[

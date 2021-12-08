@@ -281,17 +281,40 @@ pub fn locked_reward_from_reward(reward: TokenAmount) -> (TokenAmount, &'static 
 }
 
 lazy_static! {
-    static ref ESTIMATED_SINGLE_PROOF_GAS_USAGE: BigInt = BigInt::from(65733297);
+    static ref ESTIMATED_SINGLE_PROVE_COMMIT_GAS_USAGE: BigInt = BigInt::from(49299973);
+    static ref ESTIMATED_SINGLE_PRE_COMMIT_GAS_USAGE: BigInt = BigInt::from(16433324);
     static ref BATCH_DISCOUNT_NUM: BigInt = BigInt::from(1);
     static ref BATCH_DISCOUNT_DENOM: BigInt = BigInt::from(20);
-    static ref BATCH_BALANCER: BigInt = BigInt::from(2 * 1_000_000_000); // 2 * 1 nanoFIL
+    static ref BATCH_BALANCER: BigInt = BigInt::from(1_000_000_000) * BigInt::from(5); // 5 * 1 nanoFIL
+}
+pub fn aggregate_prove_commit_network_fee(
+    aggregate_size: i64,
+    base_fee: &TokenAmount,
+) -> TokenAmount {
+    aggregate_network_fee(
+        aggregate_size,
+        &ESTIMATED_SINGLE_PROVE_COMMIT_GAS_USAGE,
+        base_fee,
+    )
 }
 
-pub fn aggregate_network_fee(aggregate_size: i64, base_fee: &TokenAmount) -> TokenAmount {
+pub fn aggregate_pre_commit_network_fee(
+    aggregate_size: i64,
+    base_fee: &TokenAmount,
+) -> TokenAmount {
+    aggregate_network_fee(
+        aggregate_size,
+        &ESTIMATED_SINGLE_PRE_COMMIT_GAS_USAGE,
+        base_fee,
+    )
+}
+
+pub fn aggregate_network_fee(
+    aggregate_size: i64,
+    gas_usage: &BigInt,
+    base_fee: &TokenAmount,
+) -> TokenAmount {
     let effective_gas_fee = max(base_fee, &*BATCH_BALANCER);
-    let network_fee_num = effective_gas_fee
-        * &*ESTIMATED_SINGLE_PROOF_GAS_USAGE
-        * aggregate_size
-        * &*BATCH_DISCOUNT_NUM;
+    let network_fee_num = effective_gas_fee * gas_usage * aggregate_size * &*BATCH_DISCOUNT_NUM;
     div_floor(network_fee_num, BATCH_DISCOUNT_DENOM.clone())
 }
