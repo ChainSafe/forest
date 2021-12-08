@@ -267,12 +267,9 @@ impl Actor {
         let store = rt.store();
         let msm = state.mutator(store);
 
-        // So actually the for loop too use rt store immutably and also needs to mutably access it.
-        // so we will need to isolate them. See below on how it's done in this case.
-        // This is fine if it doesn't affect the semantics of market actor send method call.
-        // like if the send calls needs to happen immediately within the loop, then this won't work
-        // but if it doesn't affect, we can use the approach below.
-        struct Foo<'a> {
+        // the for loop too uses rt immutably and also needs to mutably access it.
+        // so we will need to isolate them.
+        struct Deal<'a> {
             to: Address,
             method: u64,
             params: Serialized,
@@ -280,7 +277,7 @@ impl Actor {
             di: usize,
             deal: &'a mut deal::ClientDealProposal,
         }
-        let mut method_queue: Vec<Foo> = vec![];
+        let mut method_queue: Vec<Deal> = vec![];
 
         for (di, deal) in params.deals.iter_mut().enumerate() {
             // drop malformed deals
@@ -385,11 +382,8 @@ impl Actor {
             // check VerifiedClient allowed cap and deduct PieceSize from cap
             // drop deals with a DealSize that cannot be fully covered by VerifiedClient's available DataCap
             if deal.proposal.verified_deal {
-                // ttt.push((client, BigInt::from(deal.proposal.piece_size.0), di));
-
-                // So instead of mutably calling, we queue the rt.send() params as a struct, see Foo
-                // struct defined on Line 297
-                method_queue.push(Foo {
+                // So instead of mutably calling, we queue the rt.send() params as a struct, see Deal struct
+                method_queue.push(Deal {
                     to: *VERIFIED_REGISTRY_ACTOR_ADDR,
                     method: crate::verifreg::Method::UseBytes as u64,
                     params: Serialized::serialize(UseBytesParams {
@@ -404,16 +398,11 @@ impl Actor {
 
             // // update valid deal state
             proposal_cid_lookup.insert(pcid.clone());
-            // valid_proposal_cids.push(pcid);
-            // valid_deals.push(deal.clone());
-            // valid_input_bf.set(di);
         }
 
-        // we then loop over it and call rt.send()
-        // BTW: i think that the for loop has many things going on and we should probably refactor them into separate
-        // methods.
+        // we then loop over the method_queue and call rt.send()
         for i in method_queue {
-            let Foo {
+            let Deal {
                 to,
                 method,
                 params,
@@ -424,7 +413,6 @@ impl Actor {
             let ret = rt.send(to, method, params, value);
 
             if let Err(e) = ret {
-                // TODO: can also pass di as a field in the Foo struct if we want that info
                 info!(
                     "invalid deal {}: failed to acquire datacap exitcode: {}",
                     di, e
@@ -466,25 +454,6 @@ impl Actor {
                 "All deal proposals invalid"
             ));
         }
-
-        // for (a,b,di) in ttt {
-        //     let ret = rt.send(
-        //         *VERIFIED_REGISTRY_ACTOR_ADDR,
-        //         crate::verifreg::Method::UseBytes as u64,
-        //         Serialized::serialize(UseBytesParams {
-        //             address: a,
-        //             deal_size: b,
-        //         })?,
-        //         TokenAmount::zero(),
-        //     );
-        //     if let Err(e) = ret {
-        //         info!(
-        //             "invalid deal {}: failed to acquire datacap exitcode: {}",
-        //             di,e
-        //         );
-        //         continue;
-        //     }
-        // }
 
         let mut new_deal_ids = Vec::new();
 

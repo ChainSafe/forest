@@ -357,8 +357,9 @@ where
     ) -> Result<Serialized, ActorError> {
         // * Following logic would be called in the go runtime initialization.
         // * Since We reuse the runtime, all of these things need to happen on each call
-        // TODO: fix this?
-        //self.caller_validated = false;
+
+        // TODO: fix this following line?
+        // self.caller_validated = false;
         self.depth += 1;
         if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
             return Err(actor_error!(recovered(
@@ -466,11 +467,6 @@ where
         to: &Address,
     ) -> Result<Serialized, ActorError> {
         let actor_version = actor::ActorVersion::from(self.network_version());
-        // println!(
-        //     "invoke network_version {:?} actor_version {}",
-        //     self.network_version(),
-        //     actor_version
-        // );
 
         let ret = if let Some(ret) = {
             match actor_version {
@@ -892,8 +888,6 @@ where
     }
 
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
-        // TODO: fix this, causes infinite recursion
-        //self.charge_gas(GasCharge::new(name, compute, 0))
         self.gas_tracker
             .borrow_mut()
             .charge_gas(GasCharge::new(name, compute, 0))

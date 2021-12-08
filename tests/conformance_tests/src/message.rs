@@ -51,11 +51,6 @@ pub fn execute_message(
     let circ_supply = MockCircSupply(params.circ_supply);
     let lb = MockStateLB(bs);
 
-    // println!(
-    //     "execute_message, epoch={:?} network_version={:?}",
-    //     params.epoch,
-    //     get_network_version_default(params.epoch)
-    // );
     let mut vm = VM::<_, _, _, _, _>::new(
         params.pre_root,
         bs,

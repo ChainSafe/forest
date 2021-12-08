@@ -2940,8 +2940,6 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    // let reward_stats = request_current_epoch_block_reward(rt)?;
-    //let power_total = request_current_total_power(rt)?;
     let (result, more, deals_to_terminate, penalty, pledge_delta) =
         rt.transaction(|state: &mut State, rt| {
             let store = rt.store();

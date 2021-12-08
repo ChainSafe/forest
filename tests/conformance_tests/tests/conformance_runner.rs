@@ -118,8 +118,6 @@ fn check_msg_result(
         return Err(format!(
             "return data of msg {} did not match; expected: {:?}, got {:?}",
             label,
-            // base64::encode(expected.as_slice()),
-            // base64::encode(actual.as_slice())
             expected.as_slice(),
             actual.as_slice()
         ));
