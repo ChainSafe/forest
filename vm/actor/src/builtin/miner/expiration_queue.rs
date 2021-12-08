@@ -324,7 +324,6 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                     );
                 }
                 rescheduled_sectors |= &expiration_set.on_time_sectors;
-                rescheduled_sectors |= &expiration_set.early_sectors;
                 rescheduled_power += &expiration_set.active_power;
                 rescheduled_power += &expiration_set.faulty_power;
             }
