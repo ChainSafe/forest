@@ -460,7 +460,7 @@ impl Actor {
                 valid_deal_count
             ));
         }
-        if valid_deal_count <= 0 {
+        if valid_deal_count == 0 {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "All deal proposals invalid"
