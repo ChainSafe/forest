@@ -361,7 +361,20 @@ where
         let miner_penalty_amount = &self.base_fee * msg.gas_limit();
         let from_act = match self.state.get_actor(msg.from()) {
             Ok(Some(from_act)) => from_act,
-            _ => {
+            Ok(None) => {
+                return Ok(ApplyRet {
+                    msg_receipt: MessageReceipt {
+                        return_data: Serialized::default(),
+                        exit_code: ExitCode::SysErrSenderInvalid,
+                        gas_used: 0,
+                    },
+                    penalty: miner_penalty_amount,
+                    act_error: Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
+                    miner_tip: 0.into(),
+                });
+            }
+            Err(e) => {
+                println!("sender invalid {}", e);
                 return Ok(ApplyRet {
                     msg_receipt: MessageReceipt {
                         return_data: Serialized::default(),
@@ -376,6 +389,7 @@ where
         };
 
         // If from actor is not an account actor, return error.
+        #[cfg(not(test_vectors))]
         if !actor::is_account_actor(&from_act.code) {
             return Ok(ApplyRet {
                 msg_receipt: MessageReceipt {

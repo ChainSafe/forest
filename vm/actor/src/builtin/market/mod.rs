@@ -19,17 +19,19 @@ use crate::{
 };
 use address::Address;
 use ahash::AHashMap;
+use bitfield::BitField;
 use cid::Prefix;
 use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{to_vec, Cbor};
 use fil_types::deadlines::QuantSpec;
 use fil_types::{PieceInfo, StoragePower};
 use ipld_blockstore::BlockStore;
+use log::info;
 use num_bigint::BigInt;
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Signed, Zero};
 use runtime::{ActorCode, Runtime};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::error::Error as StdError;
 use vm::{
     actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount, METHOD_CONSTRUCTOR,
@@ -126,7 +128,7 @@ impl Actor {
     fn withdraw_balance<BS, RT>(
         rt: &mut RT,
         params: WithdrawBalanceParams,
-    ) -> Result<(), ActorError>
+    ) -> Result<WithdrawBalanceReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -188,9 +190,11 @@ impl Actor {
             recipient,
             METHOD_SEND,
             Serialized::default(),
-            amount_extracted,
+            amount_extracted.clone(),
         )?;
-        Ok(())
+        Ok(WithdrawBalanceReturn {
+            amount_withdrawn: amount_extracted,
+        })
     }
 
     /// Publish a new set of storage deals (not yet included in a sector).
@@ -250,7 +254,208 @@ impl Actor {
         let baseline_power = request_current_baseline_power(rt)?;
         let (network_raw_power, _) = request_current_network_power(rt)?;
 
-        let mut new_deal_ids: Vec<DealID> = Vec::new();
+        // Drop invalid deals
+        let mut proposal_cid_lookup = HashSet::new();
+        let mut valid_proposal_cids = Vec::new();
+        let mut valid_deals = Vec::with_capacity(params.deals.len());
+        let mut total_client_lockup: HashMap<Address, TokenAmount> = HashMap::new();
+        let mut total_provider_lockup = TokenAmount::zero();
+
+        let mut valid_input_bf = BitField::default();
+        let mut state: State = rt.state::<State>()?;
+
+        let store = rt.store();
+        let msm = state.mutator(store);
+
+        // the for loop too uses rt immutably and also needs to mutably access it.
+        // so we will need to isolate them.
+        struct Deal<'a> {
+            to: Address,
+            method: u64,
+            params: Serialized,
+            value: TokenAmount,
+            di: usize,
+            deal: &'a mut deal::ClientDealProposal,
+        }
+        let mut method_queue: Vec<Deal> = vec![];
+
+        for (di, deal) in params.deals.iter_mut().enumerate() {
+            // drop malformed deals
+            if let Err(e) = validate_deal(rt, deal, &network_raw_power, &baseline_power) {
+                info!("invalid deal {}: {}", di, e);
+                continue;
+            }
+
+            if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
+                info!(
+                    "invalid deal {}: cannot publish deals from multiple providers in one batch",
+                    di
+                );
+                continue;
+            }
+            let client = match rt.resolve_address(&deal.proposal.client) {
+                Ok(Some(client)) => client,
+                _ => {
+                    info!(
+                        "invalid deal {}: failed to resolve proposal.client address {} for deal",
+                        di, deal.proposal.client
+                    );
+                    continue;
+                }
+            };
+
+            // drop deals with insufficient lock up to cover costs
+            total_client_lockup
+                .entry(client)
+                .or_insert_with(TokenAmount::zero);
+
+            if let Some(lockup) = total_client_lockup.get_mut(&client) {
+                *lockup += deal.proposal.client_balance_requirement();
+            }
+            // safe to unwrap here as we just set it right before if it doesnt exist
+            let client_balance_ok = msm
+                .balance_covered(client, total_client_lockup.get(&client).unwrap())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to check client balance coverage",
+                    )
+                })?;
+
+            if !client_balance_ok {
+                info!(
+                    "invalid deal: {}: insufficient client funds to cover proposal cost",
+                    di
+                );
+                continue;
+            }
+            total_provider_lockup += &deal.proposal.provider_collateral;
+            let provider_balance_ok = msm
+                .balance_covered(provider, &total_provider_lockup)
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to check provider balance coverage",
+                    )
+                })?;
+
+            if !provider_balance_ok {
+                info!(
+                    "invalid deal: {}: insufficient provider funds to cover proposal cost",
+                    di
+                );
+                continue;
+            }
+
+            // drop duplicate deals
+            // Normalise provider and client addresses in the proposal stored on chain.
+            // Must happen after signature verification and before taking cid.
+
+            deal.proposal.provider = provider;
+            deal.proposal.client = client;
+            // TODO resolved_addr add
+            let pcid = deal.proposal.cid().map_err(|e| {
+                ActorError::from(e).wrap(format!("failed to take cid of proposal {}", di))
+            })?;
+
+            // check proposalCids for duplication within message batch
+            // check state PendingProposals for duplication across messages
+            let duplicate_in_state = msm
+                .pending_deals
+                .as_ref()
+                .unwrap()
+                .has(&pcid.to_bytes())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::ErrIllegalState,
+                        "failed to check for existence of deal proposal",
+                    )
+                })?;
+            let duplicate_in_message = proposal_cid_lookup.contains(&pcid);
+            if duplicate_in_state || duplicate_in_message {
+                info!(
+                    "invalid deal {}: cannot publish duplicate deal proposal",
+                    di
+                );
+                continue;
+            }
+
+            // check VerifiedClient allowed cap and deduct PieceSize from cap
+            // drop deals with a DealSize that cannot be fully covered by VerifiedClient's available DataCap
+            if deal.proposal.verified_deal {
+                // So instead of mutably calling, we queue the rt.send() params as a struct, see Deal struct
+                method_queue.push(Deal {
+                    to: *VERIFIED_REGISTRY_ACTOR_ADDR,
+                    method: crate::verifreg::Method::UseBytes as u64,
+                    params: Serialized::serialize(UseBytesParams {
+                        address: client,
+                        deal_size: BigInt::from(deal.proposal.piece_size.0),
+                    })?,
+                    value: TokenAmount::zero(),
+                    di,
+                    deal,
+                });
+            }
+
+            proposal_cid_lookup.insert(pcid);
+        }
+
+        // we then loop over the method_queue and call rt.send()
+        for i in method_queue {
+            let Deal {
+                to,
+                method,
+                params,
+                value,
+                di,
+                deal,
+            } = i;
+            let ret = rt.send(to, method, params, value);
+
+            if let Err(e) = ret {
+                info!(
+                    "invalid deal {}: failed to acquire datacap exitcode: {}",
+                    di, e
+                );
+                continue;
+            }
+
+            let pcid = deal.proposal.cid().map_err(|e| {
+                ActorError::from(e).wrap(format!("failed to take cid of proposal {}", di))
+            })?;
+
+            // update valid deal state
+            valid_proposal_cids.push(pcid);
+            valid_deals.push(deal.clone());
+            valid_input_bf.set(di);
+        }
+
+        let valid_deal_count = valid_input_bf.len();
+        if valid_deals.len() != valid_proposal_cids.len() {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "{} valid deals but {} valid proposal cids",
+                valid_deals.len(),
+                valid_proposal_cids.len()
+            ));
+        }
+        if valid_deal_count != valid_deals.len() {
+            return Err(actor_error!(
+                ErrIllegalState,
+                "{} valid deals but valid_deal_count {}",
+                valid_deals.len(),
+                valid_deal_count
+            ));
+        }
+        if valid_deal_count == 0 {
+            return Err(actor_error!(
+                ErrIllegalArgument,
+                "All deal proposals invalid"
+            ));
+        }
+
+        let mut new_deal_ids = Vec::new();
+
         rt.transaction(|st: &mut State, rt| {
             let mut msm = st.mutator(rt.store());
             msm.with_pending_proposals(Permission::Write)
@@ -263,54 +468,16 @@ impl Actor {
                     e.downcast_default(ExitCode::ErrIllegalState, "failed to load state")
                 })?;
 
-            for deal in &mut params.deals {
-                validate_deal(rt, deal, &network_raw_power, &baseline_power)?;
+            // All storage dealProposals will be added in an atomic transaction; this operation will be unrolled if any of them fails.
+            // This should only fail on programmer error because all expected invalid conditions should be filtered in the first set of checks.
 
-                if deal.proposal.provider != provider && deal.proposal.provider != provider_raw {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "cannot publish deals from different providers at the same time."
-                    ));
-                }
-
-                let client = rt.resolve_address(&deal.proposal.client)?.ok_or_else(|| {
-                    actor_error!(
-                        ErrNotFound,
-                        "failed to resolve client address {}",
-                        provider_raw
-                    )
-                })?;
-                // Normalise provider and client addresses in the proposal stored on chain
-                // (after signature verification).
-                deal.proposal.provider = provider;
-                deal.proposal.client = client;
-
-                msm.lock_client_and_provider_balances(&deal.proposal)?;
+            // TODO: Check if we neeed to make the previous look non mut
+            for (vid, valid_deal) in params.deals.iter_mut().enumerate() {
+                msm.lock_client_and_provider_balances(&valid_deal.proposal)?;
 
                 let id = msm.generate_storage_deal_id();
 
-                let pcid = deal
-                    .proposal
-                    .cid()
-                    .map_err(|e| ActorError::from(e).wrap("failed to take cid of proposal"))?;
-
-                let has = msm
-                    .pending_deals
-                    .as_ref()
-                    .unwrap()
-                    .has(&pcid.to_bytes())
-                    .map_err(|e| {
-                        e.downcast_default(
-                            ExitCode::ErrIllegalState,
-                            "failed to check for existence of deal proposal",
-                        )
-                    })?;
-                if has {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "cannot publish duplicate deals"
-                    ));
-                }
+                let pcid = valid_proposal_cids[vid];
 
                 msm.pending_deals
                     .as_mut()
@@ -322,14 +489,14 @@ impl Actor {
                 msm.deal_proposals
                     .as_mut()
                     .unwrap()
-                    .set(id as usize, deal.proposal.clone())
+                    .set(id as usize, valid_deal.proposal.clone())
                     .map_err(|e| {
                         e.downcast_default(ExitCode::ErrIllegalState, "failed to set deal")
                     })?;
 
-                // We should randomize the first epoch for when the deal will be processed so an attacker isn't able to
+                // We randomize the first epoch for when the deal will be processed so an attacker isn't able to
                 // schedule too many deals for the same tick.
-                let process_epoch = gen_rand_next_epoch(deal.proposal.start_epoch, id);
+                let process_epoch = gen_rand_next_epoch(valid_deal.proposal.start_epoch, id);
 
                 msm.deals_by_epoch
                     .as_mut()
@@ -351,33 +518,10 @@ impl Actor {
             Ok(())
         })?;
 
-        for deal in &params.deals {
-            // Check VerifiedClient allowed cap and deduct PieceSize from cap.
-            // Either the DealSize is within the available DataCap of the VerifiedClient
-            // or this message will fail. We do not allow a deal that is partially verified.
-            if deal.proposal.verified_deal {
-                // * Go implementation retrieves resolved client from map here, not necessary
-                // * as we update it in place. If logic changes and unintended side effects occur,
-                // * compare the difference in modified deal over copied and modified.
-                rt.send(
-                    *VERIFIED_REGISTRY_ACTOR_ADDR,
-                    VerifregMethod::UseBytes as u64,
-                    Serialized::serialize(&UseBytesParams {
-                        address: deal.proposal.client,
-                        deal_size: BigInt::from(deal.proposal.piece_size.0),
-                    })?,
-                    TokenAmount::zero(),
-                )
-                .map_err(|e| {
-                    e.wrap(&format!(
-                        "failed to add verified deal for client ({}): ",
-                        deal.proposal.client
-                    ))
-                })?;
-            }
-        }
-
-        Ok(PublishStorageDealsReturn { ids: new_deal_ids })
+        Ok(PublishStorageDealsReturn {
+            ids: new_deal_ids,
+            valid_deals: valid_input_bf,
+        })
     }
 
     /// Verify that a given set of storage deals is valid for a sector currently being PreCommitted
@@ -585,6 +729,7 @@ impl Actor {
                 // The deal may have expired and been deleted before the sector is terminated.
                 // Nothing to do, but continue execution for the other deals.
                 if deal.is_none() {
+                    info!("couldn't find deal {}", id);
                     continue;
                 }
                 let deal = deal.unwrap();
@@ -601,6 +746,7 @@ impl Actor {
 
                 // do not slash expired deals
                 if deal.end_epoch <= params.epoch {
+                    info!("deal {} expired, not slashing", id);
                     continue;
                 }
 
@@ -618,6 +764,7 @@ impl Actor {
 
                 // If a deal is already slashed, don't need to do anything
                 if state.slash_epoch != EPOCH_UNDEFINED {
+                    info!("deal {}, already slashed", id);
                     continue;
                 }
 
@@ -1348,8 +1495,8 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::WithdrawBalance) => {
-                Self::withdraw_balance(rt, rt.deserialize_params(params)?)?;
-                Ok(Serialized::default())
+                let res = Self::withdraw_balance(rt, rt.deserialize_params(params)?)?;
+                Ok(Serialized::serialize(res)?)
             }
             Some(Method::PublishStorageDeals) => {
                 let res = Self::publish_storage_deals(rt, rt.deserialize_params(params)?)?;

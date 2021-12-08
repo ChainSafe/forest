@@ -3,32 +3,32 @@
 
 use cid::{multihash::MultihashDigest, Cid, Code::Identity, RAW};
 
-pub const SYSTEM_ACTOR_CODE_ID_NAME: &str = "fil/4/system";
-pub const INIT_ACTOR_CODE_ID_NAME: &str = "fil/4/init";
-pub const CRON_ACTOR_CODE_ID_NAME: &str = "fil/4/cron";
-pub const ACCOUNT_ACTOR_CODE_ID_NAME: &str = "fil/4/account";
-pub const POWER_ACTOR_CODE_ID_NAME: &str = "fil/4/storagepower";
-pub const MINER_ACTOR_CODE_ID_NAME: &str = "fil/4/storageminer";
-pub const MARKET_ACTOR_CODE_ID_NAME: &str = "fil/4/storagemarket";
-pub const PAYCH_ACTOR_CODE_ID_NAME: &str = "fil/4/paymentchannel";
-pub const MULTISIG_ACTOR_CODE_ID_NAME: &str = "fil/4/multisig";
-pub const REWARD_ACTOR_CODE_ID_NAME: &str = "fil/4/reward";
-pub const VERIFREG_ACTOR_CODE_ID_NAME: &str = "fil/4/verifiedregistry";
-pub const CHAOS_ACTOR_CODE_ID_NAME: &str = "fil/4/chaos";
+pub const SYSTEM_ACTOR_CODE_ID_NAME: &str = "fil/6/system";
+pub const INIT_ACTOR_CODE_ID_NAME: &str = "fil/6/init";
+pub const CRON_ACTOR_CODE_ID_NAME: &str = "fil/6/cron";
+pub const ACCOUNT_ACTOR_CODE_ID_NAME: &str = "fil/6/account";
+pub const POWER_ACTOR_CODE_ID_NAME: &str = "fil/6/storagepower";
+pub const MINER_ACTOR_CODE_ID_NAME: &str = "fil/6/storageminer";
+pub const MARKET_ACTOR_CODE_ID_NAME: &str = "fil/6/storagemarket";
+pub const PAYCH_ACTOR_CODE_ID_NAME: &str = "fil/6/paymentchannel";
+pub const MULTISIG_ACTOR_CODE_ID_NAME: &str = "fil/6/multisig";
+pub const REWARD_ACTOR_CODE_ID_NAME: &str = "fil/6/reward";
+pub const VERIFREG_ACTOR_CODE_ID_NAME: &str = "fil/6/verifiedregistry";
+pub const CHAOS_ACTOR_CODE_ID_NAME: &str = "fil/6/chaos";
 
 lazy_static! {
-    pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/system");
-    pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/init");
-    pub static ref CRON_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/cron");
-    pub static ref ACCOUNT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/account");
-    pub static ref POWER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/storagepower");
-    pub static ref MINER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/storageminer");
-    pub static ref MARKET_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/storagemarket");
-    pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/paymentchannel");
-    pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/multisig");
-    pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/reward");
-    pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/verifiedregistry");
-    pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/5/chaos");
+    pub static ref SYSTEM_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/system");
+    pub static ref INIT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/init");
+    pub static ref CRON_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/cron");
+    pub static ref ACCOUNT_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/account");
+    pub static ref POWER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/storagepower");
+    pub static ref MINER_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/storageminer");
+    pub static ref MARKET_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/storagemarket");
+    pub static ref PAYCH_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/paymentchannel");
+    pub static ref MULTISIG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/multisig");
+    pub static ref REWARD_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/reward");
+    pub static ref VERIFREG_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/verifiedregistry");
+    pub static ref CHAOS_ACTOR_CODE_ID: Cid = make_builtin(b"fil/6/chaos");
 
     /// Set of actor code types that can represent external signing parties.
     pub static ref CALLER_TYPES_SIGNABLE: [Cid; 2] =
