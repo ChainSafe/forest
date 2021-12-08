@@ -113,21 +113,23 @@ fn check_msg_result(
         ));
     }
 
+    let (expected, actual) = (&expected_rec.return_data, &actual_rec.return_data);
+    if expected != actual {
+        return Err(format!(
+            "return data of msg {} did not match; expected: {:?}, got {:?}",
+            label,
+            // base64::encode(expected.as_slice()),
+            // base64::encode(actual.as_slice())
+            expected.as_slice(),
+            actual.as_slice()
+        ));
+    }
+
     let (expected, actual) = (expected_rec.gas_used, actual_rec.gas_used);
     if expected != actual {
         return Err(format!(
             "gas used of msg {} did not match; expected: {}, got {}",
             label, expected, actual
-        ));
-    }
-
-    let (expected, actual) = (&expected_rec.return_data, &actual_rec.return_data);
-    if expected != actual {
-        return Err(format!(
-            "return data of msg {} did not match; expected: {}, got {}",
-            label,
-            base64::encode(expected.as_slice()),
-            base64::encode(actual.as_slice())
         ));
     }
 

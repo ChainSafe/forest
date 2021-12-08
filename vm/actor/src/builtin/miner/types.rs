@@ -211,6 +211,7 @@ pub struct WithdrawBalanceParams {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
+#[serde(transparent)]
 pub struct WithdrawBalanceReturn {
     #[serde(with = "bigint_ser")]
     pub amount_withdrawn: TokenAmount,
