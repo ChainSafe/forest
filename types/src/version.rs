@@ -35,4 +35,6 @@ pub enum NetworkVersion {
     V12,
     /// reserved
     V13,
+    /// actors v6
+    V14,
 }

@@ -15,7 +15,7 @@ use clock::{ChainEpoch, EPOCH_UNDEFINED};
 use encoding::{serde_bytes, tuple::*, BytesDe, Cbor};
 use fil_types::{
     deadlines::{DeadlineInfo, QuantSpec},
-    RegisteredPoStProof, SectorNumber, SectorSize, HAMT_BIT_WIDTH,
+    RegisteredPoStProof, SectorNumber, SectorSize, HAMT_BIT_WIDTH, MAX_SECTOR_NUMBER,
 };
 use ipld_amt::{Amt, Error as AmtError};
 use ipld_blockstore::BlockStore;
@@ -1153,6 +1153,13 @@ impl State {
         let precommitted =
             make_map_with_root_and_bitwidth(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
         for sector_no in sector_nos.iter() {
+            if sector_no as u64 > MAX_SECTOR_NUMBER {
+                return Err(Box::new(actor_error!(
+                    ErrIllegalArgument,
+                    "sector number greater than maximum"
+                )));
+            }
+
             let info: &SectorPreCommitOnChainInfo =
                 precommitted
                     .get(&u64_key(sector_no as u64))?

@@ -65,7 +65,7 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag::{
     self, InteractiveSealChallengeSeed, SealRandomness, WindowedPoStChallengeSeed,
 };
-use encoding::{BytesDe, Cbor};
+use encoding::{from_slice, BytesDe, Cbor};
 use fil_types::{
     deadlines::DeadlineInfo, AggregateSealVerifyInfo, AggregateSealVerifyProofAndInfos,
     InteractiveSealRandomness, PoStProof, PoStRandomness, RegisteredSealProof,
@@ -73,8 +73,8 @@ use fil_types::{
     SectorNumber, SectorSize, WindowPoStVerifyInfo, MAX_SECTOR_NUMBER, RANDOMNESS_LENGTH,
 };
 use ipld_blockstore::BlockStore;
-use num_bigint::bigint_ser::BigIntSer;
 use num_bigint::BigInt;
+use num_bigint::{bigint_ser::BigIntSer, Integer};
 use num_derive::FromPrimitive;
 use num_traits::{FromPrimitive, Signed, Zero};
 use runtime::{ActorCode, Runtime};
@@ -817,12 +817,21 @@ impl Actor {
         .map_err(|e| {
             e.downcast_default(ExitCode::ErrIllegalArgument, "aggregate seal verify failed")
         })?;
-        confirm_sector_proofs_valid_internal(rt, precommits_to_confirm.clone())?;
+        let rew = request_current_epoch_block_reward(rt)?;
+        let pwr = request_current_total_power(rt)?;
+        confirm_sector_proofs_valid_internal(
+            rt,
+            precommits_to_confirm.clone(),
+            &rew.this_epoch_baseline_power,
+            &rew.this_epoch_reward_smoothed,
+            &pwr.quality_adj_power_smoothed,
+        )?;
+
         // Compute and burn the aggregate network fee. We need to re-load the state as
         // confirmSectorProofsValid can change it.
         let state: State = rt.state()?;
         let aggregate_fee =
-            aggregate_network_fee(precommits_to_confirm.len() as i64, rt.base_fee());
+            aggregate_prove_commit_network_fee(precommits_to_confirm.len() as i64, rt.base_fee());
         let unlocked_balance = state
             .get_unlocked_balance(&rt.current_balance()?)
             .map_err(|_e| actor_error!(ErrIllegalState, "failed to determine unlocked balance"))?;
@@ -1219,6 +1228,19 @@ impl Actor {
         let mut fee_to_burn = TokenAmount::from(0);
         let mut needs_cron = false;
         rt.transaction(|state: &mut State, rt|{
+            // Aggregate fee applies only when batching.
+            if params.sectors.len() > 1 {
+                let aggregate_fee = aggregate_pre_commit_network_fee(params.sectors.len() as i64, rt.base_fee());
+                // AggregateFee applied to fee debt to consolidate burn with outstanding debts
+                state.apply_penalty(&aggregate_fee)
+                .map_err(|e| {
+                    actor_error!(
+                        ErrIllegalState,
+                        "failed to apply penalty: {}",
+                        e
+                    )
+                })?;
+            }
             // available balance already accounts for fee debt so it is correct to call
             // this before RepayDebts. We would have to
             // subtract fee debt explicitly if we called this after.
@@ -1476,7 +1498,13 @@ impl Actor {
                     "failed to load pre-committed sectors",
                 )
             })?;
-        confirm_sector_proofs_valid_internal(rt, precommited_sectors)
+        confirm_sector_proofs_valid_internal(
+            rt,
+            precommited_sectors,
+            &params.reward_baseline_power,
+            &params.reward_smoothed,
+            &params.quality_adj_power_smoothed,
+        )
     }
 
     fn check_sector_proven<BS, RT>(
@@ -1580,6 +1608,7 @@ impl Actor {
                 ADDRESSED_SECTORS_MAX
             ));
         }
+        let curr_epoch = rt.curr_epoch();
 
         let (power_delta, pledge_delta) = rt.transaction(|state: &mut State, rt| {
             let info = get_miner_info(rt.store(), state)?;
@@ -1699,9 +1728,20 @@ impl Actor {
                                 decl.new_expiration,
                                 sector.seal_proof,
                             )?;
+                            // Remove "spent" deal weights
+                            let new_deal_weight = (&sector.deal_weight
+                                * (sector.expiration - curr_epoch))
+                                .div_floor(&BigInt::from(sector.expiration - sector.activation));
+
+                            let new_verified_deal_weight = (&sector.verified_deal_weight
+                                * (sector.expiration - curr_epoch))
+                                .div_floor(&BigInt::from(sector.expiration - sector.activation));
 
                             let mut sector = sector.clone();
                             sector.expiration = decl.new_expiration;
+                            sector.deal_weight = new_deal_weight;
+                            sector.verified_deal_weight = new_verified_deal_weight;
+
                             Ok(sector)
                         })
                         .collect::<Result<_, _>>()?;
@@ -1950,9 +1990,15 @@ impl Actor {
 
             Ok((had_early_terminations, power_delta))
         })?;
+        let epoch_reward = request_current_epoch_block_reward(rt)?;
+        let pwr_total = request_current_total_power(rt)?;
 
         // Now, try to process these sectors.
-        let more = process_early_terminations(rt)?;
+        let more = process_early_terminations(
+            rt,
+            &epoch_reward.this_epoch_reward_smoothed,
+            &pwr_total.quality_adj_power_smoothed,
+        )?;
 
         if more && !had_early_terminations {
             // We have remaining terminations, and we didn't _previously_
@@ -2684,7 +2730,7 @@ impl Actor {
     fn withdraw_balance<BS, RT>(
         rt: &mut RT,
         params: WithdrawBalanceParams,
-    ) -> Result<(), ActorError>
+    ) -> Result<WithdrawBalanceReturn, ActorError>
     where
         BS: BlockStore,
         RT: Runtime<BS>,
@@ -2784,7 +2830,9 @@ impl Actor {
                     format!("balance invariants broken: {}", e),
                 )
             })?;
-        Ok(())
+        Ok(WithdrawBalanceReturn {
+            amount_withdrawn: amount_withdrawn.clone(),
+        })
     }
 
     fn repay_debt<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
@@ -2831,7 +2879,7 @@ impl Actor {
 
     fn on_deferred_cron_event<BS, RT>(
         rt: &mut RT,
-        payload: CronEventPayload,
+        params: DeferredCronEventParams,
     ) -> Result<(), ActorError>
     where
         BS: BlockStore,
@@ -2839,14 +2887,36 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
 
+        let payload: CronEventPayload = from_slice(&params.event_payload).map_err(|e| {
+            actor_error!(
+                ErrIllegalState,
+                format!(
+                    "failed to unmarshal miner cron payload into expected structure: {}",
+                    e
+                )
+            )
+        })?;
         match payload.event_type {
-            CRON_EVENT_PROVING_DEADLINE => handle_proving_deadline(rt)?,
+            CRON_EVENT_PROVING_DEADLINE => handle_proving_deadline(
+                rt,
+                &params.reward_smoothed,
+                &params.quality_adj_power_smoothed,
+            )?,
             CRON_EVENT_PROCESS_EARLY_TERMINATIONS => {
-                if process_early_terminations(rt)? {
+                if process_early_terminations(
+                    rt,
+                    &params.reward_smoothed,
+                    &params.quality_adj_power_smoothed,
+                )? {
                     schedule_early_termination_work(rt)?
                 }
             }
-            _ => {}
+            _ => {
+                error!(
+                    "onDeferredCronEvent invalid event type: {}",
+                    payload.event_type
+                );
+            }
         };
         let state: State = rt.state()?;
         state
@@ -2861,14 +2931,18 @@ impl Actor {
     }
 }
 
-/// Invoked at the end of each proving period, at the end of the epoch before the next one starts.
-fn process_early_terminations<BS, RT>(rt: &mut RT) -> Result</* more */ bool, ActorError>
+// TODO: We're using the current power+epoch reward. Technically, we
+// should use the power/reward at the time of termination.
+// https://github.com/filecoin-project/specs-actors/v6/pull/648
+fn process_early_terminations<BS, RT>(
+    rt: &mut RT,
+    reward_smoothed: &FilterEstimate,
+    quality_adj_power_smoothed: &FilterEstimate,
+) -> Result</* more */ bool, ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    let reward_stats = request_current_epoch_block_reward(rt)?;
-    let power_total = request_current_total_power(rt)?;
     let (result, more, deals_to_terminate, penalty, pledge_delta) =
         rt.transaction(|state: &mut State, rt| {
             let store = rt.store();
@@ -2886,6 +2960,7 @@ where
             // This can happen if we end up processing early terminations
             // before the cron callback fires.
             if result.is_empty() {
+                info!("no early terminations (maybe cron callback hasn't happened yet?)");
                 return Ok((
                     result,
                     more,
@@ -2913,8 +2988,8 @@ where
                 penalty += termination_penalty(
                     info.sector_size,
                     epoch,
-                    &reward_stats.this_epoch_reward_smoothed,
-                    &power_total.quality_adj_power_smoothed,
+                    reward_smoothed,
+                    quality_adj_power_smoothed,
                     &sectors,
                 );
 
@@ -2964,10 +3039,16 @@ where
 
     // We didn't do anything, abort.
     if result.is_empty() {
+        info!("no early terminations");
         return Ok(more);
     }
 
     // Burn penalty.
+    log::debug!(
+        "storage provider {} penalized {} for sector termination",
+        rt.message().receiver(),
+        penalty
+    );
     burn_funds(rt, penalty)?;
 
     // Return pledge.
@@ -2983,15 +3064,16 @@ where
 }
 
 /// Invoked at the end of the last epoch for each proving deadline.
-fn handle_proving_deadline<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+fn handle_proving_deadline<BS, RT>(
+    rt: &mut RT,
+    reward_smoothed: &FilterEstimate,
+    quality_adj_power_smoothed: &FilterEstimate,
+) -> Result<(), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
     let curr_epoch = rt.curr_epoch();
-
-    let epoch_reward = request_current_epoch_block_reward(rt)?;
-    let power_total = request_current_total_power(rt)?;
 
     let mut had_early_terminations = false;
 
@@ -3026,6 +3108,11 @@ where
         state
             .apply_penalty(&deposit_to_burn)
             .map_err(|e| actor_error!(ErrIllegalState, "failed to apply penalty: {}", e))?;
+        log::debug!(
+            "storage provider {} penalized {} for expired pre commits",
+            rt.message().receiver(),
+            deposit_to_burn
+        );
 
         // Record whether or not we _had_ early terminations in the queue before this method.
         // That way, don't re-schedule a cron callback if one is already scheduled.
@@ -3040,8 +3127,8 @@ where
         // Faults detected by this missed PoSt pay no penalty, but sectors that were already faulty
         // and remain faulty through this deadline pay the fault fee.
         let penalty_target = pledge_penalty_for_continued_fault(
-            &epoch_reward.this_epoch_reward_smoothed,
-            &power_total.quality_adj_power_smoothed,
+            reward_smoothed,
+            quality_adj_power_smoothed,
             &result.previously_faulty_power.qa,
         );
 
@@ -3051,6 +3138,11 @@ where
         state
             .apply_penalty(&penalty_target)
             .map_err(|e| actor_error!(ErrIllegalState, "failed to apply penalty: {}", e))?;
+        log::debug!(
+            "storage provider {} penalized {} for continued fault",
+            rt.message().receiver(),
+            penalty_target
+        );
 
         let (penalty_from_vesting, penalty_from_balance) = state
             .repay_partial_debt_in_priority_order(
@@ -3102,7 +3194,7 @@ where
     // handle them at the next epoch.
     if !had_early_terminations && has_early_terminations {
         // First, try to process some of these terminations.
-        if process_early_terminations(rt)? {
+        if process_early_terminations(rt, reward_smoothed, quality_adj_power_smoothed)? {
             // If that doesn't work, just defer till the next epoch.
             schedule_early_termination_work(rt)?;
         }
@@ -3359,6 +3451,7 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
+    info!("scheduling early terminations with cron...");
     enroll_cron_event(
         rt,
         rt.curr_epoch() + 1,
@@ -3675,6 +3768,11 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
+    log::debug!(
+        "storage provder {} burning {}",
+        rt.message().receiver(),
+        amount
+    );
     if amount.is_positive() {
         rt.send(
             *BURNT_FUNDS_ACTOR_ADDR,
@@ -3886,12 +3984,14 @@ where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
-    state.repay_debts(&rt.current_balance()?).map_err(|e| {
+    let res = state.repay_debts(&rt.current_balance()?).map_err(|e| {
         e.downcast_default(
             ExitCode::ErrIllegalState,
-            "unlocked balance ca not repay fee debt",
+            "unlocked balance can not repay fee debt",
         )
-    })
+    })?;
+    info!("RepayDebtsOrAbort was called and succeeded");
+    Ok(res)
 }
 
 fn replaced_sector_parameters(
@@ -3970,14 +4070,15 @@ fn check_peer_info(peer_id: &[u8], multiaddrs: &[BytesDe]) -> Result<(), ActorEr
 fn confirm_sector_proofs_valid_internal<BS, RT>(
     rt: &mut RT,
     pre_commits: Vec<SectorPreCommitOnChainInfo>,
+    this_epoch_baseline_power: &BigInt,
+    this_epoch_reward_smoothed: &FilterEstimate,
+    quality_adj_power_smoothed: &FilterEstimate,
 ) -> Result<(), ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
 {
     // get network stats from other actors
-    let reward_stats = request_current_epoch_block_reward(rt)?;
-    let power_total = request_current_total_power(rt)?;
     let circulating_supply = rt.total_fil_circ_supply()?;
 
     // Ideally, we'd combine some of these operations, but at least we have
@@ -4084,8 +4185,8 @@ where
             );
 
             let day_reward = expected_reward_for_power(
-                &reward_stats.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
+                this_epoch_reward_smoothed,
+                quality_adj_power_smoothed,
                 &power,
                 crate::EPOCHS_IN_DAY,
             );
@@ -4094,17 +4195,17 @@ where
             // before its declared expiration.
             // It's not capped to 1 FIL, so can exceed the actual initial pledge requirement.
             let storage_pledge = expected_reward_for_power(
-                &reward_stats.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
+                this_epoch_reward_smoothed,
+                quality_adj_power_smoothed,
                 &power,
                 INITIAL_PLEDGE_PROJECTION_PERIOD,
             );
 
             let mut initial_pledge = initial_pledge_for_power(
                 &power,
-                &reward_stats.this_epoch_baseline_power,
-                &reward_stats.this_epoch_reward_smoothed,
-                &power_total.quality_adj_power_smoothed,
+                this_epoch_baseline_power,
+                this_epoch_reward_smoothed,
+                quality_adj_power_smoothed,
                 &circulating_supply,
             );
 
@@ -4288,8 +4389,8 @@ impl ActorCode for Actor {
                 Ok(Serialized::default())
             }
             Some(Method::WithdrawBalance) => {
-                Self::withdraw_balance(rt, rt.deserialize_params(params)?)?;
-                Ok(Serialized::default())
+                let res = Self::withdraw_balance(rt, rt.deserialize_params(params)?)?;
+                Ok(Serialized::serialize(&res)?)
             }
             Some(Method::ConfirmSectorProofsValid) => {
                 Self::confirm_sector_proofs_valid(rt, rt.deserialize_params(params)?)?;

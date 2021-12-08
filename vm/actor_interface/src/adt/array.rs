@@ -27,6 +27,7 @@ where
             ActorVersion::V3 => Array::V3(actorv3::ipld_amt::Amt::new(store)),
             ActorVersion::V4 => Array::V4(actorv4::ipld_amt::Amt::new(store)),
             ActorVersion::V5 => Array::V5(actorv5::ipld_amt::Amt::new(store)),
+            ActorVersion::V6 => Array::V5(actorv5::ipld_amt::Amt::new(store)),
         }
     }
 
@@ -38,6 +39,7 @@ where
             ActorVersion::V3 => Ok(Array::V3(actorv3::ipld_amt::Amt::load(cid, store)?)),
             ActorVersion::V4 => Ok(Array::V4(actorv4::ipld_amt::Amt::load(cid, store)?)),
             ActorVersion::V5 => Ok(Array::V5(actorv5::ipld_amt::Amt::load(cid, store)?)),
+            ActorVersion::V6 => Ok(Array::V5(actorv5::ipld_amt::Amt::load(cid, store)?)),
         }
     }
 
