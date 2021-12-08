@@ -50,6 +50,7 @@ pub fn execute_message(
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let circ_supply = MockCircSupply(params.circ_supply);
     let lb = MockStateLB(bs);
+
     let mut vm = VM::<_, _, _, _, _>::new(
         params.pre_root,
         bs,
