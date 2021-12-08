@@ -632,19 +632,15 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
         let epoch = self.quant.quantize_up(raw_epoch);
         let mut expiration_set = self.may_get(epoch)?;
 
-        expiration_set.add(
-            on_time_sectors,
-            early_sectors,
-            pledge,
-            active_power,
-            faulty_power,
-        )
-        .map_err(|e| {
-            format!(
-                "failed to add expiration values for epoch {}: {}",
-                epoch, e
+        expiration_set
+            .add(
+                on_time_sectors,
+                early_sectors,
+                pledge,
+                active_power,
+                faulty_power,
             )
-        })?;
+            .map_err(|e| format!("failed to add expiration values for epoch {}: {}", epoch, e))?;
 
         self.must_update(epoch, expiration_set)?;
         Ok(())
