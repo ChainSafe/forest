@@ -503,7 +503,7 @@ impl Actor {
         let verif_arr: Vec<(&Address, &Vec<SealVerifyInfo>)> = verifies.iter().collect();
         let res = rt
             .batch_verify_seals(verif_arr.as_slice())
-            .map_err(|e| format!("failed to batch verify: {}", e).to_owned())?;
+            .map_err(|e| format!("failed to batch verify: {}", e))?;
 
         for (m, verifs) in verifies.iter() {
             let vres = res.get(m).ok_or_else(

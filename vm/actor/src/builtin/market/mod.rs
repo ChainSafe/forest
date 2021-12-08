@@ -262,7 +262,7 @@ impl Actor {
         let mut total_provider_lockup = TokenAmount::zero();
 
         let mut valid_input_bf = BitField::default();
-        let mut state: State = rt.state::<State>()?.clone();
+        let mut state: State = rt.state::<State>()?;
 
         let store = rt.store();
         let msm = state.mutator(store);
@@ -305,9 +305,10 @@ impl Actor {
             };
 
             // drop deals with insufficient lock up to cover costs
-            if !total_client_lockup.contains_key(&client) {
-                total_client_lockup.insert(client, TokenAmount::zero());
-            }
+            total_client_lockup
+                .entry(client)
+                .or_insert_with(TokenAmount::zero);
+
             if let Some(lockup) = total_client_lockup.get_mut(&client) {
                 *lockup += deal.proposal.client_balance_requirement();
             }
@@ -396,8 +397,7 @@ impl Actor {
                 });
             }
 
-            // // update valid deal state
-            proposal_cid_lookup.insert(pcid.clone());
+            proposal_cid_lookup.insert(pcid);
         }
 
         // we then loop over the method_queue and call rt.send()
@@ -425,7 +425,6 @@ impl Actor {
             })?;
 
             // update valid deal state
-            proposal_cid_lookup.insert(pcid.clone());
             valid_proposal_cids.push(pcid);
             valid_deals.push(deal.clone());
             valid_input_bf.set(di);
