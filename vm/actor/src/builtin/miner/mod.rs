@@ -690,7 +690,11 @@ impl Actor {
         RT: Runtime<BS>,
     {
         let sector_numbers = params.sector_numbers.validate().map_err(|e| {
-            actor_error!(ErrIllegalState, "fail to count aggregated sectors: {}", e)
+            actor_error!(
+                ErrIllegalState,
+                "Failed to validate bitfield for aggregated sectors: {}",
+                e
+            )
         })?;
         let agg_sectors_count = sector_numbers.len();
 
