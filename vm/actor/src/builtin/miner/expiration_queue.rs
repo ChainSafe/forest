@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{power_for_sector, PowerPair, SectorOnChainInfo};
-use crate::ActorDowncast;
+use crate::{miner::ADDRESSED_SECTORS_MAX, ActorDowncast};
 use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -12,7 +12,7 @@ use ipld_amt::{Amt, Error as AmtError, ValueMut};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
 use num_traits::{Signed, Zero};
-use std::{collections::HashMap, collections::HashSet, error::Error as StdError};
+use std::{collections::HashMap, collections::HashSet, convert::TryInto, error::Error as StdError};
 use vm::TokenAmount;
 
 /// An internal limit on the cardinality of a bitfield in a queue entry.
@@ -475,14 +475,15 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
     ) -> Result<(ExpirationSet, PowerPair), Box<dyn StdError>> {
         let mut remaining: HashSet<_> = sectors.iter().map(|sector| sector.sector_number).collect();
 
+        // ADDRESSED_SECTORS_MAX is defined as 25000, so this will not error.
         let faults_map: HashSet<_> = faults
-            .bounded_iter(ENTRY_SECTORS_MAX)
+            .bounded_iter(ADDRESSED_SECTORS_MAX.try_into().unwrap())
             .map_err(|e| format!("failed to expand faults: {}", e))?
             .map(|i| i as SectorNumber)
             .collect();
 
         let recovering_map: HashSet<_> = recovering
-            .bounded_iter(ENTRY_SECTORS_MAX)
+            .bounded_iter(ADDRESSED_SECTORS_MAX.try_into().unwrap())
             .map_err(|e| format!("failed to expand recoveries: {}", e))?
             .map(|i| i as SectorNumber)
             .collect();
