@@ -5,6 +5,7 @@ use std::cmp::min;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::error::Error as StdError;
+use std::iter::zip;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -219,23 +220,29 @@ impl TipsetGroup {
             return heaviest_tipsets.first().unwrap().weight().to_owned();
         }
 
-        let mut smallest_ticket: Option<Ticket> = None;
-        let mut heaviest_tipset = BigInt::default();
-
-        for tipset in heaviest_tipsets {
-            // Ticket comparison is done by interpreting the tickets' Bytes as unsigned integers (little endian representation)
-            let ticket = tipset.min_ticket().cloned().unwrap();
-
-            // TODO: if tickets match, find next minimum and compare
-            if let Some(ref t) = smallest_ticket {
-                if smallest_ticket.is_none() || t.vrfproof < ticket.vrfproof {
-                    smallest_ticket = Some(ticket);
-                    heaviest_tipset = tipset.weight().clone();
-                }
-            }
+        struct TipsetTicketMap {
+            pub tipset: Arc<Tipset>,
+            pub blocks: Vec<BlockHeader>,
         }
 
-        heaviest_tipset
+        let mut map: Vec<TipsetTicketMap> = vec![];
+
+        heaviest_tipsets.iter().for_each(|tipset| {
+            let t = TipsetTicketMap {
+                tipset: tipset.clone(),
+                blocks: tipset.blocks().to_vec(),
+            };
+
+            map.push(t);
+        });
+
+        map.sort_by(|a, b| {
+            for (x, y) in a.blocks.iter().zip(b.blocks.iter()) {}
+
+            todo!()
+        });
+
+        todo!()
     }
 
     fn merge(&mut self, other: Self) {
