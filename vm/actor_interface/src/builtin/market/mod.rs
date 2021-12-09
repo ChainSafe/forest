@@ -26,6 +26,7 @@ pub enum State {
     V3(actorv3::market::State),
     V4(actorv4::market::State),
     V5(actorv5::market::State),
+    V6(actorv6::market::State),
 }
 
 impl State {
@@ -57,6 +58,11 @@ impl State {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V5)
+                .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv6::MARKET_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
@@ -92,6 +98,10 @@ impl State {
                 Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
                     .map(BalanceTable::V5)?)
             }
+            State::V6(st) => {
+                Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
+                    .map(BalanceTable::V6)?)
+            }
         }
     }
 
@@ -124,6 +134,10 @@ impl State {
                 Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
                     .map(BalanceTable::V5)?)
             }
+            State::V6(st) => {
+                Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
+                    .map(BalanceTable::V6)?)
+            }
         }
     }
 
@@ -151,6 +165,9 @@ impl State {
             State::V5(st) => Ok(
                 actorv5::market::DealArray::load(&st.proposals, store).map(DealProposals::V5)?
             ),
+            State::V6(st) => Ok(
+                actorv6::market::DealArray::load(&st.proposals, store).map(DealProposals::V6)?
+            ),
         }
     }
 
@@ -175,6 +192,9 @@ impl State {
             State::V5(st) => {
                 Ok(actorv5::market::DealMetaArray::load(&st.states, store).map(DealStates::V5)?)
             }
+            State::V6(st) => {
+                Ok(actorv6::market::DealMetaArray::load(&st.states, store).map(DealStates::V6)?)
+            }
         }
     }
 
@@ -186,6 +206,7 @@ impl State {
             State::V3(st) => st.total_locked(),
             State::V4(st) => st.total_locked(),
             State::V5(st) => st.total_locked(),
+            State::V6(st) => st.total_locked(),
         }
     }
 
@@ -247,6 +268,15 @@ impl State {
                 curr_epoch,
             )
             .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
+            State::V6(st) => actorv6::market::validate_deals_for_activation(
+                st,
+                store,
+                deal_ids,
+                miner_addr,
+                sector_expiry,
+                curr_epoch,
+            )
+            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
         }
     }
 }
@@ -257,6 +287,7 @@ pub enum BalanceTable<'a, BS> {
     V3(actorv3::BalanceTable<'a, BS>),
     V4(actorv4::BalanceTable<'a, BS>),
     V5(actorv5::BalanceTable<'a, BS>),
+    V6(actorv6::BalanceTable<'a, BS>),
 }
 
 pub enum DealProposals<'a, BS> {
@@ -265,6 +296,7 @@ pub enum DealProposals<'a, BS> {
     V3(actorv3::market::DealArray<'a, BS>),
     V4(actorv4::market::DealArray<'a, BS>),
     V5(actorv5::market::DealArray<'a, BS>),
+    V6(actorv6::market::DealArray<'a, BS>),
 }
 
 impl<BS> DealProposals<'_, BS> {
@@ -289,6 +321,9 @@ impl<BS> DealProposals<'_, BS> {
                 dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
             }
             DealProposals::V5(dp) => {
+                dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+            }
+            DealProposals::V6(dp) => {
                 dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
             }
         }
@@ -408,12 +443,31 @@ impl From<actorv5::market::DealProposal> for DealProposal {
     }
 }
 
+impl From<actorv6::market::DealProposal> for DealProposal {
+    fn from(d: actorv6::market::DealProposal) -> Self {
+        Self {
+            piece_cid: d.piece_cid,
+            piece_size: d.piece_size,
+            verified_deal: d.verified_deal,
+            client: d.client,
+            provider: d.client,
+            label: d.label,
+            start_epoch: d.start_epoch,
+            end_epoch: d.end_epoch,
+            storage_price_per_epoch: d.storage_price_per_epoch,
+            provider_collateral: d.provider_collateral,
+            client_collateral: d.client_collateral,
+        }
+    }
+}
+
 pub enum DealStates<'a, BS> {
     V0(actorv0::market::DealMetaArray<'a, BS>),
     V2(actorv2::market::DealMetaArray<'a, BS>),
     V3(actorv3::market::DealMetaArray<'a, BS>),
     V4(actorv4::market::DealMetaArray<'a, BS>),
     V5(actorv5::market::DealMetaArray<'a, BS>),
+    V6(actorv6::market::DealMetaArray<'a, BS>),
 }
 
 impl<BS> DealStates<'_, BS>
@@ -427,6 +481,7 @@ where
             DealStates::V3(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
             DealStates::V4(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
             DealStates::V5(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+            DealStates::V6(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
         }
     }
 }
@@ -489,6 +544,16 @@ impl From<actorv5::market::DealState> for DealState {
     }
 }
 
+impl From<actorv6::market::DealState> for DealState {
+    fn from(d: actorv6::market::DealState) -> Self {
+        Self {
+            sector_start_epoch: d.sector_start_epoch,
+            last_updated_epoch: d.last_updated_epoch,
+            slash_epoch: d.slash_epoch,
+        }
+    }
+}
+
 impl<BS> BalanceTable<'_, BS>
 where
     BS: BlockStore,
@@ -500,6 +565,7 @@ where
             BalanceTable::V3(bt) => bt.get(key),
             BalanceTable::V4(bt) => bt.get(key),
             BalanceTable::V5(bt) => bt.get(key),
+            BalanceTable::V6(bt) => bt.get(key),
         }
     }
 }

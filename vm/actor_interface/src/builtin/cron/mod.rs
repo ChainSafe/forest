@@ -21,6 +21,7 @@ pub enum State {
     V3(actorv3::cron::State),
     V4(actorv4::cron::State),
     V5(actorv5::cron::State),
+    V6(actorv6::cron::State),
 }
 
 impl State {
@@ -52,6 +53,11 @@ impl State {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V5)
+                .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv6::CRON_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
