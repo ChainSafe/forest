@@ -1,11 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::error::Error as StdError;
-use std::iter::zip;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -27,9 +26,7 @@ use crate::validation::TipsetValidator;
 use actor::{is_account_actor, power};
 use address::Address;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{
-    Block, BlockHeader, Error as ForestBlockError, FullTipset, Ticket, Tipset, TipsetKeys,
-};
+use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys};
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
@@ -237,12 +234,26 @@ impl TipsetGroup {
         });
 
         map.sort_by(|a, b| {
-            for (x, y) in a.blocks.iter().zip(b.blocks.iter()) {}
+            let mut ordering = Ordering::Equal;
+            for (x, y) in a.blocks.iter().zip(b.blocks.iter()) {
+                log::debug!("UNWRAPPING TICKETS");
+                let x_ticket = x.ticket().to_owned().unwrap();
+                let y_ticket = y.ticket().to_owned().unwrap();
 
-            todo!()
+                ordering = x_ticket.vrfproof.cmp(&y_ticket.vrfproof);
+
+                if ordering == Ordering::Equal {
+                    continue;
+                }
+
+                break;
+            }
+            ordering
         });
 
-        todo!()
+        // unwrapping is safe because there will always be more than one
+        let out = map.first().unwrap();
+        out.tipset.weight().to_owned()
     }
 
     fn merge(&mut self, other: Self) {
