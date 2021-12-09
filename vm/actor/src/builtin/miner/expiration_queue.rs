@@ -328,13 +328,13 @@ impl<'db, BS: BlockStore> ExpirationQueue<'db, BS> {
                 rescheduled_power += &expiration_set.faulty_power;
             }
 
-            expiration_set.validate_state()?;
-
             Ok(())
         })?;
 
         for (epoch, expiration_set) in mutated_expiration_sets {
+            let res = expiration_set.validate_state();
             self.must_update(epoch, expiration_set)?;
+            res?;
         }
 
         // If we didn't reschedule anything, we're done.
