@@ -40,11 +40,13 @@ pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 665280;
 pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 999999;
 /// V13 network upgrade TODO
 pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = 1000000;
+/// V14 network update TODO
+pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = 1000000;
 
 pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 
 /// Current network version for the network
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V12;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
 
 /// Bootstrap peer ids
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[];
