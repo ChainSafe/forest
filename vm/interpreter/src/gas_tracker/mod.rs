@@ -25,16 +25,27 @@ impl GasTracker {
     /// enough gas remaining for charge.
     pub fn charge_gas(&mut self, charge: GasCharge) -> Result<(), ActorError> {
         let to_use = charge.total();
-        let used = self.gas_used + to_use;
-        if used > self.gas_available {
-            self.gas_used = self.gas_available;
-            Err(actor_error!(SysErrOutOfGas;
-                    "not enough gas (used={}) (available={})",
-               used, self.gas_available
-            ))
-        } else {
-            self.gas_used += to_use;
-            Ok(())
+        let used_or = self.gas_used.checked_add(to_use);
+        match used_or {
+            None => {
+                self.gas_used = self.gas_available;
+                Err(actor_error!(SysErrOutOfGas;
+                    "adding gas_used={} and to_use={} overflowed",
+                    self.gas_used, to_use
+                ))
+            }
+            Some(used) => {
+                if used > self.gas_available {
+                    self.gas_used = self.gas_available;
+                    Err(actor_error!(SysErrOutOfGas;
+                            "not enough gas (used={}) (available={})",
+                       used, self.gas_available
+                    ))
+                } else {
+                    self.gas_used += to_use;
+                    Ok(())
+                }
+            }
         }
     }
 
