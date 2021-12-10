@@ -177,10 +177,8 @@ pub trait ProofVerifier {
         let prover_id = prover_id_from_u64(prover);
 
         // Verify Proof
-        match post::verify_window_post(&bytes_32(&randomness), &proofs, &replicas, prover_id) {
-            Ok(ans) => Ok(ans),
-            Err(err) => Err(err.into()),
-        }
+        post::verify_window_post(&bytes_32(&randomness), &proofs, &replicas, prover_id)
+            .map_err(|err| err.into())
     }
 
     /// Generates sector challenge indexes for use in winning PoSt verification.
