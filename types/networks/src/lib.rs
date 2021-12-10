@@ -19,31 +19,51 @@ pub use self::mainnet::*;
 mod mainnet;
 #[cfg(feature = "conformace")]
 pub use self::mainnet::*;
+#[cfg(feature = "mainnet")]
 pub use crate::mainnet::*;
 
 #[cfg(all(
     feature = "interopnet",
     not(feature = "devnet"),
-    not(feature = "mainnet")
+    not(feature = "mainnet"),
+    not(feature = "calibnet")
 ))]
 mod interopnet;
 #[cfg(all(
     feature = "interopnet",
     not(feature = "devnet"),
-    not(feature = "mainnet")
+    not(feature = "mainnet"),
+    not(feature = "calibnet")
 ))]
 pub use self::interopnet::*;
 
 #[cfg(all(
+    feature = "calibnet",
+    not(feature = "devnet"),
+    not(feature = "mainnet"),
+    not(feature = "interopnet")
+))]
+mod calibnet;
+#[cfg(all(
+    feature = "calibnet",
+    not(feature = "devnet"),
+    not(feature = "mainnet"),
+    not(feature = "interopnet")
+))]
+pub use self::calibnet::*;
+
+#[cfg(all(
     feature = "devnet",
     not(feature = "interopnet"),
-    not(feature = "mainnet")
+    not(feature = "mainnet"),
+    not(feature = "calibnet")
 ))]
 mod devnet;
 #[cfg(all(
     feature = "devnet",
     not(feature = "interopnet"),
-    not(feature = "mainnet")
+    not(feature = "mainnet"),
+    not(feature = "calibnet")
 ))]
 pub use self::devnet::*;
 
