@@ -2342,6 +2342,7 @@ dependencies = [
  "data-encoding-macro",
  "forest_encoding",
  "forest_json_utils",
+ "lazy_static",
  "leb128",
  "log",
  "num-derive",

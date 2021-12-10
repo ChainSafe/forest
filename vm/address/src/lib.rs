@@ -35,6 +35,17 @@ pub const SECP_PUB_LEN: usize = 65;
 /// BLS public key length used for validation of BLS addresses.
 pub const BLS_PUB_LEN: usize = 48;
 
+lazy_static::lazy_static! {
+    static ref BLS_ZERO_ADDR_BYTES: BLSPublicKey = {
+        let bz_addr = Address::from_str("f3yaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaby2smx7a");
+        if let Ok(Address {payload: Payload::BLS(pubkey), ..}) = bz_addr {
+            pubkey
+        } else {
+            panic!("failed to parse BLS address from provided BLS_ZERO_ADDR string")
+        }
+    };
+}
+
 /// Length of the checksum hash for string encodings.
 pub const CHECKSUM_HASH_LEN: usize = 4;
 
@@ -117,6 +128,13 @@ impl Address {
             network: *NETWORK_DEFAULT.get_or_init(|| Network::Mainnet),
             payload: Payload::BLS(key.into()),
         })
+    }
+
+    pub fn is_bls_zero_address(&self) -> bool {
+        match self.payload {
+            Payload::BLS(payload_bytes) => payload_bytes == *BLS_ZERO_ADDR_BYTES,
+            _ => false,
+        }
     }
 
     /// Returns protocol for Address
