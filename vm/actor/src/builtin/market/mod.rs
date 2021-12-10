@@ -267,6 +267,8 @@ impl Actor {
         let store = rt.store();
         let mut msm = state.mutator(store);
         msm.with_pending_proposals(Permission::ReadOnly);
+        msm.with_escrow_table(Permission::ReadOnly);
+        msm.with_locked_table(Permission::ReadOnly);
 
         // the for loop too uses rt immutably and also needs to mutably access it.
         // so we will need to isolate them.
