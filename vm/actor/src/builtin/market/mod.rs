@@ -269,6 +269,8 @@ impl Actor {
         msm.with_pending_proposals(Permission::ReadOnly);
         msm.with_escrow_table(Permission::ReadOnly);
         msm.with_locked_table(Permission::ReadOnly);
+        msm.build()
+            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load msm"))?;
 
         // the for loop too uses rt immutably and also needs to mutably access it.
         // so we will need to isolate them.
