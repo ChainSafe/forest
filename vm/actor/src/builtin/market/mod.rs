@@ -265,7 +265,8 @@ impl Actor {
         let mut state: State = rt.state::<State>()?;
 
         let store = rt.store();
-        let msm = state.mutator(store);
+        let mut msm = state.mutator(store);
+        msm.with_pending_proposals(Permission::ReadOnly);
 
         // the for loop too uses rt immutably and also needs to mutably access it.
         // so we will need to isolate them.
