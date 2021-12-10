@@ -4,6 +4,7 @@
 use super::deal::{ClientDealProposal, DealProposal, DealState};
 use crate::DealWeight;
 use address::Address;
+use bitfield::BitField;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::tuple::*;
@@ -20,6 +21,12 @@ pub struct WithdrawBalanceParams {
     pub provider_or_client: Address,
     #[serde(with = "bigint_ser")]
     pub amount: TokenAmount,
+}
+#[derive(Serialize_tuple, Deserialize_tuple)]
+#[serde(transparent)]
+pub struct WithdrawBalanceReturn {
+    #[serde(with = "bigint_ser")]
+    pub amount_withdrawn: TokenAmount,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
@@ -42,6 +49,7 @@ pub struct PublishStorageDealsParams {
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct PublishStorageDealsReturn {
     pub ids: Vec<DealID>,
+    pub valid_deals: BitField,
 }
 
 // Changed since V2:

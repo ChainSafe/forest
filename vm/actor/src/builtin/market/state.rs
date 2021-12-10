@@ -17,7 +17,7 @@ use std::error::Error as StdError;
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
 /// Market actor state
-#[derive(Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// Proposals are deals that have been proposed and not yet cleaned up after expiry or termination.
     /// Amt<DealID, DealProposal>
@@ -526,7 +526,7 @@ where
         )
         .map_err(|e| {
             e.downcast_default(
-                ExitCode::ErrIllegalArgument,
+                ExitCode::ErrIllegalState,
                 "failed unlocking deal provider balance",
             )
         })?;
@@ -538,7 +538,7 @@ where
         )
         .map_err(|e| {
             e.downcast_default(
-                ExitCode::ErrIllegalArgument,
+                ExitCode::ErrIllegalState,
                 "failed unlocking deal client balance",
             )
         })?;
@@ -550,6 +550,31 @@ where
         let ret = self.next_deal_id;
         self.next_deal_id += 1;
         ret
+    }
+
+    // Return true when the funds in escrow for the input address can cover an additional lockup of amountToLock
+    pub(super) fn balance_covered(
+        &self,
+        addr: Address,
+        amount_to_lock: &TokenAmount,
+    ) -> Result<bool, Box<dyn StdError>> {
+        let prev_locked = self
+            .locked_table
+            .as_ref()
+            .unwrap()
+            .get(&addr)
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to get locked balance")
+            })?;
+        let escrow_balance = self
+            .escrow_table
+            .as_ref()
+            .unwrap()
+            .get(&addr)
+            .map_err(|e| {
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to get escrow balance")
+            })?;
+        Ok((prev_locked + amount_to_lock) <= escrow_balance)
     }
 
     pub(super) fn maybe_lock_balance(

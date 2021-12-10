@@ -214,7 +214,7 @@ impl Actor {
                 )
             })?;
 
-            let txn = get_transaction(rt, &ptx, params.id, params.proposal_hash, true)?;
+            let txn = get_transaction(rt, &ptx, params.id, params.proposal_hash)?;
 
             // Go implementation holds reference to state after transaction so state must be cloned
             // to match to handle possible exit code inconsistency
@@ -596,6 +596,9 @@ where
                 out = ser;
             }
             Err(e) => {
+                if e.is_recovered() {
+                    return Err(e);
+                }
                 code = e.exit_code();
             }
         }
@@ -635,7 +638,6 @@ fn get_transaction<'bs, 'm, BS, RT>(
     ptx: &'m Map<'bs, BS, Transaction>,
     txn_id: TxnID,
     proposal_hash: Vec<u8>,
-    check_hash: bool,
 ) -> Result<&'m Transaction, ActorError>
 where
     BS: BlockStore,
@@ -653,7 +655,7 @@ where
             actor_error!(ErrNotFound, "no such transaction {:?} for approval", txn_id)
         })?;
 
-    if check_hash {
+    if !proposal_hash.is_empty() {
         let calculated_hash = compute_proposal_hash(txn, rt).map_err(|e| {
             e.downcast_default(
                 ExitCode::ErrIllegalState,
@@ -661,7 +663,7 @@ where
             )
         })?;
 
-        if !proposal_hash.is_empty() && proposal_hash != calculated_hash {
+        if proposal_hash != calculated_hash {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "hash does not match proposal params (ensure requester is an ID address)"

@@ -30,6 +30,7 @@ pub fn is_builtin_actor(code: &Cid) -> bool {
         || actorv3::is_builtin_actor(code)
         || actorv4::is_builtin_actor(code)
         || actorv5::is_builtin_actor(code)
+        || actorv6::is_builtin_actor(code)
 }
 
 /// Returns true if the code belongs to an account actor.
@@ -39,6 +40,7 @@ pub fn is_account_actor(code: &Cid) -> bool {
         || actorv3::is_account_actor(code)
         || actorv4::is_account_actor(code)
         || actorv5::is_account_actor(code)
+        || actorv6::is_account_actor(code)
 }
 
 /// Returns true if the code belongs to a singleton actor.
@@ -48,6 +50,7 @@ pub fn is_singleton_actor(code: &Cid) -> bool {
         || actorv3::is_singleton_actor(code)
         || actorv4::is_singleton_actor(code)
         || actorv5::is_singleton_actor(code)
+        || actorv6::is_singleton_actor(code)
 }
 
 /// Returns true if the code belongs to a miner actor.
@@ -57,6 +60,7 @@ pub fn is_miner_actor(code: &Cid) -> bool {
         || code == &*actorv3::MINER_ACTOR_CODE_ID
         || code == &*actorv4::MINER_ACTOR_CODE_ID
         || code == &*actorv5::MINER_ACTOR_CODE_ID
+        || code == &*actorv6::MINER_ACTOR_CODE_ID
 }
 
 // pub fn actor_name_by_code(code: &Cid) -> String {
@@ -110,8 +114,18 @@ impl From<actorv4::util::smooth::FilterEstimate> for FilterEstimate {
         }
     }
 }
+
 impl From<actorv5::util::smooth::FilterEstimate> for FilterEstimate {
     fn from(filter_est: actorv5::util::smooth::FilterEstimate) -> Self {
+        Self {
+            position: filter_est.position,
+            velocity: filter_est.velocity,
+        }
+    }
+}
+
+impl From<actorv6::util::smooth::FilterEstimate> for FilterEstimate {
+    fn from(filter_est: actorv6::util::smooth::FilterEstimate) -> Self {
         Self {
             position: filter_est.position,
             velocity: filter_est.velocity,

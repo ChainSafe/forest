@@ -182,7 +182,7 @@ pub const WPOST_CHALLENGE_LOOKBACK: ChainEpoch = 20;
 pub const FAULT_DECLARATION_CUTOFF: ChainEpoch = WPOST_CHALLENGE_LOOKBACK + 50;
 
 /// The maximum age of a fault before the sector is terminated.
-pub const FAULT_MAX_AGE: ChainEpoch = WPOST_PROVING_PERIOD * 14;
+pub const FAULT_MAX_AGE: ChainEpoch = WPOST_PROVING_PERIOD * 42;
 
 /// Staging period for a miner worker key change.
 /// Finality is a harsh delay for a miner who has lost their worker key, as the miner will miss Window PoSts until
