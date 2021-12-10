@@ -558,14 +558,14 @@ where
         addr: Address,
         amount_to_lock: &TokenAmount,
     ) -> Result<bool, Box<dyn StdError>> {
-        let locked_table = self.locked_table.as_ref();
-        let prev_locked = match locked_table {
-            Some(t) => t.get(&addr).map_err(|e| {
+        let prev_locked = self
+            .locked_table
+            .as_ref()
+            .unwrap()
+            .get(&addr)
+            .map_err(|e| {
                 e.downcast_default(ExitCode::ErrIllegalState, "failed to get locked balance")
-            })?,
-            None => return Err(actor_error!(ErrIllegalState, "failed to get balance table").into()),
-        };
-
+            })?;
         let escrow_balance = self
             .escrow_table
             .as_ref()
@@ -590,13 +590,9 @@ where
             ));
         }
 
-        let locked_table = self.locked_table.as_ref();
-        let prev_locked = match locked_table {
-            Some(t) => t.get(addr).map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to get locked balance")
-            })?,
-            None => return Err(actor_error!(ErrIllegalState, "failed to get balance table")),
-        };
+        let prev_locked = self.locked_table.as_ref().unwrap().get(addr).map_err(|e| {
+            e.downcast_default(ExitCode::ErrIllegalState, "failed to get locked balance")
+        })?;
 
         let escrow_balance = self.escrow_table.as_ref().unwrap().get(addr).map_err(|e| {
             e.downcast_default(ExitCode::ErrIllegalState, "failed to get escrow balance")
