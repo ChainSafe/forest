@@ -15,9 +15,9 @@ pub enum NetworkVersion {
     V2,
     /// ignition (specs-actors v0.9.11)
     V3,
-    /// actors v2 (specs-actors v2.0.x)
+    /// actors v2 (specs-actors v2.0.3)
     V4,
-    /// tape (increases max prove commit size by 10x)
+    /// tape (specs-actors v2.1.0)
     V5,
     /// kumquat (specs-actors v2.2.0)
     V6,
@@ -25,16 +25,16 @@ pub enum NetworkVersion {
     V7,
     /// persian (post-2.3.2 behaviour transition)
     V8,
-    /// orange
+    /// orange (post-2.3.2 behaviour transition)
     V9,
-    /// actors v3 (specs-actors v3.0.x)
+    /// trust (specs-actors v3.0.1)
     V10,
-    /// norwegian (specs-actor v3.1.x)
+    /// norwegian (specs-actors v3.1.0)
     V11,
-    /// actors v3 (specs-actor v4.0.x)
+    /// turbo (specs-actors v4.0.0)
     V12,
-    /// reserved
+    /// hyperdrive (specs-actors v5.0.1)
     V13,
-    /// actors v6
+    /// chocolate (specs-actors v6.0.0)
     V14,
 }
