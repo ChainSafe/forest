@@ -835,9 +835,7 @@ where
                 "actor {} is a version {} actor; chain only supports actor version {} at height {} and nver {}",
                 &code_id, version, support, self.curr_epoch(), self.network_version()
             );
-            return Err(
-                actor_error!(SysErrIllegalArgument; "Cannot create actor: {}", msg)
-            );
+            return Err(actor_error!(SysErrIllegalArgument; "Cannot create actor: {}", msg));
         }
 
         if actor::is_singleton_actor(&code_id) {
