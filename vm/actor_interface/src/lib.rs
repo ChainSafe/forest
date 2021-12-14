@@ -17,6 +17,7 @@ pub use actorv6;
 use fil_types::{NetworkVersion, StateTreeVersion};
 use std::fmt::{self, Display, Formatter};
 
+#[derive(PartialEq)]
 pub enum ActorVersion {
     V0,
     V2,
@@ -42,16 +43,18 @@ impl Display for ActorVersion {
 impl From<NetworkVersion> for ActorVersion {
     fn from(version: NetworkVersion) -> Self {
         match version {
-            NetworkVersion::V0 | NetworkVersion::V1 | NetworkVersion::V2 | NetworkVersion::V3 => {
-                ActorVersion::V0
-            }
+            NetworkVersion::V0
+            | NetworkVersion::V1
+            | NetworkVersion::V2
+            | NetworkVersion::V3 => ActorVersion::V0,
             NetworkVersion::V4
             | NetworkVersion::V5
             | NetworkVersion::V6
             | NetworkVersion::V7
             | NetworkVersion::V8
             | NetworkVersion::V9 => ActorVersion::V2,
-            NetworkVersion::V10 | NetworkVersion::V11 => ActorVersion::V3,
+            NetworkVersion::V10
+            | NetworkVersion::V11 => ActorVersion::V3,
             NetworkVersion::V12 => ActorVersion::V4,
             NetworkVersion::V13 => ActorVersion::V5,
             NetworkVersion::V14 => ActorVersion::V6,

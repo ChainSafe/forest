@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::repr::Serialize_repr;
+use std::fmt::{self, Display, Formatter};
 
 /// Specifies the network version
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr)]
@@ -37,4 +38,26 @@ pub enum NetworkVersion {
     V13,
     /// chocolate (specs-actors v6.0.0)
     V14,
+}
+
+impl Display for NetworkVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0 => write!(f, "V0"),
+            Self::V1 => write!(f, "V1"),
+            Self::V2 => write!(f, "V2"),
+            Self::V3 => write!(f, "V3"),
+            Self::V4 => write!(f, "V4"),
+            Self::V5 => write!(f, "V5"),
+            Self::V6 => write!(f, "V6"),
+            Self::V7 => write!(f, "V7"),
+            Self::V8 => write!(f, "V8"),
+            Self::V9 => write!(f, "V9"),
+            Self::V10 => write!(f, "V10"),
+            Self::V11 => write!(f, "V11"),
+            Self::V12 => write!(f, "V12"),
+            Self::V13 => write!(f, "V13"),
+            Self::V14 => write!(f, "V14"),
+        }
+    }
 }
