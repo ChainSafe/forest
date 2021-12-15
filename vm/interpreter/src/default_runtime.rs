@@ -954,7 +954,7 @@ where
 
         V::verify_seal(vi)
     }
-    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<bool, Box<dyn StdError>> {
         self.gas_tracker
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_post(vi))?;

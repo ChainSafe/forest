@@ -986,16 +986,13 @@ impl Actor {
                     })?;
 
                 // Check proof, we fail if validation succeeds.
-                match verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs) {
-                    Ok(()) => {
-                        return Err(actor_error!(
-                            ErrIllegalArgument,
-                            "failed to dispute valid post"
-                        ));
-                    }
-                    Err(e) => {
-                        info!("Successfully disputed: {}", e);
-                    }
+                if verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)? {
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "failed to dispute valid post"
+                    ));
+                } else {
+                    info!("Successfully disputed post- window post was invalid");
                 }
 
                 // Ok, now we record faults. This always works because
@@ -3487,12 +3484,13 @@ fn have_pending_early_terminations(state: &State) -> bool {
     !no_early_terminations
 }
 
+// returns true if valid, false if invalid, error if failed to validate either way!
 fn verify_windowed_post<BS, RT>(
     rt: &RT,
     challenge_epoch: ChainEpoch,
     sectors: &[SectorOnChainInfo],
     proofs: Vec<PoStProof>,
-) -> Result<(), ActorError>
+) -> Result<bool, ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
@@ -3542,7 +3540,7 @@ where
         )
     })?;
 
-    Ok(())
+    Ok(true)
 }
 
 fn get_verify_info<BS, RT>(

@@ -52,8 +52,8 @@ impl Syscalls for TestSyscalls {
     fn verify_seal(&self, _: &SealVerifyInfo) -> Result<(), Box<dyn StdError>> {
         Ok(())
     }
-    fn verify_post(&self, _: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
-        Ok(())
+    fn verify_post(&self, _: &WindowPoStVerifyInfo) -> Result<bool, Box<dyn StdError>> {
+        Ok(true)
     }
 
     // TODO check if this should be defaulted as well
