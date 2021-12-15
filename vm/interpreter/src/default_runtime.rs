@@ -827,6 +827,17 @@ where
             );
         }
 
+        // Unwrapping is safe because we are priorly testing if it's a builtin
+        let version = actor::actor_version(&code_id).unwrap();
+        let support = ActorVersion::from(self.network_version());
+        if version != support {
+            let msg = format!(
+                "actor {} is a version {} actor; chain only supports actor version {} at height {} and nver {}",
+                &code_id, version, support, self.curr_epoch(), self.network_version()
+            );
+            return Err(actor_error!(SysErrIllegalArgument; "Cannot create actor: {}", msg));
+        }
+
         if actor::is_singleton_actor(&code_id) {
             return Err(actor_error!(SysErrIllegalArgument;
                     "Can only have one instance of singleton actors."));
