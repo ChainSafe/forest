@@ -36,7 +36,7 @@ where
     ) -> Result<[u8; 32], Box<dyn Error>> {
         task::block_on(
             self.cs
-                .get_chain_randomness_looking_backward(&self.blks, pers, round, entropy),
+                .get_chain_randomness_v1(&self.blks, pers, round, entropy),
         )
     }
 
@@ -48,7 +48,7 @@ where
     ) -> Result<[u8; 32], Box<dyn Error>> {
         task::block_on(
             self.cs
-                .get_beacon_randomness_looking_backward(&self.blks, pers, round, entropy),
+                .get_beacon_randomness_v1(&self.blks, pers, round, entropy),
         )
     }
 
@@ -60,7 +60,7 @@ where
     ) -> Result<[u8; 32], Box<dyn Error>> {
         task::block_on(
             self.cs
-                .get_chain_randomness_looking_forward(&self.blks, pers, round, entropy),
+                .get_chain_randomness_v2(&self.blks, pers, round, entropy),
         )
     }
 
@@ -72,7 +72,7 @@ where
     ) -> Result<[u8; 32], Box<dyn Error>> {
         task::block_on(
             self.cs
-                .get_beacon_randomness_looking_forward(&self.blks, pers, round, entropy),
+                .get_beacon_randomness_v2(&self.blks, pers, round, entropy),
         )
     }
 }

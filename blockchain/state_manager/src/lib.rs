@@ -14,7 +14,7 @@ use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
-use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
+use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use blockstore::{BlockStore, BufferedBlockStore};
 use chain::{draw_randomness, ChainStore, HeadChange};
 use chain_rand::ChainRand;
@@ -87,29 +87,45 @@ pub struct StateManager<DB> {
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
+    beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
 }
 
 impl<DB> StateManager<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    pub fn new(cs: Arc<ChainStore<DB>>) -> Self {
-        Self {
+    pub async fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, Box<dyn std::error::Error>> {
+        let genesis = cs.genesis()?.ok_or("genesis header was none")?;
+        let beacon = Arc::new(networks::beacon_schedule_default(genesis.timestamp()).await?);
+
+        Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: None,
             genesis_info: GenesisInfo::default(),
-        }
+            beacon: beacon,
+        })
     }
 
     /// Creates a constructor that passes in a HeadChange publisher.
-    pub fn new_with_publisher(cs: Arc<ChainStore<DB>>, chain_subs: Publisher<HeadChange>) -> Self {
-        Self {
+    pub async fn new_with_publisher(
+        cs: Arc<ChainStore<DB>>,
+        chain_subs: Publisher<HeadChange>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let genesis = cs.genesis()?.ok_or("genesis header was none")?;
+        let beacon = Arc::new(networks::beacon_schedule_default(genesis.timestamp()).await?);
+
+        Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::default(),
-        }
+            beacon: beacon,
+        })
+    }
+
+    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule<DrandBeacon>> {
+        self.beacon.clone()
     }
 
     /// Returns network version for the given epoch.
