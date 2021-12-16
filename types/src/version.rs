@@ -38,6 +38,8 @@ pub enum NetworkVersion {
     V13,
     /// chocolate (specs-actors v6.0.0)
     V14,
+    // TBD
+    V15,
 }
 
 impl Display for NetworkVersion {
@@ -58,6 +60,7 @@ impl Display for NetworkVersion {
             Self::V12 => write!(f, "V12"),
             Self::V13 => write!(f, "V13"),
             Self::V14 => write!(f, "V14"),
+            Self::V15 => write!(f, "V15"),
         }
     }
 }
