@@ -38,4 +38,11 @@ pub trait Rand {
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>>;
+
+    fn get_beacon_randomness_v3(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>>;
 }

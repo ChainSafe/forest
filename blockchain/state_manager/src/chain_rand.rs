@@ -243,6 +243,15 @@ where
     ) -> Result<[u8; 32], Box<dyn Error>> {
         task::block_on(self.get_beacon_randomness_v2(&self.blks, pers, round, entropy))
     }
+
+    fn get_beacon_randomness_v3(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>> {
+        task::block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
+    }
 }
 
 /// Computes a pseudorandom 32 byte Vec.

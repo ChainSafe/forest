@@ -162,12 +162,26 @@ where
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
-        lookback: bool,
+        // lookback: bool,
     ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
         let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
-        chain_rand
-            .get_beacon_randomness(blocks, pers, round, entropy, lookback)
-            .await
+        match self.get_network_version(round) {
+            NetworkVersion::V14 => {
+                chain_rand
+                    .get_beacon_randomness_v3(blocks, pers, round, entropy)
+                    .await
+            }
+            NetworkVersion::V13 => {
+                chain_rand
+                    .get_beacon_randomness_v2(blocks, pers, round, entropy)
+                    .await
+            }
+            _ => {
+                chain_rand
+                    .get_beacon_randomness_v1(blocks, pers, round, entropy)
+                    .await
+            }
+        }
     }
 
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
