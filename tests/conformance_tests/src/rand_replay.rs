@@ -29,7 +29,7 @@ impl<'a> ReplayingRand<'a> {
 }
 
 impl Rand for ReplayingRand<'_> {
-    fn get_chain_randomness(
+    fn get_chain_randomness_v1(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -47,7 +47,7 @@ impl Rand for ReplayingRand<'_> {
             self.fallback.get_chain_randomness(dst, epoch, entropy)
         }
     }
-    fn get_beacon_randomness(
+    fn get_beacon_randomness_v1(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -66,7 +66,7 @@ impl Rand for ReplayingRand<'_> {
         }
     }
     // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
-    fn get_beacon_randomness_looking_forward(
+    fn get_beacon_randomness_v2(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -85,7 +85,7 @@ impl Rand for ReplayingRand<'_> {
         }
     }
     // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
-    fn get_chain_randomness_looking_forward(
+    fn get_chain_randomness_v2(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -102,5 +102,15 @@ impl Rand for ReplayingRand<'_> {
         } else {
             self.fallback.get_chain_randomness(dst, epoch, entropy)
         }
+    }
+
+    fn get_beacon_randomness_v3(
+        &self,
+        dst: DomainSeparationTag,
+        epoch: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn StdError>> {
+        // TODO
+        self.get_beacon_randomness_v2(dst, epoch, entropy)
     }
 }

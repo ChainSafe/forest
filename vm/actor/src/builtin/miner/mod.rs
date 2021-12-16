@@ -4011,7 +4011,6 @@ where
             "unlocked balance can not repay fee debt",
         )
     })?;
-    info!("RepayDebtsOrAbort was called and succeeded");
     Ok(res)
 }
 

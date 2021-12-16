@@ -103,7 +103,7 @@ where
             cache: RwLock::new(HashMap::new()),
             publisher: None,
             genesis_info: GenesisInfo::default(),
-            beacon: beacon,
+            beacon,
         })
     }
 
@@ -120,7 +120,7 @@ where
             cache: RwLock::new(HashMap::new()),
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::default(),
-            beacon: beacon,
+            beacon,
         })
     }
 

@@ -477,7 +477,7 @@ impl Actor {
             // This should only fail on programmer error because all expected invalid conditions should be filtered in the first set of checks.
 
             // TODO: Check if we neeed to make the previous look non mut
-            for (vid, valid_deal) in params.deals.iter_mut().enumerate() {
+            for (vid, valid_deal) in valid_deals.iter().enumerate() {
                 msm.lock_client_and_provider_balances(&valid_deal.proposal)?;
 
                 let id = msm.generate_storage_deal_id();
