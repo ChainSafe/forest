@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::task;
-use beacon::{BeaconEntry, BeaconSchedule, DrandBeacon};
+use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use blake2b_simd::Params;
 use blockstore::BlockStore;
 use byteorder::{BigEndian, WriteBytesExt};
@@ -162,12 +162,13 @@ where
         let mut rand_ts: Arc<Tipset> = self
             .get_beacon_randomness_tipset(blocks, epoch, false)
             .await?;
-        let (round, _) = self.beacon.beacon_for_epoch(epoch)?;
+        let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
+        let round = beacon.max_beacon_round_for_epoch(epoch);
 
         for _ in 0..20 {
             let cbe = rand_ts.blocks()[0].beacon_entries();
             for v in cbe.iter() {
-                if v.round() == round as u64 {
+                if v.round() == round {
                     return Ok(v.clone());
                 }
             }
