@@ -176,7 +176,9 @@ fn transfer_test() {
 #[test]
 fn self_transfer_test() {
     let self_transfer_v6 = |amt, nv| {
-        use actor::actorv6::{account, init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID};
+        use actor::actorv6::{
+            account, init, ACCOUNT_ACTOR_CODE_ID, INIT_ACTOR_ADDR, INIT_ACTOR_CODE_ID,
+        };
 
         let store = MemoryDB::default();
 
@@ -210,12 +212,7 @@ fn self_transfer_test() {
             .map_err(|e| e.to_string())
             .unwrap();
 
-        let actor_state = ActorState::new(
-            *ACCOUNT_ACTOR_CODE_ID,
-            actor_state_cid,
-            10000.into(),
-            0,
-        );
+        let actor_state = ActorState::new(*ACCOUNT_ACTOR_CODE_ID, actor_state_cid, 10000.into(), 0);
         let actor_addr = state.register_new_address(&actor_addr).unwrap();
         state.set_actor(&actor_addr, actor_state).unwrap();
 

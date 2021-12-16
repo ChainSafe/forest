@@ -888,8 +888,14 @@ where
                 }
             }
             // Transfer the executing actor's balance to the beneficiary
-            transfer(*self.state.borrow_mut(), &receiver, beneficiary, &balance, self.version)
-                .map_err(|e| e.wrap("failed to transfer balance to beneficiary actor"))?;
+            transfer(
+                *self.state.borrow_mut(),
+                &receiver,
+                beneficiary,
+                &balance,
+                self.version,
+            )
+            .map_err(|e| e.wrap("failed to transfer balance to beneficiary actor"))?;
         }
 
         // Delete the executing actor
