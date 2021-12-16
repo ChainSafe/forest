@@ -162,7 +162,6 @@ where
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
-        // lookback: bool,
     ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
         let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
         match self.get_network_version(round) {
