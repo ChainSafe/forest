@@ -62,7 +62,19 @@ where
     let network_name = state_manager
         .get_network_name(genesis_header.state_root())
         .map_err(|e| format!("Failed to retrieve network name from genesis: {}", e))?;
-    Ok(network_name.to_string())
+    Ok(network_name)
+}
+
+pub async fn initialize_genesis<BS>(
+    genesis_fp: Option<&String>,
+    state_manager: &StateManager<BS>,
+) -> Result<(Tipset, String), Box<dyn StdError>>
+where
+    BS: BlockStore + Send + Sync + 'static,
+{
+    let ts = read_genesis_header(genesis_fp, state_manager.chain_store()).await?;
+    let network_name = get_network_name_from_genesis(&ts, state_manager).await?;
+    Ok((ts, network_name))
 }
 
 async fn process_car<R, BS>(

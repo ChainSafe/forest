@@ -175,7 +175,19 @@ where
                     .get_beacon_randomness_v2(blocks, pers, round, entropy)
                     .await
             }
-            _ => {
+            NetworkVersion::V0
+            | NetworkVersion::V1
+            | NetworkVersion::V2
+            | NetworkVersion::V3
+            | NetworkVersion::V4
+            | NetworkVersion::V5
+            | NetworkVersion::V6
+            | NetworkVersion::V7
+            | NetworkVersion::V8
+            | NetworkVersion::V9
+            | NetworkVersion::V10
+            | NetworkVersion::V11
+            | NetworkVersion::V12 => {
                 chain_rand
                     .get_beacon_randomness_v1(blocks, pers, round, entropy)
                     .await

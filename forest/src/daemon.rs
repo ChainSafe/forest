@@ -184,7 +184,7 @@ pub(super) async fn start(config: Config) {
     let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
-        state_manager.beacon_schedule().clone(),
+        state_manager.beacon_schedule(),
         Arc::clone(&mpool),
         network_send.clone(),
         network_rx,

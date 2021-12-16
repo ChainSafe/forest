@@ -44,7 +44,7 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_chain_randomness(dst, epoch, entropy)
+            self.fallback.get_chain_randomness_v1(dst, epoch, entropy)
         }
     }
     fn get_beacon_randomness_v1(
@@ -62,7 +62,7 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_beacon_randomness(dst, epoch, entropy)
+            self.fallback.get_beacon_randomness_v1(dst, epoch, entropy)
         }
     }
     // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
@@ -81,7 +81,7 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_beacon_randomness(dst, epoch, entropy)
+            self.fallback.get_beacon_randomness_v2(dst, epoch, entropy)
         }
     }
     // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
@@ -100,7 +100,7 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_chain_randomness(dst, epoch, entropy)
+            self.fallback.get_chain_randomness_v2(dst, epoch, entropy)
         }
     }
 
@@ -110,7 +110,17 @@ impl Rand for ReplayingRand<'_> {
         epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn StdError>> {
-        // TODO
-        self.get_beacon_randomness_v2(dst, epoch, entropy)
+        let rule = RandomnessRule {
+            kind: RandomnessKind::Chain,
+            dst,
+            epoch,
+
+            entropy: entropy.to_vec(),
+        };
+        if let Some(bz) = self.matches(rule) {
+            Ok(bz)
+        } else {
+            self.fallback.get_beacon_randomness_v3(dst, epoch, entropy)
+        }
     }
 }

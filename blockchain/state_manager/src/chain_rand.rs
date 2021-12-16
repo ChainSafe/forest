@@ -36,7 +36,7 @@ where
         Self { blks, cs, beacon }
     }
 
-    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Gets 32 bytes of randomness for ChainRand parameterized by the DomainSeparationTag, ChainEpoch,
     /// Entropy from the ticket chain.
     pub async fn get_chain_randomness(
         &self,
@@ -167,7 +167,7 @@ where
 
         for _ in 0..20 {
             let cbe = rand_ts.blocks()[0].beacon_entries();
-            for v in cbe.iter() {
+            for v in cbe {
                 if v.round() == round {
                     return Ok(v.clone());
                 }
@@ -197,11 +197,10 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let res = self.cs.tipset_by_height(search_height, ts, lookback).await;
-        match res {
-            Ok(rand_ts) => return Ok(rand_ts),
-            Err(e) => return Err(e.into()),
-        };
+        self.cs
+            .tipset_by_height(search_height, ts, lookback)
+            .await
+            .map_err(|e| e.into())
     }
 }
 
