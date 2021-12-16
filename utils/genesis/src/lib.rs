@@ -65,37 +65,6 @@ where
     Ok(network_name.to_string())
 }
 
-/// Uses an optional file path or the default genesis to parse the genesis and determine if
-/// chain store has existing data for the given genesis.
-// pub async fn initialize_genesis<BS>(
-//     genesis_fp: Option<&String>,
-//     state_manager: &StateManager<BS>,
-// ) -> Result<(Tipset, String), Box<dyn StdError>>
-// where
-//     BS: BlockStore + Send + Sync + 'static,
-// {
-//     let genesis = match genesis_fp {
-//         Some(path) => {
-//             let file = File::open(path).await?;
-//             let reader = BufReader::new(file);
-//             process_car(reader, state_manager.chain_store()).await?
-//         }
-//         None => {
-//             debug!("No specified genesis in config. Using default genesis.");
-//             let reader = BufReader::<&[u8]>::new(DEFAULT_GENESIS);
-//             process_car(reader, state_manager.chain_store()).await?
-//         }
-//     };
-
-//     info!("Initialized genesis: {}", genesis);
-
-//     // Get network name from genesis state.
-//     let network_name = state_manager
-//         .get_network_name(genesis.state_root())
-//         .map_err(|e| format!("Failed to retrieve network name from genesis: {}", e))?;
-//     Ok((Tipset::new(vec![genesis])?, network_name))
-// }
-
 async fn process_car<R, BS>(
     reader: R,
     chain_store: &ChainStore<BS>,

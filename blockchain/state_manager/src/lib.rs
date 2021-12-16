@@ -4,7 +4,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod chain_rand;
+pub mod chain_rand;
 mod errors;
 mod utils;
 mod vm_circ_supply;
@@ -16,7 +16,7 @@ use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use blockstore::{BlockStore, BufferedBlockStore};
-use chain::{draw_randomness, ChainStore, HeadChange};
+use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -152,6 +152,38 @@ where
     /// Returns reference to the state manager's [ChainStore].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
+    }
+
+    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Entropy from the latest beacon entry.
+    pub async fn get_beacon_randomness(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+        lookback: bool,
+    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+        let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
+        chain_rand
+            .get_beacon_randomness(blocks, pers, round, entropy, lookback)
+            .await
+    }
+
+    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Entropy from the ticket chain.
+    pub async fn get_chain_randomness(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+        lookback: bool,
+    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+        let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
+        chain_rand
+            .get_chain_randomness(blocks, pers, round, entropy, lookback)
+            .await
     }
 
     /// Returns the network name from the init actor state.
@@ -425,7 +457,7 @@ where
                 .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
-        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone());
+        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
         self.call_raw::<V>(message, &chain_rand, &ts)
     }
 
@@ -452,7 +484,7 @@ where
             .tipset_state::<V>(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone());
+        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
 
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
@@ -679,7 +711,7 @@ where
         let miner_state = miner::State::load(self.blockstore(), &actor)?;
 
         let buf = address.marshal_cbor()?;
-        let prand = draw_randomness(
+        let prand = chain_rand::draw_randomness(
             rbase.data(),
             DomainSeparationTag::WinningPoStChallengeSeed,
             round,
@@ -771,7 +803,7 @@ where
 
             let tipset_keys =
                 TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = ChainRand::new(tipset_keys, self.cs.clone());
+            let chain_rand = ChainRand::new(tipset_keys, self.cs.clone(), self.beacon.clone());
             let base_fee = first_block.parent_base_fee().clone();
 
             let blocks = self
