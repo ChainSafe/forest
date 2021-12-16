@@ -131,19 +131,11 @@ pub(super) async fn start(config: Config) {
 
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
-    // let (genesis, network_name) = initialize_genesis(config.genesis_file.as_ref(), &state_manager)
-    //     .await
-    //     .unwrap();
     let genesis = read_genesis_header(config.genesis_file.as_ref(), &chain_store)
         .await
         .unwrap();
 
     // Initialize StateManager
-    // let beacon = Arc::new(
-    //     networks::beacon_schedule_default(genesis.min_timestamp())
-    //         .await
-    //         .unwrap(),
-    // );
     let sm = StateManager::new(Arc::clone(&chain_store)).await.unwrap();
     let state_manager = Arc::new(sm);
 
