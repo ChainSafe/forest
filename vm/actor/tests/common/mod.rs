@@ -734,7 +734,7 @@ impl Syscalls for MockRuntime {
         }
         Ok(())
     }
-    fn verify_post(&self, post: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+    fn verify_post(&self, post: &WindowPoStVerifyInfo) -> Result<bool, Box<dyn StdError>> {
         let exp = self.expect_verify_post.replace(None).ok_or(Box::new(
             actor_error!(ErrIllegalState; "Unexpected syscall to verify PoSt"),
         ))?;
@@ -750,7 +750,7 @@ impl Syscalls for MockRuntime {
                 "Expected Failure".to_string(),
             )));
         }
-        Ok(())
+        Ok(true)
     }
     fn verify_consensus_fault(
         &self,

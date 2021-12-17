@@ -154,12 +154,13 @@ pub trait ProofVerifier {
     /// Verifies window proof of spacetime. These proofs are generated regularly to audit
     /// commitments made by storage miners. An invalid Window PoSt leads to a miner's block being
     /// invalidated and miss the opportunity to receive block rewards.
+    /// boolean false if invalid, boolean true if valid, else error.
     fn verify_window_post(
         Randomness(mut randomness): Randomness,
         proofs: &[PoStProof],
         challenge_sectors: &[SectorInfo],
         prover: u64,
-    ) -> Result<(), Box<dyn StdError>> {
+    ) -> Result<bool, Box<dyn StdError>> {
         // Necessary to be valid bls12 381 element.
         randomness[31] &= 0x3f;
 
@@ -176,11 +177,8 @@ pub trait ProofVerifier {
         let prover_id = prover_id_from_u64(prover);
 
         // Verify Proof
-        if !post::verify_window_post(&bytes_32(&randomness), &proofs, &replicas, prover_id)? {
-            Err("Window post was invalid".into())
-        } else {
-            Ok(())
-        }
+        post::verify_window_post(&bytes_32(&randomness), &proofs, &replicas, prover_id)
+            .map_err(|err| err.into())
     }
 
     /// Generates sector challenge indexes for use in winning PoSt verification.
