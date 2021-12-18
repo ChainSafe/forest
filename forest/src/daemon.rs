@@ -134,6 +134,7 @@ pub(super) async fn start(config: Config) {
     let genesis = read_genesis_header(config.genesis_file.as_ref(), &chain_store)
         .await
         .unwrap();
+    chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
     // Initialize StateManager
     let sm = StateManager::new(Arc::clone(&chain_store)).await.unwrap();
@@ -260,13 +261,21 @@ pub(super) async fn start(config: Config) {
 #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
+    use address::Address;
+    use blocks::BlockHeader;
     use db::MemoryDB;
 
     #[async_std::test]
     async fn import_snapshot_from_file() {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
-        let sm = Arc::new(StateManager::new(cs));
+        let genesis_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()
+            .unwrap();
+        cs.set_genesis(&genesis_header).unwrap();
+        let sm = Arc::new(StateManager::new(cs).await.unwrap());
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
             .await
             .expect("Failed to import chain");
@@ -275,7 +284,13 @@ mod test {
     async fn import_chain_from_file() {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
-        let sm = Arc::new(StateManager::new(cs));
+        let genesis_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()
+            .unwrap();
+        cs.set_genesis(&genesis_header).unwrap();
+        let sm = Arc::new(StateManager::new(cs).await.unwrap());
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0), false)
             .await
             .expect("Failed to import chain");
