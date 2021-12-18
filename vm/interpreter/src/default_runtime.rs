@@ -666,11 +666,11 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
-                .get_chain_randomness_looking_forward(personalization, rand_epoch, entropy)
+                .get_chain_randomness_v2(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
             self.rand
-                .get_chain_randomness(personalization, rand_epoch, entropy)
+                .get_chain_randomness_v1(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
 
@@ -683,13 +683,17 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
+        let r = if rand_epoch >= networks::UPGRADE_ACTORS_V6_HEIGHT {
             self.rand
-                .get_beacon_randomness_looking_forward(personalization, rand_epoch, entropy)
+                .get_beacon_randomness_v3(personalization, rand_epoch, entropy)
+                .map_err(|e| e.downcast_fatal("could not get randomness"))?
+        } else if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
+            self.rand
+                .get_beacon_randomness_v2(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
             self.rand
-                .get_beacon_randomness(personalization, rand_epoch, entropy)
+                .get_beacon_randomness_v1(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
         Ok(Randomness(r.to_vec()))

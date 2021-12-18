@@ -1376,7 +1376,7 @@ async fn validate_block<
         }
         let r_beacon = header.beacon_entries().last().unwrap_or(&v_prev_beacon);
         let miner_address_buf = header.miner_address().marshal_cbor()?;
-        let vrf_base = chain::draw_randomness(
+        let vrf_base = state_manager::chain_rand::draw_randomness(
             r_beacon.data(),
             DomainSeparationTag::ElectionProofProduction,
             header.epoch(),
@@ -1447,7 +1447,7 @@ async fn validate_block<
 
         let beacon_base = header.beacon_entries().last().unwrap_or(&v_prev_beacon);
 
-        let vrf_base = chain::draw_randomness(
+        let vrf_base = state_manager::chain_rand::draw_randomness(
             beacon_base.data(),
             DomainSeparationTag::TicketProduction,
             header.epoch() - TICKET_RANDOMNESS_LOOKBACK,
@@ -1559,7 +1559,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
         .iter()
         .last()
         .unwrap_or(prev_beacon_entry);
-    let rand = chain::draw_randomness(
+    let rand = state_manager::chain_rand::draw_randomness(
         rand_base.data(),
         DomainSeparationTag::WinningPoStChallengeSeed,
         header.epoch(),

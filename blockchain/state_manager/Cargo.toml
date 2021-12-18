@@ -10,6 +10,8 @@ features = ["statediff"]
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
+blake2b_simd = "0.5.9"
+byteorder = "1.3.4"
 cid = { package = "forest_cid", version = "0.3" }
 db = { package = "forest_db", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
