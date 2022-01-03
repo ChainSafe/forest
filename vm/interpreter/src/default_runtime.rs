@@ -314,9 +314,10 @@ where
                 e
             }
         });
-        if let Err(e) = self.state.borrow_mut().clear_snapshot() {
-            actor_error!(fatal("failed to clear snapshot: {}", e));
-        }
+        self.state
+            .borrow_mut()
+            .clear_snapshot()
+            .map_err(|e| actor_error!(fatal("failed to clear snapshot: {}", e)))?;
 
         ret
     }
