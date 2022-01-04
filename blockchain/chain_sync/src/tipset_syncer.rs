@@ -145,6 +145,7 @@ pub enum TipsetRangeSyncerError {
     TipsetParentNotFound(ChainStoreError),
 }
 
+#[derive(Debug)]
 struct TipsetGroup {
     tipsets: Vec<Arc<Tipset>>,
     epoch: ChainEpoch,
@@ -480,6 +481,7 @@ where
                 {
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.
+                    info!("UPDATING TIPSET_GROUP ::\n{:#?}", heaviest_tipset_group);
                     match next_sync {
                         None => *next_sync = Some(heaviest_tipset_group),
                         Some(ns) => {
@@ -1832,4 +1834,9 @@ async fn validate_tipset_against_cache(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    pub fn test_break_ties_between_tipsets() {}
 }
