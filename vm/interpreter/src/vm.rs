@@ -597,7 +597,7 @@ where
         );
 
         match res {
-            Ok(mut rt) => match rt.send(msg, gas_cost) {
+            Ok(rt) => match rt.send(msg, gas_cost) {
                 Ok(ser) => (ser, Some(rt), None),
                 Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
             },
