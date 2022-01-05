@@ -16,6 +16,7 @@ use runtime::{ConsensusFault, MessageInfo, Runtime, Syscalls};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::error::Error as StdError;
+use std::ops::Deref;
 use vm::{actor_error, ActorError, ExitCode, MethodNum, Serialized, TokenAmount};
 
 pub struct MockRuntime {
@@ -32,7 +33,7 @@ pub struct MockRuntime {
 
     // Actor State
     pub state: Option<Cid>,
-    pub balance: TokenAmount,
+    pub balance: RefCell<TokenAmount>,
     pub received: TokenAmount,
 
     // VM Impl
@@ -44,7 +45,7 @@ pub struct MockRuntime {
     pub expect_validate_caller_any: Cell<bool>,
     pub expect_validate_caller_addr: Option<Vec<Address>>,
     pub expect_validate_caller_type: Option<Vec<Cid>>,
-    pub expect_sends: VecDeque<ExpectedMessage>,
+    pub expect_sends: RefCell<VecDeque<ExpectedMessage>>,
     pub expect_create_actor: Option<ExpectCreateActor>,
     pub expect_delete_actor: Option<Address>,
     pub expect_verify_sigs: RefCell<VecDeque<ExpectedVerifySig>>,
@@ -186,7 +187,19 @@ impl MockRuntime {
 
     #[allow(dead_code)]
     pub fn set_balance(&mut self, amount: TokenAmount) {
-        self.balance = amount;
+        self.balance = RefCell::new(amount);
+    }
+
+    #[allow(dead_code)]
+    pub fn add_balance(&mut self, amount: TokenAmount) {
+        let bal = self.balance.borrow().deref() + &amount;
+        self.balance = RefCell::new(bal);
+    }
+
+    #[allow(dead_code)]
+    pub fn sub_balance(&self, amount: TokenAmount) {
+        let bal = self.balance.borrow().deref() - &amount;
+        self.balance.swap(&RefCell::new(bal));
     }
 
     #[allow(dead_code)]
@@ -262,7 +275,7 @@ impl MockRuntime {
             self.expect_validate_caller_type
         );
         assert!(
-            self.expect_sends.is_empty(),
+            self.expect_sends.borrow().is_empty(),
             "expected all message to be send, unsent messages {:?}",
             self.expect_sends
         );
@@ -298,7 +311,7 @@ impl MockRuntime {
         self.expect_validate_caller_addr = None;
         self.expect_validate_caller_type = None;
         self.expect_create_actor = None;
-        self.expect_sends.clear();
+        self.expect_sends.borrow_mut().clear();
         self.expect_verify_sigs.borrow_mut().clear();
         *self.expect_verify_seal.borrow_mut() = None;
         *self.expect_verify_post.borrow_mut() = None;
@@ -316,7 +329,7 @@ impl MockRuntime {
         send_return: Serialized,
         exit_code: ExitCode,
     ) {
-        self.expect_sends.push_back(ExpectedMessage {
+        self.expect_sends.borrow_mut().push_back(ExpectedMessage {
             to,
             method,
             params,
@@ -469,7 +482,7 @@ impl Runtime<MemoryDB> for MockRuntime {
 
     fn current_balance(&self) -> Result<TokenAmount, ActorError> {
         self.require_in_call();
-        Ok(self.balance.clone())
+        Ok(self.balance.borrow().clone())
     }
 
     fn resolve_address(&self, address: &Address) -> Result<Option<Address>, ActorError> {
@@ -542,7 +555,7 @@ impl Runtime<MemoryDB> for MockRuntime {
     }
 
     fn send(
-        &mut self,
+        &self,
         to: Address,
         method: MethodNum,
         params: Serialized,
@@ -554,7 +567,7 @@ impl Runtime<MemoryDB> for MockRuntime {
         }
 
         assert!(
-            !self.expect_sends.is_empty(),
+            !self.expect_sends.borrow().is_empty(),
             "unexpected expectedMessage to: {:?} method: {:?}, value: {:?}, params: {:?}",
             to,
             method,
@@ -562,22 +575,23 @@ impl Runtime<MemoryDB> for MockRuntime {
             params
         );
 
-        let expected_msg = self.expect_sends.pop_front().unwrap();
+        let expected_msg = self.expect_sends.borrow_mut().pop_front().unwrap();
 
         assert!(expected_msg.to == to && expected_msg.method == method && expected_msg.params == params && expected_msg.value == value,
             "expectedMessage being sent does not match expectation.\nMessage -\t to: {:?} method: {:?} value: {:?} params: {:?}\nExpected -\t {:?}",
             to, method, value, params, expected_msg);
 
-        if value > self.balance {
+        if &value > self.balance.borrow().deref() {
             return Err(actor_error!(SysErrSenderStateInvalid;
                     "cannot send value: {:?} exceeds balance: {:?}",
                     value, self.balance
             ));
         }
-        self.balance -= value;
+
+        self.sub_balance(value);
 
         match expected_msg.exit_code {
-            ExitCode::Ok => Ok(expected_msg.send_return),
+            ExitCode::Ok => Ok(expected_msg.send_return.clone()),
             x => Err(ActorError::new(x, "Expected message Fail".to_string())),
         }
     }

@@ -334,8 +334,7 @@ where
         // This logic is the equivalent to the go implementation creating a new runtime with
         // shared values.
         // All other fields will be updated from the execution.
-        let res = self.execute_send(msg, gas_cost);
-        res
+        self.execute_send(msg, gas_cost)
     }
 
     /// Helper function to handle all of the execution logic folded into single result.

@@ -14,6 +14,7 @@ use forest_actor::{
     STORAGE_POWER_ACTOR_ADDR, SYSTEM_ACTOR_ADDR, SYSTEM_ACTOR_CODE_ID,
 };
 use serde::Serialize;
+use std::cell::RefCell;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR};
 
 fn construct_runtime() -> MockRuntime {
@@ -51,7 +52,7 @@ fn create_2_payment_channels() {
         let pay_channel_string = format!("paych_{}", n);
         let paych = pay_channel_string.as_bytes();
 
-        rt.balance = TokenAmount::from(100);
+        rt.balance = RefCell::new(TokenAmount::from(100));
         rt.value_received = TokenAmount::from(100);
 
         let unique_address = Address::new_actor(paych);
