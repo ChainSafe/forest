@@ -453,7 +453,7 @@ impl Actor {
 
                 let contains_claim = match claims.contains_key(&addr.to_bytes()) {
                     Ok(contains_claim) => contains_claim,
-                    Err(e) => return Err(format!("failed to look up clain: {}", e).into()),
+                    Err(e) => return Err(format!("failed to look up claim: {}", e).into()),
                 };
 
                 if !contains_claim {
