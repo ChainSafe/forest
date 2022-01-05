@@ -412,85 +412,86 @@ impl Actor {
         let mut verifies = IndexMap::new();
         let mut st_err: Option<String> = None;
         let this_epoch_qa_power_smoothed = rt
-            .transaction(|st: &mut State, rt| {
-                let result = Ok(st.this_epoch_qa_power_smoothed.clone());
-                if st.proof_validation_batch.is_none() {
-                    debug!("ProofValidationBatch was nil, quitting verification");
+        .transaction(|st: &mut State, rt| {
+            let result = Ok(st.this_epoch_qa_power_smoothed.clone());
+            if st.proof_validation_batch.is_none() {
+                debug!("ProofValidationBatch was nil, quitting verification");
+                return result;
+            }
+            let mmap = match Multimap::from_root(
+                rt.store(),
+                st.proof_validation_batch.as_ref().unwrap(),
+                HAMT_BIT_WIDTH,
+                PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
+            ) {
+                Ok(mmap) => mmap,
+                Err(e) => {
+                    st_err = Some(format!("failed to load proofs validation batch {}", e));
                     return result;
                 }
-                let mmap = match Multimap::from_root(
-                    rt.store(),
-                    st.proof_validation_batch.as_ref().unwrap(),
-                    HAMT_BIT_WIDTH,
-                    PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
-                ) {
-                    Ok(mmap) => mmap,
+            };
+
+            let claims = match make_map_with_root_and_bitwidth::<_, Claim>(
+                &st.claims,
+                rt.store(),
+                HAMT_BIT_WIDTH,
+            ) {
+                Ok(claims) => claims,
+                Err(e) => {
+                    st_err = Some(format!("failed to load claims: {}", e));
+                    return result;
+                }
+            };
+
+            if let Err(e) = mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
+                let addr = match Address::from_bytes(&k.0) {
+                    Ok(addr) => addr,
                     Err(e) => {
-                        st_err = Some(format!("failed to load proofs validation batch {}", e));
-                        return result;
+                        return Err(format!("failed to parse address key: {}", e).into());
                     }
                 };
 
-                let claims = match make_map_with_root_and_bitwidth::<_, Claim>(
-                    &st.claims,
-                    rt.store(),
-                    HAMT_BIT_WIDTH,
-                ) {
-                    Ok(claims) => claims,
-                    Err(e) => {
-                        st_err = Some(format!("failed to load claims: {}", e));
-                        return result;
-                    }
+                let contains_claim = match claims.contains_key(&addr.to_bytes()) {
+                    Ok(contains_claim) => contains_claim,
+                    Err(e) => return Err(format!("failed to look up clain: {}", e).into()),
                 };
 
-                if let Err(e) = mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
-                    let addr = match Address::from_bytes(&k.0) {
-                        Ok(addr) => addr,
-                        Err(e) => {
-                            return Err(format!("failed to parse address key: {}", e).into());
-                        }
-                    };
-
-                    let contains_claim = match claims.contains_key(&addr.to_bytes()) {
-                        Ok(contains_claim) => contains_claim,
-                        Err(e) => return Err(format!("failed to look up clain: {}", e).into()),
-                    };
-
-                    if !contains_claim {
-                        debug!("skipping batch verifies for unknown miner: {}", addr);
-                        return Ok(());
-                    }
-
-                    let mut infos = Vec::new();
-                    arr.for_each(|_, svi| {
-                        infos.push(svi.clone());
-                        Ok(())
-                    })
-                    .map_err(|e| {
-                        format!(
-                            "failed to iterate over proof verify array for miner {}: {}",
-                            addr, e
-                        )
-                    })?;
-
-                    verifies.insert(addr, infos);
-                    Ok(())
-                }) {
-                    // Do not return immediately, all runs that get this far should wipe the ProofValidationBatchQueue.
-                    // If we leave the validation batch then in the case of a repeating state error the queue
-                    // will quickly fill up and repeated traversals will start ballooning cron execution time.
-                    st_err = Some(format!("failed to iterate proof batch: {}", e));
+                if !contains_claim {
+                    debug!("skipping batch verifies for unknown miner: {}", addr);
+                    return Ok(());
                 }
 
-                st.proof_validation_batch = None;
-                result
-            })
-            .map_err(|e| {
-                format!(
-                    "failed to do transaction in process batch proof verifies: {}",
-                    e
-                )
-            })?;
+                let mut infos = Vec::new();
+                arr.for_each(|_, svi| {
+                    infos.push(svi.clone());
+                    Ok(())
+                })
+                .map_err(|e| {
+                    format!(
+                        "failed to iterate over proof verify array for miner {}: {}",
+                        addr,
+                        e
+                    )
+                })?;
+
+                verifies.insert(addr, infos);
+                Ok(())
+            }) {
+                // Do not return immediately, all runs that get this far should wipe the ProofValidationBatchQueue.
+                // If we leave the validation batch then in the case of a repeating state error the queue
+                // will quickly fill up and repeated traversals will start ballooning cron execution time.
+                st_err = Some(format!("failed to iterate proof batch: {}", e));
+            }
+
+            st.proof_validation_batch = None;
+            result
+        })
+        .map_err(|e| {
+            format!(
+                "failed to do transaction in process batch proof verifies: {}",
+                e
+            )
+        })?;
         if let Some(st_err) = st_err {
             return Err(st_err);
         }
