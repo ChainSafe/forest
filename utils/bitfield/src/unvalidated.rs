@@ -20,7 +20,7 @@ impl<'a> Validate<'a> for &'a mut UnvalidatedBitField {
     }
     /// it's O(1) to get max set value in bitfield during validation, so we do that here.
     fn validate_with_max(self) -> Result<(&'a BitField, u64)> {
-        self.validate_mut_with_max().map(|(bf,max)| (&*bf,max))
+        self.validate_mut_with_max().map(|(bf, max)| (&*bf, max))
     }
 }
 
@@ -30,7 +30,9 @@ impl<'a> Validate<'a> for &'a BitField {
     }
     /// unimplemented because it's slow- this function exists to exploit that unvalidated
     /// bitfields can get their max value quickly during validation
-    fn validate_with_max(self) -> Result<(&'a BitField, u64)> { unimplemented!(); }
+    fn validate_with_max(self) -> Result<(&'a BitField, u64)> {
+        unimplemented!();
+    }
 }
 
 /// A bit field that may not yet have been validated for valid RLE+.
@@ -58,7 +60,9 @@ impl UnvalidatedBitField {
             let (bf, max) = BitField::from_bytes_with_max(bytes)?;
             *self = Self::Validated(bf);
             max
-        } else { unreachable!() };
+        } else {
+            unreachable!()
+        };
 
         match self {
             Self::Validated(bf) => Ok((bf, max)),

@@ -142,10 +142,13 @@ impl BitField {
         }
 
         let last_value = ranges.last().map_or(0, |range| range.end - 1);
-        Ok( (Self {
+        Ok((
+            Self {
                 ranges,
                 ..Default::default()
-            }, last_value as u64))
+            },
+            last_value as u64,
+        ))
     }
 
     /// Decodes RLE+ encoded bytes into a bit field.
