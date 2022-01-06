@@ -443,128 +443,134 @@ where
             })
             .map_err(|e| e.to_string())?;
 
-        self.state.snapshot()?;
+        let send_clo = || -> Result<ApplyRet, String> {
+            self.state.snapshot()?;
 
-        // Perform transaction
-        let (mut ret_data, rt, mut act_err) = self.send(msg.message(), Some(msg_gas_cost));
-        if let Some(err) = &act_err {
-            if err.is_fatal() {
-                return Err(format!(
-                    "[from={}, to={}, seq={}, m={}, h={}] fatal error: {}",
-                    msg.from(),
-                    msg.to(),
-                    msg.sequence(),
-                    msg.method_num(),
-                    self.epoch,
-                    err
-                ));
-            } else {
-                debug!(
-                    "[from={}, to={}, seq={}, m={}] send error: {}",
-                    msg.from(),
-                    msg.to(),
-                    msg.sequence(),
-                    msg.method_num(),
-                    err
-                );
-                if !ret_data.is_empty() {
+            // Perform transaction
+            let (mut ret_data, rt, mut act_err) = self.send(msg.message(), Some(msg_gas_cost));
+            if let Some(err) = &act_err {
+                if err.is_fatal() {
                     return Err(format!(
-                        "message invocation errored, but had a return value anyway: {}",
+                        "[from={}, to={}, seq={}, m={}, h={}] fatal error: {}",
+                        msg.from(),
+                        msg.to(),
+                        msg.sequence(),
+                        msg.method_num(),
+                        self.epoch,
                         err
                     ));
+                } else {
+                    debug!(
+                        "[from={}, to={}, seq={}, m={}] send error: {}",
+                        msg.from(),
+                        msg.to(),
+                        msg.sequence(),
+                        msg.method_num(),
+                        err
+                    );
+                    if !ret_data.is_empty() {
+                        return Err(format!(
+                            "message invocation errored, but had a return value anyway: {}",
+                            err
+                        ));
+                    }
                 }
             }
-        }
 
-        let gas_used = if let Some(mut rt) = rt {
-            if !ret_data.is_empty() {
-                if let Err(e) = rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
-                {
-                    act_err = Some(e);
-                    ret_data = Serialized::default();
+            let gas_used = if let Some(mut rt) = rt {
+                if !ret_data.is_empty() {
+                    if let Err(e) =
+                        rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
+                    {
+                        act_err = Some(e);
+                        ret_data = Serialized::default();
+                    }
                 }
-            }
-            if rt.gas_used() < 0 {
-                0
+                if rt.gas_used() < 0 {
+                    0
+                } else {
+                    rt.gas_used()
+                }
             } else {
-                rt.gas_used()
-            }
-        } else {
-            return Err(format!("send returned None runtime: {:?}", act_err));
-        };
+                return Err(format!("send returned None runtime: {:?}", act_err));
+            };
 
-        let err_code = if let Some(err) = &act_err {
-            if !err.is_ok() {
-                // Revert all state changes on error.
-                self.state.revert_to_snapshot()?;
-            }
-            err.exit_code()
-        } else {
-            ExitCode::Ok
-        };
+            let err_code = if let Some(err) = &act_err {
+                if !err.is_ok() {
+                    // Revert all state changes on error.
+                    self.state.revert_to_snapshot()?;
+                }
+                err.exit_code()
+            } else {
+                ExitCode::Ok
+            };
 
-        let should_burn = self
-            .should_burn(self.state(), msg, err_code)
-            .map_err(|e| format!("failed to decide whether to burn: {}", e))?;
+            let should_burn = self
+                .should_burn(self.state(), msg, err_code)
+                .map_err(|e| format!("failed to decide whether to burn: {}", e))?;
 
-        let GasOutputs {
-            base_fee_burn,
-            miner_tip,
-            over_estimation_burn,
-            refund,
-            miner_penalty,
-            ..
-        } = compute_gas_outputs(
-            gas_used,
-            msg.gas_limit(),
-            &self.base_fee,
-            msg.gas_fee_cap(),
-            msg.gas_premium().clone(),
-            should_burn,
-        );
-
-        let mut transfer_to_actor = |addr: &Address, amt: &TokenAmount| -> Result<(), String> {
-            if amt.sign() == Sign::Minus {
-                return Err("attempted to transfer negative value into actor".into());
-            }
-            if amt.is_zero() {
-                return Ok(());
-            }
-
-            self.state
-                .mutate_actor(addr, |act| {
-                    act.deposit_funds(amt);
-                    Ok(())
-                })
-                .map_err(|e| e.to_string())?;
-            Ok(())
-        };
-
-        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
-
-        transfer_to_actor(&**reward::ADDRESS, &miner_tip)?;
-
-        transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
-
-        // refund unused gas
-        transfer_to_actor(msg.from(), &refund)?;
-
-        if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
-            // Sanity check. This could be a fatal error.
-            return Err("Gas handling math is wrong".to_owned());
-        }
-        self.state.clear_snapshot()?;
-
-        Ok(ApplyRet {
-            msg_receipt: MessageReceipt {
-                return_data: ret_data,
-                exit_code: err_code,
+            let GasOutputs {
+                base_fee_burn,
+                miner_tip,
+                over_estimation_burn,
+                refund,
+                miner_penalty,
+                ..
+            } = compute_gas_outputs(
                 gas_used,
-            },
-            penalty: miner_penalty,
-            act_error: act_err,
-            miner_tip,
-        })
+                msg.gas_limit(),
+                &self.base_fee,
+                msg.gas_fee_cap(),
+                msg.gas_premium().clone(),
+                should_burn,
+            );
+
+            let mut transfer_to_actor = |addr: &Address, amt: &TokenAmount| -> Result<(), String> {
+                if amt.sign() == Sign::Minus {
+                    return Err("attempted to transfer negative value into actor".into());
+                }
+                if amt.is_zero() {
+                    return Ok(());
+                }
+
+                self.state
+                    .mutate_actor(addr, |act| {
+                        act.deposit_funds(amt);
+                        Ok(())
+                    })
+                    .map_err(|e| e.to_string())?;
+                Ok(())
+            };
+
+            transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
+
+            transfer_to_actor(&**reward::ADDRESS, &miner_tip)?;
+
+            transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
+
+            // refund unused gas
+            transfer_to_actor(msg.from(), &refund)?;
+
+            if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
+                // Sanity check. This could be a fatal error.
+                return Err("Gas handling math is wrong".to_owned());
+            }
+
+            Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: ret_data,
+                    exit_code: err_code,
+                    gas_used,
+                },
+                penalty: miner_penalty,
+                act_error: act_err,
+                miner_tip,
+            })
+        };
+
+        let res = send_clo();
+        self.state.clear_snapshot()?;
+        res
     }
 
     /// Instantiates a new Runtime, and calls vm_send to do the execution.
