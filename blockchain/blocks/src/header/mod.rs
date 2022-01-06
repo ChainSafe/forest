@@ -457,12 +457,10 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::{errors::Error, BlockHeader, Ticket, TipsetKeys};
+    use crate::{errors::Error, BlockHeader};
     use address::Address;
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
-    use cid::Code::Identity;
     use encoding::Cbor;
-    use num_bigint::BigInt;
 
     use std::sync::Arc;
     use std::time::Duration;

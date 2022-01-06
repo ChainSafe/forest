@@ -6371,6 +6371,8 @@ dependencies = [
  "async-log",
  "async-std",
  "beacon",
+ "blake2b_simd",
+ "byteorder 1.4.3",
  "chain",
  "fil_clock",
  "fil_types",

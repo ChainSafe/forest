@@ -8,15 +8,12 @@ use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use blake2b_simd::Params;
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use byteorder::{BigEndian, WriteBytesExt};
 use cid::Cid;
 use cid::Code::Blake2b256;
 use clock::ChainEpoch;
 use crossbeam::atomic::AtomicCell;
-use crypto::DomainSeparationTag;
-use encoding::{blake2b_256, de::DeserializeOwned, from_slice, Cbor};
+use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
@@ -32,7 +29,6 @@ use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
 use std::error::Error as StdError;
-use std::io::Write;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -288,107 +284,6 @@ where
         } else {
             self.tipset_from_keys(lbts.parents()).await
         }
-    }
-
-    pub async fn get_chain_randomness_looking_forward(
-        &self,
-        blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        self.get_chain_randomness(blocks, pers, round, entropy, false)
-            .await
-    }
-
-    pub async fn get_chain_randomness_looking_backward(
-        &self,
-        blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        self.get_chain_randomness(blocks, pers, round, entropy, true)
-            .await
-    }
-
-    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
-    /// Entropy from the ticket chain.
-    pub async fn get_chain_randomness(
-        &self,
-        blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-        lookback: bool,
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        let ts = self.tipset_from_keys(blocks).await?;
-
-        if round > ts.epoch() {
-            return Err("cannot draw randomness from the future".into());
-        }
-
-        let search_height = if round < 0 { 0 } else { round };
-
-        let rand_ts = self.tipset_by_height(search_height, ts, lookback).await?;
-
-        draw_randomness(
-            rand_ts
-                .min_ticket()
-                .ok_or("No ticket exists for block")?
-                .vrfproof
-                .as_bytes(),
-            pers,
-            round,
-            entropy,
-        )
-    }
-
-    pub async fn get_beacon_randomness_looking_forward(
-        &self,
-        blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        self.get_beacon_randomness(blocks, pers, round, entropy, false)
-            .await
-    }
-
-    pub async fn get_beacon_randomness_looking_backward(
-        &self,
-        blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        self.get_beacon_randomness(blocks, pers, round, entropy, true)
-            .await
-    }
-
-    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
-    /// Entropy from the latest beacon entry.
-    pub async fn get_beacon_randomness(
-        &self,
-        blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-        lookback: bool,
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-        let ts = self.tipset_from_keys(blocks).await?;
-
-        if round > ts.epoch() {
-            return Err("cannot draw randomness from the future".into());
-        }
-
-        let search_height = if round < 0 { 0 } else { round };
-
-        let rand_ts = self.tipset_by_height(search_height, ts, lookback).await?;
-
-        let be = self.latest_beacon_entry(&rand_ts).await?;
-
-        draw_randomness(be.data(), pers, round, entropy)
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
@@ -841,24 +736,6 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
     }
     Ok(())
-}
-
-/// Computes a pseudorandom 32 byte Vec.
-pub fn draw_randomness(
-    rbase: &[u8],
-    pers: DomainSeparationTag,
-    round: ChainEpoch,
-    entropy: &[u8],
-) -> Result<[u8; 32], Box<dyn std::error::Error>> {
-    let mut state = Params::new().hash_length(32).to_state();
-    state.write_i64::<BigEndian>(pers as i64)?;
-    let vrf_digest = blake2b_256(rbase);
-    state.write_all(&vrf_digest)?;
-    state.write_i64::<BigEndian>(round as i64)?;
-    state.write_all(entropy)?;
-    let mut ret = [0u8; 32];
-    ret.clone_from_slice(state.finalize().as_bytes());
-    Ok(ret)
 }
 
 /// Returns a vector of cids from provided root cid
