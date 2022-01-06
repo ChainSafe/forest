@@ -479,7 +479,8 @@ where
 
             let gas_used = if let Some(mut rt) = rt {
                 if !ret_data.is_empty() {
-                    if let Err(e) = rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
+                    if let Err(e) =
+                        rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
                     {
                         act_err = Some(e);
                         ret_data = Serialized::default();
