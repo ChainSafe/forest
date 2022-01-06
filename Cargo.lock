@@ -1013,7 +1013,7 @@ dependencies = [
  "lazy_static",
  "lockfree",
  "log",
- "lru 0.6.5",
+ "lru 0.7.2",
  "multihash 0.13.2",
  "networks",
  "num-traits",
@@ -1060,7 +1060,7 @@ dependencies = [
  "lazy_static",
  "libp2p",
  "log",
- "lru 0.6.5",
+ "lru 0.7.2",
  "message_pool",
  "networks",
  "num-traits",
@@ -4030,7 +4030,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-swarm",
  "log",
- "lru 0.7.0",
+ "lru 0.7.2",
  "rand 0.7.3",
  "smallvec",
  "unsigned-varint 0.7.0",
@@ -4266,9 +4266,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.7.0"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c748cfe47cb8da225c37595b3108bea1c198c84aaae8ea0ba76d01dda9fc803"
+checksum = "274353858935c992b13c0ca408752e2121da852d07dec7ce5f108c77dfa14d1f"
 dependencies = [
  "hashbrown 0.11.2",
 ]
@@ -4382,7 +4382,7 @@ dependencies = [
  "key_management",
  "libsecp256k1",
  "log",
- "lru 0.6.5",
+ "lru 0.7.2",
  "networks",
  "num-rational 0.3.2",
  "num-traits",

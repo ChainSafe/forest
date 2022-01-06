@@ -31,7 +31,7 @@ async-std = { version = "1.9", features = ["tokio1"] }
 types = { package = "fil_types", version = "0.2" }
 lazy_static = "1.4"
 interpreter = { path = "../../vm/interpreter/" }
-lru = "0.6"
+lru = "0.7.2"
 forest_car = { path = "../../ipld/car" }
 forest_ipld = "0.1.1"
 networks = { path = "../../types/networks" }
