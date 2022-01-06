@@ -411,90 +411,86 @@ impl Actor {
         // on order iterated through multimap.
         let mut verifies = IndexMap::new();
         let mut st_err: Option<String> = None;
-        let state: State = rt.state().map_err(|e| {
-            format!(
-                "failed to load state in process batch proof verification: {}",
-                e
-            )
-        })?;
-        rt.transaction(|st: &mut State, rt| {
-            if st.proof_validation_batch.is_none() {
-                debug!("ProofValidationBatch was nil, quitting verification");
-                return Ok(());
-            }
-            let mmap = match Multimap::from_root(
-                rt.store(),
-                st.proof_validation_batch.as_ref().unwrap(),
-                HAMT_BIT_WIDTH,
-                PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
-            ) {
-                Ok(mmap) => mmap,
-                Err(e) => {
-                    st_err = Some(format!("failed to load proofs validation batch {}", e));
-                    return Ok(());
+        let this_epoch_qa_power_smoothed = rt
+            .transaction(|st: &mut State, rt| {
+                let result = Ok(st.this_epoch_qa_power_smoothed.clone());
+                if st.proof_validation_batch.is_none() {
+                    debug!("ProofValidationBatch was nil, quitting verification");
+                    return result;
                 }
-            };
-
-            let claims = match make_map_with_root_and_bitwidth::<_, Claim>(
-                &st.claims,
-                rt.store(),
-                HAMT_BIT_WIDTH,
-            ) {
-                Ok(claims) => claims,
-                Err(e) => {
-                    st_err = Some(format!("failed to load claims: {}", e));
-                    return Ok(());
-                }
-            };
-
-            if let Err(e) = mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
-                let addr = match Address::from_bytes(&k.0) {
-                    Ok(addr) => addr,
+                let mmap = match Multimap::from_root(
+                    rt.store(),
+                    st.proof_validation_batch.as_ref().unwrap(),
+                    HAMT_BIT_WIDTH,
+                    PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
+                ) {
+                    Ok(mmap) => mmap,
                     Err(e) => {
-                        return Err(format!("failed to parse address key: {}", e).into());
+                        st_err = Some(format!("failed to load proofs validation batch {}", e));
+                        return result;
                     }
                 };
 
-                let contains_claim = match claims.contains_key(&addr.to_bytes()) {
-                    Ok(contains_claim) => contains_claim,
-                    Err(e) => return Err(format!("failed to look up claim: {}", e).into()),
+                let claims = match make_map_with_root_and_bitwidth::<_, Claim>(
+                    &st.claims,
+                    rt.store(),
+                    HAMT_BIT_WIDTH,
+                ) {
+                    Ok(claims) => claims,
+                    Err(e) => {
+                        st_err = Some(format!("failed to load claims: {}", e));
+                        return result;
+                    }
                 };
 
-                if !contains_claim {
-                    debug!("skipping batch verifies for unknown miner: {}", addr);
-                    return Ok(());
+                if let Err(e) = mmap.for_all::<_, SealVerifyInfo>(|k, arr| {
+                    let addr = match Address::from_bytes(&k.0) {
+                        Ok(addr) => addr,
+                        Err(e) => {
+                            return Err(format!("failed to parse address key: {}", e).into());
+                        }
+                    };
+
+                    let contains_claim = match claims.contains_key(&addr.to_bytes()) {
+                        Ok(contains_claim) => contains_claim,
+                        Err(e) => return Err(format!("failed to look up claim: {}", e).into()),
+                    };
+
+                    if !contains_claim {
+                        debug!("skipping batch verifies for unknown miner: {}", addr);
+                        return Ok(());
+                    }
+
+                    let mut infos = Vec::new();
+                    arr.for_each(|_, svi| {
+                        infos.push(svi.clone());
+                        Ok(())
+                    })
+                    .map_err(|e| {
+                        format!(
+                            "failed to iterate over proof verify array for miner {}: {}",
+                            addr, e
+                        )
+                    })?;
+
+                    verifies.insert(addr, infos);
+                    Ok(())
+                }) {
+                    // Do not return immediately, all runs that get this far should wipe the ProofValidationBatchQueue.
+                    // If we leave the validation batch then in the case of a repeating state error the queue
+                    // will quickly fill up and repeated traversals will start ballooning cron execution time.
+                    st_err = Some(format!("failed to iterate proof batch: {}", e));
                 }
 
-                let mut infos = Vec::new();
-                arr.for_each(|_, svi| {
-                    infos.push(svi.clone());
-                    Ok(())
-                })
-                .map_err(|e| {
-                    format!(
-                        "failed to iterate over proof verify array for miner {}: {}",
-                        addr, e
-                    )
-                })?;
-
-                verifies.insert(addr, infos);
-                Ok(())
-            }) {
-                // Do not return immediately, all runs that get this far should wipe the ProofValidationBatchQueue.
-                // If we leave the validation batch then in the case of a repeating state error the queue
-                // will quickly fill up and repeated traversals will start ballooning cron execution time.
-                st_err = Some(format!("failed to iterate proof batch: {}", e));
-            }
-
-            st.proof_validation_batch = None;
-            Ok(())
-        })
-        .map_err(|e| {
-            format!(
-                "failed to do transaction in process batch proof verifies: {}",
-                e
-            )
-        })?;
+                st.proof_validation_batch = None;
+                result
+            })
+            .map_err(|e| {
+                format!(
+                    "failed to do transaction in process batch proof verifies: {}",
+                    e
+                )
+            })?;
         if let Some(st_err) = st_err {
             return Err(st_err);
         }
@@ -532,7 +528,7 @@ impl Actor {
                         sectors: successful,
                         reward_smoothed: rewret.this_epoch_reward_smoothed.clone(),
                         reward_baseline_power: rewret.this_epoch_baseline_power.clone(),
-                        quality_adj_power_smoothed: state.this_epoch_qa_power_smoothed.clone(),
+                        quality_adj_power_smoothed: this_epoch_qa_power_smoothed.clone(),
                     })
                     .map_err(|e| format!("failed to serialize ConfirmSectorProofsParams: {}", e))?,
                     Default::default(),

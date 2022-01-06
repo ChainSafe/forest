@@ -466,7 +466,7 @@ fn add_provider_funds(
 
     rt.verify();
 
-    rt.balance = rt.balance.clone() + amount;
+    rt.add_balance(amount);
 }
 
 fn add_participant_funds(rt: &mut MockRuntime, addr: Address, amount: TokenAmount) {
@@ -489,7 +489,7 @@ fn add_participant_funds(rt: &mut MockRuntime, addr: Address, amount: TokenAmoun
 
     rt.verify();
 
-    rt.balance = rt.balance.clone() + amount;
+    rt.add_balance(amount);
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {

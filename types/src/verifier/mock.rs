@@ -25,8 +25,8 @@ impl ProofVerifier for MockVerifier {
         _: &[PoStProof],
         _: &[SectorInfo],
         _: u64,
-    ) -> Result<(), Box<dyn StdError>> {
-        Ok(())
+    ) -> Result<bool, Box<dyn StdError>> {
+        Ok(true)
     }
     fn generate_winning_post_sector_challenge(
         _: RegisteredPoStProof,
