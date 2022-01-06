@@ -279,7 +279,7 @@ where
     }
 
     fn internal_send(
-        &mut self,
+        &self,
         from: Address,
         to: Address,
         method: MethodNum,
@@ -326,7 +326,7 @@ where
     /// It invokes methods on different Actors based on the Message.
     /// This function is somewhat equivalent to the go implementation's vm send.
     pub fn send(
-        &mut self,
+        &self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
@@ -335,34 +335,20 @@ where
         // This logic is the equivalent to the go implementation creating a new runtime with
         // shared values.
         // All other fields will be updated from the execution.
-        let prev_val = self.caller_validated;
-        let prev_depth = self.depth;
-        let prev_msg = self.vm_msg.clone();
-        let res = self.execute_send(msg, gas_cost);
-
-        // Reset values back to their values before the call
-        self.vm_msg = prev_msg;
-        self.caller_validated = prev_val;
-        self.depth = prev_depth;
-
-        res
+        self.execute_send(msg, gas_cost)
     }
 
     /// Helper function to handle all of the execution logic folded into single result.
     /// This is necessary to follow to follow the same control flow of the go implementation
     /// cleanly without doing anything memory unsafe.
     fn execute_send(
-        &mut self,
+        &self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
         // * Following logic would be called in the go runtime initialization.
         // * Since We reuse the runtime, all of these things need to happen on each call
-
-        // TODO: fix this following line?
-        // self.caller_validated = false;
-        self.depth += 1;
-        if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
+        if self.depth + 1 > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
             return Err(actor_error!(recovered(
                 SysErrForbidden,
                 "message execution exceeds call depth"
@@ -775,7 +761,7 @@ where
     }
 
     fn send(
-        &mut self,
+        &self,
         to: Address,
         method: MethodNum,
         params: Serialized,

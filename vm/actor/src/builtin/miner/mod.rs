@@ -1248,8 +1248,7 @@ impl Actor {
         rt.transaction(|state: &mut State, rt|{
             // Aggregate fee applies only when batching.
             if params.sectors.len() > 1 {
-                let aggregate_fee = aggregate_pre_commit_network_fee(params.sectors.len() as i64, rt.base_fee());
-                // AggregateFee applied to fee debt to consolidate burn with outstanding debts
+                let aggregate_fee = aggregate_pre_commit_network_fee(params.sectors.len() as i64, rt.base_fee());                // AggregateFee applied to fee debt to consolidate burn with outstanding debts
                 state.apply_penalty(&aggregate_fee)
                 .map_err(|e| {
                     actor_error!(

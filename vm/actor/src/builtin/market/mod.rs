@@ -200,7 +200,7 @@ impl Actor {
     /// Publish a new set of storage deals (not yet included in a sector).
     fn publish_storage_deals<BS, RT>(
         rt: &mut RT,
-        mut params: PublishStorageDealsParams,
+        params: PublishStorageDealsParams,
     ) -> Result<PublishStorageDealsReturn, ActorError>
     where
         BS: BlockStore,
@@ -272,21 +272,9 @@ impl Actor {
             .build()
             .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load msm"))?;
 
-        // the for loop too uses rt immutably and also needs to mutably access it.
-        // so we will need to isolate them.
-        struct Deal<'a> {
-            to: Address,
-            method: u64,
-            params: Serialized,
-            value: TokenAmount,
-            di: usize,
-            deal: &'a mut deal::ClientDealProposal,
-        }
-        let mut method_queue: Vec<Deal> = vec![];
-
-        for (di, deal) in params.deals.iter_mut().enumerate() {
+        for (di, mut deal) in params.deals.into_iter().enumerate() {
             // drop malformed deals
-            if let Err(e) = validate_deal(rt, deal, &network_raw_power, &baseline_power) {
+            if let Err(e) = validate_deal(rt, &deal, &network_raw_power, &baseline_power) {
                 info!("invalid deal {}: {}", di, e);
                 continue;
             }
@@ -388,50 +376,25 @@ impl Actor {
             // check VerifiedClient allowed cap and deduct PieceSize from cap
             // drop deals with a DealSize that cannot be fully covered by VerifiedClient's available DataCap
             if deal.proposal.verified_deal {
-                // So instead of mutably calling, we queue the rt.send() params as a struct, see Deal struct
-                method_queue.push(Deal {
-                    to: *VERIFIED_REGISTRY_ACTOR_ADDR,
-                    method: crate::verifreg::Method::UseBytes as u64,
-                    params: Serialized::serialize(UseBytesParams {
+                if let Err(e) = rt.send(
+                    *VERIFIED_REGISTRY_ACTOR_ADDR,
+                    crate::verifreg::Method::UseBytes as u64,
+                    Serialized::serialize(UseBytesParams {
                         address: client,
                         deal_size: BigInt::from(deal.proposal.piece_size.0),
                     })?,
-                    value: TokenAmount::zero(),
-                    di,
-                    deal,
-                });
+                    TokenAmount::zero(),
+                ) {
+                    info!(
+                        "invalid deal {}: failed to acquire datacap exitcode: {}",
+                        di, e
+                    )
+                }
             }
 
             proposal_cid_lookup.insert(pcid);
-        }
-
-        // we then loop over the method_queue and call rt.send()
-        for i in method_queue {
-            let Deal {
-                to,
-                method,
-                params,
-                value,
-                di,
-                deal,
-            } = i;
-            let ret = rt.send(to, method, params, value);
-
-            if let Err(e) = ret {
-                info!(
-                    "invalid deal {}: failed to acquire datacap exitcode: {}",
-                    di, e
-                );
-                continue;
-            }
-
-            let pcid = deal.proposal.cid().map_err(|e| {
-                ActorError::from(e).wrap(format!("failed to take cid of proposal {}", di))
-            })?;
-
-            // update valid deal state
             valid_proposal_cids.push(pcid);
-            valid_deals.push(deal.clone());
+            valid_deals.push(deal);
             valid_input_bf.set(di);
         }
 
@@ -459,7 +422,7 @@ impl Actor {
             ));
         }
 
-        let mut new_deal_ids = Vec::new();
+        let mut new_deal_ids = Vec::with_capacity(valid_deal_count);
 
         rt.transaction(|st: &mut State, rt| {
             let mut msm = st.mutator(rt.store());
@@ -475,8 +438,6 @@ impl Actor {
 
             // All storage dealProposals will be added in an atomic transaction; this operation will be unrolled if any of them fails.
             // This should only fail on programmer error because all expected invalid conditions should be filtered in the first set of checks.
-
-            // TODO: Check if we neeed to make the previous look non mut
             for (vid, valid_deal) in valid_deals.iter().enumerate() {
                 msm.lock_client_and_provider_balances(&valid_deal.proposal)?;
 
