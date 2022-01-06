@@ -271,7 +271,6 @@ where
     let entropy = entropy.unwrap_or_default();
     Ok(data
         .state_manager
-        .chain_store()
         .get_chain_randomness(
             &tsk,
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
@@ -295,13 +294,11 @@ where
 
     Ok(data
         .state_manager
-        .chain_store()
         .get_beacon_randomness(
             &tsk,
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
             &base64::decode(entropy)?,
-            epoch <= networks::UPGRADE_HYPERDRIVE_HEIGHT,
         )
         .await?)
 }

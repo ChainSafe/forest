@@ -9,14 +9,14 @@ use std::error::Error;
 pub trait Rand {
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag,
     /// ChainEpoch, Entropy from the ticket chain.
-    fn get_chain_randomness(
+    fn get_chain_randomness_v1(
         &self,
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>>;
 
-    fn get_chain_randomness_looking_forward(
+    fn get_chain_randomness_v2(
         &self,
         pers: DomainSeparationTag,
         round: ChainEpoch,
@@ -25,14 +25,21 @@ pub trait Rand {
 
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag,
     /// ChainEpoch, Entropy from the latest beacon entry.
-    fn get_beacon_randomness(
+    fn get_beacon_randomness_v1(
         &self,
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; 32], Box<dyn Error>>;
 
-    fn get_beacon_randomness_looking_forward(
+    fn get_beacon_randomness_v2(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn Error>>;
+
+    fn get_beacon_randomness_v3(
         &self,
         pers: DomainSeparationTag,
         round: ChainEpoch,
