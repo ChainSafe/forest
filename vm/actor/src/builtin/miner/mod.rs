@@ -2503,15 +2503,19 @@ impl Actor {
         BS: BlockStore,
         RT: Runtime<BS>,
     {
-        let (mask_sector_numbers, last_sector_number) = params
+        let mask_sector_numbers = params
             .mask_sector_numbers
-            .validate_with_max()
+            .validate()
             .map_err(|e| actor_error!(ErrIllegalArgument, "invalid mask bitfield: {}", e))?;
 
-        let last_sector_number = last_sector_number as SectorNumber;
+        let last_sector_number = if let Some(lsn) = mask_sector_numbers.last() {
+            Ok(lsn)
+        } else {
+            Err(actor_error!(ErrIllegalArgument, "invalid mask bitfield"))
+        }?;
 
         #[allow(clippy::absurd_extreme_comparisons)]
-        if last_sector_number > MAX_SECTOR_NUMBER {
+        if (last_sector_number as u64) > MAX_SECTOR_NUMBER {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "masked sector number {} exceeded max sector number",

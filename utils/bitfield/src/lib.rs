@@ -127,6 +127,17 @@ impl BitField {
             .find(|i| !self.unset.contains(i))
     }
 
+    /// Returns the index of the highest bit present in the bit field.
+    pub fn last(&self) -> Option<usize> {
+        let max_from_range = self.ranges.last().map(|range| range.end - 1);
+        let max_from_set = self.set.iter().max().map(|x| *x);
+        match (max_from_range, max_from_set) {
+            (Some(a), Some(b)) => Some(std::cmp::max(a, b)),
+            (a, None) => a,
+            (None, b) => b,
+        }
+    }
+
     /// Returns an iterator over the indices of the bit field's set bits.
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         // this code results in the same values as `self.ranges().flatten()`, but there's

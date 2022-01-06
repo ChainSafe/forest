@@ -104,7 +104,8 @@ impl<'de> Deserialize<'de> for BitField {
 }
 
 impl BitField {
-    pub fn from_bytes_with_max(bytes: &[u8]) -> Result<(Self, u64)> {
+    /// Decodes RLE+ encoded bytes into a bit field.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if let Some(value) = bytes.last() {
             if *value == 0 {
                 return Err("not minimally encoded");
@@ -141,19 +142,10 @@ impl BitField {
             next_value = !next_value;
         }
 
-        let last_value = ranges.last().map_or(0, |range| range.end - 1);
-        Ok((
-            Self {
-                ranges,
-                ..Default::default()
-            },
-            last_value as u64,
-        ))
-    }
-
-    /// Decodes RLE+ encoded bytes into a bit field.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        Self::from_bytes_with_max(bytes).map(|(res, _)| res)
+        Ok(Self {
+            ranges,
+            ..Default::default()
+        })
     }
 
     /// Turns a bit field into its RLE+ encoded form.
