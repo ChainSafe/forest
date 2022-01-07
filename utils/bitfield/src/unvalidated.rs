@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::MAX_ENCODED_SIZE;
+
 use super::{BitField, Result};
 use encoding::serde_bytes;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -62,6 +64,12 @@ impl<'de> Deserialize<'de> for UnvalidatedBitField {
         D: Deserializer<'de>,
     {
         let bytes: Vec<u8> = serde_bytes::deserialize(deserializer)?;
+        if bytes.len() > MAX_ENCODED_SIZE {
+            return Err(serde::de::Error::custom(format!(
+                "decoded bitfield was too large {}",
+                bytes.len()
+            )));
+        }
         Ok(Self::Unvalidated(bytes))
     }
 }

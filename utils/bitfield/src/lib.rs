@@ -16,6 +16,12 @@ use std::{
 
 type Result<T> = std::result::Result<T, &'static str>;
 
+// MaxEncodedSize is the maximum encoded size of a bitfield. When expanded into
+// a slice of runs, a bitfield of this size should not exceed 2MiB of memory.
+//
+// This bitfield can fit at least 3072 sparse elements.
+const MAX_ENCODED_SIZE: usize = 32 << 10;
+
 /// A bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
 /// `HashSet<usize>`, but more memory-efficient when long runs of 1s and 0s are present.
 #[derive(Debug, Default, Clone)]
