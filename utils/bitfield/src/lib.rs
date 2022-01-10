@@ -128,14 +128,27 @@ impl BitField {
     }
 
     /// Returns the index of the highest bit present in the bit field.
+    /// Errors if no bits are set. Iterates over set, so be cautious with use if set is pretty populated
     pub fn last(&self) -> Result<usize> {
         let max_from_range = self.ranges.last().map(|range| range.end - 1);
-        let max_from_set = self.set.iter().max().map(|x| *x);
+        let max_from_set = self.set.iter().max().copied();
         match (max_from_range, max_from_set) {
             (Some(a), Some(b)) => Ok(std::cmp::max(a, b)),
             (None, None) => Err("No bits set."),
-            (Some(a), None) => if a>0 { Ok(a) } else{ Err("No bits set.")},
-            (None, Some(b)) => if b>0 { Ok(b) } else {Err("No bits set.")},
+            (Some(a), None) => {
+                if a > 0 {
+                    Ok(a)
+                } else {
+                    Err("No bits set.")
+                }
+            }
+            (None, Some(b)) => {
+                if b > 0 {
+                    Ok(b)
+                } else {
+                    Err("No bits set.")
+                }
+            }
         }
     }
 
@@ -438,5 +451,21 @@ pub mod json {
         assert_eq!(j, "[0]");
         let bitfield: BitFieldJson = serde_json::from_str(&j).unwrap();
         assert_eq!(bf, bitfield);
+    }
+
+    // auditor says this:
+    // I used the ntest package to add a 60 sec timeout
+    // to the test, as it would otherwise not complete.
+    // may consider doing this eventually
+    //#[timeout(60000)]
+    #[test]
+    fn iter_last() {
+        // Create RLE with 2**64-2 set bits- tests timeout on the `let max` line with last
+        let rle: Vec<u8> = vec![
+            0xE4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x2F, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0x7F,
+        ];
+        let max = BitField::from_bytes(&rle).unwrap().last().unwrap();
+        assert_eq!(max, 18446744073709551614);
     }
 }
