@@ -1,9 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::MAX_ENCODED_SIZE;
-
-use super::{BitField, Result};
+use super::rleplus::VERSION;
+use super::{MAX_ENCODED_SIZE, BitField, Result};
 use encoding::serde_bytes;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -68,6 +67,11 @@ impl<'de> Deserialize<'de> for UnvalidatedBitField {
             return Err(serde::de::Error::custom(format!(
                 "decoded bitfield was too large {}",
                 bytes.len()
+            )));
+        }
+        if !bytes.is_empty() && bytes[0] & 3 != VERSION {
+            return Err(serde::de::Error::custom(format!(
+                "invalid RLE+ version"
             )));
         }
         Ok(Self::Unvalidated(bytes))

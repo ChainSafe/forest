@@ -269,3 +269,14 @@ fn unvalidated_deserialize() {
     let res: Result<UnvalidatedBitField, _> = encoding::from_slice(&cbor);
     assert!(res.is_err());
 }
+
+#[test]
+fn unvalidated_deserialize_version() {
+    let bf = bitfield![1, 1, 1, 1, 1, 1, 1, 1];
+    let mut bytes = bf.to_bytes();
+    bytes[0] |= 0x1; // flip bit to corrupt version
+    let mut cbor = Vec::new();
+    serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();
+    let res: Result<UnvalidatedBitField, _> = encoding::from_slice(&cbor);
+    assert!(res.is_err());
+}

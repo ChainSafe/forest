@@ -67,12 +67,11 @@ mod writer;
 pub use reader::BitReader;
 pub use writer::BitWriter;
 
-use crate::MAX_ENCODED_SIZE;
-
-use super::{BitField, Result};
+use super::{MAX_ENCODED_SIZE, BitField, Result};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 
+pub const VERSION: u8 = 0;
 
 impl Serialize for BitField {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -118,7 +117,7 @@ impl BitField {
         let mut reader = BitReader::new(bytes);
 
         let version = reader.read(2);
-        if version != 0 {
+        if version != VERSION {
             return Err("incorrect version");
         }
 
