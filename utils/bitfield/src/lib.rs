@@ -128,13 +128,14 @@ impl BitField {
     }
 
     /// Returns the index of the highest bit present in the bit field.
-    pub fn last(&self) -> Option<usize> {
+    pub fn last(&self) -> Result<usize> {
         let max_from_range = self.ranges.last().map(|range| range.end - 1);
         let max_from_set = self.set.iter().max().map(|x| *x);
         match (max_from_range, max_from_set) {
-            (Some(a), Some(b)) => Some(std::cmp::max(a, b)),
-            (a, None) => a,
-            (None, b) => b,
+            (Some(a), Some(b)) => Ok(std::cmp::max(a, b)),
+            (None, None) => Err("No bits set."),
+            (Some(a), None) => if a>0 { Ok(a) } else{ Err("No bits set.")},
+            (None, Some(b)) => if b>0 { Ok(b) } else {Err("No bits set.")},
         }
     }
 

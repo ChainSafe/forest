@@ -2508,11 +2508,7 @@ impl Actor {
             .validate()
             .map_err(|e| actor_error!(ErrIllegalArgument, "invalid mask bitfield: {}", e))?;
 
-        let last_sector_number = if let Some(lsn) = mask_sector_numbers.last() {
-            Ok(lsn)
-        } else {
-            Err(actor_error!(ErrIllegalArgument, "invalid mask bitfield"))
-        }?;
+        let last_sector_number = mask_sector_numbers.last().map_err(|e| actor_error!(ErrIllegalArgument, "invalid mask bitfield, no sectors set: {}", e))?;
 
         #[allow(clippy::absurd_extreme_comparisons)]
         if (last_sector_number as u64) > MAX_SECTOR_NUMBER {
