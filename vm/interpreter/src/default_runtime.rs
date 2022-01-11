@@ -961,12 +961,18 @@ where
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_post(vi))?;
 
-        V::verify_window_post(
-            vi.randomness.clone(),
-            &vi.proofs,
-            &vi.challenged_sectors,
-            vi.prover,
-        )
+        let ret = std::panic::catch_unwind(|| {
+            V::verify_window_post(
+                vi.randomness.clone(),
+                &vi.proofs,
+                &vi.challenged_sectors,
+                vi.prover,
+            )
+        });
+        if let Err(_) = ret {
+            return Err("catch unwind verify_post".into());
+        }
+        ret.unwrap()
     }
     fn verify_consensus_fault(
         &self,
