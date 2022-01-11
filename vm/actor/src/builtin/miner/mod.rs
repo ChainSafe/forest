@@ -988,10 +988,10 @@ impl Actor {
                 // Check proof, we fail if validation succeeds.
                 match verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs) {
                     Err(e) => {
-                        info!("Successfully disputed post - {}", e);
+                        info!("Successfully disputed post: {}", e);
                     }
                     Ok(false) => {
-                        info!("Successfully disputed post- window post was invalid");
+                        info!("Successfully disputed post: window post was invalid");
                     }
                     Ok(true) => {
                         return Err(actor_error!(

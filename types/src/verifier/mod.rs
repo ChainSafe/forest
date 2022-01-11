@@ -177,9 +177,6 @@ pub trait ProofVerifier {
         let prover_id = prover_id_from_u64(prover);
 
         // Verify Proof
-        if proofs.is_empty() {
-            println!("<<<<<<<<<<<<<<<<<<<<<<<      empty window post proof!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        }
         post::verify_window_post(&bytes_32(&randomness), &proofs, &replicas, prover_id)
             .map_err(|err| err.into())
     }
