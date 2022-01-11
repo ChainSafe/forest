@@ -969,10 +969,11 @@ where
                 vi.prover,
             )
         });
-        if let Err(_) = ret {
-            return Err("catch unwind verify_post".into());
+        if let Ok(res) = ret {
+            res
+        } else {
+            return Err("verify_window_post internal panic".into());
         }
-        ret.unwrap()
     }
     fn verify_consensus_fault(
         &self,
