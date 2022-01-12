@@ -2357,6 +2357,7 @@ name = "forest_bigint"
 version = "0.1.4"
 dependencies = [
  "cs_serde_bytes",
+ "cs_serde_cbor",
  "num-bigint 0.3.3",
  "num-integer",
  "serde",
