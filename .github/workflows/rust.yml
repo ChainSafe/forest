@@ -47,12 +47,6 @@ jobs:
         run: make test
       - name: Install Binary
         run: make install
-      - name: Run Tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        if: startsWith(matrix.os, 'ubuntu') && startsWith(matrix.rust, '1')
-      - name: Upload CodeCov
-        uses: codecov/codecov-action@v2
-        if: startsWith(matrix.os, 'ubuntu') && startsWith(matrix.rust, '1')
 
   fmt:
     name: Formatter
@@ -114,3 +108,30 @@ jobs:
         run: |
           cargo install cargo-audit
           cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
+
+  codecov:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.57.0
+      - name: Run Tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          args: '--workspace --out Xml -- --bin forest'
+      - name: Upload CodeCov
+        uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true
