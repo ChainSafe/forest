@@ -109,4 +109,4 @@ jobs:
           cargo install cargo-audit
           cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
       - name: CodeCov
-      - uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v2
