@@ -45,6 +45,8 @@ jobs:
           make run-vectors
       - name: Cargo Test
         run: make test
+      - name: Install Binary
+        run: make install
 
   fmt:
     name: Rust Formatter
