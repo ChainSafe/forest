@@ -57,7 +57,7 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.57.0
       - name: Check License
         run: make license
       - name: Install RustFmt
@@ -72,12 +72,20 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
+      - name: Restore Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.57.0
       - name: Install Clippy
         run: rustup component add clippy
       - name: Run Cargo Clippy
@@ -95,7 +103,7 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.57.0
       - name: build
         run: |
           cargo install cargo-audit
