@@ -1,4 +1,4 @@
-name: Rust Matrix
+name: Rust
 
 on:
   pull_request:
@@ -9,14 +9,22 @@ on:
       - main
 
 jobs:
-  check:
-    name: Cargo Check
+  test:
+    name: Tests
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         rust: [1.57.0, stable, nightly]
         os: [ubuntu-latest, macos-latest]
     steps:
+      - name: ⚡ Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
@@ -24,83 +32,27 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
-      - name: Run Cargo Check
+      - name: Cargo Check
         uses: actions-rs/cargo@v1
         with:
           command: check
-
-  test-vectors:
-    name: All Test Vectors
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - 1.57.0
-    steps:
-      - uses: actions/checkout@v2
-      - name: ⚡ Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-      - name: build
+      - name: Test Vecotrs
         run: |
           git submodule update --init
           make run-vectors
-
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - 1.57.0
-    steps:
-      - uses: actions/checkout@v2
-      - name: ⚡ Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-      - name: Run Cargo Test
+      - name: Cargo Test
         run: make test
+
   fmt:
     name: Rust Formatter
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - 1.57.0
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
       - name: Check License
         run: make license
@@ -111,14 +63,10 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
   clippy:
     name: Rust Clippy
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - 1.57.0
     steps:
       - uses: actions/checkout@v2
       - name: ⚡ Cache
@@ -134,7 +82,7 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
       - name: Install Clippy
         run: rustup component add clippy
@@ -147,18 +95,13 @@ jobs:
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - stable
-          - 1.57.0
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
       - name: build
         run: |
