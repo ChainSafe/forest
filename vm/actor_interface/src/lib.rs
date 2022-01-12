@@ -17,6 +17,7 @@ pub use actorv6;
 use fil_types::{NetworkVersion, StateTreeVersion};
 use std::fmt::{self, Display, Formatter};
 
+#[derive(PartialEq)]
 pub enum ActorVersion {
     V0,
     V2,

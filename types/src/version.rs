@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::repr::Serialize_repr;
+use std::fmt::{self, Display, Formatter};
 
 /// Specifies the network version
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr)]
@@ -15,9 +16,9 @@ pub enum NetworkVersion {
     V2,
     /// ignition (specs-actors v0.9.11)
     V3,
-    /// actors v2 (specs-actors v2.0.x)
+    /// actors v2 (specs-actors v2.0.3)
     V4,
-    /// tape (increases max prove commit size by 10x)
+    /// tape (specs-actors v2.1.0)
     V5,
     /// kumquat (specs-actors v2.2.0)
     V6,
@@ -25,16 +26,38 @@ pub enum NetworkVersion {
     V7,
     /// persian (post-2.3.2 behaviour transition)
     V8,
-    /// orange
+    /// orange (post-2.3.2 behaviour transition)
     V9,
-    /// actors v3 (specs-actors v3.0.x)
+    /// trust (specs-actors v3.0.1)
     V10,
-    /// norwegian (specs-actor v3.1.x)
+    /// norwegian (specs-actors v3.1.0)
     V11,
-    /// actors v3 (specs-actor v4.0.x)
+    /// turbo (specs-actors v4.0.0)
     V12,
-    /// reserved
+    /// hyperdrive (specs-actors v5.0.1)
     V13,
-    /// actors v6
+    /// chocolate (specs-actors v6.0.0)
     V14,
+}
+
+impl Display for NetworkVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0 => write!(f, "V0"),
+            Self::V1 => write!(f, "V1"),
+            Self::V2 => write!(f, "V2"),
+            Self::V3 => write!(f, "V3"),
+            Self::V4 => write!(f, "V4"),
+            Self::V5 => write!(f, "V5"),
+            Self::V6 => write!(f, "V6"),
+            Self::V7 => write!(f, "V7"),
+            Self::V8 => write!(f, "V8"),
+            Self::V9 => write!(f, "V9"),
+            Self::V10 => write!(f, "V10"),
+            Self::V11 => write!(f, "V11"),
+            Self::V12 => write!(f, "V12"),
+            Self::V13 => write!(f, "V13"),
+            Self::V14 => write!(f, "V14"),
+        }
+    }
 }

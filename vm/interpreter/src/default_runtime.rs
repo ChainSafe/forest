@@ -279,7 +279,7 @@ where
     }
 
     fn internal_send(
-        &mut self,
+        &self,
         from: Address,
         to: Address,
         method: MethodNum,
@@ -314,9 +314,10 @@ where
                 e
             }
         });
-        if let Err(e) = self.state.borrow_mut().clear_snapshot() {
-            actor_error!(fatal("failed to clear snapshot: {}", e));
-        }
+        self.state
+            .borrow_mut()
+            .clear_snapshot()
+            .map_err(|e| actor_error!(fatal("failed to clear snapshot: {}", e)))?;
 
         ret
     }
@@ -325,7 +326,7 @@ where
     /// It invokes methods on different Actors based on the Message.
     /// This function is somewhat equivalent to the go implementation's vm send.
     pub fn send(
-        &mut self,
+        &self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
@@ -334,34 +335,20 @@ where
         // This logic is the equivalent to the go implementation creating a new runtime with
         // shared values.
         // All other fields will be updated from the execution.
-        let prev_val = self.caller_validated;
-        let prev_depth = self.depth;
-        let prev_msg = self.vm_msg.clone();
-        let res = self.execute_send(msg, gas_cost);
-
-        // Reset values back to their values before the call
-        self.vm_msg = prev_msg;
-        self.caller_validated = prev_val;
-        self.depth = prev_depth;
-
-        res
+        self.execute_send(msg, gas_cost)
     }
 
     /// Helper function to handle all of the execution logic folded into single result.
     /// This is necessary to follow to follow the same control flow of the go implementation
     /// cleanly without doing anything memory unsafe.
     fn execute_send(
-        &mut self,
+        &self,
         msg: &UnsignedMessage,
         gas_cost: Option<GasCharge>,
     ) -> Result<Serialized, ActorError> {
         // * Following logic would be called in the go runtime initialization.
         // * Since We reuse the runtime, all of these things need to happen on each call
-
-        // TODO: fix this following line?
-        // self.caller_validated = false;
-        self.depth += 1;
-        if self.depth > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
+        if self.depth + 1 > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
             return Err(actor_error!(recovered(
                 SysErrForbidden,
                 "message execution exceeds call depth"
@@ -505,6 +492,12 @@ where
         addr: &Address,
     ) -> Result<(ActorState, Address), ActorError> {
         self.charge_gas(self.price_list().on_create_actor())?;
+
+        if addr.is_bls_zero_address() && self.network_version() >= NetworkVersion::V10 {
+            return Err(
+                actor_error!(ErrIllegalArgument; "cannot create the bls zero address actor"),
+            );
+        }
 
         let addr_id = (*self.state)
             .borrow_mut()
@@ -660,11 +653,11 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
-                .get_chain_randomness_looking_forward(personalization, rand_epoch, entropy)
+                .get_chain_randomness_v2(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
             self.rand
-                .get_chain_randomness(personalization, rand_epoch, entropy)
+                .get_chain_randomness_v1(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
 
@@ -677,13 +670,17 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
+        let r = if rand_epoch >= networks::UPGRADE_ACTORS_V6_HEIGHT {
             self.rand
-                .get_beacon_randomness_looking_forward(personalization, rand_epoch, entropy)
+                .get_beacon_randomness_v3(personalization, rand_epoch, entropy)
+                .map_err(|e| e.downcast_fatal("could not get randomness"))?
+        } else if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
+            self.rand
+                .get_beacon_randomness_v2(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
             self.rand
-                .get_beacon_randomness(personalization, rand_epoch, entropy)
+                .get_beacon_randomness_v1(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
         Ok(Randomness(r.to_vec()))
@@ -764,7 +761,7 @@ where
     }
 
     fn send(
-        &mut self,
+        &self,
         to: Address,
         method: MethodNum,
         params: Serialized,
@@ -819,6 +816,17 @@ where
             return Err(
                 actor_error!(SysErrIllegalArgument; "Can only create built-in actors. code={}", code_id),
             );
+        }
+
+        // Unwrapping is safe because we are priorly testing if it's a builtin
+        let version = actor::actor_version(&code_id).unwrap();
+        let support = ActorVersion::from(self.network_version());
+        if version != support {
+            let msg = format!(
+                "actor {} is a version {} actor; chain only supports actor version {} at height {} and nver {}",
+                &code_id, version, support, self.curr_epoch(), self.network_version()
+            );
+            return Err(actor_error!(SysErrIllegalArgument; "Cannot create actor: {}", msg));
         }
 
         if actor::is_singleton_actor(&code_id) {
@@ -948,7 +956,7 @@ where
 
         V::verify_seal(vi)
     }
-    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>> {
+    fn verify_post(&self, vi: &WindowPoStVerifyInfo) -> Result<bool, Box<dyn StdError>> {
         self.gas_tracker
             .borrow_mut()
             .charge_gas(self.price_list.on_verify_post(vi))?;

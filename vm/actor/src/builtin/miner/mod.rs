@@ -986,16 +986,13 @@ impl Actor {
                     })?;
 
                 // Check proof, we fail if validation succeeds.
-                match verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs) {
-                    Ok(()) => {
-                        return Err(actor_error!(
-                            ErrIllegalArgument,
-                            "failed to dispute valid post"
-                        ));
-                    }
-                    Err(e) => {
-                        info!("Successfully disputed: {}", e);
-                    }
+                if verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)? {
+                    return Err(actor_error!(
+                        ErrIllegalArgument,
+                        "failed to dispute valid post"
+                    ));
+                } else {
+                    info!("Successfully disputed post- window post was invalid");
                 }
 
                 // Ok, now we record faults. This always works because
@@ -1251,8 +1248,7 @@ impl Actor {
         rt.transaction(|state: &mut State, rt|{
             // Aggregate fee applies only when batching.
             if params.sectors.len() > 1 {
-                let aggregate_fee = aggregate_pre_commit_network_fee(params.sectors.len() as i64, rt.base_fee());
-                // AggregateFee applied to fee debt to consolidate burn with outstanding debts
+                let aggregate_fee = aggregate_pre_commit_network_fee(params.sectors.len() as i64, rt.base_fee());                // AggregateFee applied to fee debt to consolidate burn with outstanding debts
                 state.apply_penalty(&aggregate_fee)
                 .map_err(|e| {
                     actor_error!(
@@ -3487,12 +3483,13 @@ fn have_pending_early_terminations(state: &State) -> bool {
     !no_early_terminations
 }
 
+// returns true if valid, false if invalid, error if failed to validate either way!
 fn verify_windowed_post<BS, RT>(
     rt: &RT,
     challenge_epoch: ChainEpoch,
     sectors: &[SectorOnChainInfo],
     proofs: Vec<PoStProof>,
-) -> Result<(), ActorError>
+) -> Result<bool, ActorError>
 where
     BS: BlockStore,
     RT: Runtime<BS>,
@@ -3542,7 +3539,7 @@ where
         )
     })?;
 
-    Ok(())
+    Ok(true)
 }
 
 fn get_verify_info<BS, RT>(
@@ -4011,7 +4008,6 @@ where
             "unlocked balance can not repay fee debt",
         )
     })?;
-    info!("RepayDebtsOrAbort was called and succeeded");
     Ok(res)
 }
 

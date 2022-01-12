@@ -106,7 +106,7 @@ pub trait Runtime<BS: BlockStore>: Syscalls {
     /// If the invoked method does not return successfully, its state changes
     /// (and that of any messages it sent in turn) will be rolled back.
     fn send(
-        &mut self,
+        &self,
         to: Address,
         method: MethodNum,
         params: Serialized,
@@ -201,7 +201,7 @@ pub trait Syscalls {
     fn verify_seal(&self, vi: &SealVerifyInfo) -> Result<(), Box<dyn StdError>>;
 
     /// Verifies a window proof of spacetime.
-    fn verify_post(&self, verify_info: &WindowPoStVerifyInfo) -> Result<(), Box<dyn StdError>>;
+    fn verify_post(&self, verify_info: &WindowPoStVerifyInfo) -> Result<bool, Box<dyn StdError>>;
 
     /// Verifies that two block headers provide proof of a consensus fault:
     /// - both headers mined by the same actor

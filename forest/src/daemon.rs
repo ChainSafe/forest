@@ -7,7 +7,7 @@ use chain::ChainStore;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pService};
-use genesis::{import_chain, initialize_genesis};
+use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
 use rpc::start_rpc;
@@ -124,15 +124,23 @@ pub(super) async fn start(config: Config) {
 
     let db = Arc::new(db);
 
-    // Initialize StateManager
+    // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
-    let state_manager = Arc::new(StateManager::new(Arc::clone(&chain_store)));
 
     let publisher = chain_store.publisher();
 
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
-    let (genesis, network_name) = initialize_genesis(config.genesis_file.as_ref(), &state_manager)
+    let genesis = read_genesis_header(config.genesis_file.as_ref(), &chain_store)
+        .await
+        .unwrap();
+    chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
+
+    // Initialize StateManager
+    let sm = StateManager::new(Arc::clone(&chain_store)).await.unwrap();
+    let state_manager = Arc::new(sm);
+
+    let network_name = get_network_name_from_genesis(&genesis, &state_manager)
         .await
         .unwrap();
 
@@ -172,18 +180,12 @@ pub(super) async fn start(config: Config) {
         .unwrap(),
     );
 
-    let beacon = Arc::new(
-        networks::beacon_schedule_default(genesis.min_timestamp())
-            .await
-            .unwrap(),
-    );
-
     // Initialize ChainMuxer
     let (tipset_sink, tipset_stream) = bounded(20);
     let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::<_, _, FullVerifier, _>::new(
         Arc::clone(&state_manager),
-        beacon.clone(),
+        state_manager.beacon_schedule(),
         Arc::clone(&mpool),
         network_send.clone(),
         network_rx,
@@ -208,14 +210,14 @@ pub(super) async fn start(config: Config) {
             info!("JSON RPC Endpoint at {}", &rpc_listen);
             start_rpc::<_, _, FullVerifier>(
                 Arc::new(RPCState {
-                    state_manager,
+                    state_manager: Arc::clone(&state_manager),
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,
                     sync_state,
                     network_send,
                     network_name,
-                    beacon,
+                    beacon: state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
                     chain_store,
                     new_mined_block_tx: tipset_sink,
                 }),
@@ -259,13 +261,21 @@ pub(super) async fn start(config: Config) {
 #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
+    use address::Address;
+    use blocks::BlockHeader;
     use db::MemoryDB;
 
     #[async_std::test]
     async fn import_snapshot_from_file() {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
-        let sm = Arc::new(StateManager::new(cs));
+        let genesis_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()
+            .unwrap();
+        cs.set_genesis(&genesis_header).unwrap();
+        let sm = Arc::new(StateManager::new(cs).await.unwrap());
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
             .await
             .expect("Failed to import chain");
@@ -274,7 +284,13 @@ mod test {
     async fn import_chain_from_file() {
         let db = Arc::new(MemoryDB::default());
         let cs = Arc::new(ChainStore::new(db));
-        let sm = Arc::new(StateManager::new(cs));
+        let genesis_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()
+            .unwrap();
+        cs.set_genesis(&genesis_header).unwrap();
+        let sm = Arc::new(StateManager::new(cs).await.unwrap());
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0), false)
             .await
             .expect("Failed to import chain");

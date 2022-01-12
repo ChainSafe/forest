@@ -29,7 +29,7 @@ impl<'a> ReplayingRand<'a> {
 }
 
 impl Rand for ReplayingRand<'_> {
-    fn get_chain_randomness(
+    fn get_chain_randomness_v1(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -44,10 +44,10 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_chain_randomness(dst, epoch, entropy)
+            self.fallback.get_chain_randomness_v1(dst, epoch, entropy)
         }
     }
-    fn get_beacon_randomness(
+    fn get_beacon_randomness_v1(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -62,11 +62,11 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_beacon_randomness(dst, epoch, entropy)
+            self.fallback.get_beacon_randomness_v1(dst, epoch, entropy)
         }
     }
     // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
-    fn get_beacon_randomness_looking_forward(
+    fn get_beacon_randomness_v2(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -81,11 +81,11 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_beacon_randomness(dst, epoch, entropy)
+            self.fallback.get_beacon_randomness_v2(dst, epoch, entropy)
         }
     }
     // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
-    fn get_chain_randomness_looking_forward(
+    fn get_chain_randomness_v2(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
@@ -100,7 +100,27 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_chain_randomness(dst, epoch, entropy)
+            self.fallback.get_chain_randomness_v2(dst, epoch, entropy)
+        }
+    }
+
+    fn get_beacon_randomness_v3(
+        &self,
+        dst: DomainSeparationTag,
+        epoch: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn StdError>> {
+        let rule = RandomnessRule {
+            kind: RandomnessKind::Chain,
+            dst,
+            epoch,
+
+            entropy: entropy.to_vec(),
+        };
+        if let Some(bz) = self.matches(rule) {
+            Ok(bz)
+        } else {
+            self.fallback.get_beacon_randomness_v3(dst, epoch, entropy)
         }
     }
 }

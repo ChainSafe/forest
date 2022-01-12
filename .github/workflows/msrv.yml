@@ -176,4 +176,4 @@ jobs:
       - name: build
         run: |
           cargo install cargo-audit
-          cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071
+          cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
