@@ -1,10 +1,7 @@
 name: Documentation
 
 on:
-  // push:
-  //   branches:
-  //     - main
-  pull-request:
+  push:
     branches:
       - main
 
