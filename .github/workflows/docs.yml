@@ -1,7 +1,10 @@
 name: Documentation
 
 on:
-  push:
+  // push:
+  //   branches:
+  //     - main
+  pull-request:
     branches:
       - main
 
@@ -19,7 +22,12 @@ jobs:
           cargo install mdbook
       - name: Execute MDBook
         run: |
-          mdbook build ./documentation
+          mdbook build ./documentation/
       - name: Build Rust Docs
         run: |
           bash ./scripts/build-rust-docs.sh
+      - name: Deploy GH Pages
+        uses: JamesIves/github-pages-deploy-action@4.2.2
+        with:
+            branch: gh-pages
+            folder: ./documentation/book/
