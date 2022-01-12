@@ -70,9 +70,7 @@ impl<'de> Deserialize<'de> for UnvalidatedBitField {
             )));
         }
         if !bytes.is_empty() && bytes[0] & 3 != VERSION {
-            return Err(serde::de::Error::custom(format!(
-                "invalid RLE+ version"
-            )));
+            return Err(serde::de::Error::custom("invalid RLE+ version".to_string()));
         }
         Ok(Self::Unvalidated(bytes))
     }
