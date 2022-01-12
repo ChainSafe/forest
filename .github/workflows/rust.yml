@@ -47,6 +47,12 @@ jobs:
         run: make test
       - name: Install Binary
         run: make install
+      - name: Run Tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        if: startsWith(matrix.os, 'ubuntu') && startsWith(matrix.rust, '1')
+      - name: Upload CodeCov
+        uses: codecov/codecov-action@v2
+        if: startsWith(matrix.os, 'ubuntu') && startsWith(matrix.rust, '1')
 
   fmt:
     name: Formatter
@@ -108,5 +114,3 @@ jobs:
         run: |
           cargo install cargo-audit
           cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
-      - name: CodeCov
-        uses: codecov/codecov-action@v2
