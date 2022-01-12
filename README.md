@@ -2,8 +2,7 @@
   <img width="380" height="269" src="./.github/forest_logo.png">
 </p>
 
-
-[<img alt="build status" src="https://img.shields.io/circleci/build/gh/ChainSafe/forest/main?style=for-the-badge" height="20">](https://app.circleci.com/pipelines/github/ChainSafe/forest?branch=main)
+[<img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/ChainSafe/forest/Rust" height="20">](https://github.com/ChainSafe/forest/actions)
 [<img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge" height="20">](https://github.com/ChainSafe/forest/releases/latest)
 [<img alt="Apache License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/Apache-2.0)
 [<img alt="MIT License" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/MIT)
@@ -29,7 +28,7 @@ Our crates:
 
 
 ## Dependencies
-`rustc >= 1.55.0`
+`rustc >= 1.57.0`
 
 ## Usage
 ```shell
