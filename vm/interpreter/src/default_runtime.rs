@@ -972,7 +972,7 @@ where
         if let Ok(res) = ret {
             res
         } else {
-            return Err("verify_window_post internal panic".into());
+            Err("verify_window_post internal panic".into())
         }
     }
     fn verify_consensus_fault(
