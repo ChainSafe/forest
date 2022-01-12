@@ -104,7 +104,9 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: 1.57.0
-      - name: build
+      - name: Build and Audit
         run: |
           cargo install cargo-audit
           cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
+      - name: CodeCov
+      - uses: codecov/codecov-action@v2
