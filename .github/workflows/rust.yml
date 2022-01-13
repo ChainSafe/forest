@@ -39,17 +39,13 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-      - name: Test Vecotrs
-        run: |
-          git submodule update --init
-          make run-vectors
       - name: Cargo Test
-        run: make test
-      - name: Install Binary
-        run: make install
+        run: make test-all
+        env:
+          RUST_TEST_THREADS: 64
 
-  clippy:
-    name: Clippy
+  lint:
+    name: Lint
     runs-on: buildjet-64vcpu-ubuntu-2004
     steps:
       - name: Restore Cache
@@ -68,31 +64,10 @@ jobs:
           toolchain: 1.57.0
       - name: Install Clippy
         run: rustup component add clippy
-      - name: Run Cargo Clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
-
-  fmt:
-    name: Formatter
-    runs-on: buildjet-64vcpu-ubuntu-2004
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.57.0
-      - name: Check License
-        run: make license
       - name: Install RustFmt
         run: rustup component add rustfmt
-      - name: Run Cargo Fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: Run Linters
+        run: make lint
 
   audit:
     name: Audit
@@ -130,7 +105,9 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --out Xml'
+          args: '--workspace --out Xml --timeout 300 --implicit-test-threads 64'
+        env:
+          RUST_TEST_THREADS: 64
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
         with:
