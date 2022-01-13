@@ -14,7 +14,6 @@ on:
 jobs:
   test:
     name: Tests
-    needs: [lint, audit]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -47,7 +46,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: buildjet-64vcpu-ubuntu-2004
+    runs-on: buildjet-16vcpu-ubuntu-2004
     steps:
       - name: Restore Cache
         uses: actions/cache@v2
@@ -72,7 +71,7 @@ jobs:
 
   audit:
     name: Audit
-    runs-on: buildjet-64vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
@@ -87,8 +86,7 @@ jobs:
 
   codecov:
     name: Coverage
-    needs: test
-    runs-on: buildjet-64vcpu-ubuntu-2004
+    runs-on: buildjet-32vcpu-ubuntu-2004
     steps:
       - name: Restore Cache
         uses: actions/cache@v2
