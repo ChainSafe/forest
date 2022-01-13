@@ -20,6 +20,10 @@ jobs:
         rust: [1.57.0, stable]
         os: [buildjet-64vcpu-ubuntu-2004, ubuntu-latest, macos-latest]
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
@@ -72,6 +76,10 @@ jobs:
     name: Coverage
     runs-on: buildjet-32vcpu-ubuntu-2004
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
@@ -86,5 +94,3 @@ jobs:
           RUST_TEST_THREADS: 64
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
-        with:
-          fail_ci_if_error: true
