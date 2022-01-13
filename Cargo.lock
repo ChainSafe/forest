@@ -2560,7 +2560,7 @@ dependencies = [
  "libsecp256k1 0.7.0",
  "num-derive",
  "num-traits",
- "rand 0.8.4",
+ "rand 0.7.3",
  "rand_chacha 0.3.1",
  "serde",
  "thiserror",
