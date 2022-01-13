@@ -42,7 +42,7 @@ jobs:
         run: RUST_TEST_THREADS=16 make test-all
 
   codecov:
-    name: Coverage
+    name: Cover
     runs-on: buildjet-16vcpu-ubuntu-2004
     steps:
       - name: Cancel Previous Runs
