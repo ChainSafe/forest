@@ -382,4 +382,42 @@ mod tests {
             assert_eq!(bf.ranges().collect::<Vec<_>>(), ranges);
         }
     }
+
+    // auditor says this:
+    // I used the ntest package to add a 60 sec timeout
+    // to the test, as it would otherwise not complete.
+    // may consider doing this eventually
+    //#[timeout(60000)]
+    #[test]
+    fn iter_last() {
+        // Create RLE with 2**64-2 set bits- tests timeout on the `let max` line with last
+        let rle: Vec<u8> = vec![
+            0xE4, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x2F, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0x7F,
+        ];
+        let max = BitField::from_bytes(&rle).unwrap().last().unwrap();
+        assert_eq!(max, 18446744073709551614);
+    }
+
+    #[test]
+    fn test_unset_last() {
+        // Create a bitfield first 3 set bits
+        let ranges: Vec<usize> = vec![0, 1, 2, 3];
+        let iter = ranges_from_bits(ranges.clone());
+        let mut bf = BitField::from_ranges(iter);
+        // Unset bit at pos 3
+        bf.unset(3);
+
+        let last = bf.last().unwrap();
+        assert_eq!(2, last);
+    }
+
+    #[test]
+    fn test_zero_last() {
+        let mut bf = BitField::new();
+        bf.set(0);
+
+        let last = bf.last().unwrap();
+        assert_eq!(0, last);
+    }
 }
