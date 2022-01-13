@@ -17,8 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust: [1.57.0, stable, nightly]
-        os: [buildjet-64vcpu-ubuntu-2004, macos-latest]
+        rust: [1.57.0, stable]
+        os: [buildjet-64vcpu-ubuntu-2004, ubuntu-latest]
     steps:
       - name: Restore Cache
         uses: actions/cache@v2
@@ -76,7 +76,7 @@ jobs:
 
   fmt:
     name: Formatter
-    runs-on: buildjet-2vcpu-ubuntu-2004
+    runs-on: buildjet-64vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
@@ -96,7 +96,7 @@ jobs:
 
   audit:
     name: Audit
-    runs-on: buildjet-2vcpu-ubuntu-2004
+    runs-on: buildjet-64vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
