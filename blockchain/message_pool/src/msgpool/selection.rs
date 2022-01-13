@@ -853,84 +853,84 @@ mod test_selection {
         }
     }
 
-    #[async_std::test]
-    // #[ignore = "test is incredibly slow"]
-    // TODO optimize logic tested in this function
-    async fn message_selection_trimming() {
-        let mpool = make_test_mpool();
+    // #[async_std::test]
+    // // #[ignore = "test is incredibly slow"]
+    // // TODO optimize logic tested in this function
+    // async fn message_selection_trimming() {
+    //     let mpool = make_test_mpool();
 
-        let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
-        let mut w1 = Wallet::new(ks1);
-        let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
+    //     let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+    //     let mut w1 = Wallet::new(ks1);
+    //     let a1 = w1.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
-        let mut w2 = Wallet::new(ks2);
-        let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
+    //     let ks2 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
+    //     let mut w2 = Wallet::new(ks2);
+    //     let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let b1 = mock_block(1, 1);
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
-        let api = mpool.api.clone();
-        let bls_sig_cache = mpool.bls_sig_cache.clone();
-        let pending = mpool.pending.clone();
-        let cur_tipset = mpool.cur_tipset.clone();
-        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-        let republished = mpool.republished.clone();
-        head_change(
-            api.as_ref(),
-            bls_sig_cache.as_ref(),
-            repub_trigger.clone(),
-            republished.as_ref(),
-            pending.as_ref(),
-            cur_tipset.as_ref(),
-            Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
-        )
-        .await
-        .unwrap();
+    //     let b1 = mock_block(1, 1);
+    //     let ts = Tipset::new(vec![b1.clone()]).unwrap();
+    //     let api = mpool.api.clone();
+    //     let bls_sig_cache = mpool.bls_sig_cache.clone();
+    //     let pending = mpool.pending.clone();
+    //     let cur_tipset = mpool.cur_tipset.clone();
+    //     let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+    //     let republished = mpool.republished.clone();
+    //     head_change(
+    //         api.as_ref(),
+    //         bls_sig_cache.as_ref(),
+    //         repub_trigger.clone(),
+    //         republished.as_ref(),
+    //         pending.as_ref(),
+    //         cur_tipset.as_ref(),
+    //         Vec::new(),
+    //         vec![Tipset::new(vec![b1]).unwrap()],
+    //     )
+    //     .await
+    //     .unwrap();
 
-        // let gas_limit = 6955002;
-        api.write()
-            .await
-            .set_state_balance_raw(&a1, types::DefaultNetworkParams::from_fil(1));
-        api.write()
-            .await
-            .set_state_balance_raw(&a2, types::DefaultNetworkParams::from_fil(1));
+    //     // let gas_limit = 6955002;
+    //     api.write()
+    //         .await
+    //         .set_state_balance_raw(&a1, types::DefaultNetworkParams::from_fil(1));
+    //     api.write()
+    //         .await
+    //         .set_state_balance_raw(&a2, types::DefaultNetworkParams::from_fil(1));
 
-        let nmsgs = (types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT) + 1;
+    //     let nmsgs = (types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT) + 1;
 
-        // make many small chains for the two actors
-        for i in 0..nmsgs {
-            let bias = (nmsgs - i) / 3;
-            let m = create_smsg(
-                &a2,
-                &a1,
-                &mut w1,
-                i as u64,
-                TEST_GAS_LIMIT,
-                (1 + i % 3 + bias) as u64,
-            );
-            mpool.add(m).await.unwrap();
-            let m = create_smsg(
-                &a1,
-                &a2,
-                &mut w2,
-                i as u64,
-                TEST_GAS_LIMIT,
-                (1 + i % 3 + bias) as u64,
-            );
-            mpool.add(m).await.unwrap();
-        }
+    //     // make many small chains for the two actors
+    //     for i in 0..nmsgs {
+    //         let bias = (nmsgs - i) / 3;
+    //         let m = create_smsg(
+    //             &a2,
+    //             &a1,
+    //             &mut w1,
+    //             i as u64,
+    //             TEST_GAS_LIMIT,
+    //             (1 + i % 3 + bias) as u64,
+    //         );
+    //         mpool.add(m).await.unwrap();
+    //         let m = create_smsg(
+    //             &a1,
+    //             &a2,
+    //             &mut w2,
+    //             i as u64,
+    //             TEST_GAS_LIMIT,
+    //             (1 + i % 3 + bias) as u64,
+    //         );
+    //         mpool.add(m).await.unwrap();
+    //     }
 
-        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
+    //     let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
 
-        let expected = types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
-        assert_eq!(msgs.len(), expected as usize);
-        let mut m_gas_lim = 0;
-        for m in msgs.iter() {
-            m_gas_lim += m.gas_limit();
-        }
-        assert!(m_gas_lim <= types::BLOCK_GAS_LIMIT);
-    }
+    //     let expected = types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+    //     assert_eq!(msgs.len(), expected as usize);
+    //     let mut m_gas_lim = 0;
+    //     for m in msgs.iter() {
+    //         m_gas_lim += m.gas_limit();
+    //     }
+    //     assert!(m_gas_lim <= types::BLOCK_GAS_LIMIT);
+    // }
 
     #[async_std::test]
     async fn message_selection_priority() {
