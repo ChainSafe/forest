@@ -17,8 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust: [1.57.0, stable]
-        os: [buildjet-64vcpu-ubuntu-2004, ubuntu-latest, macos-latest]
+        rust: [stable, beta, nightly]
+        os: [buildjet-64vcpu-ubuntu-2004, buildjet-32vcpu-ubuntu-2004, buildjet-16vcpu-ubuntu-2004]
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
@@ -51,7 +51,8 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.57.0
+          toolchain: stable
+          override: true
       - name: Install Clippy
         run: rustup component add clippy
       - name: Install RustFmt
@@ -68,7 +69,8 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.57.0
+          toolchain: stable
+          override: true
       - name: Build and Audit
         run: |
           cargo install cargo-audit
@@ -87,13 +89,14 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.57.0
+          toolchain: stable
+          override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --out Xml --timeout 600 -- --test-threads 64'
+          args: '--workspace --release --locked --out Xml --jobs 32 --timeout 600 -- --test-threads 32'
         env:
           RUST_TEST_THREADS: 64
       - name: Upload CodeCov
