@@ -100,7 +100,7 @@ endif
 smoke-test:
 	./scripts/smoke_test.sh
 
-test-all: test test-vectors
+test-all: test-release test-vectors
 
 # Checks if all headers are present and adds if not
 license:
