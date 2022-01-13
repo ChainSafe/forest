@@ -10,6 +10,13 @@ use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 mod drand;
 
+#[cfg(all(
+    not(feature = "interopnet"),
+    not(feature = "devnet"),
+    not(feature = "mainnet")
+))]
+compile_error!("Either feature \"mainnet\", \"devnet\", or \"interopnet\" must be enabled for this crate.");
+
 #[cfg(feature = "mainnet")]
 mod mainnet;
 #[cfg(feature = "mainnet")]
@@ -19,7 +26,6 @@ pub use self::mainnet::*;
 mod mainnet;
 #[cfg(feature = "conformace")]
 pub use self::mainnet::*;
-pub use crate::mainnet::*;
 
 #[cfg(all(
     feature = "interopnet",
