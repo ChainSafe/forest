@@ -13,11 +13,8 @@ on:
 
 jobs:
   test:
-    name: Tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [buildjet-32vcpu-ubuntu-2004, buildjet-16vcpu-ubuntu-2004, buildjet-8vcpu-ubuntu-2004, buildjet-4vcpu-ubuntu-2004]
+    name: Test
+    runs-on: buildjet-16vcpu-ubuntu-2004
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
@@ -39,43 +36,9 @@ jobs:
       - name: Cargo Test
         run: RUST_TEST_THREADS=$(nproc) make test-all
 
-  lint:
-    name: Lint
-    runs-on: buildjet-8vcpu-ubuntu-2004
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Install Clippy
-        run: rustup component add clippy
-      - name: Install RustFmt
-        run: rustup component add rustfmt
-      - name: Run Linters
-        run: make lint
-
-  audit:
-    name: Audit
-    runs-on: buildjet-4vcpu-ubuntu-2004
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Build and Audit
-        run: |
-          cargo install cargo-audit
-          cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
-
   codecov:
     name: Coverage
-    runs-on: buildjet-16vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2004
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
@@ -93,8 +56,68 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --release --locked --out Xml --jobs 16 --timeout 600 -- --test-threads 16'
+          args: '--workspace --release --locked --out Xml --jobs 8 --timeout 600 -- --test-threads 8'
         env:
-          RUST_TEST_THREADS: 16
+          RUST_TEST_THREADS: 8
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
+
+  lint:
+    name: Lint
+    runs-on: buildjet-4vcpu-ubuntu-2004
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install Clippy
+        run: rustup component add clippy
+      - name: Install RustFmt
+        run: rustup component add rustfmt
+      - name: Run Linters
+        run: make lint
+
+  audit:
+    name: Audit
+    runs-on: buildjet-2vcpu-ubuntu-2004
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Build and Audit
+        run: |
+          cargo install cargo-audit
+          cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rv: [1.55.0, stable]
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rv }}
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Cargo Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
