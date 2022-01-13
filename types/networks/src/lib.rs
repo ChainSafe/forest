@@ -15,7 +15,9 @@ mod drand;
     not(feature = "devnet"),
     not(feature = "mainnet")
 ))]
-compile_error!("Either feature \"mainnet\", \"devnet\", or \"interopnet\" must be enabled for this crate.");
+compile_error!(
+    "Either feature \"mainnet\", \"devnet\", or \"interopnet\" must be enabled for this crate."
+);
 
 #[cfg(feature = "mainnet")]
 mod mainnet;
