@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::rleplus::VERSION;
-use super::{MAX_ENCODED_SIZE, BitField, Result};
+use super::{BitField, Result, MAX_ENCODED_SIZE};
 use encoding::serde_bytes;
 use serde::{Deserialize, Deserializer, Serialize};
 

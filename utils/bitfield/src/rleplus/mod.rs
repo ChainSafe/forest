@@ -67,7 +67,7 @@ mod writer;
 pub use reader::BitReader;
 pub use writer::BitWriter;
 
-use super::{MAX_ENCODED_SIZE, BitField, Result};
+use super::{BitField, Result, MAX_ENCODED_SIZE};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 
