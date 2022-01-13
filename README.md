@@ -43,7 +43,7 @@ forest
 ```
 
 To create release binaries, checkout the latest tag and compile with the release feature.
-[<img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge](https://github.com/ChainSafe/forest/releases/latest)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
 
 ```shell
 git checkout $TAG
