@@ -11,6 +11,11 @@ on:
     -
       cron: "0 0 * * *"
 
+env:
+  CI: 1
+  CARGO_INCREMENTAL: 0
+  RUST_TEST_THREADS: 16
+
 jobs:
   test:
     name: Test
@@ -121,3 +126,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
+          args: --config dev
