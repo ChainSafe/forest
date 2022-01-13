@@ -130,7 +130,7 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --out Xml
+          args: '--workspace --out Xml'
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
         with:
