@@ -17,8 +17,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust: [stable, beta, nightly]
-        os: [buildjet-64vcpu-ubuntu-2004, buildjet-32vcpu-ubuntu-2004, buildjet-16vcpu-ubuntu-2004]
+        os: [buildjet-32vcpu-ubuntu-2004, buildjet-16vcpu-ubuntu-2004, buildjet-8vcpu-ubuntu-2004, buildjet-4vcpu-ubuntu-2004]
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
@@ -29,7 +28,7 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
@@ -38,13 +37,11 @@ jobs:
         with:
           command: check
       - name: Cargo Test
-        run: make test-all
-        env:
-          RUST_TEST_THREADS: 64
+        run: RUST_TEST_THREADS=$(nproc) make test-all
 
   lint:
     name: Lint
-    runs-on: buildjet-16vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
@@ -62,7 +59,7 @@ jobs:
 
   audit:
     name: Audit
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-4vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
@@ -78,7 +75,7 @@ jobs:
 
   codecov:
     name: Coverage
-    runs-on: buildjet-32vcpu-ubuntu-2004
+    runs-on: buildjet-16vcpu-ubuntu-2004
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
@@ -96,8 +93,8 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --release --locked --out Xml --jobs 32 --timeout 600 -- --test-threads 32'
+          args: '--workspace --release --locked --out Xml --jobs 16 --timeout 600 -- --test-threads 16'
         env:
-          RUST_TEST_THREADS: 64
+          RUST_TEST_THREADS: 16
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2

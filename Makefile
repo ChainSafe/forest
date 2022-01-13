@@ -94,7 +94,7 @@ test-release: check-env
 
 check-env:
 ifndef RUST_TEST_THREADS
-	export RUST_TEST_THREADS=4
+	export RUST_TEST_THREADS=$(nproc)
 endif
 
 smoke-test:
