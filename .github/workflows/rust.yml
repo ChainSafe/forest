@@ -20,14 +20,6 @@ jobs:
         rust: [1.57.0, stable]
         os: [buildjet-64vcpu-ubuntu-2004, ubuntu-latest]
     steps:
-      - name: Restore Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
@@ -48,14 +40,6 @@ jobs:
     name: Lint
     runs-on: buildjet-16vcpu-ubuntu-2004
     steps:
-      - name: Restore Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install toolchain
@@ -88,14 +72,6 @@ jobs:
     name: Coverage
     runs-on: buildjet-32vcpu-ubuntu-2004
     steps:
-      - name: Restore Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
