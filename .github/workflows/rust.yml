@@ -34,11 +34,11 @@ jobs:
         with:
           command: check
       - name: Cargo Test
-        run: RUST_TEST_THREADS=$(nproc) make test-all
+        run: RUST_TEST_THREADS=16 make test-all
 
   codecov:
     name: Coverage
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-16vcpu-ubuntu-2004
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
@@ -56,15 +56,15 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --release --locked --out Xml --jobs 8 --timeout 600 -- --test-threads 8'
+          args: '--workspace --release --locked --out Xml --jobs 16 --timeout 600 -- --test-threads 16'
         env:
-          RUST_TEST_THREADS: 8
+          RUST_TEST_THREADS: 16
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
 
   lint:
     name: Lint
-    runs-on: buildjet-4vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
@@ -82,7 +82,7 @@ jobs:
 
   audit:
     name: Audit
-    runs-on: buildjet-2vcpu-ubuntu-2004
+    runs-on: buildjet-4vcpu-ubuntu-2004
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
@@ -102,7 +102,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        rv: [1.55.0, stable]
+        rv: [1.57.0, stable]
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
