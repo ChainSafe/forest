@@ -1300,7 +1300,7 @@ mod test_selection {
         }
 
         let msgs = mpool.select_messages(&ts, 0.1).await.unwrap();
-        let expected_msgs = types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        // let expected_msgs = types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
         // assert_eq!(
         //     msgs.len(),

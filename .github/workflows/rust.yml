@@ -89,7 +89,7 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --out Xml --timeout 300 -- --test-threads 64'
+          args: '--workspace --out Xml --timeout 600 -- --test-threads 64'
         env:
           RUST_TEST_THREADS: 64
       - name: Upload CodeCov
