@@ -1289,10 +1289,7 @@ async fn validate_block<
     validations.push(task::spawn_blocking(move || {
         let base_fee =
             chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset).map_err(|e| {
-                TipsetRangeSyncerError::Validation(format!(
-                    "Could not compute base fee: {}",
-                    e.to_string()
-                ))
+                TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
             })?;
         let parent_base_fee = v_block.header.parent_base_fee();
         if &base_fee != parent_base_fee {
@@ -1581,10 +1578,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
             Randomness(rand.to_vec()),
         )
         .map_err(|e| {
-            TipsetRangeSyncerError::Validation(format!(
-                "Failed to get sectors for PoSt: {}",
-                e.to_string()
-            ))
+            TipsetRangeSyncerError::Validation(format!("Failed to get sectors for PoSt: {}", e))
         })?;
 
     V::verify_winning_post(
@@ -1594,10 +1588,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
         id,
     )
     .map_err(|e| {
-        TipsetRangeSyncerError::Validation(format!(
-            "Failed to verify winning PoSt: {}",
-            e.to_string()
-        ))
+        TipsetRangeSyncerError::Validation(format!("Failed to verify winning PoSt: {}", e))
     })
 }
 

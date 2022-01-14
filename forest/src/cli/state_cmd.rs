@@ -90,11 +90,11 @@ impl StateCommands {
 
                 println!(
                     "{}({}) / {}({}) ~= {}%",
-                    mp.quality_adj_power.to_string(),
+                    &mp.quality_adj_power,
                     to_size_string(&mp.quality_adj_power),
-                    tp.quality_adj_power.to_string(),
+                    &tp.quality_adj_power,
                     to_size_string(&tp.quality_adj_power),
-                    (mp.quality_adj_power * 100) / tp.quality_adj_power
+                    (&mp.quality_adj_power * 100) / &tp.quality_adj_power
                 );
             }
             Self::GetActor { address } => {
@@ -138,7 +138,7 @@ impl StateCommands {
 
                 for a in actors {
                     let AddressJson(addr) = a;
-                    println!("{}", addr.to_string());
+                    println!("{}", addr);
                 }
             }
             Self::Lookup { reverse, address } => {

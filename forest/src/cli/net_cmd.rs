@@ -41,7 +41,7 @@ impl NetCommands {
                     let addresses: Vec<String> = info
                         .addrs
                         .iter()
-                        .map(|addr| format!("{}/p2p/{}", addr.to_string(), info.id.to_string()))
+                        .map(|addr| format!("{}/p2p/{}", addr, info.id))
                         .collect();
 
                     print_stdout(addresses.join("\n"));
