@@ -68,7 +68,7 @@ impl Wallet {
         if let Some(k) = self.keys.get(addr) {
             return Ok(k.clone());
         }
-        let key_string = format!("wallet-{}", addr.to_string());
+        let key_string = format!("wallet-{}", addr);
         let key_info = match self.keystore.get(&key_string) {
             Ok(k) => k,
             Err(_) => {
@@ -99,7 +99,7 @@ impl Wallet {
     /// Add Key_Info to the Wallet, return the Address that resolves to this newly added KeyInfo
     pub fn import(&mut self, key_info: KeyInfo) -> Result<Address, Error> {
         let k = Key::try_from(key_info)?;
-        let addr = format!("wallet-{}", k.address.to_string());
+        let addr = format!("wallet-{}", k.address);
         self.keystore.put(addr, k.key_info)?;
         Ok(k.address)
     }
@@ -118,7 +118,7 @@ impl Wallet {
 
     /// Set a default KeyInfo to the Wallet
     pub fn set_default(&mut self, addr: Address) -> Result<(), Error> {
-        let addr_string = format!("wallet-{}", addr.to_string());
+        let addr_string = format!("wallet-{}", addr);
         let key_info = self.keystore.get(&addr_string)?;
         if self.keystore.get("default").is_ok() {
             self.keystore.remove("default".to_string())?; // This line should unregister current default key then continue
@@ -130,7 +130,7 @@ impl Wallet {
     /// Generate a new Address that fits the requirement of the given SignatureType
     pub fn generate_addr(&mut self, typ: SignatureType) -> Result<Address, Error> {
         let key = generate_key(typ)?;
-        let addr = format!("wallet-{}", key.address.to_string());
+        let addr = format!("wallet-{}", key.address);
         self.keystore.put(addr, key.key_info.clone())?;
         self.keys.insert(key.address, key.clone());
         let value = self.keystore.get(&"default".to_string());
@@ -174,14 +174,14 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
 
 /// Return Key corresponding to given Address in KeyStore
 pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
-    let key_string = format!("wallet-{}", addr.to_string());
+    let key_string = format!("wallet-{}", addr);
     let key_info = keystore.get(&key_string)?;
     let new_key = Key::try_from(key_info)?;
     Ok(new_key)
 }
 
 pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
-    let key_string = format!("wallet-{}", addr.to_string());
+    let key_string = format!("wallet-{}", addr);
     match keystore.get(&key_string) {
         Ok(k) => Ok(k),
         Err(_) => {
@@ -216,7 +216,7 @@ pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 /// Import KeyInfo into KeyStore
 pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> Result<Address, Error> {
     let k = Key::try_from(key_info)?;
-    let addr = format!("wallet-{}", k.address.to_string());
+    let addr = format!("wallet-{}", k.address);
     keystore.put(addr, k.key_info)?;
     Ok(k.address)
 }

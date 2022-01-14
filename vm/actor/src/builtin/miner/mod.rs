@@ -986,13 +986,19 @@ impl Actor {
                     })?;
 
                 // Check proof, we fail if validation succeeds.
-                if verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)? {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "failed to dispute valid post"
-                    ));
-                } else {
-                    info!("Successfully disputed post- window post was invalid");
+                match verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs) {
+                    Err(e) => {
+                        info!("Successfully disputed post: {}", e);
+                    }
+                    Ok(false) => {
+                        info!("Successfully disputed post: window post was invalid");
+                    }
+                    Ok(true) => {
+                        return Err(actor_error!(
+                            ErrIllegalArgument,
+                            "failed to dispute valid post"
+                        ));
+                    }
                 }
 
                 // Ok, now we record faults. This always works because
