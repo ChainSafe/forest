@@ -46,7 +46,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-      - name: Cargo Test
+      - name: Make Test-All
         run: RUST_TEST_THREADS=16 make test-all
 
   codecov:
@@ -94,6 +94,8 @@ jobs:
         with:
           toolchain: stable
           override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
       - name: Install Clippy
         run: rustup component add clippy
       - name: Install RustFmt
@@ -112,10 +114,15 @@ jobs:
         with:
           toolchain: stable
           override: true
-      - name: Build and Audit
-        run: |
-          cargo install cargo-audit
-          cargo audit --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Install Audit
+        run: cargo install cargo-audit
+      - name: Run Audit
+        uses: actions-rs/cargo@v1
+        with:
+          command: audit
+          args: --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
 
   build:
     name: Build
