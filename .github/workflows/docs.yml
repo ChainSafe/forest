@@ -21,6 +21,8 @@ jobs:
       - name: Execute MDBook
         run: |
           mdbook build ./documentation/
+      # The deploy steps are identical expect for name and 'dry-run' attribute.
+      # Ideally this would be refactored.
       - name: Deploy GH Pages (dry-run)
         uses: JamesIves/github-pages-deploy-action@v4.2.2
         if: ${{ github.event_name == 'pull_request' }}
