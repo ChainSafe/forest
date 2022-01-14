@@ -294,14 +294,14 @@ fn encode(addr: &Address) -> String {
             format!(
                 "{}{}{}",
                 addr.network.to_prefix(),
-                addr.protocol().to_string(),
+                addr.protocol(),
                 ADDRESS_ENCODER.encode(bz.as_mut()),
             )
         }
         Protocol::ID => format!(
             "{}{}{}",
             addr.network.to_prefix(),
-            addr.protocol().to_string(),
+            addr.protocol(),
             from_leb_bytes(&addr.payload_bytes()).expect("should read encoded bytes"),
         ),
     }

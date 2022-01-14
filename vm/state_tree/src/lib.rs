@@ -232,7 +232,7 @@ where
     ) -> Result<Cid, String> {
         let state_root = forest_car::load_car(store, reader)
             .await
-            .map_err(|e| format!("Import StateTree failed: {}", e.to_string()))?;
+            .map_err(|e| format!("Import StateTree failed: {}", e))?;
         if state_root.len() != 1 {
             return Err(format!(
                 "Import StateTree failed: expected root length of 1, got: {}",
@@ -244,12 +244,8 @@ where
         let state_root = state_root[0];
 
         // Attempt to load StateTree to see if the root CID indeed points to a valid StateTree
-        StateTree::new_from_root(store, &state_root).map_err(|e| {
-            format!(
-                "Import StateTree failed: Invalid StateTree root: {}",
-                e.to_string()
-            )
-        })?;
+        StateTree::new_from_root(store, &state_root)
+            .map_err(|e| format!("Import StateTree failed: Invalid StateTree root: {}", e))?;
 
         Ok(state_root)
     }
@@ -454,12 +450,8 @@ where
         task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
 
     // Check if given Cid is a StateTree
-    StateTree::new_from_root(bs, &state_root).map_err(|e| {
-        format!(
-            "Export StateTree failed: Invalid StateTree root: {}",
-            e.to_string()
-        )
-    })?;
+    StateTree::new_from_root(bs, &state_root)
+        .map_err(|e| format!("Export StateTree failed: Invalid StateTree root: {}", e))?;
 
     // Recurse over the StateTree links
     let mut seen = Default::default();

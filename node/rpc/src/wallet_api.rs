@@ -120,7 +120,7 @@ where
 
     let key = Key::try_from(key_info)?;
 
-    let addr = format!("wallet-{}", key.address.to_string());
+    let addr = format!("wallet-{}", key.address);
 
     let mut keystore = data.keystore.write().await;
 
@@ -165,7 +165,7 @@ where
     let mut keystore = data.keystore.write().await;
     let key = wallet::generate_key(sig_raw.0)?;
 
-    let addr = format!("wallet-{}", key.address.to_string());
+    let addr = format!("wallet-{}", key.address);
     keystore.put(addr, key.key_info.clone())?;
     let value = keystore.get(&"default".to_string());
     if value.is_err() {
