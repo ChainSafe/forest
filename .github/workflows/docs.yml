@@ -1,4 +1,5 @@
-name: Publish docs
+name: Documentation
+
 on:
   push:
     branches:
@@ -6,14 +7,24 @@ on:
 
 jobs:
   publish-docs:
-    name: publish docs
+    name: Publish Docs
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install toolchain
+      - name: Install Toolchain
         uses: actions-rs/toolchain@v1
-      - run: |
+      - name: Install MDBook
+        run: |
           cargo install mdbook
-          mdbook build ./documentation
+      - name: Execute MDBook
+        run: |
+          mdbook build ./documentation/
+      - name: Build Rust Docs
+        run: |
           bash ./scripts/build-rust-docs.sh
+      - name: Deploy GH Pages
+        uses: JamesIves/github-pages-deploy-action@4.2.2
+        with:
+            branch: gh-pages
+            folder: ./documentation/book/
