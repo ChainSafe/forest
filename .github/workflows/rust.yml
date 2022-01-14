@@ -25,6 +25,14 @@ jobs:
         uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              curl file gcc g++ git make openssh-client \
+              autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
+              libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+              xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
@@ -49,6 +57,14 @@ jobs:
         uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              curl file gcc g++ git make openssh-client \
+              autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
+              libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+              xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
@@ -69,7 +85,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
@@ -87,7 +103,7 @@ jobs:
 
   audit:
     name: Audit
-    runs-on: buildjet-4vcpu-ubuntu-2004
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
