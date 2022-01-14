@@ -10,41 +10,62 @@ use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 mod drand;
 
-#[cfg(feature = "mainnet")]
-mod mainnet;
-#[cfg(feature = "mainnet")]
-pub use self::mainnet::*;
+#[cfg(all(
+    not(feature = "interopnet"),
+    not(feature = "devnet"),
+    not(feature = "mainnet"),
+    not(feature = "conformance"),
+))]
+compile_error!(
+    "No network feature selected. Exactly one of \"mainnet\", \"devnet\", \"interopnet\", or \"conformance\" must be enabled for this crate."
+);
 
-#[cfg(feature = "conformance")]
-mod mainnet;
-#[cfg(feature = "conformace")]
-pub use self::mainnet::*;
-pub use crate::mainnet::*;
+#[cfg(all(
+    feature = "mainnet",
+    any(feature = "interopnet", feature = "devnet", feature = "conformance",)
+))]
+compile_error!(
+    "\"mainnet\" feature cannot be combined with \"devnet\", \"interopnet\", or \"conformance\"."
+);
+
+#[cfg(all(
+    feature = "conformance",
+    any(feature = "interopnet", feature = "devnet", feature = "mainnet",)
+))]
+compile_error!(
+    "\"conformance\" feature cannot be combined with \"devnet\", \"interopnet\", or \"mainnet\"."
+);
+
+#[cfg(all(
+    feature = "devnet",
+    any(feature = "interopnet", feature = "conformance", feature = "mainnet",)
+))]
+compile_error!(
+    "\"devnet\" feature cannot be combined with \"conformance\", \"interopnet\", or \"mainnet\"."
+);
 
 #[cfg(all(
     feature = "interopnet",
-    not(feature = "devnet"),
-    not(feature = "mainnet")
+    any(feature = "conformance", feature = "devnet", feature = "mainnet",)
 ))]
+compile_error!(
+    "\"interopnet\" feature cannot be combined with \"devnet\", \"conformance\", or \"mainnet\"."
+);
+
+// Both mainnet and conformance parameters are kept in the 'mainnet' module.
+#[cfg(any(feature = "mainnet", feature = "conformance"))]
+mod mainnet;
+#[cfg(any(feature = "mainnet", feature = "conformance"))]
+pub use self::mainnet::*;
+
+#[cfg(feature = "interopnet")]
 mod interopnet;
-#[cfg(all(
-    feature = "interopnet",
-    not(feature = "devnet"),
-    not(feature = "mainnet")
-))]
+#[cfg(feature = "interopnet")]
 pub use self::interopnet::*;
 
-#[cfg(all(
-    feature = "devnet",
-    not(feature = "interopnet"),
-    not(feature = "mainnet")
-))]
+#[cfg(feature = "devnet")]
 mod devnet;
-#[cfg(all(
-    feature = "devnet",
-    not(feature = "interopnet"),
-    not(feature = "mainnet")
-))]
+#[cfg(feature = "devnet")]
 pub use self::devnet::*;
 
 /// Defines the different hard fork parameters.

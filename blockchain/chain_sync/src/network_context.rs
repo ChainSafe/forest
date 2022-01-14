@@ -141,14 +141,14 @@ where
                 match self.db.get(&content) {
                     Ok(Some(b)) => Ok(b),
                     Ok(None) => Err(format!("Bitswap response successful for: {:?}, but can't find it in the database", content)),
-                    Err(e) => Err(format!("Bitswap response successful for: {:?}, but can't retreive it from the database: {}", content, e.to_string())),
+                    Err(e) => Err(format!("Bitswap response successful for: {:?}, but can't retreive it from the database: {}", content, e)),
                 }
             }
             Err(_e) => {
                Err(format!("Bitswap get for {:?} timed out", content))
             }
             Ok(Err(e)) => {
-                Err(format!("Bitswap get for {:?} failed: {}", content, e.to_string()))
+                Err(format!("Bitswap get for {:?} failed: {}", content, e))
             }
         }
     }

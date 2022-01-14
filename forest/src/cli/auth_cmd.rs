@@ -64,7 +64,7 @@ impl AuthCommands {
                             String::from_utf8(token)
                                 .map_err(|e| handle_rpc_err(e.into()))
                                 .unwrap(),
-                            addr.to_string()
+                            addr
                         );
                     }
                     Err(e) => handle_rpc_err(e),
