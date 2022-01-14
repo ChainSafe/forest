@@ -8,6 +8,8 @@ jobs:
   publish-docs:
     name: publish docs
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
