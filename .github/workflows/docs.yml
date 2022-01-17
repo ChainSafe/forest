@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
   publish-docs:
@@ -20,11 +21,19 @@ jobs:
       - name: Execute MDBook
         run: |
           mdbook build ./documentation/
-      - name: Build Rust Docs
-        run: |
-          bash ./scripts/build-rust-docs.sh
-      - name: Deploy GH Pages
-        uses: JamesIves/github-pages-deploy-action@4.2.2
+      # The deploy steps are identical expect for name and 'dry-run' attribute.
+      # Ideally this would be refactored.
+      - name: Deploy GH Pages (dry-run)
+        uses: JamesIves/github-pages-deploy-action@v4.2.2
+        if: ${{ github.event_name == 'pull_request' }}
         with:
             branch: gh-pages
             folder: ./documentation/book/
+            dry-run: true
+      - name: Deploy GH Pages
+        uses: JamesIves/github-pages-deploy-action@v4.2.2
+        if: ${{ github.event_name == 'push' }}
+        with:
+            branch: gh-pages
+            folder: ./documentation/book/
+            dry-run: false
