@@ -46,7 +46,7 @@ clean:
 
 lint: license clean
 	cargo fmt --all
-	cargo clippy -- -D warnings -A clippy::redundant-clone -A clippy::to-string-in-format-args
+	cargo clippy -- -D warnings
 
 build:
 	cargo build --bin forest
