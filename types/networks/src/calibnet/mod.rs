@@ -1,10 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{
-    drand::{DRAND_INCENTINET, DRAND_MAINNET},
-    DrandPoint,
-};
+use super::{drand::DRAND_MAINNET, DrandPoint};
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
 
@@ -81,23 +78,17 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
 
 /// Bootstrap peer ids
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
-    "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWRLZAseMo9h7fRD6ojn6YYDXHsBSavX5YmjBZ9ngtAEec",
-    "/dns4/bootstrap-1.calibration.fildev.network/tcp/1347/p2p/12D3KooWJFtDXgZEQMEkjJPSrbfdvh2xfjVKrXeNFG1t8ioJXAzv",
-    "/dns4/bootstrap-2.calibration.fildev.network/tcp/1347/p2p/12D3KooWP1uB9Lo7yCA3S17TD4Y5wStP5Nk7Vqh53m8GsFjkyujD",
-    "/dns4/bootstrap-3.calibration.fildev.network/tcp/1347/p2p/12D3KooWLrPM4WPK1YRGPCUwndWcDX8GCYgms3DiuofUmxwvhMCn",
+    "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWJkikQQkxS58spo76BYzFt4fotaT5NpV2zngvrqm4u5ow",
+    "/dns4/bootstrap-1.calibration.fildev.network/tcp/1347/p2p/12D3KooWLce5FDHR4EX4CrYavphA5xS3uDsX6aoowXh5tzDUxJav",
+    "/dns4/bootstrap-2.calibration.fildev.network/tcp/1347/p2p/12D3KooWA9hFfQG9GjP6bHeuQQbMD3FDtZLdW1NayxKXUT26PQZu",
+    "/dns4/bootstrap-3.calibration.fildev.network/tcp/1347/p2p/12D3KooWMHDi3LVTFG8Szqogt7RkNXvonbQYqSazxBx41A5aeuVz",
 ];
 
 lazy_static! {
-    pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
-        DrandPoint {
-            height: 0,
-            config: &*DRAND_INCENTINET,
-        },
-        DrandPoint {
-            height: UPGRADE_SMOKE_HEIGHT,
-            config: &*DRAND_MAINNET,
-        },
-    ];
+    pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
+        height: 0,
+        config: &*DRAND_MAINNET,
+    },];
 }
 
 /// Time, in seconds, between each block.
