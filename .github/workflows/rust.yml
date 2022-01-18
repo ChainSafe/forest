@@ -1,0 +1,152 @@
+name: Rust
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    -
+      cron: "0 0 * * *"
+
+env:
+  CI: 1
+  CARGO_INCREMENTAL: 1
+  RUST_TEST_THREADS: 16
+
+jobs:
+  test:
+    name: Test
+    runs-on: buildjet-16vcpu-ubuntu-2004
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              curl file gcc g++ git make openssh-client \
+              autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
+              libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+              xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Cargo Check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+      - name: Make Test-All
+        run: RUST_TEST_THREADS=16 make test-all
+
+  codecov:
+    name: Cover
+    runs-on: buildjet-16vcpu-ubuntu-2004
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              curl file gcc g++ git make openssh-client \
+              autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
+              libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+              xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Run Tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          args: '--workspace --release --locked --out Xml --jobs 16 --timeout 600 -- --test-threads 16'
+        env:
+          RUST_TEST_THREADS: 16
+      - name: Upload CodeCov
+        uses: codecov/codecov-action@v2
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Install Clippy
+        run: rustup component add clippy
+      - name: Install RustFmt
+        run: rustup component add rustfmt
+      - name: Run Linters
+        run: make lint
+
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Install Audit
+        run: cargo install cargo-audit
+      - name: Run Audit
+        uses: actions-rs/cargo@v1
+        with:
+          command: audit
+          args: --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rv: [1.57.0, stable]
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rv }}
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Cargo Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --profile dev
