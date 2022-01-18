@@ -15,6 +15,7 @@ mod drand;
     not(feature = "devnet"),
     not(feature = "mainnet"),
     not(feature = "conformance"),
+    not(feature = "calibnet")
 ))]
 compile_error!(
     "No network feature selected. Exactly one of \"mainnet\", \"devnet\", \"interopnet\", or \"conformance\" must be enabled for this crate."
