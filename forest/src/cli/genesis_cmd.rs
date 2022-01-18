@@ -51,7 +51,7 @@ impl GenesisCommands {
                 let template = GenesisTemplate::new(
                     network_name
                         .as_ref()
-                        .unwrap_or(&format!("localnet-{}", Uuid::new_v4().to_string()))
+                        .unwrap_or(&format!("localnet-{}", Uuid::new_v4()))
                         .to_string(),
                 );
 

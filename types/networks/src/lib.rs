@@ -10,62 +10,101 @@ use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 mod drand;
 
-#[cfg(feature = "mainnet")]
-mod mainnet;
-#[cfg(feature = "mainnet")]
-pub use self::mainnet::*;
+#[cfg(all(
+    not(feature = "interopnet"),
+    not(feature = "devnet"),
+    not(feature = "mainnet"),
+    not(feature = "conformance"),
+))]
+compile_error!(
+    "No network feature selected. Exactly one of \"mainnet\", \"devnet\", \"interopnet\", or \"conformance\" must be enabled for this crate."
+);
 
-#[cfg(feature = "conformance")]
-mod mainnet;
-#[cfg(feature = "conformace")]
-pub use self::mainnet::*;
-#[cfg(feature = "mainnet")]
-pub use crate::mainnet::*;
+#[cfg(all(
+    feature = "mainnet",
+    any(
+        feature = "interopnet",
+        feature = "devnet",
+        feature = "conformance",
+        feature = "calibnet"
+    )
+))]
+compile_error!(
+    "\"mainnet\" feature cannot be combined with \"devnet\", \"interopnet\", or \"conformance\", or \"calibnet\"."
+);
+
+#[cfg(all(
+    feature = "conformance",
+    any(
+        feature = "interopnet",
+        feature = "devnet",
+        feature = "mainnet",
+        feature = "calibnet"
+    )
+))]
+compile_error!(
+    "\"conformance\" feature cannot be combined with \"devnet\", \"interopnet\", or \"mainnet\", \"calibnet\"."
+);
+
+#[cfg(all(
+    feature = "devnet",
+    any(
+        feature = "interopnet",
+        feature = "conformance",
+        feature = "mainnet",
+        feature = "calibnet"
+    )
+))]
+compile_error!(
+    "\"devnet\" feature cannot be combined with \"conformance\", \"interopnet\", or \"mainnet\", \"calibnet\"."
+);
 
 #[cfg(all(
     feature = "interopnet",
-    not(feature = "devnet"),
-    not(feature = "mainnet"),
-    not(feature = "calibnet")
+    any(
+        feature = "conformance",
+        feature = "devnet",
+        feature = "mainnet",
+        feature = "calibnet"
+    )
 ))]
+compile_error!(
+    "\"interopnet\" feature cannot be combined with \"devnet\", \"conformance\", or \"mainnet\", \"calibnet\"."
+);
+
+#[cfg(all(
+    feature = "calibnet",
+    any(
+        feature = "conformance",
+        feature = "devnet",
+        feature = "mainnet",
+        feature = "interopnet"
+    )
+))]
+compile_error!(
+    "\"interopnet\" feature cannot be combined with \"devnet\", \"conformance\", or \"mainnet\", \"interopnet\"."
+);
+
+// Both mainnet and conformance parameters are kept in the 'mainnet' module.
+#[cfg(any(feature = "mainnet", feature = "conformance"))]
+mod mainnet;
+#[cfg(any(feature = "mainnet", feature = "conformance"))]
+pub use self::mainnet::*;
+
+#[cfg(feature = "interopnet")]
 mod interopnet;
-#[cfg(all(
-    feature = "interopnet",
-    not(feature = "devnet"),
-    not(feature = "mainnet"),
-    not(feature = "calibnet")
-))]
+#[cfg(feature = "interopnet")]
 pub use self::interopnet::*;
 
-#[cfg(all(
-    feature = "calibnet",
-    not(feature = "devnet"),
-    not(feature = "mainnet"),
-    not(feature = "interopnet")
-))]
-mod calibnet;
-#[cfg(all(
-    feature = "calibnet",
-    not(feature = "devnet"),
-    not(feature = "mainnet"),
-    not(feature = "interopnet")
-))]
-pub use self::calibnet::*;
-
-#[cfg(all(
-    feature = "devnet",
-    not(feature = "interopnet"),
-    not(feature = "mainnet"),
-    not(feature = "calibnet")
-))]
+#[cfg(feature = "devnet")]
 mod devnet;
-#[cfg(all(
-    feature = "devnet",
-    not(feature = "interopnet"),
-    not(feature = "mainnet"),
-    not(feature = "calibnet")
-))]
+#[cfg(feature = "devnet")]
 pub use self::devnet::*;
+
+#[cfg(feature = "calibnet")]
+mod calibnet;
+#[cfg(feature = "calibnet")]
+pub use self::calibnet::*;
 
 /// Defines the different hard fork parameters.
 struct Upgrade {

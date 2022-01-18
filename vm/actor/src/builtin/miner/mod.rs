@@ -986,13 +986,19 @@ impl Actor {
                     })?;
 
                 // Check proof, we fail if validation succeeds.
-                if verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)? {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "failed to dispute valid post"
-                    ));
-                } else {
-                    info!("Successfully disputed post- window post was invalid");
+                match verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs) {
+                    Err(e) => {
+                        info!("Successfully disputed post: {}", e);
+                    }
+                    Ok(false) => {
+                        info!("Successfully disputed post: window post was invalid");
+                    }
+                    Ok(true) => {
+                        return Err(actor_error!(
+                            ErrIllegalArgument,
+                            "failed to dispute valid post"
+                        ));
+                    }
                 }
 
                 // Ok, now we record faults. This always works because
@@ -2502,14 +2508,16 @@ impl Actor {
             .validate()
             .map_err(|e| actor_error!(ErrIllegalArgument, "invalid mask bitfield: {}", e))?;
 
-        let last_sector_number = mask_sector_numbers
-            .iter()
-            .last()
-            .ok_or_else(|| actor_error!(ErrIllegalArgument, "invalid mask bitfield"))?
-            as SectorNumber;
+        let last_sector_number = mask_sector_numbers.last().map_err(|e| {
+            actor_error!(
+                ErrIllegalArgument,
+                "invalid mask bitfield, no sectors set: {}",
+                e
+            )
+        })?;
 
         #[allow(clippy::absurd_extreme_comparisons)]
-        if last_sector_number > MAX_SECTOR_NUMBER {
+        if (last_sector_number as u64) > MAX_SECTOR_NUMBER {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "masked sector number {} exceeded max sector number",
