@@ -1,7 +1,7 @@
 [package]
 name = "forest_bitfield"
 description = "Bitfield logic for use in Filecoin actors"
-version = "0.2.0"
+version = "0.1.1"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
