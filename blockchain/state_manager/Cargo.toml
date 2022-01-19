@@ -33,7 +33,7 @@ log = "0.4.8"
 fil_types = "0.2"
 message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
 vm = { package = "forest_vm", version = "0.3.1" }
-bitfield = { package = "forest_bitfield", version = "0.1" }
+bitfield = { package = "forest_bitfield", version = "0.2" }
 serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2.11"
 tokio = { version = "1.0", features = ["sync"] }
