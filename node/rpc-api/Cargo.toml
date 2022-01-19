@@ -9,7 +9,7 @@ edition = "2018"
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 address = { package = "forest_address", version = "0.3", features = ["json"] }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
-bitfield = { package = "forest_bitfield", version = "0.2", features = ["json"] }
+bitfield = { package = "forest_bitfield", version = "0.1.1", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 blockstore = { package = "ipld_blockstore", version = "0.1" }
 chain = { path = "../../blockchain/chain", features = ["json"] }
