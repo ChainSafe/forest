@@ -10,7 +10,7 @@ repository = "https://github.com/ChainSafe/forest"
 [dependencies]
 vm = { package = "forest_vm", version = "0.3.2" }
 address = { package = "forest_address", version = "0.3" }
-runtime = { package = "forest_runtime", version = "0.3" }
+runtime = { package = "forest_runtime", version = "0.2.2" }
 num-bigint = { package = "forest_bigint", version = "0.1.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 num-traits = "0.2"
