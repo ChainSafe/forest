@@ -2508,13 +2508,15 @@ impl Actor {
             .validate()
             .map_err(|e| actor_error!(ErrIllegalArgument, "invalid mask bitfield: {}", e))?;
 
-        let last_sector_number = mask_sector_numbers
-            .iter()
-            .last()
-            .ok_or_else(|| actor_error!(ErrIllegalArgument, "invalid mask bitfield"))?
-            as SectorNumber;
+        let last_sector_number = mask_sector_numbers.last().map_err(|e| {
+            actor_error!(
+                ErrIllegalArgument,
+                "invalid mask bitfield, no sectors set: {}",
+                e
+            )
+        })?;
 
-        if last_sector_number > MAX_SECTOR_NUMBER {
+        if (last_sector_number as u64) > MAX_SECTOR_NUMBER {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "masked sector number {} exceeded max sector number",

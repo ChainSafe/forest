@@ -1,14 +1,16 @@
-name: Documentation
+name: Docs
 
 on:
   push:
     branches:
       - main
   pull_request:
+    branches:
+      - main
 
 jobs:
   publish-docs:
-    name: Publish Docs
+    name: Publish
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources

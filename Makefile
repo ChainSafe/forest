@@ -46,7 +46,7 @@ clean:
 
 lint: license clean
 	cargo fmt --all
-	cargo clippy -- -D warnings -A clippy::upper_case_acronyms
+	cargo clippy -- -D warnings
 
 build:
 	cargo build --bin forest
@@ -67,35 +67,40 @@ docker-run:
 pull-serialization-tests:
 	git submodule update --init
 
-run-serialization-vectors:
-	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
+run-serialization-vectors: check-env
+	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests" -- --test-threads=$(RUST_TEST_THREADS)
 
-run-conformance-vectors:
-	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests" -- --nocapture
+run-conformance-vectors: check-env
+	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests" -- --nocapture -- --test-threads=$(RUST_TEST_THREADS)
 
 run-vectors: run-serialization-vectors run-conformance-vectors
 
 test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
-test:
-	cargo test --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto
-	cargo test -p forest_crypto --features blst --no-default-features
-	cargo test -p forest_crypto --features pairing --no-default-features
-	cargo test -p forest_message --features blst --no-default-features
-	cargo test -p forest_message --features pairing --no-default-features
+test: check-env
+	cargo test --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 
-test-release:
-	cargo test --release --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto
-	cargo test --release -p forest_crypto --features blst --no-default-features
-	cargo test --release -p forest_crypto --features pairing --no-default-features
-	cargo test --release -p forest_message --features blst --no-default-features
-	cargo test --release -p forest_message --features pairing --no-default-features
+test-release: check-env
+	cargo test --release --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test --release -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test --release -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test --release -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test --release -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+
+check-env:
+ifndef RUST_TEST_THREADS
+	export RUST_TEST_THREADS=$(nproc)
+endif
 
 smoke-test:
 	./scripts/smoke_test.sh
 
-test-all: test-release run-vectors
+test-all: test-release test-vectors
 
 # Checks if all headers are present and adds if not
 license:
@@ -110,4 +115,4 @@ mdbook:
 mdbook-build:
 	mdbook build ./documentation
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors
+.PHONY: clean clean-all lint build release check-env test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors
