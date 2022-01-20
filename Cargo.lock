@@ -14,6 +14,7 @@ dependencies = [
  "forest_actor 3.0.0",
  "forest_actor 4.0.0",
  "forest_actor 5.0.0",
+ "forest_actor 5.0.1",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -2327,6 +2328,40 @@ dependencies = [
  "ipld_hamt 2.0.0",
  "lazy_static",
  "libp2p",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "unsigned-varint 0.6.0",
+]
+
+[[package]]
+name = "forest_actor"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "577faae35bbd3d9f18e90e9467198a058eb7ac2e7e08b2e230bb394ff0b2da40"
+dependencies = [
+ "ahash 0.6.3",
+ "base64 0.13.0",
+ "byteorder 1.4.3",
+ "commcid",
+ "fil_clock",
+ "fil_types",
+ "forest_address",
+ "forest_bigint",
+ "forest_bitfield",
+ "forest_cid",
+ "forest_crypto",
+ "forest_encoding",
+ "forest_ipld",
+ "forest_runtime",
+ "forest_vm",
+ "indexmap",
+ "integer-encoding 3.0.2",
+ "ipld_amt 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_blockstore",
+ "ipld_hamt 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static",
  "log",
  "num-derive",
  "num-traits",
