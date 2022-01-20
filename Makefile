@@ -81,7 +81,7 @@ run-serialization-vectors:
 	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests" -- --test-threads=$(RUST_TEST_THREADS)
 
 run-conformance-vectors:
-	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests" -- --nocapture -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests" -- --nocapture --test-threads=$(RUST_TEST_THREADS)
 
 run-vectors: run-serialization-vectors run-conformance-vectors
 
