@@ -1,6 +1,16 @@
 SER_TESTS = "tests/serialization_tests"
 CONF_TESTS = "tests/conformance_tests"
 
+ifndef RUST_TEST_THREADS
+	RUST_TEST_THREADS := 1
+	OS := $(shell uname)
+	ifeq ($(OS),Linux)
+		RUST_TEST_THREADS := $(shell nproc)
+	else ifeq ($(OS),Darwin)
+		RUST_TEST_THREADS := $(shell sysctl -n hw.ncpu)
+	endif # $(OS)
+endif
+
 install:
 	cargo install --locked --path forest --force
 
@@ -67,10 +77,10 @@ docker-run:
 pull-serialization-tests:
 	git submodule update --init
 
-run-serialization-vectors: check-env
+run-serialization-vectors:
 	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests" -- --test-threads=$(RUST_TEST_THREADS)
 
-run-conformance-vectors: check-env
+run-conformance-vectors:
 	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests" -- --nocapture -- --test-threads=$(RUST_TEST_THREADS)
 
 run-vectors: run-serialization-vectors run-conformance-vectors
@@ -78,24 +88,19 @@ run-vectors: run-serialization-vectors run-conformance-vectors
 test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
-test: check-env
+test:
 	cargo test --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 
-test-release: check-env
+test-release:
 	cargo test --release --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-
-check-env:
-ifndef RUST_TEST_THREADS
-	export RUST_TEST_THREADS=$(nproc)
-endif
 
 smoke-test:
 	./scripts/smoke_test.sh
@@ -115,4 +120,4 @@ mdbook:
 mdbook-build:
 	mdbook build ./documentation
 
-.PHONY: clean clean-all lint build release check-env test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors
