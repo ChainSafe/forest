@@ -14,7 +14,6 @@ on:
 env:
   CI: 1
   CARGO_INCREMENTAL: 1
-  RUST_TEST_THREADS: 16
 
 jobs:
   test:
@@ -47,7 +46,7 @@ jobs:
         with:
           command: check
       - name: Make Test-All
-        run: RUST_TEST_THREADS=16 make test-all
+        run: make test-all
 
   codecov:
     name: Cover
@@ -78,8 +77,6 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           args: '--workspace --release --locked --out Xml --jobs 16 --timeout 600 -- --test-threads 16'
-        env:
-          RUST_TEST_THREADS: 16
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
 
