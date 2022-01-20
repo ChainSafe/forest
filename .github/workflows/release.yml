@@ -29,7 +29,9 @@ jobs:
       - name: Homebrew Utils
         run: |
           brew install --verbose coreutils
-          sudo ln -s /usr/local/bin/gsha256sum /usr/local/bin/sha256sum
+          echo $PATH
+          which sha256sum
+          which gsha256sum
         if: startsWith(matrix.os, 'macOS')
       - name: Cargo Build
         uses: actions-rs/cargo@v1
