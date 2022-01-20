@@ -20,6 +20,7 @@ pub enum State {
     V4(actorv4::account::State),
     V5(actorv5::account::State),
     V6(actorv5::account::State),
+    V7(actorv5::account::State),
 }
 
 impl State {
@@ -57,6 +58,11 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == *actorv7::ACCOUNT_ACTOR_CODE_ID {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V7)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
             Err(format!("Unknown actor code {}", actor.code).into())
         }
@@ -70,6 +76,7 @@ impl State {
             State::V4(st) => st.address,
             State::V5(st) => st.address,
             State::V6(st) => st.address,
+            State::V7(st) => st.address,
         }
     }
 }
