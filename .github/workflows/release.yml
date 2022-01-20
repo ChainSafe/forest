@@ -19,25 +19,25 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
-      #- name: Cargo Build
-      #  uses: actions-rs/cargo@v1
-      #  with:
-      #    command: build
-      #    args: --release --bin forest --features release
+      # - name: Install Toolchain
+      #   uses: actions-rs/toolchain@v1
+      #   with:
+      #     toolchain: stable
+      #     override: true
+      # - name: Rust Cache
+      #   uses: Swatinem/rust-cache@v1.3.0
+      # - name: Cargo Build
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: build
+      #     args: --release --bin forest --features release
       - name: Compress Binary
         run: |
           mkdir -p forest-${{ github.ref_name }}
           # cp -v target/release/forest forest-${{ github.ref_name }}
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md docs forest-${{ github.ref_name }}
           # strip forest-${{ github.ref_name }}/forest
-          sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
+          # sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
           ls -l *.zip
       - name: Upload Binary
