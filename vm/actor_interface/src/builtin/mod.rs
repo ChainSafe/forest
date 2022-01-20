@@ -33,6 +33,7 @@ pub fn is_builtin_actor(code: &Cid) -> bool {
         || actorv4::is_builtin_actor(code)
         || actorv5::is_builtin_actor(code)
         || actorv6::is_builtin_actor(code)
+        || actorv7::is_builtin_actor(code)
 }
 
 /// Returns true if the code belongs to an account actor.
@@ -43,6 +44,7 @@ pub fn is_account_actor(code: &Cid) -> bool {
         || actorv4::is_account_actor(code)
         || actorv5::is_account_actor(code)
         || actorv6::is_account_actor(code)
+        || actorv7::is_account_actor(code)
 }
 
 /// Returns true if the code belongs to a singleton actor.
@@ -53,6 +55,7 @@ pub fn is_singleton_actor(code: &Cid) -> bool {
         || actorv4::is_singleton_actor(code)
         || actorv5::is_singleton_actor(code)
         || actorv6::is_singleton_actor(code)
+        || actorv7::is_singleton_actor(code)
 }
 
 /// Returns true if the code belongs to a miner actor.
@@ -63,11 +66,14 @@ pub fn is_miner_actor(code: &Cid) -> bool {
         || code == &*actorv4::MINER_ACTOR_CODE_ID
         || code == &*actorv5::MINER_ACTOR_CODE_ID
         || code == &*actorv6::MINER_ACTOR_CODE_ID
+        || code == &*actorv7::MINER_ACTOR_CODE_ID
 }
 
 /// Returns an actor's version or None if it was not a builtin
 pub fn actor_version(code: &Cid) -> Option<ActorVersion> {
-    if actorv6::is_builtin_actor(code) {
+    if actorv7::is_builtin_actor(code) {
+        Some(ActorVersion::V7)
+    } else if actorv6::is_builtin_actor(code) {
         Some(ActorVersion::V6)
     } else if actorv5::is_builtin_actor(code) {
         Some(ActorVersion::V5)
@@ -137,6 +143,15 @@ impl From<actorv5::util::smooth::FilterEstimate> for FilterEstimate {
 
 impl From<actorv6::util::smooth::FilterEstimate> for FilterEstimate {
     fn from(filter_est: actorv6::util::smooth::FilterEstimate) -> Self {
+        Self {
+            position: filter_est.position,
+            velocity: filter_est.velocity,
+        }
+    }
+}
+
+impl From<actorv7::util::smooth::FilterEstimate> for FilterEstimate {
+    fn from(filter_est: actorv7::util::smooth::FilterEstimate) -> Self {
         Self {
             position: filter_est.position,
             velocity: filter_est.velocity,

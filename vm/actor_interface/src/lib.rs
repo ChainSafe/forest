@@ -14,6 +14,7 @@ pub use actorv3;
 pub use actorv4;
 pub use actorv5;
 pub use actorv6;
+pub use actorv7;
 use fil_types::{NetworkVersion, StateTreeVersion};
 use std::fmt::{self, Display, Formatter};
 
@@ -25,6 +26,7 @@ pub enum ActorVersion {
     V4,
     V5,
     V6,
+    V7,
 }
 
 impl Display for ActorVersion {
@@ -36,6 +38,7 @@ impl Display for ActorVersion {
             Self::V4 => write!(f, "V4"),
             Self::V5 => write!(f, "V5"),
             Self::V6 => write!(f, "V6"),
+            Self::V7 => write!(f, "V7"),
         }
     }
 }
@@ -56,6 +59,7 @@ impl From<NetworkVersion> for ActorVersion {
             NetworkVersion::V12 => ActorVersion::V4,
             NetworkVersion::V13 => ActorVersion::V5,
             NetworkVersion::V14 => ActorVersion::V6,
+            NetworkVersion::V15 => ActorVersion::V7,
         }
     }
 }

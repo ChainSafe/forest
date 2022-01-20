@@ -30,6 +30,7 @@ where
             ActorVersion::V4 => Map::V4(actorv4::make_empty_map(store, HAMT_BIT_WIDTH)),
             ActorVersion::V5 => Map::V5(actorv5::make_empty_map(store, HAMT_BIT_WIDTH)),
             ActorVersion::V6 => Map::V5(actorv5::make_empty_map(store, HAMT_BIT_WIDTH)),
+            ActorVersion::V7 => Map::V5(actorv5::make_empty_map(store, HAMT_BIT_WIDTH)),
         }
     }
 
@@ -42,6 +43,7 @@ where
             ActorVersion::V4 => Ok(Map::V4(actorv4::make_map_with_root(cid, store)?)),
             ActorVersion::V5 => Ok(Map::V5(actorv5::make_map_with_root(cid, store)?)),
             ActorVersion::V6 => Ok(Map::V5(actorv5::make_map_with_root(cid, store)?)),
+            ActorVersion::V7 => Ok(Map::V5(actorv5::make_map_with_root(cid, store)?)),
         }
     }
 

@@ -7,7 +7,7 @@ use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
     account, actorv0,
     actorv2::{self, ActorDowncast},
-    actorv3, actorv4, actorv5, actorv6, ActorVersion,
+    actorv3, actorv4, actorv5, actorv6, actorv7, ActorVersion,
 };
 use address::{Address, Protocol};
 use blocks::BlockHeader;
@@ -463,6 +463,7 @@ where
                 ActorVersion::V4 => actorv4::invoke_code(&code, self, method_num, params),
                 ActorVersion::V5 => actorv5::invoke_code(&code, self, method_num, params),
                 ActorVersion::V6 => actorv6::invoke_code(&code, self, method_num, params),
+                ActorVersion::V7 => actorv7::invoke_code(&code, self, method_num, params),
             }
         } {
             ret
@@ -1235,6 +1236,7 @@ fn new_account_actor(version: ActorVersion) -> ActorState {
             ActorVersion::V4 => *actorv4::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V5 => *actorv5::ACCOUNT_ACTOR_CODE_ID,
             ActorVersion::V6 => *actorv6::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V7 => *actorv7::ACCOUNT_ACTOR_CODE_ID,
         },
         balance: TokenAmount::from(0),
         state: *EMPTY_ARR_CID,

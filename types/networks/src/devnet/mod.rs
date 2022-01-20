@@ -42,11 +42,13 @@ pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 999999;
 pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = 1000000;
 /// V14 network update TODO
 pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = 1000000;
+/// V15 network update TODO
+pub const UPGRADE_OH_SNAP_HEIGHT: ChainEpoch = 1000000;
 
 pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 
 /// Current network version for the network
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V15;
 
 /// Bootstrap peer ids
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[];
