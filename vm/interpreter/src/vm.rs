@@ -173,7 +173,6 @@ where
 
     /// Flushes the StateTree and perform a state migration if there is a migration at this epoch.
     /// If there is no migration this function will return Ok(None).
-    #[allow(unreachable_code, unused_variables)]
     pub fn migrate_state(
         &mut self,
         epoch: ChainEpoch,

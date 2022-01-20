@@ -2516,7 +2516,6 @@ impl Actor {
             )
         })?;
 
-        #[allow(clippy::absurd_extreme_comparisons)]
         if (last_sector_number as u64) > MAX_SECTOR_NUMBER {
             return Err(actor_error!(
                 ErrIllegalArgument,
