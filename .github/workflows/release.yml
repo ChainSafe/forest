@@ -26,6 +26,11 @@ jobs:
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
+      - name: Homebrew Utils
+        run: |
+          brew install --verbose coreutils
+          sudo ln -s /usr/local/bin/gsha256sum /usr/local/bin/sha256sum
+        if: startsWith(matrix.os, 'macOS')
       - name: Cargo Build
         uses: actions-rs/cargo@v1
         with:
