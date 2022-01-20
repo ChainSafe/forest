@@ -33,10 +33,12 @@ jobs:
           args: --release --bin forest --features release
       - name: Compress Binary
         run: |
-          cp -v target/release/forest .
-          strip forest
-          sha256sum forest > forest.sha256
-          zip ${{ matrix.file }} forest forest.sha256 CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md
+          mkdir -p forest-${{ github.ref_name }}
+          cp -v target/release/forest forest-${{ github.ref_name }}
+          cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md docs forest-${{ github.ref_name }}
+          strip forest-${{ github.ref_name }}/forest
+          sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
+          zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
       - name: Upload Binary
         uses: svenstaro/upload-release-action@v2
         with:
