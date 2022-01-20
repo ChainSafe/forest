@@ -29,9 +29,6 @@ jobs:
       - name: Homebrew Utils
         run: |
           brew install --verbose coreutils
-          echo $PATH
-          which sha256sum
-          which gsha256sum
         if: startsWith(matrix.os, 'macOS')
       - name: Cargo Build
         uses: actions-rs/cargo@v1
