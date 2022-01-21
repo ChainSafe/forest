@@ -14,7 +14,6 @@ pub struct TerminationResult {
 }
 
 impl AddAssign for TerminationResult {
-    #[allow(clippy::suspicious_op_assign_impl)]
     fn add_assign(&mut self, rhs: Self) {
         self.partitions_processed += rhs.partitions_processed;
         self.sectors_processed += rhs.sectors_processed;
