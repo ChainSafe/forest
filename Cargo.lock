@@ -2370,6 +2370,7 @@ dependencies = [
  "ahash 0.6.3",
  "criterion",
  "cs_serde_bytes",
+ "cs_serde_cbor",
  "forest_encoding",
  "rand 0.7.3",
  "rand_xorshift",
