@@ -11,6 +11,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use conformance_tests::*;
 use encoding::Cbor;
+use fil_types::NetworkVersion;
 use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
@@ -21,6 +22,7 @@ use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
 use state_manager::StateManager;
 use statediff::print_state_diff;
+use std::convert::TryInto;
 use std::error::Error as StdError;
 use std::fmt;
 use std::fs::File;
@@ -29,8 +31,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use walkdir::{DirEntry, WalkDir};
-use std::convert::TryInto;
-use fil_types::NetworkVersion;
 
 lazy_static! {
     static ref DEFAULT_BASE_FEE: BigInt = BigInt::from(100);
