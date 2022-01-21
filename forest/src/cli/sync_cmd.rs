@@ -113,7 +113,7 @@ impl SyncCommands {
                 println!("Base:\t{}", base_cids);
                 println!("Target:\t{} ({})", target_cids, target_height);
                 println!("Height diff:\t{}", height_diff.abs());
-                println!("Stage:\t{}", state.stage().to_string());
+                println!("Stage:\t{}", state.stage());
                 println!("Height:\t{}", state.epoch());
 
                 if let Some(duration) = elapsed_time {
