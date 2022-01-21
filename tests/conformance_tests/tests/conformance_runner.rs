@@ -29,6 +29,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use walkdir::{DirEntry, WalkDir};
+use std::convert::TryInto;
+use fil_types::NetworkVersion;
 
 lazy_static! {
     static ref DEFAULT_BASE_FEE: BigInt = BigInt::from(100);
@@ -189,6 +191,7 @@ async fn execute_message_vector(
                     .map(|i| i.to_bigint().unwrap())
                     .unwrap_or(DEFAULT_BASE_FEE.clone()),
                 randomness: ReplayingRand::new(randomness),
+                nv: variant.nv.try_into().unwrap_or(NetworkVersion::V0),
             },
         )?;
         root = post_root;

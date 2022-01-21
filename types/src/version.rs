@@ -3,6 +3,7 @@
 
 use encoding::repr::Serialize_repr;
 use std::fmt::{self, Display, Formatter};
+use std::convert::TryFrom;
 
 /// Specifies the network version
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr)]
@@ -40,6 +41,32 @@ pub enum NetworkVersion {
     V14,
     /// oh snap (specs-actors v7.0.0)
     V15,
+}
+
+impl TryFrom<u32> for NetworkVersion {
+    type Error = ();
+
+    fn try_from(v: u32) -> Result<Self, Self::Error> {
+        match v {
+            x if x == NetworkVersion::V15 as u32 => Ok(NetworkVersion::V15),
+            x if x == NetworkVersion::V14 as u32 => Ok(NetworkVersion::V14),
+            x if x == NetworkVersion::V13 as u32 => Ok(NetworkVersion::V13),
+            x if x == NetworkVersion::V12 as u32 => Ok(NetworkVersion::V12),
+            x if x == NetworkVersion::V11 as u32 => Ok(NetworkVersion::V11),
+            x if x == NetworkVersion::V10 as u32 => Ok(NetworkVersion::V10),
+            x if x == NetworkVersion::V9 as u32 => Ok(NetworkVersion::V9),
+            x if x == NetworkVersion::V8 as u32 => Ok(NetworkVersion::V8),
+            x if x == NetworkVersion::V7 as u32 => Ok(NetworkVersion::V7),
+            x if x == NetworkVersion::V6 as u32 => Ok(NetworkVersion::V6),
+            x if x == NetworkVersion::V5 as u32 => Ok(NetworkVersion::V5),
+            x if x == NetworkVersion::V4 as u32 => Ok(NetworkVersion::V4),
+            x if x == NetworkVersion::V3 as u32 => Ok(NetworkVersion::V3),
+            x if x == NetworkVersion::V2 as u32 => Ok(NetworkVersion::V2),
+            x if x == NetworkVersion::V1 as u32 => Ok(NetworkVersion::V1),
+            x if x == NetworkVersion::V0 as u32 => Ok(NetworkVersion::V0),
+            _ => Err(()),
+        }
+    }
 }
 
 impl Display for NetworkVersion {
