@@ -22,3 +22,15 @@ pub mod tuple {
 pub mod repr {
     pub use serde_repr::{Deserialize_repr, Serialize_repr};
 }
+
+/// lotus use cbor-gen for generating codec for types, it has a length limit of byte
+/// array for `8192`
+///
+/// https://github.com/whyrusleeping/cbor-gen/blob/f57984553008dd4285df16d4ec2760f97977d713/gen.go#L14
+pub const MaxLen: usize = 8192;
+
+/// lotus use cbor-gen for generating codec for types, it has a length limit of byte
+/// array for `2 << 20`
+///
+/// https://github.com/whyrusleeping/cbor-gen/blob/f57984553008dd4285df16d4ec2760f97977d713/gen.go#L16
+pub const ByteArrayMaxLen: usize = 2097152;
