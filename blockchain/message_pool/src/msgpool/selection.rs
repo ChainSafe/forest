@@ -1230,7 +1230,6 @@ mod test_selection {
     }
 
     #[async_std::test]
-    #[ignore = "This test fails inconsistently. See issue #1369"]
     async fn test_optimal_message_selection3() {
         // this test uses 10 actors sending a block of messages to each other, with the the first
         // actors paying higher gas premium than the subsequent actors.
