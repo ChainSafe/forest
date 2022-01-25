@@ -1,4 +1,4 @@
-## Forest v0.2.0 _alpha_ (2022-01-21)
+## Forest v0.2.0 _alpha_ (2022-01-25)
 ChainSafe System's second _alpha_ release of the _Forest_ Filecoin Rust protocol implementation. This release fixes a series of bugs and performance issues and introduces, among others, support for:
 * Full mainnet compatibility
 * Filecoin network version 14 "Chocolate"
@@ -14,6 +14,9 @@ cargo build --release --bin forest --features release
 
 All changes:
 * Release forest v0.2.0 alpha ([#1393](https://github.com/ChainSafe/forest/pull/1393)
+* C1 actors review ([#1368](https://github.com/ChainSafe/forest/pull/1368))
+* Fix encoding size constraints for BigInt and BigUint not enforced ([#1367](https://github.com/ChainSafe/forest/pull/1367))
+* Fix typo when running conformance tests. ([#1394](https://github.com/ChainSafe/forest/pull/1394))
 * Auto-detect available cores on Linux and MacOS. ([#1387](https://github.com/ChainSafe/forest/pull/1387)
 * Remove unused lint exceptions. ([#1385](https://github.com/ChainSafe/forest/pull/1385)
 * B4 fix: fixing by adding max index computation in bitfield validation ([#1344](https://github.com/ChainSafe/forest/pull/1344))
