@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::AHashSet;
-use forest_bitfield::{bitfield, BitField};
+use forest_bitfield::{bitfield, BitField, UnvalidatedBitField};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
+use serde_cbor::ser::Serializer;
 use std::iter::FromIterator;
 
 fn random_indices(range: usize, seed: u64) -> Vec<usize> {
@@ -222,4 +223,60 @@ fn padding() {
     let cbor = encoding::to_vec(&bf).unwrap();
     let deserialized: BitField = encoding::from_slice(&cbor).unwrap();
     assert_eq!(deserialized, bf);
+}
+
+#[test]
+fn bitfield_deserialize() {
+    // Set alternating bits for worst-case size performance
+    let mut bf = BitField::new();
+    let mut i = 0;
+    while i < 262_142 {
+        bf.set(i);
+        i += 2;
+    }
+    let bytes = bf.to_bytes();
+    let mut cbor = Vec::new();
+    serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();
+    let res: Result<BitField, _> = encoding::from_slice(&cbor);
+    assert!(res.is_ok());
+
+    // Set alternating bits for worst-case size performance
+    let mut bf = BitField::new();
+    let mut i = 0;
+    while i < 262_143 {
+        bf.set(i);
+        i += 2;
+    }
+    let bytes = bf.to_bytes();
+    let mut cbor = Vec::new();
+    serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();
+    let res: Result<BitField, _> = encoding::from_slice(&cbor);
+    assert!(res.is_err());
+}
+
+#[test]
+fn unvalidated_deserialize() {
+    // Set alternating bits for worst-case size performance
+    let mut bf = BitField::new();
+    let mut i = 0;
+    while i < 262_143 {
+        bf.set(i);
+        i += 2;
+    }
+    let bytes = bf.to_bytes();
+    let mut cbor = Vec::new();
+    serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();
+    let res: Result<UnvalidatedBitField, _> = encoding::from_slice(&cbor);
+    assert!(res.is_err());
+}
+
+#[test]
+fn unvalidated_deserialize_version() {
+    let bf = bitfield![1, 1, 1, 1, 1, 1, 1, 1];
+    let mut bytes = bf.to_bytes();
+    bytes[0] |= 0x1; // flip bit to corrupt version
+    let mut cbor = Vec::new();
+    serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();
+    let res: Result<UnvalidatedBitField, _> = encoding::from_slice(&cbor);
+    assert!(res.is_err());
 }

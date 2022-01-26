@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::MAX_ENCODED_SIZE;
 use num_bigint::{BigInt, Sign};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -28,6 +29,12 @@ where
         Sign::Plus => bz.insert(0, 0),
         Sign::NoSign => bz = Vec::new(),
     }
+    if bz.len() > MAX_ENCODED_SIZE {
+        return Err(serde::ser::Error::custom(format!(
+            "encoded big int was too large ({} bytes)",
+            bz.len()
+        )));
+    }
 
     // Serialize as bytes
     serde_bytes::Serialize::serialize(&bz, serializer)
@@ -41,6 +48,12 @@ where
     let bz: Cow<'de, [u8]> = serde_bytes::Deserialize::deserialize(deserializer)?;
     if bz.is_empty() {
         return Ok(BigInt::default());
+    }
+    if bz.len() > MAX_ENCODED_SIZE {
+        return Err(serde::de::Error::custom(format!(
+            "decoded big int was too large ({} bytes)",
+            bz.len()
+        )));
     }
     let sign_byte = bz[0];
     let sign: Sign = match sign_byte {
@@ -100,5 +113,59 @@ pub mod json {
             }
             Ok(None)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::bigint_ser::{deserialize, serialize};
+    use num_bigint::{BigInt, Sign};
+    use serde_cbor::de::Deserializer;
+    use serde_cbor::ser::Serializer;
+
+    #[test]
+    fn serialize_bigint_test() {
+        // Create too large BigInt
+        let mut digits: Vec<u32> = Vec::new();
+        for _ in 0..32 {
+            digits.push(u32::MAX);
+        }
+        let bi = BigInt::new(Sign::Plus, digits);
+
+        // Serialize should fail
+        let mut cbor = Vec::new();
+        let res = serialize(&bi, &mut Serializer::new(&mut cbor));
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn deserialize_bigint_test() {
+        // Create a 129 bytes large BigInt
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.push(0);
+        for _ in 0..128 {
+            bytes.push(u8::MAX);
+        }
+        // Serialize manually
+        let mut cbor = Vec::new();
+        serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();
+
+        // Deserialize should fail
+        let res = deserialize(&mut Deserializer::from_slice(&cbor));
+        assert!(res.is_err());
+
+        // Create a 128 bytes BigInt
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.push(0);
+        for _ in 0..127 {
+            bytes.push(u8::MAX);
+        }
+        // Serialize manually
+        let mut cbor = Vec::new();
+        serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();
+
+        // Deserialize should work
+        let res = deserialize(&mut Deserializer::from_slice(&cbor));
+        assert!(res.is_ok());
     }
 }

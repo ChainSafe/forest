@@ -67,15 +67,11 @@ mod writer;
 pub use reader::BitReader;
 pub use writer::BitWriter;
 
-use super::{BitField, Result};
+use super::{BitField, Result, MAX_ENCODED_SIZE};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 
-// MaxEncodedSize is the maximum encoded size of a bitfield. When expanded into
-// a slice of runs, a bitfield of this size should not exceed 2MiB of memory.
-//
-// This bitfield can fit at least 3072 sparse elements.
-const MAX_ENCODED_SIZE: usize = 32 << 10;
+pub const VERSION: u8 = 0;
 
 impl Serialize for BitField {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -99,6 +95,12 @@ impl<'de> Deserialize<'de> for BitField {
         D: Deserializer<'de>,
     {
         let bytes: Cow<'de, [u8]> = serde_bytes::deserialize(deserializer)?;
+        if bytes.len() > MAX_ENCODED_SIZE {
+            return Err(serde::de::Error::custom(format!(
+                "decoded bitfield was too large {}",
+                bytes.len()
+            )));
+        }
         Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }
@@ -115,7 +117,7 @@ impl BitField {
         let mut reader = BitReader::new(bytes);
 
         let version = reader.read(2);
-        if version != 0 {
+        if version != VERSION {
             return Err("incorrect version");
         }
 
