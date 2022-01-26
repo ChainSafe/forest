@@ -1,22 +1,24 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{serde_bytes, tuple::*};
+use encoding::{tuple::*, ByteArray};
 
 /// The result from getting an entry from Drand.
 /// The entry contains the round, or epoch as well as the BLS signature for that round of
 /// randomness.
 /// This beacon entry is stored on chain in the block header.
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize_tuple, Serialize_tuple)]
 pub struct BeaconEntry {
     round: u64,
-    #[serde(with = "serde_bytes")]
-    data: Vec<u8>,
+    data: ByteArray,
 }
 
 impl BeaconEntry {
     pub fn new(round: u64, data: Vec<u8>) -> Self {
-        Self { round, data }
+        Self {
+            round,
+            data: data.into(),
+        }
     }
     /// Returns the current round number.
     pub fn round(&self) -> u64 {
@@ -24,7 +26,7 @@ impl BeaconEntry {
     }
     /// The signature of message H(prev_round, prev_round.data, round).
     pub fn data(&self) -> &[u8] {
-        &self.data
+        self.data.as_ref()
     }
 }
 
@@ -73,10 +75,10 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        Ok(BeaconEntry {
-            round: m.round,
-            data: base64::decode(m.data).map_err(de::Error::custom)?,
-        })
+        Ok(BeaconEntry::new(
+            m.round,
+            base64::decode(m.data).map_err(de::Error::custom)?,
+        ))
     }
 
     pub mod vec {

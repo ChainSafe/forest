@@ -23,6 +23,7 @@ mod max_len {
     }
 
     /// Instance of `BYTE_ARRAY_MAX_LEN`
+    #[derive(Clone, Debug, Default, Eq, PartialEq)]
     pub struct ByteArrayMaxLen;
 
     impl MaxLen for ByteArrayMaxLen {
@@ -32,6 +33,7 @@ mod max_len {
     }
 
     /// Instance of `GENERIC_ARRAY_MAX_LEN`
+    #[derive(Clone, Debug, Default, Eq, PartialEq)]
     pub struct GenericArrayMaxLen;
 
     impl MaxLen for GenericArrayMaxLen {
@@ -42,11 +44,33 @@ mod max_len {
 }
 
 /// A bounded vector.
-pub struct BoundedVec<T, L>(pub Vec<T>, PhantomData<L>);
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BoundedVec<T, L> {
+    inner: Vec<T>,
+    _marker: PhantomData<L>,
+}
+
+impl<T, L> AsRef<[T]> for BoundedVec<T, L> {
+    fn as_ref(&self) -> &[T] {
+        self.inner.as_ref()
+    }
+}
+
+impl<T, L> From<Vec<T>> for BoundedVec<T, L> {
+    fn from(data: Vec<T>) -> BoundedVec<T, L> {
+        BoundedVec {
+            inner: data,
+            _marker: Default::default(),
+        }
+    }
+}
 
 impl<T, L: MaxLen> BoundedVec<T, L> {
     pub fn new(inner: Vec<T>) -> Self {
-        Self(inner, Default::default())
+        Self {
+            inner,
+            _marker: Default::default(),
+        }
     }
 }
 
@@ -58,14 +82,11 @@ where
     where
         S: Serializer,
     {
-        <[T] as serde_bytes::Serialize>::serialize(&self.0, serializer)
+        <[T] as serde_bytes::Serialize>::serialize(&self.inner, serializer)
     }
 }
 
-impl<'de, T: Deserialize<'de>, L: MaxLen> Deserialize<'de> for BoundedVec<T, L>
-where
-    [T]: serde_bytes::Deserialize<'de>,
-{
+impl<'de, T: Deserialize<'de>, L: MaxLen> Deserialize<'de> for BoundedVec<T, L> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
