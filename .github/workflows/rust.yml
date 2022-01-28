@@ -126,7 +126,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest] #, macos-latest]
+        os: [ubuntu-latest, macos-latest]
         rv: [1.57.0, stable]
     steps:
       - name: Cancel Previous Runs
@@ -134,6 +134,7 @@ jobs:
         with:
           access_token: ${{ github.token }}
       - name: Install Dependencies
+        if: startsWith(matrix.os, 'Ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y \
