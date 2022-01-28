@@ -54,7 +54,7 @@ pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
 /// protocol and a multihash (hash of the Ipld data). Cids allow for hash linking, where the Cids
 /// are used to resolve any arbitrary data over a network or from local storage.
 #[derive(PartialEq, Eq, Clone, Copy, Default, Hash, PartialOrd, Ord)]
-pub struct Cid(CidGeneric<multihash::U32>);
+pub struct Cid(CidGeneric<32>);
 
 // This is just a wrapper around the rust-cid `Cid` type that is needed in order to make the
 // interaction with Serde smoother.

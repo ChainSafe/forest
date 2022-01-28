@@ -69,6 +69,8 @@ commcid = { path = "./utils/commcid" }
 forest_vm = { path = "./vm" }
 forest_runtime = { path = "./vm/runtime" }
 forest_message = { path = "./vm/message" }
+multihash = { git = "https://github.com/multiformats/rust-multihash", branch = "next" }
+cid = { git = "https://github.com/multiformats/rust-cid", branch = "steb/cbor-hack" }
 
 [profile.dev]
 debug = 0
