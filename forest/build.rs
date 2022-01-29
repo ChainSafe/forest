@@ -15,7 +15,14 @@ const NETWORK: &str = "devnet";
 #[cfg(feature = "interopnet")]
 const NETWORK: &str = "interopnet";
 
-#[cfg(all(not(feature = "devnet"), not(feature = "interopnet")))]
+#[cfg(feature = "calibnet")]
+const NETWORK: &str = "calibnet";
+
+#[cfg(all(
+    not(feature = "devnet"),
+    not(feature = "interopnet"),
+    not(feature = "calibnet")
+))]
 const NETWORK: &str = "mainnet";
 
 fn main() {

@@ -29,7 +29,7 @@ use std::sync::Arc;
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
     // Set the Address network prefix
-    #[cfg(feature = "testnet")]
+    #[cfg(any(feature = "testnet"))]
     address::NETWORK_DEFAULT
         .set(address::Network::Testnet)
         .unwrap();
@@ -143,6 +143,8 @@ pub(super) async fn start(config: Config) {
     let network_name = get_network_name_from_genesis(&genesis, &state_manager)
         .await
         .unwrap();
+
+    info!("Using network :: {}", network_name);
 
     let validate_height = if config.snapshot { None } else { Some(0) };
     // Sync from snapshot
