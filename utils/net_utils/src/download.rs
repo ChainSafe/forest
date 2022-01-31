@@ -5,7 +5,7 @@ use async_std::fs::File;
 use async_std::io::BufReader;
 use futures::prelude::*;
 use isahc::{Body, HttpClient};
-use pbr::ProgressBar;
+use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;
 use std::convert::TryFrom;
 use std::io::{self, Stdout, Write};
@@ -69,7 +69,8 @@ impl TryFrom<Url> for FetchProgress<Body, Stdout> {
 
         let request = client.get(url.as_str())?;
 
-        let pb = ProgressBar::new(total_size);
+        let mut pb = ProgressBar::new(total_size);
+        pb.set_units(Units::Bytes);
 
         Ok(FetchProgress {
             progress_bar: pb,
@@ -84,7 +85,8 @@ impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
     fn try_from(file: File) -> Result<Self, Self::Error> {
         let total_size = async_std::task::block_on(file.metadata())?.len();
 
-        let pb = ProgressBar::new(total_size);
+        let mut pb = ProgressBar::new(total_size);
+        pb.set_units(Units::Bytes);
 
         Ok(FetchProgress {
             progress_bar: pb,
