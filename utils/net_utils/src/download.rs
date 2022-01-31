@@ -13,6 +13,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
 use url::Url;
+use std::time::Duration;
 
 #[derive(Debug, Error)]
 enum DownloadError {
@@ -71,6 +72,7 @@ impl TryFrom<Url> for FetchProgress<Body, Stdout> {
 
         let mut pb = ProgressBar::new(total_size);
         pb.set_units(Units::Bytes);
+        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
         Ok(FetchProgress {
             progress_bar: pb,
@@ -87,6 +89,7 @@ impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
 
         let mut pb = ProgressBar::new(total_size);
         pb.set_units(Units::Bytes);
+        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
         Ok(FetchProgress {
             progress_bar: pb,
