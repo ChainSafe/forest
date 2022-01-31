@@ -2453,7 +2453,7 @@ dependencies = [
  "multibase 0.9.1",
  "net_utils",
  "networks",
- "num-rational 0.4.0",
+ "num-rational",
  "paramfetch",
  "pretty_env_logger",
  "prometheus 0.13.0",
@@ -2703,7 +2703,7 @@ version = "0.1.4"
 dependencies = [
  "cs_serde_bytes",
  "cs_serde_cbor",
- "num-bigint 0.3.3",
+ "num-bigint 0.4.3",
  "num-integer",
  "serde",
 ]
@@ -4998,7 +4998,7 @@ dependencies = [
  "log",
  "lru 0.7.2",
  "networks",
- "num-rational 0.3.2",
+ "num-rational",
  "num-traits",
  "rand 0.8.4",
  "serde",
@@ -5185,7 +5185,7 @@ dependencies = [
  "matrixmultiply",
  "nalgebra-macros",
  "num-complex",
- "num-rational 0.4.0",
+ "num-rational",
  "num-traits",
  "rand 0.8.4",
  "rand_distr 0.4.3",
@@ -5306,17 +5306,6 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f6f7833f2cbf2360a6cfd58cd41a53aa7a90bd4c202f5b1c7dd2ed73c57b2c3"
-dependencies = [
- "autocfg",
- "num-integer",
- "num-traits",
-]
-
-[[package]]
-name = "num-bigint"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f93ab6289c7b344a8a9f60f88d80aa20032336fe78da341afc91c8a2341fc75f"
@@ -5353,18 +5342,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
 dependencies = [
  "autocfg",
- "num-traits",
-]
-
-[[package]]
-name = "num-rational"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
-dependencies = [
- "autocfg",
- "num-bigint 0.3.3",
- "num-integer",
  "num-traits",
 ]
 
