@@ -13,3 +13,4 @@ sled = { version = "0.34", optional = true }
 parking_lot = "0.11"
 encoding = { package = "forest_encoding", version = "0.2" }
 thiserror = "1.0"
+num_cpus = "1.13"

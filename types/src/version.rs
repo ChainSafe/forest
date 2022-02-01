@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::repr::Serialize_repr;
+use std::convert::TryFrom;
 use std::fmt::{self, Display, Formatter};
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 
 /// Specifies the network version
-#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr)]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr, FromPrimitive)]
 #[repr(u32)]
 pub enum NetworkVersion {
     /// genesis (specs-actors v0.9.3)
@@ -38,6 +41,17 @@ pub enum NetworkVersion {
     V13,
     /// chocolate (specs-actors v6.0.0)
     V14,
+}
+
+impl TryFrom<u32> for NetworkVersion {
+    type Error = ();
+
+    fn try_from(v: u32) -> Result<Self, Self::Error> {
+        match FromPrimitive::from_u32(v) {
+            Some(nv) => Ok(nv),
+            _ => Err(()),
+        }
+    }
 }
 
 impl Display for NetworkVersion {

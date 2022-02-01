@@ -11,6 +11,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use conformance_tests::*;
 use encoding::Cbor;
+use fil_types::NetworkVersion;
 use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
@@ -21,6 +22,7 @@ use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
 use state_manager::StateManager;
 use statediff::print_state_diff;
+use std::convert::TryInto;
 use std::error::Error as StdError;
 use std::fmt;
 use std::fs::File;
@@ -189,6 +191,7 @@ async fn execute_message_vector(
                     .map(|i| i.to_bigint().unwrap())
                     .unwrap_or(DEFAULT_BASE_FEE.clone()),
                 randomness: ReplayingRand::new(randomness),
+                nv: variant.nv.try_into().unwrap_or(NetworkVersion::V0),
             },
         )?;
         root = post_root;
