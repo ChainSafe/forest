@@ -7579,7 +7579,6 @@ dependencies = [
  "async-std",
  "async-trait",
  "cfg-if 1.0.0",
- "encoding_rs",
  "futures-util",
  "getrandom 0.2.4",
  "http-client",
@@ -7590,7 +7589,6 @@ dependencies = [
  "pin-project-lite 0.2.8",
  "serde",
  "serde_json",
- "web-sys",
 ]
 
 [[package]]
