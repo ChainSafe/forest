@@ -602,7 +602,7 @@ where
 
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| a == imm) {
-            return Err(actor_error!(ErrForbidden;
+            return Err(actor_error!(SysErrForbidden;
                 "caller {} is not one of supported", self.message().caller()
             ));
         }
