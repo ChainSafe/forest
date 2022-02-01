@@ -122,12 +122,16 @@ impl<'de> de::Deserialize<'de> for Cid {
             Some(CBOR_TAG_CID) | None => {
                 let mut bz = tagged.value.into_vec();
 
-                if bz.first() == Some(&MULTIBASE_IDENTITY) {
+                if bz.first() != Some(&MULTIBASE_IDENTITY) {
+                    Err(de::Error::custom(
+                        "cbor serialized CIDs must have binary multibase",
+                    ))
+                } else {
                     bz.remove(0);
+                    Ok(Cid::try_from(bz).map_err(|e| {
+                        de::Error::custom(format!("Failed to deserialize Cid: {}", e))
+                    })?)
                 }
-
-                Ok(Cid::try_from(bz)
-                    .map_err(|e| de::Error::custom(format!("Failed to deserialize Cid: {}", e)))?)
             }
             Some(_) => Err(de::Error::custom("unexpected tag")),
         }
