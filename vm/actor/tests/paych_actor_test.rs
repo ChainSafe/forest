@@ -173,10 +173,6 @@ mod create_lane_tests {
         desc: String,
         #[builder(default = "ACCOUNT_ACTOR_CODE_ID.clone()")]
         target_code: Cid,
-        #[builder(default)]
-        balance: u64,
-        #[builder(default)]
-        recieved: u64,
         #[builder(default = "1")]
         epoch: ChainEpoch,
         #[builder(default = "1")]
