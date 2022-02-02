@@ -74,3 +74,8 @@ cid = { git = "https://github.com/multiformats/rust-cid", branch = "steb/cbor-ha
 
 [profile.dev]
 debug = 0
+
+[profile.quick]
+inherits = "release"
+opt-level = 1
+lto = "off"
