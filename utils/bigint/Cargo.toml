@@ -17,7 +17,6 @@ serde_bytes = { version = "0.11" }
 num-integer = "0.1"
 
 [dev-dependencies]
-# TODO remove fork in future (allowing non utf8 strings to be cbor deserialized)
 serde_cbor = { version = "0.11", features = [ "tags" ] }
 
 [features]
