@@ -1,6 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+/// The maximum varint that can be serialized on 9 bytes.
+const MAX_VARINT: u64 = 2u64.pow(63)-1;
+
 #[derive(Default, Clone, Debug)]
 /// A `BitWriter` allows for efficiently writing bits to a byte buffer, up to a byte at a time.
 pub struct BitWriter {
@@ -37,6 +40,7 @@ impl BitWriter {
     /// Writes a given length to the buffer according to RLE+ encoding.
     pub fn write_len(&mut self, len: usize) {
         debug_assert!(len > 0);
+        debug_assert!(len <= (MAX_VARINT as usize));
 
         if len == 1 {
             // Block Single (prefix 1)
@@ -85,7 +89,7 @@ impl BitWriter {
 
 #[cfg(test)]
 mod tests {
-    use super::BitWriter;
+    use super::{BitWriter, MAX_VARINT};
 
     #[test]
     fn write() {
@@ -177,5 +181,25 @@ mod tests {
     fn too_many_bits_at_once() {
         let mut writer = BitWriter::new();
         writer.write(0, 16);
+    }
+
+    #[test]
+    fn test_write_max_varint() {
+        let mut writer = BitWriter::new();
+        writer.write(0b_0000_0100, 3);
+        writer.write_len(MAX_VARINT as usize);
+        let rle = writer.finish();
+
+        crate::BitField::from_bytes(&rle).unwrap();
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "assertion failed")]
+    fn test_write_succ_max_varint() {
+        let mut writer = BitWriter::new();
+        writer.write(0b_0000_0100, 3);
+        writer.write_len(MAX_VARINT as usize + 1);
+        writer.finish();
     }
 }
