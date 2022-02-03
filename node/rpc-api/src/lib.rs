@@ -176,6 +176,10 @@ pub mod chain_api {
     pub type ChainGetMessageParams = (CidJson,);
     pub type ChainGetMessageResult = UnsignedMessageJson;
 
+    pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
+    pub type ChainExportParams = ();
+    pub type ChainExportResult = ();
+
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
     pub type ChainReadObjParams = (CidJson,);
     pub type ChainReadObjResult = String;

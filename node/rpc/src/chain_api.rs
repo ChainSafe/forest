@@ -52,6 +52,26 @@ where
     Ok(UnsignedMessageJson(ret))
 }
 
+pub(crate) async fn chain_export<DB, B>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainExportParams>,
+) -> Result<ChainExportResult, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    let (ts, recent_roots, skip_old_msgs, out) = params;
+    let file = AsyncFile::create(out);
+    let writer = AsyncBufWriter::new(file);
+
+    let export = data
+        .chain_store
+        .export(ts, recent_roots, skip_old_msgs, writer)
+        .await;
+
+    Ok(export)
+}
+
 pub(crate) async fn chain_read_obj<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainReadObjParams>,
