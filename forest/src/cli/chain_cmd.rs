@@ -17,12 +17,18 @@ pub enum ChainCommands {
     },
 
     /// Export a snapshot of the chain to <output_path>
-    #[structopt(help = "Export a snapshot as a file to <out>")]
+    #[structopt(about = "Export chain snapshot to file")]
     Export {
+        #[structopt(short, help = "Tipset to start the export from, default is @HEAD")]
         tipset: i64,
+        #[structopt(
+            short,
+            help = "specify the number of recent state roots to include in the export"
+        )]
         recent_stateroots: i64,
-        #[structopt(short, long, help = "default: false")]
+        #[structopt(short, help = "default: false")]
         skip_old_messages: bool,
+        #[structopt(short, help = "path of the file to export to")]
         output_path: String,
     },
 
