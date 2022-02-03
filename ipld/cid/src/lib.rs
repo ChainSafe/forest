@@ -119,18 +119,8 @@ impl<'de> de::Deserialize<'de> for Cid {
     {
         let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
         match tagged.tag {
-            Some(CBOR_TAG_CID) | None => {
+            Some(CBOR_TAG_CID) => {
                 let mut bz = tagged.value.into_vec();
-
-                if bz.len() == 0 {
-                    return Err(de::Error::custom("undefined cid"));
-                }
-
-                if bz.len() < 2 {
-                    return Err(de::Error::custom(
-                        "cbor serialized CIDs must have at least two bytes",
-                    ));
-                }
 
                 if bz.first() != Some(&MULTIBASE_IDENTITY) {
                     return Err(de::Error::custom(
@@ -142,7 +132,7 @@ impl<'de> de::Deserialize<'de> for Cid {
                 Ok(Cid::try_from(bz)
                     .map_err(|e| de::Error::custom(format!("Failed to deserialize Cid: {}", e)))?)
             }
-            Some(_) => Err(de::Error::custom("unexpected tag")),
+            _ => Err(de::Error::custom("unexpected tag")),
         }
     }
 }
