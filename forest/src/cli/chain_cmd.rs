@@ -16,6 +16,16 @@ pub enum ChainCommands {
         cid: String,
     },
 
+    /// Export a snapshot of the chain to <output_path>
+    #[structopt(help = "Export a snapshot as a file to <out>")]
+    Export {
+        tipset: i64,
+        recent_stateroots: i64,
+        #[structopt(short, long, help = "default: false")]
+        skip_old_messages: bool,
+        output_path: String,
+    },
+
     /// Prints out the genesis tipset
     #[structopt(about = "Prints genesis tipset", help = "Prints genesis tipset")]
     Genesis,
@@ -48,6 +58,12 @@ impl ChainCommands {
                 let cid: Cid = cid.parse().unwrap();
                 print_rpc_res_pretty(chain_get_block((CidJson(cid),)).await);
             }
+            Self::Export {
+                tipset,
+                recent_stateroots,
+                skip_old_messages,
+                output_path,
+            } => todo!(),
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis().await);
             }

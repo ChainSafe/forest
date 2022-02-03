@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use async_std::{fs::File, io::BufWriter};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -60,16 +61,18 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (ts, recent_roots, skip_old_msgs, out) = params;
-    let file = AsyncFile::create(out);
-    let writer = AsyncBufWriter::new(file);
+    let (ts_json, recent_roots, skip_old_msgs, out) = params;
+    let file = File::create(out).await.unwrap();
+    let writer = BufWriter::new(file);
 
-    let export = data
-        .chain_store
-        .export(ts, recent_roots, skip_old_msgs, writer)
-        .await;
+    let ts =
+        Arc::<Tipset>::try_unwrap(ts_json.0).map_err(|_| "Failed to load tipset".to_string())?;
 
-    Ok(export)
+    data.chain_store
+        .export(&ts, recent_roots, skip_old_msgs, writer)
+        .await?;
+
+    Ok(())
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(
