@@ -3,6 +3,8 @@
 
 use structopt::StructOpt;
 
+use crate::cli::cli_error_and_die;
+
 use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
 use cid::{json::CidJson, Cid};
 use rpc_client::chain_ops::*;
@@ -20,7 +22,7 @@ pub enum ChainCommands {
     #[structopt(about = "Export chain snapshot to file")]
     Export {
         #[structopt(short, help = "Tipset to start the export from, default is @HEAD")]
-        tipset: i64,
+        tipset: Option<i64>,
         #[structopt(
             short,
             help = "specify the number of recent state roots to include in the export"
@@ -69,7 +71,26 @@ impl ChainCommands {
                 recent_stateroots,
                 skip_old_messages,
                 output_path,
-            } => todo!(),
+            } => {
+                let tipset = if let Some(head) = tipset {
+                    todo!()
+                } else {
+                    match chain_head().await {
+                        Ok(ts) => ts,
+                        Err(_) => {
+                            return cli_error_and_die("Could not get network head", 1);
+                        }
+                    }
+                };
+
+                let params = (
+                    tipset,
+                    *recent_stateroots,
+                    *skip_old_messages,
+                    output_path.clone(),
+                );
+                let result = chain_export(params);
+            }
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis().await);
             }
