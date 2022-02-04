@@ -61,12 +61,16 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (ts_json, recent_roots, skip_old_msgs, out) = params;
+    let (epoch, recent_roots, skip_old_msgs, out, TipsetKeysJson(tsk)) = params;
     let file = File::create(out).await.unwrap();
     let writer = BufWriter::new(file);
 
+    let head = data.chain_store.tipset_from_keys(&tsk).await?;
+
+    let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
+
     let ts =
-        Arc::<Tipset>::try_unwrap(ts_json.0).map_err(|_| "Failed to load tipset".to_string())?;
+        Arc::<Tipset>::try_unwrap(start_ts).map_err(|_| "Failed to load tipset".to_string())?;
 
     data.chain_store
         .export(&ts, recent_roots, skip_old_msgs, writer)

@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
 use crate::cli::cli_error_and_die;
@@ -72,24 +73,25 @@ impl ChainCommands {
                 skip_old_messages,
                 output_path,
             } => {
-                let tipset = if let Some(head) = tipset {
-                    todo!()
+                let chain_head = match chain_head().await {
+                    Ok(head) => head.0,
+                    Err(_) => return cli_error_and_die("Could not get network head", 1),
+                };
+
+                let epoch = if let Some(epoch) = tipset {
+                    *epoch
                 } else {
-                    match chain_head().await {
-                        Ok(ts) => ts,
-                        Err(_) => {
-                            return cli_error_and_die("Could not get network head", 1);
-                        }
-                    }
+                    chain_head.epoch()
                 };
 
                 let params = (
-                    tipset,
+                    epoch,
                     *recent_stateroots,
                     *skip_old_messages,
                     output_path.clone(),
+                    TipsetKeysJson(chain_head.key().clone()),
                 );
-                let result = chain_export(params);
+                let _result = chain_export(params).await;
             }
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis().await);
