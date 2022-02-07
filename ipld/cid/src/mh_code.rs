@@ -16,10 +16,10 @@ pub const SHA2_256_TRUNC254_PADDED: u64 = 0x1012;
 #[mh(alloc_size = 64)]
 pub enum Code {
     /// BLAKE2b-256 (32-byte hash size)
-    #[mh(code = 0xb220, hasher = multihash::Blake2bHasher::<64>, digest = multihash::Blake2bDigest<64>)]
+    #[mh(code = 0xb220, hasher = multihash::Blake2bHasher::<32>, digest = multihash::Blake2bDigest<32>)]
     Blake2b256,
 
     /// Identity multihash (max 32 bytes)
-    #[mh(code = 0x00, hasher = multihash::IdentityHasher::<64>, digest = multihash::IdentityDigest<64>)]
+    #[mh(code = 0x00, hasher = multihash::IdentityHasher::<32>, digest = multihash::IdentityDigest<32>)]
     Identity,
 }

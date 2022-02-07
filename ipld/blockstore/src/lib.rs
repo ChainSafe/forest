@@ -27,6 +27,9 @@ use std::error::Error as StdError;
 #[cfg(feature = "rocksdb")]
 use db::rocks::{RocksDb, WriteBatch};
 
+use fvm_shared::blockstore::Blockstore;
+use fvm_shared::blockstore::CborStore;
+
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
     /// Get bytes from block store by Cid.

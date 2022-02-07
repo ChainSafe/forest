@@ -74,7 +74,7 @@ pub struct VM<'db, 'r, DB, R, N, C, LB, V = FullVerifier, P = DefaultNetworkPara
     network_version_getter: N,
     circ_supply_calc: &'r C,
     lb_state: &'r LB,
-    fvm_machine: fvm::machine::DefaultMachine<fvm_shared::blockstore::MemoryBlockstore,fvm::externs::cgo::CgoExterns>,
+    // fvm_machine: fvm::machine::DefaultMachine<DB,fvm::externs::cgo::CgoExterns>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
@@ -102,14 +102,14 @@ where
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
-        let fvm = fvm::machine::DefaultMachine::new(fvm::Config::default(),
-            epoch, // ChainEpoch,
-            base_fee.clone(), //base_fee: TokenAmount,
-            base_fee.clone(), // base_circ_supply: TokenAmount,
-            fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
-            root.clone().unpack(), //state_root: Cid,
-            fvm_shared::blockstore::MemoryBlockstore::new(),
-            fvm::externs::cgo::CgoExterns::new(0)).unwrap();
+        // let fvm = fvm::machine::DefaultMachine::new(fvm::Config::default(),
+        //     epoch, // ChainEpoch,
+        //     base_fee.clone(), //base_fee: TokenAmount,
+        //     circ_supply_calc.get_supply(epoch, &state).unwrap(), // base_circ_supply: TokenAmount,
+        //     fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
+        //     root.clone().unpack(), //state_root: Cid,
+        //     store.clone(),
+        //     fvm::externs::cgo::CgoExterns::new(0)).unwrap();
         Ok(VM {
             network_version_getter,
             state,
@@ -120,7 +120,7 @@ where
             registered_actors,
             circ_supply_calc,
             lb_state,
-            fvm_machine: fvm,
+            // fvm_machine: fvm,
             verifier: PhantomData,
             params: PhantomData,
         })

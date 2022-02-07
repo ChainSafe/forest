@@ -3789,6 +3789,7 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_ipld",
+ "fvm_shared",
 ]
 
 [[package]]
