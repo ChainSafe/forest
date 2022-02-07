@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{tuple::*, ByteArray};
+use encoding::{serde_byte_array, tuple::*};
 
 /// The result from getting an entry from Drand.
 /// The entry contains the round, or epoch as well as the BLS signature for that round of
@@ -10,7 +10,8 @@ use encoding::{tuple::*, ByteArray};
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize_tuple, Serialize_tuple)]
 pub struct BeaconEntry {
     round: u64,
-    data: ByteArray,
+    #[serde(with = "serde_byte_array")]
+    data: Vec<u8>,
 }
 
 impl BeaconEntry {
