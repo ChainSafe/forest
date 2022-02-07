@@ -54,7 +54,7 @@ pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
 /// protocol and a multihash (hash of the Ipld data). Cids allow for hash linking, where the Cids
 /// are used to resolve any arbitrary data over a network or from local storage.
 #[derive(PartialEq, Eq, Clone, Copy, Default, Hash, PartialOrd, Ord)]
-pub struct Cid(CidGeneric<64>);
+pub struct Cid(cid::Cid);
 
 // This is just a wrapper around the rust-cid `Cid` type that is needed in order to make the
 // interaction with Serde smoother.
@@ -92,10 +92,6 @@ impl Cid {
     /// Returns the encoded bytes of the `Cid`.
     pub fn to_bytes(self) -> Vec<u8> {
         self.0.to_bytes()
-    }
-
-    pub fn unpack(self) -> CidGeneric<64> {
-        self.0
     }
 }
 
@@ -147,5 +143,17 @@ impl fmt::Display for Cid {
 impl fmt::Debug for Cid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Cid(\"{}\")", self)
+    }
+}
+
+impl From<cid::Cid> for Cid {
+    fn from(cid: cid::Cid) -> Cid {
+        Cid(cid)
+    }
+}
+
+impl From<Cid> for cid::Cid {
+    fn from(cid: Cid) -> cid::Cid {
+        cid.0
     }
 }
