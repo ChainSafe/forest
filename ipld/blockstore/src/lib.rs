@@ -101,3 +101,19 @@ impl BlockStore for RocksDb {
         Ok(cids)
     }
 }
+
+pub struct FVM_Store<T> {
+    bs: T,
+}
+
+impl<T: BlockStore> Blockstore for FVM_Store<T> {
+    fn get(&self, cid: &cid_orig::Cid) -> anyhow::Result<std::option::Option<Vec<u8>>> {
+        match self.bs.get_bytes(&cid.clone().into()) {
+            Ok(vs) => Ok(vs),
+            Err(err) => Err(anyhow::Error::msg("Fix FVM error handling"))
+        }
+    }
+    fn put_keyed(&self, cid: &cid_orig::Cid, bytes: &[u8]) -> Result<(), anyhow::Error> {
+        self.bs.write(cid.to_bytes(), bytes).map_err(|e| e.into())
+    }
+}

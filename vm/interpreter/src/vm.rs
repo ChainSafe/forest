@@ -62,6 +62,49 @@ pub trait LookbackStateGetter<'db, DB> {
     fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, Box<dyn StdError>>;
 }
 
+use fvm::externs::Externs;
+use crypto::DomainSeparationTag;
+use fvm::externs::Consensus;
+use fvm_shared::consensus::ConsensusFault;
+
+struct ForestExterns {
+    rand: Box<dyn Rand>,
+}
+
+impl Externs for ForestExterns {}
+
+impl Rand for ForestExterns {
+    fn get_chain_randomness(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> anyhow::Result<[u8; 32]> {
+        self.rand.get_chain_randomness(pers, round, entropy)
+    }
+
+    fn get_beacon_randomness(
+        &self,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> anyhow::Result<[u8; 32]> {
+        self.rand.get_beacon_randomness(pers, round, entropy)
+    }
+}
+
+impl Consensus for ForestExterns {
+    fn verify_consensus_fault(
+        &self,
+        _h1: &[u8],
+        _h2: &[u8],
+        _extra: &[u8],
+    ) -> anyhow::Result<Option<ConsensusFault>> {
+        todo!()
+    }
+}
+
+
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'db, 'r, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
@@ -74,7 +117,7 @@ pub struct VM<'db, 'r, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams>
     network_version_getter: Box<dyn Fn(ChainEpoch) -> NetworkVersion>,
     circ_supply_calc: &'r C,
     lb_state: &'r LB,
-    // fvm_machine: fvm::machine::DefaultMachine<DB,fvm::externs::cgo::CgoExterns>,
+    // fvm_machine: fvm::machine::DefaultMachine<FVM_Store<DB>,ForestExterns>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
