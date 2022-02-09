@@ -11,6 +11,7 @@ repository = "https://github.com/ChainSafe/forest"
 features = ["json"]
 
 [dependencies]
+fvm_shared = "0.1"
 address = { package = "forest_address", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 libsecp256k1 = "0.7.0"

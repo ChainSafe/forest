@@ -5,6 +5,8 @@ use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use std::error::Error;
 
+// pub use fvm::externs::{Rand};
+
 /// Randomness provider trait
 pub trait Rand {
     /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag,
