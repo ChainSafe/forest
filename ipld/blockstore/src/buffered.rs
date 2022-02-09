@@ -12,20 +12,21 @@ use db::{Error, Store};
 use std::error::Error as StdError;
 use std::io::{Read, Seek};
 use std::{convert::TryFrom, io::Cursor};
+use std::sync::Arc;
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.
 #[derive(Debug)]
-pub struct BufferedBlockStore<'bs, BS> {
-    base: &'bs BS,
+pub struct BufferedBlockStore<BS> {
+    base: Arc<BS>,
     write: DashMap<Cid, Vec<u8>>,
 }
 
-impl<'bs, BS> BufferedBlockStore<'bs, BS>
+impl<BS> BufferedBlockStore<BS>
 where
     BS: BlockStore,
 {
-    pub fn new(base: &'bs BS) -> Self {
+    pub fn new(base: Arc<BS>) -> Self {
         Self {
             base,
             write: Default::default(),
@@ -38,7 +39,7 @@ where
     pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError + '_>> {
         let mut buffer = Vec::new();
         let s = &self.write;
-        copy_rec(self.base, s, *root, &mut buffer)?;
+        copy_rec(self.base.as_ref(), s, *root, &mut buffer)?;
 
         self.base.bulk_write(&buffer)?;
         self.write = Default::default();
@@ -189,7 +190,7 @@ where
     Ok(())
 }
 
-impl<BS> BlockStore for BufferedBlockStore<'_, BS>
+impl<BS> BlockStore for BufferedBlockStore<BS>
 where
     BS: BlockStore,
 {
@@ -208,7 +209,7 @@ where
     }
 }
 
-impl<BS> Store for BufferedBlockStore<'_, BS>
+impl<BS> Store for BufferedBlockStore<BS>
 where
     BS: Store,
 {

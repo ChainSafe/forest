@@ -133,7 +133,7 @@ pub struct VM<'db, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
 
 impl<'db, DB, R, C, LB, V, P> VM<'db, DB, R, C, LB, V, P>
 where
-    DB: BlockStore,
+    DB: BlockStore + 'static,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand + Clone + 'static,

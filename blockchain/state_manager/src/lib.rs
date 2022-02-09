@@ -304,7 +304,7 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
     {
         let db = self.blockstore_cloned();
-        let mut buf_store = Arc::new(BufferedBlockStore::new(db.as_ref()));
+        let mut buf_store = Arc::new(BufferedBlockStore::new(db));
         let store = buf_store.as_ref();
         let lb_wrapper = SMLookbackWrapper {
             sm: self.clone(),
@@ -419,7 +419,7 @@ where
         span!("state_call_raw", {
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
-            let block_store = self.blockstore();
+            let block_store = self.blockstore_cloned();
 
             let buf_store = Arc::new(BufferedBlockStore::new(block_store));
             let lb_wrapper = SMLookbackWrapper {
