@@ -107,7 +107,7 @@ impl Consensus for ForestExterns {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
+pub struct VM<'db, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
@@ -115,14 +115,14 @@ pub struct VM<'db, 'r, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams>
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
     network_version_getter: Box<dyn Fn(ChainEpoch) -> NetworkVersion>,
-    circ_supply_calc: &'r C,
-    lb_state: &'r LB,
+    circ_supply_calc: C,
+    lb_state: LB,
     // fvm_machine: fvm::machine::DefaultMachine<FVM_Store<DB>,ForestExterns>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, R, C, LB, V, P> VM<'db, 'r, DB, R, C, LB, V, P>
+impl<'db, DB, R, C, LB, V, P> VM<'db, DB, R, C, LB, V, P>
 where
     DB: BlockStore,
     V: ProofVerifier,
@@ -139,8 +139,8 @@ where
         rand: R,
         base_fee: BigInt,
         network_version_getter: impl Fn(ChainEpoch) -> NetworkVersion + 'static,
-        circ_supply_calc: &'r C,
-        lb_state: &'r LB,
+        circ_supply_calc: C,
+        lb_state: LB,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -651,8 +651,8 @@ where
             0,
             &self.rand,
             &self.registered_actors,
-            self.circ_supply_calc,
-            self.lb_state,
+            &self.circ_supply_calc,
+            &self.lb_state,
         );
 
         match res {

@@ -47,7 +47,7 @@ lazy_static! {
 }
 
 /// Genesis information used when calculating circulating supply.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
@@ -77,7 +77,7 @@ impl GenesisInfo {
 
 /// Vesting schedule info. These states are lazily filled, to avoid doing until needed
 /// to calculate circulating supply.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct GenesisInfoVesting {
     genesis: OnceCell<Vec<msig0::State>>,
     ignition: OnceCell<Vec<msig0::State>>,

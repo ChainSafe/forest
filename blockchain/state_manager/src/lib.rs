@@ -320,8 +320,8 @@ where
             rand.clone(),
             base_fee,
             get_network_version_default,
-            &self.genesis_info,
-            &lb_wrapper,
+            self.genesis_info.clone(),
+            lb_wrapper,
         )?;
 
         // Apply tipset messages
@@ -435,8 +435,8 @@ where
                 rand.clone(),
                 0.into(),
                 get_network_version_default,
-                &self.genesis_info,
-                &lb_wrapper,
+                self.genesis_info.clone(),
+                lb_wrapper,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -527,8 +527,8 @@ where
             chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
-            &self.genesis_info,
-            &lb_wrapper,
+            self.genesis_info.clone(),
+            lb_wrapper,
         )?;
 
         for msg in prior_messages {
