@@ -299,7 +299,7 @@ where
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, Box<dyn StdError>>
     where
-        R: Rand,
+        R: Rand + Clone,
         V: ProofVerifier,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
     {
@@ -317,7 +317,7 @@ where
             p_state,
             store,
             epoch,
-            rand,
+            rand.clone(),
             base_fee,
             get_network_version_default,
             &self.genesis_info,
@@ -432,7 +432,7 @@ where
                 bstate,
                 &buf_store,
                 bheight,
-                rand,
+                rand.clone(),
                 0.into(),
                 get_network_version_default,
                 &self.genesis_info,
@@ -524,7 +524,7 @@ where
             &st,
             self.blockstore(),
             ts.epoch() + 1,
-            &chain_rand,
+            chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
             &self.genesis_info,
