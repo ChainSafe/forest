@@ -6,6 +6,7 @@ use db::MemoryDB;
 use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use state_tree::StateTree;
 use vm::TokenAmount;
+use std::sync::Arc;
 
 #[derive(Debug, Deserialize)]
 pub struct MessageVector {
@@ -21,7 +22,7 @@ pub struct ExecuteMessageParams<'a> {
     pub msg: &'a ChainMessage,
     pub circ_supply: TokenAmount,
     pub basefee: TokenAmount,
-    pub randomness: ReplayingRand<'a>,
+    pub randomness: ReplayingRand,
     pub nv: fil_types::NetworkVersion,
 }
 
@@ -36,31 +37,32 @@ impl CircSupplyCalc for MockCircSupply {
     }
 }
 
-struct MockStateLB<'db, MemoryDB>(&'db MemoryDB);
-impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
-    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'db, MemoryDB>, Box<dyn StdError>> {
+struct MockStateLB();
+impl<DB> LookbackStateGetter<DB> for MockStateLB {
+    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'_, DB>, Box<dyn StdError>> {
         Err("Lotus runner doesn't seem to initialize this?".into())
     }
 }
 
 pub fn execute_message(
-    bs: &MemoryDB,
+    bs: Arc<MemoryDB>,
     selector: &Option<Selector>,
     params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let circ_supply = MockCircSupply(params.circ_supply);
-    let lb = MockStateLB(bs);
+    let lb = MockStateLB();
 
     let nv = params.nv;
-    let mut vm = VM::<_, _, _, _, _>::new(
+    let mut vm = VM::<_, _, _, _>::new(
         params.pre_root,
-        bs,
+        bs.as_ref(),
+        bs.clone(),
         params.epoch,
-        &params.randomness,
+        params.randomness,
         params.basefee,
-        |_| nv,
-        &circ_supply,
-        &lb,
+        move |_| nv,
+        circ_supply,
+        lb,
     )?;
 
     if let Some(s) = &selector {

@@ -1307,6 +1307,7 @@ name = "conformance_tests"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "base64 0.13.0",
  "chain",

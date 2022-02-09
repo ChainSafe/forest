@@ -316,6 +316,7 @@ where
         let mut vm = VM::<_, _, _, _, V>::new(
             p_state,
             store,
+            buf_store.clone(),
             epoch,
             rand.clone(),
             base_fee,
@@ -431,6 +432,7 @@ where
             let mut vm = VM::<_, _, _, _, V>::new(
                 bstate,
                 buf_store.as_ref(),
+                buf_store.clone(),
                 bheight,
                 rand.clone(),
                 0.into(),
@@ -523,6 +525,7 @@ where
         let mut vm = VM::<_, _, _, _, V>::new(
             &st,
             self.blockstore(),
+            self.blockstore_cloned(),
             ts.epoch() + 1,
             chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),

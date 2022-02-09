@@ -165,7 +165,7 @@ async fn execute_message_vector(
     randomness: &Randomness,
     variant: &Variant,
 ) -> Result<(), Box<dyn StdError>> {
-    let bs = load_car(car).await?;
+    let bs = Arc::new(load_car(car).await?);
 
     let mut base_epoch: ChainEpoch = variant.epoch;
     let mut root = root_cid;
@@ -178,7 +178,7 @@ async fn execute_message_vector(
         }
 
         let (ret, post_root) = execute_message(
-            &bs,
+            bs.clone(),
             &selector,
             ExecuteMessageParams {
                 pre_root: &root,
@@ -200,7 +200,7 @@ async fn execute_message_vector(
         check_msg_result(receipt, &ret, i)?;
     }
 
-    compare_state_roots(&bs, &root, &postconditions.state_tree.root_cid)?;
+    compare_state_roots(bs.as_ref(), &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }

@@ -29,55 +29,55 @@ impl CircSupplyCalc for MockCircSupply {
 }
 
 struct MockStateLB<'db, MemoryDB>(&'db MemoryDB);
-impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
-    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'db, MemoryDB>, Box<dyn StdError>> {
+impl<'db> LookbackStateGetter<MemoryDB> for MockStateLB<'db, MemoryDB> {
+    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'_, MemoryDB>, Box<dyn StdError>> {
         Err("Test shouldn't call lookback".into())
     }
 }
 
 struct MockRand;
 impl Rand for MockRand {
-    fn get_chain_randomness_v1(
+    // fn get_chain_randomness_v1(
+    //     &self,
+    //     _: DomainSeparationTag,
+    //     _: ChainEpoch,
+    //     _: &[u8],
+    // ) -> Result<[u8; 32], Box<dyn StdError>> {
+    //     Ok(*b"i_am_random_____i_am_random_____")
+    // }
+    // fn get_beacon_randomness_v1(
+    //     &self,
+    //     _: DomainSeparationTag,
+    //     _: ChainEpoch,
+    //     _: &[u8],
+    // ) -> Result<[u8; 32], Box<dyn StdError>> {
+    //     Ok(*b"i_am_random_____i_am_random_____")
+    // }
+
+    fn get_chain_randomness(
         &self,
         _: DomainSeparationTag,
         _: ChainEpoch,
         _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        Ok(*b"i_am_random_____i_am_random_____")
-    }
-    fn get_beacon_randomness_v1(
-        &self,
-        _: DomainSeparationTag,
-        _: ChainEpoch,
-        _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
+    ) -> anyhow::Result<[u8; 32]> {
         Ok(*b"i_am_random_____i_am_random_____")
     }
 
-    fn get_chain_randomness_v2(
-        &self,
-        _: DomainSeparationTag,
-        _: ChainEpoch,
-        _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        Ok(*b"i_am_random_____i_am_random_____")
-    }
+    // fn get_beacon_randomness_v2(
+    //     &self,
+    //     _: DomainSeparationTag,
+    //     _: ChainEpoch,
+    //     _: &[u8],
+    // ) -> Result<[u8; 32], Box<dyn StdError>> {
+    //     Ok(*b"i_am_random_____i_am_random_____")
+    // }
 
-    fn get_beacon_randomness_v2(
+    fn get_beacon_randomness(
         &self,
         _: DomainSeparationTag,
         _: ChainEpoch,
         _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        Ok(*b"i_am_random_____i_am_random_____")
-    }
-
-    fn get_beacon_randomness_v3(
-        &self,
-        _: DomainSeparationTag,
-        _: ChainEpoch,
-        _: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
+    ) -> anyhow::Result<[u8; 32]> {
         Ok(*b"i_am_random_____i_am_random_____")
     }
 }

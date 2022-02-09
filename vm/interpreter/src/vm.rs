@@ -22,7 +22,7 @@ use fvm;
 use fvm::machine::Engine;
 use fvm_shared;
 use ipld_blockstore::BlockStore;
-use ipld_blockstore::FVM_Store;
+use ipld_blockstore::FvmStore;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
@@ -126,7 +126,7 @@ pub struct VM<'db, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
     network_version_getter: Box<dyn Fn(ChainEpoch) -> NetworkVersion>,
     circ_supply_calc: C,
     lb_state: LB,
-    // fvm_machine: fvm::machine::DefaultMachine<FVM_Store<DB>,ForestExterns>,
+    fvm_machine: fvm::machine::DefaultMachine<FVM_Store<DB>,ForestExterns>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
@@ -144,6 +144,7 @@ where
     pub fn new(
         root: &Cid,
         store: &'db DB,
+        store_arc: Arc<DB>,
         epoch: ChainEpoch,
         rand: R,
         base_fee: BigInt,
@@ -154,20 +155,19 @@ where
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         let engine = Engine::default();
-        let store_clone: DB = todo!();
-        // let fvm: fvm::machine::DefaultMachine<FVM_Store<DB>, ForestExterns> =
-        //     fvm::machine::DefaultMachine::new(
-        //         fvm::Config::default(),
-        //         engine,
-        //         epoch,                                               // ChainEpoch,
-        //         base_fee.clone(),                                    //base_fee: TokenAmount,
-        //         circ_supply_calc.get_supply(epoch, &state).unwrap(), // base_circ_supply: TokenAmount,
-        //         fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
-        //         root.clone().into(),                      //state_root: Cid,
-        //         FVM_Store::new(store_clone),
-        //         ForestExterns::new(rand.clone()),
-        //     )
-        //     .unwrap();
+        let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
+            fvm::machine::DefaultMachine::new(
+                fvm::Config::default(),
+                engine,
+                epoch,                                               // ChainEpoch,
+                base_fee.clone(),                                    //base_fee: TokenAmount,
+                circ_supply_calc.get_supply(epoch, &state).unwrap(), // base_circ_supply: TokenAmount,
+                fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
+                root.clone().into(),                      //state_root: Cid,
+                FvmStore::new(store_arc),
+                ForestExterns::new(rand.clone()),
+            )
+            .unwrap();
         Ok(VM {
             network_version_getter: Box::new(network_version_getter),
             state,
@@ -178,7 +178,7 @@ where
             registered_actors,
             circ_supply_calc,
             lb_state,
-            // fvm_machine: fvm,
+            fvm_machine: fvm,
             verifier: PhantomData,
             params: PhantomData,
         })

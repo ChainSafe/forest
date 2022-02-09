@@ -23,6 +23,7 @@ use cid::{Cid, Code};
 use db::{MemoryDB, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use std::error::Error as StdError;
+use std::sync::Arc;
 
 #[cfg(feature = "rocksdb")]
 use db::rocks::{RocksDb, WriteBatch};
@@ -102,17 +103,17 @@ impl BlockStore for RocksDb {
     }
 }
 
-pub struct FVM_Store<T> {
-    bs: T,
+pub struct FvmStore<T> {
+    bs: Arc<T>,
 }
 
-impl<T> FVM_Store<T> {
-    pub fn new(bs: T) -> Self {
-        FVM_Store{ bs }
+impl<T> FvmStore<T> {
+    pub fn new(bs: Arc<T>) -> Self {
+        FvmStore{ bs }
     }
 }
 
-impl<T: BlockStore> Blockstore for FVM_Store<T> {
+impl<T: BlockStore> Blockstore for FvmStore<T> {
     fn get(&self, cid: &cid_orig::Cid) -> anyhow::Result<std::option::Option<Vec<u8>>> {
         match self.bs.get_bytes(&cid.clone().into()) {
             Ok(vs) => Ok(vs),
