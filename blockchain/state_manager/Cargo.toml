@@ -8,6 +8,7 @@ edition = "2018"
 features = ["statediff"]
 
 [dependencies]
+anyhow = "*"
 fvm_shared = "0.1"
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }

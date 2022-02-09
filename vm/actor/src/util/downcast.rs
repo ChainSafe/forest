@@ -21,6 +21,29 @@ pub trait ActorDowncast {
     fn downcast_wrap(self, msg: impl AsRef<str>) -> Box<dyn StdError>;
 }
 
+impl ActorDowncast for anyhow::Error {
+    fn downcast_default(self, default_exit_code: ExitCode, msg: impl AsRef<str>) -> ActorError {
+        match downcast_util(self.into()) {
+            Ok(actor_error) => actor_error.wrap(msg),
+            Err(other) => {
+                ActorError::new(default_exit_code, format!("{}: {}", msg.as_ref(), other))
+            }
+        }
+    }
+    fn downcast_fatal(self, msg: impl AsRef<str>) -> ActorError {
+        match downcast_util(self.into()) {
+            Ok(actor_error) => actor_error.wrap(msg),
+            Err(other) => ActorError::new_fatal(format!("{}: {}", msg.as_ref(), other)),
+        }
+    }
+    fn downcast_wrap(self, msg: impl AsRef<str>) -> Box<dyn StdError> {
+        match downcast_util(self.into()) {
+            Ok(actor_error) => Box::new(actor_error.wrap(msg)),
+            Err(other) => format!("{}: {}", msg.as_ref(), other).into(),
+        }
+    }
+}
+
 impl ActorDowncast for Box<dyn StdError> {
     fn downcast_default(self, default_exit_code: ExitCode, msg: impl AsRef<str>) -> ActorError {
         match downcast_util(self) {

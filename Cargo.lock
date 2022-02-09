@@ -2590,6 +2590,7 @@ name = "forest_actor"
 version = "4.0.0"
 dependencies = [
  "ahash 0.6.3",
+ "anyhow",
  "base64 0.13.0",
  "byteorder 1.4.3",
  "commcid",
@@ -7167,6 +7168,7 @@ name = "state_manager"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-log",
  "async-std",
  "beacon",
