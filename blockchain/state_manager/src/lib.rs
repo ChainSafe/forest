@@ -299,7 +299,7 @@ where
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, Box<dyn StdError>>
     where
-        R: Rand + Clone,
+        R: Rand + Clone + 'static,
         V: ProofVerifier,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
     {
@@ -307,9 +307,9 @@ where
         let mut buf_store = Arc::new(BufferedBlockStore::new(db.as_ref()));
         let store = buf_store.as_ref();
         let lb_wrapper = SMLookbackWrapper {
-            sm: self,
-            store,
-            tipset,
+            sm: self.clone(),
+            store: buf_store.clone(),
+            tipset: tipset.clone(),
             verifier: PhantomData::<V>::default(),
         };
 
@@ -421,16 +421,16 @@ where
             let bheight = tipset.epoch();
             let block_store = self.blockstore();
 
-            let buf_store = BufferedBlockStore::new(block_store);
+            let buf_store = Arc::new(BufferedBlockStore::new(block_store));
             let lb_wrapper = SMLookbackWrapper {
-                sm: self,
-                store: &buf_store,
-                tipset,
+                sm: self.clone(),
+                store: buf_store.clone(),
+                tipset: tipset.clone(),
                 verifier: PhantomData::<V>::default(),
             };
             let mut vm = VM::<_, _, _, _, V>::new(
                 bstate,
-                &buf_store,
+                buf_store.as_ref(),
                 bheight,
                 rand.clone(),
                 0.into(),
@@ -515,9 +515,9 @@ where
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
         let lb_wrapper = SMLookbackWrapper {
-            sm: self,
-            store: self.blockstore(),
-            tipset: &ts,
+            sm: self.clone(),
+            store: self.blockstore_cloned(),
+            tipset: ts.clone(),
             verifier: PhantomData::<V>::default(),
         };
         let mut vm = VM::<_, _, _, _, V>::new(
@@ -1358,26 +1358,26 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<'sm, 'ts, DB, BS, V> {
-    sm: &'sm Arc<StateManager<DB>>,
-    store: &'sm BS,
-    tipset: &'ts Arc<Tipset>,
+struct SMLookbackWrapper<DB, BS, V> {
+    sm: Arc<StateManager<DB>>,
+    store: Arc<BS>,
+    tipset: Arc<Tipset>,
     verifier: PhantomData<V>,
 }
 
-impl<'sm, 'ts, DB, BS, V> LookbackStateGetter<'sm, BS> for SMLookbackWrapper<'sm, 'ts, DB, BS, V>
+impl<DB, BS, V> LookbackStateGetter<BS> for SMLookbackWrapper<DB, BS, V>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: BlockStore + Send + Sync + 'static,
     BS: BlockStore + Send + Sync,
     V: ProofVerifier,
 {
-    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, Box<dyn StdError>> {
+    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'_, BS>, Box<dyn StdError>> {
         let (_, st) = task::block_on(
             self.sm
                 .get_lookback_tipset_for_round::<V>(self.tipset.clone(), round),
         )?;
 
-        StateTree::new_from_root(self.store, &st)
+        StateTree::new_from_root(self.store.as_ref(), &st)
     }
 }

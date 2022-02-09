@@ -106,6 +106,12 @@ pub struct FVM_Store<T> {
     bs: T,
 }
 
+impl<T> FVM_Store<T> {
+    pub fn new(bs: T) -> Self {
+        FVM_Store{ bs }
+    }
+}
+
 impl<T: BlockStore> Blockstore for FVM_Store<T> {
     fn get(&self, cid: &cid_orig::Cid) -> anyhow::Result<std::option::Option<Vec<u8>>> {
         match self.bs.get_bytes(&cid.clone().into()) {

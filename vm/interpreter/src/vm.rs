@@ -18,7 +18,11 @@ use fil_types::{
     DefaultNetworkParams, NetworkParams, NetworkVersion, StateTreeVersion,
 };
 use forest_encoding::Cbor;
+use fvm;
+use fvm::machine::Engine;
+use fvm_shared;
 use ipld_blockstore::BlockStore;
+use ipld_blockstore::FVM_Store;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
 use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
@@ -31,8 +35,6 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
-use fvm;
-use fvm_shared;
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
@@ -57,18 +59,26 @@ pub trait CircSupplyCalc {
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
-pub trait LookbackStateGetter<'db, DB> {
+pub trait LookbackStateGetter<DB> {
     /// Returns a state tree from the given epoch.
-    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, Box<dyn StdError>>;
+    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'_, DB>, Box<dyn StdError>>;
 }
 
-use fvm::externs::Externs;
 use crypto::DomainSeparationTag;
 use fvm::externs::Consensus;
+use fvm::externs::Externs;
 use fvm_shared::consensus::ConsensusFault;
 
 struct ForestExterns {
     rand: Box<dyn Rand>,
+}
+
+impl ForestExterns {
+    fn new(rand: impl Rand + 'static) -> Self {
+        ForestExterns {
+            rand: Box::new(rand),
+        }
+    }
 }
 
 impl Externs for ForestExterns {}
@@ -104,7 +114,6 @@ impl Consensus for ForestExterns {
     }
 }
 
-
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<'db, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
@@ -127,9 +136,9 @@ where
     DB: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
-    R: Rand,
+    R: Rand + Clone + 'static,
     C: CircSupplyCalc,
-    LB: LookbackStateGetter<'db, DB>,
+    LB: LookbackStateGetter<DB>,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -144,14 +153,21 @@ where
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
-        // let fvm = fvm::machine::DefaultMachine::new(fvm::Config::default(),
-        //     epoch, // ChainEpoch,
-        //     base_fee.clone(), //base_fee: TokenAmount,
-        //     circ_supply_calc.get_supply(epoch, &state).unwrap(), // base_circ_supply: TokenAmount,
-        //     fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
-        //     root.clone().unpack(), //state_root: Cid,
-        //     store.clone(),
-        //     fvm::externs::cgo::CgoExterns::new(0)).unwrap();
+        let engine = Engine::default();
+        let store_clone: DB = todo!();
+        // let fvm: fvm::machine::DefaultMachine<FVM_Store<DB>, ForestExterns> =
+        //     fvm::machine::DefaultMachine::new(
+        //         fvm::Config::default(),
+        //         engine,
+        //         epoch,                                               // ChainEpoch,
+        //         base_fee.clone(),                                    //base_fee: TokenAmount,
+        //         circ_supply_calc.get_supply(epoch, &state).unwrap(), // base_circ_supply: TokenAmount,
+        //         fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
+        //         root.clone().into(),                      //state_root: Cid,
+        //         FVM_Store::new(store_clone),
+        //         ForestExterns::new(rand.clone()),
+        //     )
+        //     .unwrap();
         Ok(VM {
             network_version_getter: Box::new(network_version_getter),
             state,
