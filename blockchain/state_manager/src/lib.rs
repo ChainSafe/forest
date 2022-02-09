@@ -313,7 +313,7 @@ where
             verifier: PhantomData::<V>::default(),
         };
 
-        let mut vm = VM::<_, _, _, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, V>::new(
             p_state,
             store,
             epoch,
@@ -428,7 +428,7 @@ where
                 tipset,
                 verifier: PhantomData::<V>::default(),
             };
-            let mut vm = VM::<_, _, _, _, _, V>::new(
+            let mut vm = VM::<_, _, _, _, V>::new(
                 bstate,
                 &buf_store,
                 bheight,
@@ -520,7 +520,7 @@ where
             tipset: &ts,
             verifier: PhantomData::<V>::default(),
         };
-        let mut vm = VM::<_, _, _, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, V>::new(
             &st,
             self.blockstore(),
             ts.epoch() + 1,

@@ -64,14 +64,14 @@ pub trait LookbackStateGetter<'db, DB> {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, 'r, DB, R, N, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
+pub struct VM<'db, 'r, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
     rand: &'r R,
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
-    network_version_getter: N,
+    network_version_getter: Box<dyn Fn(ChainEpoch) -> NetworkVersion>,
     circ_supply_calc: &'r C,
     lb_state: &'r LB,
     // fvm_machine: fvm::machine::DefaultMachine<DB,fvm::externs::cgo::CgoExterns>,
@@ -79,13 +79,12 @@ pub struct VM<'db, 'r, DB, R, N, C, LB, V = FullVerifier, P = DefaultNetworkPara
     params: PhantomData<P>,
 }
 
-impl<'db, 'r, DB, R, N, C, LB, V, P> VM<'db, 'r, DB, R, N, C, LB, V, P>
+impl<'db, 'r, DB, R, C, LB, V, P> VM<'db, 'r, DB, R, C, LB, V, P>
 where
     DB: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand,
-    N: Fn(ChainEpoch) -> NetworkVersion,
     C: CircSupplyCalc,
     LB: LookbackStateGetter<'db, DB>,
 {
@@ -96,7 +95,7 @@ where
         epoch: ChainEpoch,
         rand: &'r R,
         base_fee: BigInt,
-        network_version_getter: N,
+        network_version_getter: impl Fn(ChainEpoch) -> NetworkVersion + 'static,
         circ_supply_calc: &'r C,
         lb_state: &'r LB,
     ) -> Result<Self, String> {
@@ -111,7 +110,7 @@ where
         //     store.clone(),
         //     fvm::externs::cgo::CgoExterns::new(0)).unwrap();
         Ok(VM {
-            network_version_getter,
+            network_version_getter: Box::new(network_version_getter),
             state,
             store,
             epoch,
