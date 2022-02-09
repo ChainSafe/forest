@@ -126,7 +126,7 @@ pub struct VM<'db, DB, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
     network_version_getter: Box<dyn Fn(ChainEpoch) -> NetworkVersion>,
     circ_supply_calc: C,
     lb_state: LB,
-    fvm_machine: fvm::machine::DefaultMachine<FVM_Store<DB>,ForestExterns>,
+    fvm_machine: fvm::machine::DefaultMachine<FvmStore<DB>,ForestExterns>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
