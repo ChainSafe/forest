@@ -54,9 +54,14 @@ clean:
 	@cargo clean -p networks
 	@echo "Done cleaning."
 
+# Lints the project. Should be run before submitting a PR.
 lint: license clean
 	cargo fmt --all
 	cargo clippy -- -D warnings
+
+# Lints the project and fails if this resulted in any changes in tracked files. Used for CI.
+lint-check: lint
+	git diff --no-ext-diff --quiet --exit-code
 
 build:
 	cargo build --bin forest

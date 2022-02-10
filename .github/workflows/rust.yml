@@ -98,7 +98,7 @@ jobs:
       - name: Install RustFmt
         run: rustup component add rustfmt
       - name: Run Linters
-        run: make lint
+        run: make lint-check
 
   audit:
     name: Audit
