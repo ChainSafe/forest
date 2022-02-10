@@ -40,7 +40,7 @@ clock = { package = "fil_clock", path = "../clock" }
 db = { package = "forest_db", version = "0.1" }
 forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-libp2p-bitswap = "0.21"
+libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
 tiny-cid = "0.2"
 ipld_blockstore = "0.1"
 async-trait = "0.1"
