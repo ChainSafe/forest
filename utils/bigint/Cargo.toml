@@ -13,14 +13,11 @@ features = ["json"]
 [dependencies]
 num-bigint = "0.3"
 serde = { version = "1.0", features = ["derive"] }
-serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
+serde_bytes = "0.11"
 num-integer = "0.1"
 
 [dev-dependencies]
-# TODO remove fork in future (allowing non utf8 strings to be cbor deserialized)
-serde_cbor = { package = "cs_serde_cbor", version = "0.12", features = [
-    "tags"
-] }
+serde_cbor = { version = "0.11", features = [ "tags" ] }
 
 [features]
 json = []
