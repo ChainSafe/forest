@@ -49,13 +49,11 @@ impl From<Error> for io::Error {
 #[derive(Debug, PartialEq)]
 pub enum CodecProtocol {
     Cbor,
-    ByteArray,
 }
 
 impl fmt::Display for CodecProtocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            CodecProtocol::ByteArray => write!(f, "ByteArray"),
             CodecProtocol::Cbor => write!(f, "Cbor"),
         }
     }

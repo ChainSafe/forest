@@ -24,7 +24,7 @@ impl BeaconEntry {
     }
     /// The signature of message H(prev_round, prev_round.data, round).
     pub fn data(&self) -> &[u8] {
-        self.data.as_ref()
+        &self.data
     }
 }
 
@@ -73,10 +73,10 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        Ok(BeaconEntry::new(
-            m.round,
-            base64::decode(m.data).map_err(de::Error::custom)?,
-        ))
+        Ok(BeaconEntry {
+            round: m.round,
+            data: base64::decode(m.data).map_err(de::Error::custom)?,
+        })
     }
 
     pub mod vec {
