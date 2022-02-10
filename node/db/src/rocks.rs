@@ -3,9 +3,9 @@
 
 use super::errors::Error;
 use super::Store;
+use num_cpus;
 pub use rocksdb::{Options, WriteBatch, DB};
 use std::path::Path;
-use num_cpus;
 
 /// RocksDB instance this satisfies the [Store] interface.
 #[derive(Debug)]
@@ -29,7 +29,7 @@ impl RocksDb {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(true);
         db_opts.increase_parallelism(num_cpus::get() as i32);
-        db_opts.set_write_buffer_size(256*1024*1024); // increase from 64MB to 256MB
+        db_opts.set_write_buffer_size(256 * 1024 * 1024); // increase from 64MB to 256MB
         Ok(Self {
             db: DB::open(&db_opts, path)?,
         })

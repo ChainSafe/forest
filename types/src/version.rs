@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::repr::Serialize_repr;
-use std::convert::TryFrom;
-use std::fmt::{self, Display, Formatter};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use std::convert::TryFrom;
+use std::fmt::{self, Display, Formatter};
 
 /// Specifies the network version
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Serialize_repr, FromPrimitive)]
