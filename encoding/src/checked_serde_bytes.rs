@@ -42,7 +42,3 @@ pub mod serde_byte_array {
         })
     }
 }
-
-pub mod serde_generic_array {
-    use super::*;
-}
