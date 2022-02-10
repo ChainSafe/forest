@@ -197,7 +197,7 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Addr
 
     let key = recover(&message, &sig, &rec_id)?;
     let ret = key.serialize();
-    let addr = Address::new_secp256k1(&ret)?;
+    let addr = Address::new_secp256k1(&ret).expect("FIXME: fvm error handling");
     Ok(addr)
 }
 

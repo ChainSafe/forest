@@ -69,6 +69,10 @@ impl Cid {
         Cid(CidGeneric::new_v1(codec, hash))
     }
 
+    pub fn take(self) -> cid::Cid {
+        self.0
+    }
+
     /// Returns the cid version.
     pub fn version(&self) -> Version {
         self.0.version()

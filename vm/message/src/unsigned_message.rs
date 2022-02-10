@@ -61,6 +61,33 @@ pub struct UnsignedMessage {
     pub gas_premium: TokenAmount,
 }
 
+impl From<&UnsignedMessage> for fvm_shared::message::Message {
+    fn from(msg: &UnsignedMessage) -> Self {
+        let UnsignedMessage{version,
+            from,
+            to,
+            sequence,
+            value,
+            method_num,
+            params,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,} = msg.clone();
+        fvm_shared::message::Message {
+            version,
+            from: from.into(),
+            to: to.into(),
+            sequence,
+            value,
+            method_num,
+            params: params.into(),
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+        }
+    }
+}
+
 impl UnsignedMessage {
     pub fn builder() -> MessageBuilder {
         MessageBuilder::default()
@@ -275,20 +302,21 @@ pub mod json {
     where
         S: Serializer,
     {
-        JsonHelper {
-            version: m.version,
-            to: m.to.into(),
-            from: m.from.into(),
-            sequence: m.sequence,
-            value: m.value.clone(),
-            gas_limit: m.gas_limit,
-            gas_fee_cap: m.gas_fee_cap.clone(),
-            gas_premium: m.gas_premium.clone(),
-            method_num: m.method_num,
-            params: Some(base64::encode(m.params.bytes())),
-            cid: Some(m.cid().map_err(ser::Error::custom)?),
-        }
-        .serialize(serializer)
+        todo!()
+        // JsonHelper {
+        //     version: m.version,
+        //     to: m.to.into(),
+        //     from: m.from.into(),
+        //     sequence: m.sequence,
+        //     value: m.value.clone(),
+        //     gas_limit: m.gas_limit,
+        //     gas_fee_cap: m.gas_fee_cap.clone(),
+        //     gas_premium: m.gas_premium.clone(),
+        //     method_num: m.method_num,
+        //     params: Some(base64::encode(m.params.bytes())),
+        //     cid: Some(m.cid().map_err(ser::Error::custom)?),
+        // }
+        // .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>

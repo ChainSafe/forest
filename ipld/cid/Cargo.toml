@@ -11,6 +11,7 @@ repository = "https://github.com/ChainSafe/forest"
 features = ["cbor", "json"]
 
 [dependencies]
+fvm_shared = "*"
 cid = { version = "0.7.0", default-features = false, features = ["std"] }
 multihash = { version = "0.15", default-features = false, features = [
     "std",

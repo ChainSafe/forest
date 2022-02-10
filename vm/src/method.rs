@@ -22,6 +22,12 @@ pub struct Serialized {
     bytes: Vec<u8>,
 }
 
+impl From<Serialized> for fvm_shared::encoding::RawBytes {
+    fn from(ser: Serialized) -> Self {
+        ser.bytes.into()
+    }
+}
+
 impl Cbor for Serialized {}
 
 impl Deref for Serialized {

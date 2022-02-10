@@ -5,6 +5,8 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+cid_orig = { package = "cid", version = "*" }
+fvm_shared = "*"
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
 amt = { package = "ipld_amt", version = "0.2" }

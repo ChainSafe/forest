@@ -8,6 +8,7 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
+fvm_shared = "*"
 blake2b_simd = "0.5.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = { package = "cs_serde_bytes", version = "0.12" }

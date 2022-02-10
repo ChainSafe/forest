@@ -119,7 +119,7 @@ impl Message for ChainMessage {
 impl Cbor for ChainMessage {
     /// Returns the content identifier of the raw block of data
     /// Default is Blake2b256 hash
-    fn cid(&self) -> Result<Cid, Error> {
+    fn cid(&self) -> Result<cid_orig::Cid, Error> {
         match self {
             Self::Signed(t) => t.cid(),
             Self::Unsigned(t) => t.cid(),

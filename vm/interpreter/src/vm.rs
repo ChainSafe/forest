@@ -438,7 +438,7 @@ impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB>
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, DB: 'static, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
+pub struct VM<'db, DB: BlockStore + 'static, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
@@ -448,7 +448,7 @@ pub struct VM<'db, DB: 'static, R, C, LB, V = FullVerifier, P = DefaultNetworkPa
     network_version_getter: Box<dyn Fn(ChainEpoch) -> NetworkVersion>,
     circ_supply_calc: C,
     lb_state: LB,
-    fvm_machine: ForestMachine<DB>,
+    fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
@@ -490,6 +490,7 @@ where
                 ForestExterns::new(rand.clone()),
             )
             .unwrap();
+        let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> = fvm::executor::DefaultExecutor::new(ForestMachine{ machine: fvm });
         Ok(VM {
             network_version_getter: Box::new(network_version_getter),
             state,
@@ -500,7 +501,8 @@ where
             registered_actors,
             circ_supply_calc,
             lb_state,
-            fvm_machine: ForestMachine{ machine: fvm },
+            // fvm_machine: ForestMachine{ machine: fvm },
+            fvm_executor: exec,
             verifier: PhantomData,
             params: PhantomData,
         })
@@ -558,7 +560,7 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(&cron_msg.cid()?, &ChainMessage::Unsigned(cron_msg), &ret)?;
+            callback(&(cron_msg.cid()?.into()), &ChainMessage::Unsigned(cron_msg), &ret)?;
         }
         Ok(())
     }
@@ -630,13 +632,13 @@ where
             let mut process_msg = |msg: &ChainMessage| -> Result<(), Box<dyn StdError>> {
                 let cid = msg.cid()?;
                 // Ensure no duplicate processing of a message
-                if processed.contains(&cid) {
+                if processed.contains(&cid.into()) {
                     return Ok(());
                 }
                 let ret = self.apply_message(msg)?;
 
                 if let Some(cb) = &mut callback {
-                    cb(&cid, msg, &ret)?;
+                    cb(&cid.into(), msg, &ret)?;
                 }
 
                 // Update totals
@@ -645,7 +647,7 @@ where
                 receipts.push(ret.msg_receipt);
 
                 // Add processed Cid to set of processed messages
-                processed.insert(cid);
+                processed.insert(cid.into());
                 Ok(())
             };
 
@@ -694,7 +696,7 @@ where
             }
 
             if let Some(callback) = &mut callback {
-                callback(&rew_msg.cid()?, &ChainMessage::Unsigned(rew_msg), &ret)?;
+                callback(&(rew_msg.cid()?.into()), &ChainMessage::Unsigned(rew_msg), &ret)?;
             }
         }
 
@@ -706,7 +708,8 @@ where
 
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        // let mut exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> = fvm::executor::DefaultExecutor::new(self.fvm);
+        // use fvm::executor::Executor;
+        // self.fvm_executor.execute_message(msg, fvm::executor::ApplyKind::Explicit, 0);
 
         let (return_data, _, act_err) = self.send(msg, None);
 

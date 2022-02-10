@@ -10,6 +10,15 @@ pub enum Network {
     Testnet,
 }
 
+impl From<Network> for fvm_shared::address::Network {
+    fn from(network: Network) -> Self {
+        match network {
+            Network::Mainnet => fvm_shared::address::Network::Mainnet,
+            Network::Testnet => fvm_shared::address::Network::Testnet,
+        }
+    }
+}
+
 impl Default for Network {
     fn default() -> Self {
         Network::Mainnet
