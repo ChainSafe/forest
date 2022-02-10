@@ -708,9 +708,9 @@ where
 
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        use fvm::executor::Executor;
-        let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        self.fvm_executor.execute_message(msg.into(), fvm::executor::ApplyKind::Explicit, raw_length);
+        // use fvm::executor::Executor;
+        // let raw_length = msg.marshal_cbor().expect("encoding error").len();
+        // self.fvm_executor.execute_message(msg.into(), fvm::executor::ApplyKind::Explicit, raw_length);
 
         let (return_data, _, act_err) = self.send(msg, None);
 
