@@ -4,7 +4,6 @@
 use super::*;
 use db::MemoryDB;
 use interpreter::{CircSupplyCalc, LookbackStateGetter};
-use networks::get_network_version_default;
 use state_tree::StateTree;
 use vm::TokenAmount;
 
@@ -23,6 +22,7 @@ pub struct ExecuteMessageParams<'a> {
     pub circ_supply: TokenAmount,
     pub basefee: TokenAmount,
     pub randomness: ReplayingRand<'a>,
+    pub nv: fil_types::NetworkVersion,
 }
 
 struct MockCircSupply(TokenAmount);
@@ -51,13 +51,14 @@ pub fn execute_message(
     let circ_supply = MockCircSupply(params.circ_supply);
     let lb = MockStateLB(bs);
 
+    let nv = params.nv;
     let mut vm = VM::<_, _, _, _, _>::new(
         params.pre_root,
         bs,
         params.epoch,
         &params.randomness,
         params.basefee,
-        get_network_version_default,
+        |_| nv,
         &circ_supply,
         &lb,
     )?;

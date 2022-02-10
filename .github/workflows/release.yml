@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            file: forest-${{ github.ref_name }}-linux-amd64.zip
+          - os: macos-latest
+            file: forest-${{ github.ref_name }}-macos-amd64.zip
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Homebrew Utils
+        run: |
+          brew install --verbose coreutils
+        if: startsWith(matrix.os, 'macOS')
+      - name: Cargo Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --bin forest --features release
+      - name: Compress Binary
+        run: |
+          mkdir -p forest-${{ github.ref_name }}
+          cp -v target/release/forest forest-${{ github.ref_name }}
+          cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md docs forest-${{ github.ref_name }}
+          strip forest-${{ github.ref_name }}/forest
+          sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
+          zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
+      - name: Upload Binary
+        uses: svenstaro/upload-release-action@v2
+        with:
+            repo_token: ${{ github.token }}
+            file: ${{ matrix.file }}
+            asset_name: ${{ matrix.file }}
+            tag: ${{ github.ref_name }}
+            overwrite: true
+            prerelease: true
