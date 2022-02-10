@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2018"
 
 [dependencies]
+wasmtime = { version = "0.33", default-features = false }
 anyhow = "*"
 fvm = "0.1"
 fvm_shared = "0.1"
@@ -18,6 +19,7 @@ vm = { package = "forest_vm", version = "0.3.1" }
 ipld_blockstore = "0.1"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 forest_encoding = "0.2.1"
+cid_orig = { package = "cid", git = "https://github.com/multiformats/rust-cid", branch = "steb/cbor-hack" }
 cid = { package = "forest_cid", version = "0.3" }
 crypto = { package = "forest_crypto", default_features = false, version = "0.5", features = ["blst"] }
 num-traits = "0.2.11"
