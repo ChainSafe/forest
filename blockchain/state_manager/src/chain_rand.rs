@@ -12,7 +12,7 @@ use encoding::blake2b_256;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use interpreter::Rand;
-use std::error::Error;
+// use std::error::Error;
 use std::io::Write;
 use std::sync::Arc;
 

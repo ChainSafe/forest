@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::repr::*;
-use num_derive::FromPrimitive;
+// use encoding::repr::*;
+// use num_derive::FromPrimitive;
 
 pub use fvm_shared::crypto::randomness::DomainSeparationTag;
 

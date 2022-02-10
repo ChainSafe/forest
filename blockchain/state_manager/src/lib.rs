@@ -46,7 +46,6 @@ use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use vm::{ActorState, TokenAmount};
 use vm_circ_supply::GenesisInfo;
-use fvm_shared::blockstore::CborStore;
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);

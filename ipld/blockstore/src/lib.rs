@@ -29,7 +29,6 @@ use std::sync::Arc;
 use db::rocks::{RocksDb, WriteBatch};
 
 use fvm_shared::blockstore::Blockstore;
-use fvm_shared::blockstore::CborStore;
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
@@ -117,7 +116,7 @@ impl<T: BlockStore> Blockstore for FvmStore<T> {
     fn get(&self, cid: &cid_orig::Cid) -> anyhow::Result<std::option::Option<Vec<u8>>> {
         match self.bs.get_bytes(&cid.clone().into()) {
             Ok(vs) => Ok(vs),
-            Err(err) => Err(anyhow::Error::msg("Fix FVM error handling"))
+            Err(_err) => Err(anyhow::Error::msg("Fix FVM error handling"))
         }
     }
     fn put_keyed(&self, cid: &cid_orig::Cid, bytes: &[u8]) -> Result<(), anyhow::Error> {

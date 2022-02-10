@@ -6,7 +6,6 @@ use super::Store;
 pub use rocksdb::{Options, WriteBatch, DB};
 use std::path::Path;
 use num_cpus;
-use std::rc::Rc;
 
 /// RocksDB instance this satisfies the [Store] interface.
 #[derive(Debug)]
