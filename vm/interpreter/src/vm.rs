@@ -641,6 +641,7 @@ where
         store: std::sync::Arc<impl BlockStore + Send + Sync>,
         mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
+        panic!("FIXME: apply_block_messages not implemented for fvm backend yet.");
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
