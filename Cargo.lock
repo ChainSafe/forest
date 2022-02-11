@@ -30,7 +30,7 @@ dependencies = [
 [[package]]
 name = "actors-runtime"
 version = "4.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -3213,7 +3213,7 @@ dependencies = [
 [[package]]
 name = "fvm"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
@@ -3255,7 +3255,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_account"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "fvm_shared",
@@ -3268,7 +3268,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_cron"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "fvm_shared",
@@ -3282,7 +3282,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_init"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3299,7 +3299,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_market"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "ahash 0.7.6",
@@ -3317,7 +3317,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_miner"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3339,7 +3339,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_multisig"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3357,7 +3357,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_paych"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3372,7 +3372,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_power"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3392,7 +3392,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_reward"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "fvm_shared",
@@ -3407,7 +3407,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_system"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "fvm_shared",
@@ -3420,7 +3420,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_verifreg"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3436,7 +3436,7 @@ dependencies = [
 [[package]]
 name = "fvm_bitfield"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "cs_serde_bytes",
  "fvm_shared",
@@ -3447,7 +3447,7 @@ dependencies = [
 [[package]]
 name = "fvm_shared"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "anyhow",
  "blake2b_simd 1.0.0",
@@ -3456,7 +3456,6 @@ dependencies = [
  "chrono",
  "cid",
  "cs_serde_bytes",
- "cs_serde_cbor",
  "data-encoding",
  "data-encoding-macro",
  "filecoin-proofs-api",
@@ -3469,6 +3468,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "serde",
+ "serde_cbor",
  "serde_repr",
  "serde_tuple",
  "thiserror",
@@ -4037,7 +4037,7 @@ dependencies = [
 [[package]]
 name = "ipld_amt"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
@@ -4149,7 +4149,7 @@ dependencies = [
 [[package]]
 name = "ipld_hamt"
 version = "2.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#79a0f428ac5f7d44bb2babe2144be7abbdaebb5d"
 dependencies = [
  "anyhow",
  "byteorder 1.4.3",
