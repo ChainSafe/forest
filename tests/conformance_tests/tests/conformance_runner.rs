@@ -281,7 +281,7 @@ async fn conformance_test_runner() {
         .await
         .unwrap();
 
-    let walker = WalkDir::new("test-vectors/corpus").into_iter();
+    let walker = WalkDir::new("fvm-test-vectors/corpus").into_iter();
     let mut failed = Vec::new();
     let mut succeeded = 0;
     for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
@@ -314,9 +314,9 @@ async fn conformance_test_runner() {
                     )
                     .await
                     {
-                        println!("{} failed, variant {}", test_name, variant.id);
+                        println!("{} failed, variant {}({})", test_name, variant.id, variant.nv);
                         failed.push((
-                            format!("{} variant {}", test_name, variant.id),
+                            format!("{} variant {}({})", test_name, variant.id, variant.nv),
                             meta.clone(),
                             e,
                         ));
@@ -367,12 +367,17 @@ async fn conformance_test_runner() {
         failed.len() + succeeded
     );
     if !failed.is_empty() {
-        for (path, meta, e) in failed {
+        for (path, meta, e) in &failed {
             eprintln!(
                 "file {} failed:\n\tMeta: {:?}\n\tError: {}\n",
                 path, meta, e
             );
         }
+        println!(
+            "conformance tests result: {}/{} tests passed:",
+            succeeded,
+            failed.len() + succeeded
+        );
         panic!()
     }
 }

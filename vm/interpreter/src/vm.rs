@@ -521,7 +521,8 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> Result<Cid, Box<dyn StdError>> {
-        self.state.flush()
+        Ok(self.fvm_executor.flush().expect("FIXME: FVM error handling").into())
+        // self.state.flush()
     }
 
     /// Returns the epoch the VM is initialized with.
@@ -708,9 +709,9 @@ where
 
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        // use fvm::executor::Executor;
-        // let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        // self.fvm_executor.execute_message(msg.into(), fvm::executor::ApplyKind::Explicit, raw_length);
+        use fvm::executor::Executor;
+        let raw_length = msg.marshal_cbor().expect("encoding error").len();
+        return self.fvm_executor.execute_message(msg.into(), fvm::executor::ApplyKind::Explicit, raw_length).expect("execution failed").into();
 
         let (return_data, _, act_err) = self.send(msg, None);
 
@@ -734,6 +735,14 @@ where
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
         check_message(msg.message())?;
+
+        use fvm::executor::Executor;
+        let unsigned = msg.message();
+        let raw_length = unsigned.marshal_cbor().expect("encoding error").len();
+        match self.fvm_executor.execute_message(unsigned.into(), fvm::executor::ApplyKind::Explicit, raw_length) {
+            Ok(ret) => return Ok(ret.into()),
+            Err(e) => return Err(format!("{:?}", e)),
+        }
 
         let pl = price_list_by_epoch(self.epoch());
         let ser_msg = msg.marshal_cbor().map_err(|e| e.to_string())?;
@@ -1152,6 +1161,20 @@ pub struct ApplyRet {
     pub penalty: BigInt,
     /// Tip given to miner from message.
     pub miner_tip: BigInt,
+}
+
+impl From<fvm::executor::ApplyRet> for ApplyRet {
+    fn from(ret: fvm::executor::ApplyRet) -> Self {
+        let fvm::executor::ApplyRet{ msg_receipt,
+            penalty,
+            miner_tip, ..} = ret;
+        ApplyRet {
+            msg_receipt,
+            act_error: None,
+            penalty,
+            miner_tip,
+        }
+    }
 }
 
 /// Does some basic checks on the Message to see if the fields are valid.

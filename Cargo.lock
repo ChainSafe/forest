@@ -28,6 +28,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "actors-runtime"
+version = "4.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "anyhow",
+ "base64 0.13.0",
+ "byteorder 1.4.3",
+ "cid",
+ "fvm_shared",
+ "getrandom 0.2.4",
+ "indexmap",
+ "integer-encoding 3.0.2",
+ "ipld_amt 1.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
+ "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
+ "lazy_static",
+ "log",
+ "multihash 0.15.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "thiserror",
+ "unsigned-varint 0.7.1",
+ "wasm-builder",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -953,6 +979,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-helper"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdce191bf3fa4995ce948c8c83b4640a1745457a149e73c6db75b4ffe36aad5f"
+dependencies = [
+ "semver 0.6.0",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1008,6 +1043,28 @@ name = "cache-padded"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1db59621ec70f09c5e9b597b220c7a2b43611f4710dc03ceb8748637775692c"
+
+[[package]]
+name = "cargo-platform"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbdb825da8a5df079a43676dbe042702f1707b1109f713a01420fbb4cc71fa27"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "cargo_metadata"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7714a157da7991e23d90686b9524b9e12e0407a108647f52e9328f4b3d51ac7f"
+dependencies = [
+ "cargo-platform",
+ "semver 0.11.0",
+ "semver-parser 0.10.2",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "cast"
@@ -3156,7 +3213,7 @@ dependencies = [
 [[package]]
 name = "fvm"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/#20b6d989cb7eff757834fee2cb1ff90161bc80e8"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
@@ -3166,9 +3223,20 @@ dependencies = [
  "derive_builder",
  "derive_more",
  "filecoin-proofs-api",
+ "fvm_actor_account",
+ "fvm_actor_cron",
+ "fvm_actor_init",
+ "fvm_actor_market",
+ "fvm_actor_miner",
+ "fvm_actor_multisig",
+ "fvm_actor_paych",
+ "fvm_actor_power",
+ "fvm_actor_reward",
+ "fvm_actor_system",
+ "fvm_actor_verifreg",
  "fvm_shared",
- "ipld_amt 1.0.0 (git+https://github.com/filecoin-project/ref-fvm/)",
- "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/)",
+ "ipld_amt 1.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
+ "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
  "lazy_static",
  "log",
  "multihash 0.15.0",
@@ -3185,9 +3253,201 @@ dependencies = [
 ]
 
 [[package]]
+name = "fvm_actor_account"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "fvm_shared",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_cron"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "fvm_shared",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_init"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "anyhow",
+ "cid",
+ "fvm_shared",
+ "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_market"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "ahash 0.7.6",
+ "anyhow",
+ "cid",
+ "fvm_bitfield",
+ "fvm_shared",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_miner"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "anyhow",
+ "byteorder 1.4.3",
+ "cid",
+ "fvm_bitfield",
+ "fvm_shared",
+ "ipld_amt 1.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
+ "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
+ "itertools 0.10.3",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_multisig"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "anyhow",
+ "cid",
+ "fvm_shared",
+ "indexmap",
+ "integer-encoding 3.0.2",
+ "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_paych"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "anyhow",
+ "cid",
+ "fvm_shared",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_power"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "anyhow",
+ "cid",
+ "fvm_shared",
+ "indexmap",
+ "integer-encoding 3.0.2",
+ "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_reward"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "fvm_shared",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_system"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "fvm_shared",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_actor_verifreg"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "actors-runtime",
+ "anyhow",
+ "cid",
+ "fvm_shared",
+ "lazy_static",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "wasm-builder",
+]
+
+[[package]]
+name = "fvm_bitfield"
+version = "0.1.0"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
+dependencies = [
+ "cs_serde_bytes",
+ "fvm_shared",
+ "serde",
+ "unsigned-varint 0.7.1",
+]
+
+[[package]]
 name = "fvm_shared"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/#20b6d989cb7eff757834fee2cb1ff90161bc80e8"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
 dependencies = [
  "anyhow",
  "blake2b_simd 1.0.0",
@@ -3281,8 +3541,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "418d37c8b1d42553c93648be529cb70f920d3baf8ef469b74b9638df426e0b4c"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.10.2+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3775,8 +4037,9 @@ dependencies = [
 [[package]]
 name = "ipld_amt"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/#20b6d989cb7eff757834fee2cb1ff90161bc80e8"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
 dependencies = [
+ "ahash 0.7.6",
  "anyhow",
  "cid",
  "fvm_shared",
@@ -3886,7 +4149,7 @@ dependencies = [
 [[package]]
 name = "ipld_hamt"
 version = "2.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/#20b6d989cb7eff757834fee2cb1ff90161bc80e8"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#0c37be35c50394928e7a1f14f8a10ce1510404b3"
 dependencies = [
  "anyhow",
  "byteorder 1.4.3",
@@ -6724,6 +6987,15 @@ dependencies = [
 
 [[package]]
 name = "semver"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a3186ec9e65071a2095434b1f5bb24838d4e8e130f584c790f6033c79943537"
+dependencies = [
+ "semver-parser 0.7.0",
+]
+
+[[package]]
+name = "semver"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
@@ -6738,6 +7010,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
 dependencies = [
  "semver-parser 0.10.2",
+ "serde",
 ]
 
 [[package]]
@@ -7726,6 +7999,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "tetsy-wasm"
+version = "0.31.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b81b7e96075dbfa8cdf459944c7855da2dc355455253968827508d8c83122744"
+dependencies = [
+ "byteorder 1.4.3",
+]
+
+[[package]]
+name = "tetsy-wasm-gc-api"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98674c69903796c2bfd2c7a62abd4943c92560dcc694c8303ac594778462c7c5"
+dependencies = [
+ "log",
+ "rustc-demangle",
+ "tetsy-wasm",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8349,6 +8642,22 @@ name = "wasm-bindgen-shared"
 version = "0.2.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d958d035c4438e28c70e4321a2911302f10135ce78a9c7834c0cab4123d06a2"
+
+[[package]]
+name = "wasm-builder"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a64b17e90c3202fa53c5f728fd812ea1b04fa41f45cfdf329b482852c81218cd"
+dependencies = [
+ "ansi_term 0.12.1",
+ "atty",
+ "build-helper",
+ "cargo_metadata",
+ "tempfile",
+ "tetsy-wasm-gc-api",
+ "toml",
+ "walkdir",
+]
 
 [[package]]
 name = "wasm-timer"
