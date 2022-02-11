@@ -2379,7 +2379,7 @@ dependencies = [
  "merkletree",
  "once_cell",
  "rand 0.8.4",
- "rand_xorshift 0.3.0",
+ "rand_xorshift",
  "rayon",
  "serde",
  "serde_json",
@@ -2475,7 +2475,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "actor_interface",
  "async-log",
@@ -2763,27 +2763,27 @@ dependencies = [
 name = "forest_bigint"
 version = "0.1.4"
 dependencies = [
- "cs_serde_bytes",
- "cs_serde_cbor",
  "num-bigint 0.4.3",
  "num-integer",
  "serde",
+ "serde_bytes",
+ "serde_cbor",
 ]
 
 [[package]]
 name = "forest_bitfield"
 version = "0.1.0"
 dependencies = [
- "ahash 0.6.3",
+ "ahash 0.7.6",
  "criterion",
- "cs_serde_bytes",
- "cs_serde_cbor",
  "forest_encoding",
- "rand 0.7.3",
- "rand_xorshift 0.2.0",
+ "rand 0.8.4",
+ "rand_xorshift",
  "serde",
+ "serde_bytes",
+ "serde_cbor",
  "serde_json",
- "unsigned-varint 0.6.0",
+ "unsigned-varint 0.7.1",
 ]
 
 [[package]]
@@ -2836,8 +2836,6 @@ name = "forest_cid"
 version = "0.3.0"
 dependencies = [
  "cid",
- "cs_serde_bytes",
- "cs_serde_cbor",
  "forest_json_utils",
  "fvm_shared",
  "generic-array 0.14.5",
@@ -2845,6 +2843,8 @@ dependencies = [
  "multibase 0.9.1",
  "multihash 0.15.0",
  "serde",
+ "serde_bytes",
+ "serde_cbor",
  "serde_json",
 ]
 
@@ -2882,12 +2882,12 @@ dependencies = [
 name = "forest_encoding"
 version = "0.2.2"
 dependencies = [
- "blake2b_simd 0.5.11",
- "cs_serde_bytes",
- "cs_serde_cbor",
+ "blake2b_simd 1.0.0",
  "forest_cid",
  "fvm_shared",
  "serde",
+ "serde_bytes",
+ "serde_cbor",
  "serde_repr",
  "serde_tuple",
  "thiserror",
@@ -2897,8 +2897,8 @@ dependencies = [
 name = "forest_hash_utils"
 version = "0.1.0"
 dependencies = [
- "cs_serde_bytes",
  "serde",
+ "serde_bytes",
 ]
 
 [[package]]
@@ -3638,7 +3638,7 @@ dependencies = [
  "ff",
  "rand 0.8.4",
  "rand_core 0.6.3",
- "rand_xorshift 0.3.0",
+ "rand_xorshift",
  "subtle",
 ]
 
@@ -4111,7 +4111,6 @@ version = "2.0.0"
 dependencies = [
  "byteorder 1.4.3",
  "criterion",
- "cs_serde_bytes",
  "forest_cid",
  "forest_db",
  "forest_encoding",
@@ -4121,9 +4120,10 @@ dependencies = [
  "ipld_blockstore",
  "once_cell",
  "serde",
- "sha2 0.9.9",
+ "serde_bytes",
+ "sha2 0.10.1",
  "thiserror",
- "unsigned-varint 0.6.0",
+ "unsigned-varint 0.7.1",
 ]
 
 [[package]]
@@ -6541,15 +6541,6 @@ dependencies = [
 
 [[package]]
 name = "rand_xorshift"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d416b86801d23dde1aa643023b775c3a462efc0ed96443add11546cdf1dca8"
-dependencies = [
- "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_xorshift"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
@@ -7051,6 +7042,15 @@ checksum = "18b20e7752957bbe9661cff4e0bb04d183d0948cdab2ea58cdb9df36a61dfe62"
 dependencies = [
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16ae07dd2f88a366f15bd0632ba725227018c69a1c8550a927324f8eb8368bb9"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
