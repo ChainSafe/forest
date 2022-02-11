@@ -745,7 +745,11 @@ where
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         use fvm::executor::Executor;
-        let raw_length = msg.marshal_cbor().expect("encoding error").len();
+        let mut raw_length = msg.marshal_cbor().expect("encoding error").len();
+        if msg.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
+            // 65 bytes signature + 1 byte type + 3 bytes for field info.
+            raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
+        }
         self.fvm_executor
             .execute_message(msg.into(), fvm::executor::ApplyKind::Explicit, raw_length)
             .expect("FIXME: execution failed")
