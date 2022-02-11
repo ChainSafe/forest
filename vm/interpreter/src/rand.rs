@@ -5,7 +5,7 @@
 // use crypto::DomainSeparationTag;
 // use std::error::Error;
 
-pub use fvm::externs::{Rand};
+pub use fvm::externs::Rand;
 
 // /// Randomness provider trait
 // pub trait Rand {

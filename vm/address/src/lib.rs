@@ -50,9 +50,6 @@ const UNDEF_ADDR_STRING: &str = "<empty>";
 // TODO pull network from config (probably)
 pub static NETWORK_DEFAULT: OnceCell<Network> = OnceCell::new();
 
-
-
-
 #[cfg(test)]
 mod tests {
     // Test cases for FOR-02: https://github.com/ChainSafe/forest/issues/1134

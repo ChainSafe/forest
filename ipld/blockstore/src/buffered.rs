@@ -11,8 +11,8 @@ use db::{Error, Store};
 
 use std::error::Error as StdError;
 use std::io::{Read, Seek};
-use std::{convert::TryFrom, io::Cursor};
 use std::sync::Arc;
+use std::{convert::TryFrom, io::Cursor};
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.

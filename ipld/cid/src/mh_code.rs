@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use multihash::{derive::Multihash};
+use multihash::derive::Multihash;
 
 /// Multihash code for Poseidon BLS replica commitments.
 pub const POSEIDON_BLS12_381_A1_FC1: u64 = 0xb401;

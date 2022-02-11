@@ -108,7 +108,7 @@ pub struct FvmStore<T> {
 
 impl<T> FvmStore<T> {
     pub fn new(bs: Arc<T>) -> Self {
-        FvmStore{ bs }
+        FvmStore { bs }
     }
 }
 
@@ -116,7 +116,7 @@ impl<T: BlockStore> Blockstore for FvmStore<T> {
     fn get(&self, cid: &cid_orig::Cid) -> anyhow::Result<std::option::Option<Vec<u8>>> {
         match self.bs.get_bytes(&cid.clone().into()) {
             Ok(vs) => Ok(vs),
-            Err(_err) => Err(anyhow::Error::msg("Fix FVM error handling"))
+            Err(_err) => Err(anyhow::Error::msg("Fix FVM error handling")),
         }
     }
     fn put_keyed(&self, cid: &cid_orig::Cid, bytes: &[u8]) -> Result<(), anyhow::Error> {

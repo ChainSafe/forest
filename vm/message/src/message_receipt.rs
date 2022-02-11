@@ -4,8 +4,8 @@
 use encoding::tuple::*;
 use vm::{ExitCode, Serialized};
 
-use fvm_shared::receipt::Receipt;
 use fvm_shared::encoding::RawBytes;
+use fvm_shared::receipt::Receipt;
 
 pub type MessageReceipt = Receipt;
 /// Result of a state transition from a message

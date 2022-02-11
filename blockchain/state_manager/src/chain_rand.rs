@@ -33,7 +33,6 @@ impl<DB> Clone for ChainRand<DB> {
     }
 }
 
-
 impl<DB> ChainRand<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -242,7 +241,8 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        task::block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy)).map_err(|_| anyhow::Error::msg("FIXME: FVM Error Handling"))
+        task::block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
+            .map_err(|_| anyhow::Error::msg("FIXME: FVM Error Handling"))
     }
 
     // fn get_beacon_randomness_v2(
@@ -260,7 +260,8 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        task::block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy)).map_err(|_| anyhow::Error::msg("FIXME: FVM Error Handling"))
+        task::block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
+            .map_err(|_| anyhow::Error::msg("FIXME: FVM Error Handling"))
     }
 }
 

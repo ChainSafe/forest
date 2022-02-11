@@ -5,8 +5,8 @@ use super::*;
 use db::MemoryDB;
 use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use state_tree::StateTree;
-use vm::TokenAmount;
 use std::sync::Arc;
+use vm::TokenAmount;
 
 #[derive(Debug, Deserialize)]
 pub struct MessageVector {

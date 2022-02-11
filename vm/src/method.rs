@@ -15,7 +15,6 @@ pub const METHOD_SEND: MethodNum = 0;
 /// Base actor constructor method.
 pub const METHOD_CONSTRUCTOR: MethodNum = 1;
 
-
 pub type Serialized = RawBytes;
 
 // /// Serialized bytes to be used as parameters into actor methods.

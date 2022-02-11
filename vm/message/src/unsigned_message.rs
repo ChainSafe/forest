@@ -63,7 +63,8 @@ pub struct UnsignedMessage {
 
 impl From<&UnsignedMessage> for fvm_shared::message::Message {
     fn from(msg: &UnsignedMessage) -> Self {
-        let UnsignedMessage{version,
+        let UnsignedMessage {
+            version,
             from,
             to,
             sequence,
@@ -72,7 +73,8 @@ impl From<&UnsignedMessage> for fvm_shared::message::Message {
             params,
             gas_limit,
             gas_fee_cap,
-            gas_premium,} = msg.clone();
+            gas_premium,
+        } = msg.clone();
         fvm_shared::message::Message {
             version,
             from: from.into(),

@@ -115,16 +115,16 @@ impl Consensus for ForestExterns {
 }
 
 use fvm::machine::{Machine, MachineContext};
-use fvm::Config;
 use fvm::state_tree::ActorState;
+use fvm::Config;
 
 pub struct ForestMachine<DB: 'static> {
-    machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns>
+    machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns>,
 }
 
-impl<DB: BlockStore> Machine for ForestMachine<DB>
-{
-    type Blockstore = <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> as Machine>::Blockstore;
+impl<DB: BlockStore> Machine for ForestMachine<DB> {
+    type Blockstore =
+        <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> as Machine>::Blockstore;
     type Externs = ForestExterns;
 
     fn engine(&self) -> &wasmtime::Engine {
@@ -155,7 +155,11 @@ impl<DB: BlockStore> Machine for ForestMachine<DB>
         self.machine.state_tree_mut()
     }
 
-    fn create_actor(&mut self, addr: &fvm_shared::address::Address, act: ActorState) -> fvm::kernel::Result<ActorID> {
+    fn create_actor(
+        &mut self,
+        addr: &fvm_shared::address::Address,
+        act: ActorState,
+    ) -> fvm::kernel::Result<ActorID> {
         self.machine.create_actor(addr, act)
     }
 
@@ -163,7 +167,12 @@ impl<DB: BlockStore> Machine for ForestMachine<DB>
         self.machine.load_module(code)
     }
 
-    fn transfer(&mut self, from: ActorID, to: ActorID, value: &TokenAmount) -> fvm::kernel::Result<()> {
+    fn transfer(
+        &mut self,
+        from: ActorID,
+        to: ActorID,
+        value: &TokenAmount,
+    ) -> fvm::kernel::Result<()> {
         self.machine.transfer(from, to, value)
     }
 
@@ -176,18 +185,19 @@ impl<DB: BlockStore> Machine for ForestMachine<DB>
     }
 }
 
-pub struct ForestKernel<DB: BlockStore + 'static>(fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>);
+pub struct ForestKernel<DB: BlockStore + 'static>(
+    fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
+);
 
-use fvm_shared::{ActorID, MethodNum};
-use fvm_shared::sector::*;
-use fvm_shared::piece::PieceInfo;
-use fvm_shared::crypto::signature::Signature;
-use fvm::kernel::{BlockId, BlockStat};
 use fvm::call_manager::*;
+use fvm::kernel::{BlockId, BlockStat};
+use fvm_shared::crypto::signature::Signature;
+use fvm_shared::piece::PieceInfo;
 use fvm_shared::randomness::RANDOMNESS_LENGTH;
+use fvm_shared::sector::*;
+use fvm_shared::{ActorID, MethodNum};
 
-impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
     type CallManager = fvm::call_manager::DefaultCallManager<ForestMachine<DB>>;
 
     fn take(self) -> Self::CallManager
@@ -207,18 +217,27 @@ impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB>
     where
         Self: Sized,
     {
-        ForestKernel(
-            fvm::DefaultKernel::new(mgr, from, to, method, value_received),
-        )
+        ForestKernel(fvm::DefaultKernel::new(
+            mgr,
+            from,
+            to,
+            method,
+            value_received,
+        ))
     }
 }
-impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB>
-{
-    fn resolve_address(&self, address: &fvm_shared::address::Address) -> fvm::kernel::Result<Option<ActorID>> {
+impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
+    fn resolve_address(
+        &self,
+        address: &fvm_shared::address::Address,
+    ) -> fvm::kernel::Result<Option<ActorID>> {
         self.0.resolve_address(address)
     }
 
-    fn get_actor_code_cid(&self, addr: &fvm_shared::address::Address) -> fvm::kernel::Result<Option<cid_orig::Cid>> {
+    fn get_actor_code_cid(
+        &self,
+        addr: &fvm_shared::address::Address,
+    ) -> fvm::kernel::Result<Option<cid_orig::Cid>> {
         self.0.get_actor_code_cid(addr)
     }
 
@@ -226,12 +245,15 @@ impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB>
         self.0.new_actor_address()
     }
 
-    fn create_actor(&mut self, code_id: cid_orig::Cid, actor_id: ActorID) -> fvm::kernel::Result<()> {
+    fn create_actor(
+        &mut self,
+        code_id: cid_orig::Cid,
+        actor_id: ActorID,
+    ) -> fvm::kernel::Result<()> {
         self.0.create_actor(code_id, actor_id)
     }
 }
-impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB> {
     fn block_open(&mut self, cid: &cid_orig::Cid) -> fvm::kernel::Result<(BlockId, BlockStat)> {
         self.0.block_open(cid)
     }
@@ -240,7 +262,12 @@ impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB>
         self.0.block_create(codec, data)
     }
 
-    fn block_link(&mut self, id: BlockId, hash_fun: u64, hash_len: u32) -> fvm::kernel::Result<cid_orig::Cid> {
+    fn block_link(
+        &mut self,
+        id: BlockId,
+        hash_fun: u64,
+        hash_len: u32,
+    ) -> fvm::kernel::Result<cid_orig::Cid> {
         self.0.block_link(id, hash_fun, hash_len)
     }
 
@@ -256,17 +283,14 @@ impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB>
         self.0.block_get(id)
     }
 }
-impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB>
-where
-{
+impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
     // Not forwarded. Circulating supply is taken from the TestData.
     fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
         todo!()
         // Ok(self.1.circ_supply.clone())
     }
 }
-impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     // forwarded
     fn hash_blake2b(&mut self, data: &[u8]) -> fvm::kernel::Result<[u8; 32]> {
         self.0.hash_blake2b(data)
@@ -327,15 +351,17 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB>
     }
 
     // NOT forwarded
-    fn verify_aggregate_seals(&mut self, agg: &AggregateSealVerifyProofAndInfos) -> fvm::kernel::Result<bool> {
+    fn verify_aggregate_seals(
+        &mut self,
+        agg: &AggregateSealVerifyProofAndInfos,
+    ) -> fvm::kernel::Result<bool> {
         todo!()
         // let charge = self.1.price_list.on_verify_aggregate_seals(agg);
         // self.0.charge_gas(charge.name, charge.total())?;
         // Ok(true)
     }
 }
-impl<DB: BlockStore> fvm::kernel::DebugOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::DebugOps for ForestKernel<DB> {
     fn log(&self, msg: String) {
         self.0.log(msg)
     }
@@ -344,14 +370,12 @@ impl<DB: BlockStore> fvm::kernel::DebugOps for ForestKernel<DB>
         self.0.debug_enabled()
     }
 }
-impl<DB: BlockStore> fvm::kernel::GasOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::GasOps for ForestKernel<DB> {
     fn charge_gas(&mut self, name: &str, compute: i64) -> fvm::kernel::Result<()> {
         self.0.charge_gas(name, compute)
     }
 }
-impl<DB: BlockStore> fvm::kernel::MessageOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::MessageOps for ForestKernel<DB> {
     fn msg_caller(&self) -> ActorID {
         self.0.msg_caller()
     }
@@ -368,8 +392,7 @@ impl<DB: BlockStore> fvm::kernel::MessageOps for ForestKernel<DB>
         self.0.msg_value_received()
     }
 }
-impl<DB: BlockStore> fvm::kernel::NetworkOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::NetworkOps for ForestKernel<DB> {
     fn network_epoch(&self) -> ChainEpoch {
         self.0.network_epoch()
     }
@@ -382,8 +405,7 @@ impl<DB: BlockStore> fvm::kernel::NetworkOps for ForestKernel<DB>
         self.0.network_base_fee()
     }
 }
-impl<DB: BlockStore> fvm::kernel::RandomnessOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::RandomnessOps for ForestKernel<DB> {
     fn get_randomness_from_tickets(
         &self,
         personalization: DomainSeparationTag,
@@ -404,8 +426,7 @@ impl<DB: BlockStore> fvm::kernel::RandomnessOps for ForestKernel<DB>
             .get_randomness_from_beacon(personalization, rand_epoch, entropy)
     }
 }
-impl<DB: BlockStore> fvm::kernel::SelfOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::SelfOps for ForestKernel<DB> {
     fn root(&self) -> fvm::kernel::Result<cid_orig::Cid> {
         self.0.root()
     }
@@ -418,12 +439,14 @@ impl<DB: BlockStore> fvm::kernel::SelfOps for ForestKernel<DB>
         self.0.current_balance()
     }
 
-    fn self_destruct(&mut self, beneficiary: &fvm_shared::address::Address) -> fvm::kernel::Result<()> {
+    fn self_destruct(
+        &mut self,
+        beneficiary: &fvm_shared::address::Address,
+    ) -> fvm::kernel::Result<()> {
         self.0.self_destruct(beneficiary)
     }
 }
-impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB>
-{
+impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB> {
     fn send(
         &mut self,
         recipient: &fvm_shared::address::Address,
@@ -434,7 +457,6 @@ impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB>
         self.0.send(recipient, method, params, value)
     }
 }
-
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
@@ -490,7 +512,8 @@ where
                 ForestExterns::new(rand.clone()),
             )
             .unwrap();
-        let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> = fvm::executor::DefaultExecutor::new(ForestMachine{ machine: fvm });
+        let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
+            fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
         Ok(VM {
             network_version_getter: Box::new(network_version_getter),
             state,
@@ -521,7 +544,11 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> Result<Cid, Box<dyn StdError>> {
-        Ok(self.fvm_executor.flush().expect("FIXME: FVM error handling").into())
+        Ok(self
+            .fvm_executor
+            .flush()
+            .expect("FIXME: FVM error handling")
+            .into())
         // self.state.flush()
     }
 
@@ -561,7 +588,11 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(&(cron_msg.cid()?.into()), &ChainMessage::Unsigned(cron_msg), &ret)?;
+            callback(
+                &(cron_msg.cid()?.into()),
+                &ChainMessage::Unsigned(cron_msg),
+                &ret,
+            )?;
         }
         Ok(())
     }
@@ -697,7 +728,11 @@ where
             }
 
             if let Some(callback) = &mut callback {
-                callback(&(rew_msg.cid()?.into()), &ChainMessage::Unsigned(rew_msg), &ret)?;
+                callback(
+                    &(rew_msg.cid()?.into()),
+                    &ChainMessage::Unsigned(rew_msg),
+                    &ret,
+                )?;
             }
         }
 
@@ -711,7 +746,10 @@ where
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         use fvm::executor::Executor;
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        self.fvm_executor.execute_message(msg.into(), fvm::executor::ApplyKind::Explicit, raw_length).expect("FIXME: execution failed").into()
+        self.fvm_executor
+            .execute_message(msg.into(), fvm::executor::ApplyKind::Explicit, raw_length)
+            .expect("FIXME: execution failed")
+            .into()
     }
 
     /// Applies the state transition for a single message.
@@ -722,7 +760,11 @@ where
         use fvm::executor::Executor;
         let unsigned = msg.message();
         let raw_length = unsigned.marshal_cbor().expect("encoding error").len();
-        match self.fvm_executor.execute_message(unsigned.into(), fvm::executor::ApplyKind::Explicit, raw_length) {
+        match self.fvm_executor.execute_message(
+            unsigned.into(),
+            fvm::executor::ApplyKind::Explicit,
+            raw_length,
+        ) {
             Ok(ret) => Ok(ret.into()),
             Err(e) => Err(format!("{:?}", e)),
         }
@@ -846,9 +888,12 @@ pub struct ApplyRet {
 
 impl From<fvm::executor::ApplyRet> for ApplyRet {
     fn from(ret: fvm::executor::ApplyRet) -> Self {
-        let fvm::executor::ApplyRet{ msg_receipt,
+        let fvm::executor::ApplyRet {
+            msg_receipt,
             penalty,
-            miner_tip, ..} = ret;
+            miner_tip,
+            ..
+        } = ret;
         ApplyRet {
             msg_receipt,
             act_error: None,

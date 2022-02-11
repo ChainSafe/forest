@@ -5,9 +5,9 @@ use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
 use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
-    account, actorv0,
-    actorv2,
-    actorv3, actorv4, actorv5, actorv6::{self, ActorDowncast}, ActorVersion,
+    account, actorv0, actorv2, actorv3, actorv4, actorv5,
+    actorv6::{self, ActorDowncast},
+    ActorVersion,
 };
 use address::{Address, Protocol};
 use blocks::BlockHeader;
