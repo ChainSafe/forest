@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 /// The maximum varint that can be serialized on 9 bytes.
-const MAX_VARINT: u64 = 2u64.pow(63)-1;
+const MAX_VARINT: u64 = 2u64.pow(63) - 1;
 
 #[derive(Default, Clone, Debug)]
 /// A `BitWriter` allows for efficiently writing bits to a byte buffer, up to a byte at a time.
