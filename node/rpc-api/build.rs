@@ -84,7 +84,7 @@ fn map_lotus_type(lotus_param: &str) -> String {
         param.push('>');
     }
 
-    param = param.replace("*", "");
+    param = param.replace('*', "");
     param = param.replace("TipSet", "Tipset");
 
     // Strip namespaces
@@ -118,11 +118,11 @@ fn map_lotus_type(lotus_param: &str) -> String {
 fn compare_types(lotus: &str, forest: &str) -> bool {
     let lotus = lotus.replace("Json", "");
     let lotus = lotus.replace("Option<", "");
-    let lotus = lotus.replace(">", "");
+    let lotus = lotus.replace('>', "");
 
     let forest = forest.replace("Json", "");
     let forest = forest.replace("Option<", "");
-    let forest = forest.replace(">", "");
+    let forest = forest.replace('>', "");
 
     lotus.trim_end_matches("Json") != forest.trim_end_matches("Json")
 }
