@@ -577,30 +577,11 @@ where
     pub fn migrate_state(
         &mut self,
         epoch: ChainEpoch,
-        store: Arc<impl BlockStore + Send + Sync>,
+        _store: Arc<impl BlockStore + Send + Sync>,
     ) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
             x if x == UPGRADE_ACTORS_V4_HEIGHT => {
                 panic!("Cannot migrate state when using FVM");
-                // let start = std::time::Instant::now();
-                // log::info!("Running actors_v4 state migration");
-                // // need to flush since we run_cron before the migration
-                // let prev_state = self.flush()?;
-                // let new_state = run_nv12_migration(store, prev_state, epoch)?;
-                // if new_state != prev_state {
-                //     log::info!(
-                //         "actors_v4 state migration successful, took: {}ms",
-                //         start.elapsed().as_millis()
-                //     );
-                //     Ok(Some(new_state))
-                // } else {
-                //     return Err(format!(
-                //         "state post migration must not match. previous state: {}: new state: {}",
-                //         prev_state, new_state
-                //     )
-                //     .into());
-                //     // Ok(None)
-                // }
             }
             _ => Ok(None),
         }
