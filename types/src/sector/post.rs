@@ -3,7 +3,7 @@
 
 use crate::{ActorID, Randomness, RegisteredPoStProof, RegisteredSealProof, SectorNumber};
 use cid::Cid;
-use encoding::{serde_bytes, tuple::*};
+use encoding::{serde_byte_array, tuple::*};
 
 /// Randomness type used for generating PoSt proof randomness.
 pub type PoStRandomness = Randomness;
@@ -21,7 +21,7 @@ pub struct SectorInfo {
 #[derive(Debug, PartialEq, Clone, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct PoStProof {
     pub post_proof: RegisteredPoStProof,
-    #[serde(with = "serde_bytes")]
+    #[serde(with = "serde_byte_array")]
     pub proof_bytes: Vec<u8>,
 }
 

@@ -8,16 +8,16 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-forest_encoding = "0.2.1"
+forest_encoding = "0.2"
 serde = { version = "1.0", features = ["derive"] }
-byteorder = "1.3.2"
+byteorder = "1.3"
 cid = { package = "forest_cid", version = "0.3" }
 db = { package = "forest_db", version = "0.1" }
 ipld_blockstore = "0.1"
-forest_ipld = "0.1.1"
-serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
+forest_ipld = "0.1"
+serde_bytes = "0.11"
 thiserror = "1.0"
-sha2 = "0.9.1"
+sha2 = "0.10"
 once_cell = "1.5"
 forest_hash_utils = "0.1"
 
@@ -27,10 +27,10 @@ identity = []
 ignore-dead-links = []
 
 [dev-dependencies]
-hex = "0.4.2"
-criterion = "0.3.3"
+hex = "0.4"
+criterion = "0.3"
 ipld_blockstore = { version = "0.1", features = ["tracking"] }
-unsigned-varint = "0.6"
+unsigned-varint = "0.7"
 
 [[bench]]
 name = "hamt_beckmark"
