@@ -312,7 +312,6 @@ where
             epoch,
             rand.clone(),
             base_fee,
-            get_network_version_default,
             self.genesis_info.clone(),
         )?;
 
@@ -421,7 +420,6 @@ where
                 bheight,
                 rand.clone(),
                 0.into(),
-                get_network_version_default,
                 self.genesis_info.clone(),
             )?;
 
@@ -505,7 +503,6 @@ where
             ts.epoch() + 1,
             chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            get_network_version_default,
             self.genesis_info.clone(),
         )?;
 

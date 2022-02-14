@@ -464,7 +464,6 @@ pub struct VM<'db, DB: BlockStore + 'static, R, C, V = FullVerifier, P = Default
     rand: R,
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
-    network_version_getter: Box<dyn Fn(ChainEpoch) -> NetworkVersion>,
     circ_supply_calc: C,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     verifier: PhantomData<V>,
@@ -487,7 +486,6 @@ where
         epoch: ChainEpoch,
         rand: R,
         base_fee: BigInt,
-        network_version_getter: impl Fn(ChainEpoch) -> NetworkVersion + 'static,
         circ_supply_calc: C,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
@@ -509,7 +507,6 @@ where
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
         Ok(VM {
-            network_version_getter: Box::new(network_version_getter),
             state,
             store,
             epoch,
