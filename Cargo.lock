@@ -1050,7 +1050,6 @@ dependencies = [
  "base64 0.13.0",
  "beacon",
  "chain",
- "chrono",
  "commcid",
  "fil_clock",
  "fil_types",
@@ -1090,6 +1089,7 @@ dependencies = [
  "state_tree",
  "test_utils",
  "thiserror",
+ "time 0.3.7",
  "tokio",
 ]
 
@@ -1911,7 +1911,7 @@ dependencies = [
 name = "fil_clock"
 version = "0.1.0"
 dependencies = [
- "chrono",
+ "time 0.3.7",
 ]
 
 [[package]]
@@ -1931,7 +1931,6 @@ version = "0.2.2"
 dependencies = [
  "async-std",
  "base64 0.13.0",
- "chrono",
  "commcid",
  "fil_clock",
  "filecoin-proofs-api",
@@ -1948,6 +1947,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "time 0.3.7",
 ]
 
 [[package]]
@@ -3539,11 +3539,11 @@ dependencies = [
 
 [[package]]
 name = "jsonwebtoken"
-version = "7.2.0"
+version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afabcc15e437a6484fc4f12d0fd63068fe457bf93f1c148d3d9649c60b103f32"
+checksum = "012bb02250fdd38faa5feee63235f7a459974440b9b57593822414c31f92839e"
 dependencies = [
- "base64 0.12.3",
+ "base64 0.13.0",
  "pem",
  "ring",
  "serde",
@@ -4903,6 +4903,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_threads"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97ba99ba6393e2c3734791401b66902d981cb03bf190af674ca69949b6d5fb15"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "object"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5092,13 +5101,11 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "pem"
-version = "0.8.3"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd56cbd21fea48d0c440b41cd69c589faacade08c992d9a54e471b79d0fd13eb"
+checksum = "e9a3b09a20e374558580a4914d3b7d89bd61b954a5a5e1dcbea98753addb1947"
 dependencies = [
  "base64 0.13.0",
- "once_cell",
- "regex",
 ]
 
 [[package]]
@@ -5559,6 +5566,15 @@ name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
+
+[[package]]
+name = "quickcheck"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
+dependencies = [
+ "rand 0.8.4",
+]
 
 [[package]]
 name = "quicksink"
@@ -6420,13 +6436,14 @@ dependencies = [
 
 [[package]]
 name = "simple_asn1"
-version = "0.4.1"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "692ca13de57ce0613a363c8c2f1de925adebc81b04c923ac60c5488bb44abe4b"
+checksum = "4a762b1c38b9b990c694b9c2f8abe3372ce6a9ceaae6bca39cfc46e054f45745"
 dependencies = [
- "chrono",
- "num-bigint 0.2.6",
+ "num-bigint 0.4.3",
  "num-traits",
+ "thiserror",
+ "time 0.3.7",
 ]
 
 [[package]]
@@ -7137,9 +7154,23 @@ dependencies = [
  "libc",
  "standback",
  "stdweb",
- "time-macros",
+ "time-macros 0.1.1",
  "version_check",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "time"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "004cbc98f30fa233c61a38bc77e96a9106e65c88f2d3bef182ae952027e5753d"
+dependencies = [
+ "itoa 1.0.1",
+ "libc",
+ "num_threads",
+ "quickcheck",
+ "serde",
+ "time-macros 0.2.3",
 ]
 
 [[package]]
@@ -7151,6 +7182,12 @@ dependencies = [
  "proc-macro-hack",
  "time-macros-impl",
 ]
+
+[[package]]
+name = "time-macros"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25eb0ca3468fc0acc11828786797f6ef9aa1555e4a211a60d64cc8e4d1be47d6"
 
 [[package]]
 name = "time-macros-impl"
