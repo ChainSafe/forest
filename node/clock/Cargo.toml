@@ -8,4 +8,4 @@ edition = "2018"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-chrono = "0.4.9"
+time = "0.3"
