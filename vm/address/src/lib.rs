@@ -153,8 +153,7 @@ pub mod json {
     where
         S: Serializer,
     {
-        todo!()
-        // serializer.serialize_str(&encode(m))
+        serializer.serialize_str(&m.encode())
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Address, D::Error>
@@ -210,12 +209,11 @@ pub mod json {
         where
             S: Serializer,
         {
-            todo!()
-            // if let Some(unwrapped_address) = v.as_ref() {
-            //     serializer.serialize_str(&encode(unwrapped_address))
-            // } else {
-            //     serializer.serialize_str(UNDEF_ADDR_STRING)
-            // }
+            if let Some(unwrapped_address) = v.as_ref() {
+                serializer.serialize_str(&unwrapped_address.encode())
+            } else {
+                serializer.serialize_str(UNDEF_ADDR_STRING)
+            }
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Address>, D::Error>
