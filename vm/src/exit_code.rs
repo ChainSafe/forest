@@ -1,6 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use encoding::repr::*;
+use num_derive::FromPrimitive;
+
 pub use fvm_shared::error::ExitCode;
 
 // /// ExitCode defines the exit code from the VM execution.

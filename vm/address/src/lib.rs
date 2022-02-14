@@ -10,12 +10,21 @@ pub use self::network::Network;
 pub use self::payload::{BLSPublicKey, Payload};
 pub use self::protocol::Protocol;
 
+use data_encoding::Encoding;
 #[allow(unused_imports)]
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::blake2b_variable;
 use once_cell::sync::OnceCell;
+use serde::{de, Serialize};
+use std::str::FromStr;
 
 pub use fvm_shared::address::Address;
+
+/// defines the encoder for base32 encoding with the provided string with no padding
+const ADDRESS_ENCODER: Encoding = new_encoding! {
+    symbols: "abcdefghijklmnopqrstuvwxyz234567",
+    padding: None,
+};
 
 /// Hash length of payload for Secp and Actor addresses.
 pub const PAYLOAD_HASH_LEN: usize = 20;
@@ -28,6 +37,10 @@ pub const BLS_PUB_LEN: usize = 48;
 
 /// Length of the checksum hash for string encodings.
 pub const CHECKSUM_HASH_LEN: usize = 4;
+
+const MAX_ADDRESS_LEN: usize = 84 + 2;
+const MAINNET_PREFIX: &str = "f";
+const TESTNET_PREFIX: &str = "t";
 
 #[cfg(feature = "json")]
 const UNDEF_ADDR_STRING: &str = "<empty>";
@@ -98,6 +111,14 @@ pub fn checksum(ingest: &[u8]) -> Vec<u8> {
 pub fn validate_checksum(ingest: &[u8], expect: Vec<u8>) -> bool {
     let digest = checksum(ingest);
     digest == expect
+}
+
+/// Returns an address hash for given data
+fn address_hash(ingest: &[u8]) -> [u8; 20] {
+    let digest = blake2b_variable(ingest, PAYLOAD_HASH_LEN);
+    let mut hash = [0u8; 20];
+    hash.clone_from_slice(&digest);
+    hash
 }
 
 #[cfg(feature = "json")]
