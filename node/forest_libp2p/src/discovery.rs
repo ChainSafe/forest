@@ -14,7 +14,7 @@ use libp2p::{
     mdns::MdnsEvent,
     multiaddr::Protocol,
     swarm::{
-        toggle::{Toggle, ToggleIntoProtoHandler},
+        behaviour::toggle::{Toggle, ToggleIntoProtoHandler},
         IntoProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
         ProtocolsHandler,
     },
