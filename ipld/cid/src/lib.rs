@@ -15,7 +15,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 #[cfg(feature = "cbor")]
-use serde::{de, ser};
+use serde::{de, ser, Deserialize};
 #[cfg(feature = "cbor")]
 use serde_cbor::tags::Tagged;
 
@@ -93,6 +93,20 @@ impl Cid {
     pub fn to_bytes(self) -> Vec<u8> {
         self.0.to_bytes()
     }
+
+    #[cfg(feature = "cbor")]
+    /// Create a cid from vector but with some imposed checks
+    pub fn checked_from_vec<'de, D: de::Deserializer<'de>>(mut bz: Vec<u8>) -> Result<Self, D::Error> {
+        if bz.first() != Some(&MULTIBASE_IDENTITY) {
+            return Err(de::Error::custom(
+                "cbor serialized CIDs must have binary multibase",
+            ));
+        }
+
+        bz.remove(0);
+        Cid::try_from(bz)
+            .map_err(|e| de::Error::custom(format!("Failed to deserialize Cid: {}", e)))
+    }
 }
 
 #[cfg(feature = "cbor")]
@@ -112,7 +126,14 @@ impl ser::Serialize for Cid {
 }
 
 #[cfg(feature = "cbor")]
-impl<'de> de::Deserialize<'de> for Cid {
+pub fn deserialize_no_tag_check<'de, D: de::Deserializer<'de>>(deserializer: D) -> Result<Cid, D::Error> {
+    let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
+    let bz = tagged.value.into_vec();
+    Cid::checked_from_vec::<'de, D>(bz)
+}
+
+#[cfg(feature = "cbor")]
+impl<'de> Deserialize<'de> for Cid {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,
@@ -120,17 +141,8 @@ impl<'de> de::Deserialize<'de> for Cid {
         let tagged = Tagged::<serde_bytes::ByteBuf>::deserialize(deserializer)?;
         match tagged.tag {
             Some(CBOR_TAG_CID) => {
-                let mut bz = tagged.value.into_vec();
-
-                if bz.first() != Some(&MULTIBASE_IDENTITY) {
-                    return Err(de::Error::custom(
-                        "cbor serialized CIDs must have binary multibase",
-                    ));
-                }
-
-                bz.remove(0);
-                Ok(Cid::try_from(bz)
-                    .map_err(|e| de::Error::custom(format!("Failed to deserialize Cid: {}", e)))?)
+                let bz = tagged.value.into_vec();
+                Self::checked_from_vec::<'de, D>(bz)
             }
             _ => Err(de::Error::custom("unexpected tag")),
         }

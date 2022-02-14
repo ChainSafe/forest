@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Ipld;
-use cid::Cid;
 use encoding::tags::current_cbor_tag;
-use serde::de::{self, Deserialize};
+use serde::de;
 use std::collections::BTreeMap;
 use std::fmt;
+
 
 /// Struct used in deserialization to decode cbor encoded data (including Cid tagged)
 /// values to Ipld data type
@@ -127,8 +127,7 @@ impl<'de> de::Visitor<'de> for IpldVisitor {
     {
         match current_cbor_tag() {
             Some(42) => {
-                let cid = Cid::deserialize(deserializer)?;
-
+                let cid = cid::deserialize_no_tag_check(deserializer)?;
                 Ok(Ipld::Link(cid))
             }
             Some(tag) => Err(de::Error::custom(format!("unexpected tag ({})", tag))),
