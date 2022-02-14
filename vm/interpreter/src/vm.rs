@@ -460,7 +460,7 @@ impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB> {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, DB: BlockStore + 'static, R, C, LB, V = FullVerifier, P = DefaultNetworkParams> {
+pub struct VM<'db, DB: BlockStore + 'static, R, C, V = FullVerifier, P = DefaultNetworkParams> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
@@ -469,20 +469,18 @@ pub struct VM<'db, DB: BlockStore + 'static, R, C, LB, V = FullVerifier, P = Def
     registered_actors: HashSet<Cid>,
     network_version_getter: Box<dyn Fn(ChainEpoch) -> NetworkVersion>,
     circ_supply_calc: C,
-    lb_state: LB,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, DB, R, C, LB, V, P> VM<'db, DB, R, C, LB, V, P>
+impl<'db, DB, R, C, V, P> VM<'db, DB, R, C, V, P>
 where
     DB: BlockStore + 'static,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand + Clone + 'static,
     C: CircSupplyCalc,
-    LB: LookbackStateGetter<DB>,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -494,7 +492,6 @@ where
         base_fee: BigInt,
         network_version_getter: impl Fn(ChainEpoch) -> NetworkVersion + 'static,
         circ_supply_calc: C,
-        lb_state: LB,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -523,7 +520,6 @@ where
             base_fee,
             registered_actors,
             circ_supply_calc,
-            lb_state,
             // fvm_machine: ForestMachine{ machine: fvm },
             fvm_executor: exec,
             verifier: PhantomData,
@@ -800,83 +796,6 @@ where
 //     let new_state = migration.migrate_state_tree(store, epoch, actors_in, actors_out)?;
 //     Ok(new_state)
 // }
-
-#[derive(Clone, Default)]
-struct GasOutputs {
-    base_fee_burn: TokenAmount,
-    over_estimation_burn: TokenAmount,
-    miner_penalty: TokenAmount,
-    miner_tip: TokenAmount,
-    refund: TokenAmount,
-
-    gas_refund: i64,
-    gas_burned: i64,
-}
-
-fn compute_gas_outputs(
-    gas_used: i64,
-    gas_limit: i64,
-    base_fee: &TokenAmount,
-    fee_cap: &TokenAmount,
-    gas_premium: TokenAmount,
-    charge_network_fee: bool,
-) -> GasOutputs {
-    let mut base_fee_to_pay = base_fee;
-    let mut out = GasOutputs::default();
-
-    if base_fee > fee_cap {
-        base_fee_to_pay = fee_cap;
-        out.miner_penalty = (base_fee - fee_cap) * gas_used
-    }
-
-    // If charge network fee is disabled just skip computing the base fee burn.
-    // This is part of the temporary fix with Claus fork.
-    if charge_network_fee {
-        out.base_fee_burn = base_fee_to_pay * gas_used;
-    }
-
-    let mut miner_tip = gas_premium;
-    if &(base_fee_to_pay + &miner_tip) > fee_cap {
-        miner_tip = fee_cap - base_fee_to_pay;
-    }
-    out.miner_tip = &miner_tip * gas_limit;
-
-    let (out_gas_refund, out_gas_burned) = compute_gas_overestimation_burn(gas_used, gas_limit);
-    out.gas_refund = out_gas_refund;
-    out.gas_burned = out_gas_burned;
-
-    if out.gas_burned != 0 {
-        out.over_estimation_burn = base_fee_to_pay * out.gas_burned;
-        out.miner_penalty += (base_fee - base_fee_to_pay) * out.gas_burned;
-    }
-    let required_funds = fee_cap * gas_limit;
-    let refund = required_funds - &out.base_fee_burn - &out.miner_tip - &out.over_estimation_burn;
-    out.refund = refund;
-
-    out
-}
-
-fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {
-    if gas_used == 0 {
-        return (0, gas_limit);
-    }
-
-    let mut over = gas_limit - (GAS_OVERUSE_NUM * gas_used) / GAS_OVERUSE_DENOM;
-    if over < 0 {
-        return (gas_limit - gas_used, 0);
-    }
-
-    if over > gas_used {
-        over = gas_used;
-    }
-
-    let mut gas_to_burn: BigInt = (gas_limit - gas_used).into();
-    gas_to_burn *= over;
-    gas_to_burn /= gas_used;
-
-    let gas_to_burn = i64::try_from(gas_to_burn).unwrap();
-    (gas_limit - gas_used - gas_to_burn, gas_to_burn)
-}
 
 /// Apply message return data.
 #[derive(Clone, Debug)]

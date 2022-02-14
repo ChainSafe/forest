@@ -305,14 +305,8 @@ where
         let db = self.blockstore_cloned();
         let mut buf_store = Arc::new(BufferedBlockStore::new(db));
         let store = buf_store.as_ref();
-        let lb_wrapper = SMLookbackWrapper {
-            sm: self.clone(),
-            store: buf_store.clone(),
-            tipset: tipset.clone(),
-            verifier: PhantomData::<V>::default(),
-        };
 
-        let mut vm = VM::<_, _, _, _, V>::new(
+        let mut vm = VM::<_, _, _, V>::new(
             p_state,
             store,
             buf_store.clone(),
@@ -321,7 +315,6 @@ where
             base_fee,
             get_network_version_default,
             self.genesis_info.clone(),
-            lb_wrapper,
         )?;
 
         // Apply tipset messages
@@ -422,13 +415,7 @@ where
             let block_store = self.blockstore_cloned();
 
             let buf_store = Arc::new(BufferedBlockStore::new(block_store));
-            let lb_wrapper = SMLookbackWrapper {
-                sm: self.clone(),
-                store: buf_store.clone(),
-                tipset: tipset.clone(),
-                verifier: PhantomData::<V>::default(),
-            };
-            let mut vm = VM::<_, _, _, _, V>::new(
+            let mut vm = VM::<_, _, _, V>::new(
                 bstate,
                 buf_store.as_ref(),
                 buf_store.clone(),
@@ -437,7 +424,6 @@ where
                 0.into(),
                 get_network_version_default,
                 self.genesis_info.clone(),
-                lb_wrapper,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -513,15 +499,7 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
 
-        // TODO investigate: this doesn't use a buffered store in any way, and can lead to
-        // state bloat potentially?
-        let lb_wrapper = SMLookbackWrapper {
-            sm: self.clone(),
-            store: self.blockstore_cloned(),
-            tipset: ts.clone(),
-            verifier: PhantomData::<V>::default(),
-        };
-        let mut vm = VM::<_, _, _, _, V>::new(
+        let mut vm = VM::<_, _, _, V>::new(
             &st,
             self.blockstore(),
             self.blockstore_cloned(),
@@ -530,7 +508,6 @@ where
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
             self.genesis_info.clone(),
-            lb_wrapper,
         )?;
 
         for msg in prior_messages {
