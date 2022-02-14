@@ -95,15 +95,6 @@ pub fn execute_tipset(
             applied_results.push(ret.clone());
             Ok(())
         }),
-        // * Lotus runner has a nil tipset here, if any vectors fail, check here first.
-        // * It technically shouldn't fail unless they update because they would get a nil deref
-        &Arc::new(
-            Tipset::new(vec![BlockHeader::builder()
-                .miner_address(Address::new_id(1000))
-                .build()
-                .unwrap()])
-            .unwrap(),
-        ),
     )?;
     Ok(ExecuteTipsetResult {
         receipts_root,

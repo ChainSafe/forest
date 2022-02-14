@@ -50,19 +50,16 @@ pub fn execute_message(
     params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let circ_supply = MockCircSupply(params.circ_supply);
-    let lb = MockStateLB();
 
     let nv = params.nv;
-    let mut vm = VM::<_, _, _, _>::new(
+    let mut vm = VM::<_, fil_types::verifier::FullVerifier, fil_types::DefaultNetworkParams>::new(
         params.pre_root,
         bs.as_ref(),
         bs.clone(),
         params.epoch,
         params.randomness,
         params.basefee,
-        move |_| nv,
         circ_supply,
-        lb,
     )?;
 
     if let Some(s) = &selector {
