@@ -70,7 +70,8 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly-2021-12-14
+          target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
@@ -90,7 +91,8 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly-2021-12-14
+          target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
@@ -128,7 +130,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        rv: [1.57.0, stable]
+        #rv: [1.57.0, stable]
+        rv: [nightly-2021-12-14]
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
@@ -149,6 +152,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rv }}
+          target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
