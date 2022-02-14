@@ -6,11 +6,11 @@ mod prefix;
 mod to_cid;
 
 pub use self::mh_code::{Code, POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
-use multihash::Multihash;
 pub use self::prefix::Prefix;
 use cid::CidGeneric;
 pub use cid::{Error, Version};
 pub use multihash;
+use multihash::Multihash;
 use multihash::MultihashDigest;
 use std::convert::TryFrom;
 use std::fmt;

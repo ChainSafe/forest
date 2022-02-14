@@ -13,12 +13,10 @@ pub use self::protocol::Protocol;
 use data_encoding::Encoding;
 #[allow(unused_imports)]
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::{blake2b_variable, serde_bytes, Cbor};
+use encoding::blake2b_variable;
 use once_cell::sync::OnceCell;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use std::hash::Hash;
+use serde::{de, Serialize};
 use std::str::FromStr;
-use std::{borrow::Cow, fmt};
 
 pub use fvm_shared::address::Address;
 
