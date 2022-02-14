@@ -1,10 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{de, from_slice, ser, serde_bytes, to_vec, Cbor, Error as EncodingError};
-use serde::{Deserialize, Serialize};
-use std::ops::Deref;
-
 use fvm_shared::encoding::RawBytes;
 
 /// Method number indicator for calling actor methods.
