@@ -166,9 +166,12 @@ impl Chains {
 
     /// Removes messages from the given index and resets effective perfs
     pub(crate) fn trim_msgs_at(&mut self, idx: usize, gas_limit: i64, base_fee: &BigInt) {
-        let prev = self
-            .get_at(if idx == 0 { return } else { idx - 1 })
-            .map(|prev| (prev.eff_perf, prev.gas_limit));
+        let prev = match idx {
+            0 => None,
+            _ => self
+                .get_at(idx - 1)
+                .map(|prev| (prev.eff_perf, prev.gas_limit)),
+        };
         let chain_node = self.get_mut_at(idx).unwrap();
         let mut i = chain_node.msgs.len() as i64 - 1;
 

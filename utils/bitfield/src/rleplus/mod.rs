@@ -375,7 +375,7 @@ mod tests {
         let mut rng = XorShiftRng::seed_from_u64(1);
 
         for _i in 0..1000 {
-            let len: usize = rng.gen_range(0, 1000);
+            let len: usize = rng.gen_range(0..1000);
             let bits: Vec<_> = (0..len).filter(|_| rng.gen::<bool>()).collect();
 
             let ranges: Vec<_> = ranges_from_bits(bits.clone()).collect();

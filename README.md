@@ -134,7 +134,7 @@ _Work in progress_.
 - https://chainsafe.github.io/forest/
 
 ## Contributing
-- Check out our contribution guidelines: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Check out our contribution guidelines: [CONTRIBUTING.md](documentation/developer_documentation/CONTRIBUTING.md)
 - Have questions? Say _hi_ on [Discord](https://discord.gg/Q6A3YA2)!
 
 ## ChainSafe Security Policy
