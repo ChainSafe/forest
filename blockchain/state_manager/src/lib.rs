@@ -305,7 +305,7 @@ where
         let mut buf_store = Arc::new(BufferedBlockStore::new(db));
         let store = buf_store.as_ref();
 
-        let mut vm = VM::<_, _, _, V>::new(
+        let mut vm = VM::<_, V>::new(
             p_state,
             store,
             buf_store.clone(),
@@ -413,7 +413,7 @@ where
             let block_store = self.blockstore_cloned();
 
             let buf_store = Arc::new(BufferedBlockStore::new(block_store));
-            let mut vm = VM::<_, _, _, V>::new(
+            let mut vm = VM::<_, V>::new(
                 bstate,
                 buf_store.as_ref(),
                 buf_store.clone(),
@@ -496,7 +496,7 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
 
-        let mut vm = VM::<_, _, _, V>::new(
+        let mut vm = VM::<_, V>::new(
             &st,
             self.blockstore(),
             self.blockstore_cloned(),
