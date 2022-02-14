@@ -1,3 +1,27 @@
+## Forest v0.2.1 _alpha_ (2022-02-14)
+
+Forest v0.2.1 alpha is a service release improving performance and stability.
+
+All changes:
+* Ci: fix documentation in release workflow by @q9f in [#1427](https://github.com/ChainSafe/forest/pull/1427)
+* Feat(encoding): add max length check for bytes by @clearloop in [#1399](https://github.com/ChainSafe/forest/pull/1399)
+* Add assert in debug mode and tests by @elmattic in [#1416](https://github.com/ChainSafe/forest/pull/1416)
+* Add shellcheck to CI by @LesnyRumcajs in [#1423](https://github.com/ChainSafe/forest/pull/1423)
+* Fail CI on failed fmt or other linting file changes by @LesnyRumcajs in [#1422](https://github.com/ChainSafe/forest/pull/1422)
+* Crates: replace monkey-patched cs_* crates by upstream deps by @q9f in [#1414](https://github.com/ChainSafe/forest/pull/1414)
+* Add LesnyRumcajs to CODEOWNERS by @LesnyRumcajs in [#1425](https://github.com/ChainSafe/forest/pull/1425)
+* Ci: temporarily ignore RUSTSEC-2022-0009 by @q9f in [#1424](https://github.com/ChainSafe/forest/pull/1424)
+* Vm/actor: remove unused fields in paych actor tests by @q9f in [#1415](https://github.com/ChainSafe/forest/pull/1415)
+* Forest: bump version to 0.2.1 by @q9f in [#1417](https://github.com/ChainSafe/forest/pull/1417)
+* Fix exit code mismatch by @noot in [#1412](https://github.com/ChainSafe/forest/pull/1412)
+* Improve snapshot parsing performance by ~2.5x by @lemmih in [#1408](https://github.com/ChainSafe/forest/pull/1408)
+* Update conformance test vectors (and fix test driver) by @lemmih in [#1404](https://github.com/ChainSafe/forest/pull/1404)
+* Use human readable units when loading snapshots. by @lemmih in [#1407](https://github.com/ChainSafe/forest/pull/1407)
+* Chore: bump rocksdb to 0.17 by @q9f in [#1398](https://github.com/ChainSafe/forest/pull/1398)
+* Include network in forest version string. by @lemmih in [#1401](https://github.com/ChainSafe/forest/pull/1401)
+* Fix 1369 by @willeslau in [#1397](https://github.com/ChainSafe/forest/pull/1397)
+* Move `/docs` to `/documentation` by @connormullett in [#1390](https://github.com/ChainSafe/forest/pull/1390)
+
 ## Forest v0.2.0 _alpha_ (2022-01-25)
 ChainSafe System's second _alpha_ release of the _Forest_ Filecoin Rust protocol implementation. This release fixes a series of bugs and performance issues and introduces, among others, support for:
 * Full mainnet compatibility
