@@ -1,21 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{
-    gas_tracker::{price_list_by_epoch, GasCharge},
-    DefaultRuntime, Rand,
-};
-use actor::{
-    actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
-};
-use actor::{actorv3, actorv4};
+use super::Rand;
+use actor::{actorv0::reward::AwardBlockRewardParams, cron, reward, system};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
-    DefaultNetworkParams, NetworkParams, NetworkVersion, StateTreeVersion,
+    DefaultNetworkParams, NetworkParams,
 };
 use forest_encoding::Cbor;
 use fvm;
@@ -23,18 +17,15 @@ use fvm::machine::Engine;
 use fvm_shared;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
-use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
-use num_bigint::{BigInt, Sign};
-use num_traits::Zero;
+use networks::UPGRADE_ACTORS_V4_HEIGHT;
+use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::collections::HashSet;
-use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
+use vm::{ActorError, ExitCode, Serialized, TokenAmount};
 
 /// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
@@ -316,7 +307,7 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     }
 
     // NOT forwarded
-    fn verify_seal(&mut self, vi: &SealVerifyInfo) -> fvm::kernel::Result<bool> {
+    fn verify_seal(&mut self, _vi: &SealVerifyInfo) -> fvm::kernel::Result<bool> {
         todo!()
         // let charge = self.1.price_list.on_verify_seal(vi);
         // self.0.charge_gas(charge.name, charge.total())?;
@@ -324,7 +315,7 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     }
 
     // NOT forwarded
-    fn verify_post(&mut self, vi: &WindowPoStVerifyInfo) -> fvm::kernel::Result<bool> {
+    fn verify_post(&mut self, _vi: &WindowPoStVerifyInfo) -> fvm::kernel::Result<bool> {
         todo!()
         // let charge = self.1.price_list.on_verify_post(vi);
         // self.0.charge_gas(charge.name, charge.total())?;
@@ -348,7 +339,7 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     // NOT forwarded
     fn verify_aggregate_seals(
         &mut self,
-        agg: &AggregateSealVerifyProofAndInfos,
+        _agg: &AggregateSealVerifyProofAndInfos,
     ) -> fvm::kernel::Result<bool> {
         todo!()
         // let charge = self.1.price_list.on_verify_aggregate_seals(agg);
