@@ -157,23 +157,22 @@ pub mod json {
     where
         S: Serializer,
     {
-        todo!()
-        // #[derive(Serialize)]
-        // #[serde(rename_all = "PascalCase")]
-        // struct SignedMessageSer<'a> {
-        //     #[serde(with = "unsigned_message::json")]
-        //     message: &'a UnsignedMessage,
-        //     #[serde(with = "signature::json")]
-        //     signature: &'a Signature,
-        //     #[serde(default, rename = "CID", with = "cid::json::opt")]
-        //     cid: Option<Cid>,
-        // }
-        // SignedMessageSer {
-        //     message: &m.message,
-        //     signature: &m.signature,
-        //     cid: Some(m.cid().map_err(ser::Error::custom)?),
-        // }
-        // .serialize(serializer)
+        #[derive(Serialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct SignedMessageSer<'a> {
+            #[serde(with = "unsigned_message::json")]
+            message: &'a UnsignedMessage,
+            #[serde(with = "signature::json")]
+            signature: &'a Signature,
+            #[serde(default, rename = "CID", with = "cid::json::opt")]
+            cid: Option<Cid>,
+        }
+        SignedMessageSer {
+            message: &m.message,
+            signature: &m.signature,
+            cid: Some(m.cid().map_err(ser::Error::custom)?.into()),
+        }
+        .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<SignedMessage, D::Error>
