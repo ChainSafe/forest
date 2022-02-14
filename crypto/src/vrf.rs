@@ -3,13 +3,13 @@
 
 use crate::signature::verify_bls_sig;
 use address::Address;
-use encoding::{blake2b_256, serde_bytes};
+use encoding::{blake2b_256, serde_byte_array};
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct VRFProof(#[serde(with = "serde_bytes")] pub Vec<u8>);
+pub struct VRFProof(#[serde(with = "serde_byte_array")] pub Vec<u8>);
 
 impl VRFProof {
     /// Creates a VRFProof from a raw vector.

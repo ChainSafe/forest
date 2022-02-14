@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
-use chrono::{DateTime, Duration, Utc};
 use clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
+use time::{Duration, OffsetDateTime};
 
 /// Current state of the ChainSyncer using the ChainExchange protocol.
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -83,8 +83,8 @@ pub struct SyncState {
     stage: SyncStage,
     epoch: ChainEpoch,
 
-    start: Option<DateTime<Utc>>,
-    end: Option<DateTime<Utc>>,
+    start: Option<OffsetDateTime>,
+    end: Option<OffsetDateTime>,
     message: String,
 }
 
@@ -94,7 +94,7 @@ impl SyncState {
         *self = Self {
             target: Some(target),
             base: Some(base),
-            start: Some(Utc::now()),
+            start: Some(OffsetDateTime::now_utc()),
             ..Default::default()
         }
     }
@@ -123,7 +123,7 @@ impl SyncState {
     /// Returns `None` if syncing has not started
     pub fn get_elapsed_time(&self) -> Option<Duration> {
         if let Some(start) = self.start {
-            let elapsed_time = Utc::now() - start;
+            let elapsed_time = OffsetDateTime::now_utc() - start;
             Some(elapsed_time)
         } else {
             None
@@ -133,7 +133,7 @@ impl SyncState {
     /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
         if let SyncStage::Complete = stage {
-            self.end = Some(Utc::now());
+            self.end = Some(OffsetDateTime::now_utc());
         }
         self.stage = stage;
     }
@@ -147,7 +147,7 @@ impl SyncState {
     pub fn error(&mut self, err: String) {
         self.message = err;
         self.stage = SyncStage::Error;
-        self.end = Some(Utc::now());
+        self.end = Some(OffsetDateTime::now_utc());
     }
 }
 
@@ -165,8 +165,8 @@ impl Serialize for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: &'a Option<DateTime<Utc>>,
-            end: &'a Option<DateTime<Utc>>,
+            start: &'a Option<OffsetDateTime>,
+            end: &'a Option<OffsetDateTime>,
             message: &'a str,
         }
 
@@ -200,8 +200,8 @@ impl<'de> Deserialize<'de> for SyncState {
             stage: SyncStage,
             epoch: ChainEpoch,
 
-            start: Option<DateTime<Utc>>,
-            end: Option<DateTime<Utc>>,
+            start: Option<OffsetDateTime>,
+            end: Option<OffsetDateTime>,
             message: String,
         }
 

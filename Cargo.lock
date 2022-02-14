@@ -1185,7 +1185,6 @@ dependencies = [
  "base64 0.13.0",
  "beacon",
  "chain",
- "chrono",
  "cid",
  "commcid",
  "fil_clock",
@@ -1227,6 +1226,7 @@ dependencies = [
  "state_tree",
  "test_utils",
  "thiserror",
+ "time 0.3.7",
  "tokio",
 ]
 
@@ -2291,7 +2291,7 @@ dependencies = [
 name = "fil_clock"
 version = "0.1.0"
 dependencies = [
- "chrono",
+ "time 0.3.7",
 ]
 
 [[package]]
@@ -2311,7 +2311,6 @@ version = "0.2.2"
 dependencies = [
  "async-std",
  "base64 0.13.0",
- "chrono",
  "commcid",
  "fil_clock",
  "filecoin-proofs-api",
@@ -2328,6 +2327,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "time 0.3.7",
 ]
 
 [[package]]
@@ -2475,7 +2475,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "actor_interface",
  "async-log",
@@ -5693,6 +5693,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_threads"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97ba99ba6393e2c3734791401b66902d981cb03bf190af674ca69949b6d5fb15"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "object"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8118,6 +8127,18 @@ dependencies = [
  "time-macros",
  "version_check",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "time"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "004cbc98f30fa233c61a38bc77e96a9106e65c88f2d3bef182ae952027e5753d"
+dependencies = [
+ "itoa 1.0.1",
+ "libc",
+ "num_threads",
+ "serde",
 ]
 
 [[package]]
