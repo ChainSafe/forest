@@ -281,10 +281,8 @@ impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB> {
     }
 }
 impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
-    // Not forwarded. Circulating supply is taken from the TestData.
     fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
-        todo!()
-        // Ok(self.1.circ_supply.clone())
+        self.0.total_fil_circ_supply()
     }
 }
 impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
@@ -578,34 +576,34 @@ where
     /// If there is no migration this function will return Ok(None).
     pub fn migrate_state(
         &mut self,
-        _epoch: ChainEpoch,
-        _store: Arc<impl BlockStore + Send + Sync>,
+        epoch: ChainEpoch,
+        store: Arc<impl BlockStore + Send + Sync>,
     ) -> Result<Option<Cid>, Box<dyn StdError>> {
-        panic!("Cannot migrate state when using FVM")
-        // match epoch {
-        //     x if x == UPGRADE_ACTORS_V4_HEIGHT => {
-        //         let start = std::time::Instant::now();
-        //         log::info!("Running actors_v4 state migration");
-        //         // need to flush since we run_cron before the migration
-        //         let prev_state = self.flush()?;
-        //         let new_state = run_nv12_migration(store, prev_state, epoch)?;
-        //         if new_state != prev_state {
-        //             log::info!(
-        //                 "actors_v4 state migration successful, took: {}ms",
-        //                 start.elapsed().as_millis()
-        //             );
-        //             Ok(Some(new_state))
-        //         } else {
-        //             return Err(format!(
-        //                 "state post migration must not match. previous state: {}: new state: {}",
-        //                 prev_state, new_state
-        //             )
-        //             .into());
-        //             // Ok(None)
-        //         }
-        //     }
-        //     _ => Ok(None),
-        // }
+        match epoch {
+            x if x == UPGRADE_ACTORS_V4_HEIGHT => {
+                panic!("Cannot migrate state when using FVM");
+                // let start = std::time::Instant::now();
+                // log::info!("Running actors_v4 state migration");
+                // // need to flush since we run_cron before the migration
+                // let prev_state = self.flush()?;
+                // let new_state = run_nv12_migration(store, prev_state, epoch)?;
+                // if new_state != prev_state {
+                //     log::info!(
+                //         "actors_v4 state migration successful, took: {}ms",
+                //         start.elapsed().as_millis()
+                //     );
+                //     Ok(Some(new_state))
+                // } else {
+                //     return Err(format!(
+                //         "state post migration must not match. previous state: {}: new state: {}",
+                //         prev_state, new_state
+                //     )
+                //     .into());
+                //     // Ok(None)
+                // }
+            }
+            _ => Ok(None),
+        }
     }
 
     /// Apply block messages from a Tipset.
@@ -618,7 +616,6 @@ where
         store: std::sync::Arc<impl BlockStore + Send + Sync>,
         mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
-        panic!("FIXME: apply_block_messages not implemented for fvm backend yet.");
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
@@ -753,7 +750,7 @@ where
     }
 }
 
-// Performs network version 12 / actors v4 state migration
+// // Performs network version 12 / actors v4 state migration
 // fn run_nv12_migration(
 //     store: Arc<impl BlockStore + Send + Sync>,
 //     prev_state: Cid,
