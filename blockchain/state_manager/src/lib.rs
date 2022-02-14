@@ -295,7 +295,6 @@ where
         rand: &R,
         base_fee: BigInt,
         callback: Option<CB>,
-        tipset: &Arc<Tipset>,
     ) -> Result<CidPair, Box<dyn StdError>>
     where
         R: Rand + Clone + 'static,
@@ -819,7 +818,6 @@ where
             let sm = self.clone();
             let sr = *first_block.state_root();
             let epoch = first_block.epoch();
-            let ts_cloned = tipset.clone();
             task::spawn_blocking(move || {
                 sm.apply_blocks::<_, V, _>(
                     parent_epoch,
@@ -829,7 +827,6 @@ where
                     &chain_rand,
                     base_fee,
                     callback,
-                    &ts_cloned,
                 )
                 .map_err(|e| Error::Other(e.to_string()))
             })

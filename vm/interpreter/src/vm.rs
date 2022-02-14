@@ -36,9 +36,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{actor_error, ActorError, ExitCode, Serialized, TokenAmount};
 
-const GAS_OVERUSE_NUM: i64 = 11;
-const GAS_OVERUSE_DENOM: i64 = 10;
-
 /// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
 pub struct BlockMessages {
@@ -546,11 +543,6 @@ where
             .expect("FIXME: FVM error handling")
             .into())
         // self.state.flush()
-    }
-
-    /// Returns the epoch the VM is initialized with.
-    fn epoch(&self) -> ChainEpoch {
-        self.epoch
     }
 
     /// Returns a reference to the VM's state tree.
