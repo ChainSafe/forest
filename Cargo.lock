@@ -30,7 +30,7 @@ dependencies = [
 [[package]]
 name = "actors-runtime"
 version = "4.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -44,7 +44,7 @@ dependencies = [
  "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
  "lazy_static",
  "log",
- "multihash 0.15.0",
+ "multihash 0.16.1",
  "num-derive",
  "num-traits",
  "serde",
@@ -672,7 +672,7 @@ dependencies = [
  "memmap",
  "num_cpus",
  "pairing",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_core 0.6.3",
  "rayon",
  "rust-gpu-tools",
@@ -1166,7 +1166,7 @@ dependencies = [
  "lockfree",
  "log",
  "lru 0.7.2",
- "multihash 0.15.0",
+ "multihash 0.16.1",
  "networks",
  "num-traits",
  "serde",
@@ -1246,14 +1246,14 @@ dependencies = [
 
 [[package]]
 name = "cid"
-version = "0.7.0"
-source = "git+https://github.com/multiformats/rust-cid?branch=steb/cbor-hack#8d401cf132bc0567f19b07deb84eb7d46998a1d2"
+version = "0.8.2"
+source = "git+https://github.com/multiformats/rust-cid?branch=steb/cbor-hack#df4265606c099d5a751abe4bf9278710fbd31508"
 dependencies = [
  "core2",
  "cs_serde_bytes",
  "cs_serde_cbor",
  "multibase 0.9.1",
- "multihash 0.15.0",
+ "multihash 0.16.1",
  "serde",
  "unsigned-varint 0.7.1",
 ]
@@ -1432,7 +1432,7 @@ dependencies = [
  "hkdf 0.10.0",
  "hmac 0.10.1",
  "percent-encoding",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha2 0.9.9",
  "time 0.2.27",
  "version_check",
@@ -1440,9 +1440,9 @@ dependencies = [
 
 [[package]]
 name = "core2"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "239fa3ae9b63c2dc74bd3fa852d4792b8b305ae64eeede946265b6af62f1fff3"
+checksum = "b49ba7ef1ad6107f8824dbe97de947cbaac53c44e7f9756a1fba0d37c1eec505"
 dependencies = [
  "memchr",
 ]
@@ -2345,7 +2345,7 @@ dependencies = [
  "lazy_static",
  "merkletree",
  "neptune",
- "rand 0.8.4",
+ "rand 0.8.5",
  "serde",
  "sha2 0.9.9",
 ]
@@ -2378,7 +2378,7 @@ dependencies = [
  "memmap",
  "merkletree",
  "once_cell",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_xorshift",
  "rayon",
  "serde",
@@ -2460,9 +2460,9 @@ dependencies = [
 
 [[package]]
 name = "flume"
-version = "0.10.10"
+version = "0.10.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d04dafd11240188e146b6f6476a898004cace3be31d4ec5e08e216bf4947ac0"
+checksum = "0b279436a715a9de95dcd26b151db590a71961cc06e54918b24fe0dd5b7d3fc4"
 dependencies = [
  "spin 0.9.2",
 ]
@@ -2777,7 +2777,7 @@ dependencies = [
  "ahash 0.7.6",
  "criterion",
  "forest_encoding",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_xorshift",
  "serde",
  "serde_bytes",
@@ -2843,7 +2843,7 @@ dependencies = [
  "generic-array 0.14.5",
  "integer-encoding 3.0.2",
  "multibase 0.9.1",
- "multihash 0.15.0",
+ "multihash 0.16.1",
  "serde",
  "serde_json",
 ]
@@ -2860,7 +2860,7 @@ dependencies = [
  "libsecp256k1 0.7.0",
  "num-derive",
  "num-traits",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
  "thiserror",
@@ -2957,7 +2957,7 @@ dependencies = [
  "libp2p 0.40.0",
  "libp2p-bitswap",
  "log",
- "multihash 0.15.0",
+ "multihash 0.16.1",
  "networks",
  "serde",
  "smallvec",
@@ -3213,7 +3213,7 @@ dependencies = [
 [[package]]
 name = "fvm"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
@@ -3239,7 +3239,7 @@ dependencies = [
  "ipld_hamt 2.0.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest)",
  "lazy_static",
  "log",
- "multihash 0.15.0",
+ "multihash 0.16.1",
  "num-derive",
  "num-traits",
  "num_cpus",
@@ -3255,7 +3255,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_account"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "fvm_shared",
@@ -3268,7 +3268,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_cron"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "fvm_shared",
@@ -3282,7 +3282,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_init"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3299,7 +3299,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_market"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "ahash 0.7.6",
@@ -3317,7 +3317,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_miner"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3339,7 +3339,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_multisig"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3357,7 +3357,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_paych"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3372,7 +3372,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_power"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3392,7 +3392,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_reward"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "fvm_shared",
@@ -3407,7 +3407,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_system"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "fvm_shared",
@@ -3420,7 +3420,7 @@ dependencies = [
 [[package]]
 name = "fvm_actor_verifreg"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "actors-runtime",
  "anyhow",
@@ -3436,7 +3436,7 @@ dependencies = [
 [[package]]
 name = "fvm_bitfield"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "cs_serde_bytes",
  "fvm_shared",
@@ -3447,7 +3447,7 @@ dependencies = [
 [[package]]
 name = "fvm_shared"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "anyhow",
  "blake2b_simd 1.0.0",
@@ -3463,7 +3463,7 @@ dependencies = [
  "lazy_static",
  "libsecp256k1 0.7.0",
  "log",
- "multihash 0.15.0",
+ "multihash 0.16.1",
  "num-bigint 0.4.3",
  "num-derive",
  "num-integer",
@@ -3636,7 +3636,7 @@ checksum = "bc5ac374b108929de78460075f3dc439fa66df9d8fc77e8f12caa5165fcf0c89"
 dependencies = [
  "byteorder 1.4.3",
  "ff",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_core 0.6.3",
  "rand_xorshift",
  "subtle",
@@ -4037,7 +4037,7 @@ dependencies = [
 [[package]]
 name = "ipld_amt"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
@@ -4149,7 +4149,7 @@ dependencies = [
 [[package]]
 name = "ipld_hamt"
 version = "2.0.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#9e07a67ecb766f7a8fe5ebb2c08cc63f039ab513"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=lemmih/forest#2e9d2bd90f28e12c4f03309604d3ef1bc67861c5"
 dependencies = [
  "anyhow",
  "byteorder 1.4.3",
@@ -4344,7 +4344,7 @@ dependencies = [
  "forest_encoding",
  "libsecp256k1 0.7.0",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "serde",
  "serde_cbor",
  "serde_json",
@@ -4533,7 +4533,7 @@ dependencies = [
  "pin-project 1.0.10",
  "prost 0.9.0",
  "prost-build 0.9.0",
- "rand 0.8.4",
+ "rand 0.8.5",
  "ring",
  "rw-stream-sink",
  "sha2 0.9.9",
@@ -4688,7 +4688,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-swarm 0.31.0",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "smallvec",
  "socket2 0.4.4",
  "void",
@@ -4752,7 +4752,7 @@ dependencies = [
  "log",
  "prost 0.9.0",
  "prost-build 0.9.0",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha2 0.9.9",
  "snow",
  "static_assertions",
@@ -4843,7 +4843,7 @@ dependencies = [
  "log",
  "prost 0.9.0",
  "prost-build 0.9.0",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha2 0.9.9",
  "thiserror",
  "unsigned-varint 0.7.1",
@@ -5041,7 +5041,7 @@ dependencies = [
  "libsecp256k1-core 0.3.0",
  "libsecp256k1-gen-ecmult 0.3.0",
  "libsecp256k1-gen-genmult 0.3.0",
- "rand 0.8.4",
+ "rand 0.8.5",
  "serde",
  "sha2 0.9.9",
  "typenum",
@@ -5310,7 +5310,7 @@ dependencies = [
  "networks",
  "num-rational",
  "num-traits",
- "rand 0.8.4",
+ "rand 0.8.5",
  "serde",
  "slotmap",
  "state_manager",
@@ -5418,22 +5418,23 @@ checksum = "752a61cd890ff691b4411423d23816d5866dd5621e4d1c5687a53b94b5a979d8"
 dependencies = [
  "digest 0.9.0",
  "generic-array 0.14.5",
- "multihash-derive 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "multihash-derive 0.7.2",
  "sha2 0.9.9",
  "unsigned-varint 0.7.1",
 ]
 
 [[package]]
 name = "multihash"
-version = "0.15.0"
-source = "git+https://github.com/multiformats/rust-multihash?branch=next#817bf0f6030c89a0d1276ea90cf17d624475ca9f"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7392bffd88bc0c4f8297e36a777ab9f80b7127409c4a1acb8fee99c9f27addcd"
 dependencies = [
  "blake2b_simd 1.0.0",
  "blake2s_simd 1.0.0",
  "blake3 1.3.1",
  "core2",
  "digest 0.10.2",
- "multihash-derive 0.7.2 (git+https://github.com/multiformats/rust-multihash?branch=next)",
+ "multihash-derive 0.8.0",
  "serde",
  "serde-big-array",
  "sha2 0.10.1",
@@ -5457,8 +5458,9 @@ dependencies = [
 
 [[package]]
 name = "multihash-derive"
-version = "0.7.2"
-source = "git+https://github.com/multiformats/rust-multihash?branch=next#817bf0f6030c89a0d1276ea90cf17d624475ca9f"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc076939022111618a5026d3be019fd8b366e76314538ff9a1b59ffbcbf98bcd"
 dependencies = [
  "proc-macro-crate 1.1.0",
  "proc-macro-error",
@@ -5500,7 +5502,7 @@ dependencies = [
  "num-complex",
  "num-rational",
  "num-traits",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_distr 0.4.3",
  "simba",
  "typenum",
@@ -5779,9 +5781,9 @@ dependencies = [
 
 [[package]]
 name = "output_vt100"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53cdc5b785b7a58c5aad8216b3dfa114df64b0b06ae6e1501cef91df2fbdf8f9"
+checksum = "628223faebab4e3e40667ee0b2336d34a5b960ff60ea743ddfdbcf7770bcfb66"
 dependencies = [
  "winapi 0.3.9",
 ]
@@ -6433,19 +6435,18 @@ dependencies = [
  "libc",
  "rand_chacha 0.2.2",
  "rand_core 0.5.1",
- "rand_hc 0.2.0",
+ "rand_hc",
 ]
 
 [[package]]
 name = "rand"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e7573632e6454cf6b99d7aac4ccca54be06da05aca2ef7423d22d27d4d4bcd8"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.3",
- "rand_hc 0.3.1",
 ]
 
 [[package]]
@@ -6518,7 +6519,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
- "rand 0.8.4",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -6528,15 +6529,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_hc"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d51e9f596de227fda2ea6c84607f5558e196eeaf43c986b724ba4fb8fdf497e7"
-dependencies = [
- "rand_core 0.6.3",
 ]
 
 [[package]]
@@ -7076,9 +7068,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d23c1ba4cf0efd44be32017709280b32d1cea5c3f1275c3b6d9e8bc54f758085"
+checksum = "8e8d9fa5c3b304765ce1fd9c4c8a3de2c8db365a5b91be52f186efc675681d95"
 dependencies = [
  "itoa 1.0.1",
  "ryu",
@@ -7392,7 +7384,7 @@ dependencies = [
  "aes-gcm 0.9.4",
  "blake2",
  "chacha20poly1305",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_core 0.6.3",
  "ring",
  "rustc_version 0.3.3",
@@ -7446,7 +7438,7 @@ dependencies = [
  "futures",
  "httparse",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha-1",
 ]
 
@@ -7613,7 +7605,7 @@ dependencies = [
  "lazy_static",
  "nalgebra",
  "num-traits",
- "rand 0.8.4",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -7694,7 +7686,7 @@ dependencies = [
  "neptune",
  "num_cpus",
  "pairing",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rayon",
  "semver 0.11.0",
@@ -7738,7 +7730,7 @@ dependencies = [
  "num_cpus",
  "pairing",
  "pretty_assertions",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rayon",
  "serde",
  "serde_json",
@@ -7770,7 +7762,7 @@ dependencies = [
  "merkletree",
  "neptune",
  "num_cpus",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rayon",
  "serde",
  "sha2 0.9.9",
@@ -7809,7 +7801,7 @@ dependencies = [
  "num-traits",
  "num_cpus",
  "pretty_assertions",
- "rand 0.8.4",
+ "rand 0.8.5",
  "rayon",
  "serde",
  "serde_json",
@@ -8307,7 +8299,7 @@ dependencies = [
  "ipnet",
  "lazy_static",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "smallvec",
  "thiserror",
  "tinyvec",
@@ -8346,7 +8338,7 @@ dependencies = [
  "httparse",
  "input_buffer",
  "log",
- "rand 0.8.4",
+ "rand 0.8.5",
  "sha-1",
  "thiserror",
  "url",
@@ -8791,7 +8783,7 @@ dependencies = [
  "mach",
  "memoffset",
  "more-asserts",
- "rand 0.8.4",
+ "rand 0.8.5",
  "region",
  "rustix",
  "thiserror",
@@ -8948,7 +8940,7 @@ dependencies = [
  "log",
  "nohash-hasher",
  "parking_lot",
- "rand 0.8.4",
+ "rand 0.8.5",
  "static_assertions",
 ]
 
@@ -8964,7 +8956,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ca6c5a4d66c1a9ea261811cf4773c27343de7e5033e1b75ea3f297dc7db3c1a"
 dependencies = [
- "flume 0.10.10",
+ "flume 0.10.11",
  "scopeguard",
 ]
 
