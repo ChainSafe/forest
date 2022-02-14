@@ -304,21 +304,20 @@ pub mod json {
     where
         S: Serializer,
     {
-        todo!()
-        // JsonHelper {
-        //     version: m.version,
-        //     to: m.to.into(),
-        //     from: m.from.into(),
-        //     sequence: m.sequence,
-        //     value: m.value.clone(),
-        //     gas_limit: m.gas_limit,
-        //     gas_fee_cap: m.gas_fee_cap.clone(),
-        //     gas_premium: m.gas_premium.clone(),
-        //     method_num: m.method_num,
-        //     params: Some(base64::encode(m.params.bytes())),
-        //     cid: Some(m.cid().map_err(ser::Error::custom)?),
-        // }
-        // .serialize(serializer)
+        JsonHelper {
+            version: m.version,
+            to: m.to.into(),
+            from: m.from.into(),
+            sequence: m.sequence,
+            value: m.value.clone(),
+            gas_limit: m.gas_limit,
+            gas_fee_cap: m.gas_fee_cap.clone(),
+            gas_premium: m.gas_premium.clone(),
+            method_num: m.method_num,
+            params: Some(base64::encode(m.params.bytes())),
+            cid: Some(m.cid().map_err(ser::Error::custom)?.into()),
+        }
+        .serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<UnsignedMessage, D::Error>
