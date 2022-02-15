@@ -408,7 +408,7 @@ fn update_network_kpi(rt: &mut MockRuntime, curr_raw_power: &StoragePower) {
     rt.set_caller(*POWER_ACTOR_CODE_ID, *STORAGE_POWER_ACTOR_ADDR);
     rt.expect_validate_caller_addr(vec![*STORAGE_POWER_ACTOR_ADDR]);
 
-    let params = &Serialized::serialize(BigIntSer(&curr_raw_power)).unwrap();
+    let params = &Serialized::serialize(BigIntSer(curr_raw_power)).unwrap();
     assert!(rt
         .call(
             &*REWARD_ACTOR_CODE_ID,

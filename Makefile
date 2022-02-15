@@ -56,7 +56,7 @@ clean:
 
 lint: license clean
 	cargo fmt --all --check
-	cargo clippy -- -D warnings
+	cargo clippy --all-targets -- -D warnings
 
 build:
 	cargo build --bin forest

@@ -322,9 +322,8 @@ pub mod tests {
             .build()
             .unwrap();
         let msg_signing_bytes = umsg.to_signing_bytes();
-        let sig = wallet.sign(&from, msg_signing_bytes.as_slice()).unwrap();
-        let smsg = SignedMessage::new_from_parts(umsg, sig).unwrap();
-        smsg
+        let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
+        SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
 
     #[test]

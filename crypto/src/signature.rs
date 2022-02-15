@@ -232,16 +232,17 @@ mod tests {
             .collect();
 
         let mut public_keys_slice: Vec<&[u8]> = vec![];
-        for i in 0..num_sigs {
-            public_keys_slice.push(&public_keys[i]);
+        for key in public_keys.iter().take(num_sigs) {
+            public_keys_slice.push(key);
         }
 
         let calculated_bls_agg =
             Signature::new_bls(bls_signatures::aggregate(&signatures).unwrap().as_bytes());
-        assert_eq!(
-            verify_bls_aggregate(&data, &public_keys_slice, &calculated_bls_agg),
-            true
-        );
+        assert!(verify_bls_aggregate(
+            &data,
+            &public_keys_slice,
+            &calculated_bls_agg
+        ),);
     }
 
     #[test]
