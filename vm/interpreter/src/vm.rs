@@ -512,12 +512,8 @@ where
     }
 
     /// Flush stores in VM and return state root.
-    pub fn flush(&mut self) -> Result<Cid, Box<dyn StdError>> {
-        Ok(self
-            .fvm_executor
-            .flush()
-            .expect("FIXME: FVM error handling")
-            .into())
+    pub fn flush(&mut self) -> anyhow::Result<Cid> {
+        Ok(self.fvm_executor.flush()?.into())
         // self.state.flush()
     }
 

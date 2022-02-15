@@ -162,7 +162,7 @@ where
         pers: DomainSeparationTag,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
         match self.get_network_version(round) {
             NetworkVersion::V14 => {
@@ -204,7 +204,7 @@ where
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
         chain_rand
             .get_chain_randomness(blocks, pers, round, entropy, lookback)

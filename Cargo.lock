@@ -631,6 +631,7 @@ name = "beacon"
 version = "0.1.0"
 dependencies = [
  "ahash 0.6.3",
+ "anyhow",
  "async-std",
  "async-trait",
  "base64 0.13.0",
@@ -1181,6 +1182,7 @@ name = "chain_sync"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "base64 0.13.0",
  "beacon",
@@ -2853,6 +2855,7 @@ dependencies = [
 name = "forest_crypto"
 version = "0.5.2"
 dependencies = [
+ "anyhow",
  "base64 0.13.0",
  "bls-signatures",
  "forest_address",
