@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::tuple::*;
-use vm::{ExitCode, Serialized};
+// use encoding::tuple::*;
+use vm::ExitCode;
 
 use fvm_shared::encoding::RawBytes;
 use fvm_shared::receipt::Receipt;
