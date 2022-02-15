@@ -416,7 +416,7 @@ where
     /// be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
         let bmsgs = self.block_msgs_for_tipset(ts)?;
-        Ok(bmsgs.into_iter().map(|bm| bm.messages).flatten().collect())
+        Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
     }
 
     /// get miner state given address and tipsetkeys

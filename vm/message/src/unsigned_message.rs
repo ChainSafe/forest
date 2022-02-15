@@ -77,12 +77,12 @@ impl From<&UnsignedMessage> for fvm_shared::message::Message {
         } = msg.clone();
         fvm_shared::message::Message {
             version,
-            from: from.into(),
-            to: to.into(),
+            from,
+            to,
             sequence,
             value,
             method_num,
-            params: params.into(),
+            params,
             gas_limit,
             gas_fee_cap,
             gas_premium,

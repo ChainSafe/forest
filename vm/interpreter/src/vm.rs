@@ -12,9 +12,7 @@ use fil_types::{
     DefaultNetworkParams, NetworkParams,
 };
 use forest_encoding::Cbor;
-use fvm;
 use fvm::machine::Engine;
-use fvm_shared;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
@@ -480,12 +478,12 @@ where
                 fvm::Config::default(),
                 engine,
                 epoch,                                               // ChainEpoch,
-                base_fee.clone(),                                    //base_fee: TokenAmount,
+                base_fee,                                            //base_fee: TokenAmount,
                 circ_supply_calc.get_supply(epoch, &state).unwrap(), // base_circ_supply: TokenAmount,
                 fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
-                root.clone().into(),                      //state_root: Cid,
+                (*root).into(),                           //state_root: Cid,
                 FvmStore::new(store_arc),
-                ForestExterns::new(rand.clone()),
+                ForestExterns::new(rand),
             )
             .unwrap();
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =

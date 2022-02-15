@@ -863,7 +863,7 @@ where
             .filter_map(|(index, s)| {
                 if s.sequence() == *message_sequence {
                     if s.cid().map(|s|
-                        &s == &msg_cid.take()
+                        s == msg_cid.take()
                     ).unwrap_or_default() {
                         // When message Cid has been found, get receipt at index.
                         let rct = chain::get_parent_reciept(

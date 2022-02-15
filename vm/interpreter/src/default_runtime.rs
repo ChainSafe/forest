@@ -671,6 +671,7 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
+        #[allow(clippy::if_same_then_else)]
         let r = if rand_epoch >= networks::UPGRADE_ACTORS_V6_HEIGHT {
             self.rand
                 .get_beacon_randomness(personalization, rand_epoch, entropy)
