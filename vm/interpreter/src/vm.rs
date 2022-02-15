@@ -473,13 +473,15 @@ where
         let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         let engine = Engine::default();
+        let base_circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
+        let config = Config { debug: true, ..fvm::Config::default() };
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
-                fvm::Config::default(),
+                config,
                 engine,
-                epoch,                                               // ChainEpoch,
-                base_fee,                                            //base_fee: TokenAmount,
-                circ_supply_calc.get_supply(epoch, &state).unwrap(), // base_circ_supply: TokenAmount,
+                epoch,                                    // ChainEpoch,
+                base_fee,                                 //base_fee: TokenAmount,
+                base_circ_supply,                         // base_circ_supply: TokenAmount,
                 fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
                 (*root).into(),                           //state_root: Cid,
                 FvmStore::new(store_arc),
