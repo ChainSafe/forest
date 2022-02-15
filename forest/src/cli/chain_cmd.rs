@@ -4,7 +4,7 @@
 use blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
-use crate::cli::cli_error_and_die;
+use crate::cli::{cli_error_and_die, handle_rpc_err};
 
 use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
 use cid::{json::CidJson, Cid};
@@ -91,7 +91,9 @@ impl ChainCommands {
                     output_path.clone(),
                     TipsetKeysJson(chain_head.key().clone()),
                 );
-                let _result = chain_export(params).await;
+                let result = chain_export(params).await.map_err(handle_rpc_err);
+
+                println!("Done!")
             }
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis().await);

@@ -74,9 +74,8 @@ where
 
     data.chain_store
         .export(&ts, recent_roots, skip_old_msgs, writer)
-        .await?;
-
-    Ok(())
+        .await
+        .map_err(JsonRpcError::from)
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(
