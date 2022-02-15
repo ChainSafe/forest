@@ -7,7 +7,6 @@ mod piece;
 mod randomness;
 pub mod sector;
 mod state;
-mod version;
 
 #[cfg(feature = "json")]
 pub mod genesis;
@@ -19,7 +18,8 @@ pub use self::piece::*;
 pub use self::randomness::*;
 pub use self::sector::*;
 pub use self::state::*;
-pub use self::version::*;
+
+pub use fvm_shared::version::NetworkVersion;
 
 use address::Address;
 use clock::ChainEpoch;

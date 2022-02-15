@@ -3,12 +3,8 @@
 
 mod errors;
 mod network;
-mod payload;
-mod protocol;
 pub use self::errors::Error;
 pub use self::network::Network;
-pub use self::payload::{BLSPublicKey, Payload};
-pub use self::protocol::Protocol;
 
 // use data_encoding::Encoding;
 #[allow(unused_imports)]
@@ -18,7 +14,7 @@ use once_cell::sync::OnceCell;
 use serde::{de, Serialize};
 use std::str::FromStr;
 
-pub use fvm_shared::address::Address;
+pub use fvm_shared::address::{Address, BLSPublicKey, Payload, Protocol};
 
 // /// defines the encoder for base32 encoding with the provided string with no padding
 // const ADDRESS_ENCODER: Encoding = new_encoding! {
