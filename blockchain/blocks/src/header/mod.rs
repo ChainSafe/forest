@@ -9,7 +9,7 @@ use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;
-use encoding::{Cbor, Error as EncodingError};
+use encoding::{generic_array::check_length, Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
@@ -157,6 +157,9 @@ impl Serialize for BlockHeader {
     where
         S: Serializer,
     {
+        encoding::check_generic_array_length!(&self.beacon_entries, &self.winning_post_proof)
+            .map_err(|e| serde::ser::Error::custom::<String>(e.into()))?;
+
         (
             &self.miner_address,
             &self.ticket,
@@ -224,6 +227,9 @@ impl<'de> Deserialize<'de> for BlockHeader {
             cached_cid: Default::default(),
             is_validated: Default::default(),
         };
+
+        encoding::check_generic_array_length!(&header.beacon_entries, &header.winning_post_proof)
+            .map_err(|e| serde::de::Error::custom::<String>(e.into()))?;
 
         Ok(header)
     }

@@ -39,8 +39,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::serde_byte_array;
-    use crate::BYTE_ARRAY_MAX_LEN;
+    use crate::{serde_byte_array, BYTE_ARRAY_MAX_LEN};
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
