@@ -9,7 +9,7 @@ use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;
-use encoding::{generic_array::check_length, Cbor, Error as EncodingError};
+use encoding::{serde_generic_array::check_length, Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
