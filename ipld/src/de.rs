@@ -7,7 +7,6 @@ use serde::de;
 use std::collections::BTreeMap;
 use std::fmt;
 
-
 /// Struct used in deserialization to decode cbor encoded data (including Cid tagged)
 /// values to Ipld data type
 pub struct IpldVisitor;
