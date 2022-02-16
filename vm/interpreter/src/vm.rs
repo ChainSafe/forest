@@ -697,7 +697,7 @@ where
             raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
         }
         self.fvm_executor
-            .execute_message(msg.into(), fvm::executor::ApplyKind::Explicit, raw_length)
+            .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
             .expect("FIXME: execution failed")
             .into()
     }
