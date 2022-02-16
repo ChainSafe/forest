@@ -167,29 +167,26 @@ where
         return Ok(());
     }
 
-    // let block = &*cache
-    //     .get(&root)
-    //     .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
+    let block = &*cache
+        .get(&root)
+        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
 
-    if let Some(block) = cache.get(&root) {
-        let block = &*block;
-        scan_for_links(&mut Cursor::new(block), |link| {
-            if link.codec() != DAG_CBOR {
-                return Ok(());
-            }
-            // DB reads are expensive. So we check if it exists in the cache.
-            // If it doesnt exist in the DB, which is likely, we proceed with using the cache.
-            if !cache.contains_key(&link) {
-                return Ok(());
-            }
-            // Recursively find more links under the links we're iterating over.
-            copy_rec(base, cache, link, buffer)?;
+    scan_for_links(&mut Cursor::new(block), |link| {
+        if link.codec() != DAG_CBOR {
+            return Ok(());
+        }
+        // DB reads are expensive. So we check if it exists in the cache.
+        // If it doesnt exist in the DB, which is likely, we proceed with using the cache.
+        if !cache.contains_key(&link) {
+            return Ok(());
+        }
+        // Recursively find more links under the links we're iterating over.
+        copy_rec(base, cache, link, buffer)?;
 
-            Ok(())
-        })?;
+        Ok(())
+    })?;
 
-        buffer.push((root.to_bytes(), block.clone()));
-    }
+    buffer.push((root.to_bytes(), block.clone()));
 
     Ok(())
 }
