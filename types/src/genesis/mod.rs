@@ -3,9 +3,9 @@
 
 use super::SectorSize;
 use address::{json as addr_json, Address};
-use chrono::Utc;
 use num_bigint::bigint_ser::json as bigint_json;
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 use vm::TokenAmount;
 
 /// Different account variants. This is used with genesis utils to define the possible
@@ -54,7 +54,8 @@ pub struct Template {
     pub accounts: Vec<Actor>,
     pub miners: Vec<Miner>,
     pub network_name: String,
-    timestamp: String,
+    #[serde(with = "time::serde::rfc3339")]
+    timestamp: OffsetDateTime,
 }
 
 impl Template {
@@ -63,7 +64,7 @@ impl Template {
             accounts: Vec::new(),
             miners: Vec::new(),
             network_name,
-            timestamp: Utc::now().to_rfc3339(),
+            timestamp: OffsetDateTime::now_utc(),
         }
     }
 }

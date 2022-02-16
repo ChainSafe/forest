@@ -11,9 +11,9 @@ use std::convert::TryFrom;
 use std::io::{self, Stdout, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
 use thiserror::Error;
 use url::Url;
-use std::time::Duration;
 
 #[derive(Debug, Error)]
 enum DownloadError {
