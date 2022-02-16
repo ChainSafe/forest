@@ -71,3 +71,76 @@ where
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{serde_generic_array, GENERIC_ARRAY_MAX_LEN};
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+    struct GenericArray {
+        #[serde(with = "serde_generic_array")]
+        pub inner: Vec<u8>,
+    }
+
+    #[test]
+    fn can_serialize_generic_array() {
+        for len in [0, 1, GENERIC_ARRAY_MAX_LEN] {
+            let arr = GenericArray {
+                inner: vec![0; len],
+            };
+
+            assert!(serde_cbor::to_vec(&arr).is_ok());
+        }
+    }
+
+    #[test]
+    fn cannot_serialize_generic_array_overflow() {
+        let arr = GenericArray {
+            inner: vec![0; GENERIC_ARRAY_MAX_LEN + 1],
+        };
+
+        assert_eq!(
+            format!("{}", serde_cbor::to_vec(&arr).err().unwrap()),
+            "Array exceed max length".to_string()
+        );
+    }
+
+    #[test]
+    fn can_deserialize_generic_array() {
+        for len in [0, 1, GENERIC_ARRAY_MAX_LEN] {
+            let arr = GenericArray {
+                inner: vec![0; len],
+            };
+
+            let encoding = serde_cbor::to_vec(&arr).unwrap();
+            assert_eq!(
+                serde_cbor::from_slice::<GenericArray>(&encoding).unwrap(),
+                arr
+            );
+        }
+    }
+
+    #[test]
+    fn cannot_deserialize_generic_array_overflow() {
+        let max_length_generic_array = GenericArray {
+            inner: vec![0; GENERIC_ARRAY_MAX_LEN],
+        };
+
+        // prefix: 2 ^ 21 -> 2 ^ 21 + 1
+        let mut overflow_encoding = serde_cbor::to_vec(&max_length_generic_array).unwrap();
+        let encoding_len = overflow_encoding.len();
+        overflow_encoding[encoding_len - GENERIC_ARRAY_MAX_LEN - 1] = 1;
+        overflow_encoding.push(0);
+
+        assert_eq!(
+            format!(
+                "{}",
+                serde_cbor::from_slice::<GenericArray>(&overflow_encoding)
+                    .err()
+                    .unwrap()
+            ),
+            "Array exceed max length".to_string()
+        );
+    }
+}
