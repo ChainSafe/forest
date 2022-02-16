@@ -41,7 +41,7 @@ pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = 120;
 
 /// V8 network upgrade
 #[cfg(feature = "calibnet")]
-pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 272400;
+pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 130;
 
 /// V9 network upgrade
 #[cfg(feature = "calibnet")]
