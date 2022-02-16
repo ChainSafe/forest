@@ -3018,6 +3018,7 @@ dependencies = [
  "forest_bigint",
  "forest_cid",
  "forest_encoding",
+ "fvm",
  "fvm_shared",
  "lazy_static",
  "num-derive",

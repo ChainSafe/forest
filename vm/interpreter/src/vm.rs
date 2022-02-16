@@ -474,7 +474,10 @@ where
         let registered_actors = HashSet::new();
         let engine = Engine::default();
         let base_circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
-        let config = Config { debug: true, ..fvm::Config::default() };
+        let config = Config {
+            debug: true,
+            ..fvm::Config::default()
+        };
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
                 config,
@@ -762,11 +765,11 @@ impl From<fvm::executor::ApplyRet> for ApplyRet {
             msg_receipt,
             penalty,
             miner_tip,
-            ..
+            failure_info,
         } = ret;
         ApplyRet {
             msg_receipt,
-            act_error: None,
+            act_error: failure_info.map(ActorError::from),
             penalty,
             miner_tip,
         }

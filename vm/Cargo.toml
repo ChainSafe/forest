@@ -12,6 +12,7 @@ features = ["json"]
 
 [dependencies]
 fvm_shared = "*"
+fvm = "*"
 num-bigint = { package = "forest_bigint", path = "../utils/bigint", version = "0.1.1" }
 address = { package = "forest_address", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
