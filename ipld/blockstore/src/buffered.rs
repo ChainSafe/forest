@@ -36,13 +36,14 @@ where
     /// Flushes the buffered cache based on the root node.
     /// This will recursively traverse the cache and write all data connected by links to this
     /// root Cid.
-    pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError + '_>> {
+    pub fn flush(&self, root: &Cid) -> Result<(), Box<dyn StdError + '_>> {
         let mut buffer = Vec::new();
         let s = &self.write;
         copy_rec(self.base.as_ref(), s, *root, &mut buffer)?;
 
         self.base.bulk_write(&buffer)?;
-        self.write = Default::default();
+        // self.write = Default::default();
+        self.write.clear();
 
         Ok(())
     }
@@ -166,26 +167,29 @@ where
         return Ok(());
     }
 
-    let block = &*cache
-        .get(&root)
-        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
+    // let block = &*cache
+    //     .get(&root)
+    //     .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
 
-    scan_for_links(&mut Cursor::new(block), |link| {
-        if link.codec() != DAG_CBOR {
-            return Ok(());
-        }
-        // DB reads are expensive. So we check if it exists in the cache.
-        // If it doesnt exist in the DB, which is likely, we proceed with using the cache.
-        if !cache.contains_key(&link) {
-            return Ok(());
-        }
-        // Recursively find more links under the links we're iterating over.
-        copy_rec(base, cache, link, buffer)?;
+    if let Some(block) = cache.get(&root) {
+        let block = &*block;
+        scan_for_links(&mut Cursor::new(block), |link| {
+            if link.codec() != DAG_CBOR {
+                return Ok(());
+            }
+            // DB reads are expensive. So we check if it exists in the cache.
+            // If it doesnt exist in the DB, which is likely, we proceed with using the cache.
+            if !cache.contains_key(&link) {
+                return Ok(());
+            }
+            // Recursively find more links under the links we're iterating over.
+            copy_rec(base, cache, link, buffer)?;
 
-        Ok(())
-    })?;
+            Ok(())
+        })?;
 
-    buffer.push((root.to_bytes(), block.clone()));
+        buffer.push((root.to_bytes(), block.clone()));
+    }
 
     Ok(())
 }
@@ -269,7 +273,7 @@ mod tests {
     #[test]
     fn basic_buffered_store() {
         let mem = Arc::new(db::MemoryDB::default());
-        let mut buf_store = BufferedBlockStore::new(mem.clone());
+        let buf_store = BufferedBlockStore::new(mem.clone());
 
         let cid = buf_store.put(&8, Code::Blake2b256).unwrap();
         assert_eq!(mem.get::<u8>(&cid).unwrap(), None);
@@ -284,7 +288,7 @@ mod tests {
     #[test]
     fn buffered_store_with_links() {
         let mem = Arc::new(db::MemoryDB::default());
-        let mut buf_store = BufferedBlockStore::new(mem.clone());
+        let buf_store = BufferedBlockStore::new(mem.clone());
         let str_val = "value";
         let value = 8u8;
         let arr_cid = buf_store.put(&(str_val, value), Code::Blake2b256).unwrap();

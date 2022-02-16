@@ -444,9 +444,7 @@ impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB> {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
-    state: StateTree<'db, DB>,
-    store: &'db DB,
+pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
     epoch: ChainEpoch,
     registered_actors: HashSet<Cid>,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
@@ -454,7 +452,7 @@ pub struct VM<'db, DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetwor
     params: PhantomData<P>,
 }
 
-impl<'db, DB, V, P> VM<'db, DB, V, P>
+impl<DB, V, P> VM<DB, V, P>
 where
     DB: BlockStore + 'static,
     V: ProofVerifier,
@@ -462,15 +460,15 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        root: &Cid,
-        store: &'db DB,
+        root: Cid,
         store_arc: Arc<DB>,
         epoch: ChainEpoch,
         rand: impl Rand + Clone + 'static,
         base_fee: BigInt,
         circ_supply_calc: impl CircSupplyCalc,
     ) -> Result<Self, String> {
-        let state = StateTree::new_from_root(store, root).map_err(|e| e.to_string())?;
+        let store = store_arc.as_ref();
+        let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         let engine = Engine::default();
         let base_circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
@@ -486,7 +484,7 @@ where
                 base_fee,                                 //base_fee: TokenAmount,
                 base_circ_supply,                         // base_circ_supply: TokenAmount,
                 fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
-                (*root).into(),                           //state_root: Cid,
+                root.into(),                              //state_root: Cid,
                 FvmStore::new(store_arc),
                 ForestExterns::new(rand),
             )
@@ -494,8 +492,6 @@ where
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
         Ok(VM {
-            state,
-            store,
             epoch,
             registered_actors,
             // fvm_machine: ForestMachine{ machine: fvm },
@@ -524,7 +520,8 @@ where
 
     /// Returns a reference to the VM's state tree.
     pub fn state(&self) -> &StateTree<'_, DB> {
-        &self.state
+        panic!("State reference is no longer available.")
+        // &self.state
     }
 
     fn run_cron(
@@ -597,8 +594,9 @@ where
                     log::error!("Beginning of epoch cron failed to run: {}", e);
                 }
             }
-            if let Some(new_state) = self.migrate_state(i, store.clone())? {
-                self.state = StateTree::new_from_root(self.store, &new_state)?
+            if let Some(_new_state) = self.migrate_state(i, store.clone())? {
+                todo!()
+                // self.state = StateTree::new_from_root(self.store, &new_state)?
             }
             self.epoch = i + 1;
         }
@@ -709,7 +707,11 @@ where
 
         use fvm::executor::Executor;
         let unsigned = msg.message();
-        let raw_length = unsigned.marshal_cbor().expect("encoding error").len();
+        let mut raw_length = unsigned.marshal_cbor().expect("encoding error").len();
+        if unsigned.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
+            // 65 bytes signature + 1 byte type + 3 bytes for field info.
+            raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
+        }
         match self.fvm_executor.execute_message(
             unsigned.into(),
             fvm::executor::ApplyKind::Explicit,

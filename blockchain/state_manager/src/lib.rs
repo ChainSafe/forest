@@ -302,12 +302,11 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
     {
         let db = self.blockstore_cloned();
-        let mut buf_store = Arc::new(BufferedBlockStore::new(db));
-        let store = buf_store.as_ref();
+        // let buf_store = Arc::new(BufferedBlockStore::new(db));
+        let buf_store = db;
 
         let mut vm = VM::<_, V>::new(
-            p_state,
-            store,
+            *p_state,
             buf_store.clone(),
             epoch,
             rand.clone(),
@@ -323,11 +322,17 @@ where
         let rect_root = Amt::new_from_iter(self.blockstore(), receipts)?;
         // Flush changes to blockstore
         let state_root = vm.flush()?;
+
+        info!(
+            "Applied block messages: {}, {} {}",
+            messages.len(),
+            p_state,
+            state_root
+        );
         // Persist changes connected to root
-        Arc::get_mut(&mut buf_store)
-            .expect("failed getting store reference")
-            .flush(&state_root)
-            .expect("buffered blockstore flush failed");
+        // buf_store
+        //     .flush(&state_root)
+        //     .expect("buffered blockstore flush failed");
 
         Ok((state_root, rect_root))
     }
@@ -414,8 +419,7 @@ where
 
             let buf_store = Arc::new(BufferedBlockStore::new(block_store));
             let mut vm = VM::<_, V>::new(
-                bstate,
-                buf_store.as_ref(),
+                *bstate,
                 buf_store.clone(),
                 bheight,
                 rand.clone(),
@@ -497,8 +501,7 @@ where
         let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
 
         let mut vm = VM::<_, V>::new(
-            &st,
-            self.blockstore(),
+            st,
             self.blockstore_cloned(),
             ts.epoch() + 1,
             chain_rand,
