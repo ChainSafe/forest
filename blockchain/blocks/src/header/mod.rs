@@ -554,37 +554,33 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut overflowed_beacon_entries_encoding = Vec::new();
-        (
-            &overflowed_beacon_entries.miner_address,
-            &overflowed_beacon_entries.ticket,
-            &overflowed_beacon_entries.election_proof,
-            &overflowed_beacon_entries.beacon_entries,
-            &overflowed_beacon_entries.winning_post_proof,
-            &overflowed_beacon_entries.parents,
-            BigIntSer(&overflowed_beacon_entries.weight),
-            &overflowed_beacon_entries.epoch,
-            &overflowed_beacon_entries.state_root,
-            &overflowed_beacon_entries.message_receipts,
-            &overflowed_beacon_entries.messages,
-            &overflowed_beacon_entries.bls_aggregate,
-            &overflowed_beacon_entries.timestamp,
-            &overflowed_beacon_entries.signature,
-            &overflowed_beacon_entries.fork_signal,
-            BigIntSer(&overflowed_beacon_entries.parent_base_fee),
-        )
-            .serialize(&mut Serializer::new(
-                &mut overflowed_beacon_entries_encoding,
-            ))
+        let overflowed_winning_post_proof = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .winning_post_proof(vec![
+                PoStProof {
+                    post_proof: RegisteredPoStProof::StackedDRGWindow2KiBV1,
+                    proof_bytes: Default::default(),
+                };
+                GENERIC_ARRAY_MAX_LEN + 1
+            ])
+            .build()
             .unwrap();
 
-        assert_eq!(
-            from_slice::<BlockHeader>(&overflowed_beacon_entries_encoding)
-                .err()
-                .unwrap()
-                .to_string(),
-            "Array exceed max length".to_string()
-        );
+        for header in [overflowed_beacon_entries, overflowed_winning_post_proof] {
+            assert_eq!(
+                to_vec(&header).err().unwrap().to_string(),
+                "Array exceed max length".to_string()
+            );
+        }
+    }
+
+    #[test]
+    fn cannot_deserialize_overflowed_generic_array() {
+        let overflowed_beacon_entries = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .beacon_entries(vec![Default::default(); GENERIC_ARRAY_MAX_LEN + 1])
+            .build()
+            .unwrap();
 
         let overflowed_winning_post_proof = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -597,36 +593,37 @@ mod tests {
             ])
             .build()
             .unwrap();
-        let mut overflowed_winning_post_proof_encoding = Vec::new();
-        (
-            &overflowed_winning_post_proof.miner_address,
-            &overflowed_winning_post_proof.ticket,
-            &overflowed_winning_post_proof.election_proof,
-            &overflowed_winning_post_proof.beacon_entries,
-            &overflowed_winning_post_proof.winning_post_proof,
-            &overflowed_winning_post_proof.parents,
-            BigIntSer(&overflowed_winning_post_proof.weight),
-            &overflowed_winning_post_proof.epoch,
-            &overflowed_winning_post_proof.state_root,
-            &overflowed_winning_post_proof.message_receipts,
-            &overflowed_winning_post_proof.messages,
-            &overflowed_winning_post_proof.bls_aggregate,
-            &overflowed_winning_post_proof.timestamp,
-            &overflowed_winning_post_proof.signature,
-            &overflowed_winning_post_proof.fork_signal,
-            BigIntSer(&overflowed_winning_post_proof.parent_base_fee),
-        )
-            .serialize(&mut Serializer::new(
-                &mut overflowed_winning_post_proof_encoding,
-            ))
-            .unwrap();
 
-        assert_eq!(
-            from_slice::<BlockHeader>(&overflowed_winning_post_proof)
-                .err()
-                .unwrap()
-                .to_string(),
-            "Array exceed max length".to_string()
-        );
+        for header in [overflowed_beacon_entries, overflowed_winning_post_proof] {
+            let mut encoding = Vec::new();
+            (
+                &header.miner_address,
+                &header.ticket,
+                &header.election_proof,
+                &header.beacon_entries,
+                &header.winning_post_proof,
+                &header.parents,
+                BigIntSer(&header.weight),
+                &header.epoch,
+                &header.state_root,
+                &header.message_receipts,
+                &header.messages,
+                &header.bls_aggregate,
+                &header.timestamp,
+                &header.signature,
+                &header.fork_signal,
+                BigIntSer(&header.parent_base_fee),
+            )
+                .serialize(&mut Serializer::new(&mut encoding))
+                .unwrap();
+
+            assert_eq!(
+                from_slice::<BlockHeader>(&encoding)
+                    .err()
+                    .unwrap()
+                    .to_string(),
+                "Array exceed max length".to_string()
+            );
+        }
     }
 }
