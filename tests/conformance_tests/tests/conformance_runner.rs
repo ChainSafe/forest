@@ -56,6 +56,9 @@ fn is_valid_file(entry: &DirEntry) -> bool {
     if let Ok(s) = ::std::env::var("FOREST_CONF") {
         return file_name == s;
     }
+    if !file_name.ends_with(".json") {
+        return false;
+    }
 
     for rx in SKIP_TESTS.iter() {
         if rx.is_match(file_name) {
@@ -72,7 +75,7 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         return false;
     }
 
-    file_name.ends_with(".json")
+    true
 }
 
 struct GzipDecoder<R>(GzDecoder<R>);
