@@ -9,11 +9,11 @@ const RELEASE_TRACK: &str = "unstable";
 #[cfg(feature = "release")]
 const RELEASE_TRACK: &str = "alpha";
 
-const NETWORK: &str = if cfg!(devnet) {
+const NETWORK: &str = if cfg!(feature = "devnet") {
     "devnet"
-} else if cfg!(interopnet) {
+} else if cfg!(feature = "interopnet") {
     "interopnet"
-} else if cfg!(calibnet) {
+} else if cfg!(feature = "calibnet") {
     "calibnet"
 } else {
     "mainnet"
