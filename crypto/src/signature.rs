@@ -149,8 +149,10 @@ fn verify_secp256k1_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result
     sig[..].copy_from_slice(signature);
     let rec_addr = ecrecover(&hash, &sig).map_err(|e| e.to_string())?;
 
-    // check address against recovered address
-    if &rec_addr == addr {
+    // Check address against recovered address.
+    // We only need to check the payload and disregard the network.
+    // See https://github.com/ChainSafe/forest/issues/1419
+    if rec_addr.payload() == addr.payload() {
         Ok(())
     } else {
         Err("Secp signature verification failed".to_owned())
@@ -204,6 +206,7 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Addr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use address::Network;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
     use libsecp256k1::{sign, PublicKey, SecretKey};
     use rand::{Rng, SeedableRng};
@@ -248,21 +251,80 @@ mod tests {
     #[test]
     fn secp_ecrecover() {
         let rng = &mut ChaCha8Rng::seed_from_u64(8);
-
-        let priv_key = SecretKey::random(rng);
-        let pub_key = PublicKey::from_secret_key(&priv_key);
+        let (priv_key, pub_key) = generate_priv_pub_key_pair(rng);
         let secp_addr = Address::new_secp256k1(&pub_key.serialize()).unwrap();
 
-        let hash = blake2b_256(&[8, 8]);
+        let data = rng.gen::<[u8; 32]>();
+        let hash = blake2b_256(&data);
         let msg = Message::parse(&hash);
 
-        // Generate signature
+        let signature = generate_signature(&priv_key, &msg);
+
+        assert_eq!(ecrecover(&hash, &signature).unwrap(), secp_addr);
+    }
+
+    #[test]
+    fn verify_secp256k1_sig_different_network_should_return_ok() {
+        let rng = &mut ChaCha8Rng::seed_from_u64(8);
+        let (priv_key, pub_key) = generate_priv_pub_key_pair(rng);
+
+        let data = rng.gen::<[u8; 32]>();
+        let hash = blake2b_256(&data);
+        let msg = Message::parse(&hash);
+
+        let signature = generate_signature(&priv_key, &msg);
+
+        let mut secp_addr = Address::new_secp256k1(&pub_key.serialize()).unwrap();
+        for network in [Network::Mainnet, Network::Testnet] {
+            let address = secp_addr.set_network(network);
+            assert!(verify_secp256k1_sig(&signature, &data, &address).is_ok());
+        }
+    }
+
+    #[test]
+    fn verify_secp256k1_sig_different_address_should_err() {
+        let rng = &mut ChaCha8Rng::seed_from_u64(8);
+        let (priv_key, _) = generate_priv_pub_key_pair(rng);
+
+        let data = rng.gen::<[u8; 32]>();
+        let hash = blake2b_256(&data);
+        let msg = Message::parse(&hash);
+
+        let signature = generate_signature(&priv_key, &msg);
+
+        let (_, pub_key) = generate_priv_pub_key_pair(rng);
+        let address = Address::new_secp256k1(&pub_key.serialize()).unwrap();
+        assert!(verify_secp256k1_sig(&signature, &data, &address).is_err());
+    }
+
+    #[test]
+    fn verify_secp256k1_sig_different_signature_should_err() {
+        let rng = &mut ChaCha8Rng::seed_from_u64(8);
+        let (priv_key, pub_key) = generate_priv_pub_key_pair(rng);
+
+        let data = rng.gen::<[u8; 32]>();
+        let hash = blake2b_256(&data);
+        let msg = Message::parse(&hash);
+
+        let signature = generate_signature(&priv_key, &msg);
+
+        let address = Address::new_secp256k1(&pub_key.serialize()).unwrap();
+        let different_data = rng.gen::<[u8; 32]>();
+        assert!(verify_secp256k1_sig(&signature, &different_data, &address).is_err());
+    }
+
+    fn generate_signature(priv_key: &SecretKey, msg: &Message) -> [u8; 65] {
         let (sig, recovery_id) = sign(&msg, &priv_key);
         let mut signature = [0; 65];
         signature[..64].copy_from_slice(&sig.serialize());
         signature[64] = recovery_id.serialize();
+        signature
+    }
 
-        assert_eq!(ecrecover(&hash, &signature).unwrap(), secp_addr);
+    fn generate_priv_pub_key_pair(rng: &mut ChaCha8Rng) -> (SecretKey, PublicKey) {
+        let priv_key = SecretKey::random(rng);
+        let pub_key = PublicKey::from_secret_key(&priv_key);
+        (priv_key, pub_key)
     }
 }
 
