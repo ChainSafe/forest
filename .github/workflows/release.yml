@@ -39,7 +39,7 @@ jobs:
         run: |
           mkdir -p forest-${{ github.ref_name }}
           cp -v target/release/forest forest-${{ github.ref_name }}
-          cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md docs forest-${{ github.ref_name }}
+          cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md documentation forest-${{ github.ref_name }}
           strip forest-${{ github.ref_name }}/forest
           sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
