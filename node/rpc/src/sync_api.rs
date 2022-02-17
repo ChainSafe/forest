@@ -109,6 +109,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use address::Address;
     use async_std::channel::{bounded, Receiver};
     use async_std::sync::RwLock;
     use async_std::task;
@@ -138,7 +139,13 @@ mod tests {
         let (network_send, network_rx) = bounded(5);
         let db = Arc::new(MemoryDB::default());
         let cs_arc = Arc::new(ChainStore::new(db.clone()));
-        let state_manager = Arc::new(StateManager::new(cs_arc.clone()));
+        let genesis_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()
+            .unwrap();
+        cs_arc.set_genesis(&genesis_header).unwrap();
+        let state_manager = Arc::new(StateManager::new(cs_arc.clone()).await.unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = cs_arc.clone();
         let cs_for_chain = cs_arc.clone();

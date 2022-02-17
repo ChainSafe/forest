@@ -48,8 +48,10 @@ Before running `forest` in the normal mode you must seed the database with the F
 Download the latest snapshot provided by Protocol Labs:
 
 ```bash
-wget https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car > /destination/for/snapshot/file
+curl -sI https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car | perl -ne '/x-amz-website-redirect-location:\s(.+)\.car/ && print "$1.sha256sum\n$1.car"' | xargs wget
 ```
+
+If desired, you can check the checksum using the instructions [here](https://lotus.filecoin.io/docs/set-up/chain-management/#lightweight-snapshot).
 
 Import the snapshot using `forest`:
 

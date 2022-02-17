@@ -29,15 +29,15 @@ const CLIENT_ID: u64 = 104;
 
 fn setup() -> MockRuntime {
     let mut actor_code_cids = HashMap::default();
-    actor_code_cids.insert(Address::new_id(OWNER_ID), ACCOUNT_ACTOR_CODE_ID.clone());
-    actor_code_cids.insert(Address::new_id(WORKER_ID), ACCOUNT_ACTOR_CODE_ID.clone());
-    actor_code_cids.insert(Address::new_id(PROVIDER_ID), MINER_ACTOR_CODE_ID.clone());
-    actor_code_cids.insert(Address::new_id(CLIENT_ID), ACCOUNT_ACTOR_CODE_ID.clone());
+    actor_code_cids.insert(Address::new_id(OWNER_ID), *ACCOUNT_ACTOR_CODE_ID);
+    actor_code_cids.insert(Address::new_id(WORKER_ID), *ACCOUNT_ACTOR_CODE_ID);
+    actor_code_cids.insert(Address::new_id(PROVIDER_ID), *MINER_ACTOR_CODE_ID);
+    actor_code_cids.insert(Address::new_id(CLIENT_ID), *ACCOUNT_ACTOR_CODE_ID);
 
     let mut rt = MockRuntime {
         receiver: *STORAGE_MARKET_ACTOR_ADDR,
         caller: *SYSTEM_ACTOR_ADDR,
-        caller_type: INIT_ACTOR_CODE_ID.clone(),
+        caller_type: *INIT_ACTOR_CODE_ID,
         actor_code_cids,
         ..Default::default()
     };
@@ -51,7 +51,7 @@ fn get_escrow_balance(rt: &MockRuntime, addr: &Address) -> Result<TokenAmount, A
 
     let et = BalanceTable::from_root(rt.store(), &st.escrow_table).unwrap();
 
-    Ok(et.get(addr).unwrap().clone())
+    Ok(et.get(addr).unwrap())
 }
 
 // TODO add array stuff
@@ -60,11 +60,11 @@ fn simple_construction() {
     let mut rt = MockRuntime {
         receiver: Address::new_id(100),
         caller: *SYSTEM_ACTOR_ADDR,
-        caller_type: INIT_ACTOR_CODE_ID.clone(),
+        caller_type: *INIT_ACTOR_CODE_ID,
         ..Default::default()
     };
 
-    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
 
     assert_eq!(
         Serialized::default(),
@@ -116,11 +116,11 @@ fn add_provider_escrow_funds() {
     let worker_addr = Address::new_id(WORKER_ID);
     let provider_addr = Address::new_id(PROVIDER_ID);
 
-    for caller_addr in vec![owner_addr, worker_addr] {
+    for caller_addr in &[owner_addr, worker_addr] {
         let mut rt = setup();
 
         for test_case in test_cases.clone() {
-            rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), caller_addr);
+            rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, *caller_addr);
 
             let amount = TokenAmount::from(test_case.0 as u64);
             // rt.balance = rt.balance + amount.clone();
@@ -132,7 +132,7 @@ fn add_provider_escrow_funds() {
                 .call(
                     &MARKET_ACTOR_CODE_ID.clone(),
                     Method::AddBalance as u64,
-                    &Serialized::serialize(provider_addr.clone()).unwrap(),
+                    &Serialized::serialize(provider_addr).unwrap(),
                 )
                 .is_ok());
             rt.verify();
@@ -158,12 +158,12 @@ fn account_actor_check() {
     let provider_addr = Address::new_id(PROVIDER_ID);
 
     expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
-    rt.set_caller(MINER_ACTOR_CODE_ID.clone(), provider_addr.clone());
+    rt.set_caller(*MINER_ACTOR_CODE_ID, provider_addr);
 
     assert_eq!(
         ExitCode::ErrForbidden,
         rt.call(
-            &MARKET_ACTOR_CODE_ID.clone(),
+            &MARKET_ACTOR_CODE_ID,
             Method::AddBalance as u64,
             &Serialized::serialize(provider_addr).unwrap(),
         )
@@ -183,11 +183,11 @@ fn add_non_provider_funds() {
     let client_addr = Address::new_id(CLIENT_ID);
     let worker_addr = Address::new_id(WORKER_ID);
 
-    for caller_addr in vec![client_addr, worker_addr] {
+    for caller_addr in &[client_addr, worker_addr] {
         let mut rt = setup();
 
         for test_case in test_cases.clone() {
-            rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), caller_addr);
+            rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, *caller_addr);
 
             let amount = TokenAmount::from(test_case.0 as u64);
             rt.set_value(amount);
@@ -195,16 +195,16 @@ fn add_non_provider_funds() {
 
             assert!(rt
                 .call(
-                    &MARKET_ACTOR_CODE_ID.clone(),
+                    &MARKET_ACTOR_CODE_ID,
                     Method::AddBalance as u64,
-                    &Serialized::serialize(caller_addr.clone()).unwrap(),
+                    &Serialized::serialize(caller_addr).unwrap(),
                 )
                 .is_ok());
 
             rt.verify();
 
             assert_eq!(
-                get_escrow_balance(&rt, &caller_addr).unwrap(),
+                get_escrow_balance(&rt, caller_addr).unwrap(),
                 TokenAmount::from(test_case.1 as u8)
             );
         }
@@ -223,21 +223,21 @@ fn withdraw_provider_to_owner() {
     let amount = TokenAmount::from(20u8);
     add_provider_funds(
         &mut rt,
-        provider_addr.clone(),
-        owner_addr.clone(),
-        worker_addr.clone(),
+        provider_addr,
+        owner_addr,
+        worker_addr,
         amount.clone(),
     );
 
     assert_eq!(amount, get_escrow_balance(&rt, &provider_addr).unwrap());
 
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), worker_addr.clone());
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, worker_addr);
     expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
 
     let withdraw_amount = TokenAmount::from(1u8);
 
     rt.expect_send(
-        owner_addr.clone(),
+        owner_addr,
         METHOD_SEND,
         Serialized::default(),
         withdraw_amount.clone(),
@@ -246,8 +246,8 @@ fn withdraw_provider_to_owner() {
     );
 
     let params = WithdrawBalanceParams {
-        provider_or_client: provider_addr.clone(),
-        amount: withdraw_amount.clone(),
+        provider_or_client: provider_addr,
+        amount: withdraw_amount,
     };
 
     assert!(rt
@@ -275,20 +275,17 @@ fn withdraw_non_provider() {
     let client_addr = Address::new_id(CLIENT_ID);
 
     let amount = TokenAmount::from(20u8);
-    add_participant_funds(&mut rt, client_addr.clone(), amount.clone());
+    add_participant_funds(&mut rt, client_addr, amount.clone());
 
     assert_eq!(amount, get_escrow_balance(&rt, &client_addr).unwrap());
 
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), client_addr.clone());
-    rt.expect_validate_caller_type(vec![
-        ACCOUNT_ACTOR_CODE_ID.clone(),
-        MULTISIG_ACTOR_CODE_ID.clone(),
-    ]);
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, client_addr);
+    rt.expect_validate_caller_type(vec![*ACCOUNT_ACTOR_CODE_ID, *MULTISIG_ACTOR_CODE_ID]);
 
     let withdraw_amount = TokenAmount::from(1u8);
 
     rt.expect_send(
-        client_addr.clone(),
+        client_addr,
         METHOD_SEND,
         Serialized::default(),
         withdraw_amount.clone(),
@@ -297,8 +294,8 @@ fn withdraw_non_provider() {
     );
 
     let params = WithdrawBalanceParams {
-        provider_or_client: client_addr.clone(),
-        amount: withdraw_amount.clone(),
+        provider_or_client: client_addr,
+        amount: withdraw_amount,
     };
 
     assert!(rt
@@ -325,33 +322,30 @@ fn client_withdraw_more_than_available() {
     let client_addr = Address::new_id(CLIENT_ID);
 
     let amount = TokenAmount::from(20u8);
-    add_participant_funds(&mut rt, client_addr.clone(), amount.clone());
+    add_participant_funds(&mut rt, client_addr, amount.clone());
 
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), client_addr.clone());
-    rt.expect_validate_caller_type(vec![
-        ACCOUNT_ACTOR_CODE_ID.clone(),
-        MULTISIG_ACTOR_CODE_ID.clone(),
-    ]);
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, client_addr);
+    rt.expect_validate_caller_type(vec![*ACCOUNT_ACTOR_CODE_ID, *MULTISIG_ACTOR_CODE_ID]);
 
     let withdraw_amount = TokenAmount::from(25u8);
 
     rt.expect_send(
-        client_addr.clone(),
+        client_addr,
         METHOD_SEND,
         Serialized::default(),
-        amount.clone(),
+        amount,
         Serialized::default(),
         ExitCode::Ok,
     );
 
     let params = WithdrawBalanceParams {
-        provider_or_client: client_addr.clone(),
-        amount: withdraw_amount.clone(),
+        provider_or_client: client_addr,
+        amount: withdraw_amount,
     };
 
     assert!(rt
         .call(
-            &MARKET_ACTOR_CODE_ID.clone(),
+            &MARKET_ACTOR_CODE_ID,
             Method::WithdrawBalance as u64,
             &Serialized::serialize(params).unwrap(),
         )
@@ -377,36 +371,36 @@ fn worker_withdraw_more_than_available() {
     let amount = TokenAmount::from(20u8);
     add_provider_funds(
         &mut rt,
-        provider_addr.clone(),
-        owner_addr.clone(),
-        worker_addr.clone(),
+        provider_addr,
+        owner_addr,
+        worker_addr,
         amount.clone(),
     );
 
     assert_eq!(amount, get_escrow_balance(&rt, &provider_addr).unwrap());
 
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), worker_addr.clone());
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, worker_addr);
     expect_provider_control_address(&mut rt, provider_addr, owner_addr, worker_addr);
 
     let withdraw_amount = TokenAmount::from(25u8);
 
     rt.expect_send(
-        owner_addr.clone(),
+        owner_addr,
         METHOD_SEND,
         Serialized::default(),
-        amount.clone(),
+        amount,
         Serialized::default(),
         ExitCode::Ok,
     );
 
     let params = WithdrawBalanceParams {
-        provider_or_client: provider_addr.clone(),
-        amount: withdraw_amount.clone(),
+        provider_or_client: provider_addr,
+        amount: withdraw_amount,
     };
 
     assert!(rt
         .call(
-            &MARKET_ACTOR_CODE_ID.clone(),
+            &MARKET_ACTOR_CODE_ID,
             Method::WithdrawBalance as u64,
             &Serialized::serialize(params).unwrap(),
         )
@@ -426,16 +420,16 @@ fn expect_provider_control_address(
     owner: Address,
     worker: Address,
 ) {
-    rt.expect_validate_caller_addr(vec![owner.clone(), worker.clone()]);
+    rt.expect_validate_caller_addr(vec![owner, worker]);
 
     let return_value = GetControlAddressesReturn {
-        owner: owner.clone(),
-        worker: worker.clone(),
+        owner,
+        worker,
         control_addresses: Vec::new(),
     };
 
     rt.expect_send(
-        provider.clone(),
+        provider,
         MinerMethod::ControlAddresses as u64,
         Serialized::default(),
         TokenAmount::from(0u8),
@@ -453,47 +447,44 @@ fn add_provider_funds(
 ) {
     rt.set_value(amount.clone());
 
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), owner.clone());
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, owner);
     expect_provider_control_address(rt, provider, owner, worker);
 
     assert!(rt
         .call(
-            &MARKET_ACTOR_CODE_ID.clone(),
+            &MARKET_ACTOR_CODE_ID,
             Method::AddBalance as u64,
-            &Serialized::serialize(provider.clone()).unwrap(),
+            &Serialized::serialize(provider).unwrap(),
         )
         .is_ok());
 
     rt.verify();
 
-    rt.balance = rt.balance.clone() + amount;
+    rt.add_balance(amount);
 }
 
 fn add_participant_funds(rt: &mut MockRuntime, addr: Address, amount: TokenAmount) {
     rt.set_value(amount.clone());
 
-    rt.set_caller(ACCOUNT_ACTOR_CODE_ID.clone(), addr.clone());
+    rt.set_caller(*ACCOUNT_ACTOR_CODE_ID, addr);
 
-    rt.expect_validate_caller_type(vec![
-        ACCOUNT_ACTOR_CODE_ID.clone(),
-        MULTISIG_ACTOR_CODE_ID.clone(),
-    ]);
+    rt.expect_validate_caller_type(vec![*ACCOUNT_ACTOR_CODE_ID, *MULTISIG_ACTOR_CODE_ID]);
 
     assert!(rt
         .call(
-            &MARKET_ACTOR_CODE_ID.clone(),
+            &MARKET_ACTOR_CODE_ID,
             Method::AddBalance as u64,
-            &Serialized::serialize(addr.clone()).unwrap(),
+            &Serialized::serialize(addr).unwrap(),
         )
         .is_ok());
 
     rt.verify();
 
-    rt.balance = rt.balance.clone() + amount;
+    rt.add_balance(amount);
 }
 
 fn construct_and_verify(rt: &mut MockRuntime) {
-    rt.expect_validate_caller_addr(vec![SYSTEM_ACTOR_ADDR.clone()]);
+    rt.expect_validate_caller_addr(vec![*SYSTEM_ACTOR_ADDR]);
     assert_eq!(
         Serialized::default(),
         rt.call(

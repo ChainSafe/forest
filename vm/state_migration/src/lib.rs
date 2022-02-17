@@ -211,9 +211,7 @@ impl<BS: BlockStore + Send + Sync> MigrationJob<BS> {
             .map_err(|e| {
                 MigrationError::MigrationJobRun(format!(
                     "state migration failed for {} actor, addr {}:{}",
-                    self.actor_state.code,
-                    self.address,
-                    e.to_string()
+                    self.actor_state.code, self.address, e
                 ))
             })?;
 

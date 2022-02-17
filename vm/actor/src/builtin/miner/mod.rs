@@ -986,13 +986,19 @@ impl Actor {
                     })?;
 
                 // Check proof, we fail if validation succeeds.
-                if verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs)? {
-                    return Err(actor_error!(
-                        ErrIllegalArgument,
-                        "failed to dispute valid post"
-                    ));
-                } else {
-                    info!("Successfully disputed post- window post was invalid");
+                match verify_windowed_post(rt, target_deadline.challenge, &sector_infos, proofs) {
+                    Err(e) => {
+                        info!("Successfully disputed post: {}", e);
+                    }
+                    Ok(false) => {
+                        info!("Successfully disputed post: window post was invalid");
+                    }
+                    Ok(true) => {
+                        return Err(actor_error!(
+                            ErrIllegalArgument,
+                            "failed to dispute valid post"
+                        ));
+                    }
                 }
 
                 // Ok, now we record faults. This always works because
@@ -1248,8 +1254,7 @@ impl Actor {
         rt.transaction(|state: &mut State, rt|{
             // Aggregate fee applies only when batching.
             if params.sectors.len() > 1 {
-                let aggregate_fee = aggregate_pre_commit_network_fee(params.sectors.len() as i64, rt.base_fee());
-                // AggregateFee applied to fee debt to consolidate burn with outstanding debts
+                let aggregate_fee = aggregate_pre_commit_network_fee(params.sectors.len() as i64, rt.base_fee());                // AggregateFee applied to fee debt to consolidate burn with outstanding debts
                 state.apply_penalty(&aggregate_fee)
                 .map_err(|e| {
                     actor_error!(
@@ -2503,14 +2508,15 @@ impl Actor {
             .validate()
             .map_err(|e| actor_error!(ErrIllegalArgument, "invalid mask bitfield: {}", e))?;
 
-        let last_sector_number = mask_sector_numbers
-            .iter()
-            .last()
-            .ok_or_else(|| actor_error!(ErrIllegalArgument, "invalid mask bitfield"))?
-            as SectorNumber;
+        let last_sector_number = mask_sector_numbers.last().map_err(|e| {
+            actor_error!(
+                ErrIllegalArgument,
+                "invalid mask bitfield, no sectors set: {}",
+                e
+            )
+        })?;
 
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if last_sector_number > MAX_SECTOR_NUMBER {
+        if (last_sector_number as u64) > MAX_SECTOR_NUMBER {
             return Err(actor_error!(
                 ErrIllegalArgument,
                 "masked sector number {} exceeded max sector number",
@@ -4009,7 +4015,6 @@ where
             "unlocked balance can not repay fee debt",
         )
     })?;
-    info!("RepayDebtsOrAbort was called and succeeded");
     Ok(res)
 }
 

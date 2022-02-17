@@ -16,6 +16,12 @@ use std::{
 
 type Result<T> = std::result::Result<T, &'static str>;
 
+// MaxEncodedSize is the maximum encoded size of a bitfield. When expanded into
+// a slice of runs, a bitfield of this size should not exceed 2MiB of memory.
+//
+// This bitfield can fit at least 3072 sparse elements.
+const MAX_ENCODED_SIZE: usize = 32 << 10;
+
 /// A bit field with buffered insertion/removal that serializes to/from RLE+. Similar to
 /// `HashSet<usize>`, but more memory-efficient when long runs of 1s and 0s are present.
 #[derive(Debug, Default, Clone)]
@@ -125,6 +131,15 @@ impl BitField {
             .union(min_range_iterator)
             .flatten()
             .find(|i| !self.unset.contains(i))
+    }
+
+    /// Returns the index of the highest bit present in the bit field.
+    /// Errors if no bits are set. Merges set/unset into ranges, so be cautious with use if set is pretty populated
+    pub fn last(&self) -> Result<usize> {
+        self.ranges()
+            .last()
+            .map(|r| r.end - 1)
+            .ok_or("no last bit set")
     }
 
     /// Returns an iterator over the indices of the bit field's set bits.

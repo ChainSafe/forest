@@ -2,7 +2,7 @@
 name = "interpreter"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 address = { package = "forest_address", version = "0.3" }

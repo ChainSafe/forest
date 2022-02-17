@@ -18,6 +18,7 @@ use forest_actor::{
 };
 use ipld_amt::Amt;
 use num_bigint::BigInt;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use vm::{ExitCode, Serialized, TokenAmount, METHOD_CONSTRUCTOR, METHOD_SEND};
@@ -172,10 +173,6 @@ mod create_lane_tests {
         desc: String,
         #[builder(default = "ACCOUNT_ACTOR_CODE_ID.clone()")]
         target_code: Cid,
-        #[builder(default)]
-        balance: u64,
-        #[builder(default)]
-        recieved: u64,
         #[builder(default = "1")]
         epoch: ChainEpoch,
         #[builder(default = "1")]
@@ -277,7 +274,7 @@ mod create_lane_tests {
                 caller_type: *INIT_ACTOR_CODE_ID,
                 actor_code_cids,
                 epoch: test_case.epoch,
-                balance: paych_balance.clone(),
+                balance: RefCell::new(paych_balance.clone()),
                 ..Default::default()
             };
 
@@ -556,7 +553,7 @@ mod merge_tests {
             let num_lanes = 2;
             let (mut rt, mut sv, state) = construct_runtime(num_lanes);
 
-            rt.balance = TokenAmount::from(tc.balance as u64);
+            rt.balance = RefCell::new(TokenAmount::from(tc.balance as u64));
 
             sv.lane = 0;
             sv.nonce = tc.voucher;
@@ -965,7 +962,7 @@ fn require_create_cannel_with_lanes(num_lanes: u64) -> (MockRuntime, SignedVouch
     let paych_addr = Address::new_id(100);
     let payer_addr = Address::new_id(PAYER_ID);
     let payee_addr = Address::new_id(PAYEE_ID);
-    let balance = TokenAmount::from(100_000);
+    let balance = RefCell::new(TokenAmount::from(100_000));
     let received = TokenAmount::from(0);
     let curr_epoch = 2;
 

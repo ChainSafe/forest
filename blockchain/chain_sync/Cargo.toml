@@ -2,7 +2,7 @@
 name = "chain_sync"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
@@ -27,7 +27,7 @@ async-std = { version = "1.9", features = ["tokio1", "unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 futures = "0.3.5"
 futures-util = "0.3.5"
-lru = "0.6"
+lru = "0.7.2"
 thiserror = "1.0"
 num-traits = "0.2"
 fil_types = "0.2"
@@ -42,7 +42,7 @@ interpreter = { path = "../../vm/interpreter/" }
 message_pool = { path = "../message_pool" }
 networks = { path = "../../types/networks" }
 forest_json_utils = { path = "../../utils/json_utils", version = "0.1" }
-chrono = { version = "0.4", features = ["serde"] }
+time = { version = "0.3", features = ["serde"] }
 prometheus = { version = "0.12.0", features = ["process"] }
 lazy_static = "1.4.0"
 

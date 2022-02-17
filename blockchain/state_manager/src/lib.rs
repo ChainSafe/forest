@@ -4,7 +4,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod chain_rand;
+pub mod chain_rand;
 mod errors;
 mod utils;
 mod vm_circ_supply;
@@ -14,9 +14,9 @@ use actor::*;
 use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
-use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
+use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use blockstore::{BlockStore, BufferedBlockStore};
-use chain::{draw_randomness, ChainStore, HeadChange};
+use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -87,29 +87,45 @@ pub struct StateManager<DB> {
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
+    beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
 }
 
 impl<DB> StateManager<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    pub fn new(cs: Arc<ChainStore<DB>>) -> Self {
-        Self {
+    pub async fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, Box<dyn std::error::Error>> {
+        let genesis = cs.genesis()?.ok_or("genesis header was none")?;
+        let beacon = Arc::new(networks::beacon_schedule_default(genesis.timestamp()).await?);
+
+        Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: None,
             genesis_info: GenesisInfo::default(),
-        }
+            beacon,
+        })
     }
 
     /// Creates a constructor that passes in a HeadChange publisher.
-    pub fn new_with_publisher(cs: Arc<ChainStore<DB>>, chain_subs: Publisher<HeadChange>) -> Self {
-        Self {
+    pub async fn new_with_publisher(
+        cs: Arc<ChainStore<DB>>,
+        chain_subs: Publisher<HeadChange>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let genesis = cs.genesis()?.ok_or("genesis header was none")?;
+        let beacon = Arc::new(networks::beacon_schedule_default(genesis.timestamp()).await?);
+
+        Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::default(),
-        }
+            beacon,
+        })
+    }
+
+    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule<DrandBeacon>> {
+        self.beacon.clone()
     }
 
     /// Returns network version for the given epoch.
@@ -136,6 +152,63 @@ where
     /// Returns reference to the state manager's [ChainStore].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
+    }
+
+    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Entropy from the latest beacon entry.
+    pub async fn get_beacon_randomness(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+        let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
+        match self.get_network_version(round) {
+            NetworkVersion::V14 => {
+                chain_rand
+                    .get_beacon_randomness_v3(blocks, pers, round, entropy)
+                    .await
+            }
+            NetworkVersion::V13 => {
+                chain_rand
+                    .get_beacon_randomness_v2(blocks, pers, round, entropy)
+                    .await
+            }
+            NetworkVersion::V0
+            | NetworkVersion::V1
+            | NetworkVersion::V2
+            | NetworkVersion::V3
+            | NetworkVersion::V4
+            | NetworkVersion::V5
+            | NetworkVersion::V6
+            | NetworkVersion::V7
+            | NetworkVersion::V8
+            | NetworkVersion::V9
+            | NetworkVersion::V10
+            | NetworkVersion::V11
+            | NetworkVersion::V12 => {
+                chain_rand
+                    .get_beacon_randomness_v1(blocks, pers, round, entropy)
+                    .await
+            }
+        }
+    }
+
+    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Entropy from the ticket chain.
+    pub async fn get_chain_randomness(
+        &self,
+        blocks: &TipsetKeys,
+        pers: DomainSeparationTag,
+        round: ChainEpoch,
+        entropy: &[u8],
+        lookback: bool,
+    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+        let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
+        chain_rand
+            .get_chain_randomness(blocks, pers, round, entropy, lookback)
+            .await
     }
 
     /// Returns the network name from the init actor state.
@@ -409,7 +482,7 @@ where
                 .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
-        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone());
+        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
         self.call_raw::<V>(message, &chain_rand, &ts)
     }
 
@@ -436,7 +509,7 @@ where
             .tipset_state::<V>(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone());
+        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
 
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
@@ -663,7 +736,7 @@ where
         let miner_state = miner::State::load(self.blockstore(), &actor)?;
 
         let buf = address.marshal_cbor()?;
-        let prand = draw_randomness(
+        let prand = chain_rand::draw_randomness(
             rbase.data(),
             DomainSeparationTag::WinningPoStChallengeSeed,
             round,
@@ -755,7 +828,7 @@ where
 
             let tipset_keys =
                 TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = ChainRand::new(tipset_keys, self.cs.clone());
+            let chain_rand = ChainRand::new(tipset_keys, self.cs.clone(), self.beacon.clone());
             let base_fee = first_block.parent_base_fee().clone();
 
             let blocks = self
