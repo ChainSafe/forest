@@ -90,11 +90,9 @@ mod tests {
     #[test]
     fn deserialize_biguint_test() {
         // Create a 129 bytes large BigUint
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes.push(0);
-        for _ in 0..128 {
-            bytes.push(u8::MAX);
-        }
+        let mut bytes = vec![u8::MAX; 129];
+        bytes[0] = 0;
+
         // Serialize manually
         let mut cbor = Vec::new();
         serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();
@@ -104,11 +102,9 @@ mod tests {
         assert!(res.is_err());
 
         // Create a 128 bytes BigUint
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes.push(0);
-        for _ in 0..127 {
-            bytes.push(u8::MAX);
-        }
+        let mut bytes = vec![u8::MAX; 128];
+        bytes[0] = 0;
+
         // Serialize manually
         let mut cbor = Vec::new();
         serde_bytes::serialize(&bytes, &mut Serializer::new(&mut cbor)).unwrap();

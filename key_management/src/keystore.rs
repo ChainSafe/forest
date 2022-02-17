@@ -471,7 +471,7 @@ mod test {
     use super::*;
     use crate::wallet;
 
-    const PASSPHRASE: &'static str = "foobarbaz";
+    const PASSPHRASE: &str = "foobarbaz";
 
     #[test]
     fn test_generate_key() {
@@ -491,7 +491,7 @@ mod test {
         let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let message = "foo is coming";
         let ciphertext = EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes());
-        let second_pass = EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes());
+        let second_pass = EncryptedKeyStore::encrypt(private_key, message.as_bytes());
 
         assert_ne!(
             ciphertext, second_pass,
@@ -504,7 +504,7 @@ mod test {
         let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let message = "foo is coming";
         let ciphertext = EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes());
-        let plaintext = EncryptedKeyStore::decrypt(private_key.clone(), &ciphertext).unwrap();
+        let plaintext = EncryptedKeyStore::decrypt(private_key, &ciphertext).unwrap();
 
         assert_eq!(plaintext, message.as_bytes());
     }
@@ -524,8 +524,6 @@ mod test {
         ))
         .unwrap();
         ks.flush().unwrap();
-
-        assert!(true);
     }
 
     #[test]
@@ -536,13 +534,13 @@ mod test {
 
         let key = wallet::generate_key(SignatureType::BLS).unwrap();
 
-        let addr = format!("wallet-{}", key.address.to_string());
-        ks.put(addr.clone(), key.key_info.clone()).unwrap();
+        let addr = format!("wallet-{}", key.address);
+        ks.put(addr.clone(), key.key_info).unwrap();
         ks.flush().unwrap();
 
         let default = ks.get(&addr).unwrap();
 
-        let mut keystore_file = keystore_location.clone();
+        let mut keystore_file = keystore_location;
         keystore_file.push("keystore.json");
 
         let reader = BufReader::new(File::open(keystore_file).unwrap());
@@ -564,7 +562,5 @@ mod test {
         let keystore_location = PathBuf::from("/tmp/forest-db");
         let ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
         ks.flush().unwrap();
-
-        assert!(true);
     }
 }

@@ -405,7 +405,7 @@ mod tests {
     fn test_unset_last() {
         // Create a bitfield first 3 set bits
         let ranges: Vec<usize> = vec![0, 1, 2, 3];
-        let iter = ranges_from_bits(ranges.clone());
+        let iter = ranges_from_bits(ranges);
         let mut bf = BitField::from_ranges(iter);
         // Unset bit at pos 3
         bf.unset(3);

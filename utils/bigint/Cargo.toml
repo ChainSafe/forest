@@ -4,7 +4,7 @@ description = "BigInt utilities for use in Forest"
 license = "MIT OR Apache-2.0"
 version = "0.1.4"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
