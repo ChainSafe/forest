@@ -159,10 +159,10 @@ mod tests {
 
     async fn populate_db() -> (Vec<Cid>, MemoryDB) {
         let db = MemoryDB::default();
-        let reader = BufReader::<&[u8]>::new(EXPORT_SR_40.as_ref());
+        let reader = BufReader::<&[u8]>::new(EXPORT_SR_40);
         // The cids are the tipset cids of the most recent tipset (39th)
         let cids: Vec<Cid> = load_car(&db, reader).await.unwrap();
-        return (cids, db);
+        (cids, db)
     }
 
     #[async_std::test]

@@ -268,7 +268,7 @@ fn construct_and_verify(rt: &mut MockRuntime) {
     assert_eq!("mock".to_string(), state_data.network_name);
 }
 
-fn exec_and_verify<'a, S: Serialize>(
+fn exec_and_verify<S: Serialize>(
     rt: &mut MockRuntime,
     code_id: Cid,
     params: &S,

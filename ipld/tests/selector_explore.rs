@@ -68,7 +68,8 @@ fn selector_explore_tests() {
         assert!(
             test_equal(&result, &tv.result_selector),
             "({}) Failed:\nExpected: {:?}\nFound: {:?}",
-            tv.description.unwrap_or("Unnamed test case".to_owned()),
+            tv.description
+                .unwrap_or_else(|| "Unnamed test case".to_owned()),
             tv.result_selector,
             result
         );

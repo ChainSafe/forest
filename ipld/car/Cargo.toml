@@ -2,7 +2,7 @@
 name = "forest_car"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 cid = { package = "forest_cid", version = "0.3", features = ["cbor"] }
