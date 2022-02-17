@@ -599,22 +599,22 @@ mod tests {
             .unwrap();
         let mut overflowed_winning_post_proof_encoding = Vec::new();
         (
-            &overflowed_beacon_entries.miner_address,
-            &overflowed_beacon_entries.ticket,
-            &overflowed_beacon_entries.election_proof,
-            &overflowed_beacon_entries.beacon_entries,
-            &overflowed_beacon_entries.winning_post_proof,
-            &overflowed_beacon_entries.parents,
-            BigIntSer(&overflowed_beacon_entries.weight),
-            &overflowed_beacon_entries.epoch,
-            &overflowed_beacon_entries.state_root,
-            &overflowed_beacon_entries.message_receipts,
-            &overflowed_beacon_entries.messages,
-            &overflowed_beacon_entries.bls_aggregate,
-            &overflowed_beacon_entries.timestamp,
-            &overflowed_beacon_entries.signature,
-            &overflowed_beacon_entries.fork_signal,
-            BigIntSer(&overflowed_beacon_entries.parent_base_fee),
+            &overflowed_winning_post_proof.miner_address,
+            &overflowed_winning_post_proof.ticket,
+            &overflowed_winning_post_proof.election_proof,
+            &overflowed_winning_post_proof.beacon_entries,
+            &overflowed_winning_post_proof.winning_post_proof,
+            &overflowed_winning_post_proof.parents,
+            BigIntSer(&overflowed_winning_post_proof.weight),
+            &overflowed_winning_post_proof.epoch,
+            &overflowed_winning_post_proof.state_root,
+            &overflowed_winning_post_proof.message_receipts,
+            &overflowed_winning_post_proof.messages,
+            &overflowed_winning_post_proof.bls_aggregate,
+            &overflowed_winning_post_proof.timestamp,
+            &overflowed_winning_post_proof.signature,
+            &overflowed_winning_post_proof.fork_signal,
+            BigIntSer(&overflowed_winning_post_proof.parent_base_fee),
         )
             .serialize(&mut Serializer::new(
                 &mut overflowed_winning_post_proof_encoding,
@@ -622,7 +622,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            from_slice::<BlockHeader>(&overflowed_beacon_entries_encoding)
+            from_slice::<BlockHeader>(&overflowed_winning_post_proof)
                 .err()
                 .unwrap()
                 .to_string(),
