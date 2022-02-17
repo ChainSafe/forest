@@ -742,26 +742,26 @@ mod test_selection {
         assert_eq!(msgs.len(), 20, "Expected 20 messages, got {}", msgs.len());
 
         let mut next_nonce = 0;
-        for i in 0..10 {
+        for (i, msg) in msgs.iter().enumerate().take(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1 {}",
                 i
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
 
         next_nonce = 0;
-        for i in 10..20 {
+        for (i, msg) in msgs.iter().enumerate().take(20).skip(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2 {}",
                 i
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
 
@@ -832,23 +832,23 @@ mod test_selection {
         );
 
         let mut next_nonce = 20;
-        for i in 0..10 {
+        for msg in msgs.iter().take(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1"
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
         next_nonce = 20;
-        for i in 10..20 {
+        for msg in msgs.iter().take(20).skip(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2"
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
     }
@@ -1010,23 +1010,23 @@ mod test_selection {
         assert_eq!(msgs.len(), 20);
 
         let mut next_nonce = 0;
-        for i in 0..10 {
+        for msg in msgs.iter().take(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1"
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
         next_nonce = 0;
-        for i in 10..20 {
+        for msg in msgs.iter().take(20).skip(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2"
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
     }
@@ -1100,17 +1100,15 @@ mod test_selection {
 
         assert_eq!(msgs.len(), expected_msgs as usize);
 
-        let mut next_nonce = 0u64;
-        for m in msgs {
+        for (next_nonce, m) in msgs.into_iter().enumerate() {
             assert_eq!(m.message().from(), &a1, "Expected message from a1");
             assert_eq!(
                 m.message().sequence,
-                next_nonce,
+                next_nonce as u64,
                 "expected nonce {} but got {}",
                 next_nonce,
                 m.message().sequence
             );
-            next_nonce += 1;
         }
     }
 
@@ -1278,7 +1276,7 @@ mod test_selection {
         for a in &mut actors {
             api.write()
                 .await
-                .set_state_balance_raw(&a, types::DefaultNetworkParams::from_fil(1));
+                .set_state_balance_raw(a, types::DefaultNetworkParams::from_fil(1));
             // in FIL
         }
 
@@ -1317,7 +1315,7 @@ mod test_selection {
                 }
             }
             // Lotus has -1, but since we don't have -ve indexes, set it some unrealistic number
-            return 9999999;
+            9999999
         };
 
         let mut nonces = vec![0; n_actors as usize];
