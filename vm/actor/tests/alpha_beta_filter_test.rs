@@ -18,7 +18,7 @@ const ERR_BOUND: u64 = 350;
 fn per_million_error(val_1: &BigInt, val_2: &BigInt) -> BigInt {
     let diff = (val_1 - val_2) << PRECISION;
 
-    let ratio = diff.div_floor(&val_1);
+    let ratio = diff.div_floor(val_1);
     let million = BigInt::from(1_000_000) << PRECISION;
 
     let diff_per_million = (ratio * million).abs();

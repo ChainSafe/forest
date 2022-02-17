@@ -25,7 +25,7 @@ impl Serialize for BenchData {
     where
         S: Serializer,
     {
-        (()).serialize(serializer)
+        ().serialize(serializer)
     }
 }
 impl<'de> Deserialize<'de> for BenchData {

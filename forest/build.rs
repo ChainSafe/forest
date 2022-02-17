@@ -9,21 +9,15 @@ const RELEASE_TRACK: &str = "unstable";
 #[cfg(feature = "release")]
 const RELEASE_TRACK: &str = "alpha";
 
-#[cfg(feature = "devnet")]
-const NETWORK: &str = "devnet";
-
-#[cfg(feature = "interopnet")]
-const NETWORK: &str = "interopnet";
-
-#[cfg(feature = "calibnet")]
-const NETWORK: &str = "calibnet";
-
-#[cfg(all(
-    not(feature = "devnet"),
-    not(feature = "interopnet"),
-    not(feature = "calibnet")
-))]
-const NETWORK: &str = "mainnet";
+const NETWORK: &str = if cfg!(devnet) {
+    "devnet"
+} else if cfg!(interopnet) {
+    "interopnet"
+} else if cfg!(calibnet) {
+    "calibnet"
+} else {
+    "mainnet"
+};
 
 fn main() {
     // expose environment variable FOREST_VERSON at build time
