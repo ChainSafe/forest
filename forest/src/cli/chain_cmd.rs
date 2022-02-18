@@ -28,7 +28,7 @@ pub enum ChainCommands {
             short,
             help = "specify the number of recent state roots to include in the export"
         )]
-        recent_stateroots: i64,
+        recent_stateroots: Option<i64>,
         #[structopt(short, help = "default: false")]
         skip_old_messages: bool,
         #[structopt(short, help = "path of the file to export to")]
@@ -73,6 +73,30 @@ impl ChainCommands {
                 skip_old_messages,
                 output_path,
             } => {
+                let recent_stateroots = match recent_stateroots {
+                    Some(rsrs) => {
+                        if rsrs < CHAIN_FINALITY {
+                            return cli_error_and_die(
+                                &format!(
+                                    "\recent-stateroots\" must be greater than {}",
+                                    CHAIN_FINALITY
+                                ),
+                                1,
+                            );
+                        }
+
+                        if *rsrs == 0 && *skip_old_messages {
+                            return cli_error_and_die(
+                                "must pass recent stateroots along with skip-old-messages",
+                                1,
+                            );
+                        }
+
+                        *rsrs
+                    }
+                    None => 0,
+                };
+
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
                     Err(_) => return cli_error_and_die("Could not get network head", 1),
@@ -84,6 +108,13 @@ impl ChainCommands {
                     chain_head.epoch()
                 };
 
+                if *recent_stateroots == 0 && *skip_old_messages {
+                    return cli_error_and_die(
+                        "Must pass recent stateroots along with skip-old-messages",
+                        1,
+                    );
+                }
+
                 let params = (
                     epoch,
                     *recent_stateroots,
@@ -91,7 +122,8 @@ impl ChainCommands {
                     output_path.clone(),
                     TipsetKeysJson(chain_head.key().clone()),
                 );
-                let result = chain_export(params).await.map_err(handle_rpc_err);
+
+                let _ = chain_export(params).await.map_err(handle_rpc_err).unwrap();
 
                 println!("Done!")
             }
