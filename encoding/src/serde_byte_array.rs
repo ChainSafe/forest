@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::BYTE_ARRAY_MAX_LEN;
+use crate::{errors::SerdeError, BYTE_ARRAY_MAX_LEN};
 use serde::{de, ser, Deserializer, Serializer};
 use serde_bytes::{Deserialize, Serialize};
 
@@ -11,10 +11,11 @@ where
     T: ?Sized + Serialize + AsRef<[u8]>,
     S: Serializer,
 {
-    if bytes.as_ref().len() > BYTE_ARRAY_MAX_LEN {
-        return Err(ser::Error::custom::<String>(
-            "Array exceed max length".into(),
-        ));
+    let len = bytes.as_ref().len();
+    if len > BYTE_ARRAY_MAX_LEN {
+        return Err(ser::Error::custom(SerdeError::ByteArrayExceedsMaxLength(
+            len,
+        )));
     }
 
     Serialize::serialize(bytes, serializer)
@@ -27,10 +28,11 @@ where
     D: Deserializer<'de>,
 {
     Deserialize::deserialize(deserializer).and_then(|bytes: T| {
-        if bytes.as_ref().len() > BYTE_ARRAY_MAX_LEN {
-            Err(de::Error::custom::<String>(
-                "Array exceed max length".into(),
-            ))
+        let len = bytes.as_ref().len();
+        if len > BYTE_ARRAY_MAX_LEN {
+            Err(de::Error::custom(SerdeError::ByteArrayExceedsMaxLength(
+                len,
+            )))
         } else {
             Ok(bytes)
         }
@@ -39,7 +41,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{serde_byte_array, BYTE_ARRAY_MAX_LEN};
+    use crate::{serde_byte_array, SerdeError, BYTE_ARRAY_MAX_LEN};
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -61,13 +63,14 @@ mod tests {
 
     #[test]
     fn cannot_serialize_byte_array_overflow() {
+        let len = BYTE_ARRAY_MAX_LEN + 1;
         let bytes = ByteArray {
-            inner: vec![0; BYTE_ARRAY_MAX_LEN + 1],
+            inner: vec![0; len],
         };
 
         assert_eq!(
-            format!("{}", serde_cbor::to_vec(&bytes).err().unwrap()),
-            "Array exceed max length".to_string()
+            serde_cbor::to_vec(&bytes).err().unwrap().to_string(),
+            SerdeError::ByteArrayExceedsMaxLength(len).to_string()
         );
     }
 
@@ -99,13 +102,11 @@ mod tests {
         overflow_encoding.push(0);
 
         assert_eq!(
-            format!(
-                "{}",
-                serde_cbor::from_slice::<ByteArray>(&overflow_encoding)
-                    .err()
-                    .unwrap()
-            ),
-            "Array exceed max length".to_string()
+            serde_cbor::from_slice::<ByteArray>(&overflow_encoding)
+                .err()
+                .unwrap()
+                .to_string(),
+            SerdeError::ByteArrayExceedsMaxLength(BYTE_ARRAY_MAX_LEN + 1).to_string()
         );
     }
 }
