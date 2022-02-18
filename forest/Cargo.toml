@@ -12,7 +12,7 @@ base64 = "0.13"
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
 db = { package = "forest_db", version = "0.1" }
-libp2p = { version = "0.41", default-features = false, features = ["identify"] }
+libp2p = { version = "0.42", default-features = false, features = ["identify"] }
 futures = "0.3"
 log = "0.4"
 async-log = "2.0"
