@@ -2141,7 +2141,7 @@ dependencies = [
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",
- "libp2p 0.41.2",
+ "libp2p 0.42.2",
  "log",
  "message_pool",
  "metrics",
@@ -3763,31 +3763,6 @@ dependencies = [
 
 [[package]]
 name = "libp2p"
-version = "0.41.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e00f5d572808870564cd48b5d86a253c3dc19487e5861c0fb9c74af60314fdb"
-dependencies = [
- "atomic",
- "bytes 1.1.0",
- "futures",
- "futures-timer",
- "getrandom 0.2.4",
- "instant",
- "lazy_static",
- "libp2p-core 0.30.2",
- "libp2p-identify 0.32.1",
- "libp2p-metrics 0.2.0",
- "libp2p-swarm 0.32.0",
- "libp2p-swarm-derive 0.26.1",
- "multiaddr",
- "parking_lot",
- "pin-project 1.0.10",
- "rand 0.7.3",
- "smallvec",
-]
-
-[[package]]
-name = "libp2p"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f592f1b06f12a5686a5de7be9f289a161c96d5f89f12b04b7d14cf3d61d7381"
@@ -4040,23 +4015,6 @@ dependencies = [
 
 [[package]]
 name = "libp2p-identify"
-version = "0.32.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32329181638a103321c05ef697f406abbccc695780b7c7d3dc34206758e9eb09"
-dependencies = [
- "futures",
- "futures-timer",
- "libp2p-core 0.30.2",
- "libp2p-swarm 0.32.0",
- "log",
- "lru 0.7.2",
- "prost 0.9.0",
- "prost-build 0.9.0",
- "smallvec",
-]
-
-[[package]]
-name = "libp2p-identify"
 version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae5d84b4e57cb66abb9dd28ea36f69620816e004a7479c0ad76f45002820f99b"
@@ -4179,18 +4137,6 @@ dependencies = [
  "libp2p-kad 0.32.0",
  "libp2p-ping 0.31.0",
  "libp2p-swarm 0.31.0",
- "open-metrics-client 0.12.0",
-]
-
-[[package]]
-name = "libp2p-metrics"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d59f3be49edeecff13ef0d0dc28295ba4a33910611715f04236325d08e4119e0"
-dependencies = [
- "libp2p-core 0.30.2",
- "libp2p-identify 0.32.1",
- "libp2p-swarm 0.32.0",
  "open-metrics-client 0.12.0",
 ]
 
@@ -4447,23 +4393,6 @@ dependencies = [
  "smallvec",
  "void",
  "wasm-timer",
-]
-
-[[package]]
-name = "libp2p-swarm"
-version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb84d40627cd109bbbf43da9269d4ef75903f42356c88d98b2b55c47c430c792"
-dependencies = [
- "either",
- "futures",
- "futures-timer",
- "instant",
- "libp2p-core 0.30.2",
- "log",
- "rand 0.7.3",
- "smallvec",
- "void",
 ]
 
 [[package]]
