@@ -1331,6 +1331,14 @@ async fn validate_block<
                 TipsetRangeSyncerError::Calculation(format!("Failed to calculate state: {}", e))
             })?;
         if &state_root != header.state_root() {
+            #[cfg(feature = "statediff")]
+            statediff::print_state_diff(
+                v_state_manager.blockstore(),
+                &state_root,
+                &header.state_root(),
+                Some(1),
+            )
+            .unwrap();
             return Err(TipsetRangeSyncerError::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root(),

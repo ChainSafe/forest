@@ -1226,6 +1226,7 @@ dependencies = [
  "smallvec",
  "state_manager",
  "state_tree",
+ "statediff",
  "test_utils",
  "thiserror",
  "time 0.3.7",
