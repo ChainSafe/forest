@@ -238,7 +238,7 @@ fn self_transfer_test() {
         let registered = HashSet::new();
 
         let lookback = MockStateLB(&store);
-        let mut runtime = DefaultRuntime::<_, _, _, _, MockVerifier>::new(
+        let runtime = DefaultRuntime::<_, _, _, _, MockVerifier>::new(
             nv,
             &mut state,
             &store,
