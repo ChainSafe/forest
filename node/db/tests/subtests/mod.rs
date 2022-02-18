@@ -31,7 +31,7 @@ where
     let value = [1];
     db.write(key, value).unwrap();
     let res = db.exists(key).unwrap();
-    assert_eq!(res, true);
+    assert!(res);
 }
 
 pub fn does_not_exist<DB>(db: &DB)
@@ -40,7 +40,7 @@ where
 {
     let key = [0];
     let res = db.exists(key).unwrap();
-    assert_eq!(res, false);
+    assert!(!res);
 }
 
 pub fn delete<DB>(db: &DB)
@@ -51,10 +51,10 @@ where
     let value = [1];
     db.write(key, value).unwrap();
     let res = db.exists(key).unwrap();
-    assert_eq!(res, true);
+    assert!(res);
     db.delete(key).unwrap();
     let res = db.exists(key).unwrap();
-    assert_eq!(res, false);
+    assert!(!res);
 }
 
 pub fn bulk_write<DB>(db: &DB)
@@ -65,7 +65,7 @@ where
     db.bulk_write(&values).unwrap();
     for (k, _) in values.iter() {
         let res = db.exists(*k).unwrap();
-        assert_eq!(res, true);
+        assert!(res);
     }
 }
 
@@ -97,6 +97,6 @@ where
     db.bulk_delete(&keys).unwrap();
     for k in keys.iter() {
         let res = db.exists(*k).unwrap();
-        assert_eq!(res, false);
+        assert!(!res);
     }
 }

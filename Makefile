@@ -55,8 +55,8 @@ clean:
 	@echo "Done cleaning."
 
 lint: license clean
-	cargo fmt --all
-	cargo clippy -- -D warnings
+	cargo fmt --all --check
+	cargo clippy --all-targets -- -D warnings
 
 build:
 	cargo build --bin forest

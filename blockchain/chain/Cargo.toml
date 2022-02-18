@@ -2,7 +2,7 @@
 name = "chain"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }

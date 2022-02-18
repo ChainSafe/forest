@@ -113,8 +113,8 @@ fn test_winner_probability() {
 
     for _ in 0..n {
         let mut miners_rand: f64 = rng.gen::<f64>() * f64::MAX;
-        for j in 0..MAX_BLOCKS {
-            miners_rand -= winner_prob[j];
+        for prob in winner_prob.iter().take(MAX_BLOCKS) {
+            miners_rand -= prob;
             if miners_rand < 0.0 {
                 break;
             }

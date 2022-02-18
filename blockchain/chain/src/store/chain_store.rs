@@ -971,9 +971,9 @@ mod tests {
         let cs = ChainStore::new(Arc::new(db));
 
         let cid = cid::new_from_cbor(&[1, 2, 3], Blake2b256);
-        assert_eq!(cs.is_block_validated(&cid).unwrap(), false);
+        assert!(!cs.is_block_validated(&cid).unwrap());
 
         cs.mark_block_as_validated(&cid).unwrap();
-        assert_eq!(cs.is_block_validated(&cid).unwrap(), true);
+        assert!(cs.is_block_validated(&cid).unwrap());
     }
 }
