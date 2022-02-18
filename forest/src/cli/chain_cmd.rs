@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use actor::CHAIN_FINALITY;
 use blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
@@ -75,6 +76,7 @@ impl ChainCommands {
             } => {
                 let recent_stateroots = match recent_stateroots {
                     Some(rsrs) => {
+                        let rsrs = rsrs.to_owned();
                         if rsrs < CHAIN_FINALITY {
                             return cli_error_and_die(
                                 &format!(
@@ -85,14 +87,14 @@ impl ChainCommands {
                             );
                         }
 
-                        if *rsrs == 0 && *skip_old_messages {
+                        if rsrs == 0 && *skip_old_messages {
                             return cli_error_and_die(
                                 "must pass recent stateroots along with skip-old-messages",
                                 1,
                             );
                         }
 
-                        *rsrs
+                        rsrs
                     }
                     None => 0,
                 };
@@ -108,7 +110,7 @@ impl ChainCommands {
                     chain_head.epoch()
                 };
 
-                if *recent_stateroots == 0 && *skip_old_messages {
+                if recent_stateroots == 0 && *skip_old_messages {
                     return cli_error_and_die(
                         "Must pass recent stateroots along with skip-old-messages",
                         1,
@@ -117,7 +119,7 @@ impl ChainCommands {
 
                 let params = (
                     epoch,
-                    *recent_stateroots,
+                    recent_stateroots,
                     *skip_old_messages,
                     output_path.clone(),
                     TipsetKeysJson(chain_head.key().clone()),
