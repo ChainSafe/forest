@@ -2,7 +2,7 @@
 name = "statediff"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 serde_json = "1.0"

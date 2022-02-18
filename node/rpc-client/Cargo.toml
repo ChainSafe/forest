@@ -1,6 +1,6 @@
 [package]
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 name = "rpc-client"
 version = "0.1.0"
 

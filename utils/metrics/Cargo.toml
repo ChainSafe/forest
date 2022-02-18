@@ -2,7 +2,7 @@
 name = "metrics"
 version = "0.1.0"
 authors = ["jorge <jorgeaolivero@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 prometheus =  { version = "0.12.0", features = ["process"] }
