@@ -1,0 +1,58 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Build Docker Image
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  pull_request:
+    branches: [ master ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+#  workflow_dispatch:
+ #    branches:    
+ #     - master  
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build-image:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-20.04
+    
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:        
+      # Start Docker Engine
+#          sudo systemctl start docker
+      - name: Start Docker Engine
+        run: |
+          sudo systemctl status docker -l
+          
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: Listing Directory Contents
+        run: |
+          echo 'User:' $(whoami) 
+          echo 'Working Directory:' $(pwd) 
+          echo 'Directory Content:' 
+          ls -lah
+        
+      # Build Container Images
+      - name: Build Container Image with Docker
+        run: |
+          echo "Docker: Image building ..."
+          docker build -t forest -f ./Dockerfile .
+          echo "Docker: Images listing ..."
+          docker image ls
+          docker image inspect forest
+          echo "Docker: Service 'forest' Version:"
+          docker run -it forest forest --version
+          echo "Docker: Service 'forest' starting ..."
+          docker run -d forest
+          
+      # Check Container Health Exit the test when Containers are failed
+      - name: Check Container Health
+        run: |
+          constat=`docker ps 2>&1` 
+          echo -e "Container Status Complete:\n$constat" 
