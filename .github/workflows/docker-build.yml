@@ -47,7 +47,7 @@ jobs:
           docker image ls
           docker image inspect forest
           echo "Docker: Service 'forest' Version:"
-          docker run -it forest forest --version
+          docker run -i forest forest --version
           echo "Docker: Service 'forest' starting ..."
           docker run -d forest
           
