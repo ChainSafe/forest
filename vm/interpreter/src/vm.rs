@@ -519,7 +519,7 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        if std::env::var("USE_FVM").is_ok() {
+        if crate::use_fvm() {
             Ok(self.fvm_executor.flush()?.into())
         } else {
             match self.state.flush() {
@@ -531,7 +531,7 @@ where
 
     /// Returns a reference to the VM's state tree.
     pub fn state(&self) -> &StateTree<'_, DB> {
-        if std::env::var("USE_FVM").is_ok() {
+        if crate::use_fvm() {
             panic!("State tree reference is not available with FVM.")
         } else {
             &self.state
@@ -702,7 +702,7 @@ where
 
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        if std::env::var("USE_FVM").is_ok() {
+        if crate::use_fvm() {
             self.apply_implicit_message_fvm(msg)
         } else {
             self.apply_implicit_message_native(msg)
@@ -744,7 +744,7 @@ where
     /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
-        if std::env::var("USE_FVM").is_ok() {
+        if crate::use_fvm() {
             self.apply_message_fvm(msg)
         } else {
             self.apply_message_native(msg)

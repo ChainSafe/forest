@@ -14,3 +14,9 @@ pub use self::default_runtime::*;
 pub use self::gas_tracker::*;
 pub use self::rand::*;
 pub use self::vm::*;
+
+/// Temporary flag to switch backends.
+/// https://github.com/ChainSafe/forest/pull/1403
+pub fn use_fvm() -> bool {
+    std::env::var("USE_FVM").is_ok()
+}
