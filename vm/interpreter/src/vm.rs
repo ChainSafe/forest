@@ -444,7 +444,9 @@ impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB> {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
+pub struct VM<'db, DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
+    state: StateTree<'db, DB>,
+    store: &'db DB,
     epoch: ChainEpoch,
     registered_actors: HashSet<Cid>,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
@@ -452,7 +454,7 @@ pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkPara
     params: PhantomData<P>,
 }
 
-impl<DB, V, P> VM<DB, V, P>
+impl<'db, DB, V, P> VM<'db, DB, V, P>
 where
     DB: BlockStore + 'static,
     V: ProofVerifier,
@@ -461,13 +463,14 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         root: Cid,
+        store: &'db DB,
         store_arc: Arc<DB>,
         epoch: ChainEpoch,
         rand: impl Rand + Clone + 'static,
         base_fee: BigInt,
         circ_supply_calc: impl CircSupplyCalc,
     ) -> Result<Self, String> {
-        let store = store_arc.as_ref();
+        // let store = store_arc.as_ref();
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         let engine = Engine::default();
@@ -492,6 +495,8 @@ where
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
         Ok(VM {
+            state,
+            store,
             epoch,
             registered_actors,
             // fvm_machine: ForestMachine{ machine: fvm },
