@@ -531,8 +531,11 @@ where
 
     /// Returns a reference to the VM's state tree.
     pub fn state(&self) -> &StateTree<'_, DB> {
-        panic!("State reference is no longer available.")
-        // &self.state
+        if std::env::var("USE_FVM").is_ok() {
+            panic!("State tree reference is not available with FVM.")
+        } else {
+            &self.state
+        }
     }
 
     fn run_cron(
@@ -699,6 +702,14 @@ where
 
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+        if std::env::var("USE_FVM").is_ok() {
+            self.apply_implicit_message_fvm(msg)
+        } else {
+            self.apply_implicit_message_native(msg)
+        }
+    }
+
+    fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         use fvm::executor::Executor;
         let mut raw_length = msg.marshal_cbor().expect("encoding error").len();
         if msg.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
@@ -710,10 +721,37 @@ where
             .expect("FIXME: execution failed")
             .into()
     }
+    pub fn apply_implicit_message_native(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+        todo!()
+        // let (return_data, _, act_err) = self.send(msg, None);
+
+        // ApplyRet {
+        //     msg_receipt: MessageReceipt {
+        //         return_data,
+        //         exit_code: if let Some(err) = &act_err {
+        //             err.exit_code()
+        //         } else {
+        //             ExitCode::Ok
+        //         },
+        //         gas_used: 0,
+        //     },
+        //     act_error: act_err,
+        //     penalty: BigInt::zero(),
+        //     miner_tip: BigInt::zero(),
+        // }
+    }
 
     /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
+        if std::env::var("USE_FVM").is_ok() {
+            self.apply_message_fvm(msg)
+        } else {
+            self.apply_message_native(msg)
+        }
+    }
+
+    fn apply_message_fvm(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
         check_message(msg.message())?;
 
         use fvm::executor::Executor;
@@ -731,6 +769,246 @@ where
             Ok(ret) => Ok(ret.into()),
             Err(e) => Err(format!("{:?}", e)),
         }
+    }
+
+    fn apply_message_native(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
+        todo!()
+        // check_message(msg.message())?;
+
+        // let pl = price_list_by_epoch(self.epoch());
+        // let ser_msg = msg.marshal_cbor().map_err(|e| e.to_string())?;
+        // let msg_gas_cost = pl.on_chain_message(ser_msg.len());
+        // let cost_total = msg_gas_cost.total();
+
+        // // Verify the cost of the message is not over the message gas limit.
+        // if cost_total > msg.gas_limit() {
+        //     return Ok(ApplyRet {
+        //         msg_receipt: MessageReceipt {
+        //             return_data: Serialized::default(),
+        //             exit_code: ExitCode::SysErrOutOfGas,
+        //             gas_used: 0,
+        //         },
+        //         act_error: Some(actor_error!(SysErrOutOfGas;
+        //             "Out of gas ({} > {})", cost_total, msg.gas_limit())),
+        //         penalty: &self.base_fee * cost_total,
+        //         miner_tip: BigInt::zero(),
+        //     });
+        // }
+
+        // // Load from actor state.
+        // let miner_penalty_amount = &self.base_fee * msg.gas_limit();
+        // let from_act = match self.state.get_actor(msg.from()) {
+        //     Ok(Some(from_act)) => from_act,
+        //     Ok(None) => {
+        //         return Ok(ApplyRet {
+        //             msg_receipt: MessageReceipt {
+        //                 return_data: Serialized::default(),
+        //                 exit_code: ExitCode::SysErrSenderInvalid,
+        //                 gas_used: 0,
+        //             },
+        //             penalty: miner_penalty_amount,
+        //             act_error: Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
+        //             miner_tip: 0.into(),
+        //         });
+        //     }
+        //     Err(e) => {
+        //         println!("sender invalid {}", e);
+        //         return Ok(ApplyRet {
+        //             msg_receipt: MessageReceipt {
+        //                 return_data: Serialized::default(),
+        //                 exit_code: ExitCode::SysErrSenderInvalid,
+        //                 gas_used: 0,
+        //             },
+        //             penalty: miner_penalty_amount,
+        //             act_error: Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
+        //             miner_tip: 0.into(),
+        //         });
+        //     }
+        // };
+
+        // // If from actor is not an account actor, return error.
+        // #[cfg(not(test_vectors))]
+        // if !actor::is_account_actor(&from_act.code) {
+        //     return Ok(ApplyRet {
+        //         msg_receipt: MessageReceipt {
+        //             return_data: Serialized::default(),
+        //             exit_code: ExitCode::SysErrSenderInvalid,
+        //             gas_used: 0,
+        //         },
+        //         penalty: miner_penalty_amount,
+        //         act_error: Some(actor_error!(SysErrSenderInvalid; "send not from account actor")),
+        //         miner_tip: 0.into(),
+        //     });
+        // };
+
+        // // Check sequence is correct
+        // if msg.sequence() != from_act.sequence {
+        //     return Ok(ApplyRet {
+        //         msg_receipt: MessageReceipt {
+        //             return_data: Serialized::default(),
+        //             exit_code: ExitCode::SysErrSenderStateInvalid,
+        //             gas_used: 0,
+        //         },
+        //         penalty: miner_penalty_amount,
+        //         act_error: Some(actor_error!(SysErrSenderStateInvalid;
+        //             "actor sequence invalid: {} != {}", msg.sequence(), from_act.sequence)),
+        //         miner_tip: 0.into(),
+        //     });
+        // };
+
+        // // Ensure from actor has enough balance to cover the gas cost of the message.
+        // let gas_cost: TokenAmount = msg.gas_fee_cap() * msg.gas_limit();
+        // if from_act.balance < gas_cost {
+        //     return Ok(ApplyRet {
+        //         msg_receipt: MessageReceipt {
+        //             return_data: Serialized::default(),
+        //             exit_code: ExitCode::SysErrSenderStateInvalid,
+        //             gas_used: 0,
+        //         },
+        //         penalty: miner_penalty_amount,
+        //         act_error: Some(actor_error!(SysErrSenderStateInvalid;
+        //             "actor balance less than needed: {} < {}", from_act.balance, gas_cost)),
+        //         miner_tip: 0.into(),
+        //     });
+        // };
+
+        // // Deduct gas cost and increment sequence
+        // self.state
+        //     .mutate_actor(msg.from(), |act| {
+        //         act.deduct_funds(&gas_cost)?;
+        //         act.sequence += 1;
+        //         Ok(())
+        //     })
+        //     .map_err(|e| e.to_string())?;
+
+        // let send_clo = || -> Result<ApplyRet, String> {
+        //     self.state.snapshot()?;
+
+        //     // Perform transaction
+        //     let (mut ret_data, rt, mut act_err) = self.send(msg.message(), Some(msg_gas_cost));
+        //     if let Some(err) = &act_err {
+        //         if err.is_fatal() {
+        //             return Err(format!(
+        //                 "[from={}, to={}, seq={}, m={}, h={}] fatal error: {}",
+        //                 msg.from(),
+        //                 msg.to(),
+        //                 msg.sequence(),
+        //                 msg.method_num(),
+        //                 self.epoch,
+        //                 err
+        //             ));
+        //         } else {
+        //             debug!(
+        //                 "[from={}, to={}, seq={}, m={}] send error: {}",
+        //                 msg.from(),
+        //                 msg.to(),
+        //                 msg.sequence(),
+        //                 msg.method_num(),
+        //                 err
+        //             );
+        //             if !ret_data.is_empty() {
+        //                 return Err(format!(
+        //                     "message invocation errored, but had a return value anyway: {}",
+        //                     err
+        //                 ));
+        //             }
+        //         }
+        //     }
+
+        //     let gas_used = if let Some(mut rt) = rt {
+        //         if !ret_data.is_empty() {
+        //             if let Err(e) =
+        //                 rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
+        //             {
+        //                 act_err = Some(e);
+        //                 ret_data = Serialized::default();
+        //             }
+        //         }
+        //         if rt.gas_used() < 0 {
+        //             0
+        //         } else {
+        //             rt.gas_used()
+        //         }
+        //     } else {
+        //         return Err(format!("send returned None runtime: {:?}", act_err));
+        //     };
+
+        //     let err_code = if let Some(err) = &act_err {
+        //         if !err.is_ok() {
+        //             // Revert all state changes on error.
+        //             self.state.revert_to_snapshot()?;
+        //         }
+        //         err.exit_code()
+        //     } else {
+        //         ExitCode::Ok
+        //     };
+
+        //     let should_burn = self
+        //         .should_burn(self.state(), msg, err_code)
+        //         .map_err(|e| format!("failed to decide whether to burn: {}", e))?;
+
+        //     let GasOutputs {
+        //         base_fee_burn,
+        //         miner_tip,
+        //         over_estimation_burn,
+        //         refund,
+        //         miner_penalty,
+        //         ..
+        //     } = compute_gas_outputs(
+        //         gas_used,
+        //         msg.gas_limit(),
+        //         &self.base_fee,
+        //         msg.gas_fee_cap(),
+        //         msg.gas_premium().clone(),
+        //         should_burn,
+        //     );
+
+        //     let mut transfer_to_actor = |addr: &Address, amt: &TokenAmount| -> Result<(), String> {
+        //         if amt.sign() == Sign::Minus {
+        //             return Err("attempted to transfer negative value into actor".into());
+        //         }
+        //         if amt.is_zero() {
+        //             return Ok(());
+        //         }
+
+        //         self.state
+        //             .mutate_actor(addr, |act| {
+        //                 act.deposit_funds(amt);
+        //                 Ok(())
+        //             })
+        //             .map_err(|e| e.to_string())?;
+        //         Ok(())
+        //     };
+
+        //     transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
+
+        //     transfer_to_actor(&**reward::ADDRESS, &miner_tip)?;
+
+        //     transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
+
+        //     // refund unused gas
+        //     transfer_to_actor(msg.from(), &refund)?;
+
+        //     if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
+        //         // Sanity check. This could be a fatal error.
+        //         return Err("Gas handling math is wrong".to_owned());
+        //     }
+
+        //     Ok(ApplyRet {
+        //         msg_receipt: MessageReceipt {
+        //             return_data: ret_data,
+        //             exit_code: err_code,
+        //             gas_used,
+        //         },
+        //         penalty: miner_penalty,
+        //         act_error: act_err,
+        //         miner_tip,
+        //     })
+        // };
+
+        // let res = send_clo();
+        // self.state.clear_snapshot()?;
+        // res
     }
 }
 
