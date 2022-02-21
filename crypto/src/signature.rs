@@ -205,7 +205,7 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> anyhow::Res
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Network;
+    use fvm_shared::address::Network;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
     use libsecp256k1::{sign, PublicKey, SecretKey};
     use rand::{Rng, SeedableRng};
