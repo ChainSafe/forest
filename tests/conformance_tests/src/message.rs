@@ -54,6 +54,7 @@ pub fn execute_message(
     let nv = params.nv;
     let mut vm = VM::<_, fil_types::verifier::FullVerifier, fil_types::DefaultNetworkParams>::new(
         *params.pre_root,
+        bs.as_ref(),
         bs.clone(),
         params.epoch,
         params.randomness,

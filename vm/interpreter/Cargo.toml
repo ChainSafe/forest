@@ -41,4 +41,3 @@ interpreter = { path = "../interpreter/" }
 
 [features]
 test_vectors = []
-fvm = []

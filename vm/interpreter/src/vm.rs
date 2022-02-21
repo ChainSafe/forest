@@ -519,8 +519,14 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        Ok(self.fvm_executor.flush()?.into())
-        // self.state.flush()
+        if std::env::var("USE_FVM").is_ok() {
+            Ok(self.fvm_executor.flush()?.into())
+        } else {
+            match self.state.flush() {
+                Ok(cid) => Ok(cid),
+                Err(err) => anyhow::bail!("{}", err),
+            }
+        }
     }
 
     /// Returns a reference to the VM's state tree.
