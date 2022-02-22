@@ -1335,7 +1335,7 @@ async fn validate_block<
             statediff::print_state_diff(
                 v_state_manager.blockstore(),
                 &state_root,
-                &header.state_root(),
+                header.state_root(),
                 Some(1),
             )
             .unwrap();

@@ -11,22 +11,21 @@ use db::{Error, Store};
 
 use std::error::Error as StdError;
 use std::io::{Read, Seek};
-use std::sync::Arc;
 use std::{convert::TryFrom, io::Cursor};
 
 /// Wrapper around `BlockStore` to limit and have control over when values are written.
 /// This type is not threadsafe and can only be used in synchronous contexts.
 #[derive(Debug)]
-pub struct BufferedBlockStore<BS> {
-    base: Arc<BS>,
+pub struct BufferedBlockStore<'bs, BS> {
+    base: &'bs BS,
     write: DashMap<Cid, Vec<u8>>,
 }
 
-impl<BS> BufferedBlockStore<BS>
+impl<'bs, BS> BufferedBlockStore<'bs, BS>
 where
     BS: BlockStore,
 {
-    pub fn new(base: Arc<BS>) -> Self {
+    pub fn new(base: &'bs BS) -> Self {
         Self {
             base,
             write: Default::default(),
@@ -36,14 +35,13 @@ where
     /// Flushes the buffered cache based on the root node.
     /// This will recursively traverse the cache and write all data connected by links to this
     /// root Cid.
-    pub fn flush(&self, root: &Cid) -> Result<(), Box<dyn StdError + '_>> {
+    pub fn flush(&mut self, root: &Cid) -> Result<(), Box<dyn StdError + '_>> {
         let mut buffer = Vec::new();
         let s = &self.write;
-        copy_rec(self.base.as_ref(), s, *root, &mut buffer)?;
+        copy_rec(self.base, s, *root, &mut buffer)?;
 
         self.base.bulk_write(&buffer)?;
-        // self.write = Default::default();
-        self.write.clear();
+        self.write = Default::default();
 
         Ok(())
     }
@@ -191,7 +189,7 @@ where
     Ok(())
 }
 
-impl<BS> BlockStore for BufferedBlockStore<BS>
+impl<BS> BlockStore for BufferedBlockStore<'_, BS>
 where
     BS: BlockStore,
 {
@@ -210,7 +208,7 @@ where
     }
 }
 
-impl<BS> Store for BufferedBlockStore<BS>
+impl<BS> Store for BufferedBlockStore<'_, BS>
 where
     BS: Store,
 {
@@ -269,8 +267,8 @@ mod tests {
 
     #[test]
     fn basic_buffered_store() {
-        let mem = Arc::new(db::MemoryDB::default());
-        let buf_store = BufferedBlockStore::new(mem.clone());
+        let mem = db::MemoryDB::default();
+        let mut buf_store = BufferedBlockStore::new(&mem);
 
         let cid = buf_store.put(&8, Code::Blake2b256).unwrap();
         assert_eq!(mem.get::<u8>(&cid).unwrap(), None);
@@ -284,8 +282,8 @@ mod tests {
 
     #[test]
     fn buffered_store_with_links() {
-        let mem = Arc::new(db::MemoryDB::default());
-        let buf_store = BufferedBlockStore::new(mem.clone());
+        let mem = db::MemoryDB::default();
+        let mut buf_store = BufferedBlockStore::new(&mem);
         let str_val = "value";
         let value = 8u8;
         let arr_cid = buf_store.put(&(str_val, value), Code::Blake2b256).unwrap();

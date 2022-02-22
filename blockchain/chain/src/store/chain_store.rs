@@ -406,7 +406,7 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk<'a>(&self, key: &TipsetKeys) -> Result<StateTree<'_, DB>, Error> {
+    async fn parent_state_tsk(&self, key: &TipsetKeys) -> Result<StateTree<'_, DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(&*self.db, ts.parent_state())
             .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))

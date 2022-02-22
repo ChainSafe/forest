@@ -167,7 +167,7 @@ where
 
     let addr = format!("wallet-{}", key.address);
     keystore.put(addr, key.key_info.clone())?;
-    let value = keystore.get(&"default".to_string());
+    let value = keystore.get("default");
     if value.is_err() {
         keystore.put("default".to_string(), key.key_info)?
     }

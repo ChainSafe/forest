@@ -37,9 +37,9 @@ impl CircSupplyCalc for MockCircSupply {
     }
 }
 
-struct MockStateLB();
-impl<DB> LookbackStateGetter<DB> for MockStateLB {
-    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'_, DB>, Box<dyn StdError>> {
+struct MockStateLB<'db, MemoryDB>(&'db MemoryDB);
+impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
+    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'db, MemoryDB>, Box<dyn StdError>> {
         Err("Lotus runner doesn't seem to initialize this?".into())
     }
 }
@@ -50,16 +50,27 @@ pub fn execute_message(
     params: ExecuteMessageParams,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let circ_supply = MockCircSupply(params.circ_supply);
+    let lb = MockStateLB(bs.as_ref());
 
     let nv = params.nv;
-    let mut vm = VM::<_, fil_types::verifier::FullVerifier, fil_types::DefaultNetworkParams>::new(
+    let mut vm = VM::<
+        _,
+        _,
+        _,
+        _,
+        _,
+        fil_types::verifier::FullVerifier,
+        fil_types::DefaultNetworkParams,
+    >::new(
         *params.pre_root,
         bs.as_ref(),
         bs.clone(),
         params.epoch,
-        params.randomness,
+        &params.randomness,
         params.basefee,
-        circ_supply,
+        |_| nv,
+        &circ_supply,
+        &lb,
     )?;
 
     if let Some(s) = &selector {

@@ -29,8 +29,8 @@ impl CircSupplyCalc for MockCircSupply {
 }
 
 struct MockStateLB<'db, MemoryDB>(&'db MemoryDB);
-impl<'db> LookbackStateGetter<MemoryDB> for MockStateLB<'db, MemoryDB> {
-    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'_, MemoryDB>, Box<dyn StdError>> {
+impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
+    fn state_lookback(&self, _: ChainEpoch) -> Result<StateTree<'db, MemoryDB>, Box<dyn StdError>> {
         Err("Test shouldn't call lookback".into())
     }
 }

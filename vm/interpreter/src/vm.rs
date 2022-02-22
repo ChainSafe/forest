@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Rand;
-use actor::{actorv0::reward::AwardBlockRewardParams, cron, reward, system};
+use actor::{
+    actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
+};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -16,7 +18,7 @@ use fvm::machine::Engine;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::UPGRADE_ACTORS_V4_HEIGHT;
+use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
 use num_bigint::BigInt;
 use state_tree::StateTree;
 use std::collections::HashSet;
@@ -24,6 +26,9 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount};
+
+const GAS_OVERUSE_NUM: i64 = 11;
+const GAS_OVERUSE_DENOM: i64 = 10;
 
 /// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
@@ -45,9 +50,9 @@ pub trait CircSupplyCalc {
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
-pub trait LookbackStateGetter<DB> {
+pub trait LookbackStateGetter<'db, DB> {
     /// Returns a state tree from the given epoch.
-    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'_, DB>, Box<dyn StdError>>;
+    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, Box<dyn StdError>>;
 }
 
 use crypto::DomainSeparationTag;
@@ -175,13 +180,18 @@ pub struct ForestKernel<DB: BlockStore + 'static>(
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
 );
 
+use crate::{price_list_by_epoch, DefaultRuntime, GasCharge};
 use fvm::call_manager::*;
 use fvm::kernel::{BlockId, BlockStat};
+use fvm_shared::bigint::Sign;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::piece::PieceInfo;
 use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sector::*;
+use fvm_shared::version::NetworkVersion;
 use fvm_shared::{ActorID, MethodNum};
+use log::debug;
+use num_traits::Zero;
 
 impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
     type CallManager = fvm::call_manager::DefaultCallManager<ForestMachine<DB>>;
@@ -444,21 +454,40 @@ impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB> {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<'db, DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
+pub struct VM<
+    'db,
+    'r,
+    DB: BlockStore + 'static,
+    R,
+    N,
+    C,
+    LB,
+    V = FullVerifier,
+    P = DefaultNetworkParams,
+> {
     state: StateTree<'db, DB>,
     store: &'db DB,
     epoch: ChainEpoch,
+    rand: &'r R,
+    base_fee: BigInt,
     registered_actors: HashSet<Cid>,
+    network_version_getter: N,
+    circ_supply_calc: &'r C,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
+    lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
 
-impl<'db, DB, V, P> VM<'db, DB, V, P>
+impl<'db, 'r, DB, R, N, C, LB, V, P> VM<'db, 'r, DB, R, N, C, LB, V, P>
 where
-    DB: BlockStore + 'static,
+    DB: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
+    R: Rand + Clone + 'static,
+    N: Fn(ChainEpoch) -> NetworkVersion,
+    C: CircSupplyCalc,
+    LB: LookbackStateGetter<'db, DB>,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -466,9 +495,11 @@ where
         store: &'db DB,
         store_arc: Arc<DB>,
         epoch: ChainEpoch,
-        rand: impl Rand + Clone + 'static,
+        rand: &'r R,
         base_fee: BigInt,
-        circ_supply_calc: impl CircSupplyCalc,
+        network_version_getter: N,
+        circ_supply_calc: &'r C,
+        lb_state: &'r LB,
     ) -> Result<Self, String> {
         // let store = store_arc.as_ref();
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
@@ -484,23 +515,28 @@ where
                 config,
                 engine,
                 epoch,                                    // ChainEpoch,
-                base_fee,                                 //base_fee: TokenAmount,
+                base_fee.clone(),                         //base_fee: TokenAmount,
                 base_circ_supply,                         // base_circ_supply: TokenAmount,
                 fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
                 root.into(),                              //state_root: Cid,
                 FvmStore::new(store_arc),
-                ForestExterns::new(rand),
+                ForestExterns::new(rand.clone()),
             )
             .unwrap();
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
         Ok(VM {
+            network_version_getter,
             state,
             store,
             epoch,
             registered_actors,
             // fvm_machine: ForestMachine{ machine: fvm },
             fvm_executor: exec,
+            circ_supply_calc,
+            lb_state,
+            base_fee,
+            rand,
             verifier: PhantomData,
             params: PhantomData,
         })
@@ -725,24 +761,62 @@ where
         ret.penalty = num_bigint::BigInt::zero();
         ret.into()
     }
-    pub fn apply_implicit_message_native(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        todo!()
-        // let (return_data, _, act_err) = self.send(msg, None);
 
-        // ApplyRet {
-        //     msg_receipt: MessageReceipt {
-        //         return_data,
-        //         exit_code: if let Some(err) = &act_err {
-        //             err.exit_code()
-        //         } else {
-        //             ExitCode::Ok
-        //         },
-        //         gas_used: 0,
-        //     },
-        //     act_error: act_err,
-        //     penalty: BigInt::zero(),
-        //     miner_tip: BigInt::zero(),
-        // }
+    /// Instantiates a new Runtime, and calls vm_send to do the execution.
+    #[allow(clippy::type_complexity)]
+    fn send(
+        &mut self,
+        msg: &UnsignedMessage,
+        gas_cost: Option<GasCharge>,
+    ) -> (
+        Serialized,
+        Option<DefaultRuntime<'db, '_, DB, R, C, LB, V, P>>,
+        Option<ActorError>,
+    ) {
+        let res = DefaultRuntime::new(
+            (self.network_version_getter)(self.epoch),
+            &mut self.state,
+            self.store,
+            0,
+            self.base_fee.clone(),
+            msg,
+            self.epoch,
+            *msg.from(),
+            msg.sequence(),
+            0,
+            0,
+            self.rand,
+            &self.registered_actors,
+            self.circ_supply_calc,
+            self.lb_state,
+        );
+
+        match res {
+            Ok(rt) => match rt.send(msg, gas_cost) {
+                Ok(ser) => (ser, Some(rt), None),
+                Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
+            },
+            Err(e) => (Serialized::default(), None, Some(e)),
+        }
+    }
+
+    pub fn apply_implicit_message_native(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+        let (return_data, _, act_err) = self.send(msg, None);
+
+        ApplyRet {
+            msg_receipt: MessageReceipt {
+                return_data,
+                exit_code: if let Some(err) = &act_err {
+                    err.exit_code()
+                } else {
+                    ExitCode::Ok
+                },
+                gas_used: 0,
+            },
+            act_error: act_err,
+            penalty: BigInt::zero(),
+            miner_tip: BigInt::zero(),
+        }
     }
 
     /// Applies the state transition for a single message.
@@ -776,243 +850,272 @@ where
     }
 
     fn apply_message_native(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
-        todo!()
-        // check_message(msg.message())?;
+        check_message(msg.message())?;
 
-        // let pl = price_list_by_epoch(self.epoch());
-        // let ser_msg = msg.marshal_cbor().map_err(|e| e.to_string())?;
-        // let msg_gas_cost = pl.on_chain_message(ser_msg.len());
-        // let cost_total = msg_gas_cost.total();
+        let pl = price_list_by_epoch(self.epoch);
+        let ser_msg = msg.marshal_cbor().map_err(|e| e.to_string())?;
+        let msg_gas_cost = pl.on_chain_message(ser_msg.len());
+        let cost_total = msg_gas_cost.total();
 
-        // // Verify the cost of the message is not over the message gas limit.
-        // if cost_total > msg.gas_limit() {
-        //     return Ok(ApplyRet {
-        //         msg_receipt: MessageReceipt {
-        //             return_data: Serialized::default(),
-        //             exit_code: ExitCode::SysErrOutOfGas,
-        //             gas_used: 0,
-        //         },
-        //         act_error: Some(actor_error!(SysErrOutOfGas;
-        //             "Out of gas ({} > {})", cost_total, msg.gas_limit())),
-        //         penalty: &self.base_fee * cost_total,
-        //         miner_tip: BigInt::zero(),
-        //     });
-        // }
+        // Verify the cost of the message is not over the message gas limit.
+        if cost_total > msg.gas_limit() {
+            return Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: Serialized::default(),
+                    exit_code: ExitCode::SysErrOutOfGas,
+                    gas_used: 0,
+                },
+                act_error: Some(vm::actor_error!(SysErrOutOfGas;
+                    "Out of gas ({} > {})", cost_total, msg.gas_limit())),
+                penalty: &self.base_fee * cost_total,
+                miner_tip: BigInt::zero(),
+            });
+        }
 
-        // // Load from actor state.
-        // let miner_penalty_amount = &self.base_fee * msg.gas_limit();
-        // let from_act = match self.state.get_actor(msg.from()) {
-        //     Ok(Some(from_act)) => from_act,
-        //     Ok(None) => {
-        //         return Ok(ApplyRet {
-        //             msg_receipt: MessageReceipt {
-        //                 return_data: Serialized::default(),
-        //                 exit_code: ExitCode::SysErrSenderInvalid,
-        //                 gas_used: 0,
-        //             },
-        //             penalty: miner_penalty_amount,
-        //             act_error: Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
-        //             miner_tip: 0.into(),
-        //         });
-        //     }
-        //     Err(e) => {
-        //         println!("sender invalid {}", e);
-        //         return Ok(ApplyRet {
-        //             msg_receipt: MessageReceipt {
-        //                 return_data: Serialized::default(),
-        //                 exit_code: ExitCode::SysErrSenderInvalid,
-        //                 gas_used: 0,
-        //             },
-        //             penalty: miner_penalty_amount,
-        //             act_error: Some(actor_error!(SysErrSenderInvalid; "Sender invalid")),
-        //             miner_tip: 0.into(),
-        //         });
-        //     }
-        // };
+        // Load from actor state.
+        let miner_penalty_amount = &self.base_fee * msg.gas_limit();
+        let from_act = match self.state.get_actor(msg.from()) {
+            Ok(Some(from_act)) => from_act,
+            Ok(None) => {
+                return Ok(ApplyRet {
+                    msg_receipt: MessageReceipt {
+                        return_data: Serialized::default(),
+                        exit_code: ExitCode::SysErrSenderInvalid,
+                        gas_used: 0,
+                    },
+                    penalty: miner_penalty_amount,
+                    act_error: Some(vm::actor_error!(SysErrSenderInvalid; "Sender invalid")),
+                    miner_tip: 0.into(),
+                });
+            }
+            Err(e) => {
+                println!("sender invalid {}", e);
+                return Ok(ApplyRet {
+                    msg_receipt: MessageReceipt {
+                        return_data: Serialized::default(),
+                        exit_code: ExitCode::SysErrSenderInvalid,
+                        gas_used: 0,
+                    },
+                    penalty: miner_penalty_amount,
+                    act_error: Some(vm::actor_error!(SysErrSenderInvalid; "Sender invalid")),
+                    miner_tip: 0.into(),
+                });
+            }
+        };
 
-        // // If from actor is not an account actor, return error.
-        // #[cfg(not(test_vectors))]
-        // if !actor::is_account_actor(&from_act.code) {
-        //     return Ok(ApplyRet {
-        //         msg_receipt: MessageReceipt {
-        //             return_data: Serialized::default(),
-        //             exit_code: ExitCode::SysErrSenderInvalid,
-        //             gas_used: 0,
-        //         },
-        //         penalty: miner_penalty_amount,
-        //         act_error: Some(actor_error!(SysErrSenderInvalid; "send not from account actor")),
-        //         miner_tip: 0.into(),
-        //     });
-        // };
+        // If from actor is not an account actor, return error.
+        #[cfg(not(test_vectors))]
+        if !actor::is_account_actor(&from_act.code) {
+            return Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: Serialized::default(),
+                    exit_code: ExitCode::SysErrSenderInvalid,
+                    gas_used: 0,
+                },
+                penalty: miner_penalty_amount,
+                act_error: Some(
+                    vm::actor_error!(SysErrSenderInvalid; "send not from account actor"),
+                ),
+                miner_tip: 0.into(),
+            });
+        };
 
-        // // Check sequence is correct
-        // if msg.sequence() != from_act.sequence {
-        //     return Ok(ApplyRet {
-        //         msg_receipt: MessageReceipt {
-        //             return_data: Serialized::default(),
-        //             exit_code: ExitCode::SysErrSenderStateInvalid,
-        //             gas_used: 0,
-        //         },
-        //         penalty: miner_penalty_amount,
-        //         act_error: Some(actor_error!(SysErrSenderStateInvalid;
-        //             "actor sequence invalid: {} != {}", msg.sequence(), from_act.sequence)),
-        //         miner_tip: 0.into(),
-        //     });
-        // };
+        // Check sequence is correct
+        if msg.sequence() != from_act.sequence {
+            return Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: Serialized::default(),
+                    exit_code: ExitCode::SysErrSenderStateInvalid,
+                    gas_used: 0,
+                },
+                penalty: miner_penalty_amount,
+                act_error: Some(vm::actor_error!(SysErrSenderStateInvalid;
+                    "actor sequence invalid: {} != {}", msg.sequence(), from_act.sequence)),
+                miner_tip: 0.into(),
+            });
+        };
 
-        // // Ensure from actor has enough balance to cover the gas cost of the message.
-        // let gas_cost: TokenAmount = msg.gas_fee_cap() * msg.gas_limit();
-        // if from_act.balance < gas_cost {
-        //     return Ok(ApplyRet {
-        //         msg_receipt: MessageReceipt {
-        //             return_data: Serialized::default(),
-        //             exit_code: ExitCode::SysErrSenderStateInvalid,
-        //             gas_used: 0,
-        //         },
-        //         penalty: miner_penalty_amount,
-        //         act_error: Some(actor_error!(SysErrSenderStateInvalid;
-        //             "actor balance less than needed: {} < {}", from_act.balance, gas_cost)),
-        //         miner_tip: 0.into(),
-        //     });
-        // };
+        // Ensure from actor has enough balance to cover the gas cost of the message.
+        let gas_cost: TokenAmount = msg.gas_fee_cap() * msg.gas_limit();
+        if from_act.balance < gas_cost {
+            return Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: Serialized::default(),
+                    exit_code: ExitCode::SysErrSenderStateInvalid,
+                    gas_used: 0,
+                },
+                penalty: miner_penalty_amount,
+                act_error: Some(vm::actor_error!(SysErrSenderStateInvalid;
+                    "actor balance less than needed: {} < {}", from_act.balance, gas_cost)),
+                miner_tip: 0.into(),
+            });
+        };
 
-        // // Deduct gas cost and increment sequence
-        // self.state
-        //     .mutate_actor(msg.from(), |act| {
-        //         act.deduct_funds(&gas_cost)?;
-        //         act.sequence += 1;
-        //         Ok(())
-        //     })
-        //     .map_err(|e| e.to_string())?;
+        // Deduct gas cost and increment sequence
+        self.state
+            .mutate_actor(msg.from(), |act| {
+                act.deduct_funds(&gas_cost)?;
+                act.sequence += 1;
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
 
-        // let send_clo = || -> Result<ApplyRet, String> {
-        //     self.state.snapshot()?;
+        let send_clo = || -> Result<ApplyRet, String> {
+            self.state.snapshot()?;
 
-        //     // Perform transaction
-        //     let (mut ret_data, rt, mut act_err) = self.send(msg.message(), Some(msg_gas_cost));
-        //     if let Some(err) = &act_err {
-        //         if err.is_fatal() {
-        //             return Err(format!(
-        //                 "[from={}, to={}, seq={}, m={}, h={}] fatal error: {}",
-        //                 msg.from(),
-        //                 msg.to(),
-        //                 msg.sequence(),
-        //                 msg.method_num(),
-        //                 self.epoch,
-        //                 err
-        //             ));
-        //         } else {
-        //             debug!(
-        //                 "[from={}, to={}, seq={}, m={}] send error: {}",
-        //                 msg.from(),
-        //                 msg.to(),
-        //                 msg.sequence(),
-        //                 msg.method_num(),
-        //                 err
-        //             );
-        //             if !ret_data.is_empty() {
-        //                 return Err(format!(
-        //                     "message invocation errored, but had a return value anyway: {}",
-        //                     err
-        //                 ));
-        //             }
-        //         }
-        //     }
+            // Perform transaction
+            let (mut ret_data, rt, mut act_err) = self.send(msg.message(), Some(msg_gas_cost));
+            if let Some(err) = &act_err {
+                if err.is_fatal() {
+                    return Err(format!(
+                        "[from={}, to={}, seq={}, m={}, h={}] fatal error: {}",
+                        msg.from(),
+                        msg.to(),
+                        msg.sequence(),
+                        msg.method_num(),
+                        self.epoch,
+                        err
+                    ));
+                } else {
+                    debug!(
+                        "[from={}, to={}, seq={}, m={}] send error: {}",
+                        msg.from(),
+                        msg.to(),
+                        msg.sequence(),
+                        msg.method_num(),
+                        err
+                    );
+                    if !ret_data.is_empty() {
+                        return Err(format!(
+                            "message invocation errored, but had a return value anyway: {}",
+                            err
+                        ));
+                    }
+                }
+            }
 
-        //     let gas_used = if let Some(mut rt) = rt {
-        //         if !ret_data.is_empty() {
-        //             if let Err(e) =
-        //                 rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
-        //             {
-        //                 act_err = Some(e);
-        //                 ret_data = Serialized::default();
-        //             }
-        //         }
-        //         if rt.gas_used() < 0 {
-        //             0
-        //         } else {
-        //             rt.gas_used()
-        //         }
-        //     } else {
-        //         return Err(format!("send returned None runtime: {:?}", act_err));
-        //     };
+            let gas_used = if let Some(mut rt) = rt {
+                if !ret_data.is_empty() {
+                    if let Err(e) =
+                        rt.charge_gas(rt.price_list().on_chain_return_value(ret_data.len()))
+                    {
+                        act_err = Some(e);
+                        ret_data = Serialized::default();
+                    }
+                }
+                if rt.gas_used() < 0 {
+                    0
+                } else {
+                    rt.gas_used()
+                }
+            } else {
+                return Err(format!("send returned None runtime: {:?}", act_err));
+            };
 
-        //     let err_code = if let Some(err) = &act_err {
-        //         if !err.is_ok() {
-        //             // Revert all state changes on error.
-        //             self.state.revert_to_snapshot()?;
-        //         }
-        //         err.exit_code()
-        //     } else {
-        //         ExitCode::Ok
-        //     };
+            let err_code = if let Some(err) = &act_err {
+                if !err.is_ok() {
+                    // Revert all state changes on error.
+                    self.state.revert_to_snapshot()?;
+                }
+                err.exit_code()
+            } else {
+                ExitCode::Ok
+            };
 
-        //     let should_burn = self
-        //         .should_burn(self.state(), msg, err_code)
-        //         .map_err(|e| format!("failed to decide whether to burn: {}", e))?;
+            let should_burn = self
+                .should_burn(self.state(), msg, err_code)
+                .map_err(|e| format!("failed to decide whether to burn: {}", e))?;
 
-        //     let GasOutputs {
-        //         base_fee_burn,
-        //         miner_tip,
-        //         over_estimation_burn,
-        //         refund,
-        //         miner_penalty,
-        //         ..
-        //     } = compute_gas_outputs(
-        //         gas_used,
-        //         msg.gas_limit(),
-        //         &self.base_fee,
-        //         msg.gas_fee_cap(),
-        //         msg.gas_premium().clone(),
-        //         should_burn,
-        //     );
+            let GasOutputs {
+                base_fee_burn,
+                miner_tip,
+                over_estimation_burn,
+                refund,
+                miner_penalty,
+                ..
+            } = compute_gas_outputs(
+                gas_used,
+                msg.gas_limit(),
+                &self.base_fee,
+                msg.gas_fee_cap(),
+                msg.gas_premium().clone(),
+                should_burn,
+            );
 
-        //     let mut transfer_to_actor = |addr: &Address, amt: &TokenAmount| -> Result<(), String> {
-        //         if amt.sign() == Sign::Minus {
-        //             return Err("attempted to transfer negative value into actor".into());
-        //         }
-        //         if amt.is_zero() {
-        //             return Ok(());
-        //         }
+            let mut transfer_to_actor = |addr: &Address, amt: &TokenAmount| -> Result<(), String> {
+                if amt.sign() == Sign::Minus {
+                    return Err("attempted to transfer negative value into actor".into());
+                }
+                if amt.is_zero() {
+                    return Ok(());
+                }
 
-        //         self.state
-        //             .mutate_actor(addr, |act| {
-        //                 act.deposit_funds(amt);
-        //                 Ok(())
-        //             })
-        //             .map_err(|e| e.to_string())?;
-        //         Ok(())
-        //     };
+                self.state
+                    .mutate_actor(addr, |act| {
+                        act.deposit_funds(amt);
+                        Ok(())
+                    })
+                    .map_err(|e| e.to_string())?;
+                Ok(())
+            };
 
-        //     transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
+            transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &base_fee_burn)?;
 
-        //     transfer_to_actor(&**reward::ADDRESS, &miner_tip)?;
+            transfer_to_actor(&**reward::ADDRESS, &miner_tip)?;
 
-        //     transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
+            transfer_to_actor(&*BURNT_FUNDS_ACTOR_ADDR, &over_estimation_burn)?;
 
-        //     // refund unused gas
-        //     transfer_to_actor(msg.from(), &refund)?;
+            // refund unused gas
+            transfer_to_actor(msg.from(), &refund)?;
 
-        //     if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
-        //         // Sanity check. This could be a fatal error.
-        //         return Err("Gas handling math is wrong".to_owned());
-        //     }
+            if &base_fee_burn + over_estimation_burn + &refund + &miner_tip != gas_cost {
+                // Sanity check. This could be a fatal error.
+                return Err("Gas handling math is wrong".to_owned());
+            }
 
-        //     Ok(ApplyRet {
-        //         msg_receipt: MessageReceipt {
-        //             return_data: ret_data,
-        //             exit_code: err_code,
-        //             gas_used,
-        //         },
-        //         penalty: miner_penalty,
-        //         act_error: act_err,
-        //         miner_tip,
-        //     })
-        // };
+            Ok(ApplyRet {
+                msg_receipt: MessageReceipt {
+                    return_data: ret_data,
+                    exit_code: err_code,
+                    gas_used,
+                },
+                penalty: miner_penalty,
+                act_error: act_err,
+                miner_tip,
+            })
+        };
 
-        // let res = send_clo();
-        // self.state.clear_snapshot()?;
-        // res
+        let res = send_clo();
+        self.state.clear_snapshot()?;
+        res
+    }
+    fn should_burn(
+        &self,
+        st: &StateTree<DB>,
+        msg: &ChainMessage,
+        exit_code: ExitCode,
+    ) -> Result<bool, Box<dyn StdError>> {
+        if self.epoch <= UPGRADE_ACTORS_V4_HEIGHT {
+            // Check to see if we should burn funds. We avoid burning on successful
+            // window post. This won't catch _indirect_ window post calls, but this
+            // is the best we can get for now.
+            if self.epoch > UPGRADE_CLAUS_HEIGHT
+                && exit_code.is_success()
+                && msg.method_num() == miner::Method::SubmitWindowedPoSt as u64
+            {
+                // Ok, we've checked the _method_, but we still need to check
+                // the target actor.
+                let to_actor = st.get_actor(msg.to())?;
+
+                if let Some(actor) = to_actor {
+                    if actor::is_miner_actor(&actor.code) {
+                        // This is a storage miner and processed a window post, remove burn
+                        return Ok(false);
+                    }
+                }
+            }
+        }
+        Ok(true)
     }
 }
 
@@ -1040,6 +1143,83 @@ where
 //     let new_state = migration.migrate_state_tree(store, epoch, actors_in, actors_out)?;
 //     Ok(new_state)
 // }
+
+#[derive(Clone, Default)]
+struct GasOutputs {
+    base_fee_burn: TokenAmount,
+    over_estimation_burn: TokenAmount,
+    miner_penalty: TokenAmount,
+    miner_tip: TokenAmount,
+    refund: TokenAmount,
+
+    gas_refund: i64,
+    gas_burned: i64,
+}
+
+fn compute_gas_outputs(
+    gas_used: i64,
+    gas_limit: i64,
+    base_fee: &TokenAmount,
+    fee_cap: &TokenAmount,
+    gas_premium: TokenAmount,
+    charge_network_fee: bool,
+) -> GasOutputs {
+    let mut base_fee_to_pay = base_fee;
+    let mut out = GasOutputs::default();
+
+    if base_fee > fee_cap {
+        base_fee_to_pay = fee_cap;
+        out.miner_penalty = (base_fee - fee_cap) * gas_used
+    }
+
+    // If charge network fee is disabled just skip computing the base fee burn.
+    // This is part of the temporary fix with Claus fork.
+    if charge_network_fee {
+        out.base_fee_burn = base_fee_to_pay * gas_used;
+    }
+
+    let mut miner_tip = gas_premium;
+    if &(base_fee_to_pay + &miner_tip) > fee_cap {
+        miner_tip = fee_cap - base_fee_to_pay;
+    }
+    out.miner_tip = &miner_tip * gas_limit;
+
+    let (out_gas_refund, out_gas_burned) = compute_gas_overestimation_burn(gas_used, gas_limit);
+    out.gas_refund = out_gas_refund;
+    out.gas_burned = out_gas_burned;
+
+    if out.gas_burned != 0 {
+        out.over_estimation_burn = base_fee_to_pay * out.gas_burned;
+        out.miner_penalty += (base_fee - base_fee_to_pay) * out.gas_burned;
+    }
+    let required_funds = fee_cap * gas_limit;
+    let refund = required_funds - &out.base_fee_burn - &out.miner_tip - &out.over_estimation_burn;
+    out.refund = refund;
+
+    out
+}
+
+fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {
+    if gas_used == 0 {
+        return (0, gas_limit);
+    }
+
+    let mut over = gas_limit - (GAS_OVERUSE_NUM * gas_used) / GAS_OVERUSE_DENOM;
+    if over < 0 {
+        return (gas_limit - gas_used, 0);
+    }
+
+    if over > gas_used {
+        over = gas_used;
+    }
+
+    let mut gas_to_burn: BigInt = (gas_limit - gas_used).into();
+    gas_to_burn *= over;
+    gas_to_burn /= gas_used;
+
+    let gas_to_burn = i64::try_from(gas_to_burn).unwrap();
+    (gas_limit - gas_used - gas_to_burn, gas_to_burn)
+}
 
 /// Apply message return data.
 #[derive(Clone, Debug)]

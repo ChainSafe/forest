@@ -178,7 +178,7 @@ impl WalletCommands {
                 });
             }
             Self::SetDefault { key } => {
-                let key_parse_result = Address::from_str(&key.to_string());
+                let key_parse_result = Address::from_str(key);
 
                 if key_parse_result.is_err() {
                     cli_error_and_die("Error parsing address. Verify that the address exists and is in the keystore", 1);

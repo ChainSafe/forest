@@ -205,8 +205,8 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> anyhow::Res
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fvm_shared::address::Network;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
+    use fvm_shared::address::Network;
     use libsecp256k1::{sign, PublicKey, SecretKey};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
@@ -276,7 +276,7 @@ mod tests {
         let mut secp_addr = Address::new_secp256k1(&pub_key.serialize()).unwrap();
         for network in [Network::Mainnet, Network::Testnet] {
             let address = secp_addr.set_network(network);
-            assert!(verify_secp256k1_sig(&signature, &data, &address).is_ok());
+            assert!(verify_secp256k1_sig(&signature, &data, address).is_ok());
         }
     }
 
@@ -313,7 +313,7 @@ mod tests {
     }
 
     fn generate_signature(priv_key: &SecretKey, msg: &Message) -> [u8; 65] {
-        let (sig, recovery_id) = sign(&msg, &priv_key);
+        let (sig, recovery_id) = sign(msg, priv_key);
         let mut signature = [0; 65];
         signature[..64].copy_from_slice(&sig.serialize());
         signature[64] = recovery_id.serialize();

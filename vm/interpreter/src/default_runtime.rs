@@ -115,7 +115,7 @@ where
     P: NetworkParams,
     R: Rand,
     C: CircSupplyCalc,
-    LB: LookbackStateGetter<BS>,
+    LB: LookbackStateGetter<'db, BS>,
 {
     /// Constructs a new Runtime
     #[allow(clippy::too_many_arguments)]
@@ -578,7 +578,7 @@ where
     P: NetworkParams,
     R: Rand,
     CS: CircSupplyCalc,
-    LB: LookbackStateGetter<BS>,
+    LB: LookbackStateGetter<'bs, BS>,
 {
     fn network_version(&self) -> NetworkVersion {
         self.version
@@ -917,7 +917,7 @@ where
     P: NetworkParams,
     R: Rand,
     C: CircSupplyCalc,
-    LB: LookbackStateGetter<BS>,
+    LB: LookbackStateGetter<'bs, BS>,
 {
     fn verify_signature(
         &self,
