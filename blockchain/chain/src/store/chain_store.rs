@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use actor::{miner, power};
+use actor::{miner, power, EPOCHS_IN_DAY};
 use address::Address;
 use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
@@ -596,6 +596,9 @@ where
 
             if current_min_height > h.epoch() {
                 current_min_height = h.epoch();
+                if current_min_height % EPOCHS_IN_DAY == 0 {
+                    info!(target: "chain_api", "export at: {}", current_min_height);
+                }
             }
 
             if !skip_old_msgs || h.epoch() > incl_roots_epoch {

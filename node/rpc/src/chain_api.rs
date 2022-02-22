@@ -69,11 +69,8 @@ where
 
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
 
-    let ts =
-        Arc::<Tipset>::try_unwrap(start_ts).map_err(|_| "Failed to load tipset".to_string())?;
-
     data.chain_store
-        .export(&ts, recent_roots, skip_old_msgs, writer)
+        .export(&start_ts, recent_roots, skip_old_msgs, writer)
         .await
         .map_err(JsonRpcError::from)
 }

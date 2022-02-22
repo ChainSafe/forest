@@ -3,6 +3,7 @@
 
 use actor::CHAIN_FINALITY;
 use blocks::tipset_keys_json::TipsetKeysJson;
+use chrono::{Datelike, Utc};
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -33,7 +34,7 @@ pub enum ChainCommands {
         #[structopt(short, help = "default: false")]
         skip_old_messages: bool,
         #[structopt(short, help = "path of the file to export to")]
-        output_path: String,
+        output_path: Option<String>,
     },
 
     /// Prints out the genesis tipset
@@ -102,6 +103,20 @@ impl ChainCommands {
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
                     Err(_) => return cli_error_and_die("Could not get network head", 1),
+                };
+
+                let output_path = match output_path {
+                    Some(path) => path.to_owned(),
+                    None => {
+                        let now = Utc::now();
+                        format!(
+                            "forest_snapshot_{}_{}_{}_{}.car",
+                            now.year(),
+                            now.month(),
+                            now.day(),
+                            chain_head.epoch()
+                        )
+                    }
                 };
 
                 let epoch = if let Some(epoch) = tipset {
