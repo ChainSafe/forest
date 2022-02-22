@@ -16,6 +16,7 @@ use std::error::Error as StdError;
 use std::io::stdout;
 use std::io::Write;
 use vm::ActorState;
+use actor::miner as miner;
 
 #[derive(Serialize, Deserialize)]
 struct ActorStateResolved {
@@ -72,21 +73,20 @@ fn try_print_actor_states<BS: BlockStore>(
     let state_tree = StateTree::new_from_root(bs, root)?;
 
     state_tree.for_each(|addr: Address, actor: &ActorState| {
-        let calc_json = serde_json::to_string_pretty(&actor_to_resolved(bs, actor, depth))?;
+        let calc_pp = pp_actor_state(bs, actor, depth)?;
 
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
-                let expected_json =
-                    serde_json::to_string_pretty(&actor_to_resolved(bs, &other, depth))?;
-                let Changeset { diffs, .. } = Changeset::new(&expected_json, &calc_json, "\n");
+                let expected_pp = pp_actor_state(bs, &other, depth)?;
+                let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, "\n");
                 let stdout = stdout();
                 let mut handle = stdout.lock();
                 writeln!(handle, "Address {} changed: ", addr)?;
-                print_diffs(&mut handle, &diffs)?
+                print_diffs(&mut handle, &diffs)?;
             }
         } else {
             // Added actor, print out the json format actor state.
-            println!("{}", format!("+ Address {}:\n{}", addr, calc_json).green())
+            println!("{}", format!("+ Address {}:\n{}", addr, calc_pp).green())
         }
 
         Ok(())
@@ -102,6 +102,21 @@ fn try_print_actor_states<BS: BlockStore>(
     }
 
     Ok(())
+}
+
+fn pp_actor_state(bs: &impl BlockStore, state: &ActorState,depth: Option<u64>) -> Result<String, Box<dyn StdError>> {
+    let resolved = actor_to_resolved(bs, state, depth);
+    let ipld = &resolved.state.0;
+    let mut buffer = String::new();
+    
+    buffer += &format!("{:#?}\n", state);
+
+    if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld) {
+        buffer += &format!("{:#?}", miner_state);
+    } else {
+        buffer += &serde_json::to_string_pretty(&resolved)?;
+    }
+    Ok(buffer)
 }
 
 fn print_diffs(handle: &mut impl Write, diffs: &[Difference]) -> std::io::Result<()> {

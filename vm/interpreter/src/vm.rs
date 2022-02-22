@@ -712,14 +712,18 @@ where
     fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         use fvm::executor::Executor;
         let mut raw_length = msg.marshal_cbor().expect("encoding error").len();
-        if msg.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
-            // 65 bytes signature + 1 byte type + 3 bytes for field info.
-            raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
-        }
-        self.fvm_executor
+        // if msg.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
+        //     // 65 bytes signature + 1 byte type + 3 bytes for field info.
+        //     raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
+        // }
+        let mut ret = self.fvm_executor
             .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
-            .expect("FIXME: execution failed")
-            .into()
+            .expect("FIXME: execution failed");
+        ret.msg_receipt.gas_used = 0;
+        use num_traits::Zero;
+        ret.miner_tip = num_bigint::BigInt::zero();
+        ret.penalty = num_bigint::BigInt::zero();
+        ret.into()
     }
     pub fn apply_implicit_message_native(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         todo!()

@@ -291,7 +291,7 @@ async fn conformance_test_runner() {
         .await
         .unwrap();
 
-    let walker = if use_fvm() {
+    let walker = if interpreter::use_fvm() {
         WalkDir::new("fvm-test-vectors/corpus").into_iter()
     } else {
         WalkDir::new("test-vectors/corpus").into_iter()
