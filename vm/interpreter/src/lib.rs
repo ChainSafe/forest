@@ -9,6 +9,7 @@ mod gas_block_store;
 mod gas_tracker;
 mod rand;
 mod vm;
+mod fvm;
 
 pub use self::default_runtime::*;
 pub use self::gas_tracker::*;

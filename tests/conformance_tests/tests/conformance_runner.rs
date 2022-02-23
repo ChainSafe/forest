@@ -73,12 +73,14 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         }
     }
 
-    // only run v6 vectors
-    let v6_filepath = Regex::new(r"specs_actors_v6").unwrap();
-    let is_extra = Regex::new(r"extra-vectors").unwrap();
-    if !v6_filepath.is_match(file_name) && !is_extra.is_match(file_name) {
-        println!("SKIPPING: {} ", file_name);
-        return false;
+    if !interpreter::use_fvm() {
+        // only run v6 vectors
+        let v6_filepath = Regex::new(r"specs_actors_v6").unwrap();
+        let is_extra = Regex::new(r"extra-vectors").unwrap();
+        if !v6_filepath.is_match(file_name) && !is_extra.is_match(file_name) {
+            println!("SKIPPING: {} ", file_name);
+            return false;
+        }
     }
 
     true
