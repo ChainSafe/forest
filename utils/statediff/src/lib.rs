@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use actor::miner;
 use address::Address;
 use blockstore::resolve::resolve_cids_recursive;
 use blockstore::BlockStore;
@@ -16,7 +17,6 @@ use std::error::Error as StdError;
 use std::io::stdout;
 use std::io::Write;
 use vm::ActorState;
-use actor::miner as miner;
 
 #[derive(Serialize, Deserialize)]
 struct ActorStateResolved {
@@ -104,11 +104,15 @@ fn try_print_actor_states<BS: BlockStore>(
     Ok(())
 }
 
-fn pp_actor_state(bs: &impl BlockStore, state: &ActorState,depth: Option<u64>) -> Result<String, Box<dyn StdError>> {
+fn pp_actor_state(
+    bs: &impl BlockStore,
+    state: &ActorState,
+    depth: Option<u64>,
+) -> Result<String, Box<dyn StdError>> {
     let resolved = actor_to_resolved(bs, state, depth);
     let ipld = &resolved.state.0;
     let mut buffer = String::new();
-    
+
     buffer += &format!("{:#?}\n", state);
 
     if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld) {

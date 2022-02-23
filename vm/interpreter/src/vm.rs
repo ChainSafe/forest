@@ -750,7 +750,8 @@ where
         //     // 65 bytes signature + 1 byte type + 3 bytes for field info.
         //     raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
         // }
-        let mut ret = self.fvm_executor
+        let mut ret = self
+            .fvm_executor
             .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
             .expect("FIXME: execution failed");
         ret.msg_receipt.gas_used = 0;
