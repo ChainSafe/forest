@@ -532,7 +532,6 @@ where
             rand,
             base_fee,
             registered_actors,
-            // fvm_machine: ForestMachine{ machine: fvm },
             fvm_executor: exec,
             circ_supply_calc,
             lb_state,
@@ -758,44 +757,6 @@ where
         ret.miner_tip = num_bigint::BigInt::zero();
         ret.penalty = num_bigint::BigInt::zero();
         ret.into()
-    }
-
-    /// Instantiates a new Runtime, and calls vm_send to do the execution.
-    #[allow(clippy::type_complexity)]
-    fn send(
-        &mut self,
-        msg: &UnsignedMessage,
-        gas_cost: Option<GasCharge>,
-    ) -> (
-        Serialized,
-        Option<DefaultRuntime<'db, '_, DB, R, C, LB, V, P>>,
-        Option<ActorError>,
-    ) {
-        let res = DefaultRuntime::new(
-            (self.network_version_getter)(self.epoch),
-            &mut self.state,
-            self.store,
-            0,
-            self.base_fee.clone(),
-            msg,
-            self.epoch,
-            *msg.from(),
-            msg.sequence(),
-            0,
-            0,
-            self.rand,
-            &self.registered_actors,
-            self.circ_supply_calc,
-            self.lb_state,
-        );
-
-        match res {
-            Ok(rt) => match rt.send(msg, gas_cost) {
-                Ok(ser) => (ser, Some(rt), None),
-                Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
-            },
-            Err(e) => (Serialized::default(), None, Some(e)),
-        }
     }
 
     pub fn apply_implicit_message_native(&mut self, msg: &UnsignedMessage) -> ApplyRet {
@@ -1087,6 +1048,45 @@ where
         self.state.clear_snapshot()?;
         res
     }
+
+    /// Instantiates a new Runtime, and calls vm_send to do the execution.
+    #[allow(clippy::type_complexity)]
+    fn send(
+        &mut self,
+        msg: &UnsignedMessage,
+        gas_cost: Option<GasCharge>,
+    ) -> (
+        Serialized,
+        Option<DefaultRuntime<'db, '_, DB, R, C, LB, V, P>>,
+        Option<ActorError>,
+    ) {
+        let res = DefaultRuntime::new(
+            (self.network_version_getter)(self.epoch),
+            &mut self.state,
+            self.store,
+            0,
+            self.base_fee.clone(),
+            msg,
+            self.epoch,
+            *msg.from(),
+            msg.sequence(),
+            0,
+            0,
+            self.rand,
+            &self.registered_actors,
+            self.circ_supply_calc,
+            self.lb_state,
+        );
+
+        match res {
+            Ok(rt) => match rt.send(msg, gas_cost) {
+                Ok(ser) => (ser, Some(rt), None),
+                Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
+            },
+            Err(e) => (Serialized::default(), None, Some(e)),
+        }
+    }
+
     fn should_burn(
         &self,
         st: &StateTree<DB>,
