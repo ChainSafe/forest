@@ -6,7 +6,7 @@
 PAT_APA="^// Copyright 2019-2022 ChainSafe Systems// SPDX-License-Identifier: Apache-2.0, MIT$"
 
 ret=0
-for file in $(find . -type f -not -path "./target/*" -not -path "./blockchain/beacon/src/drand_api/*" -not -path "./ipld/graphsync/src/message/proto/message.rs" | grep -E '\.(rs)$'); do
+for file in $(git grep --cached -Il '' -- '*.rs' ':!*ipld/graphsync/src/message/proto/message.rs'); do
   header=$(head -2 "$file" | tr -d '\n')
 	if ! echo "$header" | grep -q "$PAT_APA"; then
 		echo "$file was missing header"
