@@ -15,7 +15,7 @@ use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
-use blockstore::{BlockStore, BufferedBlockStore};
+use blockstore::BlockStore;
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -311,11 +311,10 @@ where
         };
 
         let rand_clone = rand.clone();
-        let store_arc = self.blockstore_cloned();
         let mut vm = VM::<_, _, _, _, _, V>::new(
             *p_state,
-            store_arc.as_ref(),
-            self.blockstore_cloned(),
+            db.as_ref(),
+            db.clone(),
             epoch,
             &rand_clone,
             base_fee,
@@ -324,10 +323,9 @@ where
             &lb_wrapper,
         )?;
 
-        let mut buf_store = Arc::new(BufferedBlockStore::new(db.as_ref()));
         // Apply tipset messages
         let receipts =
-            vm.apply_block_messages(messages, parent_epoch, epoch, buf_store.clone(), callback)?;
+            vm.apply_block_messages(messages, parent_epoch, epoch, db.clone(), callback)?;
 
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_iter(self.blockstore(), receipts)?;
@@ -341,10 +339,9 @@ where
             state_root
         );
         // Persist changes connected to root
-        Arc::get_mut(&mut buf_store)
-            .expect("failed getting store reference")
-            .flush(&state_root)
-            .expect("buffered blockstore flush failed");
+        // buf_store
+        //     .flush(&state_root)
+        //     .expect("buffered blockstore flush failed");
 
         Ok((state_root, rect_root))
     }
@@ -440,7 +437,7 @@ where
             let mut vm = VM::<_, _, _, _, _, V>::new(
                 *bstate,
                 store_arc.as_ref(),
-                self.blockstore_cloned(),
+                store_arc.clone(),
                 bheight,
                 rand,
                 0.into(),
@@ -534,7 +531,7 @@ where
         let mut vm = VM::<_, _, _, _, _, V>::new(
             st,
             store_arc.as_ref(),
-            self.blockstore_cloned(),
+            store_arc.clone(),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
