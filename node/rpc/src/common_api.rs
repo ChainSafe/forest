@@ -9,6 +9,7 @@ use networks::BLOCK_DELAY_SECS;
 use rpc_api::common_api::*;
 
 pub(crate) async fn version() -> Result<VersionResult, JsonRpcError> {
+    #[allow(clippy::needless_borrow)]
     let v: Version = (&*RUNNING_NODE_TYPE.read().await).try_into()?;
     Ok(APIVersion {
         version: user_version().await,
