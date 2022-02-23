@@ -9,7 +9,7 @@ repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 anyhow = "*"
-fvm_shared = "0.1"
+fvm_shared = { version = "*", default-features = false }
 cid_orig = { package = "cid", version = "*" }
 cid = { package = "forest_cid", features = ["cbor"], version = "0.3" }
 db = { package = "forest_db", version = "0.1" }

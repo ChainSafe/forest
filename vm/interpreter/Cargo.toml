@@ -8,7 +8,7 @@ edition = "2021"
 wasmtime = { version = "0.33", default-features = false }
 anyhow = "*"
 fvm = { version = "*", features = ["builtin_actors"] }
-fvm_shared = "*"
+fvm_shared = { version = "*", default-features = false }
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../actor_interface" }
 message = { package = "forest_message", default_features = false, version = "0.7", features = ["blst"] }

@@ -8,7 +8,7 @@ edition = "2021"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-fvm_shared = "*"
+fvm_shared = { version = "*", default-features = false }
 anyhow = "*"
 vm = { package = "forest_vm", version = "0.3" }
 address = { package = "forest_address", version = "0.3" }

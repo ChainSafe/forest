@@ -12,7 +12,7 @@ features = ["json"]
 
 [dependencies]
 anyhow = "*"
-fvm_shared = "0.1"
+fvm_shared = { version = "*", default-features = false }
 address = { package = "forest_address", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 libsecp256k1 = "0.7.0"
@@ -30,5 +30,5 @@ rand_chacha = "0.3.1"
 [features]
 default = ["blst"]
 json = ["base64"]
-blst = ["bls-signatures/blst"]
-pairing = ["bls-signatures/pairing"]
+blst = ["bls-signatures/blst", "fvm_shared/blst"]
+pairing = ["bls-signatures/pairing", "fvm_shared/pairing"]
