@@ -501,7 +501,6 @@ where
         circ_supply_calc: &'r C,
         lb_state: &'r LB,
     ) -> Result<Self, String> {
-        // let store = store_arc.as_ref();
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         let engine = Engine::default();
@@ -530,13 +529,13 @@ where
             state,
             store,
             epoch,
+            rand,
+            base_fee,
             registered_actors,
             // fvm_machine: ForestMachine{ machine: fvm },
             fvm_executor: exec,
             circ_supply_calc,
             lb_state,
-            base_fee,
-            rand,
             verifier: PhantomData,
             params: PhantomData,
         })
