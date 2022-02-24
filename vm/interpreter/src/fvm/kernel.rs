@@ -147,12 +147,8 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
         // Ok(true)
     }
 
-    // NOT forwarded
-    fn verify_post(&mut self, _vi: &WindowPoStVerifyInfo) -> fvm::kernel::Result<bool> {
-        todo!()
-        // let charge = self.1.price_list.on_verify_post(vi);
-        // self.0.charge_gas(charge.name, charge.total())?;
-        // Ok(true)
+    fn verify_post(&mut self, vi: &WindowPoStVerifyInfo) -> fvm::kernel::Result<bool> {
+        self.0.verify_post(vi)
     }
 
     // NOT forwarded
