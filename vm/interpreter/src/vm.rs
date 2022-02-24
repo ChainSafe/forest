@@ -163,23 +163,32 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        if crate::use_fvm() {
-            Ok(self.fvm_executor.flush()?.into())
-        } else {
-            match self.state.flush() {
-                Ok(cid) => Ok(cid),
+        let fvm_cid: Cid = self.fvm_executor.flush()?.into();
+        let native_cid = match self.state.flush() {
+                Ok(cid) => cid,
                 Err(err) => anyhow::bail!("{}", err),
-            }
-        }
+            };
+        assert_eq!(fvm_cid, native_cid);
+        log::info!("flush OK");
+        Ok(native_cid)
+        // if crate::use_fvm() {
+        //     Ok(self.fvm_executor.flush()?.into())
+        // } else {
+        //     match self.state.flush() {
+        //         Ok(cid) => Ok(cid),
+        //         Err(err) => anyhow::bail!("{}", err),
+        //     }
+        // }
     }
 
     /// Returns a reference to the VM's state tree.
     pub fn state(&self) -> &StateTree<'_, DB> {
-        if crate::use_fvm() {
-            panic!("State tree reference is not available with FVM.")
-        } else {
-            &self.state
-        }
+        &self.state
+        // if crate::use_fvm() {
+        //     panic!("State tree reference is not available with FVM.")
+        // } else {
+        //     &self.state
+        // }
     }
 
     fn run_cron(
@@ -346,15 +355,21 @@ where
 
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        if crate::use_fvm() {
-            self.apply_implicit_message_fvm(msg)
-        } else {
-            self.apply_implicit_message_native(msg)
-        }
+        let fvm_ret = self.apply_implicit_message_fvm(msg);
+        let native_ret =self.apply_implicit_message_native(msg);
+        assert_eq!(native_ret, fvm_ret);
+        log::info!("apply_implicit_message OK");
+        native_ret
+        // if crate::use_fvm() {
+        //     self.apply_implicit_message_fvm(msg)
+        // } else {
+        //     self.apply_implicit_message_native(msg)
+        // }
     }
 
     fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         use fvm::executor::Executor;
+        // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         // if msg.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
         //     // 65 bytes signature + 1 byte type + 3 bytes for field info.
@@ -392,11 +407,16 @@ where
     /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
-        if crate::use_fvm() {
-            self.apply_message_fvm(msg)
-        } else {
-            self.apply_message_native(msg)
-        }
+        let fvm_ret = self.apply_message_fvm(msg)?;
+        let native_ret = self.apply_message_native(msg)?;
+        assert_eq!(native_ret, fvm_ret);
+        log::info!("apply_message OK");
+        Ok(native_ret)
+        // if crate::use_fvm() {
+        //     self.apply_message_fvm(msg)
+        // } else {
+        //     self.apply_message_native(msg)
+        // }
     }
 
     fn apply_message_fvm(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
@@ -404,11 +424,11 @@ where
 
         use fvm::executor::Executor;
         let unsigned = msg.message();
-        let mut raw_length = unsigned.marshal_cbor().expect("encoding error").len();
-        if unsigned.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
-            // 65 bytes signature + 1 byte type + 3 bytes for field info.
-            raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
-        }
+        let raw_length = msg.marshal_cbor().expect("encoding error").len();
+        // if unsigned.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
+        //     // 65 bytes signature + 1 byte type + 3 bytes for field info.
+        //     raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
+        // }
         match self.fvm_executor.execute_message(
             unsigned.into(),
             fvm::executor::ApplyKind::Explicit,
@@ -841,6 +861,17 @@ pub struct ApplyRet {
     pub penalty: BigInt,
     /// Tip given to miner from message.
     pub miner_tip: BigInt,
+}
+
+impl PartialEq for ApplyRet {
+    fn eq(&self, other: &Self) -> bool {
+        self.penalty == other.penalty &&
+        self.miner_tip == other.miner_tip &&
+        self.act_error.is_some() == other.act_error.is_some() &&
+        self.msg_receipt.exit_code == other.msg_receipt.exit_code &&
+        self.msg_receipt.return_data == other.msg_receipt.return_data &&
+        self.msg_receipt.gas_used == other.msg_receipt.gas_used
+    }
 }
 
 impl From<fvm::executor::ApplyRet> for ApplyRet {
