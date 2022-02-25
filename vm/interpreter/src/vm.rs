@@ -429,8 +429,25 @@ where
         assert_eq!(native_ret, fvm_ret);
         // log::info!("apply_message OK");
         let native_st = self.state.get_actor(msg.to()).expect("Must have actor state");
-        let fvm_st = self.fvm_executor.state_tree().get_actor(msg.to()).expect("Must have actor state");
-        assert_eq!(native_st, fvm_st.map(vm::ActorState::from));
+        let fvm_st = self.fvm_executor.state_tree().get_actor(msg.to()).expect("Must have actor state").map(vm::ActorState::from);
+        // assert_eq!(native_st, fvm_st.map(vm::ActorState::from));
+        if native_st != fvm_st {
+            // eprintln!("Message: {:?}", msg);
+            log::error!("actor states differ:");
+            if let Some(native_state) = native_st {
+                if let Some(fvm_state) = fvm_st {
+                    if let Err(err) = statediff::print_actor_diff(
+                        self.store,
+                        &native_state,
+                        &fvm_state,
+                        Some(1),
+                    ) {
+                        eprintln!("Failed to print actor-diff: {}", err);
+                    }
+                }
+            }
+
+        }
         Ok(native_ret)
         // if crate::use_fvm() {
         //     self.apply_message_fvm(msg)

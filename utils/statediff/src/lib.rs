@@ -134,6 +134,22 @@ fn print_diffs(handle: &mut impl Write, diffs: &[Difference]) -> std::io::Result
     Ok(())
 }
 
+pub fn print_actor_diff<BS: BlockStore>(
+    bs: &BS,
+    expected: &ActorState,
+    actual: &ActorState,
+    depth: Option<u64>,
+) -> Result<(), Box<dyn StdError>> {
+    let expected_pp = pp_actor_state(bs, expected, depth)?;
+    let actual_pp = pp_actor_state(bs, actual, depth)?;
+
+    let Changeset { diffs, .. } = Changeset::new(&expected_pp, &actual_pp, "\n");
+    let stdout = stdout();
+    let mut handle = stdout.lock();
+    print_diffs(&mut handle, &diffs)?;
+    Ok(())
+}
+
 /// Prints a diff of the resolved state tree.
 /// If the actor's Hamt cannot be loaded, base ipld resolution is given.
 pub fn print_state_diff<BS>(
