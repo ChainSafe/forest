@@ -3977,6 +3977,7 @@ dependencies = [
  "rayon",
  "state_migration",
  "state_tree",
+ "statediff",
  "wasmtime",
 ]
 

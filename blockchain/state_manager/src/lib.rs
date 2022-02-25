@@ -319,7 +319,7 @@ where
             &rand_clone,
             base_fee,
             get_network_version_default,
-            &self.genesis_info,
+            self.genesis_info.clone(),
             &lb_wrapper,
         )?;
 
@@ -442,7 +442,7 @@ where
                 rand,
                 0.into(),
                 get_network_version_default,
-                &self.genesis_info,
+                self.genesis_info.clone(),
                 &lb_wrapper,
             )?;
 
@@ -536,7 +536,7 @@ where
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default,
-            &self.genesis_info,
+            self.genesis_info.clone(),
             &lb_wrapper,
         )?;
 

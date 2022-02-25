@@ -9,11 +9,12 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use vm::TokenAmount;
 
-pub struct ForestMachine<DB: 'static> {
+pub struct ForestMachine<C, DB: 'static> {
     pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns>,
+    pub circ_supply: C,
 }
 
-impl<DB: BlockStore> Machine for ForestMachine<DB> {
+impl<C: 'static, DB: BlockStore> Machine for ForestMachine<C, DB> {
     type Blockstore =
         <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> as Machine>::Blockstore;
     type Externs = ForestExterns;

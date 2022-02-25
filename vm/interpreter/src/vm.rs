@@ -16,7 +16,7 @@ use fil_types::{
     DefaultNetworkParams, NetworkParams,
 };
 use forest_encoding::Cbor;
-use fvm::machine::Engine;
+use fvm::machine::{Engine, Machine};
 use fvm::Config;
 use fvm_shared::bigint::Sign;
 use fvm_shared::version::NetworkVersion;
@@ -47,9 +47,14 @@ pub struct BlockMessages {
 
 /// Allows generation of the current circulating supply
 /// given some context.
-pub trait CircSupplyCalc {
+pub trait CircSupplyCalc: Clone + 'static {
     /// Retrieves total circulating supply on the network.
     fn get_supply<DB: BlockStore>(
+        &self,
+        height: ChainEpoch,
+        state_tree: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>>;
+    fn get_fil_vested<DB: BlockStore>(
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
@@ -70,7 +75,7 @@ pub struct VM<
     DB: BlockStore + 'static,
     R,
     N,
-    C,
+    C: CircSupplyCalc,
     LB,
     V = FullVerifier,
     P = DefaultNetworkParams,
@@ -82,8 +87,8 @@ pub struct VM<
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
     network_version_getter: N,
-    circ_supply_calc: &'r C,
-    fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
+    circ_supply_calc: C,
+    fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<C,DB>>,
     lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
@@ -108,13 +113,14 @@ where
         rand: &'r R,
         base_fee: BigInt,
         network_version_getter: N,
-        circ_supply_calc: &'r C,
+        circ_supply_calc: C,
         lb_state: &'r LB,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         let engine = Engine::default();
-        let base_circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
+        // let base_circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
+        let fil_vested = circ_supply_calc.get_fil_vested(epoch, &state).unwrap();
         let config = Config {
             debug: true,
             ..fvm::Config::default()
@@ -125,15 +131,15 @@ where
                 engine,
                 epoch,                                    // ChainEpoch,
                 base_fee.clone(),                         //base_fee: TokenAmount,
-                base_circ_supply,                         // base_circ_supply: TokenAmount,
+                fil_vested, //base_circ_supply,                         // base_circ_supply: TokenAmount,
                 fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
                 root.into(),                              //state_root: Cid,
                 FvmStore::new(store_arc),
                 ForestExterns::new(rand.clone()),
             )
             .unwrap();
-        let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
-            fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
+        let exec: fvm::executor::DefaultExecutor<ForestKernel<C,DB>> =
+            fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm, circ_supply: circ_supply_calc.clone() });
         Ok(VM {
             network_version_getter,
             state,
@@ -165,11 +171,22 @@ where
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
         let fvm_cid: Cid = self.fvm_executor.flush()?.into();
         let native_cid = match self.state.flush() {
-                Ok(cid) => cid,
-                Err(err) => anyhow::bail!("{}", err),
-            };
+            Ok(cid) => cid,
+            Err(err) => anyhow::bail!("{}", err),
+        };
+        if fvm_cid != native_cid {
+            log::error!("root cids differ:");
+            if let Err(err) = statediff::print_state_diff(
+                self.store,
+                &native_cid,
+                &fvm_cid,
+                Some(1),
+            ) {
+                eprintln!("Failed to print state-diff: {}", err);
+            }
+        }
         assert_eq!(fvm_cid, native_cid);
-        log::info!("flush OK");
+        // log::info!("flush OK");
         Ok(native_cid)
         // if crate::use_fvm() {
         //     Ok(self.fvm_executor.flush()?.into())
@@ -356,9 +373,9 @@ where
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
         let fvm_ret = self.apply_implicit_message_fvm(msg);
-        let native_ret =self.apply_implicit_message_native(msg);
+        let native_ret = self.apply_implicit_message_native(msg);
         assert_eq!(native_ret, fvm_ret);
-        log::info!("apply_implicit_message OK");
+        // log::info!("apply_implicit_message OK");
         native_ret
         // if crate::use_fvm() {
         //     self.apply_implicit_message_fvm(msg)
@@ -410,7 +427,10 @@ where
         let fvm_ret = self.apply_message_fvm(msg)?;
         let native_ret = self.apply_message_native(msg)?;
         assert_eq!(native_ret, fvm_ret);
-        log::info!("apply_message OK");
+        // log::info!("apply_message OK");
+        let native_st = self.state.get_actor(msg.to()).expect("Must have actor state");
+        let fvm_st = self.fvm_executor.state_tree().get_actor(msg.to()).expect("Must have actor state");
+        assert_eq!(native_st, fvm_st.map(vm::ActorState::from));
         Ok(native_ret)
         // if crate::use_fvm() {
         //     self.apply_message_fvm(msg)
@@ -705,7 +725,7 @@ where
             0,
             self.rand,
             &self.registered_actors,
-            self.circ_supply_calc,
+            &self.circ_supply_calc,
             self.lb_state,
         );
 
@@ -865,12 +885,12 @@ pub struct ApplyRet {
 
 impl PartialEq for ApplyRet {
     fn eq(&self, other: &Self) -> bool {
-        self.penalty == other.penalty &&
-        self.miner_tip == other.miner_tip &&
-        self.act_error.is_some() == other.act_error.is_some() &&
-        self.msg_receipt.exit_code == other.msg_receipt.exit_code &&
-        self.msg_receipt.return_data == other.msg_receipt.return_data &&
-        self.msg_receipt.gas_used == other.msg_receipt.gas_used
+        self.penalty == other.penalty
+            && self.miner_tip == other.miner_tip
+            && self.act_error.is_some() == other.act_error.is_some()
+            && self.msg_receipt.exit_code == other.msg_receipt.exit_code
+            && self.msg_receipt.return_data == other.msg_receipt.return_data
+            && self.msg_receipt.gas_used == other.msg_receipt.gas_used
     }
 }
 
