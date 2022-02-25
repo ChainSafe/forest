@@ -88,7 +88,7 @@ pub struct VM<
     registered_actors: HashSet<Cid>,
     network_version_getter: N,
     circ_supply_calc: C,
-    fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<C,DB>>,
+    fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
@@ -138,8 +138,8 @@ where
                 ForestExterns::new(rand.clone()),
             )
             .unwrap();
-        let exec: fvm::executor::DefaultExecutor<ForestKernel<C,DB>> =
-            fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm, circ_supply: circ_supply_calc.clone() });
+        let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
+            fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
         Ok(VM {
             network_version_getter,
             state,

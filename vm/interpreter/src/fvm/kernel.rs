@@ -13,15 +13,13 @@ use fvm_shared::sector::*;
 use fvm_shared::{ActorID, MethodNum};
 use ipld_blockstore::BlockStore;
 use vm::TokenAmount;
-use crate::CircSupplyCalc;
 
-pub struct ForestKernel<C, DB: BlockStore + 'static>(
-    fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<C,DB>>>,
-    C,
+pub struct ForestKernel<DB: BlockStore + 'static>(
+    fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
 );
 
-impl<C: CircSupplyCalc, DB: BlockStore> fvm::Kernel for ForestKernel<C,DB> {
-    type CallManager = fvm::call_manager::DefaultCallManager<ForestMachine<C,DB>>;
+impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
+    type CallManager = fvm::call_manager::DefaultCallManager<ForestMachine<DB>>;
 
     fn take(self) -> Self::CallManager
     where
@@ -40,17 +38,16 @@ impl<C: CircSupplyCalc, DB: BlockStore> fvm::Kernel for ForestKernel<C,DB> {
     where
         Self: Sized,
     {
-        let circ = mgr.machine().circ_supply.clone();
         ForestKernel(fvm::DefaultKernel::new(
             mgr,
             from,
             to,
             method,
             value_received,
-        ), circ)
+        ))
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
     fn resolve_address(
         &self,
         address: &fvm_shared::address::Address,
@@ -77,7 +74,7 @@ impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<C,
         self.0.create_actor(code_id, actor_id)
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB> {
     fn block_open(&mut self, cid: &cid_orig::Cid) -> fvm::kernel::Result<(BlockId, BlockStat)> {
         self.0.block_open(cid)
     }
@@ -107,12 +104,12 @@ impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<C,
         self.0.block_get(id)
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
     fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
         self.0.total_fil_circ_supply()
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     // forwarded
     fn hash_blake2b(&mut self, data: &[u8]) -> fvm::kernel::Result<[u8; 32]> {
         self.0.hash_blake2b(data)
@@ -170,7 +167,7 @@ impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<C
         self.0.verify_aggregate_seals(agg)
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::DebugOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::DebugOps for ForestKernel<DB> {
     fn log(&self, msg: String) {
         self.0.log(msg)
     }
@@ -179,12 +176,12 @@ impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::DebugOps for ForestKernel<C,
         self.0.debug_enabled()
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::GasOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::GasOps for ForestKernel<DB> {
     fn charge_gas(&mut self, name: &str, compute: i64) -> fvm::kernel::Result<()> {
         self.0.charge_gas(name, compute)
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::MessageOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::MessageOps for ForestKernel<DB> {
     fn msg_caller(&self) -> ActorID {
         self.0.msg_caller()
     }
@@ -201,7 +198,7 @@ impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::MessageOps for ForestKernel<
         self.0.msg_value_received()
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::NetworkOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::NetworkOps for ForestKernel<DB> {
     fn network_epoch(&self) -> ChainEpoch {
         self.0.network_epoch()
     }
@@ -214,7 +211,7 @@ impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::NetworkOps for ForestKernel<
         self.0.network_base_fee()
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::RandomnessOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::RandomnessOps for ForestKernel<DB> {
     fn get_randomness_from_tickets(
         &self,
         personalization: DomainSeparationTag,
@@ -235,7 +232,7 @@ impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::RandomnessOps for ForestKern
             .get_randomness_from_beacon(personalization, rand_epoch, entropy)
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::SelfOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::SelfOps for ForestKernel<DB> {
     fn root(&self) -> fvm::kernel::Result<cid_orig::Cid> {
         self.0.root()
     }
@@ -255,7 +252,7 @@ impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::SelfOps for ForestKernel<C,D
         self.0.self_destruct(beneficiary)
     }
 }
-impl<C:CircSupplyCalc, DB: BlockStore> fvm::kernel::SendOps for ForestKernel<C,DB> {
+impl<DB: BlockStore> fvm::kernel::SendOps for ForestKernel<DB> {
     fn send(
         &mut self,
         recipient: &fvm_shared::address::Address,
