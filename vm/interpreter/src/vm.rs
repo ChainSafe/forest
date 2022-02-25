@@ -444,9 +444,9 @@ where
                     ) {
                         eprintln!("Failed to print actor-diff: {}", err);
                     }
+                    std::process::exit(-1);
                 }
             }
-
         }
         Ok(native_ret)
         // if crate::use_fvm() {
