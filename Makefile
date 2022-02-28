@@ -70,6 +70,9 @@ interopnet:
 devnet:
 	cargo build  --manifest-path=forest/Cargo.toml --no-default-features --features "devnet, rocksdb"
 
+calibnet:
+	cargo build --release --manifest-path=forest/Cargo.toml --no-default-features --features "calibnet, rocksdb"
+
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
