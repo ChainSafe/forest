@@ -111,7 +111,7 @@ impl Wallet {
 
     /// Return the Address of the default KeyInfo in the Wallet
     pub fn get_default(&self) -> Result<Address, Error> {
-        let key_info = self.keystore.get(&"default".to_string())?;
+        let key_info = self.keystore.get("default")?;
         let k = Key::try_from(key_info)?;
         Ok(k.address)
     }
@@ -133,7 +133,7 @@ impl Wallet {
         let addr = format!("wallet-{}", key.address);
         self.keystore.put(addr, key.key_info.clone())?;
         self.keys.insert(key.address, key.clone());
-        let value = self.keystore.get(&"default".to_string());
+        let value = self.keystore.get("default");
         if value.is_err() {
             self.keystore
                 .put("default".to_string(), key.key_info.clone())
@@ -151,7 +151,7 @@ impl Wallet {
 
 /// Return the default Address for KeyStore
 pub fn get_default(keystore: &KeyStore) -> Result<Address, Error> {
-    let key_info = keystore.get(&"default".to_string())?;
+    let key_info = keystore.get("default")?;
     let k = Key::try_from(key_info)?;
     Ok(k.address)
 }

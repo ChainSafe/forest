@@ -215,7 +215,7 @@ where
         match self {
             Node::Link { links } => {
                 // Check if first index is a link and all other values are empty.
-                links.get(0).map(|l| l.as_ref()).flatten().is_some()
+                links.get(0).and_then(|l| l.as_ref()).is_some()
                     && links
                         .get(1..)
                         .map(|l| l.iter().all(|l| l.is_none()))
@@ -244,8 +244,8 @@ where
         let sub_i = i / nodes_for_height(bit_width, height);
 
         match self {
-            Node::Leaf { vals, .. } => Ok(vals.get(i).map(|v| v.as_ref()).flatten()),
-            Node::Link { links, .. } => match links.get(sub_i).map(|v| v.as_ref()).flatten() {
+            Node::Leaf { vals, .. } => Ok(vals.get(i).and_then(|v| v.as_ref())),
+            Node::Link { links, .. } => match links.get(sub_i).and_then(|v| v.as_ref()) {
                 Some(Link::Cid { cid, cache }) => {
                     let cached_node = cache.get_or_try_init(|| {
                         bs.get::<CollapsedNode<V>>(cid)?
@@ -353,7 +353,7 @@ where
         let sub_i = i / nodes_for_height(bit_width, height);
 
         match self {
-            Self::Leaf { vals } => Ok(vals.get_mut(i).map(std::mem::take).flatten()),
+            Self::Leaf { vals } => Ok(vals.get_mut(i).and_then(std::mem::take)),
             Self::Link { links } => {
                 let (deleted, replace) = match &mut links[sub_i] {
                     Some(Link::Dirty(n)) => {
