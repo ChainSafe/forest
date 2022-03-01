@@ -263,9 +263,9 @@ where
     pub fn apply_block_messages(
         &mut self,
         messages: &[BlockMessages],
-        parent_epoch: ChainEpoch,
+        _parent_epoch: ChainEpoch,
         epoch: ChainEpoch,
-        store: std::sync::Arc<impl BlockStore + Send + Sync>,
+        _store: std::sync::Arc<impl BlockStore + Send + Sync>,
         mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
         let mut receipts = Vec::new();
