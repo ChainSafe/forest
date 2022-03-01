@@ -113,7 +113,11 @@ impl CircSupplyCalc for GenesisInfo {
         get_circulating_supply(self, height, state_tree)
     }
 
-    fn get_fil_vested<DB: BlockStore>(&self, height: ChainEpoch, state_tree: &StateTree<DB>) -> Result<TokenAmount, Box<dyn StdError>> {
+    fn get_fil_vested<DB: BlockStore>(
+        &self,
+        height: ChainEpoch,
+        state_tree: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
         self.vesting
             .genesis
             .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {

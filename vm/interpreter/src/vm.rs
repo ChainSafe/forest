@@ -133,7 +133,7 @@ where
                 base_fee.clone(),                         //base_fee: TokenAmount,
                 fil_vested, //base_circ_supply,                         // base_circ_supply: TokenAmount,
                 fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
-                root.into(),                              //state_root: Cid,
+                root.into(), //state_root: Cid,
                 FvmStore::new(store_arc),
                 ForestExterns::new(rand.clone()),
             )
@@ -176,12 +176,9 @@ where
         };
         if fvm_cid != native_cid {
             log::error!("root cids differ:");
-            if let Err(err) = statediff::print_state_diff(
-                self.store,
-                &native_cid,
-                &fvm_cid,
-                Some(1),
-            ) {
+            if let Err(err) =
+                statediff::print_state_diff(self.store, &native_cid, &fvm_cid, Some(1))
+            {
                 eprintln!("Failed to print state-diff: {}", err);
             }
         }
@@ -414,20 +411,25 @@ where
         let native_ret = self.apply_message_native(msg)?;
         assert_eq!(native_ret, fvm_ret);
         // log::info!("apply_message OK");
-        let native_st = self.state.get_actor(msg.to()).expect("Must have actor state");
-        let fvm_st = self.fvm_executor.state_tree().get_actor(msg.to()).expect("Must have actor state").map(vm::ActorState::from);
+        let native_st = self
+            .state
+            .get_actor(msg.to())
+            .expect("Must have actor state");
+        let fvm_st = self
+            .fvm_executor
+            .state_tree()
+            .get_actor(msg.to())
+            .expect("Must have actor state")
+            .map(vm::ActorState::from);
         // assert_eq!(native_st, fvm_st.map(vm::ActorState::from));
         if native_st != fvm_st {
             // eprintln!("Message: {:?}", msg);
             log::error!("actor states differ:");
             if let Some(native_state) = native_st {
                 if let Some(fvm_state) = fvm_st {
-                    if let Err(err) = statediff::print_actor_diff(
-                        self.store,
-                        &native_state,
-                        &fvm_state,
-                        Some(1),
-                    ) {
+                    if let Err(err) =
+                        statediff::print_actor_diff(self.store, &native_state, &fvm_state, Some(1))
+                    {
                         eprintln!("Failed to print actor-diff: {}", err);
                     }
                     std::process::exit(-1);

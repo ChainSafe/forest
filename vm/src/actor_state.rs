@@ -23,8 +23,18 @@ pub struct ActorState {
 
 impl From<fvm::state_tree::ActorState> for ActorState {
     fn from(actor: fvm::state_tree::ActorState) -> Self {
-        let fvm::state_tree::ActorState{ code, state, sequence, balance } = actor;
-        ActorState { code: code.into(), state: state.into(), sequence, balance }
+        let fvm::state_tree::ActorState {
+            code,
+            state,
+            sequence,
+            balance,
+        } = actor;
+        ActorState {
+            code: code.into(),
+            state: state.into(),
+            sequence,
+            balance,
+        }
     }
 }
 

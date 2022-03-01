@@ -156,7 +156,7 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
         h2: &[u8],
         extra: &[u8],
     ) -> fvm::kernel::Result<Option<ConsensusFault>> {
-        self.0.verify_consensus_fault(h1,h2, extra)
+        self.0.verify_consensus_fault(h1, h2, extra)
     }
 
     // forwarded
