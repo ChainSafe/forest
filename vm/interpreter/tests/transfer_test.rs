@@ -17,12 +17,20 @@ use std::collections::HashSet;
 use std::error::Error as StdError;
 use vm::{ActorState, Serialized, TokenAmount};
 
+#[derive(Clone)]
 struct MockCircSupply;
 impl CircSupplyCalc for MockCircSupply {
     fn get_supply<DB: BlockStore>(
         &self,
         _: ChainEpoch,
         _: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        Ok(0.into())
+    }
+    fn get_fil_vested<DB: BlockStore>(
+        &self,
+        _height: ChainEpoch,
+        _state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         Ok(0.into())
     }

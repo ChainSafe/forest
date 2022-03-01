@@ -26,6 +26,7 @@ pub struct ExecuteMessageParams<'a> {
     pub nv: fil_types::NetworkVersion,
 }
 
+#[derive(Clone)]
 struct MockCircSupply(TokenAmount);
 impl CircSupplyCalc for MockCircSupply {
     fn get_supply<DB: BlockStore>(
@@ -34,6 +35,13 @@ impl CircSupplyCalc for MockCircSupply {
         _: &StateTree<DB>,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         Ok(self.0.clone())
+    }
+    fn get_fil_vested<DB: BlockStore>(
+        &self,
+        _height: ChainEpoch,
+        _state_tree: &StateTree<DB>,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        Ok(0.into())
     }
 }
 
@@ -69,7 +77,7 @@ pub fn execute_message(
         &params.randomness,
         params.basefee,
         |_| nv,
-        &circ_supply,
+        circ_supply,
         &lb,
     )?;
 
