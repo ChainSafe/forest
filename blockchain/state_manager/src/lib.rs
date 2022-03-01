@@ -294,7 +294,7 @@ where
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
-        callback: Option<CB>,
+        mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, Box<dyn StdError>>
     where
@@ -311,22 +311,44 @@ where
         };
 
         let rand_clone = rand.clone();
-        let mut vm = VM::<_, _, _, _, _, V>::new(
-            *p_state,
-            db.as_ref(),
-            db.clone(),
-            epoch,
-            &rand_clone,
-            base_fee,
-            get_network_version_default,
-            self.genesis_info.clone(),
-            &lb_wrapper,
-        )?;
+        let create_vm = |state_root, epoch| {
+            VM::<_, _, _, _, _, V>::new(
+                state_root,
+                db.as_ref(),
+                db.clone(),
+                epoch,
+                &rand_clone,
+                base_fee.clone(),
+                get_network_version_default,
+                self.genesis_info.clone(),
+                &lb_wrapper,
+            )
+        };
+
+        let mut p_state = p_state.clone();
+
+        for i in parent_epoch..epoch {
+            if i > parent_epoch {
+                let mut vm = create_vm(p_state, i)?;
+                // run cron for null rounds if any
+                if let Err(e) = vm.run_cron(i, callback.as_mut()) {
+                    log::error!("Beginning of epoch cron failed to run: {}", e);
+                }
+
+                p_state = vm.flush().unwrap();
+            }
+            // if let Some(_new_state) = VM::migrate_state(i)? {
+            //     todo!()
+            //     self.state = StateTree::new_from_root(self.store, &new_state)?
+            // }
+        }
+
+
+        let mut vm = create_vm(p_state, epoch)?;
 
         // Apply tipset messages
         let receipts =
             vm.apply_block_messages(messages, parent_epoch, epoch, db.clone(), callback)?;
-
         // Construct receipt root from receipts
         let rect_root = Amt::new_from_iter(self.blockstore(), receipts)?;
         // Flush changes to blockstore

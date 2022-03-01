@@ -208,7 +208,7 @@ where
         // }
     }
 
-    fn run_cron(
+    pub fn run_cron(
         &mut self,
         epoch: ChainEpoch,
         callback: Option<&mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
@@ -271,19 +271,19 @@ where
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
-        for i in parent_epoch..epoch {
-            if i > parent_epoch {
-                // run cron for null rounds if any
-                if let Err(e) = self.run_cron(i, callback.as_mut()) {
-                    log::error!("Beginning of epoch cron failed to run: {}", e);
-                }
-            }
-            if let Some(_new_state) = self.migrate_state(i, store.clone())? {
-                todo!()
-                // self.state = StateTree::new_from_root(self.store, &new_state)?
-            }
-            self.epoch = i + 1;
-        }
+        // for i in parent_epoch..epoch {
+        //     if i > parent_epoch {
+        //         // run cron for null rounds if any
+        //         if let Err(e) = self.run_cron(i, callback.as_mut()) {
+        //             log::error!("Beginning of epoch cron failed to run: {}", e);
+        //         }
+        //     }
+        //     if let Some(_new_state) = self.migrate_state(i, store.clone())? {
+        //         todo!()
+        //         // self.state = StateTree::new_from_root(self.store, &new_state)?
+        //     }
+        //     self.epoch = i + 1;
+        // }
 
         for block in messages.iter() {
             let mut penalty = Default::default();
