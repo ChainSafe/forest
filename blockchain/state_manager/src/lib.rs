@@ -325,39 +325,40 @@ where
             )
         };
 
-        let mut p_state = p_state.clone();
+        let mut parent_state = p_state.clone();
 
-        for i in parent_epoch..epoch {
-            if i > parent_epoch {
-                let mut vm = create_vm(p_state, i)?;
+        for epoch_i in parent_epoch..epoch {
+            if epoch_i > parent_epoch {
+                let mut vm = create_vm(parent_state, epoch_i)?;
                 // run cron for null rounds if any
-                if let Err(e) = vm.run_cron(i, callback.as_mut()) {
+                if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
                     log::error!("Beginning of epoch cron failed to run: {}", e);
                 }
 
-                p_state = vm.flush().unwrap();
+                parent_state = vm.flush()?;
             }
-            // if let Some(_new_state) = VM::migrate_state(i)? {
-            //     todo!()
-            //     self.state = StateTree::new_from_root(self.store, &new_state)?
-            // }
+
+            if epoch_i == networks::UPGRADE_ACTORS_V4_HEIGHT {
+                todo!("cannot migrate state when using FVM - see `migrate_state` or `HandleStateForks` in Lotus");
+            }
         }
 
-
-        let mut vm = create_vm(p_state, epoch)?;
+        let mut vm = create_vm(parent_state, epoch)?;
 
         // Apply tipset messages
         let receipts =
             vm.apply_block_messages(messages, parent_epoch, epoch, db.clone(), callback)?;
+
         // Construct receipt root from receipts
-        let rect_root = Amt::new_from_iter(self.blockstore(), receipts)?;
+        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
+
         // Flush changes to blockstore
         let state_root = vm.flush()?;
 
         info!(
             "Applied block messages: {}, {} {}",
             messages.len(),
-            p_state,
+            parent_state,
             state_root
         );
         // Persist changes connected to root
@@ -365,7 +366,7 @@ where
         //     .flush(&state_root)
         //     .expect("buffered blockstore flush failed");
 
-        Ok((state_root, rect_root))
+        Ok((state_root, receipt_root))
     }
 
     /// Returns the pair of (parent state root, message receipt root). This will either be cached
