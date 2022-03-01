@@ -389,10 +389,11 @@ where
                 let deleted = child_node.rm_value(hashed_key, bit_width, depth + 1, key, store)?;
                 if deleted.is_some() {
                     *child = Pointer::Dirty(std::mem::take(child_node));
+
+                    // Clean to retrieve canonical form
+                    child.clean()?;
                 }
 
-                // Clean to retrieve canonical form
-                child.clean()?;
                 Ok(deleted)
             }
             Pointer::Dirty(n) => {

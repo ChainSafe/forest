@@ -165,7 +165,7 @@ where
     ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
         let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
         match self.get_network_version(round) {
-            NetworkVersion::V14 => {
+            NetworkVersion::V15 | NetworkVersion::V14 => {
                 chain_rand
                     .get_beacon_randomness_v3(blocks, pers, round, entropy)
                     .await
