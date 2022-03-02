@@ -176,6 +176,7 @@ async fn execute_message_vector(
     postconditions: &PostConditions,
     randomness: &Randomness,
     variant: &Variant,
+    engine: fvm::machine::Engine,
 ) -> Result<(), Box<dyn StdError>> {
     let bs = Arc::new(load_car(car).await?);
 
@@ -205,6 +206,7 @@ async fn execute_message_vector(
                 randomness: ReplayingRand::new(randomness),
                 nv: variant.nv.try_into().unwrap_or(NetworkVersion::V0),
             },
+            engine.clone(),
         )?;
         root = post_root;
 
@@ -299,6 +301,8 @@ async fn conformance_test_runner() {
         WalkDir::new("test-vectors/corpus").into_iter()
     };
 
+    let engine = fvm::machine::Engine::default();
+
     let mut failed = Vec::new();
     let mut succeeded = 0;
     for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
@@ -328,6 +332,7 @@ async fn conformance_test_runner() {
                         &postconditions,
                         &randomness,
                         &variant,
+                        engine.clone()
                     )
                     .await
                     {

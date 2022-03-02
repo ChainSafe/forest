@@ -56,6 +56,7 @@ pub fn execute_message(
     bs: Arc<MemoryDB>,
     selector: &Option<Selector>,
     params: ExecuteMessageParams,
+    engine: fvm::machine::Engine,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
     let circ_supply = MockCircSupply(params.circ_supply);
     let lb = MockStateLB(bs.as_ref());
@@ -66,19 +67,19 @@ pub fn execute_message(
         _,
         _,
         _,
-        _,
         fil_types::verifier::FullVerifier,
         fil_types::DefaultNetworkParams,
-    >::new(
+    >::new_with_engine(
         *params.pre_root,
         bs.as_ref(),
         bs.clone(),
         params.epoch,
         &params.randomness,
         params.basefee,
-        |_| nv,
+        nv,
         circ_supply,
         &lb,
+        engine,
     )?;
 
     if let Some(s) = &selector {
