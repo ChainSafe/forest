@@ -33,7 +33,7 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount};
-use forest_car::load_car;
+// use forest_car::load_car;
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;

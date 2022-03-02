@@ -18,7 +18,7 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> as Machine>::Blockstore;
     type Externs = ForestExterns;
 
-    fn engine(&self) -> &wasmtime::Engine {
+    fn engine(&self) -> &fvm::machine::Engine {
         self.machine.engine()
     }
 
@@ -38,6 +38,10 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         self.machine.externs()
     }
 
+    fn builtin_actors(&self) -> &fvm_shared::actor::builtin::Manifest {
+        self.machine.builtin_actors()
+    }
+
     fn state_tree(&self) -> &fvm::state_tree::StateTree<Self::Blockstore> {
         self.machine.state_tree()
     }
@@ -54,9 +58,9 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         self.machine.create_actor(addr, act)
     }
 
-    fn load_module(&self, code: &cid_orig::Cid) -> fvm::kernel::Result<wasmtime::Module> {
-        self.machine.load_module(code)
-    }
+    // fn load_module(&self, code: &cid_orig::Cid) -> fvm::kernel::Result<wasmtime::Module> {
+    //     self.machine.load_module(code)
+    // }
 
     fn transfer(
         &mut self,
