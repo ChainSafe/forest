@@ -33,6 +33,7 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount};
+use forest_car::load_car;
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
@@ -94,6 +95,19 @@ pub struct VM<
     params: PhantomData<P>,
 }
 
+// pub fn import_actors(blockstore: &MemoryBlockstore) -> BTreeMap<NetworkVersion, Cid> {
+//     let bundles = [(NetworkVersion::V14, actors_v6::BUNDLE_CAR)];
+//     bundles
+//         .into_iter()
+//         .map(|(nv, car)| {
+//             let roots = block_on(async { load_car(blockstore, car).await.unwrap() });
+//             assert_eq!(roots.len(), 1);
+//             (nv, roots[0])
+//         })
+//         .collect()
+// }
+
+
 impl<'db, 'r, DB, R, N, C, LB, V, P> VM<'db, 'r, DB, R, N, C, LB, V, P>
 where
     DB: BlockStore,
@@ -125,6 +139,16 @@ where
             debug: true,
             ..fvm::Config::default()
         };
+
+        // // Load the builtin actors bundles into the blockstore.
+        // let nv_actors = TestMachine::import_actors(&blockstore);
+
+        // // Get the builtin actors index for the concrete network version.
+        // let builtin_actors = nv_actors
+        //     .get(&network_version)
+        //     .expect("no builtin actors index for nv")
+        //     .clone();
+        
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
                 config,
@@ -134,6 +158,7 @@ where
                 fil_vested, //base_circ_supply,                         // base_circ_supply: TokenAmount,
                 fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
                 root.into(), //state_root: Cid,
+                todo!(), // builtin_actors
                 FvmStore::new(store_arc),
                 ForestExterns::new(rand.clone()),
             )

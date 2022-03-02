@@ -72,7 +72,7 @@ forest_message = { path = "./vm/message" }
 cid = { git = "https://github.com/multiformats/rust-cid", branch = "steb/cbor-hack" }
 fvm = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "lemmih/forest" }
 fvm_shared = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "lemmih/forest" }
-fvm_bitfield = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "lemmih/forest" }
+#fvm_bitfield = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "lemmih/forest" }
 
 [profile.dev]
 debug = 0
