@@ -3,6 +3,7 @@
 
 use super::Rand;
 use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
+use crate::Backend;
 use crate::{price_list_by_epoch, DefaultRuntime, GasCharge};
 use actor::{
     actorv0::reward::AwardBlockRewardParams, cron, miner, reward, system, BURNT_FUNDS_ACTOR_ADDR,
@@ -15,6 +16,7 @@ use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     DefaultNetworkParams, NetworkParams,
 };
+use forest_car::load_car;
 use forest_encoding::Cbor;
 use fvm::machine::{Engine, Machine};
 use fvm::Config;
@@ -28,13 +30,12 @@ use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
 use num_bigint::BigInt;
 use num_traits::Zero;
 use state_tree::StateTree;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount};
-use forest_car::load_car;
-use std::collections::BTreeMap;
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
@@ -100,13 +101,13 @@ pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, c
     bundles
         .into_iter()
         .map(|(nv, car)| {
-            let roots = async_std::task::block_on(async { load_car(blockstore, car).await.unwrap() });
+            let roots =
+                async_std::task::block_on(async { load_car(blockstore, car).await.unwrap() });
             assert_eq!(roots.len(), 1);
             (nv, roots[0].into())
         })
         .collect()
 }
-
 
 impl<'db, 'r, DB, R, C, LB, V, P> VM<'db, 'r, DB, R, C, LB, V, P>
 where
@@ -147,13 +148,13 @@ where
             .get(&network_version)
             .expect("no builtin actors index for nv")
             .clone();
-        
+
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
                 config,
                 engine,
-                epoch,                                    // ChainEpoch,
-                base_fee.clone(),                         //base_fee: TokenAmount,
+                epoch,            // ChainEpoch,
+                base_fee.clone(), //base_fee: TokenAmount,
                 fil_vested, //base_circ_supply,                         // base_circ_supply: TokenAmount,
                 network_version, // network_version: NetworkVersion,
                 root.into(), //state_root: Cid,
@@ -209,13 +210,13 @@ where
             .get(&network_version)
             .expect("no builtin actors index for nv")
             .clone();
-        
+
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
                 config,
                 engine,
-                epoch,                                    // ChainEpoch,
-                base_fee.clone(),                         //base_fee: TokenAmount,
+                epoch,            // ChainEpoch,
+                base_fee.clone(), //base_fee: TokenAmount,
                 fil_vested, //base_circ_supply,                         // base_circ_supply: TokenAmount,
                 network_version, // network_version: NetworkVersion,
                 root.into(), //state_root: Cid,
@@ -255,7 +256,7 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        match crate::Backend::get_backend_choice() {
+        match Backend::get_backend_choice() {
             Backend::FVM => Ok(self.fvm_executor.flush()?.into()),
             Backend::Native => match self.state.flush() {
                 Ok(cid) => Ok(cid),
