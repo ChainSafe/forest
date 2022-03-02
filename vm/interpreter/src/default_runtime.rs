@@ -1148,7 +1148,10 @@ fn transfer<BS: BlockStore>(
     value: &TokenAmount,
     _version: NetworkVersion,
 ) -> Result<(), ActorError> {
-    let (to_id, mut f) = if false /* version >= NetworkVersion::V15 */ { // FIXME: nv15
+    let (to_id, mut f) = if false
+    /* version >= NetworkVersion::V15 */
+    {
+        // FIXME: nv15
         if value.is_negative() {
             return Err(actor_error!(SysErrForbidden;
                     "attempted to transfer negative transfer value {}", value));

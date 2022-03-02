@@ -333,7 +333,7 @@ async fn conformance_test_runner() {
                         &postconditions,
                         &randomness,
                         &variant,
-                        engine.clone()
+                        engine.clone(),
                     )
                     .await
                     {

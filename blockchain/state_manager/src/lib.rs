@@ -559,7 +559,7 @@ where
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            get_network_version_default(ts.epoch()+1),
+            get_network_version_default(ts.epoch() + 1),
             self.genesis_info.clone(),
             &lb_wrapper,
         )?;

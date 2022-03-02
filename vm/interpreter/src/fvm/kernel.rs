@@ -53,17 +53,11 @@ impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
     }
 }
 impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
-    fn resolve_address(
-        &self,
-        address: &Address,
-    ) -> fvm::kernel::Result<Option<ActorID>> {
+    fn resolve_address(&self, address: &Address) -> fvm::kernel::Result<Option<ActorID>> {
         self.0.resolve_address(address)
     }
 
-    fn get_actor_code_cid(
-        &self,
-        addr: &Address,
-    ) -> fvm::kernel::Result<Option<cid_orig::Cid>> {
+    fn get_actor_code_cid(&self, addr: &Address) -> fvm::kernel::Result<Option<cid_orig::Cid>> {
         self.0.get_actor_code_cid(addr)
     }
 
