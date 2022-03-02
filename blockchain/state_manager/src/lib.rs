@@ -134,8 +134,8 @@ where
     }
 
     /// Gets actor from given [Cid], if it exists.
-    pub fn get_actor(&self, addr: &Address, state_cid: &Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.blockstore(), state_cid)?;
+    pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
+        let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
         Ok(state.get_actor(addr)?)
     }
 
@@ -215,7 +215,7 @@ where
     /// Returns the network name from the init actor state.
     pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
         let init_act = self
-            .get_actor(actor::init::ADDRESS, st)?
+            .get_actor(actor::init::ADDRESS, *st)?
             .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
 
         let state = init::State::load(self.blockstore(), &init_act)?;
@@ -225,7 +225,7 @@ where
     /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
         let actor = self
-            .get_actor(actor::power::ADDRESS, state_cid)?
+            .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor)?;
@@ -257,7 +257,7 @@ where
         addr: Option<&Address>,
     ) -> Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
-            .get_actor(actor::power::ADDRESS, state_cid)?
+            .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor)?;
@@ -475,7 +475,7 @@ where
             }
 
             let actor = self
-                .get_actor(msg.from(), bstate)?
+                .get_actor(msg.from(), *bstate)?
                 .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
             msg.set_sequence(actor.sequence);
             let apply_ret = vm.apply_implicit_message(msg);
@@ -700,13 +700,13 @@ where
         }
 
         let actor = self
-            .get_actor(actor::power::ADDRESS, base_tipset.parent_state())?
+            .get_actor(actor::power::ADDRESS, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let power_state = power::State::load(self.blockstore(), &actor)?;
 
         let actor = self
-            .get_actor(address, base_tipset.parent_state())?
+            .get_actor(address, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let miner_state = miner::State::load(self.blockstore(), &actor)?;
@@ -765,7 +765,7 @@ where
             .await?;
 
         let actor = self
-            .get_actor(&address, &lbst)?
+            .get_actor(&address, lbst)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let miner_state = miner::State::load(self.blockstore(), &actor)?;
 
@@ -896,7 +896,7 @@ where
     async fn tipset_executed_message(
         &self,
         tipset: &Tipset,
-        msg_cid: &Cid,
+        msg_cid: Cid,
         (message_from_address, message_sequence): (&Address, &u64),
     ) -> Result<Option<MessageReceipt>, Error> {
         if tipset.epoch() == 0 {
@@ -984,7 +984,7 @@ where
         let r = self
             .tipset_executed_message(
                 &tipset,
-                message_cid,
+                *message_cid,
                 (message_from_address, message_sequence),
             )
             .await
@@ -1016,8 +1016,8 @@ where
         }
     }
     /// Returns a message receipt from a given tipset and message cid.
-    pub async fn get_receipt(&self, tipset: &Tipset, msg: &Cid) -> Result<MessageReceipt, Error> {
-        let m = chain::get_chain_message(self.blockstore(), msg)
+    pub async fn get_receipt(&self, tipset: &Tipset, msg: Cid) -> Result<MessageReceipt, Error> {
+        let m = chain::get_chain_message(self.blockstore(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_var = (m.from(), &m.sequence());
         let message_receipt = self
@@ -1059,7 +1059,7 @@ where
         let message_var = (message.from(), &message.sequence());
         let current_tipset = self.cs.heaviest_tipset().await.unwrap();
         let maybe_message_reciept = self
-            .tipset_executed_message(&current_tipset, &msg_cid, message_var)
+            .tipset_executed_message(&current_tipset, msg_cid, message_var)
             .await?;
         if let Some(r) = maybe_message_reciept {
             return Ok((Some(current_tipset.clone()), Some(r)));
@@ -1126,7 +1126,7 @@ where
 
                             let message_var = (message.from(), &message.sequence());
                             let maybe_receipt = sm_cloned
-                                .tipset_executed_message(&tipset, &msg_cid, message_var)
+                                .tipset_executed_message(&tipset, msg_cid, message_var)
                                 .await?;
                             if let Some(receipt) = maybe_receipt {
                                 if confidence == 0 {
@@ -1191,9 +1191,9 @@ where
     pub fn get_bls_public_key(
         db: &DB,
         addr: &Address,
-        state_cid: &Cid,
+        state_cid: Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state = StateTree::new_from_root(db, state_cid)?;
+        let state = StateTree::new_from_root(db, &state_cid)?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
@@ -1213,11 +1213,11 @@ where
             .await
             .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
         let cid = ts.parent_state();
-        self.get_balance(addr, cid)
+        self.get_balance(addr, *cid)
     }
 
     /// Return the balance of a given address and state_cid
-    pub fn get_balance(&self, addr: &Address, cid: &Cid) -> Result<BigInt, Error> {
+    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<BigInt, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
         Ok(actor.balance)
@@ -1233,7 +1233,7 @@ where
     /// Retrieves market balance in escrow and locked tables.
     pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
         let actor = self
-            .get_actor(actor::market::ADDRESS, ts.parent_state())?
+            .get_actor(actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let market_state = market::State::load(self.blockstore(), &actor)?;
@@ -1290,7 +1290,7 @@ where
         ts: &Tipset,
     ) -> Result<bool, Box<dyn StdError>> {
         let actor = self
-            .get_actor(actor::power::ADDRESS, ts.parent_state())?
+            .get_actor(actor::power::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let ps = power::State::load(self.blockstore(), &actor)?;
 
@@ -1363,7 +1363,7 @@ where
     /// Return the state of Market Actor.
     pub fn get_market_state(&self, ts: &Tipset) -> Result<market::State, Error> {
         let actor = self
-            .get_actor(actor::market::ADDRESS, ts.parent_state())?
+            .get_actor(actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
