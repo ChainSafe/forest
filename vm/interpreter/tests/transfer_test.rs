@@ -15,7 +15,8 @@ use message::UnsignedMessage;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::error::Error as StdError;
-use vm::{actor_error, ActorError, ActorState, ExitCode, Serialized, TokenAmount};
+use vm::{ActorState, Serialized, TokenAmount};
+// use vm::{actor_error, ActorError, ActorState, ExitCode, Serialized, TokenAmount};
 
 #[derive(Clone)]
 struct MockCircSupply;
