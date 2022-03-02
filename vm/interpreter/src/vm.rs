@@ -76,7 +76,6 @@ pub struct VM<
     'r,
     DB: BlockStore + 'static,
     R,
-    N,
     C: CircSupplyCalc,
     LB,
     V = FullVerifier,
@@ -88,7 +87,7 @@ pub struct VM<
     rand: &'r R,
     base_fee: BigInt,
     registered_actors: HashSet<Cid>,
-    network_version_getter: N,
+    network_version: NetworkVersion,
     circ_supply_calc: C,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     lb_state: &'r LB,
@@ -109,13 +108,12 @@ pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, c
 }
 
 
-impl<'db, 'r, DB, R, N, C, LB, V, P> VM<'db, 'r, DB, R, N, C, LB, V, P>
+impl<'db, 'r, DB, R, C, LB, V, P> VM<'db, 'r, DB, R, C, LB, V, P>
 where
     DB: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
     R: Rand + Clone + 'static,
-    N: Fn(ChainEpoch) -> NetworkVersion,
     C: CircSupplyCalc,
     LB: LookbackStateGetter<'db, DB>,
 {
@@ -127,7 +125,7 @@ where
         epoch: ChainEpoch,
         rand: &'r R,
         base_fee: BigInt,
-        network_version_getter: N,
+        network_version: NetworkVersion,
         circ_supply_calc: C,
         lb_state: &'r LB,
     ) -> Result<Self, String> {
@@ -135,7 +133,6 @@ where
         let registered_actors = HashSet::new();
         let engine = Engine::default();
         // let base_circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
-        let network_version = fvm_shared::version::NetworkVersion::V14;
         let fil_vested = circ_supply_calc.get_fil_vested(epoch, &state).unwrap();
         let config = Config {
             debug: true,
@@ -168,7 +165,7 @@ where
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
         Ok(VM {
-            network_version_getter,
+            network_version,
             state,
             store,
             epoch,
@@ -744,7 +741,7 @@ where
         Option<ActorError>,
     ) {
         let res = DefaultRuntime::new(
-            (self.network_version_getter)(self.epoch),
+            self.network_version,
             &mut self.state,
             self.store,
             0,

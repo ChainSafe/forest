@@ -312,14 +312,14 @@ where
 
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
-            VM::<_, _, _, _, _, V>::new(
+            VM::<_, _, _, _, V>::new(
                 state_root,
                 db.as_ref(),
                 db.clone(),
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
-                get_network_version_default,
+                get_network_version_default(epoch),
                 self.genesis_info.clone(),
                 &lb_wrapper,
             )
@@ -457,14 +457,14 @@ where
 
             let store_arc = self.blockstore_cloned();
 
-            let mut vm = VM::<_, _, _, _, _, V>::new(
+            let mut vm = VM::<_, _, _, _, V>::new(
                 *bstate,
                 store_arc.as_ref(),
                 store_arc.clone(),
                 bheight,
                 rand,
                 0.into(),
-                get_network_version_default,
+                get_network_version_default(bheight),
                 self.genesis_info.clone(),
                 &lb_wrapper,
             )?;
@@ -551,14 +551,14 @@ where
             verifier: PhantomData::<V>::default(),
         };
         let store_arc = self.blockstore_cloned();
-        let mut vm = VM::<_, _, _, _, _, V>::new(
+        let mut vm = VM::<_, _, _, _, V>::new(
             st,
             store_arc.as_ref(),
             store_arc.clone(),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            get_network_version_default,
+            get_network_version_default(ts.epoch()+1),
             self.genesis_info.clone(),
             &lb_wrapper,
         )?;
