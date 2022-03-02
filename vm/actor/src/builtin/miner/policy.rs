@@ -109,6 +109,16 @@ pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof) -> bool {
         }
     }
 
+    #[cfg(feature = "calibnet")]
+    {
+        if matches!(
+            proof,
+            StackedDRG32GiBV1 | StackedDRG64GiBV1 | StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1
+        ) {
+            return true;
+        }
+    }
+
     matches!(proof, StackedDRG32GiBV1P1 | StackedDRG64GiBV1P1)
 }
 

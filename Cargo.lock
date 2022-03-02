@@ -2276,8 +2276,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_bundler"
-version = "0.1.0"
-source = "git+https://github.com/filecoin-project/builtin-actors#9aa05f5a52aad699035d1f4158d3036a948f80a1"
+version = "1.0.0"
+source = "git+https://github.com/filecoin-project/builtin-actors#164b30b6b1b575b95cf7d16f72109dce3a0674e3"
 dependencies = [
  "anyhow",
  "async-std",
@@ -2293,8 +2293,8 @@ dependencies = [
 
 [[package]]
 name = "fil_builtin_actors_bundle"
-version = "0.1.0"
-source = "git+https://github.com/filecoin-project/builtin-actors#9aa05f5a52aad699035d1f4158d3036a948f80a1"
+version = "6.0.0"
+source = "git+https://github.com/filecoin-project/builtin-actors#164b30b6b1b575b95cf7d16f72109dce3a0674e3"
 dependencies = [
  "async-std",
  "cid",

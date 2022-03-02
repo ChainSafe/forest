@@ -29,3 +29,4 @@ forest_json_utils = "0.1.1"
 [features]
 devnet = ["actorv0/devnet", "actorv2/devnet", "actorv3/devnet"]
 interopnet = ["actorv0/interopnet", "actorv2/interopnet", "actorv3/interopnet"]
+calibnet = ["actorv6/calibnet"]

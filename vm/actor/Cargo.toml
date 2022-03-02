@@ -46,3 +46,4 @@ libp2p = { version = "0.40.0-rc.1", default-features = false }
 [features]
 devnet = []
 interopnet = []
+calibnet = []
