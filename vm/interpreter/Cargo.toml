@@ -5,6 +5,8 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+async-std = "1.9"
+actors-v6 = { package = "fil_builtin_actors_bundle", git = "https://github.com/filecoin-project/builtin-actors" }
 wasmtime = { version = "0.33", default-features = false }
 anyhow = "*"
 fvm = { version = "*", features = [] }

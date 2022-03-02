@@ -33,7 +33,8 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount};
-// use forest_car::load_car;
+use forest_car::load_car;
+use std::collections::BTreeMap;
 
 const GAS_OVERUSE_NUM: i64 = 11;
 const GAS_OVERUSE_DENOM: i64 = 10;
@@ -95,17 +96,17 @@ pub struct VM<
     params: PhantomData<P>,
 }
 
-// pub fn import_actors(blockstore: &MemoryBlockstore) -> BTreeMap<NetworkVersion, Cid> {
-//     let bundles = [(NetworkVersion::V14, actors_v6::BUNDLE_CAR)];
-//     bundles
-//         .into_iter()
-//         .map(|(nv, car)| {
-//             let roots = block_on(async { load_car(blockstore, car).await.unwrap() });
-//             assert_eq!(roots.len(), 1);
-//             (nv, roots[0])
-//         })
-//         .collect()
-// }
+pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, cid_orig::Cid> {
+    let bundles = [(NetworkVersion::V14, actors_v6::BUNDLE_CAR)];
+    bundles
+        .into_iter()
+        .map(|(nv, car)| {
+            let roots = async_std::task::block_on(async { load_car(blockstore, car).await.unwrap() });
+            assert_eq!(roots.len(), 1);
+            (nv, roots[0].into())
+        })
+        .collect()
+}
 
 
 impl<'db, 'r, DB, R, N, C, LB, V, P> VM<'db, 'r, DB, R, N, C, LB, V, P>
@@ -134,20 +135,21 @@ where
         let registered_actors = HashSet::new();
         let engine = Engine::default();
         // let base_circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
+        let network_version = fvm_shared::version::NetworkVersion::V14;
         let fil_vested = circ_supply_calc.get_fil_vested(epoch, &state).unwrap();
         let config = Config {
             debug: true,
             ..fvm::Config::default()
         };
 
-        // // Load the builtin actors bundles into the blockstore.
-        // let nv_actors = TestMachine::import_actors(&blockstore);
+        // Load the builtin actors bundles into the blockstore.
+        let nv_actors = import_actors(store);
 
-        // // Get the builtin actors index for the concrete network version.
-        // let builtin_actors = nv_actors
-        //     .get(&network_version)
-        //     .expect("no builtin actors index for nv")
-        //     .clone();
+        // Get the builtin actors index for the concrete network version.
+        let builtin_actors = nv_actors
+            .get(&network_version)
+            .expect("no builtin actors index for nv")
+            .clone();
         
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
@@ -156,9 +158,9 @@ where
                 epoch,                                    // ChainEpoch,
                 base_fee.clone(),                         //base_fee: TokenAmount,
                 fil_vested, //base_circ_supply,                         // base_circ_supply: TokenAmount,
-                fvm_shared::version::NetworkVersion::V14, // network_version: NetworkVersion,
+                network_version, // network_version: NetworkVersion,
                 root.into(), //state_root: Cid,
-                todo!(), // builtin_actors
+                builtin_actors, // builtin_actors
                 FvmStore::new(store_arc),
                 ForestExterns::new(rand.clone()),
             )
