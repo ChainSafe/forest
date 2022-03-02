@@ -326,7 +326,7 @@ where
             )
         };
 
-        let mut parent_state = p_state.clone();
+        let mut parent_state = *p_state;
 
         for epoch_i in parent_epoch..epoch {
             if epoch_i > parent_epoch {

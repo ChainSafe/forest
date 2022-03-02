@@ -130,55 +130,18 @@ where
         circ_supply_calc: C,
         lb_state: &'r LB,
     ) -> Result<Self, String> {
-        let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
-        let registered_actors = HashSet::new();
-        let engine = Engine::default();
-        // let base_circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
-        let fil_vested = circ_supply_calc.get_fil_vested(epoch, &state).unwrap();
-        let config = Config {
-            debug: true,
-            ..fvm::Config::default()
-        };
-
-        // Load the builtin actors bundles into the blockstore.
-        let nv_actors = import_actors(store);
-
-        // Get the builtin actors index for the concrete network version.
-        let builtin_actors = nv_actors
-            .get(&network_version)
-            .expect("no builtin actors index for nv")
-            .clone();
-
-        let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
-            fvm::machine::DefaultMachine::new(
-                config,
-                engine,
-                epoch,            // ChainEpoch,
-                base_fee.clone(), //base_fee: TokenAmount,
-                fil_vested, //base_circ_supply,                         // base_circ_supply: TokenAmount,
-                network_version, // network_version: NetworkVersion,
-                root.into(), //state_root: Cid,
-                builtin_actors, // builtin_actors
-                FvmStore::new(store_arc),
-                ForestExterns::new(rand.clone()),
-            )
-            .unwrap();
-        let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
-            fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
-        Ok(VM {
-            network_version,
-            state,
+        Self::new_with_engine(
+            root,
             store,
+            store_arc,
             epoch,
             rand,
             base_fee,
-            registered_actors,
-            fvm_executor: exec,
+            network_version,
             circ_supply_calc,
             lb_state,
-            verifier: PhantomData,
-            params: PhantomData,
-        })
+            Engine::default(),
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -206,10 +169,9 @@ where
         let nv_actors = import_actors(store);
 
         // Get the builtin actors index for the concrete network version.
-        let builtin_actors = nv_actors
+        let builtin_actors = *nv_actors
             .get(&network_version)
-            .expect("no builtin actors index for nv")
-            .clone();
+            .expect("no builtin actors index for nv");
 
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
