@@ -18,6 +18,20 @@ pub use self::vm::*;
 
 /// Temporary flag to switch backends.
 /// https://github.com/ChainSafe/forest/pull/1403
-pub fn use_fvm() -> bool {
-    std::env::var("USE_FVM").is_ok()
+/// Run `forest` with flag BACKEND set to `fvm`, `native` or `both`.
+/// Defaults to running both backends to compare results.
+pub enum Backend {
+    FVM,
+    Native,
+    Both,
+}
+
+impl Backend {
+    pub fn get_backend_choice() -> Backend {
+        match std::env::var("BACKEND") {
+            Ok(backend) if backend.to_lowercase() == "fvm" => Backend::FVM,
+            Ok(backend) if backend.to_lowercase() == "native" => Backend::Native,
+            _ => Backend::Both,
+        }
+    }
 }

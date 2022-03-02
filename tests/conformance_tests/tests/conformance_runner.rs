@@ -16,7 +16,7 @@ use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use futures::AsyncRead;
-use interpreter::ApplyRet;
+use interpreter::{ApplyRet, Backend};
 use num_bigint::{BigInt, ToBigInt};
 use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
@@ -73,7 +73,7 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         }
     }
 
-    if !interpreter::use_fvm() {
+    if interpreter::Backend::get_backend_choice() != Backend::FVM {
         // only run v6 vectors
         let v6_filepath = Regex::new(r"specs_actors_v6").unwrap();
         let is_extra = Regex::new(r"extra-vectors").unwrap();
@@ -295,10 +295,11 @@ async fn conformance_test_runner() {
         .await
         .unwrap();
 
-    let walker = if interpreter::use_fvm() {
-        WalkDir::new("fvm-test-vectors/corpus").into_iter()
-    } else {
-        WalkDir::new("test-vectors/corpus").into_iter()
+    let walker = match interpreter::Backend::get_backend_choice() {
+        interpreter::Backend::FVM => WalkDir::new("fvm-test-vectors/corpus").into_iter(),
+        interpreter::Backend::Native | interpreter::Backend::Both => {
+            WalkDir::new("test-vectors/corpus").into_iter()
+        }
     };
 
     let engine = fvm::machine::Engine::default();

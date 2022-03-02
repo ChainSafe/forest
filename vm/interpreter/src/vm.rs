@@ -255,40 +255,40 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        let fvm_cid: Cid = self.fvm_executor.flush()?.into();
-        let native_cid = match self.state.flush() {
-            Ok(cid) => cid,
-            Err(err) => anyhow::bail!("{}", err),
-        };
-        if fvm_cid != native_cid {
-            log::error!("root cids differ:");
-            if let Err(err) =
-                statediff::print_state_diff(self.store, &native_cid, &fvm_cid, Some(1))
-            {
-                eprintln!("Failed to print state-diff: {}", err);
+        match crate::Backend::get_backend_choice() {
+            Backend::FVM => Ok(self.fvm_executor.flush()?.into()),
+            Backend::Native => match self.state.flush() {
+                Ok(cid) => Ok(cid),
+                Err(err) => anyhow::bail!("{}", err),
+            },
+            Backend::Both => {
+                let fvm_cid: Cid = self.fvm_executor.flush()?.into();
+                let native_cid = match self.state.flush() {
+                    Ok(cid) => cid,
+                    Err(err) => anyhow::bail!("{}", err),
+                };
+                if fvm_cid != native_cid {
+                    log::error!("root cids differ:");
+                    if let Err(err) =
+                        statediff::print_state_diff(self.store, &native_cid, &fvm_cid, Some(1))
+                    {
+                        eprintln!("Failed to print state-diff: {}", err);
+                    }
+                }
+                assert_eq!(fvm_cid, native_cid);
+                Ok(native_cid)
             }
         }
-        assert_eq!(fvm_cid, native_cid);
-        // log::info!("flush OK");
-        Ok(native_cid)
-        // if crate::use_fvm() {
-        //     Ok(self.fvm_executor.flush()?.into())
-        // } else {
-        //     match self.state.flush() {
-        //         Ok(cid) => Ok(cid),
-        //         Err(err) => anyhow::bail!("{}", err),
-        //     }
-        // }
     }
 
     /// Returns a reference to the VM's state tree.
     pub fn state(&self) -> &StateTree<'_, DB> {
-        &self.state
-        // if crate::use_fvm() {
-        //     panic!("State tree reference is not available with FVM.")
-        // } else {
-        //     &self.state
-        // }
+        match crate::Backend::get_backend_choice() {
+            Backend::FVM => {
+                panic!("State tree reference is not available with FVM.")
+            }
+            Backend::Native | Backend::Both => &self.state,
+        }
     }
 
     pub fn run_cron(
@@ -441,16 +441,16 @@ where
 
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        let fvm_ret = self.apply_implicit_message_fvm(msg);
-        let native_ret = self.apply_implicit_message_native(msg);
-        assert_eq!(native_ret, fvm_ret);
-        // log::info!("apply_implicit_message OK");
-        native_ret
-        // if crate::use_fvm() {
-        //     self.apply_implicit_message_fvm(msg)
-        // } else {
-        //     self.apply_implicit_message_native(msg)
-        // }
+        match crate::Backend::get_backend_choice() {
+            Backend::FVM => self.apply_implicit_message_fvm(msg),
+            Backend::Native => self.apply_implicit_message_native(msg),
+            Backend::Both => {
+                let fvm_ret = self.apply_implicit_message_fvm(msg);
+                let native_ret = self.apply_implicit_message_native(msg);
+                assert_eq!(native_ret, fvm_ret);
+                native_ret
+            }
+        }
     }
 
     fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> ApplyRet {
@@ -493,41 +493,45 @@ where
     /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
-        let fvm_ret = self.apply_message_fvm(msg)?;
-        let native_ret = self.apply_message_native(msg)?;
-        assert_eq!(native_ret, fvm_ret);
-        // log::info!("apply_message OK");
-        let native_st = self
-            .state
-            .get_actor(msg.to())
-            .expect("Must have actor state");
-        let fvm_st = self
-            .fvm_executor
-            .state_tree()
-            .get_actor(msg.to())
-            .expect("Must have actor state")
-            .map(vm::ActorState::from);
-        // assert_eq!(native_st, fvm_st.map(vm::ActorState::from));
-        if native_st != fvm_st {
-            // eprintln!("Message: {:?}", msg);
-            log::error!("actor states differ:");
-            if let Some(native_state) = native_st {
-                if let Some(fvm_state) = fvm_st {
-                    if let Err(err) =
-                        statediff::print_actor_diff(self.store, &native_state, &fvm_state, Some(1))
-                    {
-                        eprintln!("Failed to print actor-diff: {}", err);
+        match crate::Backend::get_backend_choice() {
+            Backend::FVM => self.apply_message_fvm(msg),
+            Backend::Native => self.apply_message_native(msg),
+            Backend::Both => {
+                let fvm_ret = self.apply_message_fvm(msg)?;
+                let native_ret = self.apply_message_native(msg)?;
+                assert_eq!(native_ret, fvm_ret);
+                // log::info!("apply_message OK");
+                let native_st = self
+                    .state
+                    .get_actor(msg.to())
+                    .expect("Must have actor state");
+                let fvm_st = self
+                    .fvm_executor
+                    .state_tree()
+                    .get_actor(msg.to())
+                    .expect("Must have actor state")
+                    .map(vm::ActorState::from);
+                // assert_eq!(native_st, fvm_st.map(vm::ActorState::from));
+                if native_st != fvm_st {
+                    // eprintln!("Message: {:?}", msg);
+                    log::error!("actor states differ:");
+                    if let Some(native_state) = native_st {
+                        if let Some(fvm_state) = fvm_st {
+                            if let Err(err) = statediff::print_actor_diff(
+                                self.store,
+                                &native_state,
+                                &fvm_state,
+                                Some(1),
+                            ) {
+                                eprintln!("Failed to print actor-diff: {}", err);
+                            }
+                            std::process::exit(-1);
+                        }
                     }
-                    std::process::exit(-1);
                 }
+                Ok(native_ret)
             }
         }
-        Ok(native_ret)
-        // if crate::use_fvm() {
-        //     self.apply_message_fvm(msg)
-        // } else {
-        //     self.apply_message_native(msg)
-        // }
     }
 
     fn apply_message_fvm(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
