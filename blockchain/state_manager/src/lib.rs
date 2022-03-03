@@ -563,7 +563,6 @@ where
             vm.apply_message(msg)?;
         }
         let from_actor = vm
-            .state()
             .get_actor(message.from())
             .map_err(|e| Error::Other(format!("Could not get actor from state: {}", e)))?
             .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;

@@ -244,13 +244,17 @@ where
         }
     }
 
-    /// Returns a reference to the VM's state tree.
-    pub fn state(&self) -> &StateTree<'_, DB> {
+    /// Get actor state from an address. Will be resolved to ID address.
+    pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, Box<dyn StdError>> {
         match crate::Backend::get_backend_choice() {
             Backend::FVM => {
-                panic!("State tree reference is not available with FVM.")
+                // panic!("State tree reference is not available with FVM.")
+                match self.fvm_executor.state_tree().get_actor(addr) {
+                    Ok(opt_state) => Ok(opt_state.map(vm::ActorState::from)),
+                    Err(err) => Err(format!("failed to get actor: {}", err).into())
+                }
             }
-            Backend::Native | Backend::Both => &self.state,
+            Backend::Native | Backend::Both => self.state.get_actor(addr)
         }
     }
 
@@ -691,7 +695,7 @@ where
             };
 
             let should_burn = self
-                .should_burn(self.state(), msg, err_code)
+                .should_burn(msg, err_code)
                 .map_err(|e| format!("failed to decide whether to burn: {}", e))?;
 
             let GasOutputs {
@@ -798,10 +802,10 @@ where
 
     fn should_burn(
         &self,
-        st: &StateTree<DB>,
         msg: &ChainMessage,
         exit_code: ExitCode,
     ) -> Result<bool, Box<dyn StdError>> {
+        let st = &self.state;
         if self.epoch <= UPGRADE_ACTORS_V4_HEIGHT {
             // Check to see if we should burn funds. We avoid burning on successful
             // window post. This won't catch _indirect_ window post calls, but this
