@@ -48,6 +48,6 @@ impl Consensus for ForestExterns {
         _h2: &[u8],
         _extra: &[u8],
     ) -> anyhow::Result<(Option<ConsensusFault>, i64)> {
-        todo!()
+        panic!("Forest cannot verify consensus faults. Please report this to https://github.com/ChainSafe/forest/issues")
     }
 }
