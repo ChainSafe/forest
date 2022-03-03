@@ -171,7 +171,7 @@ where
         // Get the builtin actors index for the concrete network version.
         let builtin_actors = *nv_actors
             .get(&network_version)
-            .expect(&format!("no builtin actors index for nv {}", network_version));
+            .unwrap_or_else(|| panic!("no builtin actors index for nv {}", network_version));
 
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
