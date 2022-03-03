@@ -247,13 +247,11 @@ where
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, Box<dyn StdError>> {
         match crate::Backend::get_backend_choice() {
-            Backend::FVM => {
-                match self.fvm_executor.state_tree().get_actor(addr) {
-                    Ok(opt_state) => Ok(opt_state.map(vm::ActorState::from)),
-                    Err(err) => Err(format!("failed to get actor: {}", err).into())
-                }
-            }
-            Backend::Native | Backend::Both => self.state.get_actor(addr)
+            Backend::FVM => match self.fvm_executor.state_tree().get_actor(addr) {
+                Ok(opt_state) => Ok(opt_state.map(vm::ActorState::from)),
+                Err(err) => Err(format!("failed to get actor: {}", err).into()),
+            },
+            Backend::Native | Backend::Both => self.state.get_actor(addr),
         }
     }
 
