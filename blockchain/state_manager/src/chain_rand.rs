@@ -13,7 +13,6 @@ use encoding::blake2b_256;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use interpreter::Rand;
-// use std::error::Error;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -218,24 +217,6 @@ impl<DB> Rand for ChainRand<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    // fn get_chain_randomness_v1(
-    //     &self,
-    //     pers: DomainSeparationTag,
-    //     round: ChainEpoch,
-    //     entropy: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn Error>> {
-    //     task::block_on(self.get_chain_randomness_v1(&self.blks, pers, round, entropy))
-    // }
-
-    // fn get_beacon_randomness_v1(
-    //     &self,
-    //     pers: DomainSeparationTag,
-    //     round: ChainEpoch,
-    //     entropy: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn Error>> {
-    //     task::block_on(self.get_beacon_randomness_v1(&self.blks, pers, round, entropy))
-    // }
-
     fn get_chain_randomness(
         &self,
         pers: DomainSeparationTag,
@@ -244,15 +225,6 @@ where
     ) -> anyhow::Result<[u8; 32]> {
         task::block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
     }
-
-    // fn get_beacon_randomness_v2(
-    //     &self,
-    //     pers: DomainSeparationTag,
-    //     round: ChainEpoch,
-    //     entropy: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn Error>> {
-    //     task::block_on(self.get_beacon_randomness_v2(&self.blks, pers, round, entropy))
-    // }
 
     fn get_beacon_randomness(
         &self,
