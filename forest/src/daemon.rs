@@ -283,7 +283,7 @@ mod test {
             .expect("Failed to import chain");
     }
 
-    // FIXME: Did FVM change something about the car format?
+    // FIXME: This car file refers to actors that are not available in FVM yet.
     // #[async_std::test]
     // async fn import_chain_from_file() {
     //     let db = Arc::new(MemoryDB::default());

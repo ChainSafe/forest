@@ -11,8 +11,6 @@ pub use self::network::Network;
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 use encoding::blake2b_variable;
 use once_cell::sync::OnceCell;
-use serde::{de, Serialize};
-use std::str::FromStr;
 
 pub use fvm_shared::address::{Address, BLSPublicKey, Payload, Protocol};
 
@@ -120,8 +118,10 @@ pub fn validate_checksum(ingest: &[u8], expect: Vec<u8>) -> bool {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use serde::{de, Serialize};
     use serde::{Deserialize, Deserializer, Serializer};
     use std::borrow::Cow;
+    use std::str::FromStr;
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Deserialize, Serialize)]
