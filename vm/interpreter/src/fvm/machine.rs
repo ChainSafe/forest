@@ -11,6 +11,7 @@ use vm::TokenAmount;
 
 pub struct ForestMachine<DB: 'static> {
     pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns>,
+    pub circ_supply: TokenAmount,
 }
 
 impl<DB: BlockStore> Machine for ForestMachine<DB> {

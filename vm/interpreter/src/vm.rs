@@ -188,7 +188,12 @@ where
             )
             .unwrap();
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
-            fvm::executor::DefaultExecutor::new(ForestMachine { machine: fvm });
+            fvm::executor::DefaultExecutor::new(ForestMachine {
+                machine: fvm,
+                circ_supply: circ_supply_calc
+                    .get_supply(epoch, &state)
+                    .expect("failed to compute circ supply"),
+            });
         Ok(VM {
             network_version,
             state,

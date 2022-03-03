@@ -21,6 +21,7 @@ use vm::TokenAmount;
 
 pub struct ForestKernel<DB: BlockStore + 'static>(
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
+    TokenAmount,
 );
 
 impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
@@ -43,13 +44,14 @@ impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
     where
         Self: Sized,
     {
+        let circ_supply = mgr.machine().circ_supply.clone();
         ForestKernel(fvm::DefaultKernel::new(
             mgr,
             from,
             to,
             method,
             value_received,
-        ))
+        ), circ_supply)
     }
 }
 impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
@@ -116,7 +118,8 @@ impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB> {
 }
 impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
     fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
-        self.0.total_fil_circ_supply()
+        Ok(self.1.clone())
+        // self.0.total_fil_circ_supply()
     }
 }
 impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
