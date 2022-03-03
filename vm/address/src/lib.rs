@@ -149,7 +149,7 @@ pub mod json {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&m.encode())
+        serializer.serialize_str(&m.to_string())
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Address, D::Error>
@@ -206,7 +206,7 @@ pub mod json {
             S: Serializer,
         {
             if let Some(unwrapped_address) = v.as_ref() {
-                serializer.serialize_str(&unwrapped_address.encode())
+                serializer.serialize_str(&unwrapped_address.to_string())
             } else {
                 serializer.serialize_str(UNDEF_ADDR_STRING)
             }
