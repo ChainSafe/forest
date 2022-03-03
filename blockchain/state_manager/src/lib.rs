@@ -340,7 +340,7 @@ where
             }
 
             if epoch_i == networks::UPGRADE_ACTORS_V4_HEIGHT {
-                todo!("cannot migrate state when using FVM - see `migrate_state` or `HandleStateForks` in Lotus");
+                todo!("cannot migrate state when using FVM - see https://github.com/ChainSafe/forest/issues/1454 for updates");
             }
         }
 

@@ -248,7 +248,6 @@ where
     pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, Box<dyn StdError>> {
         match crate::Backend::get_backend_choice() {
             Backend::FVM => {
-                // panic!("State tree reference is not available with FVM.")
                 match self.fvm_executor.state_tree().get_actor(addr) {
                     Ok(opt_state) => Ok(opt_state.map(vm::ActorState::from)),
                     Err(err) => Err(format!("failed to get actor: {}", err).into())
@@ -302,7 +301,8 @@ where
     ) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
             x if x == UPGRADE_ACTORS_V4_HEIGHT => {
-                panic!("Cannot migrate state when using FVM");
+                // FIXME: Support state migrations.
+                panic!("Cannot migrate state when using FVM. See https://github.com/ChainSafe/forest/issues/1454 for updates.");
             }
             _ => Ok(None),
         }
@@ -431,7 +431,7 @@ where
         let mut ret = self
             .fvm_executor
             .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
-            .expect("FIXME: execution failed");
+            .expect("Unexpected and unrecoverable execution error. Please report as a bug: https://github.com/ChainSafe/forest/issues");
         ret.msg_receipt.gas_used = 0;
         ret.miner_tip = num_bigint::BigInt::zero();
         ret.penalty = num_bigint::BigInt::zero();
