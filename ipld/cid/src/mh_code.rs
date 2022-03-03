@@ -12,7 +12,6 @@ pub const SHA2_256_TRUNC254_PADDED: u64 = 0x1012;
 /// Multihash generation codes for the Filecoin protocol. This is not an exhausting list of
 /// codes used, just the ones used to generate multihashes.
 #[derive(Clone, Copy, Debug, Eq, Multihash, PartialEq)]
-// #[mh(alloc_size = U32)]
 #[mh(alloc_size = 64)]
 pub enum Code {
     /// BLAKE2b-256 (32-byte hash size)

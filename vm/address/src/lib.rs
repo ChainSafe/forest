@@ -9,111 +9,15 @@ pub use self::network::Network;
 // use data_encoding::Encoding;
 #[allow(unused_imports)]
 use data_encoding_macro::{internal_new_encoding, new_encoding};
-use encoding::blake2b_variable;
 use once_cell::sync::OnceCell;
 
-pub use fvm_shared::address::{Address, BLSPublicKey, Payload, Protocol};
-
-// /// defines the encoder for base32 encoding with the provided string with no padding
-// const ADDRESS_ENCODER: Encoding = new_encoding! {
-//     symbols: "abcdefghijklmnopqrstuvwxyz234567",
-//     padding: None,
-// };
-
-/// Hash length of payload for Secp and Actor addresses.
-pub const PAYLOAD_HASH_LEN: usize = 20;
-
-/// Uncompressed secp public key used for validation of Secp addresses.
-pub const SECP_PUB_LEN: usize = 65;
-
-/// BLS public key length used for validation of BLS addresses.
-pub const BLS_PUB_LEN: usize = 48;
-
-/// Length of the checksum hash for string encodings.
-pub const CHECKSUM_HASH_LEN: usize = 4;
-
-// const MAX_ADDRESS_LEN: usize = 84 + 2;
-// const MAINNET_PREFIX: &str = "f";
-// const TESTNET_PREFIX: &str = "t";
-
-#[cfg(feature = "json")]
-const UNDEF_ADDR_STRING: &str = "<empty>";
+pub use fvm_shared::address::{
+    checksum, validate_checksum, Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN,
+    CHECKSUM_HASH_LEN, PAYLOAD_HASH_LEN, SECP_PUB_LEN,
+};
 
 // TODO pull network from config (probably)
 pub static NETWORK_DEFAULT: OnceCell<Network> = OnceCell::new();
-
-#[cfg(test)]
-mod tests {
-    // Test cases for FOR-02: https://github.com/ChainSafe/forest/issues/1134
-    // use crate::{errors::Error, from_leb_bytes, to_leb_bytes};
-
-    // FIXME: Is this tested in the fvm crate?
-    // #[test]
-    // fn test_from_leb_bytes_passing() {
-    //     let passing = vec![67];
-    //     assert_eq!(
-    //         to_leb_bytes(from_leb_bytes(&passing).unwrap()),
-    //         Ok(vec![67])
-    //     );
-    // }
-
-    // FIXME: Is this tested in the fvm crate?
-    // #[test]
-    // fn test_from_leb_bytes_extra_bytes() {
-    //     let extra_bytes = vec![67, 0, 1, 2];
-
-    //     match from_leb_bytes(&extra_bytes) {
-    //         Ok(id) => {
-    //             println!(
-    //                 "Successfully decoded bytes when it was not supposed to. Result was: {:?}",
-    //                 &to_leb_bytes(id).unwrap()
-    //             );
-    //             panic!();
-    //         }
-    //         Err(e) => {
-    //             assert_eq!(e, Error::InvalidAddressIDPayload(extra_bytes));
-    //         }
-    //     }
-    // }
-
-    // FIXME: Is this tested in the fvm crate?
-    // #[test]
-    // fn test_from_leb_bytes_minimal_encoding() {
-    //     let minimal_encoding = vec![67, 0, 130, 0];
-
-    //     match from_leb_bytes(&minimal_encoding) {
-    //         Ok(id) => {
-    //             println!(
-    //                 "Successfully decoded bytes when it was not supposed to. Result was: {:?}",
-    //                 &to_leb_bytes(id).unwrap()
-    //             );
-    //             panic!();
-    //         }
-    //         Err(e) => {
-    //             assert_eq!(e, Error::InvalidAddressIDPayload(minimal_encoding));
-    //         }
-    //     }
-    // }
-}
-
-/// Checksum calculates the 4 byte checksum hash
-pub fn checksum(ingest: &[u8]) -> Vec<u8> {
-    blake2b_variable(ingest, CHECKSUM_HASH_LEN)
-}
-
-/// Validates the checksum against the ingest data
-pub fn validate_checksum(ingest: &[u8], expect: Vec<u8>) -> bool {
-    let digest = checksum(ingest);
-    digest == expect
-}
-
-// /// Returns an address hash for given data
-// fn address_hash(ingest: &[u8]) -> [u8; 20] {
-//     let digest = blake2b_variable(ingest, PAYLOAD_HASH_LEN);
-//     let mut hash = [0u8; 20];
-//     hash.clone_from_slice(&digest);
-//     hash
-// }
 
 #[cfg(feature = "json")]
 pub mod json {
@@ -200,6 +104,8 @@ pub mod json {
         use super::*;
         use serde::{self, Deserialize, Deserializer, Serializer};
         use std::borrow::Cow;
+
+        const UNDEF_ADDR_STRING: &str = "<empty>";
 
         pub fn serialize<S>(v: &Option<Address>, serializer: S) -> Result<S::Ok, S::Error>
         where

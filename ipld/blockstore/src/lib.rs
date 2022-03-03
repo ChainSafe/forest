@@ -113,7 +113,7 @@ impl<T> FvmStore<T> {
 }
 
 impl<T: BlockStore> Blockstore for FvmStore<T> {
-    fn get(&self, cid: &cid_orig::Cid) -> anyhow::Result<std::option::Option<Vec<u8>>> {
+    fn get(&self, cid: &cid_orig::Cid) -> anyhow::Result<Option<Vec<u8>>> {
         match self.bs.get_bytes(&(*cid).into()) {
             Ok(vs) => Ok(vs),
             Err(_err) => Err(anyhow::Error::msg("Fix FVM error handling")),
