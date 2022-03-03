@@ -60,7 +60,7 @@ pub trait CircSupplyCalc: Clone + 'static {
     fn get_fil_vested<DB: BlockStore>(
         &self,
         height: ChainEpoch,
-        state_tree: &StateTree<DB>,
+        store: &DB,
     ) -> Result<TokenAmount, Box<dyn StdError>>;
 }
 
@@ -159,7 +159,7 @@ where
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
-        let fil_vested = circ_supply_calc.get_fil_vested(epoch, &state).unwrap();
+        let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();
         let config = Config {
             debug: true,
             ..fvm::Config::default()
