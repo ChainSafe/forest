@@ -20,6 +20,7 @@ pub use self::vm::*;
 /// https://github.com/ChainSafe/forest/pull/1403
 /// Run `forest` with flag BACKEND set to `fvm`, `native` or `both`.
 /// Defaults to running both backends to compare results.
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
 pub enum Backend {
     FVM,
     Native,
