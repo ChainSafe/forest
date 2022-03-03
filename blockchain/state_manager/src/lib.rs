@@ -357,6 +357,7 @@ where
         let state_root = vm.flush()?;
 
         // FIXME: Buffering disabled while debugging. Investigate if the buffer improves performance.
+        //        See issue: https://github.com/ChainSafe/forest/issues/1451
         // Persist changes connected to root
         // buf_store
         //     .flush(&state_root)
