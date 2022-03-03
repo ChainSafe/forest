@@ -119,7 +119,6 @@ impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB> {
 impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
     fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
         Ok(self.1.clone())
-        // self.0.total_fil_circ_supply()
     }
 }
 impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {

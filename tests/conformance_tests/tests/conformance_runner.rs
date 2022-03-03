@@ -76,16 +76,6 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         }
     }
 
-    if interpreter::Backend::get_backend_choice() != Backend::FVM {
-        // only run v6 vectors
-        let v6_filepath = Regex::new(r"specs_actors_v6").unwrap();
-        let is_extra = Regex::new(r"extra-vectors").unwrap();
-        if !v6_filepath.is_match(file_name) && !is_extra.is_match(file_name) {
-            println!("SKIPPING: {} ", file_name);
-            return false;
-        }
-    }
-
     true
 }
 
@@ -298,12 +288,7 @@ async fn conformance_test_runner() {
         .await
         .unwrap();
 
-    let walker = match interpreter::Backend::get_backend_choice() {
-        interpreter::Backend::FVM => WalkDir::new("fvm-test-vectors/corpus").into_iter(),
-        interpreter::Backend::Native | interpreter::Backend::Both => {
-            WalkDir::new("test-vectors/corpus").into_iter()
-        }
-    };
+    let walker = WalkDir::new("fvm-test-vectors/corpus").into_iter();
 
     let engine = fvm::machine::Engine::default();
 
