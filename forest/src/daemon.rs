@@ -284,6 +284,7 @@ mod test {
     }
 
     // FIXME: This car file refers to actors that are not available in FVM yet.
+    //        See issue: https://github.com/ChainSafe/forest/issues/1452
     // #[async_std::test]
     // async fn import_chain_from_file() {
     //     let db = Arc::new(MemoryDB::default());
