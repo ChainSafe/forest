@@ -50,6 +50,9 @@ lazy_static! {
         // This test fails even after being updated.
         Regex::new(r"extra-vectors/TestAggregateBadSender/8466b548087bb6c8c8469b4135521b147364ed7625467c8ac149f8785abcab5d").unwrap(),
 
+        // We're too strict with these vectors:
+        Regex::new(r"fvm-test-vectors/corpus/extracted/0005-chocolate-01/fil_6_storageminer/ProveCommitSector").unwrap(),
+        Regex::new(r"fvm-test-vectors/corpus/extracted/0005-chocolate-01/fil_6_storageminer/ProveCommitAggregate").unwrap(),
     ];
 }
 
