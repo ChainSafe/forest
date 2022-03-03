@@ -356,12 +356,7 @@ where
         // Flush changes to blockstore
         let state_root = vm.flush()?;
 
-        info!(
-            "Applied block messages: {}, {} {}",
-            messages.len(),
-            parent_state,
-            state_root
-        );
+        // FIXME: Buffering disabled while debugging. Investigate if the buffer improves performance.
         // Persist changes connected to root
         // buf_store
         //     .flush(&state_root)
