@@ -39,7 +39,7 @@ impl CircSupplyCalc for MockCircSupply {
     fn get_fil_vested<DB: BlockStore>(
         &self,
         _height: ChainEpoch,
-        _store: &StateTree<DB>,
+        _store: &DB,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         Ok(0.into())
     }
