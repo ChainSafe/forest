@@ -130,7 +130,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        #rv: [1.57.0, stable]
         rv: [nightly-2021-12-14]
     steps:
       - name: Cancel Previous Runs
