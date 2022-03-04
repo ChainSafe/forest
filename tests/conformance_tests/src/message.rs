@@ -69,7 +69,7 @@ pub fn execute_message(
         _,
         fil_types::verifier::FullVerifier,
         fil_types::DefaultNetworkParams,
-    >::new_with_engine(
+    >::new(
         *params.pre_root,
         bs.as_ref(),
         bs.clone(),

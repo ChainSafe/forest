@@ -88,6 +88,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
+    engine: fvm::machine::Engine,
 }
 
 impl<DB> StateManager<DB>
@@ -104,6 +105,7 @@ where
             publisher: None,
             genesis_info: GenesisInfo::default(),
             beacon,
+            engine: fvm::machine::Engine::default(),
         })
     }
 
@@ -121,6 +123,7 @@ where
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::default(),
             beacon,
+            engine: fvm::machine::Engine::default(),
         })
     }
 
@@ -323,6 +326,7 @@ where
                 get_network_version_default(epoch),
                 self.genesis_info.clone(),
                 &lb_wrapper,
+                self.engine.clone(),
             )
         };
 
@@ -464,6 +468,7 @@ where
                 get_network_version_default(bheight),
                 self.genesis_info.clone(),
                 &lb_wrapper,
+                self.engine.clone(),
             )?;
 
             if msg.gas_limit() == 0 {
@@ -558,6 +563,7 @@ where
             get_network_version_default(ts.epoch() + 1),
             self.genesis_info.clone(),
             &lb_wrapper,
+            self.engine.clone(),
         )?;
 
         for msg in prior_messages {

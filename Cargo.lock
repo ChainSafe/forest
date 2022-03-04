@@ -7386,6 +7386,7 @@ dependencies = [
  "forest_runtime",
  "forest_vm",
  "futures",
+ "fvm",
  "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=master)",
  "interpreter",
  "ipld_amt 0.2.1",

@@ -129,32 +129,6 @@ where
         network_version: NetworkVersion,
         circ_supply_calc: C,
         lb_state: &'r LB,
-    ) -> Result<Self, String> {
-        Self::new_with_engine(
-            root,
-            store,
-            store_arc,
-            epoch,
-            rand,
-            base_fee,
-            network_version,
-            circ_supply_calc,
-            lb_state,
-            Engine::default(),
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_with_engine(
-        root: Cid,
-        store: &'db DB,
-        store_arc: Arc<DB>,
-        epoch: ChainEpoch,
-        rand: &'r R,
-        base_fee: BigInt,
-        network_version: NetworkVersion,
-        circ_supply_calc: C,
-        lb_state: &'r LB,
         engine: Engine,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
@@ -177,12 +151,12 @@ where
             fvm::machine::DefaultMachine::new(
                 config,
                 engine,
-                epoch,            // ChainEpoch,
-                base_fee.clone(), //base_fee: TokenAmount,
-                fil_vested, //base_circ_supply,                         // base_circ_supply: TokenAmount,
-                network_version, // network_version: NetworkVersion,
-                root.into(), //state_root: Cid,
-                builtin_actors, // builtin_actors
+                epoch,
+                base_fee.clone(),
+                fil_vested,
+                network_version,
+                root.into(),
+                builtin_actors,
                 FvmStore::new(store_arc),
                 ForestExterns::new(rand.clone()),
             )
