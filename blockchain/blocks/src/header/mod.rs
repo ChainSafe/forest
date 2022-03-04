@@ -9,14 +9,14 @@ use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;
-use encoding::{serde_generic_array::check_length, Cbor, Error as EncodingError, SerdeError};
+use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
 use num_bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
 };
 use once_cell::sync::OnceCell;
-use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::fmt;
 use vm::TokenAmount;
@@ -157,9 +157,6 @@ impl Serialize for BlockHeader {
     where
         S: Serializer,
     {
-        encoding::check_generic_array_length!(&self.beacon_entries, &self.winning_post_proof)
-            .map_err(ser::Error::custom)?;
-
         (
             &self.miner_address,
             &self.ticket,
@@ -227,9 +224,6 @@ impl<'de> Deserialize<'de> for BlockHeader {
             cached_cid: Default::default(),
             is_validated: Default::default(),
         };
-
-        encoding::check_generic_array_length!(&header.beacon_entries, &header.winning_post_proof)
-            .map_err(de::Error::custom)?;
 
         Ok(header)
     }
@@ -463,14 +457,10 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::{errors::Error, header::BigIntSer, BlockHeader};
+    use crate::{errors::Error, BlockHeader};
     use address::Address;
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
-    use encoding::{from_slice, to_vec, Cbor, SerdeError, GENERIC_ARRAY_MAX_LEN};
-    use fil_types::{PoStProof, RegisteredPoStProof};
-
-    use serde::Serialize;
-    use serde_cbor::ser::Serializer;
+    use encoding::Cbor;
 
     use std::sync::Arc;
     use std::time::Duration;
@@ -492,7 +482,6 @@ mod tests {
                 .unwrap())
             .unwrap();
     }
-
     #[test]
     fn beacon_entry_exists() {
         // Setup
@@ -522,110 +511,6 @@ mod tests {
                     panic!("validate block drand must detect a beacon entry in the block header");
                 }
             }
-        }
-    }
-
-    #[test]
-    fn can_serialize_and_deserialize() {
-        for len in [0, 1, GENERIC_ARRAY_MAX_LEN] {
-            let block_header = BlockHeader::builder()
-                .miner_address(Address::new_id(0))
-                .beacon_entries(vec![Default::default(); len])
-                .winning_post_proof(vec![
-                    PoStProof {
-                        post_proof: RegisteredPoStProof::StackedDRGWindow2KiBV1,
-                        proof_bytes: Default::default(),
-                    };
-                    len
-                ])
-                .build()
-                .unwrap();
-
-            let encoding = to_vec(&block_header).unwrap();
-            assert!(from_slice::<BlockHeader>(&encoding).is_ok());
-        }
-    }
-
-    #[test]
-    fn cannot_serialize_overflowed_generic_array() {
-        let len = GENERIC_ARRAY_MAX_LEN + 1;
-        let overflowed_beacon_entries = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .beacon_entries(vec![Default::default(); len])
-            .build()
-            .unwrap();
-
-        let overflowed_winning_post_proof = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .winning_post_proof(vec![
-                PoStProof {
-                    post_proof: RegisteredPoStProof::StackedDRGWindow2KiBV1,
-                    proof_bytes: Default::default(),
-                };
-                len
-            ])
-            .build()
-            .unwrap();
-
-        for header in [overflowed_beacon_entries, overflowed_winning_post_proof] {
-            assert_eq!(
-                to_vec(&header).err().unwrap().to_string(),
-                SerdeError::GenericArrayExceedsMaxLength(len).to_string(),
-            );
-        }
-    }
-
-    #[test]
-    fn cannot_deserialize_overflowed_generic_array() {
-        let len = GENERIC_ARRAY_MAX_LEN + 1;
-        let overflowed_beacon_entries = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .beacon_entries(vec![Default::default(); len])
-            .build()
-            .unwrap();
-
-        let overflowed_winning_post_proof = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .winning_post_proof(vec![
-                PoStProof {
-                    post_proof: RegisteredPoStProof::StackedDRGWindow2KiBV1,
-                    proof_bytes: Default::default(),
-                };
-                len
-            ])
-            .build()
-            .unwrap();
-
-        for header in [overflowed_beacon_entries, overflowed_winning_post_proof] {
-            let mut encoding = Vec::new();
-            (
-                &header.miner_address,
-                &header.ticket,
-                &header.election_proof,
-                &header.beacon_entries,
-                &header.winning_post_proof,
-                &header.parents,
-                BigIntSer(&header.weight),
-                &header.epoch,
-                &header.state_root,
-                &header.message_receipts,
-                &header.messages,
-                &header.bls_aggregate,
-                &header.timestamp,
-                &header.signature,
-                &header.fork_signal,
-                BigIntSer(&header.parent_base_fee),
-            )
-                .serialize(&mut Serializer::new(&mut encoding))
-                .unwrap();
-
-            assert_eq!(
-                from_slice::<BlockHeader>(&encoding)
-                    .err()
-                    .unwrap()
-                    .to_string(),
-                SerdeError::GenericArrayExceedsMaxLength(len).to_string(),
-            );
         }
     }
 }

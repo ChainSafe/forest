@@ -1,27 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{BYTE_ARRAY_MAX_LEN, GENERIC_ARRAY_MAX_LEN};
 use cid::Error as CidError;
 use serde_cbor::error::Error as CborError;
 use std::fmt;
 use std::io;
 use thiserror::Error;
-
-/// Error type for serializing and deserializing data via serde
-#[derive(Debug, PartialEq, Error)]
-pub enum SerdeError {
-    #[error(
-        "Byte array exceeds max length `{0}`, (expected <= {})",
-        BYTE_ARRAY_MAX_LEN
-    )]
-    ByteArrayExceedsMaxLength(usize),
-    #[error(
-        "Generic array exceeds max length `{0}`, (expected <= {})",
-        GENERIC_ARRAY_MAX_LEN
-    )]
-    GenericArrayExceedsMaxLength(usize),
-}
 
 /// Error type for encoding and decoding data through any Forest supported protocol.
 ///

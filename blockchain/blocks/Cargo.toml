@@ -33,7 +33,6 @@ base64 = "0.13"
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
 hex = "0.4.2"
 serde_json = "1.0"
-serde_cbor = { version = "0.11", features = ["tags"] }
 async-std = "1.9"
 
 [features]
