@@ -45,13 +45,10 @@ impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
         Self: Sized,
     {
         let circ_supply = mgr.machine().circ_supply.clone();
-        ForestKernel(fvm::DefaultKernel::new(
-            mgr,
-            from,
-            to,
-            method,
-            value_received,
-        ), circ_supply)
+        ForestKernel(
+            fvm::DefaultKernel::new(mgr, from, to, method, value_received),
+            circ_supply,
+        )
     }
 }
 impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
