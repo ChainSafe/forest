@@ -62,19 +62,18 @@ pub fn execute_message(
     let lb = MockStateLB(bs.as_ref());
 
     let nv = params.nv;
-    let mut vm =
-        VM::<_, _, _, _, fil_types::verifier::FullVerifier, fil_types::DefaultNetworkParams>::new(
-            *params.pre_root,
-            bs.as_ref(),
-            bs.clone(),
-            params.epoch,
-            &params.randomness,
-            params.basefee,
-            nv,
-            circ_supply,
-            &lb,
-            engine,
-        )?;
+    let mut vm = VM::<_, _, _, _>::new(
+        *params.pre_root,
+        bs.as_ref(),
+        bs.clone(),
+        params.epoch,
+        &params.randomness,
+        params.basefee,
+        nv,
+        circ_supply,
+        &lb,
+        engine,
+    )?;
 
     if let Some(s) = &selector {
         if s.chaos_actor

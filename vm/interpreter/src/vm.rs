@@ -254,7 +254,7 @@ where
             gas_premium: Default::default(),
         };
 
-        let ret = self.apply_implicit_message(&cron_msg);
+        let ret = self.apply_implicit_message(&cron_msg)?;
         if let Some(err) = ret.act_error {
             return Err(format!("failed to apply block cron message: {}", err).into());
         }
@@ -350,7 +350,7 @@ where
                 gas_premium: Default::default(),
             };
 
-            let ret = self.apply_implicit_message(&rew_msg);
+            let ret = self.apply_implicit_message(&rew_msg)?;
             if let Some(err) = ret.act_error {
                 return Err(format!(
                     "failed to apply reward message for miner {}: {}",
@@ -384,20 +384,20 @@ where
     }
 
     /// Applies single message through vm and returns result from execution.
-    pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+    pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
         match crate::Backend::get_backend_choice() {
             Backend::FVM => self.apply_implicit_message_fvm(msg),
-            Backend::Native => self.apply_implicit_message_native(msg),
+            Backend::Native => Ok(self.apply_implicit_message_native(msg)),
             Backend::Both => {
-                let fvm_ret = self.apply_implicit_message_fvm(msg);
+                let fvm_ret = self.apply_implicit_message_fvm(msg)?;
                 let native_ret = self.apply_implicit_message_native(msg);
                 assert_eq!(native_ret, fvm_ret);
-                native_ret
+                Ok(native_ret)
             }
         }
     }
 
-    fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+    fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
         use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
@@ -408,11 +408,11 @@ where
         let mut ret = self
             .fvm_executor
             .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
-            .expect("Unexpected and unrecoverable execution error. Please report as a bug: https://github.com/ChainSafe/forest/issues");
+            .map_err(|e| format!("{:?}", e))?;
         ret.msg_receipt.gas_used = 0;
         ret.miner_tip = num_bigint::BigInt::zero();
         ret.penalty = num_bigint::BigInt::zero();
-        ret.into()
+        Ok(ret.into())
     }
 
     pub fn apply_implicit_message_native(&mut self, msg: &UnsignedMessage) -> ApplyRet {
@@ -488,14 +488,15 @@ where
         //     // 65 bytes signature + 1 byte type + 3 bytes for field info.
         //     raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
         // }
-        match self.fvm_executor.execute_message(
-            unsigned.into(),
-            fvm::executor::ApplyKind::Explicit,
-            raw_length,
-        ) {
-            Ok(ret) => Ok(ret.into()),
-            Err(e) => Err(format!("{:?}", e)),
-        }
+        let fvm_ret = self
+            .fvm_executor
+            .execute_message(
+                unsigned.into(),
+                fvm::executor::ApplyKind::Explicit,
+                raw_length,
+            )
+            .map_err(|e| format!("{:?}", e))?;
+        Ok(fvm_ret.into())
     }
 
     fn apply_message_native(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
