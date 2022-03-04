@@ -4,30 +4,32 @@
 # - Prometheus server
 # - Grafana server
 
-version: "3.7"
+version: "3.8"
+
+volumes:
+  prometheus_data: {}
+
 services:
   prometheus:
     image: prom/prometheus
-    entrypoint:
-      - "/bin/prometheus"
-      - "--log.level=debug"
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
-      - "--web.console.templates=/usr/share/prometheus/consoles"
-    network_mode: host
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
     volumes:
-      - ./prometheus/:/etc/prometheus/
-      - /var/lib/forest/prometheus/:/prometheus/
-    restart: always
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus/
+    network_mode: host
+    restart: unless-stopped
 
   grafana:
     image: grafana/grafana
-    user: "104"
     depends_on:
       - prometheus
-    network_mode: host
     volumes:
       - ./grafana/provisioning/:/etc/grafana/provisioning
       - ./grafana/dashboards/:/etc/grafana/provisioning/dashboard-definitions
-    restart: always
+    network_mode: host
+    restart: unless-stopped
