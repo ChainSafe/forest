@@ -2420,6 +2420,7 @@ dependencies = [
  "lazy_static",
  "once_cell",
  "serde",
+ "serde_cbor",
  "serde_json",
  "sha2 0.9.9",
  "test_utils",

@@ -4,6 +4,7 @@
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
+use encoding::serde_generic_array;
 use encoding::Cbor;
 use num_bigint::BigInt;
 use once_cell::sync::OnceCell;
@@ -15,6 +16,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TipsetKeys {
+    #[serde(with = "serde_generic_array")]
     pub cids: Vec<Cid>,
 }
 
