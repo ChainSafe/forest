@@ -461,6 +461,7 @@ where
                     log::error!("actor states differ:");
                     if let Some(native_state) = native_st {
                         if let Some(fvm_state) = fvm_st {
+                            let _ = self.fvm_executor.flush(); // Flush the FVM state so it can be compared with the native state.
                             if let Err(err) = statediff::print_actor_diff(
                                 self.store,
                                 &native_state,
