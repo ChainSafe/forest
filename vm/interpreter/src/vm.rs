@@ -128,6 +128,7 @@ where
         base_fee: BigInt,
         network_version: NetworkVersion,
         circ_supply_calc: C,
+        override_circ_supply: Option<TokenAmount>,
         lb_state: &'r LB,
         engine: Engine,
     ) -> Result<Self, String> {
@@ -164,9 +165,7 @@ where
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine {
                 machine: fvm,
-                circ_supply: circ_supply_calc
-                    .get_supply(epoch, &state)
-                    .expect("failed to compute circ supply"),
+                circ_supply: override_circ_supply,
             });
         Ok(VM {
             network_version,

@@ -325,6 +325,7 @@ where
                 base_fee.clone(),
                 get_network_version_default(epoch),
                 self.genesis_info.clone(),
+                None,
                 &lb_wrapper,
                 self.engine.clone(),
             )
@@ -467,6 +468,7 @@ where
                 0.into(),
                 get_network_version_default(bheight),
                 self.genesis_info.clone(),
+                None,
                 &lb_wrapper,
                 self.engine.clone(),
             )?;
@@ -562,6 +564,7 @@ where
             ts.blocks()[0].parent_base_fee().clone(),
             get_network_version_default(ts.epoch() + 1),
             self.genesis_info.clone(),
+            None,
             &lb_wrapper,
             self.engine.clone(),
         )?;

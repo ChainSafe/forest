@@ -58,7 +58,7 @@ pub fn execute_message(
     params: ExecuteMessageParams,
     engine: fvm::machine::Engine,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let circ_supply = MockCircSupply(params.circ_supply);
+    let circ_supply = MockCircSupply(params.circ_supply.clone());
     let lb = MockStateLB(bs.as_ref());
 
     let nv = params.nv;
@@ -71,6 +71,7 @@ pub fn execute_message(
         params.basefee,
         nv,
         circ_supply,
+        Some(params.circ_supply),
         &lb,
         engine,
     )?;
