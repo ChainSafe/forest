@@ -79,6 +79,9 @@ jobs:
           args: '--workspace --release --locked --out Xml --jobs 16 --timeout 600 -- --test-threads 16'
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true
+          verbose: true
 
   lint:
     name: Lint
