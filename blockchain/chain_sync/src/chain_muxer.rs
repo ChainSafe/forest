@@ -836,6 +836,7 @@ where
                             "Evaluating the network head failed, retrying. Error = {:?}",
                             why
                         );
+                        metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
                     }
                     Poll::Pending => return Poll::Pending,
@@ -849,6 +850,7 @@ where
                         Poll::Ready(Err(why)) => {
                             // TODO: Should we exponentially back off before retrying?
                             error!("Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}", why);
+                            metrics::BOOTSTRAP_ERRORS.inc();
                             self.state = ChainMuxerState::Idle;
                         }
                         Poll::Pending => return Poll::Pending,
@@ -857,10 +859,12 @@ where
                 ChainMuxerState::Follow(ref mut follow) => match follow.as_mut().poll(cx) {
                     Poll::Ready(Ok(_)) => {
                         error!("Following the network unexpectedly ended without an error; restarting the sync process.");
+                        metrics::FOLLOW_NETWORK_INTERRUPTIONS.inc();
                         self.state = ChainMuxerState::Idle;
                     }
                     Poll::Ready(Err(why)) => {
                         error!("Following the network failed, restarted. Error = {:?}", why);
+                        metrics::FOLLOW_NETWORK_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
                     }
                     Poll::Pending => return Poll::Pending,

@@ -117,6 +117,79 @@ lazy_static! {
             .expect("Registering the bad_peers metric with the metrics registry must succeed");
         bad_peers
     };
+    pub static ref LAST_VALIDATED_TIPSET_EPOCH: Box<GenericGauge<AtomicU64>> = {
+        let last_validated_tipset_epoch = Box::new(
+            GenericGauge::<AtomicU64>::new(
+                "last_validated_tipset_epoch",
+                "Last validated tipset epoch",
+            )
+            .expect("Defining the last_validated_tipset_epoch metric must succeed"),
+        );
+        prometheus::default_registry()
+            .register(last_validated_tipset_epoch.clone())
+            .expect("Registering the last_validated_tipset_epoch metric with the metrics registry must succeed");
+        last_validated_tipset_epoch
+    };
+    pub static ref NETWORK_HEAD_EVALUATION_ERRORS: Box<GenericCounter<AtomicU64>> = {
+        let network_head_evaluation_errors = Box::new(
+            GenericCounter::<AtomicU64>::new(
+                "network_head_evaluation_errors",
+                "Total number of network head evaluation errors",
+            )
+            .expect("Defining the network_head_evaluation_errors metric must succeed"),
+        );
+        prometheus::default_registry()
+            .register(network_head_evaluation_errors.clone())
+            .expect(
+                "Registering the network_head_evaluation_errors metric with the metrics registry must succeed",
+            );
+        network_head_evaluation_errors
+    };
+    pub static ref BOOTSTRAP_ERRORS: Box<GenericCounter<AtomicU64>> = {
+        let boostrap_errors = Box::new(
+            GenericCounter::<AtomicU64>::new(
+                "bootstrap_errors",
+                "Total number of bootstrap attempts failures",
+            )
+            .expect("Defining the bootstrap_errors metric must succeed"),
+        );
+        prometheus::default_registry()
+            .register(boostrap_errors.clone())
+            .expect(
+                "Registering the bootstrap_errors metric with the metrics registry must succeed",
+            );
+        boostrap_errors
+    };
+    pub static ref FOLLOW_NETWORK_INTERRUPTIONS: Box<GenericCounter<AtomicU64>> = {
+        let follow_network_restarts = Box::new(
+            GenericCounter::<AtomicU64>::new(
+                "follow_network_interruptions",
+                "Total number of follow network interruptions, where it unexpectedly ended",
+            )
+            .expect("Defining the follow_network_interruptions metric must succeed"),
+        );
+        prometheus::default_registry()
+            .register(follow_network_restarts.clone())
+            .expect(
+                "Registering the follow_network_interruptions metric with the metrics registry must succeed",
+            );
+        follow_network_restarts
+    };
+    pub static ref FOLLOW_NETWORK_ERRORS: Box<GenericCounter<AtomicU64>> = {
+        let follow_network_errors = Box::new(
+            GenericCounter::<AtomicU64>::new(
+                "follow_network_errors",
+                "Total number of follow network errors",
+            )
+            .expect("Defining the follow_network_errors metric must succeed"),
+        );
+        prometheus::default_registry()
+            .register(follow_network_errors.clone())
+            .expect(
+                "Registering the follow_network_errors metric with the metrics registry must succeed",
+            );
+        follow_network_errors
+    };
 }
 
 pub mod labels {
