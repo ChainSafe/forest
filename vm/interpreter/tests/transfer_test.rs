@@ -46,23 +46,6 @@ impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
 
 struct MockRand;
 impl Rand for MockRand {
-    // fn get_chain_randomness_v1(
-    //     &self,
-    //     _: DomainSeparationTag,
-    //     _: ChainEpoch,
-    //     _: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn StdError>> {
-    //     Ok(*b"i_am_random_____i_am_random_____")
-    // }
-    // fn get_beacon_randomness_v1(
-    //     &self,
-    //     _: DomainSeparationTag,
-    //     _: ChainEpoch,
-    //     _: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn StdError>> {
-    //     Ok(*b"i_am_random_____i_am_random_____")
-    // }
-
     fn get_chain_randomness(
         &self,
         _: DomainSeparationTag,
@@ -71,15 +54,6 @@ impl Rand for MockRand {
     ) -> anyhow::Result<[u8; 32]> {
         Ok(*b"i_am_random_____i_am_random_____")
     }
-
-    // fn get_beacon_randomness_v2(
-    //     &self,
-    //     _: DomainSeparationTag,
-    //     _: ChainEpoch,
-    //     _: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn StdError>> {
-    //     Ok(*b"i_am_random_____i_am_random_____")
-    // }
 
     fn get_beacon_randomness(
         &self,

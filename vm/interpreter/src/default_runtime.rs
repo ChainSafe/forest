@@ -658,9 +658,6 @@ where
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
             panic!("FVM doesn't support older networks")
-            // self.rand
-            //     .get_chain_randomness_v1(personalization, rand_epoch, entropy)
-            //     .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
 
         Ok(Randomness(r.to_vec()))
@@ -679,14 +676,8 @@ where
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             panic!("FVM doesn't support older networks")
-            // self.rand
-            //     .get_beacon_randomness_v2(personalization, rand_epoch, entropy)
-            //     .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
             panic!("FVM doesn't support older networks")
-            // self.rand
-            //     .get_beacon_randomness_v1(personalization, rand_epoch, entropy)
-            //     .map_err(|e| e.downcast_fatal("could not get randomness"))?
         };
         Ok(Randomness(r.to_vec()))
     }

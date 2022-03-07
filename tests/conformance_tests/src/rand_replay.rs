@@ -30,61 +30,6 @@ impl<'a> ReplayingRand {
 }
 
 impl Rand for ReplayingRand {
-    // fn get_chain_randomness_v1(
-    //     &self,
-    //     dst: DomainSeparationTag,
-    //     epoch: ChainEpoch,
-    //     entropy: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn StdError>> {
-    //     let rule = RandomnessRule {
-    //         kind: RandomnessKind::Chain,
-    //         dst,
-    //         epoch,
-    //         entropy: entropy.to_vec(),
-    //     };
-    //     if let Some(bz) = self.matches(rule) {
-    //         Ok(bz)
-    //     } else {
-    //         self.fallback.get_chain_randomness_v1(dst, epoch, entropy)
-    //     }
-    // }
-    // fn get_beacon_randomness_v1(
-    //     &self,
-    //     dst: DomainSeparationTag,
-    //     epoch: ChainEpoch,
-    //     entropy: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn StdError>> {
-    //     let rule = RandomnessRule {
-    //         kind: RandomnessKind::Beacon,
-    //         dst,
-    //         epoch,
-    //         entropy: entropy.to_vec(),
-    //     };
-    //     if let Some(bz) = self.matches(rule) {
-    //         Ok(bz)
-    //     } else {
-    //         self.fallback.get_beacon_randomness_v1(dst, epoch, entropy)
-    //     }
-    // }
-    // // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
-    // fn get_beacon_randomness_v2(
-    //     &self,
-    //     dst: DomainSeparationTag,
-    //     epoch: ChainEpoch,
-    //     entropy: &[u8],
-    // ) -> Result<[u8; 32], Box<dyn StdError>> {
-    //     let rule = RandomnessRule {
-    //         kind: RandomnessKind::Beacon,
-    //         dst,
-    //         epoch,
-    //         entropy: entropy.to_vec(),
-    //     };
-    //     if let Some(bz) = self.matches(rule) {
-    //         Ok(bz)
-    //     } else {
-    //         self.fallback.get_beacon_randomness_v2(dst, epoch, entropy)
-    //     }
-    // }
     // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
     fn get_chain_randomness(
         &self,

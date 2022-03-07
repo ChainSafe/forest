@@ -400,10 +400,6 @@ where
         use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        // if msg.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
-        //     // 65 bytes signature + 1 byte type + 3 bytes for field info.
-        //     raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
-        // }
         let mut ret = self
             .fvm_executor
             .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
@@ -484,10 +480,6 @@ where
         use fvm::executor::Executor;
         let unsigned = msg.message();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        // if unsigned.from.protocol() == fvm_shared::address::Protocol::Secp256k1 {
-        //     // 65 bytes signature + 1 byte type + 3 bytes for field info.
-        //     raw_length += fvm_shared::crypto::signature::SECP_SIG_LEN + 4;
-        // }
         let fvm_ret = self
             .fvm_executor
             .execute_message(

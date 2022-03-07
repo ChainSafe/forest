@@ -6,14 +6,8 @@ use vm::ExitCode;
 use fvm_shared::encoding::RawBytes;
 use fvm_shared::receipt::Receipt;
 
-pub type MessageReceipt = Receipt;
 /// Result of a state transition from a message
-// #[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
-// pub struct MessageReceipt {
-//     pub exit_code: ExitCode,
-//     pub return_data: Serialized,
-//     pub gas_used: i64,
-// }
+pub type MessageReceipt = Receipt;
 
 #[cfg(feature = "json")]
 pub mod json {
