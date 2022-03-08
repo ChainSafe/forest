@@ -71,6 +71,8 @@ jobs:
         with:
           toolchain: stable
           override: true
+      - name: Checkout submodules
+        run: make pull-serialization-tests
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Run Tarpaulin
