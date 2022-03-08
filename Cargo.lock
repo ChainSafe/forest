@@ -192,9 +192,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.55"
+version = "1.0.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "159bb86af3a200e19a068f4224eae4c8bb2d0fa054c7e5d1cacd5cef95e684cd"
+checksum = "4361135be9122e0870de935d7c439aef945b9f9ddd4199a553b5270b49c82a27"
 
 [[package]]
 name = "anymap"
@@ -480,9 +480,9 @@ dependencies = [
 
 [[package]]
 name = "async-task"
-version = "4.1.0"
+version = "4.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "677d306121baf53310a3fd342d88dc0824f6bbeace68347593658525565abee8"
+checksum = "30696a84d817107fc028e049980e09d5e140e8da8f1caeb17e8e950658a3cea9"
 
 [[package]]
 name = "async-trait"
@@ -982,9 +982,9 @@ checksum = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
 
 [[package]]
 name = "byte-unit"
-version = "4.0.13"
+version = "4.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "956ffc5b0ec7d7a6949e3f21fd63ba5af4cffdc2ba1e0b7bf62b481458c4ae7f"
+checksum = "95ebf10dda65f19ff0f42ea15572a359ed60d7fc74fdc984d90310937be0014b"
 dependencies = [
  "utf8-width",
 ]
@@ -1278,9 +1278,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.1.5"
+version = "3.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced1892c55c910c1219e98d6fc8d71f6bddba7905866ce740066d8bfea859312"
+checksum = "d8c93436c21e4698bacadf42917db28b23017027a4deccb35dbe47a7e7840123"
 dependencies = [
  "atty",
  "bitflags",
@@ -2275,35 +2275,254 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_account"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_bundler"
 version = "1.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors#8f5cfca625ffed56d6b08ee727105405424b3588"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
 dependencies = [
  "anyhow",
  "async-std",
  "cid",
- "clap 3.1.5",
+ "clap 3.1.6",
  "futures",
  "fvm_ipld_car",
  "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
  "multihash 0.16.1",
  "serde_cbor",
- "serde_json",
+]
+
+[[package]]
+name = "fil_actor_cron"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_init"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_ipld_hamt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_market"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "ahash 0.7.6",
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_ipld_bitfield",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_miner"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "anyhow",
+ "byteorder 1.4.3",
+ "cid",
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_ipld_amt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_hamt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "itertools 0.10.3",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_multisig"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_ipld_hamt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "indexmap",
+ "integer-encoding 3.0.3",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_paych"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_power"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_ipld_hamt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "indexmap",
+ "integer-encoding 3.0.3",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_reward"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_system"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_verifreg"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fil_builtin_actors_builder",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "lazy_static",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actors_runtime"
+version = "6.0.2"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "anyhow",
+ "base64 0.13.0",
+ "byteorder 1.4.3",
+ "cid",
+ "fvm_ipld_amt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "fvm_ipld_hamt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "fvm_sdk",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "getrandom 0.2.5",
+ "indexmap",
+ "integer-encoding 3.0.3",
+ "lazy_static",
+ "log",
+ "multihash 0.16.1",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "thiserror",
+ "unsigned-varint 0.7.1",
+]
+
+[[package]]
+name = "fil_builtin_actors_builder"
+version = "6.0.2"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]
 name = "fil_builtin_actors_bundle"
-version = "6.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors#8f5cfca625ffed56d6b08ee727105405424b3588"
+version = "6.0.1"
+source = "git+https://github.com/filecoin-project/builtin-actors#f2dc12bdb8d536fb50411135984ecc97680bda30"
 dependencies = [
- "async-std",
  "cid",
- "clap 3.1.5",
+ "fil_actor_account",
  "fil_actor_bundler",
- "futures",
- "fvm_ipld_car",
- "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
- "multihash 0.16.1",
+ "fil_actor_cron",
+ "fil_actor_init",
+ "fil_actor_market",
+ "fil_actor_miner",
+ "fil_actor_multisig",
+ "fil_actor_paych",
+ "fil_actor_power",
+ "fil_actor_reward",
+ "fil_actor_system",
+ "fil_actor_verifreg",
 ]
 
 [[package]]
@@ -3235,7 +3454,7 @@ dependencies = [
 [[package]]
 name = "fvm"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=master#c02a9018cbf236ae70215cd8ebe23d9a87a974f5"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=master#4106a92724dec7db20aa662373e15ede6c8f2d9b"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
@@ -3246,8 +3465,8 @@ dependencies = [
  "derive_builder",
  "derive_more",
  "filecoin-proofs-api",
- "fvm_ipld_amt",
- "fvm_ipld_hamt",
+ "fvm_ipld_amt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=master)",
+ "fvm_ipld_hamt 0.1.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=master)",
  "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm/?branch=master)",
  "lazy_static",
  "log",
@@ -3267,7 +3486,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_amt"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=master#c02a9018cbf236ae70215cd8ebe23d9a87a974f5"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=master#4106a92724dec7db20aa662373e15ede6c8f2d9b"
 dependencies = [
  "anyhow",
  "cid",
@@ -3279,9 +3498,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "fvm_ipld_amt"
+version = "0.1.0"
+source = "git+https://github.com/filecoin-project/ref-fvm#4106a92724dec7db20aa662373e15ede6c8f2d9b"
+dependencies = [
+ "ahash 0.7.6",
+ "anyhow",
+ "cid",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "itertools 0.10.3",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "fvm_ipld_bitfield"
+version = "0.1.0"
+source = "git+https://github.com/filecoin-project/ref-fvm#4106a92724dec7db20aa662373e15ede6c8f2d9b"
+dependencies = [
+ "cs_serde_bytes",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "serde",
+ "unsigned-varint 0.7.1",
+]
+
+[[package]]
 name = "fvm_ipld_car"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm#c02a9018cbf236ae70215cd8ebe23d9a87a974f5"
+source = "git+https://github.com/filecoin-project/ref-fvm#4106a92724dec7db20aa662373e15ede6c8f2d9b"
 dependencies = [
  "cid",
  "futures",
@@ -3294,7 +3539,7 @@ dependencies = [
 [[package]]
 name = "fvm_ipld_hamt"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=master#c02a9018cbf236ae70215cd8ebe23d9a87a974f5"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=master#4106a92724dec7db20aa662373e15ede6c8f2d9b"
 dependencies = [
  "anyhow",
  "byteorder 1.4.3",
@@ -3309,9 +3554,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "fvm_ipld_hamt"
+version = "0.1.0"
+source = "git+https://github.com/filecoin-project/ref-fvm#4106a92724dec7db20aa662373e15ede6c8f2d9b"
+dependencies = [
+ "anyhow",
+ "byteorder 1.4.3",
+ "cid",
+ "cs_serde_bytes",
+ "forest_hash_utils",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "once_cell",
+ "serde",
+ "sha2 0.10.2",
+ "thiserror",
+]
+
+[[package]]
+name = "fvm_sdk"
+version = "0.1.0"
+source = "git+https://github.com/filecoin-project/ref-fvm#4106a92724dec7db20aa662373e15ede6c8f2d9b"
+dependencies = [
+ "cid",
+ "fvm_shared 0.1.0 (git+https://github.com/filecoin-project/ref-fvm)",
+ "lazy_static",
+ "log",
+ "num-traits",
+ "thiserror",
+]
+
+[[package]]
 name = "fvm_shared"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm/?branch=master#c02a9018cbf236ae70215cd8ebe23d9a87a974f5"
+source = "git+https://github.com/filecoin-project/ref-fvm/?branch=master#4106a92724dec7db20aa662373e15ede6c8f2d9b"
 dependencies = [
  "anyhow",
  "bimap",
@@ -3343,7 +3618,7 @@ dependencies = [
 [[package]]
 name = "fvm_shared"
 version = "0.1.0"
-source = "git+https://github.com/filecoin-project/ref-fvm#c02a9018cbf236ae70215cd8ebe23d9a87a974f5"
+source = "git+https://github.com/filecoin-project/ref-fvm#4106a92724dec7db20aa662373e15ede6c8f2d9b"
 dependencies = [
  "anyhow",
  "bimap",
@@ -3435,8 +3710,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d39cd93900197114fa1fcb7ae84ca742095eed9442088988ae74fa744e930e77"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.10.2+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -4035,9 +4312,9 @@ dependencies = [
 
 [[package]]
 name = "ipnet"
-version = "2.3.1"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f2d64f2edebec4ce84ad108148e67e1064789bee435edc5b60ad398714a3a9"
+checksum = "35e70ee094dc02fd9c13fdad4940090f22dbd6ac7c9e7094a46cf0232a50bc7c"
 
 [[package]]
 name = "isahc"
@@ -4989,9 +5266,9 @@ dependencies = [
 
 [[package]]
 name = "libz-sys"
-version = "1.1.3"
+version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de5435b8549c16d423ed0c03dbaafe57cf6c3344744f1242520d59c9d8ecec66"
+checksum = "6f35facd4a5673cb5a48822be2be1d4236c1c99cb4113cab7061ac720d5bf859"
 dependencies = [
  "cc",
  "libc",
@@ -5584,9 +5861,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da32515d9f6e6e489d7bc9d84c71b060db7247dc035bbe44eac88cf87486d8d5"
+checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
 
 [[package]]
 name = "oorandom"
