@@ -1080,6 +1080,7 @@ dependencies = [
  "message_pool",
  "networks",
  "num-traits",
+ "pbr",
  "pretty_env_logger",
  "prometheus 0.12.0",
  "rand 0.7.3",
