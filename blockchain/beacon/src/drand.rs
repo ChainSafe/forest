@@ -100,7 +100,7 @@ where
             .rev()
             .find(|upgrade| epoch >= upgrade.height)
             .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
-            .ok_or(anyhow!("Invalid beacon schedule, no valid beacon"))
+            .ok_or_else(|| anyhow!("Invalid beacon schedule, no valid beacon"))
     }
 }
 

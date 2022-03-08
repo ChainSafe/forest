@@ -71,7 +71,7 @@ where
         draw_randomness(
             rand_ts
                 .min_ticket()
-                .ok_or(anyhow!("No ticket exists for block"))?
+                .ok_or_else(|| anyhow!("No ticket exists for block"))?
                 .vrfproof
                 .as_bytes(),
             pers,
