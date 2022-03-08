@@ -206,3 +206,37 @@ pub mod values {
     pub const CHAIN_EXCHANGE_REQUEST: &str = "chain_exchange_request";
     pub const BITSWAP_BLOCK: &str = "bitswap_block";
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prometheus::core::Metric;
+
+    macro_rules! test_counter {
+        ($name:ident) => {
+            let _ = $name.metric();
+        };
+    }
+
+    macro_rules! test_counter_vec {
+        ($name:ident) => {
+            let _ = $name.with_label_values(&["label"]);
+        };
+    }
+    #[test]
+    fn metrics_defined_and_registered() {
+        test_counter!(TIPSET_PROCESSING_TIME);
+        test_counter_vec!(LIBP2P_MESSAGE_TOTAL);
+        test_counter!(INVALID_TIPSET_TOTAL);
+        test_counter!(TIPSET_RANGE_SYNC_FAILURE_TOTAL);
+        test_counter!(HEAD_EPOCH);
+        test_counter!(PEER_FAILURE_TOTAL);
+        test_counter!(FULL_PEERS);
+        test_counter!(BAD_PEERS);
+        test_counter!(LAST_VALIDATED_TIPSET_EPOCH);
+        test_counter!(NETWORK_HEAD_EVALUATION_ERRORS);
+        test_counter!(BOOTSTRAP_ERRORS);
+        test_counter!(FOLLOW_NETWORK_INTERRUPTIONS);
+        test_counter!(FOLLOW_NETWORK_ERRORS);
+    }
+}
