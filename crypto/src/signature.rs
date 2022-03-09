@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
 use address::{Address, Protocol};
 use bls_signatures::{
     verify_messages, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
@@ -186,7 +185,7 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], aggregate_sig: &
 }
 
 /// Return Address for a message given it's signing bytes hash and signature.
-pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Address, Error> {
+pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> anyhow::Result<Address> {
     // generate types to recover key from
     let rec_id = RecoveryId::parse(signature[64])?;
     let message = Message::parse(hash);
@@ -206,8 +205,8 @@ pub fn ecrecover(hash: &[u8; 32], signature: &[u8; SECP_SIG_LEN]) -> Result<Addr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Network;
     use bls_signatures::{PrivateKey, Serialize, Signature as BlsSignature};
+    use fvm_shared::address::Network;
     use libsecp256k1::{sign, PublicKey, SecretKey};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;

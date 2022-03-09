@@ -8,6 +8,8 @@ edition = "2021"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
+fvm_shared = { version = "0.1", default-features = false }
+anyhow = "1.0"
 vm = { package = "forest_vm", version = "0.3" }
 address = { package = "forest_address", version = "0.3" }
 runtime = { package = "forest_runtime", version = "0.2" }
@@ -36,7 +38,7 @@ commcid = { path = "../../utils/commcid", version = "0.1.1" }
 indexmap = { version = "1.7.0", features = ["serde-1"] }
 
 [dev-dependencies]
-derive_builder = "0.9"
+derive_builder = "0.10"
 db = { package = "forest_db", version = "0.1" }
 hex = "0.4.2"
 libp2p = { version = "0.40.0-rc.1", default-features = false }

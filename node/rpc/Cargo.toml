@@ -8,7 +8,7 @@ edition = "2021"
 # Public
 async-std = { version = "1.9", features = ["attributes"] }
 base64 = "0.13"
-bls-signatures = { version = "0.9", default-features = false, features = ["blst"] }
+bls-signatures = { version = "0.11", default-features = false, features = ["blst"] }
 crossbeam = "0.8.0"
 futures = "0.3.5"
 hex = "0.4.2"

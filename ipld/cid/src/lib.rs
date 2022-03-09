@@ -5,11 +5,12 @@ mod mh_code;
 mod prefix;
 mod to_cid;
 
-pub use self::mh_code::{Code, Multihash, POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
+pub use self::mh_code::{Code, POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
 pub use self::prefix::Prefix;
 use cid::CidGeneric;
 pub use cid::{Error, Version};
 pub use multihash;
+use multihash::Multihash;
 use multihash::MultihashDigest;
 use std::convert::TryFrom;
 use std::fmt;
@@ -54,7 +55,7 @@ pub fn new_from_prefix(prefix: &Prefix, data: &[u8]) -> Result<Cid, Error> {
 /// protocol and a multihash (hash of the Ipld data). Cids allow for hash linking, where the Cids
 /// are used to resolve any arbitrary data over a network or from local storage.
 #[derive(PartialEq, Eq, Clone, Copy, Default, Hash, PartialOrd, Ord)]
-pub struct Cid(CidGeneric<multihash::U32>);
+pub struct Cid(cid::Cid);
 
 // This is just a wrapper around the rust-cid `Cid` type that is needed in order to make the
 // interaction with Serde smoother.
@@ -67,6 +68,10 @@ impl Cid {
     /// Create a new CIDv1.
     pub fn new_v1(codec: u64, hash: Multihash) -> Self {
         Cid(CidGeneric::new_v1(codec, hash))
+    }
+
+    pub fn take(self) -> cid::Cid {
+        self.0
     }
 
     /// Returns the cid version.
@@ -143,5 +148,17 @@ impl fmt::Display for Cid {
 impl fmt::Debug for Cid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Cid(\"{}\")", self)
+    }
+}
+
+impl From<cid::Cid> for Cid {
+    fn from(cid: cid::Cid) -> Cid {
+        Cid(cid)
+    }
+}
+
+impl From<Cid> for cid::Cid {
+    fn from(cid: Cid) -> cid::Cid {
+        cid.0
     }
 }

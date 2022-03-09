@@ -69,6 +69,14 @@ commcid = { path = "./utils/commcid" }
 forest_vm = { path = "./vm" }
 forest_runtime = { path = "./vm/runtime" }
 forest_message = { path = "./vm/message" }
+cid = { git = "https://github.com/multiformats/rust-cid", branch = "steb/cbor-hack" }
+fvm = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "master" }
+fvm_shared = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "master" }
 
 [profile.dev]
 debug = 0
+
+[profile.quick]
+inherits = "release"
+opt-level = 1
+lto = "off"

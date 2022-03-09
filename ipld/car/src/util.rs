@@ -28,7 +28,7 @@ where
     Ok(Some(buf))
 }
 
-pub(crate) async fn ld_write<'a, W>(writer: &mut W, bytes: &[u8]) -> Result<(), Error>
+pub(crate) async fn ld_write<W>(writer: &mut W, bytes: &[u8]) -> Result<(), Error>
 where
     W: AsyncWrite + Send + Unpin,
 {
