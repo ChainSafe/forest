@@ -844,10 +844,15 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     parent_tipsets.push(proposed_head.clone());
     tracker.write().await.set_epoch(current_head.epoch());
 
+    let total_size = proposed_head.epoch() - current_head.epoch();
+    let mut pb = pbr::ProgressBar::new(total_size as u64);
+    pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+
     'sync: loop {
         // Unwrapping is safe here because the tipset vector always
         // has at least one element
         let oldest_parent = parent_tipsets.last().unwrap();
+        pb.set((oldest_parent.epoch() - total_size).abs() as u64);
         validate_tipset_against_cache(
             bad_block_cache.clone(),
             oldest_parent.parents(),
@@ -888,6 +893,8 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             parent_tipsets.push(tipset);
         }
     }
+    pb.finish();
+
     // Unwrapping is safe here because we assume that the tipset
     // vector was initialized with a tipset that will not be removed
     let oldest_tipset = parent_tipsets.last().unwrap().clone();
