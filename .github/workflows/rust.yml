@@ -78,11 +78,7 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --release --locked --out Xml --jobs 16 --timeout 600 -- --test-threads 16'
-      - name: Run Tarpaulin (conformance)
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--release --locked --out Xml --jobs 16 --timeout 600 --packages conformance_tests --features submodule_tests'
+          args: '--release --locked --jobs 16 --timeout 600 -- --test-threads 16'
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
 
