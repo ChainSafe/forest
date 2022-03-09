@@ -10,8 +10,8 @@ use clock::ChainEpoch;
 use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 
-mod drand;
 mod calibnet;
+mod drand;
 
 pub use self::calibnet::*;
 
@@ -36,7 +36,10 @@ pub trait Config {
     /// Gets network version from epoch.
     fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion;
     /// Constructs a drand beacon schedule based on the build config.
-    async fn get_beacon_schedule(&self, genesis_ts: u64) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>>;
+    async fn get_beacon_schedule(
+        &self,
+        genesis_ts: u64,
+    ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>>;
     /// Gets genesis car file bytes.
     fn genesis_bytes(&self) -> &'static [u8];
     /// Bootstrap peer ids.
@@ -76,7 +79,10 @@ impl Config for CalibnetConfig {
             .map(|upgrade| upgrade.network)
             .unwrap_or(NetworkVersion::V0)
     }
-    async fn get_beacon_schedule(&self, genesis_ts: u64) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
+    async fn get_beacon_schedule(
+        &self,
+        genesis_ts: u64,
+    ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
         let mut points = BeaconSchedule(Vec::with_capacity(DRAND_SCHEDULE.len()));
         for dc in DRAND_SCHEDULE.iter() {
             points.0.push(BeaconPoint {
@@ -91,6 +97,40 @@ impl Config for CalibnetConfig {
     }
     fn bootstrap_peers(&self) -> &'static [&'static str] {
         DEFAULT_BOOTSTRAP
+    }
+}
+
+struct CustomConfig {}
+
+impl CustomConfig {
+    fn new() -> Self {
+        CustomConfig {}
+    }
+}
+
+#[async_trait]
+impl Config for CustomConfig {
+    fn name(&self) -> &str {
+        todo!()
+    }
+
+    fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
+        todo!()
+    }
+
+    async fn get_beacon_schedule(
+        &self,
+        genesis_ts: u64,
+    ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
+        todo!()
+    }
+
+    fn genesis_bytes(&self) -> &'static [u8] {
+        todo!()
+    }
+
+    fn bootstrap_peers(&self) -> &'static [&'static str] {
+        todo!()
     }
 }
 

@@ -31,7 +31,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self::from_chain("calibnet")
+        Self::from_chain("mainnet")
     }
 }
 
