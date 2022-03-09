@@ -29,7 +29,7 @@ Our crates:
 
 
 ## Dependencies
-`rustc >= nightly-2022-02-14`
+`rustc >= 1.58.1`
 
 ## Usage
 ```shell
