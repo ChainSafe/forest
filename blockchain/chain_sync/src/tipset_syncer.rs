@@ -844,11 +844,9 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     parent_tipsets.push(proposed_head.clone());
     tracker.write().await.set_epoch(current_head.epoch());
 
-    use pbr::ProgressBar;
-    use std::time::Duration;
     let total_size = proposed_head.epoch() - current_head.epoch();
-    let mut pb = ProgressBar::new(total_size as u64);
-    pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
+    let mut pb = pbr::ProgressBar::new(total_size as u64);
+    pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
     'sync: loop {
         // Unwrapping is safe here because the tipset vector always
