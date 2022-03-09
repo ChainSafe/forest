@@ -1,0 +1,10 @@
+[mainnet]
+workspace = true
+
+[conformance]
+features = "submodule_tests"
+packages = ["conformance_tests"]
+workspace = false
+
+[report]
+out = ["Xml"]
