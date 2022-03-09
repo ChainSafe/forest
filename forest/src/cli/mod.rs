@@ -97,6 +97,12 @@ pub enum Subcommand {
 pub struct CliOpts {
     #[structopt(short, long, help = "A toml file containing relevant configurations")]
     pub config: Option<String>,
+    #[structopt(
+        short,
+        long,
+        help = "A short name of the chain to use. One of 'calibnet' or 'mainnet' (default)"
+    )]
+    pub chain: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
     pub genesis: Option<String>,
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
@@ -142,7 +148,11 @@ pub struct CliOpts {
     pub target_peer_count: Option<u32>,
     #[structopt(long, help = "Encrypt the keystore (default = true)")]
     pub encrypt_keystore: Option<bool>,
-    #[structopt(long, help = "Choose network to sync to (default = mainnet)", default_value = "mainnet")]
+    #[structopt(
+        long,
+        help = "Choose network to sync to (default = mainnet)",
+        default_value = "mainnet"
+    )]
     pub network: String,
 }
 
@@ -167,6 +177,11 @@ impl CliOpts {
                 }
             }
         };
+        if let Some(chain) = &self.chain {
+            cfg.chain_id = chain.to_owned();
+        } else {
+            cfg.chain_id = String::from("mainnet");
+        }
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
         }

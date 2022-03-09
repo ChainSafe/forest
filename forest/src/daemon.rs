@@ -38,6 +38,8 @@ pub(super) async fn start(config: Config) {
         .set(address::Network::Mainnet)
         .unwrap();
 
+    info!("using chain :: {}", config.chain_id);
+
     info!(
         "Starting Forest daemon, version {}",
         option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
