@@ -100,18 +100,45 @@ impl Config for CalibnetConfig {
     }
 }
 
-struct CustomConfig {}
+struct CustomConfig {
+    name: String,
+    bootstrap_peers: &'static [&'static str],
+    genesis_bytes: &'static [u8],
+}
 
 impl CustomConfig {
-    fn new() -> Self {
-        CustomConfig {}
+    fn new(
+        name: Option<String>,
+        bootstrap_peers: Option<&'static [&'static str]>,
+        genesis_bytes: Option<&'static [u8]>,
+    ) -> Self {
+        let name = match name {
+            Some(name) => name,
+            None => String::from("devnet??"),
+        };
+
+        let bootstrap_peers = match bootstrap_peers {
+            Some(peers) => peers,
+            None => DEFAULT_BOOTSTRAP,
+        };
+
+        let genesis_bytes = match genesis_bytes {
+            Some(bytes) => bytes,
+            None => DEFAULT_GENESIS,
+        };
+
+        CustomConfig {
+            name,
+            bootstrap_peers,
+            genesis_bytes,
+        }
     }
 }
 
 #[async_trait]
 impl Config for CustomConfig {
     fn name(&self) -> &str {
-        todo!()
+        &self.name
     }
 
     fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
@@ -126,11 +153,11 @@ impl Config for CustomConfig {
     }
 
     fn genesis_bytes(&self) -> &'static [u8] {
-        todo!()
+        &self.genesis_bytes
     }
 
     fn bootstrap_peers(&self) -> &'static [&'static str] {
-        todo!()
+        &self.bootstrap_peers
     }
 }
 
