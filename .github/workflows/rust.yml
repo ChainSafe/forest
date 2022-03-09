@@ -66,13 +66,13 @@ jobs:
               xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
+        with:
+          submodules: true
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
-      - name: Checkout submodules
-        run: make pull-serialization-tests
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Run Tarpaulin
