@@ -1331,6 +1331,15 @@ async fn validate_block<
                 TipsetRangeSyncerError::Calculation(format!("Failed to calculate state: {}", e))
             })?;
         if &state_root != header.state_root() {
+            #[cfg(feature = "statediff")]
+            if let Err(err) = statediff::print_state_diff(
+                v_state_manager.blockstore(),
+                &state_root,
+                header.state_root(),
+                Some(1),
+            ) {
+                eprintln!("Failed to print state-diff: {}", err);
+            }
             return Err(TipsetRangeSyncerError::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root(),
@@ -1510,7 +1519,7 @@ fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     tipset_state: &Cid,
 ) -> Result<(), TipsetRangeSyncerError> {
     let actor = state_manager
-        .get_actor(power::ADDRESS, tipset_state)?
+        .get_actor(power::ADDRESS, *tipset_state)?
         .ok_or(TipsetRangeSyncerError::PowerActorUnavailable)?;
     let state = power::State::load(state_manager.blockstore(), &actor)
         .map_err(|err| TipsetRangeSyncerError::MinerPowerUnavailable(err.to_string()))?;
@@ -1610,7 +1619,7 @@ fn check_block_messages<
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
             m.from(),
-            base_tipset.parent_state(),
+            *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
         cids.push(m.to_signing_bytes());

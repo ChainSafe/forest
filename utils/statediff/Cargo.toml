@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+actor = { package = "forest_actor", path = "../../vm/actor" }
 serde_json = "1.0"
 blockstore = { package = "ipld_blockstore", version = "0.1", features = [
     "resolve"

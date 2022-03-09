@@ -182,7 +182,7 @@ where
     Ok(subscription_id)
 }
 
-pub(crate) async fn chain_notify<'a, DB, B>(
+pub(crate) async fn chain_notify<DB, B>(
     data: Data<RPCState<DB, B>>,
     id: Id,
 ) -> Result<ChainNotifyResult, JsonRpcError>

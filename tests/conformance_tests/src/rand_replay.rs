@@ -3,21 +3,22 @@
 
 use super::*;
 
-pub struct ReplayingRand<'a> {
-    pub recorded: &'a [RandomnessMatch],
+#[derive(Clone)]
+pub struct ReplayingRand {
+    pub recorded: Vec<RandomnessMatch>,
     pub fallback: TestRand,
 }
 
-impl<'a> ReplayingRand<'a> {
-    pub fn new(recorded: &'a [RandomnessMatch]) -> Self {
+impl<'a> ReplayingRand {
+    pub fn new(recorded: &[RandomnessMatch]) -> Self {
         Self {
-            recorded,
+            recorded: Vec::from(recorded),
             fallback: TestRand,
         }
     }
 
     pub fn matches(&self, requested: RandomnessRule) -> Option<[u8; 32]> {
-        for other in self.recorded {
+        for other in &self.recorded {
             if other.on == requested {
                 let mut randomness = [0u8; 32];
                 randomness.copy_from_slice(&other.ret);
@@ -28,13 +29,14 @@ impl<'a> ReplayingRand<'a> {
     }
 }
 
-impl Rand for ReplayingRand<'_> {
-    fn get_chain_randomness_v1(
+impl Rand for ReplayingRand {
+    // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
+    fn get_chain_randomness(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
+    ) -> anyhow::Result<[u8; 32]> {
         let rule = RandomnessRule {
             kind: RandomnessKind::Chain,
             dst,
@@ -44,72 +46,16 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_chain_randomness_v1(dst, epoch, entropy)
-        }
-    }
-    fn get_beacon_randomness_v1(
-        &self,
-        dst: DomainSeparationTag,
-        epoch: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        let rule = RandomnessRule {
-            kind: RandomnessKind::Beacon,
-            dst,
-            epoch,
-            entropy: entropy.to_vec(),
-        };
-        if let Some(bz) = self.matches(rule) {
-            Ok(bz)
-        } else {
-            self.fallback.get_beacon_randomness_v1(dst, epoch, entropy)
-        }
-    }
-    // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
-    fn get_beacon_randomness_v2(
-        &self,
-        dst: DomainSeparationTag,
-        epoch: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        let rule = RandomnessRule {
-            kind: RandomnessKind::Beacon,
-            dst,
-            epoch,
-            entropy: entropy.to_vec(),
-        };
-        if let Some(bz) = self.matches(rule) {
-            Ok(bz)
-        } else {
-            self.fallback.get_beacon_randomness_v2(dst, epoch, entropy)
-        }
-    }
-    // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
-    fn get_chain_randomness_v2(
-        &self,
-        dst: DomainSeparationTag,
-        epoch: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
-        let rule = RandomnessRule {
-            kind: RandomnessKind::Chain,
-            dst,
-            epoch,
-            entropy: entropy.to_vec(),
-        };
-        if let Some(bz) = self.matches(rule) {
-            Ok(bz)
-        } else {
-            self.fallback.get_chain_randomness_v2(dst, epoch, entropy)
+            self.fallback.get_chain_randomness(dst, epoch, entropy)
         }
     }
 
-    fn get_beacon_randomness_v3(
+    fn get_beacon_randomness(
         &self,
         dst: DomainSeparationTag,
         epoch: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn StdError>> {
+    ) -> anyhow::Result<[u8; 32]> {
         let rule = RandomnessRule {
             kind: RandomnessKind::Chain,
             dst,
@@ -120,7 +66,7 @@ impl Rand for ReplayingRand<'_> {
         if let Some(bz) = self.matches(rule) {
             Ok(bz)
         } else {
-            self.fallback.get_beacon_randomness_v3(dst, epoch, entropy)
+            self.fallback.get_beacon_randomness(dst, epoch, entropy)
         }
     }
 }

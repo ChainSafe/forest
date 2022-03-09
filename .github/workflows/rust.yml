@@ -38,6 +38,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
@@ -70,6 +71,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
@@ -90,6 +92,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
@@ -127,18 +130,28 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        rv: [1.57.0, stable]
+        rv: [1.58.1, stable]
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
+      - name: Install Dependencies
+        if: startsWith(matrix.os, 'Ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              curl file gcc g++ git make openssh-client \
+              autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
+              libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
+              xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rv }}
+          target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0

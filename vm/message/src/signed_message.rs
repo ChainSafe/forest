@@ -170,7 +170,7 @@ pub mod json {
         SignedMessageSer {
             message: &m.message,
             signature: &m.signature,
-            cid: Some(m.cid().map_err(ser::Error::custom)?),
+            cid: Some(m.cid().map_err(ser::Error::custom)?.into()),
         }
         .serialize(serializer)
     }

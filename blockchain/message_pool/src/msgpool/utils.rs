@@ -40,7 +40,7 @@ pub(crate) async fn recover_sig(
     msg: UnsignedMessage,
 ) -> Result<SignedMessage, Error> {
     let val = bls_sig_cache
-        .get(&msg.cid()?)
+        .get(&Cid::from(msg.cid()?))
         .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
     let smsg = SignedMessage::new_from_parts(msg, val.clone()).map_err(Error::Other)?;
     Ok(smsg)
