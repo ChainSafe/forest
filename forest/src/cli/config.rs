@@ -37,7 +37,8 @@ impl Default for Config {
 
 impl Config {
     pub fn from_chain(chain: &str) -> Self {
-        let data_dir = get_home_dir() + &format!("/.forest/{}", chain);
+        //let data_dir = get_home_dir() + &format!("/.forest/{}", chain);
+        let data_dir = get_home_dir() + "/.forest";
         Self {
             network: Libp2pConfig::default(),
             chain_id: chain.to_owned(),

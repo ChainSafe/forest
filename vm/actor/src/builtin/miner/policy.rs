@@ -102,14 +102,15 @@ pub const SEALED_CID_PREFIX: cid::Prefix = cid::Prefix {
 pub fn can_pre_commit_seal_proof(proof: RegisteredSealProof) -> bool {
     use RegisteredSealProof::*;
 
-    #[cfg(feature = "devnet")]
-    {
-        if matches!(proof, StackedDRG2KiBV1 | StackedDRG2KiBV1P1) {
-            return true;
-        }
-    }
+    // #[cfg(feature = "devnet")]
+    // {
+    //     if matches!(proof, StackedDRG2KiBV1 | StackedDRG2KiBV1P1) {
+    //         return true;
+    //     }
+    // }
 
-    #[cfg(feature = "calibnet")]
+    // #[cfg(feature = "calibnet")]
+    // TODO: fix this once ref-fvm is merged
     {
         if matches!(
             proof,

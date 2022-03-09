@@ -17,15 +17,17 @@ pub fn consensus_miner_min_power(p: RegisteredPoStProof) -> Result<StoragePower,
         | StackedDRGWindow512MiBV1
         | StackedDRGWindow32GiBV1
         | StackedDRGWindow64GiBV1 => {
-            if cfg!(feature = "devnet") {
-                return Ok(StoragePower::from(2048));
-            }
-            if cfg!(feature = "interopnet") {
-                return Ok(StoragePower::from(2 << 30));
-            }
-            if cfg!(feature = "calibnet") {
-                return Ok(StoragePower::from(32u64 << 30));
-            }
+            // if cfg!(feature = "devnet") {
+            //     return Ok(StoragePower::from(2048));
+            // }
+            // if cfg!(feature = "interopnet") {
+            //     return Ok(StoragePower::from(2 << 30));
+            // }
+            // if cfg!(feature = "calibnet") {
+            //     return Ok(StoragePower::from(32u64 << 30));
+            // }
+            // TODO: fix this once ref-fvm is merged
+            return Ok(StoragePower::from(32u64 << 30));
 
             Ok(StoragePower::from(10u64 << 40))
         }
