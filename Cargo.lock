@@ -4754,6 +4754,7 @@ dependencies = [
 name = "networks"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "beacon",
  "fil_clock",
  "fil_types",

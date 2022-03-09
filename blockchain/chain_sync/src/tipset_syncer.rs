@@ -42,7 +42,7 @@ use forest_libp2p::chain_exchange::TipsetBundle;
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
+use networks::{BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -1600,7 +1600,7 @@ fn check_block_messages<
     block: &Block,
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let network_version = get_network_version_default(block.header.epoch());
+    let network_version = state_manager.network_config.network_version(block.header.epoch());
 
     // Do the initial loop here
     // check block message and signatures in them

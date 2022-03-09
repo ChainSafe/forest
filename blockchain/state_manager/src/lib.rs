@@ -33,7 +33,7 @@ use log::{debug, info, trace, warn};
 use message::{
     message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
 };
-use networks::get_network_version_default;
+use networks::{build_config, Network, Config};
 use num_bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
@@ -88,6 +88,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
+    pub network_config: Box<dyn Config + Send + Sync>,
 }
 
 impl<DB> StateManager<DB>
@@ -96,7 +97,8 @@ where
 {
     pub async fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let beacon = Arc::new(networks::beacon_schedule_default(genesis.timestamp()).await?);
+        let network_config = build_config(Network::Calibnet);
+        let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
 
         Ok(Self {
             cs,
@@ -104,6 +106,7 @@ where
             publisher: None,
             genesis_info: GenesisInfo::default(),
             beacon,
+            network_config,
         })
     }
 
@@ -113,7 +116,8 @@ where
         chain_subs: Publisher<HeadChange>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let beacon = Arc::new(networks::beacon_schedule_default(genesis.timestamp()).await?);
+        let network_config = build_config(Network::Calibnet);
+        let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
 
         Ok(Self {
             cs,
@@ -121,6 +125,7 @@ where
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::default(),
             beacon,
+            network_config,
         })
     }
 
@@ -130,7 +135,7 @@ where
 
     /// Returns network version for the given epoch.
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        get_network_version_default(epoch)
+        self.network_config.network_version(epoch)
     }
 
     /// Gets actor from given [Cid], if it exists.
@@ -312,13 +317,16 @@ where
             verifier: PhantomData::<V>::default(),
         };
 
+        let nv_getter = |epoch| {
+            self.network_config.network_version(epoch)
+        };
         let mut vm = VM::<_, _, _, _, _, V>::new(
             p_state,
             store,
             epoch,
             rand,
             base_fee,
-            get_network_version_default,
+            nv_getter,
             &self.genesis_info,
             &lb_wrapper,
         )?;
@@ -427,13 +435,16 @@ where
                 tipset,
                 verifier: PhantomData::<V>::default(),
             };
+            let nv_getter = |epoch| {
+                self.network_config.network_version(epoch)
+            };
             let mut vm = VM::<_, _, _, _, _, V>::new(
                 bstate,
                 &buf_store,
                 bheight,
                 rand,
                 0.into(),
-                get_network_version_default,
+                nv_getter,
                 &self.genesis_info,
                 &lb_wrapper,
             )?;
@@ -519,13 +530,16 @@ where
             tipset: &ts,
             verifier: PhantomData::<V>::default(),
         };
+        let nv_getter = |epoch| {
+            self.network_config.network_version(epoch)
+        };
         let mut vm = VM::<_, _, _, _, _, V>::new(
             &st,
             self.blockstore(),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            get_network_version_default,
+            nv_getter,
             &self.genesis_info,
             &lb_wrapper,
         )?;
@@ -604,7 +618,7 @@ where
         V: ProofVerifier,
     {
         let mut lbr: ChainEpoch = ChainEpoch::from(0);
-        let version = get_network_version_default(round);
+        let version = self.network_config.network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
@@ -655,7 +669,7 @@ where
         lookback_tipset: &Tipset,
     ) -> Result<bool, Error> {
         let hmp = self.miner_has_min_power(address, lookback_tipset)?;
-        let version = get_network_version_default(base_tipset.epoch());
+        let version = self.network_config.network_version(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
             return Ok(hmp);
@@ -743,7 +757,7 @@ where
             &buf,
         )?;
 
-        let nv = get_network_version_default(tipset.epoch());
+        let nv = self.network_config.network_version(tipset.epoch());
         let sectors = self.get_sectors_for_winning_post::<V>(
             &lbst,
             nv,

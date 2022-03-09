@@ -11,6 +11,7 @@ use utils::get_home_dir;
 #[serde(default)]
 pub struct Config {
     pub network: Libp2pConfig,
+    pub chain_id: String,
     pub data_dir: String,
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
@@ -30,9 +31,17 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
+        Self::from_chain("calibnet")
+    }
+}
+
+impl Config {
+    pub fn from_chain(chain: &str) -> Self {
+        let data_dir = get_home_dir() + &format!("/.forest/{}", chain);
         Self {
             network: Libp2pConfig::default(),
-            data_dir: get_home_dir() + "/.forest",
+            chain_id: chain.to_owned(),
+            data_dir,
             genesis_file: None,
             enable_rpc: true,
             rpc_port: DEFAULT_PORT.to_owned(),

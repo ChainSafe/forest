@@ -142,10 +142,14 @@ pub struct CliOpts {
     pub target_peer_count: Option<u32>,
     #[structopt(long, help = "Encrypt the keystore (default = true)")]
     pub encrypt_keystore: Option<bool>,
+    #[structopt(long, help = "Choose chain to sync to (default = mainnet)")]
+    pub chain: Option<String>,
 }
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<Config, io::Error> {
+        let default = "calibnet".to_owned();
+        let chain = self.chain.as_ref().unwrap_or(&default);
         let mut cfg: Config = match &self.config {
             Some(config_file) => {
                 // Read from config file
@@ -161,7 +165,7 @@ impl CliOpts {
                     // Parse and return the configuration file
                     read_toml(&toml)?
                 } else {
-                    Config::default()
+                    Config::from_chain(chain)
                 }
             }
         };

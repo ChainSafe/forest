@@ -4,107 +4,15 @@
 #[macro_use]
 extern crate lazy_static;
 
+use async_trait::async_trait;
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::ChainEpoch;
 use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
+
 mod drand;
-
-#[cfg(all(
-    not(feature = "interopnet"),
-    not(feature = "devnet"),
-    not(feature = "mainnet"),
-    not(feature = "conformance"),
-    not(feature = "calibnet")
-))]
-compile_error!(
-    "No network feature selected. Exactly one of \"mainnet\", \"devnet\", \"interopnet\", or \"conformance\" must be enabled for this crate."
-);
-
-#[cfg(all(
-    feature = "mainnet",
-    any(
-        feature = "interopnet",
-        feature = "devnet",
-        feature = "conformance",
-        feature = "calibnet"
-    )
-))]
-compile_error!(
-    "\"mainnet\" feature cannot be combined with \"devnet\", \"interopnet\", or \"conformance\", or \"calibnet\"."
-);
-
-#[cfg(all(
-    feature = "conformance",
-    any(
-        feature = "interopnet",
-        feature = "devnet",
-        feature = "mainnet",
-        feature = "calibnet"
-    )
-))]
-compile_error!(
-    "\"conformance\" feature cannot be combined with \"devnet\", \"interopnet\", or \"mainnet\", \"calibnet\"."
-);
-
-#[cfg(all(
-    feature = "devnet",
-    any(
-        feature = "interopnet",
-        feature = "conformance",
-        feature = "mainnet",
-        feature = "calibnet"
-    )
-))]
-compile_error!(
-    "\"devnet\" feature cannot be combined with \"conformance\", \"interopnet\", or \"mainnet\", \"calibnet\"."
-);
-
-#[cfg(all(
-    feature = "interopnet",
-    any(
-        feature = "conformance",
-        feature = "devnet",
-        feature = "mainnet",
-        feature = "calibnet"
-    )
-))]
-compile_error!(
-    "\"interopnet\" feature cannot be combined with \"devnet\", \"conformance\", or \"mainnet\", \"calibnet\"."
-);
-
-#[cfg(all(
-    feature = "calibnet",
-    any(
-        feature = "conformance",
-        feature = "devnet",
-        feature = "mainnet",
-        feature = "interopnet"
-    )
-))]
-compile_error!(
-    "\"interopnet\" feature cannot be combined with \"devnet\", \"conformance\", or \"mainnet\", \"interopnet\"."
-);
-
-// Both mainnet and conformance parameters are kept in the 'mainnet' module.
-#[cfg(any(feature = "mainnet", feature = "conformance"))]
-mod mainnet;
-#[cfg(any(feature = "mainnet", feature = "conformance"))]
-pub use self::mainnet::*;
-
-#[cfg(feature = "interopnet")]
-mod interopnet;
-#[cfg(feature = "interopnet")]
-pub use self::interopnet::*;
-
-#[cfg(feature = "devnet")]
-mod devnet;
-#[cfg(feature = "devnet")]
-pub use self::devnet::*;
-
-#[cfg(feature = "calibnet")]
 mod calibnet;
-#[cfg(feature = "calibnet")]
+
 pub use self::calibnet::*;
 
 /// Defines the different hard fork parameters.
@@ -118,6 +26,72 @@ struct Upgrade {
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
     pub config: &'a DrandConfig<'a>,
+}
+
+#[async_trait]
+/// Trait used as the interface to be able to support different network configuration (mainnet, calibnet, file driven)
+pub trait Config {
+    /// Gets network config name.
+    fn name(&self) -> &str;
+    /// Gets network version from epoch.
+    fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion;
+    /// Constructs a drand beacon schedule based on the build config.
+    async fn get_beacon_schedule(&self, genesis_ts: u64) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>>;
+    /// Gets genesis car file bytes.
+    fn genesis_bytes(&self) -> &'static [u8];
+    /// Bootstrap peer ids.
+    fn bootstrap_peeds(&self) -> &'static [&'static str];
+}
+
+pub enum Network {
+    Calibnet,
+    Mainnet,
+}
+
+pub fn build_config(network: Network) -> Box<dyn Config + Send + Sync> {
+    match network {
+        Network::Calibnet => Box::new(CalibnetConfig::new()),
+        Network::Mainnet => todo!(),
+    }
+}
+
+struct CalibnetConfig {}
+
+impl CalibnetConfig {
+    fn new() -> Self {
+        CalibnetConfig {}
+    }
+}
+
+#[async_trait]
+impl Config for CalibnetConfig {
+    fn name(&self) -> &str {
+        "calibnet"
+    }
+    fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
+        VERSION_SCHEDULE
+            .iter()
+            .rev()
+            .find(|upgrade| epoch > upgrade.height)
+            .map(|upgrade| upgrade.network)
+            .unwrap_or(NetworkVersion::V0)
+    }
+    async fn get_beacon_schedule(&self, genesis_ts: u64) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
+        let mut points = BeaconSchedule(Vec::with_capacity(DRAND_SCHEDULE.len()));
+        for dc in DRAND_SCHEDULE.iter() {
+            points.0.push(BeaconPoint {
+                height: dc.height,
+                beacon: Arc::new(DrandBeacon::new(genesis_ts, BLOCK_DELAY_SECS, dc.config).await?),
+            });
+        }
+        Ok(points)
+    }
+    fn genesis_bytes(&self) -> &'static [u8] {
+        DEFAULT_GENESIS
+    }
+    fn bootstrap_peeds(&self) -> &'static [&'static str] {
+        DEFAULT_BOOTSTRAP
+    }
 }
 
 const VERSION_SCHEDULE: [Upgrade; 14] = [
@@ -178,27 +152,3 @@ const VERSION_SCHEDULE: [Upgrade; 14] = [
         network: NetworkVersion::V14,
     },
 ];
-
-/// Gets network version from epoch using default Mainnet schedule.
-pub fn get_network_version_default(epoch: ChainEpoch) -> NetworkVersion {
-    VERSION_SCHEDULE
-        .iter()
-        .rev()
-        .find(|upgrade| epoch > upgrade.height)
-        .map(|upgrade| upgrade.network)
-        .unwrap_or(NetworkVersion::V0)
-}
-
-/// Constructs a drand beacon schedule based on the build config.
-pub async fn beacon_schedule_default(
-    genesis_ts: u64,
-) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
-    let mut points = BeaconSchedule(Vec::with_capacity(DRAND_SCHEDULE.len()));
-    for dc in DRAND_SCHEDULE.iter() {
-        points.0.push(BeaconPoint {
-            height: dc.height,
-            beacon: Arc::new(DrandBeacon::new(genesis_ts, BLOCK_DELAY_SECS, dc.config).await?),
-        });
-    }
-    Ok(points)
-}

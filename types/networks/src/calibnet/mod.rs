@@ -9,66 +9,50 @@ use fil_types::NetworkVersion;
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 
 /// V1 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = -1;
 
 /// V2 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_SMOKE_HEIGHT: ChainEpoch = -2;
 
 /// V3 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_IGNITION_HEIGHT: ChainEpoch = -3;
 
 /// V4 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = 30;
 
 /// V5 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = 60;
 
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_LIFTOFF_HEIGHT: i64 = -5;
 
 /// V6 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = 90;
 
 /// V7 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = 120;
 
 /// V8 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 130;
 
 /// V9 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 300;
 
 /// Remove burn on window PoSt fork
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 270;
 
 /// V10 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 330;
 
 /// V11 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 360;
 
 /// V12 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 390;
 
 /// V13 network upgrade
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = 420;
 
 /// V14 network update
-#[cfg(feature = "calibnet")]
 pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = 312746;
 
 pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
