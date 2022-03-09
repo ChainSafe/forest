@@ -40,7 +40,7 @@ pub trait Config {
     /// Gets genesis car file bytes.
     fn genesis_bytes(&self) -> &'static [u8];
     /// Bootstrap peer ids.
-    fn bootstrap_peeds(&self) -> &'static [&'static str];
+    fn bootstrap_peers(&self) -> &'static [&'static str];
 }
 
 pub enum Network {
@@ -89,7 +89,7 @@ impl Config for CalibnetConfig {
     fn genesis_bytes(&self) -> &'static [u8] {
         DEFAULT_GENESIS
     }
-    fn bootstrap_peeds(&self) -> &'static [&'static str] {
+    fn bootstrap_peers(&self) -> &'static [&'static str] {
         DEFAULT_BOOTSTRAP
     }
 }
