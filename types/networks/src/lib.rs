@@ -10,10 +10,13 @@ use clock::ChainEpoch;
 use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 
-mod calibnet;
 mod drand;
+mod mainnet;
 
-pub use self::calibnet::*;
+/// Newest network version for all networks
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
+
+pub use self::mainnet::*;
 
 /// Defines the different hard fork parameters.
 struct Upgrade {
@@ -41,9 +44,11 @@ pub trait Config {
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>>;
     /// Gets genesis car file bytes.
-    fn genesis_bytes(&self) -> &'static [u8];
+    fn genesis_bytes(&self) -> &[u8];
     /// Bootstrap peer ids.
     fn bootstrap_peers(&self) -> &'static [&'static str];
+    /// Time, in seconds, between each block.
+    fn block_delay(&self) -> u64;
 }
 
 pub enum Network {
@@ -58,8 +63,8 @@ pub enum Network {
 
 pub fn build_config(network: Network) -> Box<dyn Config + Send + Sync> {
     match network {
-        Network::Calibnet => Box::new(CalibnetConfig::new()),
-        Network::Mainnet => todo!(),
+        Network::Mainnet => Box::new(MainnetConfig::new()),
+        Network::Calibnet => todo!(),
         Network::Custom {
             name,
             bootstrap_peers,
@@ -68,18 +73,18 @@ pub fn build_config(network: Network) -> Box<dyn Config + Send + Sync> {
     }
 }
 
-struct CalibnetConfig {}
+struct MainnetConfig {}
 
-impl CalibnetConfig {
+impl MainnetConfig {
     fn new() -> Self {
-        CalibnetConfig {}
+        MainnetConfig {}
     }
 }
 
 #[async_trait]
-impl Config for CalibnetConfig {
+impl Config for MainnetConfig {
     fn name(&self) -> &str {
-        "calibnet"
+        "mainnet"
     }
     fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         VERSION_SCHEDULE
@@ -107,6 +112,9 @@ impl Config for CalibnetConfig {
     }
     fn bootstrap_peers(&self) -> &'static [&'static str] {
         DEFAULT_BOOTSTRAP
+    }
+    fn block_delay(&self) -> u64 {
+        BLOCK_DELAY_SECS
     }
 }
 
@@ -180,6 +188,10 @@ impl Config for CustomConfig {
 
     fn bootstrap_peers(&self) -> &'static [&'static str] {
         &self.bootstrap_peers
+    }
+
+    fn block_delay(&self) -> u64 {
+        todo!()
     }
 }
 

@@ -12,7 +12,7 @@ use crate::head_change;
 use crate::msgpool::recover_sig;
 use crate::msgpool::republish_pending_messages;
 use crate::msgpool::BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE;
-use crate::msgpool::REPUBLISH_INTERVAL;
+use crate::msgpool::PROPAGATION_DELAY_SECS;
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
@@ -168,6 +168,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
+        block_delay: u64,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -261,9 +262,10 @@ where
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let network_name = mp.network_name.clone();
+        let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
         task::spawn(async move {
-            let mut interval = interval(Duration::from_millis(REPUBLISH_INTERVAL));
+            let mut interval = interval(Duration::from_millis(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;
                 if let Err(e) = republish_pending_messages(
@@ -308,7 +310,7 @@ where
                 .await
                 .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
         }
-        Ok(cid)
+        Ok(Cid::from(cid))
     }
 
     /// Basic checks on the validity of a message.
@@ -347,7 +349,7 @@ where
     /// Verify the message signature. first check if it has already been verified and put into
     /// cache. If it has not, then manually verify it then put it into cache for future use.
     async fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
-        let cid = msg.cid()?;
+        let cid = Cid::from(msg.cid()?);
 
         if let Some(()) = self.sig_val_cache.write().await.get(&cid) {
             return Ok(());
@@ -651,7 +653,7 @@ where
         bls_sig_cache
             .write()
             .await
-            .put(msg.cid()?, msg.signature().clone());
+            .put(Cid::from(msg.cid()?), msg.signature().clone());
     }
 
     if msg.message().gas_limit() > 100_000_000 {
@@ -698,7 +700,7 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
                 return Ok(false);
             } else {
                 return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
-					m.gas_fee_cap(), base_fee_lower_bound)));
+                    m.gas_fee_cap(), base_fee_lower_bound)));
             }
         }
     }

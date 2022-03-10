@@ -9,7 +9,7 @@ use blockstore::BlockStore;
 use rpc_api::{auth_api::*, data_types::RPCState};
 
 /// RPC call to create a new JWT Token
-pub(crate) async fn auth_new<'a, DB, B>(
+pub(crate) async fn auth_new<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<AuthNewParams>,
 ) -> Result<AuthNewResult, JsonRpcError>

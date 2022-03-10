@@ -20,6 +20,17 @@ pub struct ActorError {
     recovered: bool,
 }
 
+impl From<fvm::executor::ApplyFailure> for ActorError {
+    fn from(ret: fvm::executor::ApplyFailure) -> Self {
+        ActorError {
+            fatal: true,
+            exit_code: ExitCode::Ok,
+            msg: ret.to_string(),
+            recovered: false,
+        }
+    }
+}
+
 impl ActorError {
     pub fn new(exit_code: ExitCode, msg: String) -> Self {
         Self {

@@ -16,7 +16,7 @@ use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use futures::AsyncRead;
-use interpreter::ApplyRet;
+use interpreter::{ApplyRet, Backend};
 use num_bigint::{BigInt, ToBigInt};
 use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
@@ -45,12 +45,15 @@ lazy_static! {
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--after-transaction").unwrap(),
         Regex::new(r"test-vectors/corpus/vm_violations/x--state_mutation--readonly").unwrap(),
 
-        // These tests are out of date. Ideally they would be updated in the test-vectors repo. 2022-02-03
-        // Updated vectors have been temporarily put in `extra-vectors/`
         Regex::new(r"test-vectors/corpus/specs_actors_v6/TestMinerWithdraw/withdraw_from_non-owner_address_fails").unwrap(),
         Regex::new(r"test-vectors/corpus/specs_actors_v6/TestAggregateBadSender").unwrap(),
         // This test fails even after being updated.
         Regex::new(r"extra-vectors/TestAggregateBadSender/8466b548087bb6c8c8469b4135521b147364ed7625467c8ac149f8785abcab5d").unwrap(),
+
+        // https://github.com/ChainSafe/forest/issues/1457
+        // We're too strict with these vectors:
+        Regex::new(r"fvm-test-vectors/corpus/extracted/0005-chocolate-01/fil_6_storageminer/ProveCommitSector").unwrap(),
+        Regex::new(r"fvm-test-vectors/corpus/extracted/0005-chocolate-01/fil_6_storageminer/ProveCommitAggregate").unwrap(),
     ];
 }
 
@@ -63,6 +66,9 @@ fn is_valid_file(entry: &DirEntry) -> bool {
     if let Ok(s) = ::std::env::var("FOREST_CONF") {
         return file_name == s;
     }
+    if !file_name.ends_with(".json") {
+        return false;
+    }
 
     for rx in SKIP_TESTS.iter() {
         if rx.is_match(file_name) {
@@ -71,15 +77,7 @@ fn is_valid_file(entry: &DirEntry) -> bool {
         }
     }
 
-    // only run v6 vectors
-    let v6_filepath = Regex::new(r"specs_actors_v6").unwrap();
-    let is_extra = Regex::new(r"extra-vectors").unwrap();
-    if !v6_filepath.is_match(file_name) && !is_extra.is_match(file_name) {
-        println!("SKIPPING: {} ", file_name);
-        return false;
-    }
-
-    file_name.ends_with(".json")
+    true
 }
 
 struct GzipDecoder<R>(GzDecoder<R>);
@@ -172,8 +170,9 @@ async fn execute_message_vector(
     postconditions: &PostConditions,
     randomness: &Randomness,
     variant: &Variant,
+    engine: fvm::machine::Engine,
 ) -> Result<(), Box<dyn StdError>> {
-    let bs = load_car(car).await?;
+    let bs = Arc::new(load_car(car).await?);
 
     let mut base_epoch: ChainEpoch = variant.epoch;
     let mut root = root_cid;
@@ -186,7 +185,7 @@ async fn execute_message_vector(
         }
 
         let (ret, post_root) = execute_message(
-            &bs,
+            bs.clone(),
             &selector,
             ExecuteMessageParams {
                 pre_root: &root,
@@ -201,6 +200,7 @@ async fn execute_message_vector(
                 randomness: ReplayingRand::new(randomness),
                 nv: variant.nv.try_into().unwrap_or(NetworkVersion::V0),
             },
+            engine.clone(),
         )?;
         root = post_root;
 
@@ -208,7 +208,7 @@ async fn execute_message_vector(
         check_msg_result(receipt, &ret, i)?;
     }
 
-    compare_state_roots(&bs, &root, &postconditions.state_tree.root_cid)?;
+    compare_state_roots(bs.as_ref(), &root, &postconditions.state_tree.root_cid)?;
 
     Ok(())
 }
@@ -289,9 +289,10 @@ async fn conformance_test_runner() {
         .await
         .unwrap();
 
-    let walker = WalkDir::new("test-vectors/corpus")
-        .into_iter()
-        .chain(WalkDir::new("extra-vectors").into_iter());
+    let walker = WalkDir::new("fvm-test-vectors/corpus").into_iter();
+
+    let engine = fvm::machine::Engine::default();
+
     let mut failed = Vec::new();
     let mut succeeded = 0;
     for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
@@ -321,12 +322,16 @@ async fn conformance_test_runner() {
                         &postconditions,
                         &randomness,
                         &variant,
+                        engine.clone(),
                     )
                     .await
                     {
-                        println!("{} failed, variant {}", test_name, variant.id);
+                        println!(
+                            "{} failed, variant {}({})",
+                            test_name, variant.id, variant.nv
+                        );
                         failed.push((
-                            format!("{} variant {}", test_name, variant.id),
+                            format!("{} variant {}({})", test_name, variant.id, variant.nv),
                             meta.clone(),
                             e,
                         ));
@@ -377,12 +382,17 @@ async fn conformance_test_runner() {
         failed.len() + succeeded
     );
     if !failed.is_empty() {
-        for (path, meta, e) in failed {
+        for (path, meta, e) in &failed {
             eprintln!(
                 "file {} failed:\n\tMeta: {:?}\n\tError: {}\n",
                 path, meta, e
             );
         }
+        println!(
+            "conformance tests result: {}/{} tests passed:",
+            succeeded,
+            failed.len() + succeeded
+        );
         panic!()
     }
 }

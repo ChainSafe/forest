@@ -23,7 +23,6 @@ use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use log::error;
 use lru::LruCache;
 use message::{Message, SignedMessage};
-use networks::BLOCK_DELAY_SECS;
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -36,7 +35,6 @@ const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
-const REPUBLISH_INTERVAL: u64 = 10 * BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
 // TODO: Implement guess gas module
 const MIN_GAS: i64 = 1298450;
 
@@ -167,7 +165,7 @@ where
 
     let mut republished_t = HashSet::new();
     for m in msgs.iter() {
-        republished_t.insert(m.cid()?);
+        republished_t.insert(m.cid()?.into());
     }
     *republished.write().await = republished_t;
 
@@ -219,14 +217,14 @@ where
             for msg in smsgs {
                 remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
                     .await?;
-                if !repub && republished.write().await.insert(msg.cid()?) {
+                if !repub && republished.write().await.insert(msg.cid()?.into()) {
                     repub = true;
                 }
             }
             for msg in msgs {
                 remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
                     .await?;
-                if !repub && republished.write().await.insert(msg.cid()?) {
+                if !repub && republished.write().await.insert(msg.cid()?.into()) {
                     repub = true;
                 }
             }
