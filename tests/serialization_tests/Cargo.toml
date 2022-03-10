@@ -23,4 +23,4 @@ forest_message = { version = "0.7", features = ["json", "blst"] }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 forest_blocks = { path = "../../blockchain/blocks", features = ["json"] }
 num-traits = "0.2"
-bls-signatures = { version = "0.9", default-features = false, features = ["blst"] }
+bls-signatures = { version = "0.11", default-features = false, features = ["blst"] }

@@ -149,14 +149,14 @@ pub struct Variant {
 pub type Randomness = Vec<RandomnessMatch>;
 
 /// One randomness entry.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct RandomnessMatch {
     pub on: RandomnessRule,
     #[serde(with = "base64_bytes")]
     pub ret: Vec<u8>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum RandomnessKind {
     Beacon,
@@ -164,7 +164,7 @@ pub enum RandomnessKind {
 }
 
 /// Rule for matching when randomness is returned.
-#[derive(Debug, Deserialize_tuple, PartialEq)]
+#[derive(Debug, Clone, Deserialize_tuple, PartialEq)]
 pub struct RandomnessRule {
     pub kind: RandomnessKind,
     pub dst: DomainSeparationTag,

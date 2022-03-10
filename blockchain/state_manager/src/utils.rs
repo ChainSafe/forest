@@ -39,7 +39,7 @@ where
         let store = self.blockstore();
 
         let actor = self
-            .get_actor(miner_address, st)?
+            .get_actor(miner_address, *st)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
 
@@ -124,7 +124,7 @@ where
         V: ProofVerifier,
     {
         let actor = self
-            .get_actor(address, tipset.parent_state())?
+            .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
 
@@ -142,7 +142,7 @@ where
         V: ProofVerifier,
     {
         let actor = self
-            .get_actor(address, tipset.parent_state())?
+            .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
         mas.get_sector(self.blockstore(), sector_number)
@@ -160,7 +160,7 @@ where
         V: ProofVerifier,
     {
         let actor = self
-            .get_actor(address, tipset.parent_state())?
+            .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
         let precommit_info = mas
@@ -184,7 +184,7 @@ where
         V: ProofVerifier,
     {
         let actor = self
-            .get_actor(address, tipset.parent_state())?
+            .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
         mas.info(self.blockstore())
@@ -204,7 +204,7 @@ where
         let store = self.blockstore();
 
         let actor = self
-            .get_actor(address, tipset.parent_state())?
+            .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
 
@@ -263,7 +263,7 @@ where
         V: ProofVerifier,
     {
         let actor = self
-            .get_actor(actor::power::ADDRESS, tipset.parent_state())?
+            .get_actor(actor::power::ADDRESS, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let power_actor_state = power::State::load(self.blockstore(), &actor)?;
 

@@ -308,7 +308,7 @@ where
                 .await
                 .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
         }
-        Ok(cid)
+        Ok(Cid::from(cid))
     }
 
     /// Basic checks on the validity of a message.
@@ -347,7 +347,7 @@ where
     /// Verify the message signature. first check if it has already been verified and put into
     /// cache. If it has not, then manually verify it then put it into cache for future use.
     async fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
-        let cid = msg.cid()?;
+        let cid = Cid::from(msg.cid()?);
 
         if let Some(()) = self.sig_val_cache.write().await.get(&cid) {
             return Ok(());
@@ -651,7 +651,7 @@ where
         bls_sig_cache
             .write()
             .await
-            .put(msg.cid()?, msg.signature().clone());
+            .put(Cid::from(msg.cid()?), msg.signature().clone());
     }
 
     if msg.message().gas_limit() > 100_000_000 {

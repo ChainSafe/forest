@@ -118,11 +118,11 @@ impl<'a> TipsetValidator<'a> {
         let bls_cids = bls_msgs
             .iter()
             .map(Cbor::cid)
-            .collect::<Result<Vec<Cid>, EncodingError>>()?;
+            .collect::<Result<Vec<cid_orig::Cid>, fvm_shared::encoding::Error>>()?;
         let secp_cids = secp_msgs
             .iter()
             .map(Cbor::cid)
-            .collect::<Result<Vec<Cid>, EncodingError>>()?;
+            .collect::<Result<Vec<cid_orig::Cid>, fvm_shared::encoding::Error>>()?;
 
         // Generate Amt and batch set message values
         let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)?;

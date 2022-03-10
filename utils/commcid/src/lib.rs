@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::{
-    Cid, Multihash, FIL_COMMITMENT_SEALED, FIL_COMMITMENT_UNSEALED, POSEIDON_BLS12_381_A1_FC1,
-    SHA2_256_TRUNC254_PADDED,
+    multihash::Multihash, Cid, FIL_COMMITMENT_SEALED, FIL_COMMITMENT_UNSEALED,
+    POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED,
 };
 
 pub type Commitment = [u8; 32];

@@ -1,16 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::tuple::*;
-use vm::{ExitCode, Serialized};
+use vm::ExitCode;
+
+use fvm_shared::encoding::RawBytes;
+use fvm_shared::receipt::Receipt;
 
 /// Result of a state transition from a message
-#[derive(Debug, PartialEq, Clone, Serialize_tuple, Deserialize_tuple)]
-pub struct MessageReceipt {
-    pub exit_code: ExitCode,
-    pub return_data: Serialized,
-    pub gas_used: i64,
-}
+pub type MessageReceipt = Receipt;
 
 #[cfg(feature = "json")]
 pub mod json {
@@ -74,7 +71,7 @@ pub mod json {
             exit_code: ExitCode::from_u64(exit_code).ok_or_else(|| {
                 de::Error::custom("MessageReceipt deserialization: Could not turn u64 to ExitCode")
             })?,
-            return_data: Serialized::new(base64::decode(&return_data).map_err(de::Error::custom)?),
+            return_data: RawBytes::new(base64::decode(&return_data).map_err(de::Error::custom)?),
             gas_used,
         })
     }

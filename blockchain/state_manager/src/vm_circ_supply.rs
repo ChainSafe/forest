@@ -47,7 +47,7 @@ lazy_static! {
 }
 
 /// Genesis information used when calculating circulating supply.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
@@ -77,7 +77,7 @@ impl GenesisInfo {
 
 /// Vesting schedule info. These states are lazily filled, to avoid doing until needed
 /// to calculate circulating supply.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct GenesisInfoVesting {
     genesis: OnceCell<Vec<msig0::State>>,
     ignition: OnceCell<Vec<msig0::State>>,
@@ -111,6 +111,29 @@ impl CircSupplyCalc for GenesisInfo {
             .get_or_init(setup_calico_vesting_schedule);
 
         get_circulating_supply(self, height, state_tree)
+    }
+
+    fn get_fil_vested<DB: BlockStore>(
+        &self,
+        height: ChainEpoch,
+        store: &DB,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        self.vesting
+            .genesis
+            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+                self.init(store)?;
+                Ok(setup_genesis_vesting_schedule())
+            })?;
+
+        self.vesting
+            .ignition
+            .get_or_init(setup_ignition_vesting_schedule);
+
+        self.vesting
+            .calico
+            .get_or_init(setup_calico_vesting_schedule);
+
+        Ok(get_fil_vested(self, height))
     }
 }
 

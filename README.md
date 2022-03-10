@@ -29,13 +29,16 @@ Our crates:
 
 
 ## Dependencies
-`rustc >= 1.57.0`
+`rustc >= 1.58.1`
 
 ## Usage
 ```shell
 # Clone repository
 git clone --recursive https://github.com/chainsafe/forest
 cd forest
+
+# Install wasm32 target
+rustup target add wasm32-unknown-unknown
 
 # Install binary to $HOME/.cargo/bin and run node
 make install
