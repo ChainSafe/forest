@@ -49,12 +49,22 @@ pub trait Config {
 pub enum Network {
     Calibnet,
     Mainnet,
+    Custom {
+        name: Option<String>,
+        bootstrap_peers: Option<&'static [&'static str]>,
+        genesis_bytes: Option<&'static [u8]>,
+    },
 }
 
 pub fn build_config(network: Network) -> Box<dyn Config + Send + Sync> {
     match network {
         Network::Calibnet => Box::new(CalibnetConfig::new()),
         Network::Mainnet => todo!(),
+        Network::Custom {
+            name,
+            bootstrap_peers,
+            genesis_bytes,
+        } => Box::new(CustomConfig::new(name, bootstrap_peers, genesis_bytes)),
     }
 }
 
@@ -142,14 +152,26 @@ impl Config for CustomConfig {
     }
 
     fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        todo!()
+        VERSION_SCHEDULE
+            .iter()
+            .rev()
+            .find(|upgrade| epoch > upgrade.height)
+            .map(|upgrade| upgrade.network)
+            .unwrap_or(NetworkVersion::V0)
     }
 
     async fn get_beacon_schedule(
         &self,
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
-        todo!()
+        let mut points = BeaconSchedule(Vec::with_capacity(DRAND_SCHEDULE.len()));
+        for dc in DRAND_SCHEDULE.iter() {
+            points.0.push(BeaconPoint {
+                height: dc.height,
+                beacon: Arc::new(DrandBeacon::new(genesis_ts, BLOCK_DELAY_SECS, dc.config).await?),
+            });
+        }
+        Ok(points)
     }
 
     fn genesis_bytes(&self) -> &'static [u8] {
