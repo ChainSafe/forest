@@ -12,7 +12,7 @@ use crate::head_change;
 use crate::msgpool::recover_sig;
 use crate::msgpool::republish_pending_messages;
 use crate::msgpool::BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE;
-use crate::msgpool::REPUBLISH_INTERVAL;
+use crate::msgpool::PROPAGATION_DELAY_SECS;
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
@@ -168,6 +168,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
+        block_delay: u64,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -261,9 +262,10 @@ where
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let network_name = mp.network_name.clone();
+        let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
         task::spawn(async move {
-            let mut interval = interval(Duration::from_millis(REPUBLISH_INTERVAL));
+            let mut interval = interval(Duration::from_millis(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;
                 if let Err(e) = republish_pending_messages(

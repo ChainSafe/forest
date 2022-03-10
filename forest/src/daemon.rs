@@ -140,6 +140,7 @@ pub(super) async fn start(config: Config) {
 
     // Initialize StateManager
     let sm = StateManager::new(Arc::clone(&chain_store)).await.unwrap();
+    let block_delay = sm.network_config.block_delay();
     let state_manager = Arc::new(sm);
 
     let network_name = get_network_name_from_genesis(&genesis, &state_manager)
@@ -179,6 +180,7 @@ pub(super) async fn start(config: Config) {
             network_name.clone(),
             network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
+            block_delay,
         )
         .await
         .unwrap(),

@@ -42,7 +42,7 @@ use forest_libp2p::chain_exchange::TipsetBundle;
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use networks::{BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
+use networks::{UPGRADE_SMOKE_HEIGHT};
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -1234,8 +1234,9 @@ async fn validate_block<
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Timestamp checks
+    let block_delay = state_manager.network_config.block_delay();
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
-    let target_timestamp = base_tipset.min_timestamp() + BLOCK_DELAY_SECS * (nulls + 1);
+    let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
         return Err((
             *block_cid,

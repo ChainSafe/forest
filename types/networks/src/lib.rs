@@ -41,9 +41,11 @@ pub trait Config {
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>>;
     /// Gets genesis car file bytes.
-    fn genesis_bytes(&self) -> &'static [u8];
+    fn genesis_bytes(&self) -> &[u8];
     /// Bootstrap peer ids.
     fn bootstrap_peers(&self) -> &'static [&'static str];
+    /// Time, in seconds, between each block.
+    fn block_delay(&self) -> u64;
 }
 
 pub enum Network {
@@ -97,6 +99,9 @@ impl Config for MainnetConfig {
     }
     fn bootstrap_peers(&self) -> &'static [&'static str] {
         DEFAULT_BOOTSTRAP
+    }
+    fn block_delay(&self) -> u64 {
+        BLOCK_DELAY_SECS
     }
 }
 
@@ -158,6 +163,10 @@ impl Config for CustomConfig {
 
     fn bootstrap_peers(&self) -> &'static [&'static str] {
         &self.bootstrap_peers
+    }
+
+    fn block_delay(&self) -> u64 {
+        todo!()
     }
 }
 
