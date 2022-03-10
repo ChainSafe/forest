@@ -13,6 +13,9 @@ use std::{error::Error, sync::Arc};
 mod mainnet;
 mod drand;
 
+/// Newest network version for all networks
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
+
 pub use self::mainnet::*;
 
 /// Defines the different hard fork parameters.
