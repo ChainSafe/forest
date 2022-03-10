@@ -10,10 +10,10 @@ use clock::ChainEpoch;
 use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 
-mod calibnet;
+mod mainnet;
 mod drand;
 
-pub use self::calibnet::*;
+pub use self::mainnet::*;
 
 /// Defines the different hard fork parameters.
 struct Upgrade {
@@ -53,23 +53,23 @@ pub enum Network {
 
 pub fn build_config(network: Network) -> Box<dyn Config + Send + Sync> {
     match network {
-        Network::Calibnet => Box::new(CalibnetConfig::new()),
-        Network::Mainnet => todo!(),
+        Network::Calibnet => todo!(),
+        Network::Mainnet => Box::new(MainnetConfig::new()),
     }
 }
 
-struct CalibnetConfig {}
+struct MainnetConfig {}
 
-impl CalibnetConfig {
+impl MainnetConfig {
     fn new() -> Self {
-        CalibnetConfig {}
+        MainnetConfig {}
     }
 }
 
 #[async_trait]
-impl Config for CalibnetConfig {
+impl Config for MainnetConfig {
     fn name(&self) -> &str {
-        "calibnet"
+        "mainnet"
     }
     fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         VERSION_SCHEDULE

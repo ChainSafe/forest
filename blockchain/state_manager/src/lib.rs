@@ -98,7 +98,7 @@ where
 {
     pub async fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let network_config = build_config(Network::Calibnet);
+        let network_config = build_config(Network::Mainnet);
         let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
 
         Ok(Self {
@@ -118,7 +118,7 @@ where
         chain_subs: Publisher<HeadChange>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let network_config = build_config(Network::Calibnet);
+        let network_config = build_config(Network::Mainnet);
         let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
 
         Ok(Self {
