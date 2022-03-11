@@ -1040,6 +1040,7 @@ async fn sync_messages_check_state<
                 )
                 .await?;
                 tracker.write().await.set_epoch(current_epoch);
+                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
             }
             None => {
                 // Full tipset is not in storage; request messages via chain_exchange
@@ -1090,6 +1091,7 @@ async fn sync_messages_check_state<
                     .await?;
                     tracker.write().await.set_epoch(current_epoch);
                     timer.observe_duration();
+                    metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
 
                     // Persist the messages in the store
                     if let Some(m) = bundle.messages {
