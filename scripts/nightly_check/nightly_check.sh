@@ -34,7 +34,7 @@ function send_success_notification() {
 }
 
 function send_failure_notification() {
-  curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"❌  Nightly check miserably failed! 💪🌲!\n $(tail -n20 "$1")\"}" "$SLACK_HOOK"
+  curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"❌  Nightly check miserably failed!\n $(tail -n20 "$1")\"}" "$SLACK_HOOK"
 }
 
 function cleanup() {
