@@ -119,7 +119,7 @@ where
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
-        chain::compute_base_fee(self.sm.blockstore(), ts).map_err(|err| err.into())
+        chain::compute_base_fee(self.sm.blockstore(), ts, todo!()).map_err(|err| err.into())
     }
     async fn state_account_key<V>(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error>
     where

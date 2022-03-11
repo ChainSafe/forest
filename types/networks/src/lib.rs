@@ -31,6 +31,16 @@ struct DrandPoint<'a> {
     pub config: &'a DrandConfig<'a>,
 }
 
+pub enum Height {
+    ActorsV2,
+    ActorsV4,
+    Liftoff,
+    Ignition,
+    Calico,
+    Smoke,
+    Hyperdrive,
+}
+
 #[async_trait]
 /// Trait used as the interface to be able to support different network configuration (mainnet, calibnet, file driven)
 pub trait Config {
@@ -49,6 +59,8 @@ pub trait Config {
     fn bootstrap_peers(&self) -> &'static [&'static str];
     /// Time, in seconds, between each block.
     fn block_delay(&self) -> u64;
+    /// Gets chain epoch's height.
+    fn epoch(&self, height: Height) -> ChainEpoch;
 }
 
 pub enum Network {
@@ -115,6 +127,9 @@ impl Config for MainnetConfig {
     }
     fn block_delay(&self) -> u64 {
         BLOCK_DELAY_SECS
+    }
+    fn epoch(&self, height: Height) -> ChainEpoch {
+        todo!()
     }
 }
 
@@ -191,6 +206,10 @@ impl Config for CustomConfig {
     }
 
     fn block_delay(&self) -> u64 {
+        todo!()
+    }
+
+    fn epoch(&self, height: Height) -> ChainEpoch {
         todo!()
     }
 }

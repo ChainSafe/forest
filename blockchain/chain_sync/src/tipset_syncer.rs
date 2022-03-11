@@ -42,7 +42,7 @@ use forest_libp2p::chain_exchange::TipsetBundle;
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use networks::{UPGRADE_SMOKE_HEIGHT};
+use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -1235,6 +1235,7 @@ async fn validate_block<
 
     // Timestamp checks
     let block_delay = state_manager.network_config.block_delay();
+    let smoke_height = state_manager.network_config.epoch(Height::Smoke);
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
     let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
@@ -1296,7 +1297,7 @@ async fn validate_block<
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
         let base_fee =
-            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset).map_err(|e| {
+            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset, smoke_height).map_err(|e| {
                 TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
             })?;
         let parent_base_fee = v_block.header.parent_base_fee();
@@ -1450,7 +1451,7 @@ async fn validate_block<
         let header = v_block.header();
         let mut miner_address_buf = header.miner_address().marshal_cbor()?;
 
-        if header.epoch() > UPGRADE_SMOKE_HEIGHT {
+        if header.epoch() > smoke_height {
             let vrf_proof = base_tipset
                 .min_ticket()
                 .ok_or(TipsetRangeSyncerError::TipsetWithoutTicket)?

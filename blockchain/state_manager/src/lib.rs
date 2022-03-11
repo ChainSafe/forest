@@ -33,7 +33,7 @@ use log::{debug, info, trace, warn};
 use message::{
     message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
 };
-use networks::{build_config, Network, Config};
+use networks::{build_config, Config, Height, Network};
 use num_bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
@@ -100,12 +100,16 @@ where
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
         let network_config = build_config(Network::Mainnet);
         let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
+        let ignition = network_config.epoch(Height::Ignition);
+        let calico = network_config.epoch(Height::Calico);
+        let actors_v2 = network_config.epoch(Height::ActorsV2);
+        let liftoff = network_config.epoch(Height::Liftoff);
 
         Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: None,
-            genesis_info: GenesisInfo::default(),
+            genesis_info: GenesisInfo::new(ignition, calico, actors_v2, liftoff),
             beacon,
             network_config,
             engine: fvm::machine::Engine::default(),
@@ -120,12 +124,16 @@ where
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
         let network_config = build_config(Network::Mainnet);
         let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
+        let ignition = network_config.epoch(Height::Ignition);
+        let calico = network_config.epoch(Height::Calico);
+        let actors_v2 = network_config.epoch(Height::ActorsV2);
+        let liftoff = network_config.epoch(Height::Liftoff);
 
         Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: Some(chain_subs),
-            genesis_info: GenesisInfo::default(),
+            genesis_info: GenesisInfo::new(ignition, calico, actors_v2, liftoff),
             beacon,
             network_config,
             engine: fvm::machine::Engine::default(),
@@ -322,6 +330,7 @@ where
         let nv_getter = |epoch| {
             self.network_config.network_version(epoch)
         };
+        let actors_v4 = self.network_config.epoch(Height::ActorsV4);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
             VM::<_, _, _, _, V>::new(
@@ -352,7 +361,7 @@ where
                 parent_state = vm.flush()?;
             }
 
-            if epoch_i == networks::UPGRADE_ACTORS_V4_HEIGHT {
+            if epoch_i == actors_v4 {
                 todo!("cannot migrate state when using FVM - see https://github.com/ChainSafe/forest/issues/1454 for updates");
             }
         }

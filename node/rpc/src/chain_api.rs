@@ -20,6 +20,7 @@ use message::{
     unsigned_message::{self, json::UnsignedMessageJson},
     UnsignedMessage,
 };
+use networks::Height;
 use num_traits::FromPrimitive;
 use rpc_api::{
     chain_api::*,
@@ -269,6 +270,7 @@ where
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     let entropy = entropy.unwrap_or_default();
+    let hyperdrive_height = data.state_manager.network_config.epoch(Height::Hyperdrive);
     Ok(data
         .state_manager
         .get_chain_randomness(
@@ -276,7 +278,7 @@ where
             DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
             epoch,
             &base64::decode(entropy)?,
-            epoch <= networks::UPGRADE_HYPERDRIVE_HEIGHT,
+            epoch <= hyperdrive_height,
         )
         .await?)
 }
