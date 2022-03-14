@@ -4296,6 +4296,7 @@ dependencies = [
  "forest_ipld",
  "hex",
  "ipld_blockstore",
+ "libipld-core",
  "once_cell",
  "serde",
  "sha2 0.10.2",
