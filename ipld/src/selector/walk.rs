@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::super::{Error, Ipld, Path, PathSegment};
+use super::super::{lookup_segment, Error, Ipld, Path, PathSegment};
 use super::Selector;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
@@ -118,11 +118,14 @@ where
             if let Some(resolver) = &mut self.resolver {
                 self.last_block = Some(LastBlockInfo {
                     path: self.path.clone(),
-                    link: *cid,
+                    link: Cid::from(*cid),
                 });
-                let mut node = resolver.load_link(cid).await.map_err(Error::Link)?;
+                let mut node = resolver
+                    .load_link(&Cid::from(*cid))
+                    .await
+                    .map_err(Error::Link)?;
                 while let Some(Ipld::Link(c)) = node {
-                    node = resolver.load_link(&c).await.map_err(Error::Link)?;
+                    node = resolver.load_link(&c.into()).await.map_err(Error::Link)?;
                 }
 
                 if let Some(n) = node {
@@ -150,7 +153,7 @@ where
         match selector.interests() {
             Some(interests) => {
                 for ps in interests {
-                    let v = match ipld.lookup_segment(&ps) {
+                    let v = match lookup_segment(ipld, &ps) {
                         Some(ipld) => ipld,
                         None => continue,
                     };

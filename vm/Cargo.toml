@@ -11,8 +11,9 @@ repository = "https://github.com/ChainSafe/forest"
 features = ["json"]
 
 [dependencies]
-fvm_shared = { version = "0.1", default-features = false }
-fvm = "0.1"
+serde_ipld_dagcbor = "0.1.0"
+fvm_shared = { version = "0.2", default-features = false }
+fvm = "0.2"
 num-bigint = { package = "forest_bigint", path = "../utils/bigint", version = "0.1.1" }
 address = { package = "forest_address", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }

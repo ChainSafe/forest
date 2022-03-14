@@ -56,6 +56,7 @@ impl From<NetworkVersion> for ActorVersion {
             NetworkVersion::V12 => ActorVersion::V4,
             NetworkVersion::V13 => ActorVersion::V5,
             NetworkVersion::V14 => ActorVersion::V6,
+            NetworkVersion::V15 => panic!("nv15 not supported by native backend"),
         }
     }
 }

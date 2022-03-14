@@ -123,10 +123,16 @@ impl<'a> TipsetValidator<'a> {
             .iter()
             .map(Cbor::cid)
             .collect::<Result<Vec<cid_orig::Cid>, fvm_shared::encoding::Error>>()?;
+        eprintln!("fvm: {:x?}", fvm_shared::encoding::to_vec(&bls_cids[0]));
+        eprintln!(
+            "forest: {:x?}",
+            fvm_shared::encoding::to_vec(&Cid::from(bls_cids[0]))
+        );
 
         // Generate Amt and batch set message values
         let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)?;
         let secp_message_root = Amt::new_from_iter(blockstore, secp_cids)?;
+        dbg!(bls_message_root, secp_message_root);
         let meta = TxMeta {
             bls_message_root,
             secp_message_root,

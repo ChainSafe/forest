@@ -7,22 +7,25 @@ mod util;
 use blockstore::BlockStore;
 use cid::Cid;
 pub use error::*;
-use forest_encoding::{from_slice, to_vec};
 use futures::{AsyncRead, AsyncWrite, Stream, StreamExt};
+use fvm_shared::encoding::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 use util::{ld_read, ld_write, read_node};
 
 /// CAR file header
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct CarHeader {
-    pub roots: Vec<Cid>,
+    pub roots: Vec<cid_orig::Cid>,
     pub version: u64,
 }
 
 impl CarHeader {
     /// Creates a new CAR file header
     pub fn new(roots: Vec<Cid>, version: u64) -> Self {
-        Self { roots, version }
+        Self {
+            roots: roots.into_iter().map(cid_orig::Cid::from).collect(),
+            version,
+        }
     }
 
     /// Writes header and stream of data to writer in Car format.
@@ -50,7 +53,10 @@ impl CarHeader {
 
 impl From<Vec<Cid>> for CarHeader {
     fn from(roots: Vec<Cid>) -> Self {
-        Self { roots, version: 1 }
+        Self {
+            roots: roots.into_iter().map(cid_orig::Cid::from).collect(),
+            version: 1,
+        }
     }
 }
 
@@ -117,7 +123,7 @@ where
     }
     s.bulk_write(&buf)
         .map_err(|e| Error::Other(e.to_string()))?;
-    Ok(car_reader.header.roots)
+    Ok(car_reader.header.roots.into_iter().map(Cid::from).collect())
 }
 
 #[cfg(test)]

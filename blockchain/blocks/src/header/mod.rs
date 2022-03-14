@@ -148,7 +148,7 @@ impl Cbor for BlockHeader {
         Ok(self.cached_bytes().clone())
     }
     fn cid(&self) -> Result<cid_orig::Cid, EncodingError> {
-        Ok(self.cid().take())
+        Ok(*self.cid())
     }
 }
 

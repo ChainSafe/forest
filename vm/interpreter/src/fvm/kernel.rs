@@ -175,6 +175,11 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     fn verify_aggregate_seals(&mut self, agg: &AggregateSealVerifyProofAndInfos) -> Result<bool> {
         self.0.verify_aggregate_seals(agg)
     }
+
+    // forwarded
+    fn verify_replica_update(&mut self, replica: &ReplicaUpdateInfo) -> Result<bool> {
+        self.0.verify_replica_update(replica)
+    }
 }
 impl<DB: BlockStore> DebugOps for ForestKernel<DB> {
     fn log(&self, msg: String) {

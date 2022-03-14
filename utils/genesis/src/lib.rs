@@ -176,7 +176,13 @@ where
     R: AsyncRead + Send + Unpin,
 {
     let result = if skip_load {
-        CarReader::new(&mut reader).await?.header.roots
+        CarReader::new(&mut reader)
+            .await?
+            .header
+            .roots
+            .into_iter()
+            .map(Cid::from)
+            .collect()
     } else {
         load_car(store, &mut reader).await?
     };

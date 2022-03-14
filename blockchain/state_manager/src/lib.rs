@@ -168,8 +168,7 @@ where
     ) -> anyhow::Result<[u8; 32]> {
         let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
         match self.get_network_version(round) {
-            /*NetworkVersion::V15 | */ // FIXME: nv15
-            NetworkVersion::V14 => {
+            NetworkVersion::V15 | NetworkVersion::V14 => {
                 chain_rand
                     .get_beacon_randomness_v3(blocks, pers, round, entropy)
                     .await
@@ -927,7 +926,7 @@ where
             .filter_map(|(index, s)| {
                 if s.sequence() == *message_sequence {
                     if s.cid().map(|s|
-                        s == msg_cid.take()
+                        s == msg_cid
                     ).unwrap_or_default() {
                         // When message Cid has been found, get receipt at index.
                         let rct = chain::get_parent_reciept(

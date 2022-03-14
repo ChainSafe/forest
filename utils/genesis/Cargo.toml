@@ -8,6 +8,7 @@ edition = "2021"
 testing = []
 
 [dependencies]
+cid_orig = { package = "cid", version = "0.8" }
 ipld_blockstore = "0.1"
 async-std = "1.9"
 log = "0.4.8"

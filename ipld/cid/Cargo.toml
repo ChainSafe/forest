@@ -1,11 +1,11 @@
 [package]
-name = "forest_cid"
+name        = "forest_cid"
 description = "A Cid library used in Forest for the Filecoin protocol"
-license = "MIT OR Apache-2.0"
-version = "0.3.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
-repository = "https://github.com/ChainSafe/forest"
+license     = "MIT OR Apache-2.0"
+version     = "0.3.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>"]
+edition     = "2021"
+repository  = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
 features = ["cbor", "json"]
@@ -22,7 +22,6 @@ multihash = { version = "0.16.1", default-features = false, features = [
 multibase = "0.9.0"
 integer-encoding = { version = "3.0", default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
-serde_cbor = { package = "cs_serde_cbor", version = "0.12", features = ["tags"], optional = true }
 serde_bytes = { package = "cs_serde_bytes", version = "0.12", optional = true }
 forest_json_utils = { path = "../../utils/json_utils", optional = true, version = "0.1" }
 generic-array = "0.14"
@@ -31,5 +30,5 @@ generic-array = "0.14"
 serde_json = "1.0"
 
 [features]
-cbor = ["serde", "serde_bytes", "serde_cbor"]
+cbor = ["serde", "serde_bytes"]
 json = ["serde", "forest_json_utils"]

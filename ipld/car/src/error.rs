@@ -29,3 +29,9 @@ impl From<cid::multihash::Error> for Error {
         Error::ParsingError(err.to_string())
     }
 }
+
+// impl From<fvm_shared::encoding::error::Error> for Error {
+//     fn from(err: fvm_shared::encoding::error::Error) -> Error {
+//         Error::ParsingError(err.to_string())
+//     }
+// }

@@ -6,6 +6,7 @@ use std::error::Error as StdError;
 
 use cid::Cid;
 use encoding::Cbor;
+use fvm_shared::encoding::from_slice;
 
 use crate::Ipld;
 
@@ -32,11 +33,11 @@ where
         }
         Ipld::Link(cid) => {
             if cid.codec() == cid::DAG_CBOR {
-                if !walked.insert(*cid) {
+                if !walked.insert(Cid::from(*cid)) {
                     return Ok(());
                 }
-                let bytes = load_block(*cid)?;
-                let ipld = Ipld::unmarshal_cbor(&bytes)?;
+                let bytes = load_block(Cid::from(*cid))?;
+                let ipld = from_slice(&bytes)?;
                 traverse_ipld_links(walked, load_block, &ipld)?;
             }
         }
@@ -63,7 +64,7 @@ where
     }
 
     let bytes = load_block(root)?;
-    let ipld = Ipld::unmarshal_cbor(&bytes)?;
+    let ipld = from_slice(&bytes)?;
 
     traverse_ipld_links(walked, load_block, &ipld)?;
 

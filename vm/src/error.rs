@@ -113,6 +113,17 @@ impl From<CborError> for ActorError {
     }
 }
 
+// impl From<fvm_shared::encoding::Error> for ActorError {
+//     fn from(e: fvm_shared::encoding::Error) -> Self {
+//         Self {
+//             fatal: false,
+//             exit_code: ExitCode::ErrSerialization,
+//             msg: e.to_string(),
+//             recovered: false,
+//         }
+//     }
+// }
+
 /// Convenience macro for generating Actor Errors
 #[macro_export]
 macro_rules! actor_error {

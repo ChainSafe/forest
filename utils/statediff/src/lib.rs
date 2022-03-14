@@ -32,7 +32,7 @@ fn actor_to_resolved(
     depth: Option<u64>,
 ) -> ActorStateResolved {
     let resolved =
-        resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state));
+        resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state.into()));
     ActorStateResolved {
         state: IpldJson(resolved),
         code: CidJson(actor.code),
@@ -115,7 +115,7 @@ fn pp_actor_state(
 
     buffer += &format!("{:#?}\n", state);
 
-    if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld) {
+    if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
         buffer += &format!("{:#?}", miner_state);
     } else {
         buffer += &serde_json::to_string_pretty(&resolved)?;
