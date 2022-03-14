@@ -12,7 +12,6 @@ use futures::AsyncRead;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
 use net_utils::FetchProgress;
-use networks::DEFAULT_GENESIS;
 use state_manager::StateManager;
 use std::error::Error as StdError;
 use std::sync::Arc;
@@ -39,8 +38,9 @@ where
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
-            let reader = BufReader::<&[u8]>::new(DEFAULT_GENESIS);
-            process_car(reader, cs).await?
+            // let reader = BufReader::<&[u8]>::new(DEFAULT_GENESIS);
+            // process_car(reader, cs).await?
+            todo!()
         }
     };
 

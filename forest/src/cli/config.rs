@@ -8,7 +8,6 @@ use serde::Deserialize;
 use utils::get_home_dir;
 
 #[derive(Debug, Deserialize)]
-#[serde(default)]
 pub struct Config {
     pub network: Libp2pConfig,
     pub chain_id: String,
@@ -29,18 +28,12 @@ pub struct Config {
     pub metrics_port: u16,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self::from_chain("mainnet")
-    }
-}
-
 impl Config {
     pub fn from_chain(chain: &str) -> Self {
         //let data_dir = get_home_dir() + &format!("/.forest/{}", chain);
         let data_dir = get_home_dir() + "/.forest";
         Self {
-            network: Libp2pConfig::default(),
+            network: Libp2pConfig::new(&[]),
             chain_id: chain.to_owned(),
             data_dir,
             genesis_file: None,

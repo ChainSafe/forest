@@ -33,7 +33,7 @@ use log::{debug, info, trace, warn};
 use message::{
     message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
 };
-use networks::{build_config, Config, Height, Network};
+use networks::{Config, Height};
 use num_bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
@@ -88,7 +88,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
-    pub network_config: Box<dyn Config + Send + Sync>,
+    pub network_config: Arc<Config<'static>>,
     engine: fvm::machine::Engine,
 }
 
@@ -98,7 +98,7 @@ where
 {
     pub async fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let network_config = build_config(Network::Mainnet);
+        let network_config = Arc::new(Config::mainnet());
         let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
         let ignition = network_config.epoch(Height::Ignition);
         let actors_v2 = network_config.epoch(Height::ActorsV2);
@@ -122,7 +122,7 @@ where
         chain_subs: Publisher<HeadChange>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let network_config = build_config(Network::Mainnet);
+        let network_config = Arc::new(Config::mainnet());
         let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
         let ignition = network_config.epoch(Height::Ignition);
         let actors_v2 = network_config.epoch(Height::ActorsV2);

@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use libp2p::Multiaddr;
-use networks::DEFAULT_BOOTSTRAP;
 use serde::Deserialize;
 
 /// Libp2p config for the Forest node.
 #[derive(Debug, Deserialize)]
-#[serde(default)]
 pub struct Libp2pConfig {
     /// Local address.
     pub listening_multiaddr: Multiaddr,
@@ -21,9 +19,9 @@ pub struct Libp2pConfig {
     pub target_peer_count: u32,
 }
 
-impl Default for Libp2pConfig {
-    fn default() -> Self {
-        let bootstrap_peers = DEFAULT_BOOTSTRAP
+impl Libp2pConfig {
+    pub fn new(bootstrap: &[&str]) -> Self {
+        let bootstrap_peers = bootstrap
             .iter()
             .map(|node| node.parse().unwrap())
             .collect();
