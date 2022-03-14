@@ -3018,7 +3018,7 @@ dependencies = [
  "rand_xorshift",
  "serde",
  "serde_bytes",
- "serde_cbor",
+ "serde_ipld_dagcbor",
  "serde_json",
  "unsigned-varint 0.7.1",
 ]
@@ -4507,7 +4507,7 @@ dependencies = [
  "log",
  "rand 0.8.5",
  "serde",
- "serde_cbor",
+ "serde_ipld_dagcbor",
  "serde_json",
  "sodiumoxide",
  "thiserror",

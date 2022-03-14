@@ -277,7 +277,7 @@ impl KeyStore {
                                 EncryptedKeyStore::decrypt(encryption_key.clone(), &data)
                                     .map_err(|error| Error::Other(error.to_string()))?;
 
-                            let key_info = serde_cbor::from_slice(&decrypted_data)
+                            let key_info = serde_ipld_dagcbor::from_slice(&decrypted_data)
                                 .map_err(|e| {
                                     error!("Failed to deserialize keyfile, initializing new");
                                     e
@@ -336,7 +336,7 @@ impl KeyStore {
                 match &self.encryption {
                     Some(encrypted_keystore) => {
                         // Flush For EncryptedKeyStore
-                        let data = serde_cbor::to_vec(&self.key_info).map_err(|e| {
+                        let data = serde_ipld_dagcbor::to_vec(&self.key_info).map_err(|e| {
                             Error::Other(format!("failed to serialize and write key info: {}", e))
                         })?;
 
