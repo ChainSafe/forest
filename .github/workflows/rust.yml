@@ -67,6 +67,8 @@ jobs:
               xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
+        with:
+          submodules: true
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -78,7 +80,7 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--workspace --release --locked --out Xml --jobs 16 --timeout 600 -- --test-threads 16'
+          args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
 
