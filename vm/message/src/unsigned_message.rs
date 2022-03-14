@@ -315,7 +315,7 @@ pub mod json {
             gas_premium: m.gas_premium.clone(),
             method_num: m.method_num,
             params: Some(base64::encode(m.params.bytes())),
-            cid: Some(m.cid().map_err(ser::Error::custom)?.into()),
+            cid: Some(m.cid().map_err(ser::Error::custom)?),
         }
         .serialize(serializer)
     }

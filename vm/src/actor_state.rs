@@ -30,8 +30,8 @@ impl From<fvm::state_tree::ActorState> for ActorState {
             balance,
         } = actor;
         ActorState {
-            code: code.into(),
-            state: state.into(),
+            code,
+            state,
             sequence,
             balance,
         }

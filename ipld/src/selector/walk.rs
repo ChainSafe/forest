@@ -118,14 +118,11 @@ where
             if let Some(resolver) = &mut self.resolver {
                 self.last_block = Some(LastBlockInfo {
                     path: self.path.clone(),
-                    link: Cid::from(*cid),
+                    link: *cid,
                 });
-                let mut node = resolver
-                    .load_link(&Cid::from(*cid))
-                    .await
-                    .map_err(Error::Link)?;
+                let mut node = resolver.load_link(cid).await.map_err(Error::Link)?;
                 while let Some(Ipld::Link(c)) = node {
-                    node = resolver.load_link(&c.into()).await.map_err(Error::Link)?;
+                    node = resolver.load_link(&c).await.map_err(Error::Link)?;
                 }
 
                 if let Some(n) = node {

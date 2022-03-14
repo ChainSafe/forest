@@ -32,10 +32,10 @@ where
         }
         Ipld::Link(cid) => {
             if cid.codec() == cid::DAG_CBOR {
-                if !walked.insert(Cid::from(*cid)) {
+                if !walked.insert(*cid) {
                     return Ok(());
                 }
-                let bytes = load_block(Cid::from(*cid))?;
+                let bytes = load_block(*cid)?;
                 let ipld = from_slice(&bytes)?;
                 traverse_ipld_links(walked, load_block, &ipld)?;
             }

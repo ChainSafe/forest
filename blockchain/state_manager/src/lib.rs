@@ -1033,7 +1033,7 @@ where
         let cid = m
             .cid()
             .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
-        let message_var = (m.from(), &cid.into(), &m.sequence());
+        let message_var = (m.from(), &cid, &m.sequence());
         let maybe_tuple = self.search_back_for_message(tipset, message_var).await?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
@@ -1084,7 +1084,7 @@ where
             let back_tuple = sm_cloned
                 .search_back_for_message(
                     &current_tipset,
-                    (&address_for_task, &cid_for_task.into(), &sequence_for_task),
+                    (&address_for_task, &cid_for_task, &sequence_for_task),
                 )
                 .await?;
             sender

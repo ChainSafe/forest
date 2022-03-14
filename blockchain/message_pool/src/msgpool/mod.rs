@@ -167,7 +167,7 @@ where
 
     let mut republished_t = HashSet::new();
     for m in msgs.iter() {
-        republished_t.insert(m.cid()?.into());
+        republished_t.insert(m.cid()?);
     }
     *republished.write().await = republished_t;
 
@@ -219,14 +219,14 @@ where
             for msg in smsgs {
                 remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
                     .await?;
-                if !repub && republished.write().await.insert(msg.cid()?.into()) {
+                if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
                 }
             }
             for msg in msgs {
                 remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
                     .await?;
-                if !repub && republished.write().await.insert(msg.cid()?.into()) {
+                if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
                 }
             }
