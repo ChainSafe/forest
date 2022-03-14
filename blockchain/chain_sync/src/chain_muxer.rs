@@ -881,7 +881,6 @@ mod tests {
     use crate::validation::TipsetValidator;
     use cid::Cid;
     use db::MemoryDB;
-    use message::{SignedMessage, UnsignedMessage};
     use test_utils::construct_messages;
 
     #[test]
