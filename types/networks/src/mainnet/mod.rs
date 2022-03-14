@@ -4,6 +4,7 @@
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
     DrandPoint,
+    Upgrade,
 };
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
@@ -110,6 +111,65 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/node.glif.io/tcp/1235/p2p/12D3KooWBF8cpp65hp2u9LK5mh19x67ftAam84z9LsfaquTDSBpt",
     "/dns4/bootstrap-0.ipfsmain.cn/tcp/34721/p2p/12D3KooWQnwEGNqcM2nAcPtRR9rAX8Hrg4k9kJLCHoTR5chJfz6d",
     "/dns4/bootstrap-1.ipfsmain.cn/tcp/34723/p2p/12D3KooWMKxMkD5DMpSWsW7dBddKxKT7L2GgbNuckz9otxvkvByP",
+];
+
+pub const VERSION_SCHEDULE: [Upgrade; 14] = [
+    Upgrade {
+        height: UPGRADE_BREEZE_HEIGHT,
+        network: NetworkVersion::V1,
+    },
+    Upgrade {
+        height: UPGRADE_SMOKE_HEIGHT,
+        network: NetworkVersion::V2,
+    },
+    Upgrade {
+        height: UPGRADE_IGNITION_HEIGHT,
+        network: NetworkVersion::V3,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V2_HEIGHT,
+        network: NetworkVersion::V4,
+    },
+    Upgrade {
+        height: UPGRADE_TAPE_HEIGHT,
+        network: NetworkVersion::V5,
+    },
+    Upgrade {
+        height: UPGRADE_KUMQUAT_HEIGHT,
+        network: NetworkVersion::V6,
+    },
+    Upgrade {
+        height: UPGRADE_CALICO_HEIGHT,
+        network: NetworkVersion::V7,
+    },
+    Upgrade {
+        height: UPGRADE_PERSIAN_HEIGHT,
+        network: NetworkVersion::V8,
+    },
+    Upgrade {
+        height: UPGRADE_ORANGE_HEIGHT,
+        network: NetworkVersion::V9,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V3_HEIGHT,
+        network: NetworkVersion::V10,
+    },
+    Upgrade {
+        height: UPGRADE_NORWEGIAN_HEIGHT,
+        network: NetworkVersion::V11,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V4_HEIGHT,
+        network: NetworkVersion::V12,
+    },
+    Upgrade {
+        height: UPGRADE_HYPERDRIVE_HEIGHT,
+        network: NetworkVersion::V13,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V6_HEIGHT,
+        network: NetworkVersion::V14,
+    }
 ];
 
 lazy_static! {

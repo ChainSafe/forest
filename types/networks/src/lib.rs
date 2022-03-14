@@ -10,19 +10,21 @@ use fil_types::NetworkVersion;
 use std::{error::Error, sync::Arc};
 
 mod drand;
+mod calibnet;
 mod mainnet;
 
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
 
 /// Defines the different hard fork parameters.
-struct Upgrade {
+pub struct Upgrade {
     /// When the hard fork will happen
     height: ChainEpoch,
     /// The version of the fork
     network: NetworkVersion,
 }
 
+#[derive(Clone)]
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
     pub config: &'a DrandConfig<'a>,
@@ -49,68 +51,6 @@ pub enum Height {
     OhSnap,
 }
 
-const MAINNET_VERSION_SCHEDULE: [Upgrade; 14] = {
-    use self::mainnet::*;
-    [
-        Upgrade {
-            height: UPGRADE_BREEZE_HEIGHT,
-            network: NetworkVersion::V1,
-        },
-        Upgrade {
-            height: UPGRADE_SMOKE_HEIGHT,
-            network: NetworkVersion::V2,
-        },
-        Upgrade {
-            height: UPGRADE_IGNITION_HEIGHT,
-            network: NetworkVersion::V3,
-        },
-        Upgrade {
-            height: UPGRADE_ACTORS_V2_HEIGHT,
-            network: NetworkVersion::V4,
-        },
-        Upgrade {
-            height: UPGRADE_TAPE_HEIGHT,
-            network: NetworkVersion::V5,
-        },
-        Upgrade {
-            height: UPGRADE_KUMQUAT_HEIGHT,
-            network: NetworkVersion::V6,
-        },
-        Upgrade {
-            height: UPGRADE_CALICO_HEIGHT,
-            network: NetworkVersion::V7,
-        },
-        Upgrade {
-            height: UPGRADE_PERSIAN_HEIGHT,
-            network: NetworkVersion::V8,
-        },
-        Upgrade {
-            height: UPGRADE_ORANGE_HEIGHT,
-            network: NetworkVersion::V9,
-        },
-        Upgrade {
-            height: UPGRADE_ACTORS_V3_HEIGHT,
-            network: NetworkVersion::V10,
-        },
-        Upgrade {
-            height: UPGRADE_NORWEGIAN_HEIGHT,
-            network: NetworkVersion::V11,
-        },
-        Upgrade {
-            height: UPGRADE_ACTORS_V4_HEIGHT,
-            network: NetworkVersion::V12,
-        },
-        Upgrade {
-            height: UPGRADE_HYPERDRIVE_HEIGHT,
-            network: NetworkVersion::V13,
-        },
-        Upgrade {
-            height: UPGRADE_ACTORS_V6_HEIGHT,
-            network: NetworkVersion::V14,
-        }
-    ]
-};
-
 /// Config used when initializing a network.
 pub struct Config<'a> {
     name: String,
@@ -123,13 +63,26 @@ pub struct Config<'a> {
 
 impl<'a> Config<'a> {
     pub fn mainnet() -> Self {
+        use mainnet::*;
         Self {
             name: "mainnet".to_string(),
-            version_schedule: MAINNET_VERSION_SCHEDULE,
-            drand_schedule: vec!(),
-            genesis_bytes: vec!(),
-            bootstrap_peers: vec!(),
-            block_delay_secs: mainnet::BLOCK_DELAY_SECS,
+            version_schedule: VERSION_SCHEDULE,
+            drand_schedule: DRAND_SCHEDULE.to_vec(),
+            genesis_bytes: DEFAULT_GENESIS.to_vec(),
+            bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
+            block_delay_secs: BLOCK_DELAY_SECS,
+        }
+    }
+
+    pub fn calibnet() -> Self {
+        use calibnet::*;
+        Self {
+            name: "calibnet".to_string(),
+            version_schedule: VERSION_SCHEDULE,
+            drand_schedule: DRAND_SCHEDULE.to_vec(),
+            genesis_bytes: DEFAULT_GENESIS.to_vec(),
+            bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
+            block_delay_secs: BLOCK_DELAY_SECS,
         }
     }
 

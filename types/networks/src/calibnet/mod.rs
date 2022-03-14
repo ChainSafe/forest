@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{drand::DRAND_MAINNET, DrandPoint};
+use super::{drand::DRAND_MAINNET, DrandPoint, Upgrade};
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
 
@@ -63,6 +63,65 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-1.calibration.fildev.network/tcp/1347/p2p/12D3KooWLce5FDHR4EX4CrYavphA5xS3uDsX6aoowXh5tzDUxJav",
     "/dns4/bootstrap-2.calibration.fildev.network/tcp/1347/p2p/12D3KooWA9hFfQG9GjP6bHeuQQbMD3FDtZLdW1NayxKXUT26PQZu",
     "/dns4/bootstrap-3.calibration.fildev.network/tcp/1347/p2p/12D3KooWMHDi3LVTFG8Szqogt7RkNXvonbQYqSazxBx41A5aeuVz",
+];
+
+pub const VERSION_SCHEDULE: [Upgrade; 14] = [
+    Upgrade {
+        height: UPGRADE_BREEZE_HEIGHT,
+        network: NetworkVersion::V1,
+    },
+    Upgrade {
+        height: UPGRADE_SMOKE_HEIGHT,
+        network: NetworkVersion::V2,
+    },
+    Upgrade {
+        height: UPGRADE_IGNITION_HEIGHT,
+        network: NetworkVersion::V3,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V2_HEIGHT,
+        network: NetworkVersion::V4,
+    },
+    Upgrade {
+        height: UPGRADE_TAPE_HEIGHT,
+        network: NetworkVersion::V5,
+    },
+    Upgrade {
+        height: UPGRADE_KUMQUAT_HEIGHT,
+        network: NetworkVersion::V6,
+    },
+    Upgrade {
+        height: UPGRADE_CALICO_HEIGHT,
+        network: NetworkVersion::V7,
+    },
+    Upgrade {
+        height: UPGRADE_PERSIAN_HEIGHT,
+        network: NetworkVersion::V8,
+    },
+    Upgrade {
+        height: UPGRADE_ORANGE_HEIGHT,
+        network: NetworkVersion::V9,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V3_HEIGHT,
+        network: NetworkVersion::V10,
+    },
+    Upgrade {
+        height: UPGRADE_NORWEGIAN_HEIGHT,
+        network: NetworkVersion::V11,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V4_HEIGHT,
+        network: NetworkVersion::V12,
+    },
+    Upgrade {
+        height: UPGRADE_HYPERDRIVE_HEIGHT,
+        network: NetworkVersion::V13,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V6_HEIGHT,
+        network: NetworkVersion::V14,
+    }
 ];
 
 lazy_static! {
