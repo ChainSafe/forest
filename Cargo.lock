@@ -3004,6 +3004,7 @@ dependencies = [
  "num-bigint 0.4.3",
  "num-integer",
  "serde",
+ "serde_ipld_dagcbor",
 ]
 
 [[package]]
@@ -3082,6 +3083,7 @@ dependencies = [
  "multibase 0.9.1",
  "multihash 0.16.1",
  "serde",
+ "serde_ipld_dagcbor",
  "serde_json",
 ]
 
