@@ -4,13 +4,13 @@
 use std::cmp::Ordering;
 use std::convert::{TryFrom, TryInto};
 
+use super::node::Node;
+use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 use cid::Cid;
 use libipld_core::ipld::Ipld;
 use once_cell::unsync::OnceCell;
 use serde::de::{self, DeserializeOwned};
 use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
-use super::node::Node;
-use super::{Error, Hash, HashAlgorithm, KeyValuePair, MAX_ARRAY_WIDTH};
 
 /// Pointer to index values or a link to another child node.
 #[derive(Debug)]

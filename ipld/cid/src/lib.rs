@@ -3,27 +3,14 @@
 
 mod mh_code;
 mod prefix;
-mod to_cid;
 
 pub use self::mh_code::{Code, POSEIDON_BLS12_381_A1_FC1, SHA2_256_TRUNC254_PADDED};
 pub use self::prefix::Prefix;
-use cid::CidGeneric;
 pub use cid::{Error, Version};
 pub use multihash;
 use multihash::Multihash;
 use multihash::MultihashDigest;
 use std::convert::TryFrom;
-use std::fmt;
-
-#[cfg(feature = "cbor")]
-use serde::{de, ser};
-
-#[cfg(feature = "cbor")]
-const CBOR_TAG_CID: u64 = 42;
-/// multibase identity prefix
-/// https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#link-format
-#[cfg(feature = "cbor")]
-const MULTIBASE_IDENTITY: u8 = 0;
 
 #[cfg(feature = "json")]
 pub mod json;
