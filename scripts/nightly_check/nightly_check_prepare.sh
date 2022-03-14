@@ -6,7 +6,7 @@ RET_COMPILATION_FAILED=2
 RET_RUN_FOREST_FAILED=3
 
 # Clone latest `Forest` main.
-if cd "$CHECK_DIR" && git clone --single-branch --branch night-job-scripts https://github.com/ChainSafe/forest.git && cd forest; then
+if cd "$CHECK_DIR" && git clone --single-branch --branch main https://github.com/ChainSafe/forest.git && cd forest; then
   echo "✅ Repository cloned"
 else
   echo "❌ Failed to clone the repository"
