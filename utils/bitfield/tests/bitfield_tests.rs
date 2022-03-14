@@ -5,8 +5,8 @@ use ahash::AHashSet;
 use forest_bitfield::{bitfield, BitField, UnvalidatedBitField};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
+use serde_ipld_dagcbor::Serializer;
 use std::iter::FromIterator;
-use serde_ipld_dagcbor::{Serializer, Deserializer};
 
 fn random_indices(range: usize, seed: u64) -> Vec<usize> {
     let mut rng = XorShiftRng::seed_from_u64(seed);
