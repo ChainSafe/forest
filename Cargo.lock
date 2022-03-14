@@ -5419,6 +5419,7 @@ dependencies = [
  "blake2b_simd 0.5.11",
  "chain",
  "cid",
+ "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",

@@ -26,7 +26,6 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
 use num_bigint::BigInt;
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -70,6 +69,15 @@ pub trait LookbackStateGetter<'db, DB> {
     fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, Box<dyn StdError>>;
 }
 
+#[derive(Clone, Copy)]
+pub struct Heights {
+    pub calico: ChainEpoch,
+    pub claus: ChainEpoch,
+    pub turbo: ChainEpoch,
+    pub hyperdrive: ChainEpoch,
+    pub chocolate: ChainEpoch,
+}
+
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<
@@ -94,6 +102,7 @@ pub struct VM<
     lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
+    heights: Heights,
 }
 
 pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, cid_orig::Cid> {
@@ -131,6 +140,7 @@ where
         override_circ_supply: Option<TokenAmount>,
         lb_state: &'r LB,
         engine: Engine,
+        heights: Heights,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -180,6 +190,7 @@ where
             lb_state,
             verifier: PhantomData,
             params: PhantomData,
+            heights,
         })
     }
 
@@ -276,7 +287,7 @@ where
         _store: Arc<impl BlockStore + Send + Sync>,
     ) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
-            x if x == UPGRADE_ACTORS_V4_HEIGHT => {
+            x if x == self.heights.turbo => {
                 // FIXME: Support state migrations.
                 panic!("Cannot migrate state when using FVM. See https://github.com/ChainSafe/forest/issues/1454 for updates.");
             }
@@ -494,7 +505,7 @@ where
     fn apply_message_native(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
         check_message(msg.message())?;
 
-        let pl = price_list_by_epoch(self.epoch);
+        let pl = price_list_by_epoch(self.epoch, self.heights.calico);
         let ser_msg = msg.marshal_cbor().map_err(|e| e.to_string())?;
         let msg_gas_cost = pl.on_chain_message(ser_msg.len());
         let cost_total = msg_gas_cost.total();
@@ -759,6 +770,7 @@ where
             &self.registered_actors,
             &self.circ_supply_calc,
             self.lb_state,
+            self.heights,
         );
 
         match res {
@@ -776,11 +788,11 @@ where
         exit_code: ExitCode,
     ) -> Result<bool, Box<dyn StdError>> {
         let st = &self.state;
-        if self.epoch <= UPGRADE_ACTORS_V4_HEIGHT {
+        if self.epoch <= self.heights.turbo {
             // Check to see if we should burn funds. We avoid burning on successful
             // window post. This won't catch _indirect_ window post calls, but this
             // is the best we can get for now.
-            if self.epoch > UPGRADE_CLAUS_HEIGHT
+            if self.epoch > self.heights.claus
                 && exit_code.is_success()
                 && msg.method_num() == miner::Method::SubmitWindowedPoSt as u64
             {

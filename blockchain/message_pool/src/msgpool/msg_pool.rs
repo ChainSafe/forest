@@ -24,6 +24,7 @@ use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::{HeadChange, MINIMUM_BASE_FEE};
 use cid::Cid;
+use clock::ChainEpoch;
 use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
@@ -156,6 +157,8 @@ pub struct MessagePool<T> {
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
+    /// Calico height
+    pub calico_height: ChainEpoch,
 }
 
 impl<T> MessagePool<T>
@@ -169,6 +172,7 @@ where
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
         block_delay: u64,
+        calico_height: ChainEpoch,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -200,6 +204,7 @@ where
             config,
             network_sender,
             repub_trigger,
+            calico_height,
         };
 
         mp.load_local().await?;
@@ -276,6 +281,7 @@ where
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
+                    calico_height,
                 )
                 .await
                 {
@@ -376,7 +382,7 @@ where
             return Err(Error::SequenceTooLow);
         }
 
-        let publish = verify_msg_before_add(&msg, cur_ts, local)?;
+        let publish = verify_msg_before_add(&msg, cur_ts, local, self.calico_height)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
@@ -466,7 +472,7 @@ where
             return Err(Error::TryAgain);
         }
 
-        let publish = verify_msg_before_add(&msg, &cur_ts, true)?;
+        let publish = verify_msg_before_add(&msg, &cur_ts, true, self.calico_height)?;
         self.check_balance(&msg, &cur_ts).await?;
         self.add_helper(msg.clone()).await?;
         self.add_local(msg.clone()).await?;
@@ -684,9 +690,9 @@ where
     Ok(())
 }
 
-fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool, calico_height: ChainEpoch) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
+    let min_gas = interpreter::price_list_by_epoch(epoch, calico_height).on_chain_message(m.marshal_cbor()?.len());
     m.message()
         .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
         .map_err(Error::Other)?;

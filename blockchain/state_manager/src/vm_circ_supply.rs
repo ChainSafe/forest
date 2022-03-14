@@ -53,18 +53,18 @@ pub(crate) struct GenesisInfo {
 
     /// Heights epoch
     ignition_height: ChainEpoch,
-    calico_height: ChainEpoch,
     actors_v2_height: ChainEpoch,
     liftoff_height: ChainEpoch,
+    calico_height: ChainEpoch,
 }
 
 impl GenesisInfo {
-    pub fn new(ignition_height: ChainEpoch, calico_height: ChainEpoch, actors_v2_height: ChainEpoch, liftoff_height: ChainEpoch) -> Self {
+    pub fn new(ignition_height: ChainEpoch, actors_v2_height: ChainEpoch, liftoff_height: ChainEpoch, calico_height: ChainEpoch) -> Self {
         Self {
             ignition_height,
-            calico_height,
             actors_v2_height,
             liftoff_height,
+            calico_height,
             ..GenesisInfo::default()
         }
     }

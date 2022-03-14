@@ -26,7 +26,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
 use interpreter::{
-    resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, LookbackStateGetter, Rand, VM,
+    resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
@@ -101,15 +101,15 @@ where
         let network_config = build_config(Network::Mainnet);
         let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
         let ignition = network_config.epoch(Height::Ignition);
-        let calico = network_config.epoch(Height::Calico);
         let actors_v2 = network_config.epoch(Height::ActorsV2);
         let liftoff = network_config.epoch(Height::Liftoff);
+        let calico = network_config.epoch(Height::Calico);
 
         Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: None,
-            genesis_info: GenesisInfo::new(ignition, calico, actors_v2, liftoff),
+            genesis_info: GenesisInfo::new(ignition, actors_v2, liftoff, calico),
             beacon,
             network_config,
             engine: fvm::machine::Engine::default(),
@@ -125,15 +125,15 @@ where
         let network_config = build_config(Network::Mainnet);
         let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
         let ignition = network_config.epoch(Height::Ignition);
-        let calico = network_config.epoch(Height::Calico);
         let actors_v2 = network_config.epoch(Height::ActorsV2);
         let liftoff = network_config.epoch(Height::Liftoff);
+        let calico = network_config.epoch(Height::Calico);
 
         Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: Some(chain_subs),
-            genesis_info: GenesisInfo::new(ignition, calico, actors_v2, liftoff),
+            genesis_info: GenesisInfo::new(ignition, actors_v2, liftoff, calico),
             beacon,
             network_config,
             engine: fvm::machine::Engine::default(),
@@ -330,9 +330,16 @@ where
         let nv_getter = |epoch| {
             self.network_config.network_version(epoch)
         };
-        let actors_v4 = self.network_config.epoch(Height::ActorsV4);
+        let turbo_height = self.network_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
+            let heights = Heights {
+                calico: self.network_config.epoch(Height::Calico),
+                claus: self.network_config.epoch(Height::Claus),
+                turbo: turbo_height,
+                hyperdrive: self.network_config.epoch(Height::Hyperdrive),
+                chocolate: self.network_config.epoch(Height::Chocolate),
+            };
             VM::<_, _, _, _, V>::new(
                 state_root,
                 db.as_ref(),
@@ -345,6 +352,7 @@ where
                 None,
                 &lb_wrapper,
                 self.engine.clone(),
+                heights,
             )
         };
 
@@ -361,7 +369,7 @@ where
                 parent_state = vm.flush()?;
             }
 
-            if epoch_i == actors_v4 {
+            if epoch_i == turbo_height {
                 todo!("cannot migrate state when using FVM - see https://github.com/ChainSafe/forest/issues/1454 for updates");
             }
         }
@@ -480,6 +488,13 @@ where
 
             let store_arc = self.blockstore_cloned();
 
+            let heights = Heights {
+                calico: self.network_config.epoch(Height::Calico),
+                claus: self.network_config.epoch(Height::Claus),
+                turbo: self.network_config.epoch(Height::Turbo),
+                hyperdrive: self.network_config.epoch(Height::Hyperdrive),
+                chocolate: self.network_config.epoch(Height::Chocolate),
+            };
             let mut vm = VM::<_, _, _, _, V>::new(
                 *bstate,
                 store_arc.as_ref(),
@@ -492,6 +507,7 @@ where
                 None,
                 &lb_wrapper,
                 self.engine.clone(),
+                heights,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -579,6 +595,13 @@ where
         let nv_getter = |epoch| {
             self.network_config.network_version(epoch)
         };
+        let heights = Heights {
+            calico: self.network_config.epoch(Height::Calico),
+            claus: self.network_config.epoch(Height::Claus),
+            turbo: self.network_config.epoch(Height::Turbo),
+            hyperdrive: self.network_config.epoch(Height::Hyperdrive),
+            chocolate: self.network_config.epoch(Height::Chocolate),
+        };
         let mut vm = VM::<_, _, _, _, V>::new(
             st,
             store_arc.as_ref(),
@@ -591,6 +614,7 @@ where
             None,
             &lb_wrapper,
             self.engine.clone(),
+            heights,
         )?;
 
         for msg in prior_messages {

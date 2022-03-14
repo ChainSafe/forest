@@ -31,14 +31,25 @@ struct DrandPoint<'a> {
     pub config: &'a DrandConfig<'a>,
 }
 
+/// Defines the meaningful heights of the protocol.
 pub enum Height {
-    ActorsV2,
-    ActorsV4,
-    Liftoff,
-    Ignition,
-    Calico,
+    Breeze,
     Smoke,
+    Ignition,
+    ActorsV2,
+    Tape,
+    Liftoff,
+    Kumquat,
+    Calico,
+    Persian,
+    Orange,
+    Claus,
+    Trust,
+    Norwegian,
+    Turbo,
     Hyperdrive,
+    Chocolate,
+    OhSnap,
 }
 
 #[async_trait]
@@ -59,7 +70,7 @@ pub trait Config {
     fn bootstrap_peers(&self) -> &'static [&'static str];
     /// Time, in seconds, between each block.
     fn block_delay(&self) -> u64;
-    /// Gets chain epoch's height.
+    /// Gets chain epoch's from a height.
     fn epoch(&self, height: Height) -> ChainEpoch;
 }
 

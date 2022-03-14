@@ -1619,6 +1619,7 @@ fn check_block_messages<
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
     let network_version = state_manager.network_config.network_version(block.header.epoch());
+    let calico_height = state_manager.network_config.epoch(Height::Calico);
 
     // Do the initial loop here
     // check block message and signatures in them
@@ -1655,7 +1656,7 @@ fn check_block_messages<
     } else {
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
-    let price_list = price_list_by_epoch(base_tipset.epoch());
+    let price_list = price_list_by_epoch(base_tipset.epoch(), calico_height);
     let mut sum_gas_limit = 0;
 
     // Check messages for validity

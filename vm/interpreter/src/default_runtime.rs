@@ -3,7 +3,7 @@
 
 use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
-use super::{CircSupplyCalc, LookbackStateGetter, Rand};
+use super::{CircSupplyCalc, Heights, LookbackStateGetter, Rand};
 use actor::{
     account, actorv0, actorv2, actorv3, actorv4, actorv5,
     actorv6::{self, ActorDowncast},
@@ -106,6 +106,8 @@ pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DefaultNetworkParams> {
 
     verifier: PhantomData<V>,
     params: PhantomData<P>,
+
+    heights: Heights,
 }
 
 impl<'db, 'vm, BS, R, C, LB, V, P> DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P>
@@ -135,8 +137,9 @@ where
         registered_actors: &'vm HashSet<Cid>,
         circ_supply_calc: &'vm C,
         lb_state: &'vm LB,
+        heights: Heights,
     ) -> Result<Self, ActorError> {
-        let price_list = price_list_by_epoch(epoch);
+        let price_list = price_list_by_epoch(epoch, heights.calico);
         let gas_tracker = Rc::new(RefCell::new(GasTracker::new(message.gas_limit(), gas_used)));
         let gas_block_store = GasBlockStore {
             price_list: price_list.clone(),
@@ -189,6 +192,7 @@ where
             caller_validated: false,
             params: PhantomData,
             verifier: PhantomData,
+            heights,
         })
     }
 
@@ -395,6 +399,7 @@ where
             gas_tracker: Rc::clone(&self.gas_tracker),
             origin_nonce: self.origin_nonce,
             params: self.params,
+            heights: self.heights,
         };
 
         // * End of logic that is performed on go runtime initialization
@@ -652,7 +657,7 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
-        let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
+        let r = if rand_epoch > self.heights.hyperdrive {
             self.rand
                 .get_chain_randomness(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
@@ -670,11 +675,11 @@ where
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
         #[allow(clippy::if_same_then_else)]
-        let r = if rand_epoch >= networks::UPGRADE_ACTORS_V6_HEIGHT {
+        let r = if rand_epoch >= self.heights.chocolate {
             self.rand
                 .get_beacon_randomness(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
-        } else if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
+        } else if rand_epoch > self.heights.hyperdrive {
             panic!("FVM doesn't support older networks")
         } else {
             panic!("FVM doesn't support older networks")

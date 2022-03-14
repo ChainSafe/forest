@@ -9,7 +9,6 @@ use fil_types::{
     AggregateSealVerifyProofAndInfos, PieceInfo, RegisteredPoStProof, RegisteredSealProof,
     SealVerifyInfo, WindowPoStVerifyInfo,
 };
-use networks::UPGRADE_CALICO_HEIGHT;
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
 
@@ -508,8 +507,8 @@ impl PriceList {
 }
 
 /// Returns gas price list by Epoch for gas consumption.
-pub fn price_list_by_epoch(epoch: ChainEpoch) -> PriceList {
-    if epoch < UPGRADE_CALICO_HEIGHT {
+pub fn price_list_by_epoch(epoch: ChainEpoch, calico_height: ChainEpoch) -> PriceList {
+    if epoch < calico_height {
         BASE_PRICES.clone()
     } else {
         CALICO_PRICES.clone()
