@@ -15,17 +15,14 @@ use util::{ld_read, ld_write, read_node};
 /// CAR file header
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct CarHeader {
-    pub roots: Vec<cid_orig::Cid>,
+    pub roots: Vec<Cid>,
     pub version: u64,
 }
 
 impl CarHeader {
     /// Creates a new CAR file header
     pub fn new(roots: Vec<Cid>, version: u64) -> Self {
-        Self {
-            roots: roots.into_iter().map(cid_orig::Cid::from).collect(),
-            version,
-        }
+        Self { roots, version }
     }
 
     /// Writes header and stream of data to writer in Car format.
@@ -53,10 +50,7 @@ impl CarHeader {
 
 impl From<Vec<Cid>> for CarHeader {
     fn from(roots: Vec<Cid>) -> Self {
-        Self {
-            roots: roots.into_iter().map(cid_orig::Cid::from).collect(),
-            version: 1,
-        }
+        Self { roots, version: 1 }
     }
 }
 
@@ -123,7 +117,7 @@ where
     }
     s.bulk_write(&buf)
         .map_err(|e| Error::Other(e.to_string()))?;
-    Ok(car_reader.header.roots.into_iter().map(Cid::from).collect())
+    Ok(car_reader.header.roots)
 }
 
 #[cfg(test)]

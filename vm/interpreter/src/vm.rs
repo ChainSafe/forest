@@ -96,7 +96,7 @@ pub struct VM<
     params: PhantomData<P>,
 }
 
-pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, cid_orig::Cid> {
+pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, Cid> {
     let bundles = [(NetworkVersion::V14, actors_v6::BUNDLE_CAR)];
     bundles
         .into_iter()

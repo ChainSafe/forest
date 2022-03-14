@@ -5,7 +5,6 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-cid_orig = { package = "cid", version = "0.8" }
 fvm_shared = "0.2.0"
 cid = { package = "forest_cid", version = "0.3", features = ["cbor"] }
 forest_encoding = "0.2.1"

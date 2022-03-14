@@ -22,7 +22,6 @@ ipld_blockstore = "0.1"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 forest_encoding = "0.2.1"
 forest_car = { path = "../../ipld/car" }
-cid_orig = { package = "cid", version = "0.8.2", features = ["serde-codec"] }
 cid = { package = "forest_cid", version = "0.3" }
 crypto = { package = "forest_crypto", default_features = false, version = "0.5", features = ["blst"] }
 num-traits = "0.2.11"

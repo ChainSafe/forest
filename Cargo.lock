@@ -1139,7 +1139,6 @@ dependencies = [
  "base64 0.13.0",
  "beacon",
  "chain",
- "cid",
  "commcid",
  "fil_clock",
  "fil_types",
@@ -3031,7 +3030,6 @@ dependencies = [
  "base64 0.13.0",
  "beacon",
  "byteorder 1.4.3",
- "cid",
  "derive_builder",
  "fil_clock",
  "fil_types",
@@ -3058,7 +3056,6 @@ name = "forest_car"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "cid",
  "forest_cid",
  "forest_db",
  "forest_encoding",
@@ -3148,7 +3145,6 @@ dependencies = [
  "async-recursion",
  "async-std",
  "async-trait",
- "cid",
  "forest_cid",
  "forest_db",
  "forest_encoding",
@@ -3213,7 +3209,6 @@ name = "forest_message"
 version = "0.7.2"
 dependencies = [
  "base64 0.13.0",
- "cid",
  "derive_builder",
  "fil_types",
  "forest_address",
@@ -3690,7 +3685,6 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "chain",
- "cid",
  "fil_types",
  "forest_blocks",
  "forest_car",
@@ -4124,7 +4118,6 @@ dependencies = [
  "anyhow",
  "async-std",
  "byteorder 1.4.3",
- "cid",
  "fil_builtin_actors_bundle",
  "fil_clock",
  "fil_types",
@@ -4232,7 +4225,6 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "byteorder 1.4.3",
- "cid",
  "commcid",
  "dashmap",
  "forest_cid",
@@ -5464,7 +5456,6 @@ dependencies = [
  "async-trait",
  "blake2b_simd 0.5.11",
  "chain",
- "cid",
  "fil_types",
  "forest_address",
  "forest_bigint",

@@ -5,6 +5,7 @@ use super::Message;
 use crate::signed_message::SignedMessage;
 use crate::unsigned_message::UnsignedMessage;
 use address::Address;
+use cid::Cid;
 use encoding::{Cbor, Error};
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
@@ -118,7 +119,7 @@ impl Message for ChainMessage {
 impl Cbor for ChainMessage {
     /// Returns the content identifier of the raw block of data
     /// Default is Blake2b256 hash
-    fn cid(&self) -> Result<cid_orig::Cid, Error> {
+    fn cid(&self) -> Result<Cid, Error> {
         match self {
             Self::Signed(t) => t.cid(),
             Self::Unsigned(t) => t.cid(),
