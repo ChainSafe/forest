@@ -899,6 +899,7 @@ mod tests {
     }
 
     // FIXME: IPLD format changed. Figure out what this test was supposed to do.
+    // Tracking issue: https://github.com/ChainSafe/forest/issues/1477
     // #[test]
     // fn empty_msg_meta_vector() {
     //     let blockstore = MemoryDB::default();
