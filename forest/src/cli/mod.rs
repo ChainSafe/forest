@@ -31,6 +31,7 @@ use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
 use std::cell::RefCell;
+use std::fs::File;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
@@ -154,6 +155,15 @@ impl CliOpts {
                 read_toml(&toml)?
             }
             None => {
+                // Check if $XDG_CONFIG_HOME/forest/config.toml exists
+                if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
+                    let path = PathBuf::from(root_config_path + "/forest/config.toml");
+                    if path.exists() {
+                        let toml = read_file_to_string(&path)?;
+                        return read_toml(&toml);
+                    }
+                }
+
                 // Check ENV VAR for config file
                 if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
                     // Read from config file
@@ -161,6 +171,15 @@ impl CliOpts {
                     // Parse and return the configuration file
                     read_toml(&toml)?
                 } else {
+                    // Cant find a config file, make one in a default location
+                    if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
+                        let path = PathBuf::from(root_config_path + "/forest/config.toml");
+                        let mut f = File::create(&path)?;
+                        let toml =
+                            toml::to_string(&Config::default()).expect("todo: remove this expect");
+                        let written = f.write_all(toml.as_bytes());
+                    }
+
                     Config::default()
                 }
             }

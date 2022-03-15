@@ -2750,6 +2750,7 @@ dependencies = [
  "structopt",
  "ticker",
  "tokio",
+ "toml",
  "utils",
  "uuid",
 ]

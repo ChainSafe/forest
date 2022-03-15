@@ -4,10 +4,10 @@
 use chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use rpc_client::DEFAULT_PORT;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use utils::get_home_dir;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Config {
     pub network: Libp2pConfig,
