@@ -60,10 +60,6 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         self.machine.create_actor(addr, act)
     }
 
-    // fn load_module(&self, code: &Cid) -> fvm::kernel::Result<wasmtime::Module> {
-    //     self.machine.load_module(code)
-    // }
-
     fn transfer(
         &mut self,
         from: ActorID,

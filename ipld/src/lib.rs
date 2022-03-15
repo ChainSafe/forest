@@ -1,12 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// mod de;
 mod error;
 mod path;
 mod path_segment;
 pub mod selector;
-// mod ser;
 pub mod util;
 
 #[cfg(feature = "json")]

@@ -127,7 +127,6 @@ impl<'a> TipsetValidator<'a> {
         // Generate Amt and batch set message values
         let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)?;
         let secp_message_root = Amt::new_from_iter(blockstore, secp_cids)?;
-        dbg!(bls_message_root, secp_message_root);
         let meta = TxMeta {
             bls_message_root,
             secp_message_root,
