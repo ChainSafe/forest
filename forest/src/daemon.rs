@@ -39,7 +39,7 @@ pub(super) async fn start(config: Config) {
         .set(address::Network::Mainnet)
         .unwrap();
 
-    info!("using chain :: {}", config.chain_id);
+    //info!("using chain :: {}", config.chain);
 
     info!(
         "Starting Forest daemon, version {}",
@@ -166,7 +166,7 @@ pub(super) async fn start(config: Config) {
 
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
-        config.network,
+        config.libp2p_config,
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,

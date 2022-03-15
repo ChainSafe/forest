@@ -9,8 +9,7 @@ use utils::get_home_dir;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub network: Libp2pConfig,
-    pub chain_id: String,
+    pub libp2p_config: Libp2pConfig,
     pub data_dir: String,
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
@@ -33,8 +32,7 @@ impl Config {
         //let data_dir = get_home_dir() + &format!("/.forest/{}", chain);
         let data_dir = get_home_dir() + "/.forest";
         Self {
-            network: Libp2pConfig::new(&[]),
-            chain_id: chain.to_owned(),
+            libp2p_config: Libp2pConfig::new(&[]),
             data_dir,
             genesis_file: None,
             enable_rpc: true,

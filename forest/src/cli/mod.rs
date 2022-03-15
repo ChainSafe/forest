@@ -97,12 +97,6 @@ pub enum Subcommand {
 pub struct CliOpts {
     #[structopt(short, long, help = "A toml file containing relevant configurations")]
     pub config: Option<String>,
-    #[structopt(
-        short,
-        long,
-        help = "A short name of the chain to use. One of 'calibnet' or 'mainnet' (default)"
-    )]
-    pub chain: Option<String>,
     #[structopt(short, long, help = "The genesis CAR file")]
     pub genesis: Option<String>,
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
@@ -149,8 +143,9 @@ pub struct CliOpts {
     #[structopt(long, help = "Encrypt the keystore (default = true)")]
     pub encrypt_keystore: Option<bool>,
     #[structopt(
+        short,
         long,
-        help = "Choose network to sync to (default = mainnet)",
+        help = "Choose network to sync to",
         default_value = "mainnet"
     )]
     pub network: String,
@@ -177,11 +172,6 @@ impl CliOpts {
                 }
             }
         };
-        if let Some(chain) = &self.chain {
-            cfg.chain_id = chain.to_owned();
-        } else {
-            cfg.chain_id = String::from("mainnet");
-        }
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
         }
@@ -213,10 +203,10 @@ impl CliOpts {
             cfg.skip_load = self.skip_load;
         }
 
-        cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
-        cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
+        cfg.libp2p_config.kademlia = self.kademlia.unwrap_or(cfg.libp2p_config.kademlia);
+        cfg.libp2p_config.mdns = self.mdns.unwrap_or(cfg.libp2p_config.mdns);
         if let Some(target_peer_count) = self.target_peer_count {
-            cfg.network.target_peer_count = target_peer_count;
+            cfg.libp2p_config.target_peer_count = target_peer_count;
         }
         // (where to find these flags, should be easy to do with structops)
 
