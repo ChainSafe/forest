@@ -19,7 +19,6 @@ serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 num-integer = "0.1"
 
 [dev-dependencies]
-#serde_cbor = { package = "cs_serde_cbor", version = "0.12", features = [ "tags" ] }
 
 [features]
 json = []
