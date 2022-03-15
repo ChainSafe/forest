@@ -166,7 +166,7 @@ pub(super) async fn start(config: Config) {
 
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
-        config.libp2p_config,
+        config.network,
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,

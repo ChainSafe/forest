@@ -203,10 +203,10 @@ impl CliOpts {
             cfg.skip_load = self.skip_load;
         }
 
-        cfg.libp2p_config.kademlia = self.kademlia.unwrap_or(cfg.libp2p_config.kademlia);
-        cfg.libp2p_config.mdns = self.mdns.unwrap_or(cfg.libp2p_config.mdns);
+        cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
+        cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
         if let Some(target_peer_count) = self.target_peer_count {
-            cfg.libp2p_config.target_peer_count = target_peer_count;
+            cfg.network.target_peer_count = target_peer_count;
         }
         // (where to find these flags, should be easy to do with structops)
 
