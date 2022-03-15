@@ -26,12 +26,12 @@ pub(super) use self::wallet_cmd::WalletCommands;
 use byte_unit::Byte;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
+use log::info;
 use num_bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
 use std::cell::RefCell;
-use std::fs::File;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process;
@@ -41,7 +41,7 @@ use structopt::StructOpt;
 
 use blocks::tipset_json::TipsetJson;
 use cid::Cid;
-use utils::{read_file_to_string, read_toml};
+use utils::{get_home_dir, read_file_to_string, read_toml, write_to_file};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -155,33 +155,40 @@ impl CliOpts {
                 read_toml(&toml)?
             }
             None => {
-                // Check if $XDG_CONFIG_HOME/forest/config.toml exists
-                if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
-                    let path = PathBuf::from(root_config_path + "/forest/config.toml");
-                    if path.exists() {
-                        let toml = read_file_to_string(&path)?;
-                        return read_toml(&toml);
-                    }
+                // determine if XDG_CONFIG_HOME is set for default locations, otherwise use home_dir
+                let path = if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
+                    PathBuf::from(root_config_path + "/forest/config.toml")
+                } else {
+                    // $XDG_CONFIG_HOME does not exist, check ~/.forest.toml
+                    PathBuf::from(get_home_dir() + ".forest.toml")
+                };
+
+                // use default config if it exists
+                if path.exists() {
+                    info!("a config path exists, using '{}'", path.display());
+                    let toml = read_file_to_string(&path)?;
+                    read_toml(&toml)?
                 }
 
                 // Check ENV VAR for config file
                 if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+                    info!("FOREST_CONFIG_PATH found");
                     // Read from config file
                     let toml = read_file_to_string(&PathBuf::from(&config_file))?;
                     // Parse and return the configuration file
                     read_toml(&toml)?
-                } else {
-                    // Cant find a config file, make one in a default location
-                    if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
-                        let path = PathBuf::from(root_config_path + "/forest/config.toml");
-                        let mut f = File::create(&path)?;
-                        let toml =
-                            toml::to_string(&Config::default()).expect("todo: remove this expect");
-                        let written = f.write_all(toml.as_bytes());
-                    }
-
-                    Config::default()
                 }
+
+                // No config file found, make one in a default location
+                let toml = toml::to_string(&Config::default()).expect("todo: remove this expect");
+
+                let _ = write_to_file(
+                    toml.as_bytes(),
+                    path.parent().unwrap(),
+                    path.file_name().unwrap().to_str().unwrap(),
+                )?;
+
+                Config::default()
             }
         };
         if let Some(genesis_file) = &self.genesis {
