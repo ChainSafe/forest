@@ -1122,6 +1122,7 @@ dependencies = [
  "multihash 0.16.1",
  "networks",
  "num-traits",
+ "pbr",
  "serde",
  "state_tree",
  "test_utils",
