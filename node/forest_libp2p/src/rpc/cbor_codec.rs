@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 // Code originally from futures_cbor_codec. License: Apache-2.0/MIT
 
 use {
