@@ -378,7 +378,7 @@ where
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
-                    info!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
+                    debug!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
                 }
             };
         }

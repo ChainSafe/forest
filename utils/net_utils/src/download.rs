@@ -72,6 +72,7 @@ impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
         let request = task::block_on(client.get_async(url.as_str()))?;
 
         let mut pb = ProgressBar::new(total_size);
+        pb.message("Downloading/Importing snapshot ");
         pb.set_units(Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
@@ -89,6 +90,7 @@ impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
         let total_size = async_std::task::block_on(file.metadata())?.len();
 
         let mut pb = ProgressBar::new(total_size);
+        pb.message("Importing snapshot ");
         pb.set_units(Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
