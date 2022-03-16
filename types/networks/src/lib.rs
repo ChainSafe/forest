@@ -168,7 +168,7 @@ impl ChainConfig {
         &self,
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
-        if self.name == "calibnnet" {
+        if self.name == "calibnet" {
             let mut points = BeaconSchedule(Vec::with_capacity(calibnet::DRAND_SCHEDULE.len()));
             for dc in calibnet::DRAND_SCHEDULE.iter() {
                 points.0.push(BeaconPoint {
