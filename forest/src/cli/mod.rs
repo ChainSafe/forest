@@ -102,7 +102,7 @@ pub struct CliOpts {
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "Port used for JSON-RPC communication")]
-    pub port: Option<String>,
+    pub port: Option<u16>,
     #[structopt(
         short,
         long,
