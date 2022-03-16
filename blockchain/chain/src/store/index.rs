@@ -84,7 +84,10 @@ where
                 return self.walk_back(lbe.tipset.clone(), to).await;
             }
             let to_be_done = lbe.tipset.epoch() - to;
-            pb.set((total_size - to_be_done) as u64);
+            // Don't show the progress bar if we're doing less than 10_000 units of work.
+            if total_size > 10_000 {
+                pb.set((total_size - to_be_done) as u64);
+            }
 
             cur = lbe.target.clone();
         }
