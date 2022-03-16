@@ -5,7 +5,7 @@
 extern crate lazy_static;
 
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use clock::ChainEpoch;
+use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
 use serde::{Deserialize, Deserializer};
 use std::{error::Error, sync::Arc};
@@ -55,22 +55,22 @@ const MAINNET_HEIGHT_INFOS: [HeightInfo; 17] = [
 ];
 
 const CALIBNET_HEIGHT_INFOS: [HeightInfo; 17] = [
-    HeightInfo { height: Height::Breeze, epoch: 41280 },
-    HeightInfo { height: Height::Smoke, epoch: 51000 },
-    HeightInfo { height: Height::Ignition, epoch: 94000 },
-    HeightInfo { height: Height::ActorsV2, epoch: 138720 },
-    HeightInfo { height: Height::Tape, epoch: 140760 },
-    HeightInfo { height: Height::Liftoff, epoch: 148888 },
-    HeightInfo { height: Height::Kumquat, epoch: 170000 },
-    HeightInfo { height: Height::Calico, epoch: 265200 },
-    HeightInfo { height: Height::Persian, epoch: 272400 },
-    HeightInfo { height: Height::Orange, epoch: 336458 },
-    HeightInfo { height: Height::Claus, epoch: 343200 },
-    HeightInfo { height: Height::Trust, epoch: 550321 },
-    HeightInfo { height: Height::Norwegian, epoch: 665280 },
-    HeightInfo { height: Height::Turbo, epoch: 712320 },
-    HeightInfo { height: Height::Hyperdrive, epoch: 892800 },
-    HeightInfo { height: Height::Chocolate, epoch: 1231620 },
+    HeightInfo { height: Height::Breeze, epoch: -1 },
+    HeightInfo { height: Height::Smoke, epoch: -2 },
+    HeightInfo { height: Height::Ignition, epoch: -3 },
+    HeightInfo { height: Height::ActorsV2, epoch: 30 },
+    HeightInfo { height: Height::Tape, epoch: 60 },
+    HeightInfo { height: Height::Liftoff, epoch: -5 },
+    HeightInfo { height: Height::Kumquat, epoch: 90 },
+    HeightInfo { height: Height::Calico, epoch: 120 },
+    HeightInfo { height: Height::Persian, epoch: 130 },
+    HeightInfo { height: Height::Orange, epoch: 300 },
+    HeightInfo { height: Height::Claus, epoch: 270 },
+    HeightInfo { height: Height::Trust, epoch: 330 },
+    HeightInfo { height: Height::Norwegian, epoch: 360 },
+    HeightInfo { height: Height::Turbo, epoch: 390 },
+    HeightInfo { height: Height::Hyperdrive, epoch: 420 },
+    HeightInfo { height: Height::Chocolate, epoch: 312746 },
     HeightInfo { height: Height::OhSnap, epoch: 9999999 },
 ];
 
@@ -141,7 +141,7 @@ impl ChainConfig {
         Self {
             name: "calibnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
-            block_delay_secs: BLOCK_DELAY_SECS,
+            block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: CALIBNET_HEIGHT_INFOS.to_vec(),
         }
@@ -212,7 +212,7 @@ impl Default for ChainConfig {
         Self {
             name: "mainnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
-            block_delay_secs: BLOCK_DELAY_SECS,
+            block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: MAINNET_HEIGHT_INFOS.to_vec(),
         }
