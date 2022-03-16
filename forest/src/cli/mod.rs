@@ -143,12 +143,12 @@ pub struct CliOpts {
     #[structopt(long, help = "Encrypt the keystore (default = true)")]
     pub encrypt_keystore: Option<bool>,
     #[structopt(
-        short,
+        short = "-n",
         long,
         help = "Choose network to sync to",
         default_value = "mainnet"
     )]
-    pub network: String,
+    pub chain: String,
 }
 
 impl CliOpts {
@@ -168,10 +168,13 @@ impl CliOpts {
                     // Parse and return the configuration file
                     read_toml(&toml)?
                 } else {
-                    Config::from_chain(&self.network)
+                    Config::new(&self.chain)
                 }
             }
         };
+
+        //println!("cfg: {:#?}", cfg);
+
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
         }

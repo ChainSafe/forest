@@ -33,7 +33,7 @@ use log::{debug, info, trace, warn};
 use message::{
     message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
 };
-use networks::{Config, Height};
+use networks::{ChainConfig, Height};
 use num_bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
@@ -88,7 +88,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
-    pub network_config: Arc<Config<'static>>,
+    pub chain_config: Arc<ChainConfig>,
     engine: fvm::machine::Engine,
 }
 
@@ -96,14 +96,17 @@ impl<DB> StateManager<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    pub async fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(
+        cs: Arc<ChainStore<DB>>,
+        config: ChainConfig,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let network_config = Arc::new(Config::mainnet());
-        let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
-        let ignition = network_config.epoch(Height::Ignition);
-        let actors_v2 = network_config.epoch(Height::ActorsV2);
-        let liftoff = network_config.epoch(Height::Liftoff);
-        let calico = network_config.epoch(Height::Calico);
+        let chain_config = Arc::new(config);
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()).await?);
+        let ignition = chain_config.epoch(Height::Ignition);
+        let actors_v2 = chain_config.epoch(Height::ActorsV2);
+        let liftoff = chain_config.epoch(Height::Liftoff);
+        let calico = chain_config.epoch(Height::Calico);
 
         Ok(Self {
             cs,
@@ -111,7 +114,7 @@ where
             publisher: None,
             genesis_info: GenesisInfo::new(ignition, actors_v2, liftoff, calico),
             beacon,
-            network_config,
+            chain_config,
             engine: fvm::machine::Engine::default(),
         })
     }
@@ -120,14 +123,15 @@ where
     pub async fn new_with_publisher(
         cs: Arc<ChainStore<DB>>,
         chain_subs: Publisher<HeadChange>,
+        config: ChainConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let network_config = Arc::new(Config::mainnet());
-        let beacon = Arc::new(network_config.get_beacon_schedule(genesis.timestamp()).await?);
-        let ignition = network_config.epoch(Height::Ignition);
-        let actors_v2 = network_config.epoch(Height::ActorsV2);
-        let liftoff = network_config.epoch(Height::Liftoff);
-        let calico = network_config.epoch(Height::Calico);
+        let chain_config = Arc::new(config);
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()).await?);
+        let ignition = chain_config.epoch(Height::Ignition);
+        let actors_v2 = chain_config.epoch(Height::ActorsV2);
+        let liftoff = chain_config.epoch(Height::Liftoff);
+        let calico = chain_config.epoch(Height::Calico);
 
         Ok(Self {
             cs,
@@ -135,7 +139,7 @@ where
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::new(ignition, actors_v2, liftoff, calico),
             beacon,
-            network_config,
+            chain_config,
             engine: fvm::machine::Engine::default(),
         })
     }
@@ -146,7 +150,7 @@ where
 
     /// Returns network version for the given epoch.
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        self.network_config.network_version(epoch)
+        self.chain_config.network_version(epoch)
     }
 
     /// Gets actor from given [Cid], if it exists.
@@ -328,17 +332,17 @@ where
         };
 
         let nv_getter = |epoch| {
-            self.network_config.network_version(epoch)
+            self.chain_config.network_version(epoch)
         };
-        let turbo_height = self.network_config.epoch(Height::Turbo);
+        let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
             let heights = Heights {
-                calico: self.network_config.epoch(Height::Calico),
-                claus: self.network_config.epoch(Height::Claus),
+                calico: self.chain_config.epoch(Height::Calico),
+                claus: self.chain_config.epoch(Height::Claus),
                 turbo: turbo_height,
-                hyperdrive: self.network_config.epoch(Height::Hyperdrive),
-                chocolate: self.network_config.epoch(Height::Chocolate),
+                hyperdrive: self.chain_config.epoch(Height::Hyperdrive),
+                chocolate: self.chain_config.epoch(Height::Chocolate),
             };
             VM::<_, _, _, _, V>::new(
                 state_root,
@@ -483,17 +487,17 @@ where
             };
 
             let nv_getter = |epoch| {
-                self.network_config.network_version(epoch)
+                self.chain_config.network_version(epoch)
             };
 
             let store_arc = self.blockstore_cloned();
 
             let heights = Heights {
-                calico: self.network_config.epoch(Height::Calico),
-                claus: self.network_config.epoch(Height::Claus),
-                turbo: self.network_config.epoch(Height::Turbo),
-                hyperdrive: self.network_config.epoch(Height::Hyperdrive),
-                chocolate: self.network_config.epoch(Height::Chocolate),
+                calico: self.chain_config.epoch(Height::Calico),
+                claus: self.chain_config.epoch(Height::Claus),
+                turbo: self.chain_config.epoch(Height::Turbo),
+                hyperdrive: self.chain_config.epoch(Height::Hyperdrive),
+                chocolate: self.chain_config.epoch(Height::Chocolate),
             };
             let mut vm = VM::<_, _, _, _, V>::new(
                 *bstate,
@@ -593,14 +597,14 @@ where
         };
         let store_arc = self.blockstore_cloned();
         let nv_getter = |epoch| {
-            self.network_config.network_version(epoch)
+            self.chain_config.network_version(epoch)
         };
         let heights = Heights {
-            calico: self.network_config.epoch(Height::Calico),
-            claus: self.network_config.epoch(Height::Claus),
-            turbo: self.network_config.epoch(Height::Turbo),
-            hyperdrive: self.network_config.epoch(Height::Hyperdrive),
-            chocolate: self.network_config.epoch(Height::Chocolate),
+            calico: self.chain_config.epoch(Height::Calico),
+            claus: self.chain_config.epoch(Height::Claus),
+            turbo: self.chain_config.epoch(Height::Turbo),
+            hyperdrive: self.chain_config.epoch(Height::Hyperdrive),
+            chocolate: self.chain_config.epoch(Height::Chocolate),
         };
         let mut vm = VM::<_, _, _, _, V>::new(
             st,
@@ -690,7 +694,7 @@ where
         V: ProofVerifier,
     {
         let mut lbr: ChainEpoch = ChainEpoch::from(0);
-        let version = self.network_config.network_version(round);
+        let version = self.chain_config.network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
@@ -741,7 +745,7 @@ where
         lookback_tipset: &Tipset,
     ) -> Result<bool, Error> {
         let hmp = self.miner_has_min_power(address, lookback_tipset)?;
-        let version = self.network_config.network_version(base_tipset.epoch());
+        let version = self.chain_config.network_version(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
             return Ok(hmp);
@@ -829,7 +833,7 @@ where
             &buf,
         )?;
 
-        let nv = self.network_config.network_version(tipset.epoch());
+        let nv = self.chain_config.network_version(tipset.epoch());
         let sectors = self.get_sectors_for_winning_post::<V>(
             &lbst,
             nv,

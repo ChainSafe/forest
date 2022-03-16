@@ -50,7 +50,7 @@ fn peer_manager_update() {
         height: 0,
         beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
     }]));
-    let state_manager = Arc::new(StateManager::new(chain_store));
+    let state_manager = Arc::new(StateManager::new(chain_store, config.chain));
     let cs = ChainSyncer::<_, _, MockVerifier, TestApi>::new(
         state_manager,
         beacon,

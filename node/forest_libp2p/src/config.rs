@@ -20,7 +20,7 @@ pub struct Libp2pConfig {
 }
 
 impl Libp2pConfig {
-    pub fn new(bootstrap: &[&str]) -> Self {
+    pub fn new(bootstrap: &[String]) -> Self {
         let bootstrap_peers = bootstrap
             .iter()
             .map(|node| node.parse().unwrap())

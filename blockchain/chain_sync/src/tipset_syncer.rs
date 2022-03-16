@@ -1234,8 +1234,8 @@ async fn validate_block<
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Timestamp checks
-    let block_delay = state_manager.network_config.block_delay();
-    let smoke_height = state_manager.network_config.epoch(Height::Smoke);
+    let block_delay = state_manager.chain_config.block_delay();
+    let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
     let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
@@ -1618,8 +1618,8 @@ fn check_block_messages<
     block: &Block,
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let network_version = state_manager.network_config.network_version(block.header.epoch());
-    let calico_height = state_manager.network_config.epoch(Height::Calico);
+    let network_version = state_manager.chain_config.network_version(block.header.epoch());
+    let calico_height = state_manager.chain_config.epoch(Height::Calico);
 
     // Do the initial loop here
     // check block message and signatures in them

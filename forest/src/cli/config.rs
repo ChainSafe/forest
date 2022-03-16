@@ -3,6 +3,7 @@
 
 use chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
+use networks::ChainConfig;
 use rpc_client::DEFAULT_PORT;
 use serde::Deserialize;
 use utils::get_home_dir;
@@ -25,14 +26,19 @@ pub struct Config {
     pub sync: SyncConfig,
     pub encrypt_keystore: bool,
     pub metrics_port: u16,
+    pub chain: ChainConfig,
 }
 
 impl Config {
-    pub fn from_chain(chain: &str) -> Self {
-        //let data_dir = get_home_dir() + &format!("/.forest/{}", chain);
+    pub fn new(chain: &str) -> Self {
+        // let data_dir = get_home_dir() + &format!("/.forest/{}", chain);
+        let chain_config = match chain {
+            "calibnet" => ChainConfig::calibnet(),
+            | "mainnet" | _ => ChainConfig::default(),
+        };
         let data_dir = get_home_dir() + "/.forest";
         Self {
-            network: Libp2pConfig::new(&[]),
+            network: Libp2pConfig::new(&chain_config.bootstrap_peers),
             data_dir,
             genesis_file: None,
             enable_rpc: true,
@@ -44,6 +50,7 @@ impl Config {
             sync: SyncConfig::default(),
             encrypt_keystore: true,
             metrics_port: 6116,
+            chain: chain_config,
         }
     }
 }

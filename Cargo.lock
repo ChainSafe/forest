@@ -5695,6 +5695,7 @@ dependencies = [
  "fil_clock",
  "fil_types",
  "lazy_static",
+ "serde",
  "serde_json",
 ]
 
