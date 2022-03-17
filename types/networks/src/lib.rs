@@ -134,6 +134,8 @@ pub struct ChainConfig {
     pub block_delay_secs: u64,
     pub version_schedule: Vec<UpgradeInfo>,
     pub height_infos: Vec<HeightInfo>,
+    // TODO: for dumpconfig #[serde(skip_serializing)]
+    pub genesis_bytes: Vec<u8>,
 }
 
 impl ChainConfig {
@@ -145,6 +147,7 @@ impl ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: CALIBNET_HEIGHT_INFOS.to_vec(),
+            genesis_bytes: DEFAULT_GENESIS.to_vec(),
         }
     }
 
@@ -216,6 +219,7 @@ impl Default for ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: MAINNET_HEIGHT_INFOS.to_vec(),
+            genesis_bytes: DEFAULT_GENESIS.to_vec(),
         }
     }
 }
