@@ -7,6 +7,9 @@ mod memory;
 #[cfg(feature = "rocksdb")]
 pub mod rocks;
 
+#[cfg(feature = "rocksdb")]
+pub mod rocks_config;
+
 #[cfg(feature = "sled")]
 pub mod sled;
 

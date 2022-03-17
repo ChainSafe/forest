@@ -22,9 +22,11 @@ use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace, warn};
 use rpassword::read_password;
 
+use db::rocks::RocksDb;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -117,7 +119,7 @@ pub(super) async fn start(config: Config) {
         .expect("Opening SledDB must succeed");
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(PathBuf::from(&config.data_dir).join("db"), config.rocks_db)
+    let db = db::rocks::RocksDb::open(PathBuf::from(&config.data_dir).join("db"), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
@@ -144,13 +146,7 @@ pub(super) async fn start(config: Config) {
 
     info!("Using network :: {}", network_name);
 
-    let validate_height = if config.snapshot { None } else { Some(0) };
-    // Sync from snapshot
-    if let Some(path) = &config.snapshot_path {
-        import_chain::<FullVerifier, _>(&state_manager, path, validate_height, config.skip_load)
-            .await
-            .unwrap();
-    }
+    sync_from_snapshot(&config, &state_manager).await;
 
     // Fetch and ensure verification keys are downloaded
     get_params_default(SectorSizeOpt::Keys, false)
@@ -259,6 +255,17 @@ pub(super) async fn start(config: Config) {
     keystore_write.await;
 
     info!("Forest finish shutdown");
+}
+
+async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
+    if let Some(path) = &config.snapshot_path {
+        let stopwatch = time::Instant::now();
+        let validate_height = if config.snapshot { None } else { Some(0) };
+        import_chain::<FullVerifier, _>(state_manager, path, validate_height, config.skip_load)
+            .await
+            .expect("Failed miserably while importing chain from snapshot");
+        debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+    }
 }
 
 #[cfg(test)]

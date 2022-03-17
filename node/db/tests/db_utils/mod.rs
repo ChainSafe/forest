@@ -3,7 +3,8 @@
 
 #![cfg(feature = "rocksdb")]
 
-use forest_db::rocks::{RocksDb, RocksDbConfig};
+use forest_db::rocks::RocksDb;
+use forest_db::rocks_config::RocksDbConfig;
 use std::ops::Deref;
 
 /// Temporary, self-cleaning RocksDB
@@ -22,7 +23,7 @@ impl TempRocksDB {
         let path = dir.path().join("db");
 
         TempRocksDB {
-            db: RocksDb::open(&path, RocksDbConfig::default()).unwrap(),
+            db: RocksDb::open(&path, &RocksDbConfig::default()).unwrap(),
             _dir: dir,
         }
     }
