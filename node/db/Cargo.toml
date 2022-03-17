@@ -14,3 +14,7 @@ parking_lot = "0.11"
 encoding = { package = "forest_encoding", version = "0.2" }
 thiserror = "1.0"
 num_cpus = "1.13"
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.3"
