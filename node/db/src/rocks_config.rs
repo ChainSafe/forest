@@ -31,7 +31,7 @@ impl Default for RocksDbConfig {
             max_open_files: 1024,
             max_background_jobs: None,
             compaction_style: None,
-            compression_type: None,
+            compression_type: Some("lz4".into()),
             enable_statistics: false,
         }
     }
