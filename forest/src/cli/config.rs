@@ -9,6 +9,7 @@ use serde::Deserialize;
 use utils::get_home_dir;
 
 #[derive(Debug, Deserialize)]
+#[serde(default)]
 pub struct Config {
     pub network: Libp2pConfig,
     pub data_dir: String,
@@ -29,13 +30,9 @@ pub struct Config {
     pub chain: ChainConfig,
 }
 
-impl Config {
-    pub fn new(chain: &str) -> Self {
-        // let data_dir = get_home_dir() + &format!("/.forest/{}", chain);
-        let chain_config = match chain {
-            "calibnet" => ChainConfig::calibnet(),
-            | "mainnet" | _ => ChainConfig::default(),
-        };
+impl Default for Config {
+    fn default() -> Self {
+        let chain_config = ChainConfig::default();
         let data_dir = get_home_dir() + "/.forest";
         Self {
             network: Libp2pConfig::new(&chain_config.bootstrap_peers),

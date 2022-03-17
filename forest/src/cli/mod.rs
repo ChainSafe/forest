@@ -27,6 +27,7 @@ use byte_unit::Byte;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use num_bigint::BigInt;
+use networks::ChainConfig;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
@@ -168,10 +169,14 @@ impl CliOpts {
                     // Parse and return the configuration file
                     read_toml(&toml)?
                 } else {
-                    Config::new(&self.chain)
+                    Config::default()
                 }
             }
         };
+
+        if self.chain == "calibnet" {
+            cfg.chain = ChainConfig::calibnet();
+        }
 
         //println!("cfg: {:#?}", cfg);
 
