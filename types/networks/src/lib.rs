@@ -177,7 +177,7 @@ impl ChainConfig {
             for dc in calibnet::DRAND_SCHEDULE.iter() {
                 points.0.push(BeaconPoint {
                     height: dc.height,
-                    beacon: Arc::new(DrandBeacon::new(genesis_ts, self.block_delay(), dc.config).await?),
+                    beacon: Arc::new(DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config).await?),
                 });
             }
             Ok(points)
@@ -186,19 +186,11 @@ impl ChainConfig {
             for dc in mainnet::DRAND_SCHEDULE.iter() {
                 points.0.push(BeaconPoint {
                     height: dc.height,
-                    beacon: Arc::new(DrandBeacon::new(genesis_ts, self.block_delay(), dc.config).await?),
+                    beacon: Arc::new(DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config).await?),
                 });
             }
             Ok(points)
         }
-    }
-
-    pub fn bootstrap_peers(&self) -> &[String] {
-        &self.bootstrap_peers
-    }
-
-    pub fn block_delay(&self) -> u64 {
-        self.block_delay_secs
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
