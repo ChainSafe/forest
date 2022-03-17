@@ -127,6 +127,7 @@ struct DrandPoint<'a> {
 
 /// Defines all network configuration parameters.
 #[derive(Debug, Deserialize, Clone)]
+#[serde(default)]
 pub struct ChainConfig {
     pub name: String,
     pub bootstrap_peers: Vec<String>,

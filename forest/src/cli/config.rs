@@ -35,7 +35,7 @@ impl Default for Config {
         let chain_config = ChainConfig::default();
         let data_dir = get_home_dir() + "/.forest";
         Self {
-            network: Libp2pConfig::new(&chain_config.bootstrap_peers),
+            network: Libp2pConfig::default(),
             data_dir,
             genesis_file: None,
             enable_rpc: true,

@@ -175,7 +175,13 @@ impl CliOpts {
         };
 
         if self.chain == "calibnet" {
-            cfg.chain = ChainConfig::calibnet();
+            let calibnet = ChainConfig::calibnet();
+            let bootstrap_peers = calibnet.bootstrap_peers
+                .iter()
+                .map(|node| node.parse().unwrap())
+                .collect();
+            cfg.chain = calibnet;
+            cfg.network.bootstrap_peers = bootstrap_peers;
         }
 
         //println!("cfg: {:#?}", cfg);
