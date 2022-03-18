@@ -70,9 +70,7 @@ pub(super) async fn start(config: Config) {
 
             let passphrase = read_password().expect("Error reading passphrase");
 
-            let mut data_dir = PathBuf::from(&config.data_dir);
-            data_dir.push(ENCRYPTED_KEYSTORE_NAME);
-
+            let data_dir = PathBuf::from(&config.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
                 print!("Confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
@@ -119,7 +117,7 @@ pub(super) async fn start(config: Config) {
         .expect("Opening SledDB must succeed");
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(format!("{}/{}", config.data_dir.clone(), "db"))
+    let db = db::rocks::RocksDb::open(PathBuf::from(&config.data_dir).join("db"), config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
@@ -237,7 +235,11 @@ pub(super) async fn start(config: Config) {
         (format!("127.0.0.1:{}", config.metrics_port))
             .parse()
             .unwrap(),
-        format!("{}/{}", config.data_dir.clone(), "db"),
+        PathBuf::from(&config.data_dir)
+            .join("db")
+            .into_os_string()
+            .into_string()
+            .expect("Failed converting the path to db"),
     ));
 
     // Block until ctrl-c is hit

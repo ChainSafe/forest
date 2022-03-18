@@ -3,44 +3,35 @@
 
 #![cfg(feature = "rocksdb")]
 
-// Taken from
-// https://github.com/rust-rocksdb/rust-rocksdb/blob/master/tests/util/mod.rs
-use rocksdb::{Options, DB};
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use forest_db::rocks::{RocksDb, RocksDbConfig};
+use std::ops::Deref;
 
-/// Ensures that DB::Destroy is called for this database when DBPath is dropped.
-pub struct DBPath {
-    pub path: PathBuf,
+/// Temporary, self-cleaning RocksDB
+pub struct TempRocksDB {
+    db: RocksDb,
+    _dir: tempfile::TempDir, // kept for cleaning up during Drop
 }
 
-impl DBPath {
-    /// Suffixes the given `prefix` with a timestamp to ensure that subsequent test runs don't reuse
-    /// an old database in case of panics prior to Drop being called.
-    pub fn new(prefix: &str) -> DBPath {
-        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let path = format!(
-            "{}.{}.{}",
-            prefix,
-            current_time.as_secs(),
-            current_time.subsec_nanos()
-        );
+impl TempRocksDB {
+    /// Creates a new DB in a temporary path that gets wiped out when the variable
+    /// gets out of scope.
+    pub fn new() -> TempRocksDB {
+        let dir = tempfile::Builder::new()
+            .tempdir()
+            .expect("Failed to create temporary path for db.");
+        let path = dir.path().join("db");
 
-        DBPath {
-            path: PathBuf::from(path),
+        TempRocksDB {
+            db: RocksDb::open(&path, RocksDbConfig::default()).unwrap(),
+            _dir: dir,
         }
     }
 }
 
-impl Drop for DBPath {
-    fn drop(&mut self) {
-        let opts = Options::default();
-        DB::destroy(&opts, &self.path).unwrap();
-    }
-}
+impl Deref for TempRocksDB {
+    type Target = RocksDb;
 
-impl AsRef<Path> for DBPath {
-    fn as_ref(&self) -> &Path {
-        &self.path
+    fn deref(&self) -> &Self::Target {
+        &self.db
     }
 }

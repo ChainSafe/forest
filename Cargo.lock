@@ -3103,7 +3103,9 @@ dependencies = [
  "num_cpus",
  "parking_lot",
  "rocksdb",
+ "serde",
  "sled",
+ "tempfile",
  "thiserror",
 ]
 
