@@ -153,7 +153,6 @@ impl<'de, Item: Deserialize<'de>> IoDecoder for Decoder<Item> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::sync::Arc;
 
     use super::*;
 
