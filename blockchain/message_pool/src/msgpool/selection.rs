@@ -18,6 +18,7 @@ use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
 use message::Message;
 use message::SignedMessage;
+use networks::{ChainConfig, Height};
 use num_bigint::BigInt;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
@@ -678,9 +679,12 @@ mod test_selection {
 
     fn make_test_mpool() -> MessagePool<TestApi> {
         let tma = TestApi::default();
+        let chain_config = ChainConfig::default();
+        let block_delay = chain_config.block_delay_secs;
+        let calico_height = chain_config.epoch(Height::Calico);
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!(), todo!()).await
+            MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), block_delay, calico_height).await
         })
         .unwrap()
     }

@@ -24,6 +24,7 @@ use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use log::error;
 use lru::LruCache;
 use message::{Message, SignedMessage};
+use networks::{ChainConfig, Height};
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -335,9 +336,13 @@ pub mod tests {
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
+        let chain_config = ChainConfig::default();
+        let block_delay = chain_config.block_delay_secs;
+        let calico_height = chain_config.epoch(Height::Calico);
+
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!(), todo!())
+            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), block_delay, calico_height)
                 .await
                 .unwrap();
             let mut smsg_vec = Vec::new();
@@ -400,8 +405,12 @@ pub mod tests {
         }
         let (tx, _rx) = bounded(50);
 
+        let chain_config = ChainConfig::default();
+        let block_delay = chain_config.block_delay_secs;
+        let calico_height = chain_config.epoch(Height::Calico);
+
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!(), todo!())
+            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), block_delay, calico_height)
                 .await
                 .unwrap();
 
@@ -494,8 +503,12 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
         let (tx, _rx) = bounded(50);
 
+        let chain_config = ChainConfig::default();
+        let block_delay = chain_config.block_delay_secs;
+        let calico_height = chain_config.epoch(Height::Calico);
+
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!(), todo!())
+            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), block_delay, calico_height)
                 .await
                 .unwrap();
 
@@ -540,6 +553,7 @@ pub mod tests {
         let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let tma = TestApi::default();
         let gas_limit = 6955002;
+        let calico_height = ChainConfig::default().epoch(Height::Calico);
         task::block_on(async move {
             let tma = RwLock::new(tma);
             let a = mock_block(1, 1);
@@ -557,7 +571,7 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, todo!())
+            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, calico_height)
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
@@ -587,7 +601,7 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, todo!())
+            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, calico_height)
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 10, "expected 10 chains");
@@ -623,7 +637,7 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, todo!())
+            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, calico_height)
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 2, "expected 2 chains");
@@ -663,7 +677,7 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, todo!())
+            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
                 .await
                 .unwrap();
 
@@ -705,7 +719,7 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, todo!())
+            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
@@ -736,7 +750,7 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, todo!())
+            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
@@ -770,7 +784,7 @@ pub mod tests {
                 mset.insert(i as u64, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, todo!())
+            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
@@ -797,7 +811,7 @@ pub mod tests {
                 mset.insert(i as u64, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, todo!())
+            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
                 .await
                 .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
