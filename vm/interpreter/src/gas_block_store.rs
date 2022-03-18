@@ -6,6 +6,7 @@ use cid::{Cid, Code};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
 use ipld_blockstore::BlockStore;
+use networks::{ChainConfig, Height};
 use std::cell::RefCell;
 use std::error::Error as StdError;
 use std::rc::Rc;
@@ -104,13 +105,14 @@ mod tests {
 
     #[test]
     fn gas_blockstore() {
+        let calico_height = ChainConfig::default().epoch(Height::Calico);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
             price_list: PriceList {
                 ipld_get_base: 4,
                 ipld_put_base: 2,
                 ipld_put_per_byte: 1,
-                ..price_list_by_epoch(0)
+                ..price_list_by_epoch(0, calico_height)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(5000, 0))),
             store: &db,
@@ -125,11 +127,12 @@ mod tests {
 
     #[test]
     fn gas_blockstore_oog() {
+        let calico_height = ChainConfig::default().epoch(Height::Calico);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
             price_list: PriceList {
                 ipld_put_base: 12,
-                ..price_list_by_epoch(0)
+                ..price_list_by_epoch(0, calico_height)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(10, 0))),
             store: &db,

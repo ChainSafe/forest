@@ -6,6 +6,7 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::Message;
+use networks::{ChainConfig, Height};
 use num_bigint::{BigInt, Integer};
 use std::collections::HashSet;
 use types::BLOCK_GAS_LIMIT;
@@ -136,20 +137,21 @@ mod tests {
         ]
     }
 
-    // #[test]
-    // fn run_base_fee_tests() {
-    //     let cases = construct_tests();
+    #[test]
+    fn run_base_fee_tests() {
+        let smoke_height = ChainConfig::default().epoch(Height::Smoke);
+        let cases = construct_tests();
 
-    //     for case in cases {
-    //         // Pre smoke
-    //         let output =
-    //             compute_next_base_fee(&case.0.into(), case.1, case.2, UPGRADE_SMOKE_HEIGHT - 1);
-    //         assert_eq!(BigInt::from(case.3), output);
+        for case in cases {
+            // Pre smoke
+            let output =
+                compute_next_base_fee(&case.0.into(), case.1, case.2, smoke_height - 1, smoke_height);
+            assert_eq!(BigInt::from(case.3), output);
 
-    //         // Post smoke
-    //         let output =
-    //             compute_next_base_fee(&case.0.into(), case.1, case.2, UPGRADE_SMOKE_HEIGHT + 1);
-    //         assert_eq!(BigInt::from(case.4), output);
-    //     }
-    // }
+            // Post smoke
+            let output =
+                compute_next_base_fee(&case.0.into(), case.1, case.2, smoke_height + 1, smoke_height);
+            assert_eq!(BigInt::from(case.4), output);
+        }
+    }
 }

@@ -337,7 +337,7 @@ pub mod tests {
 
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!())
+            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!(), todo!())
                 .await
                 .unwrap();
             let mut smsg_vec = Vec::new();
@@ -401,7 +401,7 @@ pub mod tests {
         let (tx, _rx) = bounded(50);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!())
+            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!(), todo!())
                 .await
                 .unwrap();
 
@@ -495,7 +495,7 @@ pub mod tests {
         let (tx, _rx) = bounded(50);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!())
+            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!(), todo!())
                 .await
                 .unwrap();
 

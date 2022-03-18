@@ -680,7 +680,7 @@ mod test_selection {
         let tma = TestApi::default();
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!()).await
+            MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), todo!(), todo!()).await
         })
         .unwrap()
     }

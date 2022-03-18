@@ -12,6 +12,7 @@ use fil_types::verifier::MockVerifier;
 use forest_libp2p::hello::HelloRequest;
 use libp2p::core::PeerId;
 use message_pool::{test_provider::TestApi, MessagePool};
+use networks::{ChainConfig, Height};
 use state_manager::StateManager;
 use std::time::Duration;
 
@@ -21,12 +22,16 @@ fn peer_manager_update() {
 
     let chain_store = Arc::new(ChainStore::new(db));
     let (tx, _rx) = bounded(10);
+    let chain_config = ChainConfig::default();
+    let block_delay = chain_config.block_delay_secs;
+    let calico_height = chain_config.epoch(Height::Calico);
     let mpool = task::block_on(MessagePool::new(
         TestApi::default(),
         "test".to_string(),
         tx,
         Default::default(),
-        todo!(),
+        block_delay,
+        calico_height,
     ))
     .unwrap();
     let mpool = Arc::new(mpool);

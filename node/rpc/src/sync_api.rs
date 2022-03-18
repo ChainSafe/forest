@@ -10,6 +10,7 @@ use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use message::{SignedMessage, UnsignedMessage};
+use networks::{ChainConfig, Height};
 use rpc_api::data_types::{RPCState, RPCSyncState};
 use rpc_api::sync_api::*;
 
@@ -145,8 +146,10 @@ mod tests {
             .build()
             .unwrap();
         cs_arc.set_genesis(&genesis_header).unwrap();
-        let state_manager = Arc::new(StateManager::new(cs_arc.clone()).await.unwrap());
-        let calico_height = state_manager.chain_config.epoch(Height::Calico);
+        let chain_config = ChainConfig::default();
+        let block_delay = chain_config.block_delay_secs;
+        let calico_height = chain_config.epoch(Height::Calico);
+        let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).await.unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = cs_arc.clone();
         let cs_for_chain = cs_arc.clone();
@@ -171,6 +174,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
+                block_delay,
                 calico_height,
             )
             .await
