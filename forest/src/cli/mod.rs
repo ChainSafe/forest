@@ -155,6 +155,8 @@ impl CliOpts {
                 read_toml(&toml)?
             }
             None => {
+                let mut config = Config::default();
+
                 // determine if XDG_CONFIG_HOME is set for default locations, otherwise use home_dir
                 let path = if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
                     PathBuf::from(root_config_path + "/forest/config.toml")
@@ -165,22 +167,20 @@ impl CliOpts {
 
                 // use default config if it exists
                 if path.exists() {
-                    info!("a config path exists, using '{}'", path.display());
                     let toml = read_file_to_string(&path)?;
-                    read_toml(&toml)?
+                    config = read_toml(&toml)?;
                 }
 
                 // Check ENV VAR for config file
                 if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
-                    info!("FOREST_CONFIG_PATH found");
                     // Read from config file
                     let toml = read_file_to_string(&PathBuf::from(&config_file))?;
                     // Parse and return the configuration file
-                    read_toml(&toml)?
+                    config = read_toml(&toml)?;
                 }
 
                 // No config file found, make one in a default location
-                let toml = toml::to_string(&Config::default()).expect("todo: remove this expect");
+                let toml = toml::to_string(&config).expect("todo: remove this expect");
 
                 let _ = write_to_file(
                     toml.as_bytes(),
@@ -188,7 +188,7 @@ impl CliOpts {
                     path.file_name().unwrap().to_str().unwrap(),
                 )?;
 
-                Config::default()
+                config
             }
         };
         if let Some(genesis_file) = &self.genesis {
