@@ -26,7 +26,7 @@ pub struct Config {
     pub sync: SyncConfig,
     pub encrypt_keystore: bool,
     pub metrics_port: u16,
-    pub rocks_db: db::rocks::RocksDbConfig,
+    pub rocks_db: db::rocks_config::RocksDbConfig,
 }
 
 impl Default for Config {
@@ -44,7 +44,7 @@ impl Default for Config {
             sync: SyncConfig::default(),
             encrypt_keystore: true,
             metrics_port: 6116,
-            rocks_db: db::rocks::RocksDbConfig::default(),
+            rocks_db: db::rocks_config::RocksDbConfig::default(),
         }
     }
 }

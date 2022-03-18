@@ -3,30 +3,9 @@
 
 use super::errors::Error;
 use super::Store;
-use num_cpus;
+use crate::rocks_config::{compaction_style_from_str, compression_type_from_str, RocksDbConfig};
 pub use rocksdb::{Options, WriteBatch, DB};
-use serde::Deserialize;
 use std::path::Path;
-
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-pub struct RocksDbConfig {
-    create_if_missing: bool,
-    parallelism: i32,
-    write_buffer_size: usize,
-    max_open_files: i32,
-}
-
-impl Default for RocksDbConfig {
-    fn default() -> Self {
-        Self {
-            create_if_missing: true,
-            parallelism: num_cpus::get() as i32,
-            write_buffer_size: 256 * 1024 * 1024,
-            max_open_files: 200,
-        }
-    }
-}
 
 /// RocksDB instance this satisfies the [Store] interface.
 #[derive(Debug)]
@@ -38,12 +17,13 @@ pub struct RocksDb {
 ///
 /// Usage:
 /// ```no_run
-/// use forest_db::rocks::{RocksDb, RocksDbConfig};
+/// use forest_db::rocks::RocksDb;
+/// use forest_db::rocks_config::RocksDbConfig;
 ///
-/// let mut db = RocksDb::open("test_db", RocksDbConfig::default()).unwrap();
+/// let mut db = RocksDb::open("test_db", &RocksDbConfig::default()).unwrap();
 /// ```
 impl RocksDb {
-    pub fn open<P>(path: P, config: RocksDbConfig) -> Result<Self, Error>
+    pub fn open<P>(path: P, config: &RocksDbConfig) -> Result<Self, Error>
     where
         P: AsRef<Path>,
     {
@@ -52,6 +32,19 @@ impl RocksDb {
         db_opts.increase_parallelism(config.parallelism);
         db_opts.set_write_buffer_size(config.write_buffer_size);
         db_opts.set_max_open_files(config.max_open_files);
+
+        if let Some(max_background_jobs) = config.max_background_jobs {
+            db_opts.set_max_background_jobs(max_background_jobs);
+        }
+        if let Some(compaction_style) = &config.compaction_style {
+            db_opts.set_compaction_style(compaction_style_from_str(compaction_style).unwrap());
+        }
+        if let Some(compression_type) = &config.compression_type {
+            db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
+        }
+        if config.enable_statistics {
+            db_opts.enable_statistics();
+        };
         Ok(Self {
             db: DB::open(&db_opts, path)?,
         })
