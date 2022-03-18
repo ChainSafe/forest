@@ -3,15 +3,18 @@
 
 use async_trait::async_trait;
 use asynchronous_codec::FramedRead;
+use forest_encoding::de::DeserializeOwned;
 use forest_encoding::to_vec;
 use futures::prelude::*;
-use futures_cbor_codec::Decoder;
 use libp2p::core::ProtocolName;
 use libp2p::request_response::OutboundFailure;
 use libp2p::request_response::RequestResponseCodec;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::Serialize;
 use std::io;
 use std::marker::PhantomData;
+
+mod cbor_codec;
+use cbor_codec::Decoder;
 
 /// Generic Cbor RequestResponse type. This is just needed to satisfy [RequestResponseCodec]
 /// for Hello and ChainExchange protocols without duplication.
