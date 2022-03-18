@@ -140,7 +140,7 @@ pub(super) async fn start(config: Config) {
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), config.chain).await.unwrap();
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::new(config.chain.clone())).await.unwrap();
     let block_delay = sm.chain_config.block_delay_secs;
     let calico_height = sm.chain_config.epoch(Height::Calico);
     let state_manager = Arc::new(sm);

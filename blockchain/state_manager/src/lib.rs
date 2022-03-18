@@ -98,10 +98,9 @@ where
 {
     pub async fn new(
         cs: Arc<ChainStore<DB>>,
-        config: ChainConfig,
+        chain_config: Arc<ChainConfig>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let chain_config = Arc::new(config);
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()).await?);
         let ignition = chain_config.epoch(Height::Ignition);
         let actors_v2 = chain_config.epoch(Height::ActorsV2);
