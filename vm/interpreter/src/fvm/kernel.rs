@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::ForestMachine;
-use cid_orig::Cid;
+use cid::Cid;
 use clock::ChainEpoch;
 use crypto::DomainSeparationTag;
 use fvm::call_manager::*;
@@ -56,7 +56,7 @@ impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
         self.0.resolve_address(address)
     }
 
-    fn get_actor_code_cid(&self, addr: &Address) -> fvm::kernel::Result<Option<cid_orig::Cid>> {
+    fn get_actor_code_cid(&self, addr: &Address) -> fvm::kernel::Result<Option<Cid>> {
         self.0.get_actor_code_cid(addr)
     }
 
@@ -64,11 +64,7 @@ impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
         self.0.new_actor_address()
     }
 
-    fn create_actor(
-        &mut self,
-        code_id: cid_orig::Cid,
-        actor_id: ActorID,
-    ) -> fvm::kernel::Result<()> {
+    fn create_actor(&mut self, code_id: Cid, actor_id: ActorID) -> fvm::kernel::Result<()> {
         self.0.create_actor(code_id, actor_id)
     }
 
@@ -84,7 +80,7 @@ impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
     }
 }
 impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB> {
-    fn block_open(&mut self, cid: &cid_orig::Cid) -> fvm::kernel::Result<(BlockId, BlockStat)> {
+    fn block_open(&mut self, cid: &Cid) -> fvm::kernel::Result<(BlockId, BlockStat)> {
         self.0.block_open(cid)
     }
 
@@ -97,7 +93,7 @@ impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB> {
         id: BlockId,
         hash_fun: u64,
         hash_len: u32,
-    ) -> fvm::kernel::Result<cid_orig::Cid> {
+    ) -> fvm::kernel::Result<Cid> {
         self.0.block_link(id, hash_fun, hash_len)
     }
 
@@ -132,7 +128,7 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
         &mut self,
         proof_type: RegisteredSealProof,
         pieces: &[PieceInfo],
-    ) -> Result<cid_orig::Cid> {
+    ) -> Result<Cid> {
         self.0.compute_unsealed_sector_cid(proof_type, pieces)
     }
 
@@ -174,6 +170,11 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     // forwarded
     fn verify_aggregate_seals(&mut self, agg: &AggregateSealVerifyProofAndInfos) -> Result<bool> {
         self.0.verify_aggregate_seals(agg)
+    }
+
+    // forwarded
+    fn verify_replica_update(&mut self, replica: &ReplicaUpdateInfo) -> Result<bool> {
+        self.0.verify_replica_update(replica)
     }
 }
 impl<DB: BlockStore> DebugOps for ForestKernel<DB> {
@@ -242,11 +243,11 @@ impl<DB: BlockStore> RandomnessOps for ForestKernel<DB> {
     }
 }
 impl<DB: BlockStore> SelfOps for ForestKernel<DB> {
-    fn root(&self) -> Result<cid_orig::Cid> {
+    fn root(&self) -> Result<Cid> {
         self.0.root()
     }
 
-    fn set_root(&mut self, root: cid_orig::Cid) -> Result<()> {
+    fn set_root(&mut self, root: Cid) -> Result<()> {
         self.0.set_root(root)
     }
 

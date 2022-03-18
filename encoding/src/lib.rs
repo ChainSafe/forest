@@ -7,13 +7,13 @@ mod hash;
 
 pub use serde::{de, ser};
 pub use serde_bytes;
-pub use serde_cbor::{error, from_reader, from_slice, tags, to_vec, to_writer};
+pub use serde_ipld_dagcbor::error;
 
 pub use self::bytes::*;
 pub use self::checked_serde_bytes::serde_byte_array;
 pub use self::hash::*;
 
-pub use fvm_shared::encoding::{Cbor, Error};
+pub use fvm_shared::encoding::{from_slice, to_vec, Cbor, Error};
 
 pub mod tuple {
     pub use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};

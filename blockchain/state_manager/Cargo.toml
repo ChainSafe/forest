@@ -9,8 +9,8 @@ features = ["statediff"]
 
 [dependencies]
 anyhow = "1.0"
-fvm = "0.1"
-fvm_shared = { version = "0.1", default-features = false }
+fvm = "0.2"
+fvm_shared = { version = "0.2", default-features = false }
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 blake2b_simd = "0.5.9"

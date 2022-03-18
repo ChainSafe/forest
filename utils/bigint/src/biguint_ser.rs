@@ -69,8 +69,7 @@ where
 mod tests {
     use crate::biguint_ser::{deserialize, serialize};
     use num_bigint::BigUint;
-    use serde_cbor::de::Deserializer;
-    use serde_cbor::ser::Serializer;
+    use serde_ipld_dagcbor::{Deserializer, Serializer};
 
     #[test]
     fn serialize_biguint_test() {

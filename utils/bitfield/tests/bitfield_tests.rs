@@ -5,7 +5,7 @@ use ahash::AHashSet;
 use forest_bitfield::{bitfield, BitField, UnvalidatedBitField};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
-use serde_cbor::ser::Serializer;
+use serde_ipld_dagcbor::Serializer;
 use std::iter::FromIterator;
 
 fn random_indices(range: usize, seed: u64) -> Vec<usize> {

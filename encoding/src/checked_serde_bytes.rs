@@ -62,7 +62,7 @@ mod tests {
                 inner: vec![0; len],
             };
 
-            assert!(serde_cbor::to_vec(&bytes).is_ok());
+            assert!(serde_ipld_dagcbor::to_vec(&bytes).is_ok());
         }
     }
 
@@ -73,7 +73,7 @@ mod tests {
         };
 
         assert_eq!(
-            format!("{}", serde_cbor::to_vec(&bytes).err().unwrap()),
+            format!("{}", serde_ipld_dagcbor::to_vec(&bytes).err().unwrap()),
             "Array exceed max length".to_string()
         );
     }
@@ -85,9 +85,9 @@ mod tests {
                 inner: vec![0; len],
             };
 
-            let encoding = serde_cbor::to_vec(&bytes).unwrap();
+            let encoding = serde_ipld_dagcbor::to_vec(&bytes).unwrap();
             assert_eq!(
-                serde_cbor::from_slice::<ByteArray>(&encoding).unwrap(),
+                serde_ipld_dagcbor::from_slice::<ByteArray>(&encoding).unwrap(),
                 bytes
             );
         }
@@ -100,7 +100,7 @@ mod tests {
         };
 
         // prefix: 2 ^ 21 -> 2 ^ 21 + 1
-        let mut overflow_encoding = serde_cbor::to_vec(&max_length_bytes).unwrap();
+        let mut overflow_encoding = serde_ipld_dagcbor::to_vec(&max_length_bytes).unwrap();
         let encoding_len = overflow_encoding.len();
         overflow_encoding[encoding_len - BYTE_ARRAY_MAX_LEN - 1] = 1;
         overflow_encoding.push(0);
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(
             format!(
                 "{}",
-                serde_cbor::from_slice::<ByteArray>(&overflow_encoding)
+                serde_ipld_dagcbor::from_slice::<ByteArray>(&overflow_encoding)
                     .err()
                     .unwrap()
             ),

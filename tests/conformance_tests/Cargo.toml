@@ -32,7 +32,7 @@ submodule_tests = [
 ]
 
 [dependencies]
-fvm = "0.1"
+fvm = "0.2"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
 cid = { package = "forest_cid", version = "0.3", features = [
