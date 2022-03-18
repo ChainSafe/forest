@@ -32,7 +32,7 @@ use async_std::task::{Context, Poll};
 use futures::stream::FuturesUnordered;
 use futures::{future::try_join_all, future::Future, try_join};
 use log::{debug, error, info, trace, warn};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use std::sync::Arc;
@@ -67,7 +67,7 @@ pub enum ChainMuxerError {
 }
 
 /// Struct that defines syncing configuration options
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
