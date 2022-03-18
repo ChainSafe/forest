@@ -17,6 +17,7 @@ use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use futures::AsyncRead;
 use interpreter::{ApplyRet, Backend};
+use networks::ChainConfig;
 use num_bigint::{BigInt, ToBigInt};
 use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
@@ -224,7 +225,8 @@ async fn execute_tipset_vector(
 ) -> Result<(), Box<dyn StdError>> {
     let bs = load_car(car).await?;
     let bs = Arc::new(bs);
-    let sm = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs))).await?);
+    let chain_config = Arc::new(ChainConfig::default());
+    let sm = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs)), chain_config).await?);
     genesis::initialize_genesis(None, &sm).await.unwrap();
 
     let base_epoch = variant.epoch;

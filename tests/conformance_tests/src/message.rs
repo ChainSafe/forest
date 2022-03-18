@@ -3,7 +3,8 @@
 
 use super::*;
 use db::MemoryDB;
-use interpreter::{CircSupplyCalc, LookbackStateGetter};
+use interpreter::{CircSupplyCalc, Heights, LookbackStateGetter};
+use networks::{ChainConfig, Height};
 use state_tree::StateTree;
 use std::sync::Arc;
 use vm::TokenAmount;
@@ -62,6 +63,14 @@ pub fn execute_message(
     let lb = MockStateLB(bs.as_ref());
 
     let nv = params.nv;
+    let chain_config = ChainConfig::default();
+    let heights = Heights {
+        calico: chain_config.epoch(Height::Calico),
+        claus: chain_config.epoch(Height::Claus),
+        turbo: chain_config.epoch(Height::Turbo),
+        hyperdrive: chain_config.epoch(Height::Hyperdrive),
+        chocolate: chain_config.epoch(Height::Chocolate),
+    };
     let mut vm = VM::<_, _, _, _>::new(
         *params.pre_root,
         bs.as_ref(),
@@ -74,6 +83,7 @@ pub fn execute_message(
         Some(params.circ_supply),
         &lb,
         engine,
+        heights,
     )?;
 
     if let Some(s) = &selector {
