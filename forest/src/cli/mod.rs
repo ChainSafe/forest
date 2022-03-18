@@ -26,8 +26,8 @@ pub(super) use self::wallet_cmd::WalletCommands;
 use byte_unit::Byte;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
-use num_bigint::BigInt;
 use networks::ChainConfig;
+use num_bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
@@ -176,7 +176,8 @@ impl CliOpts {
 
         if self.chain == "calibnet" {
             let calibnet = ChainConfig::calibnet();
-            let bootstrap_peers = calibnet.bootstrap_peers
+            let bootstrap_peers = calibnet
+                .bootstrap_peers
                 .iter()
                 .map(|node| node.parse().unwrap())
                 .collect();

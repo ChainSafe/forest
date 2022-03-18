@@ -162,7 +162,7 @@ where
                 gas_estimate_message_gas::<DB, B, V>,
             )
             // Common API
-            .with_method(VERSION, move || { version(block_delay) })
+            .with_method(VERSION, move || version(block_delay))
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB, B>)
             .with_method(NET_PEERS, net_api::net_peers::<DB, B>)

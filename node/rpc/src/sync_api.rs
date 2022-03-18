@@ -149,7 +149,11 @@ mod tests {
         let chain_config = ChainConfig::default();
         let block_delay = chain_config.block_delay_secs;
         let calico_height = chain_config.epoch(Height::Calico);
-        let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).await.unwrap());
+        let state_manager = Arc::new(
+            StateManager::new(cs_arc.clone(), chain_config)
+                .await
+                .unwrap(),
+        );
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = cs_arc.clone();
         let cs_for_chain = cs_arc.clone();

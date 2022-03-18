@@ -24,7 +24,8 @@ pub struct Libp2pConfig {
 impl Default for Libp2pConfig {
     fn default() -> Self {
         let chain_config = ChainConfig::default();
-        let bootstrap_peers = chain_config.bootstrap_peers
+        let bootstrap_peers = chain_config
+            .bootstrap_peers
             .iter()
             .map(|node| node.parse().unwrap())
             .collect();

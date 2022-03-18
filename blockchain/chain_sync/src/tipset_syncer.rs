@@ -1301,9 +1301,11 @@ async fn validate_block<
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
         let base_fee =
-            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset, smoke_height).map_err(|e| {
-                TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
-            })?;
+            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset, smoke_height).map_err(
+                |e| {
+                    TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
+                },
+            )?;
         let parent_base_fee = v_block.header.parent_base_fee();
         if &base_fee != parent_base_fee {
             return Err(TipsetRangeSyncerError::Validation(format!(
@@ -1622,7 +1624,9 @@ fn check_block_messages<
     block: &Block,
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let network_version = state_manager.chain_config.network_version(block.header.epoch());
+    let network_version = state_manager
+        .chain_config
+        .network_version(block.header.epoch());
     let calico_height = state_manager.chain_config.epoch(Height::Calico);
 
     // Do the initial loop here

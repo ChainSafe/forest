@@ -84,13 +84,13 @@ impl<'a> TipsetValidator<'a> {
     pub fn validate_epoch(
         &self,
         genesis_tipset: Arc<Tipset>,
-        block_delay: u64) -> Result<(), TipsetValidationError> {
+        block_delay: u64,
+    ) -> Result<(), TipsetValidationError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let max_epoch =
-            ((now - genesis_tipset.min_timestamp()) / block_delay) + MAX_HEIGHT_DRIFT;
+        let max_epoch = ((now - genesis_tipset.min_timestamp()) / block_delay) + MAX_HEIGHT_DRIFT;
         let too_far_ahead_in_time = self.0.epoch() as u64 > max_epoch;
         if too_far_ahead_in_time {
             Err(TipsetValidationError::EpochTooLarge)

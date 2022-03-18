@@ -690,9 +690,15 @@ where
     Ok(())
 }
 
-fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool, calico_height: ChainEpoch) -> Result<bool, Error> {
+fn verify_msg_before_add(
+    m: &SignedMessage,
+    cur_ts: &Tipset,
+    local: bool,
+    calico_height: ChainEpoch,
+) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = interpreter::price_list_by_epoch(epoch, calico_height).on_chain_message(m.marshal_cbor()?.len());
+    let min_gas = interpreter::price_list_by_epoch(epoch, calico_height)
+        .on_chain_message(m.marshal_cbor()?.len());
     m.message()
         .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
         .map_err(Error::Other)?;

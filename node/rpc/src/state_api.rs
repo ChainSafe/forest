@@ -671,7 +671,8 @@ pub(crate) async fn miner_create_block<
     };
     let pweight = chain::weight(data.chain_store.blockstore(), pts.as_ref())?;
     let smoke_height = data.state_manager.chain_config.epoch(Height::Smoke);
-    let base_fee = chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
+    let base_fee =
+        chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
 
     let mut next = BlockHeader::builder()
         .messages(mmcid)

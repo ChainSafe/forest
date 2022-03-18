@@ -26,7 +26,8 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
 use interpreter::{
-    resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
+    resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter,
+    Rand, VM,
 };
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
@@ -101,7 +102,11 @@ where
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()).await?);
+        let beacon = Arc::new(
+            chain_config
+                .get_beacon_schedule(genesis.timestamp())
+                .await?,
+        );
         let ignition = chain_config.epoch(Height::Ignition);
         let actors_v2 = chain_config.epoch(Height::ActorsV2);
         let liftoff = chain_config.epoch(Height::Liftoff);
@@ -126,7 +131,11 @@ where
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
         let chain_config = Arc::new(config);
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()).await?);
+        let beacon = Arc::new(
+            chain_config
+                .get_beacon_schedule(genesis.timestamp())
+                .await?,
+        );
         let ignition = chain_config.epoch(Height::Ignition);
         let actors_v2 = chain_config.epoch(Height::ActorsV2);
         let liftoff = chain_config.epoch(Height::Liftoff);
@@ -330,9 +339,7 @@ where
             verifier: PhantomData::<V>::default(),
         };
 
-        let nv_getter = |epoch| {
-            self.chain_config.network_version(epoch)
-        };
+        let nv_getter = |epoch| self.chain_config.network_version(epoch);
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
@@ -485,9 +492,7 @@ where
                 verifier: PhantomData::<V>::default(),
             };
 
-            let nv_getter = |epoch| {
-                self.chain_config.network_version(epoch)
-            };
+            let nv_getter = |epoch| self.chain_config.network_version(epoch);
 
             let store_arc = self.blockstore_cloned();
 
@@ -595,9 +600,7 @@ where
             verifier: PhantomData::<V>::default(),
         };
         let store_arc = self.blockstore_cloned();
-        let nv_getter = |epoch| {
-            self.chain_config.network_version(epoch)
-        };
+        let nv_getter = |epoch| self.chain_config.network_version(epoch);
         let heights = Heights {
             calico: self.chain_config.epoch(Height::Calico),
             claus: self.chain_config.epoch(Height::Claus),

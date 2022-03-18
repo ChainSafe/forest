@@ -121,7 +121,7 @@ pub const VERSION_SCHEDULE: [Upgrade; 14] = [
     Upgrade {
         height: UPGRADE_ACTORS_V6_HEIGHT,
         network: NetworkVersion::V14,
-    }
+    },
 ];
 
 lazy_static! {

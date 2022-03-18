@@ -66,7 +66,11 @@ fn compute_next_base_fee(
     next_base_fee
 }
 
-pub fn compute_base_fee<DB>(db: &DB, ts: &Tipset, smoke_height: ChainEpoch) -> Result<BigInt, crate::Error>
+pub fn compute_base_fee<DB>(
+    db: &DB,
+    ts: &Tipset,
+    smoke_height: ChainEpoch,
+) -> Result<BigInt, crate::Error>
 where
     DB: BlockStore,
 {
@@ -144,13 +148,23 @@ mod tests {
 
         for case in cases {
             // Pre smoke
-            let output =
-                compute_next_base_fee(&case.0.into(), case.1, case.2, smoke_height - 1, smoke_height);
+            let output = compute_next_base_fee(
+                &case.0.into(),
+                case.1,
+                case.2,
+                smoke_height - 1,
+                smoke_height,
+            );
             assert_eq!(BigInt::from(case.3), output);
 
             // Post smoke
-            let output =
-                compute_next_base_fee(&case.0.into(), case.1, case.2, smoke_height + 1, smoke_height);
+            let output = compute_next_base_fee(
+                &case.0.into(),
+                case.1,
+                case.2,
+                smoke_height + 1,
+                smoke_height,
+            );
             assert_eq!(BigInt::from(case.4), output);
         }
     }

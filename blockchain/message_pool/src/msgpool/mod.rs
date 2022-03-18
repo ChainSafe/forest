@@ -95,7 +95,16 @@ where
 
     let mut chains = Chains::new();
     for (actor, mset) in pending_map.iter() {
-        create_message_chains(api, actor, mset, &base_fee_lower_bound, &ts, &mut chains, calico_height).await?;
+        create_message_chains(
+            api,
+            actor,
+            mset,
+            &base_fee_lower_bound,
+            &ts,
+            &mut chains,
+            calico_height,
+        )
+        .await?;
     }
 
     if chains.is_empty() {
@@ -342,9 +351,16 @@ pub mod tests {
 
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), block_delay, calico_height)
-                .await
-                .unwrap();
+            let mpool = MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                block_delay,
+                calico_height,
+            )
+            .await
+            .unwrap();
             let mut smsg_vec = Vec::new();
             for i in 0..2 {
                 let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -410,9 +426,16 @@ pub mod tests {
         let calico_height = chain_config.epoch(Height::Calico);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), block_delay, calico_height)
-                .await
-                .unwrap();
+            let mpool = MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                block_delay,
+                calico_height,
+            )
+            .await
+            .unwrap();
 
             let mut api_temp = mpool.api.write().await;
             api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
@@ -508,9 +531,16 @@ pub mod tests {
         let calico_height = chain_config.epoch(Height::Calico);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default(), block_delay, calico_height)
-                .await
-                .unwrap();
+            let mpool = MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                block_delay,
+                calico_height,
+            )
+            .await
+            .unwrap();
 
             let mut smsg_vec = Vec::new();
             for i in 0..3 {
@@ -571,9 +601,17 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, calico_height)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i64),
+                &ts,
+                &mut chains,
+                calico_height,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(
                 chains[0].msgs.len(),
@@ -601,9 +639,17 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, calico_height)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i64),
+                &ts,
+                &mut chains,
+                calico_height,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 10, "expected 10 chains");
 
             for i in 0..chains.len() {
@@ -637,9 +683,17 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains, calico_height)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i64),
+                &ts,
+                &mut chains,
+                calico_height,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 2, "expected 2 chains");
             assert_eq!(chains[0].msgs.len(), 9);
             assert_eq!(chains[1].msgs.len(), 1);
@@ -677,9 +731,17 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                calico_height,
+            )
+            .await
+            .unwrap();
 
             for i in 0..chains.len() {
                 let expected_len = if i > 2 { 1 } else { 3 };
@@ -719,9 +781,17 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                calico_height,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             for (i, m) in chains[0].msgs.iter().enumerate() {
                 assert_eq!(
@@ -750,9 +820,17 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                calico_height,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].msgs.len(), 5);
             for (i, m) in chains[0].msgs.iter().enumerate() {
@@ -784,9 +862,17 @@ pub mod tests {
                 mset.insert(i as u64, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                calico_height,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].msgs.len(), max_messages as usize);
             for (i, m) in chains[0].msgs.iter().enumerate() {
@@ -811,9 +897,17 @@ pub mod tests {
                 mset.insert(i as u64, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains, calico_height)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                calico_height,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].msgs.len(), 2);
             for (i, m) in chains[0].msgs.iter().enumerate() {

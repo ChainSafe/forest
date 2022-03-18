@@ -3,8 +3,7 @@
 
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
-    DrandPoint,
-    Upgrade,
+    DrandPoint, Upgrade,
 };
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
@@ -169,7 +168,7 @@ pub const VERSION_SCHEDULE: [Upgrade; 14] = [
     Upgrade {
         height: UPGRADE_ACTORS_V6_HEIGHT,
         network: NetworkVersion::V14,
-    }
+    },
 ];
 
 lazy_static! {
