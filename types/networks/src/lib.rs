@@ -7,7 +7,7 @@ extern crate lazy_static;
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use std::{error::Error, sync::Arc};
 
 mod calibnet;
@@ -244,11 +244,6 @@ impl Default for Height {
     fn default() -> Height {
         Self::Breeze
     }
-}
-
-pub struct Upgrade {
-    height: ChainEpoch,
-    network: NetworkVersion,
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]

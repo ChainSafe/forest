@@ -9,7 +9,7 @@ use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use networks::{ChainConfig, Height};
+use networks::Height;
 use paramfetch::{get_params_default, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
@@ -288,6 +288,7 @@ mod test {
     use address::Address;
     use blocks::BlockHeader;
     use db::MemoryDB;
+    use networks::ChainConfig;
 
     #[async_std::test]
     async fn import_snapshot_from_file() {
@@ -299,7 +300,7 @@ mod test {
             .build()
             .unwrap();
         cs.set_genesis(&genesis_header).unwrap();
-        let chain_config = ChainConfig::default();
+        let chain_config = Arc::new(ChainConfig::default());
         let sm = Arc::new(StateManager::new(cs, chain_config).await.unwrap());
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
             .await

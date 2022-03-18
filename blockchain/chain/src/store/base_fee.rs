@@ -6,7 +6,6 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use networks::{ChainConfig, Height};
 use num_bigint::{BigInt, Integer};
 use std::collections::HashSet;
 use types::BLOCK_GAS_LIMIT;
@@ -110,6 +109,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use networks::{ChainConfig, Height};
 
     fn construct_tests() -> Vec<(i64, i64, usize, i64, i64)> {
         // (base_fee, limit_used, no_of_blocks, output)

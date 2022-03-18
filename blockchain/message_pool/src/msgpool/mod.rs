@@ -24,7 +24,6 @@ use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use log::error;
 use lru::LruCache;
 use message::{Message, SignedMessage};
-use networks::{ChainConfig, Height};
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -55,6 +54,7 @@ where
     Ok(base_sequence)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
     api: &RwLock<T>,
     network_sender: &Sender<NetworkMessage>,
@@ -308,6 +308,7 @@ pub mod tests {
     use crypto::SignatureType;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::{SignedMessage, UnsignedMessage};
+    use networks::{ChainConfig, Height};
     use num_bigint::BigInt;
     use std::borrow::BorrowMut;
     use std::thread::sleep;

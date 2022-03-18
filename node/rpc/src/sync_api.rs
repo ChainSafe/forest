@@ -10,7 +10,6 @@ use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use message::{SignedMessage, UnsignedMessage};
-use networks::{ChainConfig, Height};
 use rpc_api::data_types::{RPCState, RPCSyncState};
 use rpc_api::sync_api::*;
 
@@ -121,6 +120,7 @@ mod tests {
     use db::{MemoryDB, Store};
     use forest_libp2p::NetworkMessage;
     use message_pool::{MessagePool, MpoolRpcProvider};
+    use networks::{ChainConfig, Height};
     use serde_json::from_str;
     use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
@@ -146,7 +146,7 @@ mod tests {
             .build()
             .unwrap();
         cs_arc.set_genesis(&genesis_header).unwrap();
-        let chain_config = ChainConfig::default();
+        let chain_config = Arc::new(ChainConfig::default());
         let block_delay = chain_config.block_delay_secs;
         let calico_height = chain_config.epoch(Height::Calico);
         let state_manager = Arc::new(

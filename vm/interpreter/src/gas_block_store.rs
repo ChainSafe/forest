@@ -6,7 +6,6 @@ use cid::{Cid, Code};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
 use ipld_blockstore::BlockStore;
-use networks::{ChainConfig, Height};
 use std::cell::RefCell;
 use std::error::Error as StdError;
 use std::rc::Rc;
@@ -101,6 +100,7 @@ mod tests {
     use crate::price_list_by_epoch;
     use cid::Code::Blake2b256;
     use db::MemoryDB;
+    use networks::{ChainConfig, Height};
     use vm::{ActorError, ExitCode};
 
     #[test]

@@ -1,61 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{drand::DRAND_MAINNET, DrandPoint, Upgrade};
-use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use fil_types::NetworkVersion;
+use super::{drand::DRAND_MAINNET, DrandPoint};
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
-
-/// V1 network upgrade
-pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = -1;
-
-/// V2 network upgrade
-pub const UPGRADE_SMOKE_HEIGHT: ChainEpoch = -2;
-
-/// V3 network upgrade
-pub const UPGRADE_IGNITION_HEIGHT: ChainEpoch = -3;
-
-/// V4 network upgrade
-pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = 30;
-
-/// V5 network upgrade
-pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = 60;
-
-pub const UPGRADE_LIFTOFF_HEIGHT: i64 = -5;
-
-/// V6 network upgrade
-pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = 90;
-
-/// V7 network upgrade
-pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = 120;
-
-/// V8 network upgrade
-pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 130;
-
-/// V9 network upgrade
-pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 300;
-
-/// Remove burn on window PoSt fork
-pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 270;
-
-/// V10 network upgrade
-pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 330;
-
-/// V11 network upgrade
-pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 360;
-
-/// V12 network upgrade
-pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 390;
-
-/// V13 network upgrade
-pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = 420;
-
-/// V14 network update
-pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = 312746;
-
-pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 
 /// Bootstrap peer ids
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
@@ -65,71 +14,9 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-3.calibration.fildev.network/tcp/1347/p2p/12D3KooWMHDi3LVTFG8Szqogt7RkNXvonbQYqSazxBx41A5aeuVz",
 ];
 
-pub const VERSION_SCHEDULE: [Upgrade; 14] = [
-    Upgrade {
-        height: UPGRADE_BREEZE_HEIGHT,
-        network: NetworkVersion::V1,
-    },
-    Upgrade {
-        height: UPGRADE_SMOKE_HEIGHT,
-        network: NetworkVersion::V2,
-    },
-    Upgrade {
-        height: UPGRADE_IGNITION_HEIGHT,
-        network: NetworkVersion::V3,
-    },
-    Upgrade {
-        height: UPGRADE_ACTORS_V2_HEIGHT,
-        network: NetworkVersion::V4,
-    },
-    Upgrade {
-        height: UPGRADE_TAPE_HEIGHT,
-        network: NetworkVersion::V5,
-    },
-    Upgrade {
-        height: UPGRADE_KUMQUAT_HEIGHT,
-        network: NetworkVersion::V6,
-    },
-    Upgrade {
-        height: UPGRADE_CALICO_HEIGHT,
-        network: NetworkVersion::V7,
-    },
-    Upgrade {
-        height: UPGRADE_PERSIAN_HEIGHT,
-        network: NetworkVersion::V8,
-    },
-    Upgrade {
-        height: UPGRADE_ORANGE_HEIGHT,
-        network: NetworkVersion::V9,
-    },
-    Upgrade {
-        height: UPGRADE_ACTORS_V3_HEIGHT,
-        network: NetworkVersion::V10,
-    },
-    Upgrade {
-        height: UPGRADE_NORWEGIAN_HEIGHT,
-        network: NetworkVersion::V11,
-    },
-    Upgrade {
-        height: UPGRADE_ACTORS_V4_HEIGHT,
-        network: NetworkVersion::V12,
-    },
-    Upgrade {
-        height: UPGRADE_HYPERDRIVE_HEIGHT,
-        network: NetworkVersion::V13,
-    },
-    Upgrade {
-        height: UPGRADE_ACTORS_V6_HEIGHT,
-        network: NetworkVersion::V14,
-    },
-];
-
 lazy_static! {
     pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
         height: 0,
         config: &*DRAND_MAINNET,
     },];
 }
-
-/// Time, in seconds, between each block.
-pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;

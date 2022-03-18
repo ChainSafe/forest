@@ -18,7 +18,6 @@ use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
 use message::Message;
 use message::SignedMessage;
-use networks::{ChainConfig, Height};
 use num_bigint::BigInt;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
@@ -690,6 +689,7 @@ mod test_selection {
     use db::MemoryDB;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
+    use networks::{ChainConfig, Height};
     use std::sync::Arc;
     use types::NetworkParams;
 

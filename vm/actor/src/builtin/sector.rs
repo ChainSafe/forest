@@ -27,7 +27,7 @@ pub fn consensus_miner_min_power(p: RegisteredPoStProof) -> Result<StoragePower,
             //     return Ok(StoragePower::from(32u64 << 30));
             // }
             // TODO: fix this once ref-fvm is merged
-            return Ok(StoragePower::from(32u64 << 30));
+            // return Ok(StoragePower::from(32u64 << 30));
 
             Ok(StoragePower::from(10u64 << 40))
         }
