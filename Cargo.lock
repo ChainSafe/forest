@@ -7192,8 +7192,7 @@ dependencies = [
 [[package]]
 name = "serde_ipld_dagcbor"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "288c13e731ed502f0e5d5ab8d1cc0740515e1cd759ad1b86b837565299a57e49"
+source = "git+https://github.com/Stebalien/cbor/?branch=fix/truncate-error#6fbe76553a0a27d32b4ba40087254353bbeb0596"
 dependencies = [
  "cid",
  "half",
