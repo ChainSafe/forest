@@ -106,6 +106,18 @@ pub(super) async fn start(config: Config) {
             .unwrap();
     }
 
+    // Start Prometheus server port
+    let prometheus_server_task = task::spawn(metrics::init_prometheus(
+        (format!("127.0.0.1:{}", config.metrics_port))
+            .parse()
+            .unwrap(),
+        PathBuf::from(&config.data_dir)
+            .join("db")
+            .into_os_string()
+            .into_string()
+            .expect("Failed converting the path to db"),
+    ));
+
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
     let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
@@ -225,18 +237,6 @@ pub(super) async fn start(config: Config) {
         debug!("RPC disabled");
         None
     };
-
-    // Start Prometheus server port
-    let prometheus_server_task = task::spawn(metrics::init_prometheus(
-        (format!("127.0.0.1:{}", config.metrics_port))
-            .parse()
-            .unwrap(),
-        PathBuf::from(&config.data_dir)
-            .join("db")
-            .into_os_string()
-            .into_string()
-            .expect("Failed converting the path to db"),
-    ));
 
     // Block until ctrl-c is hit
     block_until_sigint().await;
