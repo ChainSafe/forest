@@ -225,7 +225,7 @@ async fn execute_tipset_vector(
 ) -> Result<(), Box<dyn StdError>> {
     let bs = load_car(car).await?;
     let bs = Arc::new(bs);
-    let chain_config = Arc::new(ChainConfig::default());
+    let chain_config = Arc::new(ChainConfig::conformance());
     let sm = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs)), chain_config).await?);
     genesis::initialize_genesis(None, &sm).await.unwrap();
 

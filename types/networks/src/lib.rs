@@ -218,6 +218,77 @@ const CALIBNET_HEIGHT_INFOS: [HeightInfo; 17] = [
     },
 ];
 
+const CONFORMANCE_HEIGHT_INFOS: [HeightInfo; 17] = [
+    HeightInfo {
+        height: Height::Breeze,
+        epoch: -15,
+    },
+    HeightInfo {
+        height: Height::Smoke,
+        epoch: -14,
+    },
+    HeightInfo {
+        height: Height::Ignition,
+        epoch: -13,
+    },
+    HeightInfo {
+        height: Height::ActorsV2,
+        epoch: -12,
+    },
+    HeightInfo {
+        height: Height::Tape,
+        epoch: -11,
+    },
+    HeightInfo {
+        height: Height::Liftoff,
+        epoch: -10,
+    },
+    HeightInfo {
+        height: Height::Kumquat,
+        epoch: -9,
+    },
+    HeightInfo {
+        height: Height::Calico,
+        epoch: -8,
+    },
+    HeightInfo {
+        height: Height::Persian,
+        epoch: -7,
+    },
+    HeightInfo {
+        height: Height::Orange,
+        epoch: -6,
+    },
+    HeightInfo {
+        height: Height::Claus,
+        epoch: -5,
+    },
+    HeightInfo {
+        height: Height::Trust,
+        epoch: -4,
+    },
+    HeightInfo {
+        height: Height::Norwegian,
+        epoch: -3,
+    },
+    HeightInfo {
+        height: Height::Turbo,
+        epoch: -2,
+    },
+    HeightInfo {
+        height: Height::Hyperdrive,
+        epoch: -1,
+    },
+    HeightInfo {
+        height: Height::Chocolate,
+        epoch: -16,
+    },
+    HeightInfo {
+        height: Height::OhSnap,
+        epoch: -17,
+    },
+];
+
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Height {
@@ -287,6 +358,13 @@ impl ChainConfig {
             genesis_bytes: DEFAULT_GENESIS.to_vec(),
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: CALIBNET_HEIGHT_INFOS.to_vec(),
+        }
+    }
+
+    pub fn conformance() -> Self {
+        Self {
+            height_infos: CONFORMANCE_HEIGHT_INFOS.to_vec(),
+            ..Default::default()
         }
     }
 
