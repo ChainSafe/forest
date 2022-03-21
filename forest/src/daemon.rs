@@ -32,13 +32,13 @@ use std::time;
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
     // Set the Address network prefix
-    #[cfg(any(feature = "testnet"))]
+    let network = if config.chain.name == "mainnet" {
+        address::Network::Mainnet
+    } else {
+        address::Network::Testnet
+    };
     address::NETWORK_DEFAULT
-        .set(address::Network::Testnet)
-        .unwrap();
-    #[cfg(not(feature = "testnet"))]
-    address::NETWORK_DEFAULT
-        .set(address::Network::Mainnet)
+        .set(network)
         .unwrap();
 
     info!(
