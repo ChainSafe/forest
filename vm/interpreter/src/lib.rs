@@ -32,7 +32,8 @@ impl Backend {
         match std::env::var("BACKEND") {
             Ok(backend) if backend.to_lowercase() == "fvm" => Backend::FVM,
             Ok(backend) if backend.to_lowercase() == "native" => Backend::Native,
-            _ => Backend::Both,
+            Ok(backend) if backend.to_lowercase() == "both" => Backend::Both,
+            _ => Backend::FVM,
         }
     }
 }
