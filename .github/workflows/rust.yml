@@ -80,7 +80,7 @@ jobs:
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--locked --jobs 16 --timeout 600 --skip-clean --workspace -- --test-threads 16'
+          args: '--locked --jobs 16 --timeout 600 --skip-clean -- --run-types AllTargets --test-threads 16'
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
 
