@@ -271,10 +271,10 @@ pub struct ChainConfig {
     pub name: String,
     pub bootstrap_peers: Vec<String>,
     pub block_delay_secs: u64,
+    #[serde(skip_serializing)]
+    pub genesis_bytes: Vec<u8>,
     pub version_schedule: Vec<UpgradeInfo>,
     pub height_infos: Vec<HeightInfo>,
-    // TODO: for dumpconfig #[serde(skip_serializing)]
-    pub genesis_bytes: Vec<u8>,
 }
 
 impl ChainConfig {
@@ -284,9 +284,9 @@ impl ChainConfig {
             name: "calibnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            genesis_bytes: DEFAULT_GENESIS.to_vec(),
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: CALIBNET_HEIGHT_INFOS.to_vec(),
-            genesis_bytes: DEFAULT_GENESIS.to_vec(),
         }
     }
 
@@ -354,9 +354,9 @@ impl Default for ChainConfig {
             name: "mainnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            genesis_bytes: DEFAULT_GENESIS.to_vec(),
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: MAINNET_HEIGHT_INFOS.to_vec(),
-            genesis_bytes: DEFAULT_GENESIS.to_vec(),
         }
     }
 }
