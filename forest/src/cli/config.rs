@@ -33,11 +33,9 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let chain_config = ChainConfig::default();
-        let data_dir = get_home_dir() + "/.forest";
         Self {
             network: Libp2pConfig::default(),
-            data_dir,
+            data_dir: get_home_dir() + "/.forest",
             genesis_file: None,
             enable_rpc: true,
             rpc_port: DEFAULT_PORT,
@@ -49,7 +47,7 @@ impl Default for Config {
             encrypt_keystore: true,
             metrics_port: 6116,
             rocks_db: db::rocks_config::RocksDbConfig::default(),
-            chain: chain_config,
+            chain: ChainConfig::default(),
         }
     }
 }
