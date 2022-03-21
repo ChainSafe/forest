@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 async-std = "1.9"
 actors-v6 = { package = "fil_builtin_actors_bundle", version = "6.0.4" }
+actors-v7 = { package = "fil_builtin_actors_bundle", version = "7.0.4" }
 wasmtime = { version = "0.33", default-features = false }
 anyhow = "1.0"
 fvm = { version = "0.2", features = [] }
