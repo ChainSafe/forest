@@ -180,17 +180,17 @@ impl CliOpts {
         };
 
         if self.chain == "calibnet" {
-            let calibnet = ChainConfig::calibnet();
-            let bootstrap_peers = calibnet
+            let chain_config = ChainConfig::calibnet();
+            let bootstrap_peers = chain_config
                 .bootstrap_peers
                 .iter()
                 .map(|node| node.parse().unwrap())
                 .collect();
-            cfg.chain = calibnet;
+            cfg.chain = chain_config;
             cfg.network.bootstrap_peers = bootstrap_peers;
+        } else if self.chain != "mainnet" {
+            cli_error_and_die(&format!("{} is not a builtin network", self.chain), 1);
         }
-
-        //println!("cfg: {:#?}", cfg);
 
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
