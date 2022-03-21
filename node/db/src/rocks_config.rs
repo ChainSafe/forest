@@ -3,13 +3,13 @@
 use anyhow::anyhow;
 use num_cpus;
 use rocksdb::{DBCompactionStyle, DBCompressionType};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// RocksDB configuration exposed in Forest.
 /// Only subset of possible options is implemented, add missing ones when needed.
 /// For description of different options please refer to the `rocksdb` crate documentation.
 /// <https://docs.rs/rocksdb/latest/rocksdb/>
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct RocksDbConfig {
     pub create_if_missing: bool,
