@@ -7,7 +7,7 @@ extern crate lazy_static;
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use std::{error::Error, sync::Arc};
 
 mod calibnet;
@@ -219,7 +219,7 @@ const CALIBNET_HEIGHT_INFOS: [HeightInfo; 17] = [
 ];
 
 /// Defines the meaningful heights of the protocol.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Height {
     Breeze,
     Smoke,
@@ -246,13 +246,13 @@ impl Default for Height {
     }
 }
 
-#[derive(Default, Debug, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct UpgradeInfo {
     height: Height,
     version: u32,
 }
 
-#[derive(Default, Debug, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct HeightInfo {
     pub height: Height,
     pub epoch: ChainEpoch,
@@ -265,7 +265,7 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(default)]
 pub struct ChainConfig {
     pub name: String,

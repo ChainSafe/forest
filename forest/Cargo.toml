@@ -59,11 +59,17 @@ prometheus = { version = "0.13", features = ["process"] }
 ticker = "0.1"
 byte-unit = "4.0"
 rug = "1.13"
+toml = "0.5"
 
 [dependencies.jsonrpc-v2]
 version = "0.10"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
+
+[dev-dependencies]
+assert_cmd = "2"
+rand = "0.8"
+tempfile = "3"
 
 [features]
 default = ["rocksdb", "networks/mainnet"]
