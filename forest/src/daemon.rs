@@ -37,9 +37,7 @@ pub(super) async fn start(config: Config) {
     } else {
         address::Network::Testnet
     };
-    address::NETWORK_DEFAULT
-        .set(network)
-        .unwrap();
+    address::NETWORK_DEFAULT.set(network).unwrap();
 
     info!(
         "Starting Forest daemon, version {}",
