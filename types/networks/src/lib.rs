@@ -7,7 +7,7 @@ extern crate lazy_static;
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_types::NetworkVersion;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{error::Error, sync::Arc};
 
 mod calibnet;
