@@ -97,7 +97,10 @@ pub struct VM<
 }
 
 pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, Cid> {
-    let bundles = [(NetworkVersion::V14, actors_v6::BUNDLE_CAR)];
+    let bundles = [
+        (NetworkVersion::V14, actors_v6::BUNDLE_CAR),
+        (NetworkVersion::V15, actors_v7::BUNDLE_CAR),
+    ];
     bundles
         .into_iter()
         .map(|(nv, car)| {
