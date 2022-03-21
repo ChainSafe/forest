@@ -26,6 +26,7 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
+use networks::{ChainConfig, Height};
 use num_bigint::BigInt;
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -76,6 +77,18 @@ pub struct Heights {
     pub turbo: ChainEpoch,
     pub hyperdrive: ChainEpoch,
     pub chocolate: ChainEpoch,
+}
+
+impl Heights {
+    pub fn new(chain_config: &ChainConfig) -> Self {
+        Heights {
+            calico: chain_config.epoch(Height::Calico),
+            claus: chain_config.epoch(Height::Claus),
+            turbo: chain_config.epoch(Height::Turbo),
+            hyperdrive: chain_config.epoch(Height::Hyperdrive),
+            chocolate: chain_config.epoch(Height::Chocolate),
+        }
+    }
 }
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts

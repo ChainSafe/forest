@@ -342,13 +342,7 @@ where
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
-            let heights = Heights {
-                calico: self.chain_config.epoch(Height::Calico),
-                claus: self.chain_config.epoch(Height::Claus),
-                turbo: turbo_height,
-                hyperdrive: self.chain_config.epoch(Height::Hyperdrive),
-                chocolate: self.chain_config.epoch(Height::Chocolate),
-            };
+            let heights = Heights::new(&self.chain_config);
             VM::<_, _, _, _, V>::new(
                 state_root,
                 db.as_ref(),
@@ -495,13 +489,7 @@ where
 
             let store_arc = self.blockstore_cloned();
 
-            let heights = Heights {
-                calico: self.chain_config.epoch(Height::Calico),
-                claus: self.chain_config.epoch(Height::Claus),
-                turbo: self.chain_config.epoch(Height::Turbo),
-                hyperdrive: self.chain_config.epoch(Height::Hyperdrive),
-                chocolate: self.chain_config.epoch(Height::Chocolate),
-            };
+            let heights = Heights::new(&self.chain_config);
             let mut vm = VM::<_, _, _, _, V>::new(
                 *bstate,
                 store_arc.as_ref(),
@@ -600,13 +588,7 @@ where
         };
         let store_arc = self.blockstore_cloned();
         let nv_getter = |epoch| self.chain_config.network_version(epoch);
-        let heights = Heights {
-            calico: self.chain_config.epoch(Height::Calico),
-            claus: self.chain_config.epoch(Height::Claus),
-            turbo: self.chain_config.epoch(Height::Turbo),
-            hyperdrive: self.chain_config.epoch(Height::Hyperdrive),
-            chocolate: self.chain_config.epoch(Height::Chocolate),
-        };
+        let heights = Heights::new(&self.chain_config);
         let mut vm = VM::<_, _, _, _, V>::new(
             st,
             store_arc.as_ref(),

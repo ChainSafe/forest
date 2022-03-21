@@ -64,13 +64,7 @@ pub fn execute_message(
 
     let nv = params.nv;
     let chain_config = ChainConfig::default();
-    let heights = Heights {
-        calico: chain_config.epoch(Height::Calico),
-        claus: chain_config.epoch(Height::Claus),
-        turbo: chain_config.epoch(Height::Turbo),
-        hyperdrive: chain_config.epoch(Height::Hyperdrive),
-        chocolate: chain_config.epoch(Height::Chocolate),
-    };
+    let heights = Heights::new(&chain_config);
     let mut vm = VM::<_, _, _, _>::new(
         *params.pre_root,
         bs.as_ref(),

@@ -12,7 +12,7 @@ use interpreter::{CircSupplyCalc, DefaultRuntime, Heights, LookbackStateGetter, 
 use ipld_blockstore::BlockStore;
 use ipld_hamt::Hamt;
 use message::UnsignedMessage;
-use networks::{ChainConfig, Height};
+use networks::ChainConfig;
 use state_tree::StateTree;
 use std::collections::HashSet;
 use std::error::Error as StdError;
@@ -139,13 +139,7 @@ fn transfer_test() {
     let lookback = MockStateLB(&store);
 
     let chain_config = ChainConfig::default();
-    let heights = Heights {
-        calico: chain_config.epoch(Height::Calico),
-        claus: chain_config.epoch(Height::Claus),
-        turbo: chain_config.epoch(Height::Turbo),
-        hyperdrive: chain_config.epoch(Height::Hyperdrive),
-        chocolate: chain_config.epoch(Height::Chocolate),
-    };
+    let heights = Heights::new(&chain_config);
     let runtime = DefaultRuntime::<_, _, _, _, MockVerifier>::new(
         NetworkVersion::V0,
         &mut state,
@@ -234,13 +228,7 @@ fn self_transfer_test() {
         let lookback = MockStateLB(&store);
 
         let chain_config = ChainConfig::default();
-        let heights = Heights {
-            calico: chain_config.epoch(Height::Calico),
-            claus: chain_config.epoch(Height::Claus),
-            turbo: chain_config.epoch(Height::Turbo),
-            hyperdrive: chain_config.epoch(Height::Hyperdrive),
-            chocolate: chain_config.epoch(Height::Chocolate),
-        };
+        let heights = Heights::new(&chain_config);
         let runtime = DefaultRuntime::<_, _, _, _, MockVerifier>::new(
             nv,
             &mut state,
