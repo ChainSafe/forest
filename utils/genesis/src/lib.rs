@@ -12,7 +12,6 @@ use futures::AsyncRead;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
 use net_utils::FetchProgress;
-use networks::ChainConfig;
 use state_manager::StateManager;
 use std::error::Error as StdError;
 use std::sync::Arc;
