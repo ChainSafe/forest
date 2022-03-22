@@ -40,7 +40,7 @@ use structopt::StructOpt;
 
 use blocks::tipset_json::TipsetJson;
 use cid::Cid;
-use utils::{get_home_dir, read_file_to_string, read_toml, write_to_file};
+use utils::{get_home_dir, read_file_to_string, read_toml};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -213,15 +213,17 @@ impl CliOpts {
 }
 
 pub fn find_default_config() -> Option<Config> {
-    // determine if XDG_CONFIG_HOME is set for default locations, otherwise use home_dir
-    let path = if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
+    // check forest config path first, then look at other default locations
+    let path = if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+        PathBuf::from(config_file)
+    } else if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
+        // determine if XDG_CONFIG_HOME is set for default locations, otherwise use home_dir
         PathBuf::from(root_config_path + "/forest/config.toml")
     } else {
         // $XDG_CONFIG_HOME does not exist, check ~/.forest.toml
-        PathBuf::from(get_home_dir() + ".forest.toml")
+        PathBuf::from(get_home_dir() + "/.forest/config.toml")
     };
 
-    // use default config if it exists
     if path.exists() {
         let toml = match read_file_to_string(&path) {
             Ok(t) => t,
@@ -233,33 +235,7 @@ pub fn find_default_config() -> Option<Config> {
         };
     }
 
-    // Check ENV VAR for config file
-    if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
-        // Read from config file
-        let toml = match read_file_to_string(&PathBuf::from(&config_file)) {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        // Parse and return the configuration file
-        match read_toml(&toml) {
-            Ok(cfg) => return Some(cfg),
-            Err(_) => {}
-        };
-    }
-
-    // no config file found, use a default and write it to a found path
-    let toml = Config::default();
-
-    let toml_string = toml::to_string(&toml).expect("remove this todo");
-
-    let _ = write_to_file(
-        toml_string.as_bytes(),
-        path.parent().unwrap(),
-        path.file_name().unwrap().to_str().unwrap(),
-    )
-    .expect("todo: remove this expect");
-
-    Some(toml)
+    None
 }
 
 /// Blocks current thread until ctrl-c is received
