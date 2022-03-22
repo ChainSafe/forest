@@ -229,9 +229,8 @@ pub fn find_default_config() -> Option<Config> {
             Ok(t) => t,
             Err(_) => return None,
         };
-        match read_toml(&toml) {
-            Ok(cfg) => return Some(cfg),
-            Err(_) => {}
+        if let Ok(cfg) = read_toml(&toml) {
+            return Some(cfg);
         };
     }
 
