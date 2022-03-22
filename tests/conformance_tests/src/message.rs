@@ -5,6 +5,7 @@ use super::*;
 use db::MemoryDB;
 use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use state_tree::StateTree;
+use std::sync::Arc;
 use vm::TokenAmount;
 
 #[derive(Debug, Deserialize)]
@@ -21,10 +22,11 @@ pub struct ExecuteMessageParams<'a> {
     pub msg: &'a ChainMessage,
     pub circ_supply: TokenAmount,
     pub basefee: TokenAmount,
-    pub randomness: ReplayingRand<'a>,
+    pub randomness: ReplayingRand,
     pub nv: fil_types::NetworkVersion,
 }
 
+#[derive(Clone)]
 struct MockCircSupply(TokenAmount);
 impl CircSupplyCalc for MockCircSupply {
     fn get_supply<DB: BlockStore>(
@@ -33,6 +35,13 @@ impl CircSupplyCalc for MockCircSupply {
         _: &StateTree<DB>,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         Ok(self.0.clone())
+    }
+    fn get_fil_vested<DB: BlockStore>(
+        &self,
+        _height: ChainEpoch,
+        _store: &DB,
+    ) -> Result<TokenAmount, Box<dyn StdError>> {
+        Ok(0.into())
     }
 }
 
@@ -44,23 +53,27 @@ impl<'db> LookbackStateGetter<'db, MemoryDB> for MockStateLB<'db, MemoryDB> {
 }
 
 pub fn execute_message(
-    bs: &MemoryDB,
+    bs: Arc<MemoryDB>,
     selector: &Option<Selector>,
     params: ExecuteMessageParams,
+    engine: fvm::machine::Engine,
 ) -> Result<(ApplyRet, Cid), Box<dyn StdError>> {
-    let circ_supply = MockCircSupply(params.circ_supply);
-    let lb = MockStateLB(bs);
+    let circ_supply = MockCircSupply(params.circ_supply.clone());
+    let lb = MockStateLB(bs.as_ref());
 
     let nv = params.nv;
-    let mut vm = VM::<_, _, _, _, _>::new(
-        params.pre_root,
-        bs,
+    let mut vm = VM::<_, _, _, _>::new(
+        *params.pre_root,
+        bs.as_ref(),
+        bs.clone(),
         params.epoch,
         &params.randomness,
         params.basefee,
-        |_| nv,
-        &circ_supply,
+        nv,
+        circ_supply,
+        Some(params.circ_supply),
         &lb,
+        engine,
     )?;
 
     if let Some(s) = &selector {

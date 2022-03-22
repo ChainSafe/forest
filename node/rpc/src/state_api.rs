@@ -155,7 +155,7 @@ pub async fn state_miner_info<
     let ts = data.chain_store.tipset_from_keys(&key).await?;
     let actor = data
         .state_manager
-        .get_actor(&addr, ts.parent_state())
+        .get_actor(&addr, *ts.parent_state())
         .map_err(|e| format!("Could not load miner {}: {:?}", addr, e))?
         .ok_or_else(|| format!("miner {} does not exist", addr))?;
 
@@ -208,7 +208,7 @@ pub(crate) async fn state_miner_proving_deadline<
         .await?;
 
     let actor = state_manager
-        .get_actor(&addr, tipset.parent_state())?
+        .get_actor(&addr, *tipset.parent_state())?
         .ok_or_else(|| format!("Address {} not found", addr))?;
 
     let mas = miner::State::load(state_manager.blockstore(), &actor)?;
@@ -511,7 +511,7 @@ pub(crate) async fn state_market_deals<
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let actor = data
         .state_manager
-        .get_actor(market::ADDRESS, ts.parent_state())?
+        .get_actor(market::ADDRESS, *ts.parent_state())?
         .ok_or("Power actor address could not be resolved")?;
     let market_state = market::State::load(data.state_manager.blockstore(), &actor)?;
 
@@ -554,7 +554,7 @@ pub(crate) async fn state_get_receipt<
         .tipset_from_keys(&key.into())
         .await?;
     state_manager
-        .get_receipt(&tipset, &cid)
+        .get_receipt(&tipset, cid)
         .await
         .map(|s| s.into())
         .map_err(|e| e.into())
@@ -716,7 +716,7 @@ pub(crate) async fn state_miner_sector_allocated<
 
     let actor = data
         .state_manager
-        .get_actor(&maddr, ts.parent_state())?
+        .get_actor(&maddr, *ts.parent_state())?
         .ok_or(format!("Miner actor {} could not be resolved", maddr))?;
     let allocated_sectors = match miner::State::load(data.state_manager.blockstore(), &actor)? {
         miner::State::V0(m) => data

@@ -23,9 +23,12 @@ use cid::{Cid, Code};
 use db::{MemoryDB, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use std::error::Error as StdError;
+use std::sync::Arc;
 
 #[cfg(feature = "rocksdb")]
 use db::rocks::{RocksDb, WriteBatch};
+
+use fvm_shared::blockstore::Blockstore;
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
@@ -96,5 +99,27 @@ impl BlockStore for RocksDb {
         self.db.write(batch)?;
 
         Ok(cids)
+    }
+}
+
+pub struct FvmStore<T> {
+    bs: Arc<T>,
+}
+
+impl<T> FvmStore<T> {
+    pub fn new(bs: Arc<T>) -> Self {
+        FvmStore { bs }
+    }
+}
+
+impl<T: BlockStore> Blockstore for FvmStore<T> {
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        match self.bs.get_bytes(cid) {
+            Ok(vs) => Ok(vs),
+            Err(_err) => Err(anyhow::Error::msg("Fix FVM error handling")),
+        }
+    }
+    fn put_keyed(&self, cid: &Cid, bytes: &[u8]) -> Result<(), anyhow::Error> {
+        self.bs.write(cid.to_bytes(), bytes).map_err(|e| e.into())
     }
 }

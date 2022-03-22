@@ -1,10 +1,13 @@
 [package]
-name = "chain_sync"
+name    = "chain_sync"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+pbr = "1.0.3"
+anyhow = "1.0"
+fvm_shared = { version = "0.2", default-features = false }
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
 amt = { package = "ipld_amt", version = "0.2" }
@@ -17,7 +20,10 @@ libp2p = { version = "0.40.0-rc.1", default-features = false }
 cid = { package = "forest_cid", version = "0.3" }
 ipld_blockstore = "0.1"
 chain = { path = "../chain" }
-message = { package = "forest_message", version = "0.7", features = ["proofs", "blst"] }
+message = { package = "forest_message", version = "0.7", features = [
+    "proofs",
+    "blst",
+] }
 state_tree = { path = "../../vm/state_tree/" }
 state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
@@ -45,10 +51,11 @@ forest_json_utils = { path = "../../utils/json_utils", version = "0.1" }
 time = { version = "0.3", features = ["serde"] }
 prometheus = { version = "0.12.0", features = ["process"] }
 lazy_static = "1.4.0"
+statediff = { path = "../../utils/statediff", optional = true }
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
-    "test_constructors"
+    "test_constructors",
 ] }
 base64 = "0.13"
 genesis = { path = "../../utils/genesis", features = ["testing"] }
@@ -58,3 +65,4 @@ hex = "0.4"
 
 [features]
 insecure_post = []
+default = ["statediff"]

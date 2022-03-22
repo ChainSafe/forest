@@ -844,10 +844,17 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     parent_tipsets.push(proposed_head.clone());
     tracker.write().await.set_epoch(current_head.epoch());
 
+    let total_size = proposed_head.epoch() - current_head.epoch();
+    let mut pb = pbr::ProgressBar::new(total_size as u64);
+    pb.message("Downloading headers ");
+    pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+
     'sync: loop {
         // Unwrapping is safe here because the tipset vector always
         // has at least one element
         let oldest_parent = parent_tipsets.last().unwrap();
+        let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
+        pb.set((work_to_be_done - total_size).abs() as u64);
         validate_tipset_against_cache(
             bad_block_cache.clone(),
             oldest_parent.parents(),
@@ -888,6 +895,8 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             parent_tipsets.push(tipset);
         }
     }
+    pb.finish();
+
     // Unwrapping is safe here because we assume that the tipset
     // vector was initialized with a tipset that will not be removed
     let oldest_tipset = parent_tipsets.last().unwrap().clone();
@@ -1033,6 +1042,7 @@ async fn sync_messages_check_state<
                 )
                 .await?;
                 tracker.write().await.set_epoch(current_epoch);
+                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
             }
             None => {
                 // Full tipset is not in storage; request messages via chain_exchange
@@ -1083,6 +1093,7 @@ async fn sync_messages_check_state<
                     .await?;
                     tracker.write().await.set_epoch(current_epoch);
                     timer.observe_duration();
+                    metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
 
                     // Persist the messages in the store
                     if let Some(m) = bundle.messages {
@@ -1331,6 +1342,15 @@ async fn validate_block<
                 TipsetRangeSyncerError::Calculation(format!("Failed to calculate state: {}", e))
             })?;
         if &state_root != header.state_root() {
+            #[cfg(feature = "statediff")]
+            if let Err(err) = statediff::print_state_diff(
+                v_state_manager.blockstore(),
+                &state_root,
+                header.state_root(),
+                Some(1),
+            ) {
+                eprintln!("Failed to print state-diff: {}", err);
+            }
             return Err(TipsetRangeSyncerError::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root(),
@@ -1510,7 +1530,7 @@ fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     tipset_state: &Cid,
 ) -> Result<(), TipsetRangeSyncerError> {
     let actor = state_manager
-        .get_actor(power::ADDRESS, tipset_state)?
+        .get_actor(power::ADDRESS, *tipset_state)?
         .ok_or(TipsetRangeSyncerError::PowerActorUnavailable)?;
     let state = power::State::load(state_manager.blockstore(), &actor)
         .map_err(|err| TipsetRangeSyncerError::MinerPowerUnavailable(err.to_string()))?;
@@ -1610,7 +1630,7 @@ fn check_block_messages<
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
             m.from(),
-            base_tipset.parent_state(),
+            *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
         cids.push(m.to_signing_bytes());

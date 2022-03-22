@@ -12,7 +12,7 @@ use rpc_api::data_types::RPCState;
 /// BeaconGetEntry returns the beacon entry for the given filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
 /// becomes available
-pub(crate) async fn beacon_get_entry<'a, DB, B>(
+pub(crate) async fn beacon_get_entry<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<BeaconGetEntryParams>,
 ) -> Result<BeaconGetEntryResult, JsonRpcError>

@@ -4,6 +4,7 @@
 mod auth_cmd;
 mod chain_cmd;
 mod config;
+mod config_cmd;
 mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
@@ -38,6 +39,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
 
+use crate::cli::config_cmd::ConfigCommands;
 use blocks::tipset_json::TipsetJson;
 use cid::Cid;
 use utils::{read_file_to_string, read_toml};
@@ -90,6 +92,9 @@ pub enum Subcommand {
 
     #[structopt(name = "state", about = "Interact with and query filecoin chain state")]
     State(StateCommands),
+
+    #[structopt(name = "config", about = "Manage node configuration")]
+    Config(ConfigCommands),
 }
 
 /// CLI options
@@ -172,7 +177,7 @@ impl CliOpts {
             cfg.enable_rpc = true;
             cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
 
-            if cfg.rpc_token.is_some() {
+            if self.token.is_some() {
                 cfg.rpc_token = self.token.to_owned();
             }
         } else {
@@ -220,7 +225,7 @@ impl CliOpts {
 }
 
 /// Blocks current thread until ctrl-c is received
-pub(super) async fn block_until_sigint() {
+pub async fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
     let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
 

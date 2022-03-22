@@ -67,7 +67,7 @@ pub struct ExecuteTipsetParams<'a> {
     pub parent_epoch: ChainEpoch,
     pub tipset: &'a TipsetVector,
     pub exec_epoch: ChainEpoch,
-    pub randomness: ReplayingRand<'a>,
+    pub randomness: ReplayingRand,
 }
 
 pub struct ExecuteTipsetResult {
