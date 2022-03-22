@@ -3,7 +3,6 @@
 
 use actor::CHAIN_FINALITY;
 use blocks::tipset_keys_json::TipsetKeysJson;
-use chrono::{Datelike, Utc};
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -11,6 +10,7 @@ use crate::cli::{cli_error_and_die, handle_rpc_err};
 use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
 use cid::{json::CidJson, Cid};
 use rpc_client::chain_ops::*;
+use time::OffsetDateTime;
 
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
@@ -108,9 +108,9 @@ impl ChainCommands {
                 let output_path = match output_path {
                     Some(path) => path.to_owned(),
                     None => {
-                        let now = Utc::now();
+                        let now = OffsetDateTime::now_utc();
                         format!(
-                            "forest_snapshot_{}_{}_{}_{}.car",
+                            "forest_snapshot_{}_{}_{}_height_{}.car",
                             now.year(),
                             now.month(),
                             now.day(),

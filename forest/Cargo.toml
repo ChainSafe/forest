@@ -12,7 +12,6 @@ address = { package = "forest_address", version = "0.3" }
 base64 = "0.13"
 forest_libp2p = { path = "../node/forest_libp2p" }
 utils = { path = "../node/utils" }
-chrono = "0.4.19"
 db = { package = "forest_db", version = "0.1" }
 libp2p = { version = "0.41", default-features = false, features = ["identify"] }
 futures = "0.3"
@@ -61,6 +60,7 @@ ticker = "0.1"
 byte-unit = "4.0"
 rug = "1.13"
 toml = "0.5"
+time = "0.3.7"
 
 [dependencies.jsonrpc-v2]
 version = "0.10"
