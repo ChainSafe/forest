@@ -63,7 +63,7 @@ pub fn execute_message(
     let lb = MockStateLB(bs.as_ref());
 
     let nv = params.nv;
-    let chain_config = ChainConfig::default();
+    let chain_config = ChainConfig::conformance();
     let heights = Heights::new(&chain_config);
     let mut vm = VM::<_, _, _, _>::new(
         *params.pre_root,

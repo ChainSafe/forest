@@ -364,7 +364,7 @@ impl ChainConfig {
     pub fn conformance() -> Self {
         Self {
             height_infos: CONFORMANCE_HEIGHT_INFOS.to_vec(),
-            ..Default::default()
+            ..Self::default()
         }
     }
 
