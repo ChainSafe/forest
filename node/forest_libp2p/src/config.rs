@@ -6,7 +6,7 @@ use networks::DEFAULT_BOOTSTRAP;
 use serde::{Deserialize, Serialize};
 
 /// Libp2p config for the Forest node.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Libp2pConfig {
     /// Local address.

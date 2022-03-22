@@ -22,9 +22,11 @@ use libp2p::identity::{ed25519, Keypair};
 use log::{debug, info, trace, warn};
 use rpassword::read_password;
 
+use db::rocks::RocksDb;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -70,9 +72,7 @@ pub(super) async fn start(config: Config) {
 
             let passphrase = read_password().expect("Error reading passphrase");
 
-            let mut data_dir = PathBuf::from(&config.data_dir);
-            data_dir.push(ENCRYPTED_KEYSTORE_NAME);
-
+            let data_dir = PathBuf::from(&config.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
                 print!("Confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
@@ -106,6 +106,18 @@ pub(super) async fn start(config: Config) {
             .unwrap();
     }
 
+    // Start Prometheus server port
+    let prometheus_server_task = task::spawn(metrics::init_prometheus(
+        (format!("127.0.0.1:{}", config.metrics_port))
+            .parse()
+            .unwrap(),
+        PathBuf::from(&config.data_dir)
+            .join("db")
+            .into_os_string()
+            .into_string()
+            .expect("Failed converting the path to db"),
+    ));
+
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
     let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
@@ -119,7 +131,7 @@ pub(super) async fn start(config: Config) {
         .expect("Opening SledDB must succeed");
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(format!("{}/{}", config.data_dir.clone(), "db"))
+    let db = db::rocks::RocksDb::open(PathBuf::from(&config.data_dir).join("db"), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
@@ -146,13 +158,7 @@ pub(super) async fn start(config: Config) {
 
     info!("Using network :: {}", network_name);
 
-    let validate_height = if config.snapshot { None } else { Some(0) };
-    // Sync from snapshot
-    if let Some(path) = &config.snapshot_path {
-        import_chain::<FullVerifier, _>(&state_manager, path, validate_height, config.skip_load)
-            .await
-            .unwrap();
-    }
+    sync_from_snapshot(&config, &state_manager).await;
 
     // Fetch and ensure verification keys are downloaded
     get_params_default(SectorSizeOpt::Keys, false)
@@ -232,14 +238,6 @@ pub(super) async fn start(config: Config) {
         None
     };
 
-    // Start Prometheus server port
-    let prometheus_server_task = task::spawn(metrics::init_prometheus(
-        (format!("127.0.0.1:{}", config.metrics_port))
-            .parse()
-            .unwrap(),
-        format!("{}/{}", config.data_dir.clone(), "db"),
-    ));
-
     // Block until ctrl-c is hit
     block_until_sigint().await;
 
@@ -257,6 +255,17 @@ pub(super) async fn start(config: Config) {
     keystore_write.await;
 
     info!("Forest finish shutdown");
+}
+
+async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
+    if let Some(path) = &config.snapshot_path {
+        let stopwatch = time::Instant::now();
+        let validate_height = if config.snapshot { None } else { Some(0) };
+        import_chain::<FullVerifier, _>(state_manager, path, validate_height, config.skip_load)
+            .await
+            .expect("Failed miserably while importing chain from snapshot");
+        debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+    }
 }
 
 #[cfg(test)]

@@ -113,13 +113,13 @@ impl<T> FvmStore<T> {
 }
 
 impl<T: BlockStore> Blockstore for FvmStore<T> {
-    fn get(&self, cid: &cid_orig::Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match self.bs.get_bytes(&(*cid).into()) {
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        match self.bs.get_bytes(cid) {
             Ok(vs) => Ok(vs),
             Err(_err) => Err(anyhow::Error::msg("Fix FVM error handling")),
         }
     }
-    fn put_keyed(&self, cid: &cid_orig::Cid, bytes: &[u8]) -> Result<(), anyhow::Error> {
+    fn put_keyed(&self, cid: &Cid, bytes: &[u8]) -> Result<(), anyhow::Error> {
         self.bs.write(cid.to_bytes(), bytes).map_err(|e| e.into())
     }
 }

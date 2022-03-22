@@ -147,8 +147,8 @@ impl Cbor for BlockHeader {
     fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         Ok(self.cached_bytes().clone())
     }
-    fn cid(&self) -> Result<cid_orig::Cid, EncodingError> {
-        Ok(self.cid().take())
+    fn cid(&self) -> Result<Cid, EncodingError> {
+        Ok(*self.cid())
     }
 }
 

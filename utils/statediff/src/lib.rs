@@ -115,7 +115,7 @@ fn pp_actor_state(
 
     buffer += &format!("{:#?}\n", state);
 
-    if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld) {
+    if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
         buffer += &format!("{:#?}", miner_state);
     } else {
         buffer += &serde_json::to_string_pretty(&resolved)?;

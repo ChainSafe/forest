@@ -96,7 +96,7 @@ pub struct VM<
     params: PhantomData<P>,
 }
 
-pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, cid_orig::Cid> {
+pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, Cid> {
     let bundles = [(NetworkVersion::V14, actors_v6::BUNDLE_CAR)];
     bundles
         .into_iter()
@@ -104,7 +104,7 @@ pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, c
             let roots =
                 async_std::task::block_on(async { load_car(blockstore, car).await.unwrap() });
             assert_eq!(roots.len(), 1);
-            (nv, roots[0].into())
+            (nv, roots[0])
         })
         .collect()
 }
@@ -156,7 +156,7 @@ where
                 base_fee.clone(),
                 fil_vested,
                 network_version,
-                root.into(),
+                root,
                 builtin_actors,
                 FvmStore::new(store_arc),
                 ForestExterns::new(rand.clone()),
@@ -197,13 +197,13 @@ where
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
         match Backend::get_backend_choice() {
-            Backend::FVM => Ok(self.fvm_executor.flush()?.into()),
+            Backend::FVM => Ok(self.fvm_executor.flush()?),
             Backend::Native => match self.state.flush() {
                 Ok(cid) => Ok(cid),
                 Err(err) => anyhow::bail!("{}", err),
             },
             Backend::Both => {
-                let fvm_cid: Cid = self.fvm_executor.flush()?.into();
+                let fvm_cid: Cid = self.fvm_executor.flush()?;
                 let native_cid = match self.state.flush() {
                     Ok(cid) => cid,
                     Err(err) => anyhow::bail!("{}", err),
@@ -259,11 +259,7 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(
-                &(cron_msg.cid()?.into()),
-                &ChainMessage::Unsigned(cron_msg),
-                &ret,
-            )?;
+            callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg), &ret)?;
         }
         Ok(())
     }
@@ -304,13 +300,13 @@ where
             let mut process_msg = |msg: &ChainMessage| -> Result<(), Box<dyn StdError>> {
                 let cid = msg.cid()?;
                 // Ensure no duplicate processing of a message
-                if processed.contains(&cid.into()) {
+                if processed.contains(&cid) {
                     return Ok(());
                 }
                 let ret = self.apply_message(msg)?;
 
                 if let Some(cb) = &mut callback {
-                    cb(&cid.into(), msg, &ret)?;
+                    cb(&cid, msg, &ret)?;
                 }
 
                 // Update totals
@@ -319,7 +315,7 @@ where
                 receipts.push(ret.msg_receipt);
 
                 // Add processed Cid to set of processed messages
-                processed.insert(cid.into());
+                processed.insert(cid);
                 Ok(())
             };
 
@@ -368,11 +364,7 @@ where
             }
 
             if let Some(callback) = &mut callback {
-                callback(
-                    &(rew_msg.cid()?.into()),
-                    &ChainMessage::Unsigned(rew_msg),
-                    &ret,
-                )?;
+                callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
             }
         }
 

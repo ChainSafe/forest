@@ -12,7 +12,7 @@ features = ["json"]
 
 [dependencies]
 anyhow = "1.0"
-fvm_shared = { version = "0.1", default-features = false }
+fvm_shared = { version = "0.2", default-features = false }
 address = { package = "forest_address", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 libsecp256k1 = "0.7.0"

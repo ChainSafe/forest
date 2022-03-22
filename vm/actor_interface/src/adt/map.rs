@@ -15,6 +15,7 @@ pub enum Map<'a, BS, V> {
     V3(actorv3::Map<'a, BS, V>),
     V4(actorv4::Map<'a, BS, V>),
     V5(actorv5::Map<'a, BS, V>),
+    V6(actorv6::Map<'a, BS, V>),
 }
 
 impl<'a, BS, V> Map<'a, BS, V>
@@ -29,7 +30,7 @@ where
             ActorVersion::V3 => Map::V3(actorv3::make_empty_map(store, HAMT_BIT_WIDTH)),
             ActorVersion::V4 => Map::V4(actorv4::make_empty_map(store, HAMT_BIT_WIDTH)),
             ActorVersion::V5 => Map::V5(actorv5::make_empty_map(store, HAMT_BIT_WIDTH)),
-            ActorVersion::V6 => Map::V5(actorv5::make_empty_map(store, HAMT_BIT_WIDTH)),
+            ActorVersion::V6 => Map::V6(actorv6::make_empty_map(store, HAMT_BIT_WIDTH)),
         }
     }
 
@@ -41,7 +42,7 @@ where
             ActorVersion::V3 => Ok(Map::V3(actorv3::make_map_with_root(cid, store)?)),
             ActorVersion::V4 => Ok(Map::V4(actorv4::make_map_with_root(cid, store)?)),
             ActorVersion::V5 => Ok(Map::V5(actorv5::make_map_with_root(cid, store)?)),
-            ActorVersion::V6 => Ok(Map::V5(actorv5::make_map_with_root(cid, store)?)),
+            ActorVersion::V6 => Ok(Map::V6(actorv6::make_map_with_root(cid, store)?)),
         }
     }
 
@@ -53,6 +54,7 @@ where
             Map::V3(m) => m.store(),
             Map::V4(m) => m.store(),
             Map::V5(m) => m.store(),
+            Map::V6(m) => m.store(),
         }
     }
 
@@ -73,6 +75,10 @@ where
                 m.set(key, value)?;
                 Ok(())
             }
+            Map::V6(m) => {
+                m.set(key, value)?;
+                Ok(())
+            }
         }
     }
 
@@ -89,6 +95,7 @@ where
             Map::V3(m) => Ok(m.get(k)?),
             Map::V4(m) => Ok(m.get(k)?),
             Map::V5(m) => Ok(m.get(k)?),
+            Map::V6(m) => Ok(m.get(k)?),
         }
     }
 
@@ -104,6 +111,7 @@ where
             Map::V3(m) => Ok(m.contains_key(k)?),
             Map::V4(m) => Ok(m.contains_key(k)?),
             Map::V5(m) => Ok(m.contains_key(k)?),
+            Map::V6(m) => Ok(m.contains_key(k)?),
         }
     }
 
@@ -120,6 +128,7 @@ where
             Map::V3(m) => Ok(m.delete(k)?),
             Map::V4(m) => Ok(m.delete(k)?),
             Map::V5(m) => Ok(m.delete(k)?),
+            Map::V6(m) => Ok(m.delete(k)?),
         }
     }
 
@@ -131,6 +140,7 @@ where
             Map::V3(m) => Ok(m.flush()?),
             Map::V4(m) => Ok(m.flush()?),
             Map::V5(m) => Ok(m.flush()?),
+            Map::V6(m) => Ok(m.flush()?),
         }
     }
 
@@ -146,6 +156,7 @@ where
             Map::V3(m) => m.for_each(f),
             Map::V4(m) => m.for_each(f),
             Map::V5(m) => m.for_each(f),
+            Map::V6(m) => m.for_each(f),
         }
     }
 }

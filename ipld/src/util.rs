@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::error::Error as StdError;
 
 use cid::Cid;
-use encoding::Cbor;
+use fvm_shared::encoding::from_slice;
 
 use crate::Ipld;
 
@@ -36,7 +36,7 @@ where
                     return Ok(());
                 }
                 let bytes = load_block(*cid)?;
-                let ipld = Ipld::unmarshal_cbor(&bytes)?;
+                let ipld = from_slice(&bytes)?;
                 traverse_ipld_links(walked, load_block, &ipld)?;
             }
         }
@@ -63,7 +63,7 @@ where
     }
 
     let bytes = load_block(root)?;
-    let ipld = Ipld::unmarshal_cbor(&bytes)?;
+    let ipld = from_slice(&bytes)?;
 
     traverse_ipld_links(walked, load_block, &ipld)?;
 

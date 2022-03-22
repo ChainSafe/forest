@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::fvm::externs::ForestExterns;
+use cid::Cid;
 use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
 use fvm::Config;
@@ -59,10 +60,6 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         self.machine.create_actor(addr, act)
     }
 
-    // fn load_module(&self, code: &cid_orig::Cid) -> fvm::kernel::Result<wasmtime::Module> {
-    //     self.machine.load_module(code)
-    // }
-
     fn transfer(
         &mut self,
         from: ActorID,
@@ -76,7 +73,7 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         self.machine.consume()
     }
 
-    fn flush(&mut self) -> fvm::kernel::Result<cid_orig::Cid> {
+    fn flush(&mut self) -> fvm::kernel::Result<Cid> {
         self.machine.flush()
     }
 }

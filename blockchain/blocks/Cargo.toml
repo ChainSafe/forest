@@ -8,7 +8,6 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-cid_orig = { package = "cid", version = "0.8" }
 address = { package = "forest_address", version = "0.3" }
 beacon = { path = "../beacon" }
 byteorder = "1.3.4"
