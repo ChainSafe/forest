@@ -338,7 +338,6 @@ where
             verifier: PhantomData::<V>::default(),
         };
 
-        let nv_getter = |epoch| self.chain_config.network_version(epoch);
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
@@ -350,7 +349,7 @@ where
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
-                nv_getter(epoch),
+                self.get_network_version(epoch),
                 self.genesis_info.clone(),
                 None,
                 &lb_wrapper,
@@ -485,8 +484,6 @@ where
                 verifier: PhantomData::<V>::default(),
             };
 
-            let nv_getter = |epoch| self.chain_config.network_version(epoch);
-
             let store_arc = self.blockstore_cloned();
 
             let heights = Heights::new(&self.chain_config);
@@ -497,7 +494,7 @@ where
                 bheight,
                 rand,
                 0.into(),
-                nv_getter(bheight),
+                self.get_network_version(bheight),
                 self.genesis_info.clone(),
                 None,
                 &lb_wrapper,
@@ -587,7 +584,6 @@ where
             verifier: PhantomData::<V>::default(),
         };
         let store_arc = self.blockstore_cloned();
-        let nv_getter = |epoch| self.chain_config.network_version(epoch);
         let heights = Heights::new(&self.chain_config);
         let mut vm = VM::<_, _, _, _, V>::new(
             st,
@@ -596,7 +592,7 @@ where
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            nv_getter(ts.epoch() + 1),
+            self.get_network_version(ts.epoch() + 1),
             self.genesis_info.clone(),
             None,
             &lb_wrapper,
@@ -677,7 +673,7 @@ where
         V: ProofVerifier,
     {
         let mut lbr: ChainEpoch = ChainEpoch::from(0);
-        let version = self.chain_config.network_version(round);
+        let version = self.get_network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
@@ -728,7 +724,7 @@ where
         lookback_tipset: &Tipset,
     ) -> Result<bool, Error> {
         let hmp = self.miner_has_min_power(address, lookback_tipset)?;
-        let version = self.chain_config.network_version(base_tipset.epoch());
+        let version = self.get_network_version(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
             return Ok(hmp);
@@ -816,7 +812,7 @@ where
             &buf,
         )?;
 
-        let nv = self.chain_config.network_version(tipset.epoch());
+        let nv = self.get_network_version(tipset.epoch());
         let sectors = self.get_sectors_for_winning_post::<V>(
             &lbst,
             nv,
