@@ -172,6 +172,7 @@ async fn execute_message_vector(
     randomness: &Randomness,
     variant: &Variant,
     engine: fvm::machine::Engine,
+    chain_config: &ChainConfig,
 ) -> Result<(), Box<dyn StdError>> {
     let bs = Arc::new(load_car(car).await?);
 
@@ -202,6 +203,7 @@ async fn execute_message_vector(
                 nv: variant.nv.try_into().unwrap_or(NetworkVersion::V0),
             },
             engine.clone(),
+            chain_config,
         )?;
         root = post_root;
 
@@ -222,11 +224,11 @@ async fn execute_tipset_vector(
     postconditions: &PostConditions,
     randomness: &Randomness,
     variant: &Variant,
+    chain_config: &ChainConfig,
 ) -> Result<(), Box<dyn StdError>> {
     let bs = load_car(car).await?;
     let bs = Arc::new(bs);
-    let chain_config = Arc::new(ChainConfig::conformance());
-    let sm = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs)), chain_config).await?);
+    let sm = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs)), Arc::new(chain_config.clone())).await?);
     genesis::initialize_genesis(None, &sm).await.unwrap();
 
     let base_epoch = variant.epoch;
@@ -295,6 +297,8 @@ async fn conformance_test_runner() {
 
     let engine = fvm::machine::Engine::default();
 
+    let chain_config = ChainConfig::conformance();
+
     let mut failed = Vec::new();
     let mut succeeded = 0;
     for entry in walker.filter_map(|e| e.ok()).filter(is_valid_file) {
@@ -325,6 +329,7 @@ async fn conformance_test_runner() {
                         &randomness,
                         &variant,
                         engine.clone(),
+                        &chain_config,
                     )
                     .await
                     {
@@ -361,6 +366,7 @@ async fn conformance_test_runner() {
                         &postconditions,
                         &randomness,
                         &variant,
+                        &chain_config,
                     )
                     .await
                     {
