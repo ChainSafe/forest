@@ -28,10 +28,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-              curl file gcc g++ git make openssh-client \
-              autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
-              libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
-              xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
+              build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
@@ -61,10 +58,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-              curl file gcc g++ git make openssh-client \
-              autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
-              libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
-              xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
+              build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
         with:
@@ -143,10 +137,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-              curl file gcc g++ git make openssh-client \
-              autoconf automake cmake libtool libcurl4-openssl-dev libssl-dev llvm\
-              libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
-              xz-utils pkg-config python libclang-6.0-dev clang ocl-icd-opencl-dev libgflags-dev libhwloc-dev
+              build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
