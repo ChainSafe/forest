@@ -4,7 +4,7 @@
 pub mod build_version;
 pub mod deadlines;
 mod piece;
-mod randomness;
+// mod randomness;
 pub mod sector;
 mod state;
 
@@ -15,10 +15,10 @@ pub mod genesis;
 pub mod verifier;
 
 pub use self::piece::*;
-pub use self::randomness::*;
 pub use self::sector::*;
 pub use self::state::*;
 
+pub use fvm_shared::randomness::Randomness;
 pub use fvm_shared::version::NetworkVersion;
 
 use address::Address;
