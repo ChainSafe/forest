@@ -227,8 +227,8 @@ async fn execute_tipset_vector(
     chain_config: &ChainConfig,
 ) -> Result<(), Box<dyn StdError>> {
     let bs = load_car(car).await?;
-    let bs = Arc::new(bs);
-    let sm = Arc::new(StateManager::new(Arc::new(ChainStore::new(bs)), Arc::new(chain_config.clone())).await?);
+    let cs = Arc::new(ChainStore::new(Arc::new(bs)));
+    let sm = Arc::new(StateManager::new(cs, Arc::new(chain_config.clone())).await?);
     genesis::initialize_genesis(None, &sm).await.unwrap();
 
     let base_epoch = variant.epoch;
