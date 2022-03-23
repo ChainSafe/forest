@@ -17,7 +17,7 @@ mod mainnet;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
 
-const UPGRADE_INFOS: [UpgradeInfo; 14] = [
+const UPGRADE_INFOS: [UpgradeInfo; 15] = [
     UpgradeInfo {
         height: Height::Breeze,
         version: 1,
@@ -74,147 +74,9 @@ const UPGRADE_INFOS: [UpgradeInfo; 14] = [
         height: Height::Chocolate,
         version: 14,
     },
-];
-
-const MAINNET_HEIGHT_INFOS: [HeightInfo; 17] = [
-    HeightInfo {
-        height: Height::Breeze,
-        epoch: 41280,
-    },
-    HeightInfo {
-        height: Height::Smoke,
-        epoch: 51000,
-    },
-    HeightInfo {
-        height: Height::Ignition,
-        epoch: 94000,
-    },
-    HeightInfo {
-        height: Height::ActorsV2,
-        epoch: 138720,
-    },
-    HeightInfo {
-        height: Height::Tape,
-        epoch: 140760,
-    },
-    HeightInfo {
-        height: Height::Liftoff,
-        epoch: 148888,
-    },
-    HeightInfo {
-        height: Height::Kumquat,
-        epoch: 170000,
-    },
-    HeightInfo {
-        height: Height::Calico,
-        epoch: 265200,
-    },
-    HeightInfo {
-        height: Height::Persian,
-        epoch: 272400,
-    },
-    HeightInfo {
-        height: Height::Orange,
-        epoch: 336458,
-    },
-    HeightInfo {
-        height: Height::Claus,
-        epoch: 343200,
-    },
-    HeightInfo {
-        height: Height::Trust,
-        epoch: 550321,
-    },
-    HeightInfo {
-        height: Height::Norwegian,
-        epoch: 665280,
-    },
-    HeightInfo {
-        height: Height::Turbo,
-        epoch: 712320,
-    },
-    HeightInfo {
-        height: Height::Hyperdrive,
-        epoch: 892800,
-    },
-    HeightInfo {
-        height: Height::Chocolate,
-        epoch: 1231620,
-    },
-    HeightInfo {
+    UpgradeInfo {
         height: Height::OhSnap,
-        epoch: 9999999,
-    },
-];
-
-const CALIBNET_HEIGHT_INFOS: [HeightInfo; 17] = [
-    HeightInfo {
-        height: Height::Breeze,
-        epoch: -1,
-    },
-    HeightInfo {
-        height: Height::Smoke,
-        epoch: -2,
-    },
-    HeightInfo {
-        height: Height::Ignition,
-        epoch: -3,
-    },
-    HeightInfo {
-        height: Height::ActorsV2,
-        epoch: 30,
-    },
-    HeightInfo {
-        height: Height::Tape,
-        epoch: 60,
-    },
-    HeightInfo {
-        height: Height::Liftoff,
-        epoch: -5,
-    },
-    HeightInfo {
-        height: Height::Kumquat,
-        epoch: 90,
-    },
-    HeightInfo {
-        height: Height::Calico,
-        epoch: 120,
-    },
-    HeightInfo {
-        height: Height::Persian,
-        epoch: 130,
-    },
-    HeightInfo {
-        height: Height::Orange,
-        epoch: 300,
-    },
-    HeightInfo {
-        height: Height::Claus,
-        epoch: 270,
-    },
-    HeightInfo {
-        height: Height::Trust,
-        epoch: 330,
-    },
-    HeightInfo {
-        height: Height::Norwegian,
-        epoch: 360,
-    },
-    HeightInfo {
-        height: Height::Turbo,
-        epoch: 390,
-    },
-    HeightInfo {
-        height: Height::Hyperdrive,
-        epoch: 420,
-    },
-    HeightInfo {
-        height: Height::Chocolate,
-        epoch: 312746,
-    },
-    HeightInfo {
-        height: Height::OhSnap,
-        epoch: 9999999,
+        version: 15,
     },
 ];
 
@@ -319,8 +181,8 @@ impl Default for Height {
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct UpgradeInfo {
-    height: Height,
-    version: u32,
+    pub height: Height,
+    pub version: u32,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -357,7 +219,7 @@ impl ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             genesis_bytes: DEFAULT_GENESIS.to_vec(),
             version_schedule: UPGRADE_INFOS.to_vec(),
-            height_infos: CALIBNET_HEIGHT_INFOS.to_vec(),
+            height_infos: HEIGHT_INFOS.to_vec(),
         }
     }
 
@@ -434,7 +296,7 @@ impl Default for ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             genesis_bytes: DEFAULT_GENESIS.to_vec(),
             version_schedule: UPGRADE_INFOS.to_vec(),
-            height_infos: MAINNET_HEIGHT_INFOS.to_vec(),
+            height_infos: HEIGHT_INFOS.to_vec(),
         }
     }
 }

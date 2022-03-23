@@ -3,17 +3,16 @@
 
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
-    DrandPoint,
+    DrandPoint, Height, HeightInfo,
 };
 use clock::ChainEpoch;
 
-/// V2 network upgrade
-const UPGRADE_SMOKE_HEIGHT: ChainEpoch = 51000;
+const SMOKE_HEIGHT: ChainEpoch = 51000;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 
-/// Bootstrap peer ids
+/// Bootstrap peer ids.
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-0.mainnet.filops.net/tcp/1347/p2p/12D3KooWCVe8MmsEMes2FzgTpt9fXtmCY7wrq91GRiaC8PHSCCBj",
     "/dns4/bootstrap-1.mainnet.filops.net/tcp/1347/p2p/12D3KooWCwevHg1yLCvktf2nvLu7L9894mcrJR4MsBCcm4syShVc",
@@ -32,6 +31,78 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-1.ipfsmain.cn/tcp/34723/p2p/12D3KooWMKxMkD5DMpSWsW7dBddKxKT7L2GgbNuckz9otxvkvByP",
 ];
 
+/// Height epochs.
+pub const HEIGHT_INFOS: [HeightInfo; 17] = [
+    HeightInfo {
+        height: Height::Breeze,
+        epoch: 41280,
+    },
+    HeightInfo {
+        height: Height::Smoke,
+        epoch: SMOKE_HEIGHT,
+    },
+    HeightInfo {
+        height: Height::Ignition,
+        epoch: 94000,
+    },
+    HeightInfo {
+        height: Height::ActorsV2,
+        epoch: 138720,
+    },
+    HeightInfo {
+        height: Height::Tape,
+        epoch: 140760,
+    },
+    HeightInfo {
+        height: Height::Liftoff,
+        epoch: 148888,
+    },
+    HeightInfo {
+        height: Height::Kumquat,
+        epoch: 170000,
+    },
+    HeightInfo {
+        height: Height::Calico,
+        epoch: 265200,
+    },
+    HeightInfo {
+        height: Height::Persian,
+        epoch: 272400,
+    },
+    HeightInfo {
+        height: Height::Orange,
+        epoch: 336458,
+    },
+    HeightInfo {
+        height: Height::Claus,
+        epoch: 343200,
+    },
+    HeightInfo {
+        height: Height::Trust,
+        epoch: 550321,
+    },
+    HeightInfo {
+        height: Height::Norwegian,
+        epoch: 665280,
+    },
+    HeightInfo {
+        height: Height::Turbo,
+        epoch: 712320,
+    },
+    HeightInfo {
+        height: Height::Hyperdrive,
+        epoch: 892800,
+    },
+    HeightInfo {
+        height: Height::Chocolate,
+        epoch: 1231620,
+    },
+    HeightInfo {
+        height: Height::OhSnap,
+        epoch: 1594680,
+    },
+];
+
 lazy_static! {
     pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
         DrandPoint {
@@ -39,7 +110,7 @@ lazy_static! {
             config: &*DRAND_INCENTINET,
         },
         DrandPoint {
-            height: UPGRADE_SMOKE_HEIGHT,
+            height: SMOKE_HEIGHT,
             config: &*DRAND_MAINNET,
         },
     ];
