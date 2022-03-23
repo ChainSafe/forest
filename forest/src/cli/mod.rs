@@ -25,8 +25,10 @@ pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
+use directories::BaseDirs;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
+use log::{info, warn};
 use num_bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
@@ -217,29 +219,60 @@ impl CliOpts {
     }
 }
 
-pub fn find_default_config() -> Option<Config> {
-    // check forest config path first, then look at other default locations
-    let path = if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
-        PathBuf::from(config_file)
-    } else if let Ok(root_config_path) = std::env::var("XDG_CONFIG_HOME") {
-        // determine if XDG_CONFIG_HOME is set for default locations, otherwise use home_dir
-        PathBuf::from(root_config_path + "/forest/config.toml")
-    } else {
-        // $XDG_CONFIG_HOME does not exist, check ~/.forest.toml
-        PathBuf::from(get_home_dir() + "/.forest/config.toml")
+fn find_default_config() -> Option<Config> {
+    if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+        info!(
+            "FOREST_CONFIG_PATH is set! Using configuration at {}",
+            config_file
+        );
+        let path = PathBuf::from(config_file);
+        if path.exists() {
+            return read_config_or_none(path);
+        }
     };
 
-    if path.exists() {
-        let toml = match read_file_to_string(&path) {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        if let Ok(cfg) = read_toml(&toml) {
-            return Some(cfg);
-        };
+    // Check if config directory var is set and a config file exists there
+    if let Some(base_dir) = BaseDirs::new() {
+        let mut config_dir = base_dir.config_dir().to_path_buf();
+        config_dir.push("/forest/config.toml");
+        if config_dir.exists() {
+            info!("Found config file at {}", config_dir.display());
+            return read_config_or_none(config_dir);
+        }
+    } else {
+        // Check home directory for config file
+        let mut home_dir = PathBuf::from(get_home_dir());
+        home_dir.push("./forest/config.toml");
+        if home_dir.exists() {
+            info!("Found config file at {}", home_dir.display());
+            return read_config_or_none(home_dir);
+        }
     }
 
+    warn!("No configuration found! Using default");
+
     None
+}
+
+fn read_config_or_none(path: PathBuf) -> Option<Config> {
+    let toml = match read_file_to_string(&path) {
+        Ok(t) => t,
+        Err(e) => {
+            warn!("An error occured while reading configuration file at {}. Resorting to default configuration. Error was {}", path.display(), e);
+            return None;
+        }
+    };
+
+    match read_toml(&toml) {
+        Ok(cfg) => Some(cfg),
+        Err(e) => {
+            warn!(
+                "Error reading configuration, opting to default. Error was {} ",
+                e
+            );
+            None
+        }
+    }
 }
 
 /// Blocks current thread until ctrl-c is received
