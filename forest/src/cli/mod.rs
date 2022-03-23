@@ -25,7 +25,7 @@ pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
-use directories::BaseDirs;
+use directories::ProjectDirs;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{info, warn};
@@ -44,7 +44,7 @@ use structopt::StructOpt;
 use crate::cli::config_cmd::ConfigCommands;
 use blocks::tipset_json::TipsetJson;
 use cid::Cid;
-use utils::{get_home_dir, read_file_to_string, read_toml};
+use utils::{read_file_to_string, read_toml};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -231,21 +231,12 @@ fn find_default_config() -> Option<Config> {
         }
     };
 
-    // Check if config directory var is set and a config file exists there
-    if let Some(base_dir) = BaseDirs::new() {
-        let mut config_dir = base_dir.config_dir().to_path_buf();
+    if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
+        let mut config_dir = dir.config_dir().to_path_buf();
         config_dir.push("/forest/config.toml");
         if config_dir.exists() {
             info!("Found config file at {}", config_dir.display());
             return read_config_or_none(config_dir);
-        }
-    } else {
-        // Check home directory for config file
-        let mut home_dir = PathBuf::from(get_home_dir());
-        home_dir.push("./forest/config.toml");
-        if home_dir.exists() {
-            info!("Found config file at {}", home_dir.display());
-            return read_config_or_none(home_dir);
         }
     }
 
