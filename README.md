@@ -29,16 +29,32 @@ Our crates:
 
 
 ## Dependencies
-`rustc >= 1.58.1`
 
-## Usage
+* Rust `rustc >= 1.58.1`
+* Rust WASM target `wasm32-unknown-unknown`
+
+```shell
+rustup install stable
+rustup target add wasm32-unknown-unknown
+```
+
+* OS Base-Devel/Build-Essential
+* Clang compiler
+* OpenCL bindings
+
+```shell
+# Ubuntu
+sudo apt install build-essential clang ocl-icd-opencl-dev
+
+# Archlinux
+sudo pacman -S base-devel clang ocl-icd
+```
+
+## Installation
 ```shell
 # Clone repository
 git clone --recursive https://github.com/chainsafe/forest
 cd forest
-
-# Install wasm32 target
-rustup target add wasm32-unknown-unknown
 
 # Install binary to $HOME/.cargo/bin and run node
 make install
@@ -52,8 +68,6 @@ To create release binaries, checkout the latest tag and compile with the release
 git checkout $TAG
 cargo build --release --bin forest --features release
 ```
-
-> `OpenCL`, `hwloc` and a compatible assembly linker (ex. `clang`) are also required to build Filecoin proofs.
 
 ### Config
 
