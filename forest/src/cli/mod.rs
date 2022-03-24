@@ -180,13 +180,17 @@ impl CliOpts {
         };
 
         if self.chain == "calibnet" {
-            let chain_config = ChainConfig::calibnet();
-            let bootstrap_peers = chain_config
+            // override the chain configuration
+            cfg.chain = ChainConfig::calibnet();
+        }
+
+        if cfg.network.bootstrap_peers.is_empty() {
+            // override bootstrap peers
+            let bootstrap_peers = cfg.chain
                 .bootstrap_peers
                 .iter()
                 .map(|node| node.parse().unwrap())
                 .collect();
-            cfg.chain = chain_config;
             cfg.network.bootstrap_peers = bootstrap_peers;
         }
 
