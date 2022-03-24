@@ -230,7 +230,7 @@ fn find_default_config() -> Option<Config> {
 
     if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
         let mut config_dir = dir.config_dir().to_path_buf();
-        config_dir.push("/forest/config.toml");
+        config_dir.push("config.toml");
         if config_dir.exists() {
             info!("Found config file at {}", config_dir.display());
             return read_config_or_none(config_dir);
