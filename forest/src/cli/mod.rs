@@ -186,7 +186,8 @@ impl CliOpts {
 
         if cfg.network.bootstrap_peers.is_empty() {
             // override bootstrap peers
-            let bootstrap_peers = cfg.chain
+            let bootstrap_peers = cfg
+                .chain
                 .bootstrap_peers
                 .iter()
                 .map(|node| node.parse().unwrap())

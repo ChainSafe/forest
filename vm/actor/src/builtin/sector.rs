@@ -16,9 +16,7 @@ pub fn consensus_miner_min_power(p: RegisteredPoStProof) -> Result<StoragePower,
         | StackedDRGWindow8MiBV1
         | StackedDRGWindow512MiBV1
         | StackedDRGWindow32GiBV1
-        | StackedDRGWindow64GiBV1 => {
-            Ok(StoragePower::from(10u64 << 40))
-        }
+        | StackedDRGWindow64GiBV1 => Ok(StoragePower::from(10u64 << 40)),
         Invalid(i) => Err(format!("unsupported proof type: {}", i)),
     }
 }
