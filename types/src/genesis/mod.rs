@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::SectorSize;
 use address::{json as addr_json, Address};
+use fvm_shared::sector::SectorSize;
 use num_bigint::bigint_ser::json as bigint_json;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
