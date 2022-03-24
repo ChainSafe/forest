@@ -160,10 +160,7 @@ impl CliOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => match find_default_config() {
-                Some(cfg) => cfg,
-                None => Config::default(),
-            },
+            None => find_default_config().unwrap_or_default(),
         };
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
