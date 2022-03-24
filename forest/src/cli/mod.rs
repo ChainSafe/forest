@@ -149,10 +149,10 @@ pub struct CliOpts {
     #[structopt(long, help = "Encrypt the keystore (default = true)")]
     pub encrypt_keystore: Option<bool>,
     #[structopt(
-        short = "-n",
         long,
-        help = "Choose network to sync to",
-        default_value = "mainnet"
+        help = "Choose network chain to sync to",
+        default_value = "mainnet",
+        possible_values = &["mainnet", "calibnet"],
     )]
     pub chain: String,
 }
@@ -188,8 +188,6 @@ impl CliOpts {
                 .collect();
             cfg.chain = chain_config;
             cfg.network.bootstrap_peers = bootstrap_peers;
-        } else if self.chain != "mainnet" {
-            cli_error_and_die(&format!("{} is not a builtin network", self.chain), 1);
         }
 
         if let Some(genesis_file) = &self.genesis {
