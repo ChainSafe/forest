@@ -120,7 +120,7 @@ mod tests {
     use db::{MemoryDB, Store};
     use forest_libp2p::NetworkMessage;
     use message_pool::{MessagePool, MpoolRpcProvider};
-    use networks::{ChainConfig, Height};
+    use networks::ChainConfig;
     use serde_json::from_str;
     use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
@@ -146,11 +146,8 @@ mod tests {
             .build()
             .unwrap();
         cs_arc.set_genesis(&genesis_header).unwrap();
-        let chain_config = Arc::new(ChainConfig::default());
-        let block_delay = chain_config.block_delay_secs;
-        let calico_height = chain_config.epoch(Height::Calico);
         let state_manager = Arc::new(
-            StateManager::new(cs_arc.clone(), chain_config)
+            StateManager::new(cs_arc.clone(), Arc::new(ChainConfig::default()))
                 .await
                 .unwrap(),
         );
@@ -178,8 +175,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
-                block_delay,
-                calico_height,
+                &state_manager_for_thread.chain_config,
             )
             .await
             .unwrap()

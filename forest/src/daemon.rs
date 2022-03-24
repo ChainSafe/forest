@@ -9,7 +9,6 @@ use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use networks::Height;
 use paramfetch::{get_params_default, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
@@ -155,8 +154,6 @@ pub(super) async fn start(config: Config) {
     let sm = StateManager::new(Arc::clone(&chain_store), Arc::new(config.chain.clone()))
         .await
         .unwrap();
-    let block_delay = sm.chain_config.block_delay_secs;
-    let calico_height = sm.chain_config.epoch(Height::Calico);
     let state_manager = Arc::new(sm);
 
     let network_name = get_network_name_from_genesis(&genesis, &state_manager)
@@ -190,8 +187,7 @@ pub(super) async fn start(config: Config) {
             network_name.clone(),
             network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
-            block_delay,
-            calico_height,
+            &state_manager.chain_config,
         )
         .await
         .unwrap(),

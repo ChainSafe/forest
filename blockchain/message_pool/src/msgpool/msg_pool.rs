@@ -33,7 +33,7 @@ use futures::{future::select, StreamExt};
 use log::warn;
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage};
-use networks::NEWEST_NETWORK_VERSION;
+use networks::{ChainConfig, Height, NEWEST_NETWORK_VERSION};
 use num_bigint::BigInt;
 use num_bigint::Integer;
 use std::collections::{HashMap, HashSet};
@@ -171,8 +171,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
-        block_delay: u64,
-        calico_height: ChainEpoch,
+        chain_config: &ChainConfig,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -187,6 +186,8 @@ where
         let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
+        let block_delay = chain_config.block_delay_secs;
+        let calico_height = chain_config.epoch(Height::Calico);
 
         let (repub_trigger, mut repub_trigger_rx) = bounded::<()>(4);
         let mut mp = MessagePool {

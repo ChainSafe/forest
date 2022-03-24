@@ -346,10 +346,6 @@ pub mod tests {
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
-        let chain_config = ChainConfig::default();
-        let block_delay = chain_config.block_delay_secs;
-        let calico_height = chain_config.epoch(Height::Calico);
-
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
             let mpool = MessagePool::new(
@@ -357,8 +353,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                block_delay,
-                calico_height,
+                &ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -422,18 +417,13 @@ pub mod tests {
         }
         let (tx, _rx) = bounded(50);
 
-        let chain_config = ChainConfig::default();
-        let block_delay = chain_config.block_delay_secs;
-        let calico_height = chain_config.epoch(Height::Calico);
-
         task::block_on(async move {
             let mpool = MessagePool::new(
                 tma,
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                block_delay,
-                calico_height,
+                &ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -527,18 +517,13 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
         let (tx, _rx) = bounded(50);
 
-        let chain_config = ChainConfig::default();
-        let block_delay = chain_config.block_delay_secs;
-        let calico_height = chain_config.epoch(Height::Calico);
-
         task::block_on(async move {
             let mpool = MessagePool::new(
                 tma,
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                block_delay,
-                calico_height,
+                &ChainConfig::default(),
             )
             .await
             .unwrap();

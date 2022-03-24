@@ -689,7 +689,7 @@ mod test_selection {
     use db::MemoryDB;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
-    use networks::{ChainConfig, Height};
+    use networks::ChainConfig;
     use std::sync::Arc;
     use types::NetworkParams;
 
@@ -697,9 +697,6 @@ mod test_selection {
 
     fn make_test_mpool() -> MessagePool<TestApi> {
         let tma = TestApi::default();
-        let chain_config = ChainConfig::default();
-        let block_delay = chain_config.block_delay_secs;
-        let calico_height = chain_config.epoch(Height::Calico);
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
             MessagePool::new(
@@ -707,8 +704,7 @@ mod test_selection {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                block_delay,
-                calico_height,
+                &ChainConfig::default(),
             )
             .await
         })
