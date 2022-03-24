@@ -253,29 +253,21 @@ impl ChainConfig {
         &self,
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
-        if self.name == "calibnet" {
-            let mut points = BeaconSchedule(Vec::with_capacity(calibnet::DRAND_SCHEDULE.len()));
-            for dc in calibnet::DRAND_SCHEDULE.iter() {
-                points.0.push(BeaconPoint {
-                    height: dc.height,
-                    beacon: Arc::new(
-                        DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config).await?,
-                    ),
-                });
-            }
-            Ok(points)
+        let ds_iter = if self.name == "calibnet" {
+            calibnet::DRAND_SCHEDULE.iter()
         } else {
-            let mut points = BeaconSchedule(Vec::with_capacity(mainnet::DRAND_SCHEDULE.len()));
-            for dc in mainnet::DRAND_SCHEDULE.iter() {
-                points.0.push(BeaconPoint {
-                    height: dc.height,
-                    beacon: Arc::new(
-                        DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config).await?,
-                    ),
-                });
-            }
-            Ok(points)
+            mainnet::DRAND_SCHEDULE.iter()
+        };
+        let mut points = BeaconSchedule(Vec::with_capacity(ds_iter.len()));
+        for dc in ds_iter {
+            points.0.push(BeaconPoint {
+                height: dc.height,
+                beacon: Arc::new(
+                    DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config).await?,
+                ),
+            });
         }
+        Ok(points)
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
