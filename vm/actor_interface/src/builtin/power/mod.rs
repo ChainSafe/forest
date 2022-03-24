@@ -30,6 +30,16 @@ pub enum State {
     V6(actorv6::power::State),
 }
 
+/// Converts any `FilterEstimate`, e.g. `actorv0::util::smooth::FilterEstimate` type into
+/// generalized one `crate::FilterEstimate`.
+macro_rules! convert_filter_estimate {
+    ($from:expr) => {
+        FilterEstimate {
+            position: $from.position.clone(),
+            velocity: $from.velocity.clone(),
+        }
+    };
+}
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
     where
@@ -225,12 +235,12 @@ impl State {
     /// Returns this_epoch_qa_power_smoothed from the state.
     pub fn total_power_smoothed(&self) -> FilterEstimate {
         match self {
-            State::V0(st) => st.this_epoch_qa_power_smoothed.clone().into(),
-            State::V2(st) => st.this_epoch_qa_power_smoothed.clone().into(),
-            State::V3(st) => st.this_epoch_qa_power_smoothed.clone().into(),
-            State::V4(st) => st.this_epoch_qa_power_smoothed.clone().into(),
-            State::V5(st) => st.this_epoch_qa_power_smoothed.clone().into(),
-            State::V6(st) => st.this_epoch_qa_power_smoothed.clone().into(),
+            State::V0(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
+            State::V2(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
+            State::V3(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
+            State::V4(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
+            State::V5(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
+            State::V6(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
         }
     }
 
