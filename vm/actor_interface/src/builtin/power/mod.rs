@@ -3,6 +3,7 @@
 
 use crate::FilterEstimate;
 use address::Address;
+use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
@@ -28,6 +29,7 @@ pub enum State {
     V4(actorv4::power::State),
     V5(actorv5::power::State),
     V6(actorv6::power::State),
+    V7(fil_actor_power_v7::State),
 }
 
 impl State {
@@ -65,8 +67,15 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code
+            == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagepower"))
+        {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V7)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
+            Err(format!("Unknown power actor code {}", actor.code).into())
         }
     }
 
@@ -79,6 +88,7 @@ impl State {
             State::V4(st) => st.total_quality_adj_power,
             State::V5(st) => st.total_quality_adj_power,
             State::V6(st) => st.total_quality_adj_power,
+            State::V7(st) => st.total_quality_adj_power,
         }
     }
 
@@ -109,6 +119,10 @@ impl State {
                 raw_byte_power: st.total_raw_byte_power.clone(),
                 quality_adj_power: st.total_quality_adj_power.clone(),
             },
+            State::V7(st) => Claim {
+                raw_byte_power: st.total_raw_byte_power.clone(),
+                quality_adj_power: st.total_quality_adj_power.clone(),
+            },
         }
     }
 
@@ -121,6 +135,7 @@ impl State {
             State::V4(st) => st.into_total_locked(),
             State::V5(st) => st.into_total_locked(),
             State::V6(st) => st.into_total_locked(),
+            State::V7(st) => st.into_total_locked(),
         }
     }
 
@@ -137,6 +152,10 @@ impl State {
             State::V4(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
             State::V5(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
             State::V6(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(s);
+                Ok(st.miner_power(&fvm_store, miner)?.map(From::from))
+            }
         }
     }
 
@@ -203,6 +222,9 @@ impl State {
 
                 Ok(miners)
             }
+            State::V7(st) => {
+                todo!()
+            }
         }
     }
 
@@ -219,6 +241,12 @@ impl State {
             State::V4(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
             State::V5(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
             State::V6(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(s);
+                Ok(st
+                    .miner_nominal_power_meets_consensus_minimum(&fvm_store, miner)
+                    .expect("FIXME"))
+            }
         }
     }
 
@@ -231,6 +259,7 @@ impl State {
             State::V4(st) => st.this_epoch_qa_power_smoothed.clone().into(),
             State::V5(st) => st.this_epoch_qa_power_smoothed.clone().into(),
             State::V6(st) => st.this_epoch_qa_power_smoothed.clone().into(),
+            State::V7(st) => st.this_epoch_qa_power_smoothed.clone().into(),
         }
     }
 
@@ -243,6 +272,7 @@ impl State {
             State::V4(st) => st.total_pledge_collateral.clone(),
             State::V5(st) => st.total_pledge_collateral.clone(),
             State::V6(st) => st.total_pledge_collateral.clone(),
+            State::V7(st) => st.total_pledge_collateral.clone(),
         }
     }
 }
@@ -304,6 +334,15 @@ impl From<actorv5::power::Claim> for Claim {
 
 impl From<actorv6::power::Claim> for Claim {
     fn from(cl: actorv6::power::Claim) -> Self {
+        Self {
+            raw_byte_power: cl.raw_byte_power,
+            quality_adj_power: cl.quality_adj_power,
+        }
+    }
+}
+
+impl From<fil_actor_power_v7::Claim> for Claim {
+    fn from(cl: fil_actor_power_v7::Claim) -> Self {
         Self {
             raw_byte_power: cl.raw_byte_power,
             quality_adj_power: cl.quality_adj_power,

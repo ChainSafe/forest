@@ -32,25 +32,7 @@ pub type Spacetime = BigInt;
 pub type SectorQuality = BigInt;
 
 /// SectorSize indicates one of a set of possible sizes in the network.
-#[derive(Clone, Debug, PartialEq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
-#[repr(u64)]
-pub enum SectorSize {
-    _2KiB = 2 << 10,
-    _8MiB = 8 << 20,
-    _512MiB = 512 << 20,
-    _32GiB = 32 << 30,
-    _64GiB = 2 * (32 << 30),
-}
-
-impl fmt::Display for SectorSize {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
+pub use fvm_shared::sector::SectorSize;
 
 /// Sector ID which contains the sector number and the actor ID for the miner.
-#[derive(Clone, Debug, Default, PartialEq, Serialize_tuple, Deserialize_tuple)]
-pub struct SectorID {
-    pub miner: ActorID,
-    pub number: SectorNumber,
-}
+pub use fvm_shared::sector::SectorID;

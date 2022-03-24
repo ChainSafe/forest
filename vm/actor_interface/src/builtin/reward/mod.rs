@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::FilterEstimate;
+use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
@@ -24,6 +25,7 @@ pub enum State {
     V4(actorv4::reward::State),
     V5(actorv5::reward::State),
     V6(actorv6::reward::State),
+    V7(fil_actor_reward_v7::State),
 }
 
 impl State {
@@ -61,8 +63,15 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code
+            == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/reward"))
+        {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V7)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
+            Err(format!("Unknown reward actor code {}", actor.code).into())
         }
     }
 
@@ -75,6 +84,7 @@ impl State {
             State::V4(st) => st.into_total_storage_power_reward(),
             State::V5(st) => st.into_total_storage_power_reward(),
             State::V6(st) => st.into_total_storage_power_reward(),
+            State::V7(st) => st.into_total_storage_power_reward(),
         }
     }
 
@@ -132,6 +142,7 @@ impl State {
                 },
                 sector_weight,
             ),
+            State::V7(st) => todo!(),
         }
     }
 
@@ -203,6 +214,7 @@ impl State {
                 },
                 circ_supply,
             ),
+            State::V7(st) => todo!(),
         }
     }
 }

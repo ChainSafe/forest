@@ -1132,6 +1132,10 @@ async fn validate_tipset<
 
     let mut validations = FuturesUnordered::new();
     for b in full_tipset.into_blocks() {
+        // let ret =
+        //     validate_block::<_, _, V>(state_manager.clone(), beacon_scheduler.clone(), Arc::new(b))
+        //         .await;
+        // let validation_fn = task::spawn(async { ret });
         let validation_fn = task::spawn(validate_block::<_, _, V>(
             state_manager.clone(),
             beacon_scheduler.clone(),
@@ -1186,7 +1190,6 @@ async fn validate_block<
     beacon_schedule: Arc<BeaconSchedule<TBeacon>>,
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
-    return Ok(block);
     trace!(
         "Validating block: epoch = {}, weight = {}, key = {}",
         block.header().epoch(),
@@ -1267,7 +1270,7 @@ async fn validate_block<
     // Work address needed for async validations, so necessary
     // to do sync to avoid duplication
     let work_addr = state_manager
-        .get_miner_work_addr(&lookback_state, header.miner_address())
+        .get_miner_work_addr(*lookback_state, header.miner_address())
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Async validations

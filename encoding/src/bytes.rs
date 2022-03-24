@@ -9,10 +9,7 @@ use serde_bytes::ByteBuf;
 #[serde(transparent)]
 pub struct BytesSer<'a>(#[serde(with = "serde_bytes")] pub &'a [u8]);
 
-/// Wrapper for deserializing dynamic sized Bytes.
-#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
-#[serde(transparent)]
-pub struct BytesDe(#[serde(with = "serde_bytes")] pub Vec<u8>);
+pub use fvm_shared::encoding::BytesDe;
 
 /// Wrapper for deserializing array of 32 Bytes.
 pub struct Byte32De(pub [u8; 32]);

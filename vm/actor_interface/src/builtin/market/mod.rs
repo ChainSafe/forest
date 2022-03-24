@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use cid::multihash::MultihashDigest;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
@@ -27,6 +28,7 @@ pub enum State {
     V4(actorv4::market::State),
     V5(actorv5::market::State),
     V6(actorv6::market::State),
+    V7(fil_actor_market_v7::State),
 }
 
 impl State {
@@ -64,8 +66,15 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code
+            == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagemarket"))
+        {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V7)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
+            Err(format!("Unknown market actor code {}", actor.code).into())
         }
     }
 
@@ -102,6 +111,7 @@ impl State {
                 Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
                     .map(BalanceTable::V6)?)
             }
+            State::V7(st) => todo!(),
         }
     }
 
@@ -138,6 +148,9 @@ impl State {
                 Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
                     .map(BalanceTable::V6)?)
             }
+            State::V7(st) => {
+                todo!()
+            }
         }
     }
 
@@ -168,6 +181,7 @@ impl State {
             State::V6(st) => Ok(
                 actorv6::market::DealArray::load(&st.proposals, store).map(DealProposals::V6)?
             ),
+            State::V7(st) => todo!(),
         }
     }
 
@@ -195,6 +209,9 @@ impl State {
             State::V6(st) => {
                 Ok(actorv6::market::DealMetaArray::load(&st.states, store).map(DealStates::V6)?)
             }
+            State::V7(st) => {
+                todo!()
+            }
         }
     }
 
@@ -207,6 +224,7 @@ impl State {
             State::V4(st) => st.total_locked(),
             State::V5(st) => st.total_locked(),
             State::V6(st) => st.total_locked(),
+            State::V7(st) => st.total_locked(),
         }
     }
 
@@ -277,6 +295,19 @@ impl State {
                 curr_epoch,
             )
             .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                Ok(fil_actor_market_v7::validate_deals_for_activation(
+                    st,
+                    &fvm_store,
+                    deal_ids,
+                    miner_addr,
+                    sector_expiry,
+                    curr_epoch,
+                )
+                .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
+                .expect("FIXME"))
+            }
         }
     }
 }

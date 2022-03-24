@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use std::error::Error;
@@ -23,6 +25,7 @@ pub enum State {
     V4(actorv4::init::State),
     V5(actorv5::init::State),
     V6(actorv6::init::State),
+    V7(fil_actor_init_v7::State),
 }
 
 impl State {
@@ -60,8 +63,13 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V7)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
+            Err(format!("Unknown init actor code {}", actor.code).into())
         }
     }
 
@@ -79,6 +87,10 @@ impl State {
             State::V4(st) => Ok(st.map_address_to_new_id(store, addr)?),
             State::V5(st) => Ok(st.map_address_to_new_id(store, addr)?),
             State::V6(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                Ok(Address::new_id(st.map_address_to_new_id(&fvm_store, addr)?))
+            }
         }
     }
 
@@ -104,6 +116,10 @@ impl State {
             State::V4(st) => st.resolve_address(store, addr),
             State::V5(st) => st.resolve_address(store, addr),
             State::V6(st) => st.resolve_address(store, addr),
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                Ok(st.resolve_address(&fvm_store, addr).expect("FIXME"))
+            }
         }
     }
 
@@ -115,6 +131,7 @@ impl State {
             State::V4(st) => st.network_name,
             State::V5(st) => st.network_name,
             State::V6(st) => st.network_name,
+            State::V7(st) => st.network_name,
         }
     }
 }

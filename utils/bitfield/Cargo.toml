@@ -8,6 +8,7 @@ edition = "2021"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
+fvm_ipld_bitfield = "0.2"
 unsigned-varint = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"

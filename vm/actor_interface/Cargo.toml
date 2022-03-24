@@ -12,6 +12,15 @@ actorv4 = { package = "forest_actor", version = "3.0" }
 actorv5 = { package = "forest_actor", version = "4.0" }
 actorv6 = { package = "forest_actor", path = "../actor" }
 
+fil_actor_miner_v7 = { package = "fil_actor_miner", version = "7" }
+fil_actor_account_v7 = { package = "fil_actor_account", version = "7" }
+fil_actor_reward_v7 = { package = "fil_actor_reward", version = "7" }
+fil_actor_market_v7 = { package = "fil_actor_market", version = "7" }
+fil_actor_power_v7 = { package = "fil_actor_power", version = "7" }
+fil_actor_init_v7 = { package = "fil_actor_init", version = "7" }
+fil_actors_runtime_v7 = { package = "fil_actors_runtime", version = "7" }
+
+fvm_shared = "0.2"
 fil_types = "0.2"
 vm = { package = "forest_vm", version = "0.3.1" }
 ipld_blockstore = "0.1"

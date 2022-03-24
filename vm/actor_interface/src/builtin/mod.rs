@@ -43,6 +43,7 @@ pub fn is_account_actor(code: &Cid) -> bool {
         || actorv4::is_account_actor(code)
         || actorv5::is_account_actor(code)
         || actorv6::is_account_actor(code)
+        || code == &account::account_cid_v7()
 }
 
 /// Returns true if the code belongs to a singleton actor.
@@ -137,6 +138,15 @@ impl From<actorv5::util::smooth::FilterEstimate> for FilterEstimate {
 
 impl From<actorv6::util::smooth::FilterEstimate> for FilterEstimate {
     fn from(filter_est: actorv6::util::smooth::FilterEstimate) -> Self {
+        Self {
+            position: filter_est.position,
+            velocity: filter_est.velocity,
+        }
+    }
+}
+
+impl From<fvm_shared::smooth::FilterEstimate> for FilterEstimate {
+    fn from(filter_est: fvm_shared::smooth::FilterEstimate) -> Self {
         Self {
             position: filter_est.position,
             velocity: filter_est.velocity,

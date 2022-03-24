@@ -60,7 +60,7 @@ impl State {
                 .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
+            Err(format!("Unknown system actor code {}", actor.code).into())
         }
     }
 }

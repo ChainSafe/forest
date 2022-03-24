@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use cid::multihash::MultihashDigest;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::BytesDe;
@@ -31,7 +32,8 @@ pub enum State {
     V3(actorv3::miner::State),
     V4(actorv4::miner::State),
     V5(actorv5::miner::State),
-    V6(actorv5::miner::State),
+    V6(actorv6::miner::State),
+    V7(fil_actor_miner_v7::State),
 }
 
 impl State {
@@ -69,8 +71,15 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code
+            == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storageminer"))
+        {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V7)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
+            Err(format!("Unknown miner actor code {}", actor.code).into())
         }
     }
 
@@ -214,6 +223,30 @@ impl State {
                     consensus_fault_elapsed: info.consensus_fault_elapsed,
                 })
             }
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                let info = st.get_info(&fvm_store)?;
+
+                // Deserialize into peer id if valid, `None` if not.
+                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
+
+                Ok(MinerInfo {
+                    owner: info.owner,
+                    worker: info.worker,
+                    control_addresses: info.control_addresses,
+                    new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+                    worker_change_epoch: info
+                        .pending_worker_key
+                        .map(|k| k.effective_at)
+                        .unwrap_or(-1),
+                    peer_id,
+                    multiaddrs: info.multi_address,
+                    window_post_proof_type: info.window_post_proof_type,
+                    sector_size: info.sector_size,
+                    window_post_partition_sectors: info.window_post_partition_sectors,
+                    consensus_fault_elapsed: info.consensus_fault_elapsed,
+                })
+            }
         }
     }
 
@@ -241,7 +274,16 @@ impl State {
                 .for_each(store, |idx, dl| f(idx as u64, Deadline::V5(dl))),
             State::V6(st) => st
                 .load_deadlines(store)?
-                .for_each(store, |idx, dl| f(idx as u64, Deadline::V5(dl))),
+                .for_each(store, |idx, dl| f(idx as u64, Deadline::V6(dl))),
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                Ok(st
+                    .load_deadlines(&fvm_store)?
+                    .for_each(&Default::default(), &fvm_store, |idx, dl| {
+                        Ok(f(idx as u64, Deadline::V7(dl)).expect("FIXME"))
+                    })
+                    .expect("FIXME"))
+            }
         }
     }
 
@@ -275,7 +317,11 @@ impl State {
             State::V6(st) => Ok(st
                 .load_deadlines(store)?
                 .load_deadline(store, idx as usize)
-                .map(Deadline::V5)?),
+                .map(Deadline::V6)?),
+            State::V7(st) => todo!(), /*Ok(st
+                                      .load_deadlines(store)?
+                                      .load_deadline(store, idx as usize)
+                                      .map(Deadline::V6)?),*/
         }
     }
 
@@ -388,6 +434,24 @@ impl State {
                     Ok(infos)
                 }
             }
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(&fvm_store, &sectors.clone().into())?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = fil_actor_miner_v7::Sectors::load(&fvm_store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(SectorOnChainInfo::from(info.clone()));
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
         }
     }
 
@@ -416,6 +480,7 @@ impl State {
             State::V6(st) => Ok(st
                 .get_precommitted_sector(store, sector_num)?
                 .map(From::from)),
+            State::V7(st) => todo!(),
         }
     }
 
@@ -432,6 +497,7 @@ impl State {
             State::V4(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
             State::V5(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
             State::V6(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
+            State::V7(st) => todo!(),
         }
     }
 
@@ -444,6 +510,7 @@ impl State {
             State::V4(st) => st.deadline_info(epoch),
             State::V5(st) => st.deadline_info(epoch),
             State::V6(st) => st.deadline_info(epoch),
+            State::V7(st) => todo!(),
         }
     }
 
@@ -456,6 +523,7 @@ impl State {
             State::V4(st) => st.fee_debt.clone(),
             State::V5(st) => st.fee_debt.clone(),
             State::V6(st) => st.fee_debt.clone(),
+            State::V7(st) => st.fee_debt.clone(),
         }
     }
 
@@ -468,6 +536,7 @@ impl State {
             State::V4(_) => actorv4::miner::WPOST_PERIOD_DEADLINES,
             State::V5(_) => actorv5::miner::WPOST_PERIOD_DEADLINES,
             State::V6(_) => actorv6::miner::WPOST_PERIOD_DEADLINES,
+            State::V7(_) => fil_actors_runtime_v7::runtime::Policy::default().wpost_period_deadlines,
         }
     }
 }
@@ -519,6 +588,7 @@ pub enum Deadline {
     V4(actorv4::miner::Deadline),
     V5(actorv5::miner::Deadline),
     V6(actorv6::miner::Deadline),
+    V7(fil_actor_miner_v7::Deadline),
 }
 
 impl Deadline {
@@ -547,6 +617,14 @@ impl Deadline {
             Deadline::V6(dl) => dl.for_each(store, |idx, part| {
                 f(idx as u64, Partition::V6(Cow::Borrowed(part)))
             }),
+            Deadline::V7(dl) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                Ok(dl
+                    .for_each(&fvm_store, |idx, part| {
+                        Ok(f(idx as u64, Partition::V7(Cow::Borrowed(part))).expect("FIXME"))
+                    })
+                    .expect("FIXME"))
+            }
         }
     }
 
@@ -561,6 +639,13 @@ impl Deadline {
             Deadline::V4(dl) => dl.optimistic_proofs_snapshot_amt(store)?.count(),
             Deadline::V5(dl) => dl.optimistic_proofs_snapshot_amt(store)?.count(),
             Deadline::V6(dl) => dl.optimistic_proofs_snapshot_amt(store)?.count(),
+            Deadline::V7(dl) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                dl.optimistic_proofs_snapshot_amt(&fvm_store)?
+                    .count()
+                    .try_into()
+                    .unwrap()
+            }
         })
     }
 
@@ -572,6 +657,7 @@ impl Deadline {
             Deadline::V4(dl) => &dl.partitions_posted,
             Deadline::V5(dl) => &dl.partitions_posted,
             Deadline::V6(dl) => &dl.partitions_posted,
+            Deadline::V7(dl) => todo!(), // &dl.partitions_posted.into(),
         }
     }
 }
@@ -584,6 +670,7 @@ pub enum Partition<'a> {
     V4(Cow<'a, actorv4::miner::Partition>),
     V5(Cow<'a, actorv5::miner::Partition>),
     V6(Cow<'a, actorv6::miner::Partition>),
+    V7(Cow<'a, fil_actor_miner_v7::Partition>),
 }
 
 impl Partition<'_> {
@@ -595,6 +682,7 @@ impl Partition<'_> {
             Partition::V4(dl) => &dl.sectors,
             Partition::V5(dl) => &dl.sectors,
             Partition::V6(dl) => &dl.sectors,
+            Partition::V7(dl) => todo!(),
         }
     }
     pub fn faulty_sectors(&self) -> &BitField {
@@ -605,6 +693,7 @@ impl Partition<'_> {
             Partition::V4(dl) => &dl.faults,
             Partition::V5(dl) => &dl.faults,
             Partition::V6(dl) => &dl.faults,
+            Partition::V7(dl) => todo!(),
         }
     }
     pub fn recovering_sectors(&self) -> &BitField {
@@ -615,6 +704,7 @@ impl Partition<'_> {
             Partition::V4(dl) => &dl.recoveries,
             Partition::V5(dl) => &dl.recoveries,
             Partition::V6(dl) => &dl.recoveries,
+            Partition::V7(dl) => todo!(),
         }
     }
     pub fn live_sectors(&self) -> BitField {
@@ -625,6 +715,7 @@ impl Partition<'_> {
             Partition::V4(dl) => dl.live_sectors(),
             Partition::V5(dl) => dl.live_sectors(),
             Partition::V6(dl) => dl.live_sectors(),
+            Partition::V7(dl) => dl.live_sectors().into(),
         }
     }
     pub fn active_sectors(&self) -> BitField {
@@ -635,6 +726,7 @@ impl Partition<'_> {
             Partition::V4(dl) => dl.active_sectors(),
             Partition::V5(dl) => dl.active_sectors(),
             Partition::V6(dl) => dl.active_sectors(),
+            Partition::V7(dl) => dl.active_sectors().into(),
         }
     }
 }
@@ -774,6 +866,24 @@ impl From<actorv5::miner::SectorOnChainInfo> for SectorOnChainInfo {
 
 impl From<actorv6::miner::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: actorv6::miner::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof,
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge,
+            expected_day_reward: info.expected_day_reward,
+            expected_storage_pledge: info.expected_storage_pledge,
+        }
+    }
+}
+
+impl From<fil_actor_miner_v7::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_v7::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
             seal_proof: info.seal_proof,

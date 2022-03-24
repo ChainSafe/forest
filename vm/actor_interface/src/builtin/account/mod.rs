@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use std::error::Error;
@@ -19,7 +21,12 @@ pub enum State {
     V3(actorv3::account::State),
     V4(actorv4::account::State),
     V5(actorv5::account::State),
-    V6(actorv5::account::State),
+    V6(actorv6::account::State),
+    V7(fil_actor_account_v7::State),
+}
+
+pub fn account_cid_v7() -> Cid {
+    cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/account"))
 }
 
 impl State {
@@ -57,8 +64,13 @@ impl State {
                 .get(&actor.state)?
                 .map(State::V6)
                 .ok_or("Actor state doesn't exist in store")?)
+        } else if actor.code == account_cid_v7() {
+            Ok(store
+                .get(&actor.state)?
+                .map(State::V7)
+                .ok_or("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
+            Err(format!("Unknown account actor code {}", actor.code).into())
         }
     }
 
@@ -70,6 +82,7 @@ impl State {
             State::V4(st) => st.address,
             State::V5(st) => st.address,
             State::V6(st) => st.address,
+            State::V7(st) => st.address,
         }
     }
 }

@@ -6,6 +6,13 @@ version = 3
 name = "actor_interface"
 version = "0.1.0"
 dependencies = [
+ "fil_actor_account 7.0.4",
+ "fil_actor_init 7.0.4",
+ "fil_actor_market 7.0.4",
+ "fil_actor_miner 7.0.4",
+ "fil_actor_power 7.0.4",
+ "fil_actor_reward 7.0.4",
+ "fil_actors_runtime 7.0.4",
  "fil_clock",
  "fil_types",
  "forest_actor 0.1.7",
@@ -22,6 +29,7 @@ dependencies = [
  "forest_hash_utils",
  "forest_json_utils",
  "forest_vm",
+ "fvm_shared",
  "ipld_blockstore",
  "libp2p 0.40.0",
  "serde",
@@ -3266,6 +3274,7 @@ dependencies = [
  "ahash 0.7.6",
  "criterion",
  "forest_encoding",
+ "fvm_ipld_bitfield",
  "rand 0.8.5",
  "rand_xorshift",
  "serde",
@@ -7921,6 +7930,7 @@ dependencies = [
  "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
+ "forest_actor 4.0.0",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
