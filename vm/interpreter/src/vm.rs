@@ -137,6 +137,7 @@ where
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
+        let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
         let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();
         let config = Config {
             debug: true,
@@ -157,7 +158,7 @@ where
                 engine,
                 epoch,
                 base_fee.clone(),
-                fil_vested,
+                circ_supply, // fil_vested,
                 network_version,
                 root,
                 builtin_actors,
