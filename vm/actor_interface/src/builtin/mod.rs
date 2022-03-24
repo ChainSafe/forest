@@ -16,7 +16,7 @@ use crate::ActorVersion;
 use cid::Cid;
 use num_bigint::BigInt;
 
-pub const EPOCH_DURATION_SECONDS: clock::ChainEpoch = actorv0::EPOCH_DURATION_SECONDS;
+pub use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 pub const EPOCHS_IN_DAY: clock::ChainEpoch = actorv0::EPOCHS_IN_DAY;
 
 // Aliases for common addresses
