@@ -10,6 +10,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::{FILECOIN_PRECISION, FIL_RESERVED};
 use interpreter::CircSupplyCalc;
+use networks::{ChainConfig, Height};
 use num_bigint::BigInt;
 use once_cell::sync::OnceCell;
 use state_tree::StateTree;
@@ -59,12 +60,11 @@ pub(crate) struct GenesisInfo {
 }
 
 impl GenesisInfo {
-    pub fn new(
-        ignition_height: ChainEpoch,
-        actors_v2_height: ChainEpoch,
-        liftoff_height: ChainEpoch,
-        calico_height: ChainEpoch,
-    ) -> Self {
+    pub fn from_chain_config(chain_config: &ChainConfig) -> Self {
+        let ignition_height = chain_config.epoch(Height::Ignition);
+        let actors_v2_height = chain_config.epoch(Height::ActorsV2);
+        let liftoff_height = chain_config.epoch(Height::Liftoff);
+        let calico_height = chain_config.epoch(Height::Calico);
         Self {
             ignition_height,
             actors_v2_height,

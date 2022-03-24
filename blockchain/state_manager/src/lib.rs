@@ -107,16 +107,12 @@ where
                 .get_beacon_schedule(genesis.timestamp())
                 .await?,
         );
-        let ignition = chain_config.epoch(Height::Ignition);
-        let actors_v2 = chain_config.epoch(Height::ActorsV2);
-        let liftoff = chain_config.epoch(Height::Liftoff);
-        let calico = chain_config.epoch(Height::Calico);
 
         Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: None,
-            genesis_info: GenesisInfo::new(ignition, actors_v2, liftoff, calico),
+            genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
             engine: fvm::machine::Engine::default(),
@@ -136,16 +132,12 @@ where
                 .get_beacon_schedule(genesis.timestamp())
                 .await?,
         );
-        let ignition = chain_config.epoch(Height::Ignition);
-        let actors_v2 = chain_config.epoch(Height::ActorsV2);
-        let liftoff = chain_config.epoch(Height::Liftoff);
-        let calico = chain_config.epoch(Height::Calico);
 
         Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: Some(chain_subs),
-            genesis_info: GenesisInfo::new(ignition, actors_v2, liftoff, calico),
+            genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
             engine: fvm::machine::Engine::default(),
