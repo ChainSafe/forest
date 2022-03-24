@@ -113,10 +113,10 @@ fn pp_actor_state(
     let ipld = &resolved.state.0;
     let mut buffer = String::new();
 
-    buffer += &format!("{:#?}\n", state);
+    buffer += &format!("{:?}\n", state);
 
     if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
-        buffer += &format!("{:#?}", miner_state);
+        buffer += &format!("{:?}", miner_state);
     } else {
         buffer += &serde_json::to_string_pretty(&resolved)?;
     }
