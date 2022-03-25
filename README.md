@@ -90,6 +90,12 @@ bootstrap_peers = ["<multiaddress>"]
 
 Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347/p2p/12D3K1oWKNF7vNFEhnvB45E9mw2B5z6t419W3ziZPLdUDVnLLKGs"`
 
+Forest will look for config files in the following order and priority:
+ * Paths passed to the command line via the `--config` flag.
+ * The environment variable `FOREST_CONFIG_PATH`, if no config was passed through command line arguments.
+ * If none of the above are found, Forest will look in the systems default configuration directory (`$XDG_CONFIG_HOME` on Linux systems).
+ * After all locations are exhausted and a config file is not found, a default configuration is assumed and used.
+
 ### Logging
 
 The Forest logger uses [Rust's log filtering options](https://doc.rust-lang.org/1.1.0/log/index.html#filtering-results) with the `RUST_LOG` environment variable.

@@ -25,8 +25,10 @@ pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
+use directories::ProjectDirs;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
+use log::{info, warn};
 use num_bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
@@ -158,17 +160,7 @@ impl CliOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => {
-                // Check ENV VAR for config file
-                if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
-                    // Read from config file
-                    let toml = read_file_to_string(&PathBuf::from(&config_file))?;
-                    // Parse and return the configuration file
-                    read_toml(&toml)?
-                } else {
-                    Config::default()
-                }
-            }
+            None => find_default_config().unwrap_or_default(),
         };
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
@@ -221,6 +213,53 @@ impl CliOpts {
         }
 
         Ok(cfg)
+    }
+}
+
+fn find_default_config() -> Option<Config> {
+    if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+        info!(
+            "FOREST_CONFIG_PATH is set! Using configuration at {}",
+            config_file
+        );
+        let path = PathBuf::from(config_file);
+        if path.exists() {
+            return read_config_or_none(path);
+        }
+    };
+
+    if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
+        let mut config_dir = dir.config_dir().to_path_buf();
+        config_dir.push("config.toml");
+        if config_dir.exists() {
+            info!("Found config file at {}", config_dir.display());
+            return read_config_or_none(config_dir);
+        }
+    }
+
+    warn!("No configuration found! Using default");
+
+    None
+}
+
+fn read_config_or_none(path: PathBuf) -> Option<Config> {
+    let toml = match read_file_to_string(&path) {
+        Ok(t) => t,
+        Err(e) => {
+            warn!("An error occured while reading configuration file at {}. Resorting to default configuration. Error was {}", path.display(), e);
+            return None;
+        }
+    };
+
+    match read_toml(&toml) {
+        Ok(cfg) => Some(cfg),
+        Err(e) => {
+            warn!(
+                "Error reading configuration, opting to default. Error was {} ",
+                e
+            );
+            None
+        }
     }
 }
 
