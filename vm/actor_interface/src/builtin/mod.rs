@@ -14,9 +14,9 @@ pub mod system;
 use crate::ActorVersion;
 
 use cid::Cid;
-use num_bigint::BigInt;
 
-pub const EPOCH_DURATION_SECONDS: clock::ChainEpoch = actorv0::EPOCH_DURATION_SECONDS;
+pub use fvm_shared::clock::EPOCH_DURATION_SECONDS;
+pub use fvm_shared::smooth::FilterEstimate;
 pub const EPOCHS_IN_DAY: clock::ChainEpoch = actorv0::EPOCHS_IN_DAY;
 
 // Aliases for common addresses
@@ -81,65 +81,5 @@ pub fn actor_version(code: &Cid) -> Option<ActorVersion> {
         Some(ActorVersion::V0)
     } else {
         None
-    }
-}
-
-#[derive(Default, Clone, Debug, PartialEq)]
-pub struct FilterEstimate {
-    pub position: BigInt,
-    pub velocity: BigInt,
-}
-
-impl From<actorv0::util::smooth::FilterEstimate> for FilterEstimate {
-    fn from(filter_est: actorv0::util::smooth::FilterEstimate) -> Self {
-        Self {
-            position: filter_est.position,
-            velocity: filter_est.velocity,
-        }
-    }
-}
-
-impl From<actorv2::util::smooth::FilterEstimate> for FilterEstimate {
-    fn from(filter_est: actorv2::util::smooth::FilterEstimate) -> Self {
-        Self {
-            position: filter_est.position,
-            velocity: filter_est.velocity,
-        }
-    }
-}
-
-impl From<actorv3::util::smooth::FilterEstimate> for FilterEstimate {
-    fn from(filter_est: actorv3::util::smooth::FilterEstimate) -> Self {
-        Self {
-            position: filter_est.position,
-            velocity: filter_est.velocity,
-        }
-    }
-}
-
-impl From<actorv4::util::smooth::FilterEstimate> for FilterEstimate {
-    fn from(filter_est: actorv4::util::smooth::FilterEstimate) -> Self {
-        Self {
-            position: filter_est.position,
-            velocity: filter_est.velocity,
-        }
-    }
-}
-
-impl From<actorv5::util::smooth::FilterEstimate> for FilterEstimate {
-    fn from(filter_est: actorv5::util::smooth::FilterEstimate) -> Self {
-        Self {
-            position: filter_est.position,
-            velocity: filter_est.velocity,
-        }
-    }
-}
-
-impl From<actorv6::util::smooth::FilterEstimate> for FilterEstimate {
-    fn from(filter_est: actorv6::util::smooth::FilterEstimate) -> Self {
-        Self {
-            position: filter_est.position,
-            velocity: filter_est.velocity,
-        }
     }
 }

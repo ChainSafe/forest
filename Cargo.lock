@@ -22,6 +22,7 @@ dependencies = [
  "forest_hash_utils",
  "forest_json_utils",
  "forest_vm",
+ "fvm_shared",
  "ipld_blockstore",
  "libp2p 0.40.0",
  "serde",
