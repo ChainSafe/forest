@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::account;
+use actor::market;
 use actor::miner;
 use actor::power;
 use address::Address;
@@ -80,7 +81,7 @@ fn try_print_actor_states<BS: BlockStore>(
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
-                let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, "\n");
+                let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, ",");
                 let stdout = stdout();
                 let mut handle = stdout.lock();
                 writeln!(handle, "Address {} changed: ", addr)?;
@@ -122,6 +123,8 @@ fn pp_actor_state(
     } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
         buffer += &format!("{:?}", account_state);
     } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
+        buffer += &format!("{:?}", state);
+    } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
         buffer += &format!("{:?}", state);
     } else {
         buffer += &serde_json::to_string_pretty(&resolved)?;

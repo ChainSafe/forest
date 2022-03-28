@@ -17,7 +17,7 @@ use std::error::Error as StdError;
 use vm::{actor_error, ActorError, ExitCode, TokenAmount};
 
 /// Market actor state
-#[derive(Clone, Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Clone, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     /// Proposals are deals that have been proposed and not yet cleaned up after expiry or termination.
     /// Amt<DealID, DealProposal>
