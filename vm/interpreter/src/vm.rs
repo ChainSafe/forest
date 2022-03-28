@@ -158,7 +158,11 @@ where
                 engine,
                 epoch,
                 base_fee.clone(),
-                circ_supply, // fil_vested,
+                if network_version <= NetworkVersion::V14 {
+                    fil_vested
+                } else {
+                    circ_supply
+                },
                 network_version,
                 root,
                 builtin_actors,
