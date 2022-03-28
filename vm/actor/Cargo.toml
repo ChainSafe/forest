@@ -13,34 +13,34 @@ anyhow = "1.0"
 vm = { package = "forest_vm", version = "0.3" }
 address = { package = "forest_address", version = "0.3" }
 runtime = { package = "forest_runtime", version = "0.2" }
-num-bigint = { package = "forest_bigint", version = "0.1.1" }
-encoding = { package = "forest_encoding", version = "0.2.1" }
+num-bigint = { package = "forest_bigint", version = "0.1" }
+encoding = { package = "forest_encoding", version = "0.2" }
 num-traits = "0.2"
-num-derive = "0.3.0"
+num-derive = "0.3"
 clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
 cid = { package = "forest_cid", version = "0.3", features = ["cbor"] }
 serde = { version = "1.0", features = ["derive"] }
-lazy_static = "1.4.0"
+lazy_static = "1.4"
 ipld_blockstore = "0.1"
 ipld_hamt = { path = "../../ipld/hamt" }
 ipld_amt = { path = "../../ipld/amt", features = ["go-interop"]}
-forest_ipld = "0.1.1"
-unsigned-varint = "0.6"
+forest_ipld = "0.1"
+unsigned-varint = "0.7"
 integer-encoding = { version = "3.0", default-features = false }
 crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 bitfield = { package = "forest_bitfield", version = "0.1" }
 fil_types = "0.2"
-byteorder = "1.3.4"
-ahash = "0.6"
+byteorder = "1.3"
+ahash = "0.7"
 base64 = "0.13"
-log = "0.4.8"
-commcid = { path = "../../utils/commcid", version = "0.1.1" }
-indexmap = { version = "1.7.0", features = ["serde-1"] }
+log = "0.4"
+commcid = { path = "../../utils/commcid", version = "0.1" }
+indexmap = { version = "1.7", features = ["serde-1"] }
 
 [dev-dependencies]
-derive_builder = "0.10"
+derive_builder = "0.11"
 db = { package = "forest_db", version = "0.1" }
-hex = "0.4.2"
+hex = "0.4"
 libp2p = { version = "0.40.0-rc.1", default-features = false }
 
 [features]
