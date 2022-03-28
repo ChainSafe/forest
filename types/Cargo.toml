@@ -15,21 +15,21 @@ fvm_shared = { version = "0.2", default-features = false }
 address = { package = "forest_address", features = ["json"], version = "0.3" }
 time = { version = "0.3", features = ["serde", "serde-well-known" ] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.56"
-commcid = { path = "../utils/commcid", version = "0.1.1", optional = true }
-filecoin-proofs-api = { version = "11.0.0", default_features = false, optional = true }
+serde_json = "1.0"
+commcid = { path = "../utils/commcid", version = "0.1", optional = true }
+filecoin-proofs-api = { version = "11.0", default_features = false, optional = true }
 vm = { package = "forest_vm", version = "0.3" }
 cid = { package = "forest_cid", features = ["cbor"], version = "0.3" }
-num-bigint = { path = "../utils/bigint", package = "forest_bigint", version = "0.1.1" }
+num-bigint = { path = "../utils/bigint", package = "forest_bigint", version = "0.1" }
 num-traits = "0.2"
-num-derive = "0.3.0"
-encoding = { package = "forest_encoding", version = "0.2.1" }
+num-derive = "0.3"
+encoding = { package = "forest_encoding", version = "0.2" }
 clock = { package = "fil_clock", path = "../node/clock", version = "0.1" }
 base64 = { version = "0.13", optional = true }
 forest_json_utils = { path = "../utils/json_utils", optional = true, version = "0.1" }
 lazy_static = "1.4"
 async-std = "1.9"
-git-version = "0.3.4"
+git-version = "0.3"
 rayon = "1"
 
 [features]

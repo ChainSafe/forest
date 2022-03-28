@@ -14,18 +14,18 @@ features = ["json"]
 anyhow = "1.0"
 fvm_shared = { version = "0.2", default-features = false }
 address = { package = "forest_address", version = "0.3" }
-encoding = { package = "forest_encoding", version = "0.2.1" }
-libsecp256k1 = "0.7.0"
+encoding = { package = "forest_encoding", version = "0.2" }
+libsecp256k1 = "0.7"
 bls-signatures = { version = "0.11", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2"
-num-derive = "0.3.0"
+num-derive = "0.3"
 thiserror = "1.0"
 base64 = { version = "0.13", optional = true }
 
 [dev-dependencies]
-rand = "0.8.4"
-rand_chacha = "0.3.1"
+rand = "0.8"
+rand_chacha = "0.3"
 
 [features]
 default = ["blst"]
