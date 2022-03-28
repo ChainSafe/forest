@@ -61,6 +61,7 @@ byte-unit = "4.0"
 rug = "1.13"
 toml = "0.5"
 time = "0.3.7"
+directories = "4.0.1"
 
 [dependencies.jsonrpc-v2]
 version = "0.10"
