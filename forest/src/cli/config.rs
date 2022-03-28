@@ -18,6 +18,7 @@ pub struct Config {
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
+    pub snapshot_height: Option<i64>,
     pub snapshot_path: Option<String>,
     /// Skips loading import CAR file and assumes it's already been loaded.
     /// Will use the cids in the header of the file to index the chain.
@@ -40,6 +41,7 @@ impl Default for Config {
             rpc_token: None,
             snapshot_path: None,
             snapshot: false,
+            snapshot_height: None,
             skip_load: false,
             sync: SyncConfig::default(),
             encrypt_keystore: true,

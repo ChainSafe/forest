@@ -5,6 +5,8 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1"
+forest_ipld = { version = "0.1" }
 pbr = "1.0.3"
 anyhow = "1.0"
 fvm_shared = { version = "0.2", default-features = false }

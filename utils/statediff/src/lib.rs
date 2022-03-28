@@ -1,7 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use actor::account;
 use actor::miner;
+use actor::power;
 use address::Address;
 use blockstore::resolve::resolve_cids_recursive;
 use blockstore::BlockStore;
@@ -86,7 +88,7 @@ fn try_print_actor_states<BS: BlockStore>(
             }
         } else {
             // Added actor, print out the json format actor state.
-            println!("{}", format!("+ Address {}:\n{}", addr, calc_pp).green())
+            println!("{}", format!("+ Address {}:\n{}", addr, calc_pp).green());
         }
 
         Ok(())
@@ -117,6 +119,10 @@ fn pp_actor_state(
 
     if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
         buffer += &format!("{:?}", miner_state);
+    } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
+        buffer += &format!("{:?}", account_state);
+    } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
+        buffer += &format!("{:?}", state);
     } else {
         buffer += &serde_json::to_string_pretty(&resolved)?;
     }
