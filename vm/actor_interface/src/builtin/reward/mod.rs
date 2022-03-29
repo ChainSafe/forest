@@ -1,11 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::FilterEstimate;
+use crate::{load_state, FilterEstimate};
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use std::error::Error;
 use vm::{ActorState, TokenAmount};
 
 /// Reward actor address.
@@ -27,43 +26,20 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::REWARD_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V0)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::REWARD_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V2)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv3::REWARD_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V3)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv4::REWARD_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V4)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv5::REWARD_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V5)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv6::REWARD_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V6)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
-        }
+        load_state!(
+            store,
+            actor,
+            (actorv6::REWARD_ACTOR_CODE_ID, State::V6),
+            (actorv5::REWARD_ACTOR_CODE_ID, State::V5),
+            (actorv4::REWARD_ACTOR_CODE_ID, State::V4),
+            (actorv3::REWARD_ACTOR_CODE_ID, State::V3),
+            (actorv2::REWARD_ACTOR_CODE_ID, State::V2),
+            (actorv0::REWARD_ACTOR_CODE_ID, State::V0)
+        )
     }
 
     /// Consume state to return just storage power reward

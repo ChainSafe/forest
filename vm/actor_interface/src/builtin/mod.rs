@@ -25,6 +25,22 @@ pub static BURNT_FUNDS_ACTOR_ADDR: &actorv0::BURNT_FUNDS_ACTOR_ADDR =
     &actorv0::BURNT_FUNDS_ACTOR_ADDR;
 pub static RESERVE_ADDRESS: &actorv0::RESERVE_ADDRESS = &actorv0::RESERVE_ADDRESS;
 
+#[macro_export]
+macro_rules! load_state {
+    ($store:expr, $actor:expr, $(($code:expr, $func:expr)), +) => {
+        $(if $actor.code == *$code {
+            use anyhow::Context;
+            $store
+                .get2(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map($func)
+        } else)+
+        {
+            anyhow::bail!("Unknown actor code {}", $actor.code)
+        }
+    }
+}
+
 /// Returns true if the code belongs to a builtin actor.
 pub fn is_builtin_actor(code: &Cid) -> bool {
     actorv0::is_builtin_actor(code)

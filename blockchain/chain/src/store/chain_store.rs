@@ -52,6 +52,10 @@ const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
 
+fn transform<T>(result: anyhow::Result<T>) -> Result<T, Box<dyn StdError>> {
+    result.map_err(|e| e.into())
+}
+
 /// Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
@@ -431,7 +435,7 @@ where
             .map_err(|_| Error::Other("Failure getting actor".to_string()))?
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
-        Ok(miner::State::load(self.blockstore(), &actor)?)
+        Ok(transform(miner::State::load(self.blockstore(), &actor))?)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.

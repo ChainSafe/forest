@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::load_state;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -30,43 +31,20 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V0)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V2)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv3::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V3)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv4::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V4)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv5::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V5)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv6::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V6)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
-        }
+        load_state!(
+            store,
+            actor,
+            (actorv6::MARKET_ACTOR_CODE_ID, State::V6),
+            (actorv5::MARKET_ACTOR_CODE_ID, State::V5),
+            (actorv4::MARKET_ACTOR_CODE_ID, State::V4),
+            (actorv3::MARKET_ACTOR_CODE_ID, State::V3),
+            (actorv2::MARKET_ACTOR_CODE_ID, State::V2),
+            (actorv0::MARKET_ACTOR_CODE_ID, State::V0)
+        )
     }
 
     /// Loads escrow table

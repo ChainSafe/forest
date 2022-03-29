@@ -74,6 +74,10 @@ pub struct MarketBalance {
     locked: BigInt,
 }
 
+fn transform<T>(result: anyhow::Result<T>) -> Result<T, Box<dyn StdError>> {
+    result.map_err(|e| e.into())
+}
+
 /// State manager handles all interactions with the internal Filecoin actors state.
 /// This encapsulates the [ChainStore] functionality, which only handles chain data, to
 /// allow for interactions with the underlying state of the chain. The state manager not only
@@ -220,7 +224,7 @@ where
             .get_actor(actor::init::ADDRESS, *st)?
             .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
 
-        let state = init::State::load(self.blockstore(), &init_act)?;
+        let state = transform(init::State::load(self.blockstore(), &init_act))?;
         Ok(state.into_network_name())
     }
 
@@ -230,7 +234,7 @@ where
             .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = power::State::load(self.blockstore(), &actor)?;
+        let spas = transform(power::State::load(self.blockstore(), &actor))?;
 
         Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
     }
@@ -243,7 +247,7 @@ where
             .get_actor(addr)?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let ms = miner::State::load(self.blockstore(), &act)?;
+        let ms = transform(miner::State::load(self.blockstore(), &act))?;
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
@@ -262,7 +266,7 @@ where
             .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = power::State::load(self.blockstore(), &actor)?;
+        let spas = transform(power::State::load(self.blockstore(), &actor))?;
 
         let t_pow = spas.total_power();
 
@@ -706,13 +710,13 @@ where
             .get_actor(actor::power::ADDRESS, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let power_state = power::State::load(self.blockstore(), &actor)?;
+        let power_state = transform(power::State::load(self.blockstore(), &actor))?;
 
         let actor = self
             .get_actor(address, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let miner_state = miner::State::load(self.blockstore(), &actor)?;
+        let miner_state = transform(miner::State::load(self.blockstore(), &actor))?;
 
         // Non-empty power claim.
         let claim = power_state
@@ -770,7 +774,7 @@ where
         let actor = self
             .get_actor(&address, lbst)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let miner_state = miner::State::load(self.blockstore(), &actor)?;
+        let miner_state = transform(miner::State::load(self.blockstore(), &actor))?;
 
         let buf = address.marshal_cbor()?;
         let prand = chain_rand::draw_randomness(
@@ -1239,7 +1243,7 @@ where
             .get_actor(actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let market_state = market::State::load(self.blockstore(), &actor)?;
+        let market_state = transform(market::State::load(self.blockstore(), &actor))?;
 
         let new_addr = self
             .lookup_id(addr, ts)?
@@ -1371,7 +1375,7 @@ where
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
 
-        let market_state = market::State::load(self.blockstore(), &actor)?;
+        let market_state = transform(market::State::load(self.blockstore(), &actor))?;
         Ok(market_state)
     }
 }
