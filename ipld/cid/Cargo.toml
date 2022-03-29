@@ -11,7 +11,6 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["cbor", "json"]
 
 [dependencies]
-fvm_shared = { version = "0.2", default-features = false }
 cid = { version = "0.8", default-features = false, features = ["std"] }
 multihash = { version = "0.16", default-features = false, features = [
     "std",
@@ -22,7 +21,6 @@ multihash = { version = "0.16", default-features = false, features = [
 multibase = "0.9.0"
 integer-encoding = { version = "3.0", default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
-serde_bytes = { package = "cs_serde_bytes", version = "0.12", optional = true }
 forest_json_utils = { path = "../../utils/json_utils", optional = true, version = "0.1" }
 generic-array = "0.14"
 
@@ -31,5 +29,5 @@ serde_json = "1.0"
 serde_ipld_dagcbor = "0.1"
 
 [features]
-cbor = ["serde", "serde_bytes"]
+cbor = ["serde"]
 json = ["serde", "forest_json_utils"]

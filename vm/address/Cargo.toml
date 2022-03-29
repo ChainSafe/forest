@@ -14,7 +14,6 @@ num-derive = "0.3"
 data-encoding = "2.1"
 data-encoding-macro = "0.1"
 leb128 = "0.2"
-log = "0.4"
 encoding = { package = "forest_encoding", version = "0.2" }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -30,8 +30,6 @@ members = [
     "ipld",
     "ipld/hamt",
     "ipld/blockstore",
-    # TODO re-enable graphsync when work continues
-    # "ipld/graphsync",
     "key_management",
     "tests/conformance_tests",
     "tests/serialization_tests",

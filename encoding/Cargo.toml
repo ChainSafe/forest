@@ -15,5 +15,4 @@ serde = { version = "1.0", features = ["derive"] }
 serde_bytes = { package = "cs_serde_bytes", version = "0.12" }
 serde_tuple = "0.5"
 serde_repr = "0.1"
-cid = { package = "forest_cid", version = "0.3" }
 thiserror = "1.0"
