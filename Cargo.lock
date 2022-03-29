@@ -7433,6 +7433,18 @@ dependencies = [
 [[package]]
 name = "serialization_tests"
 version = "0.1.0"
+dependencies = [
+ "base64 0.13.0",
+ "bls-signatures",
+ "forest_blocks",
+ "forest_cid",
+ "forest_crypto",
+ "forest_encoding",
+ "forest_message",
+ "hex",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "sha-1"
