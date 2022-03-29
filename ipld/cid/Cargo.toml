@@ -13,7 +13,7 @@ features = ["cbor", "json"]
 [dependencies]
 fvm_shared = { version = "0.2", default-features = false }
 cid = { version = "0.8", default-features = false, features = ["std"] }
-multihash = { version = "0.16.1", default-features = false, features = [
+multihash = { version = "0.16", default-features = false, features = [
     "std",
     "blake2b",
     "derive",

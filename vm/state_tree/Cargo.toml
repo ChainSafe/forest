@@ -7,10 +7,10 @@ edition = "2021"
 [dependencies]
 actor = { package = "actor_interface", path = "../actor_interface" }
 address = { package = "forest_address", version = "0.3" }
-vm = { package = "forest_vm", version = "0.3.1" }
+vm = { package = "forest_vm", version = "0.3" }
 cid = { package = "forest_cid", version = "0.3" }
 ipld_hamt = "1.0"
-forest_ipld = "0.1.1"
+forest_ipld = "0.1"
 ipld_blockstore = "0.1"
 db = { package = "forest_db", version = "0.1" }
 fil_types = { version = "0.2" }

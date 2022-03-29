@@ -50,15 +50,15 @@ runtime = { package = "forest_runtime", version = "0.2", optional = true }
 state_manager = { path = "../../blockchain/state_manager", optional = true }
 interpreter = { path = "../../vm/interpreter/", optional = true, features = ["test_vectors"] }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint", optional = true }
-vm = { package = "forest_vm", version = "0.3.1", optional = true }
+vm = { package = "forest_vm", version = "0.3", optional = true }
 blockstore = { package = "ipld_blockstore", version = "0.1", features = ["resolve"], optional = true }
 crypto = { package = "forest_crypto", version = "0.5", features = ["blst"], optional = true }
-encoding = { package = "forest_encoding", version = "0.2.1", optional = true }
+encoding = { package = "forest_encoding", version = "0.2", optional = true }
 fil_types = { version = "0.2", optional = true }
 forest_message = { version = "0.7", features = ["json", "blst"], optional = true }
 state_tree = { path = "../../vm/state_tree/", optional = true }
 chain = { path = "../../blockchain/chain", optional = true }
-futures = { version = "0.3.5", optional = true }
+futures = { version = "0.3", optional = true }
 forest_blocks = { path = "../../blockchain/blocks", optional = true }
 networks = { path = "../../types/networks", features = ["conformance"], optional = true }
 
@@ -69,12 +69,10 @@ serde_json = "1.0"
 forest_car = { path = "../../ipld/car" }
 flate2 = "1.0"
 lazy_static = "1.4"
-pretty_env_logger = "0.4.0"
+pretty_env_logger = "0.4"
 log = "0.4"
 paramfetch = { path = "../../utils/paramfetch" }
 async-std = { version = "1.9", features = ["attributes"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 statediff = { path = "../../utils/statediff" }
 genesis = { path = "../../utils/genesis" }
-
-

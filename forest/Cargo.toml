@@ -53,13 +53,14 @@ genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
 encoding = { package = "forest_encoding", version = "0.2" }
 networks = { path = "../types/networks" }
-rpassword = "5.0"
+rpassword = "6.0"
 rayon = "1.5"
 prometheus = { version = "0.13", features = ["process"] }
 ticker = "0.1"
 byte-unit = "4.0"
 rug = "1.13"
 toml = "0.5"
+directories = "4.0.1"
 
 [dependencies.jsonrpc-v2]
 version = "0.10"
