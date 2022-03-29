@@ -6,13 +6,13 @@ version = 3
 name = "actor_interface"
 version = "0.1.0"
 dependencies = [
- "fil_actor_account 7.0.7",
- "fil_actor_init 7.0.7",
- "fil_actor_market 7.0.7",
- "fil_actor_miner 7.0.7",
- "fil_actor_power 7.0.7",
- "fil_actor_reward 7.0.7",
- "fil_actors_runtime 7.0.7",
+ "fil_actor_account 7.1.0",
+ "fil_actor_init 7.1.0",
+ "fil_actor_market 7.1.0",
+ "fil_actor_miner 7.1.0",
+ "fil_actor_power 7.1.0",
+ "fil_actor_reward 7.1.0",
+ "fil_actors_runtime 7.1.0",
  "fil_clock",
  "fil_types",
  "forest_actor 0.1.7",
@@ -2304,11 +2304,11 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_account"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e983dcf1aae114c84873c1d9b572b18bde0cb483cb56ccde0e1d7919d1e31cb0"
+checksum = "8a24de92a239b73cc754153fc72d5e2eafc894091b9a2ba7aaa5ae7b762a2c89"
 dependencies = [
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -2317,11 +2317,11 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_account"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51f3ae4a5bff7502fa1de56afcaaf10526c9be4d20b33baf5ee1199883560d03"
+checksum = "e2e126a9b5eb81b4eda1b57f1fa355276c710bb51dba1b0be156be061e9bd514"
 dependencies = [
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -2330,9 +2330,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_bundler"
-version = "1.0.2"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9bec58de1b0b77daaafe8de7dd341182a0163e2ad0e36056013822fab4288a4"
+checksum = "acdb9c600e969dec295da976f2f649babefe6f216cb6db9a26ecc35b2cd5a2c1"
 dependencies = [
  "anyhow",
  "async-std",
@@ -2341,18 +2341,18 @@ dependencies = [
  "futures",
  "fvm_ipld_car",
  "fvm_shared",
- "multihash 0.16.1",
+ "serde",
  "serde_ipld_dagcbor",
  "serde_json",
 ]
 
 [[package]]
 name = "fil_actor_cron"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc82ee4e3f2f032c07064a9475cbda2cb6f31bdd7c48a243616d99ec22e1ae17"
+checksum = "35185449dd7307b7407e3a493d2e45021542ef0ddecc9374b81c734102a80371"
 dependencies = [
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_shared",
  "log",
  "num-derive",
@@ -2362,11 +2362,11 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9ca1905ee44c4e2173038af444cf19890026d81e7a6ebc1c99631d7d5c5900d"
+checksum = "cd5cd5ca2ff85a19a2ea761c7416e61d3b0b3a9ccab8f004968008495c7e69aa"
 dependencies = [
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_shared",
  "log",
  "num-derive",
@@ -2376,13 +2376,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d15a2146d74c2bd79295c6fd6a78aa1d98cbfe5b8a5a18d31a3e61126c41359"
+checksum = "5cfe1e8801faa75fbd986bd4c3a3e61152eb18fc1b6a982e24fca02412ca4506"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_ipld_hamt",
  "fvm_shared",
  "log",
@@ -2393,13 +2393,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ccd75de479ad0d76255d52e606a9509a286b6533bb7fc10c39c21c074801a4e"
+checksum = "421de19e63c58591243977f9ade8257e4d201f67cfcec27135b4cb2613655347"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_ipld_hamt",
  "fvm_shared",
  "log",
@@ -2410,14 +2410,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d11960f2ddadb19b890b94e96de3a3b6546ef2cddd97293a1e47c49ccc1fcab5"
+checksum = "9f09d51871aba20d8339faff9bc53e4c79b6fc985cf2bf78d77a757e73823e8d"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
  "cid",
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_ipld_bitfield",
  "fvm_shared",
  "log",
@@ -2428,14 +2428,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b07f51c41ea0f838ab924645dd4e6ceb52ba740ba6ed076717c624dca69ff083"
+checksum = "2c941b513ca27b7cca60eb24fcf0662d851c8e23e3e9fe0cb8202ac9ccd516d5"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
  "cid",
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_ipld_bitfield",
  "fvm_ipld_hamt",
  "fvm_shared",
@@ -2447,14 +2447,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0f9fd532f0b3230ba2202e37094810d8c53afe32b6fc864b5c7a5103649ee00"
+checksum = "6bdb2a44ff8398188704a5a62d06addcad1be6da3c8dad7dd23d1f4e478931a9"
 dependencies = [
  "anyhow",
  "byteorder 1.4.3",
  "cid",
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_ipld_amt",
  "fvm_ipld_bitfield",
  "fvm_ipld_hamt",
@@ -2469,14 +2469,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a6b0d350aacde7950e53cd6dc71b29db73dfbfcf816015937201a6f84596fa4"
+checksum = "203fb60940839bbf0e77e2a4be393a9d4a0e3b76fa658acf3d52ce67ea4dc6aa"
 dependencies = [
  "anyhow",
  "byteorder 1.4.3",
  "cid",
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_ipld_amt",
  "fvm_ipld_bitfield",
  "fvm_ipld_hamt",
@@ -2491,13 +2491,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0200572126551a1f2d8bbd57976b3c9dd71e6886464f7f94770ad60474e0b1f8"
+checksum = "0c70e508c07fc0d7ba2686ffef6429d709d41e5a1ae91382f58ef3a1862f43c8"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_ipld_hamt",
  "fvm_shared",
  "indexmap",
@@ -2509,13 +2509,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1156e4983e535a7a820d805a7b98b8cd46c883f83fd3c13c7765dd2ca9658214"
+checksum = "dc4061211f5bd7bd99ecad4a39c0d6bf11cae4548f90a12505ea438b85acf215"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_ipld_hamt",
  "fvm_shared",
  "indexmap",
@@ -2527,13 +2527,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_paych"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebbd5d695ccb85a7b48aa76606d473910d9ac1467a84657c4edaa7d4d280589e"
+checksum = "6715551705639bf9f8f640e89b8f347178ae82449e28a2570a5c0750b9b89710"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -2542,13 +2542,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_paych"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f81f7c51ed7b495a9a00f60cce226d3c75cce37e0858446dc95d43c68c4c42ef"
+checksum = "2588d321d1d604b12331c1585c2f89bd473b78f6276cd68a37f7cca88541b98f"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -2557,13 +2557,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36a6a94336789f1defc1705c7463f818ff8a062a2eaed7773be6a514f867a915"
+checksum = "d937e0a724afbe957a66883372dcc9a68eb5d031df7ec761f07be793194704b6"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_ipld_hamt",
  "fvm_shared",
  "indexmap",
@@ -2577,13 +2577,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66b0325169497153c336eb51f622477c2101dfdfda3756d6f354626936c4516f"
+checksum = "416e4442a1b0bc4750ba5a41178e138560bc8e57712661125af81371ec120c03"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_ipld_hamt",
  "fvm_shared",
  "indexmap",
@@ -2597,11 +2597,11 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f53d71ddec450efd2c260e1381123c8639e7a7fab41b924bdb2ebb167339c361"
+checksum = "16b335ea867ad146bdc3542d8c6450e3cd09f02715fd72dca9762e8af8db52d4"
 dependencies = [
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_shared",
  "lazy_static",
  "log",
@@ -2612,11 +2612,11 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73d29df286b97ceee0d13df9c063b03c66fba8f8c0e88b766ac10c1b0caf5175"
+checksum = "9fa31c98586e3a0be1a602e67fc94bd9c01888e8c1c630acc4fefb2e62ba3e3c"
 dependencies = [
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_shared",
  "lazy_static",
  "log",
@@ -2627,11 +2627,11 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b3d6e3fa9121c1500af5f4791ae2ac3ed38f989efb1ec2818ed81e43ab5e6a3"
+checksum = "ca15548b4c156fe24e940bba687163ba24d9ee0ec638c0c440389accee38c18c"
 dependencies = [
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -2640,11 +2640,11 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a39278c0ea027170393144edc29d14ba2d63cbd506211baf3f44423a14d3abd"
+checksum = "a23f15d73aff829ae181c7c285fe51e3fff817bb0e4de73938bd1be028d855d3"
 dependencies = [
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -2653,13 +2653,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dd58b50165d53634575e5ea61868ce32db236b1ff88f8c82f0ec9199ad12b4d"
+checksum = "68473798aacc7695917a1143c1a8b53a192eda6e0861a30c4ca8e035e24a488c"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 6.0.4",
+ "fil_actors_runtime 6.1.0",
  "fvm_shared",
  "lazy_static",
  "num-derive",
@@ -2669,13 +2669,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1714b6157993c007f2356cb0b2da4c6f9fb9d44a802464151ff2bde427d58839"
+checksum = "3220c98003260fdeca9766313df42d4a781e22e5e1b1b455ad6e0316baed94d7"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime 7.0.7",
+ "fil_actors_runtime 7.1.0",
  "fvm_ipld_hamt",
  "fvm_shared",
  "lazy_static",
@@ -2686,9 +2686,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_runtime"
-version = "6.0.4"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41f8a5fb86bd13e134d38b264d6378b9c134ebdcfb0e7d20e411409f9c457715"
+checksum = "3f4e6adf9b0854aaadce33a09ab155eb8f89fb07f6e7400935dfe0c651e15450"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -2703,7 +2703,6 @@ dependencies = [
  "integer-encoding 3.0.3",
  "lazy_static",
  "log",
- "multihash 0.16.1",
  "num-derive",
  "num-traits",
  "serde",
@@ -2713,9 +2712,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_runtime"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4683999cd0f556a90cf1b356e3bb9cec1f7b9af6ff912df0ff60ad2d17bf2c6"
+checksum = "75255db97d40384153be52a2360212c855376476780b41f1709452cd3b8b0c77"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -2739,45 +2738,45 @@ dependencies = [
 
 [[package]]
 name = "fil_builtin_actors_bundle"
-version = "6.0.5"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "474d65a48e74770f0ee62829b00c11243c3484bbfba2a551326cf7f12afa084b"
+checksum = "8f7c97ab28a52fc23d107357c5a622713318df7787d0b9f5fb5ea737a583c93a"
 dependencies = [
  "cid",
- "fil_actor_account 6.0.4",
+ "fil_actor_account 6.1.0",
  "fil_actor_bundler",
- "fil_actor_cron 6.0.4",
- "fil_actor_init 6.0.4",
- "fil_actor_market 6.0.4",
- "fil_actor_miner 6.0.4",
- "fil_actor_multisig 6.0.4",
- "fil_actor_paych 6.0.4",
- "fil_actor_power 6.0.4",
- "fil_actor_reward 6.0.4",
- "fil_actor_system 6.0.4",
- "fil_actor_verifreg 6.0.4",
+ "fil_actor_cron 6.1.0",
+ "fil_actor_init 6.1.0",
+ "fil_actor_market 6.1.0",
+ "fil_actor_miner 6.1.0",
+ "fil_actor_multisig 6.1.0",
+ "fil_actor_paych 6.1.0",
+ "fil_actor_power 6.1.0",
+ "fil_actor_reward 6.1.0",
+ "fil_actor_system 6.1.0",
+ "fil_actor_verifreg 6.1.0",
 ]
 
 [[package]]
 name = "fil_builtin_actors_bundle"
-version = "7.0.7"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349ff2b01c578777d45b3435db0b614c1920388a295462c0a8a666b64871f351"
+checksum = "7942ce03f298265db03193e2d09da60a9099214cce0b13eb182219db43a3d1ed"
 dependencies = [
  "cid",
- "fil_actor_account 7.0.7",
+ "fil_actor_account 7.1.0",
  "fil_actor_bundler",
- "fil_actor_cron 7.0.7",
- "fil_actor_init 7.0.7",
- "fil_actor_market 7.0.7",
- "fil_actor_miner 7.0.7",
- "fil_actor_multisig 7.0.7",
- "fil_actor_paych 7.0.7",
- "fil_actor_power 7.0.7",
- "fil_actor_reward 7.0.7",
- "fil_actor_system 7.0.7",
- "fil_actor_verifreg 7.0.7",
- "fil_actors_runtime 7.0.7",
+ "fil_actor_cron 7.1.0",
+ "fil_actor_init 7.1.0",
+ "fil_actor_market 7.1.0",
+ "fil_actor_miner 7.1.0",
+ "fil_actor_multisig 7.1.0",
+ "fil_actor_paych 7.1.0",
+ "fil_actor_power 7.1.0",
+ "fil_actor_reward 7.1.0",
+ "fil_actor_system 7.1.0",
+ "fil_actor_verifreg 7.1.0",
+ "fil_actors_runtime 7.1.0",
 ]
 
 [[package]]
@@ -3706,9 +3705,9 @@ dependencies = [
 
 [[package]]
 name = "fvm"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf85081bb8f5d9856acd98f7e74e9a9b92f979686529d30368687487507e8a73"
+checksum = "75f7a3f72541c679e8cdee9c6cd44ea37115d152cee51f0890cfeaa20b9ff1d0"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
@@ -4312,8 +4311,8 @@ dependencies = [
  "anyhow",
  "async-std",
  "byteorder 1.4.3",
- "fil_builtin_actors_bundle 6.0.5",
- "fil_builtin_actors_bundle 7.0.7",
+ "fil_builtin_actors_bundle 6.1.0",
+ "fil_builtin_actors_bundle 7.1.0",
  "fil_clock",
  "fil_types",
  "forest_address",

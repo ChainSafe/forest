@@ -165,7 +165,7 @@ where
                 },
                 network_version,
                 root,
-                builtin_actors,
+                Some(builtin_actors),
                 FvmStore::new(store_arc),
                 ForestExterns::new(rand.clone()),
             )
