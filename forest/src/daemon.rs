@@ -143,7 +143,7 @@ pub(super) async fn start(config: Config) {
     // * When snapshot command implemented, this genesis does not need to be initialized
     let genesis = read_genesis_header(
         config.genesis_file.as_ref(),
-        &config.chain.genesis_bytes,
+        config.chain.genesis_bytes(),
         &chain_store,
     )
     .await

@@ -25,7 +25,7 @@ pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
 /// chain store has existing data for the given genesis.
 pub async fn read_genesis_header<DB>(
     genesis_fp: Option<&String>,
-    genesis_bytes: &[u8],
+    genesis_bytes: Option<&[u8]>,
     cs: &ChainStore<DB>,
 ) -> Result<Tipset, Box<dyn StdError>>
 where
@@ -39,6 +39,7 @@ where
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
+            let genesis_bytes = genesis_bytes.ok_or("No default genesis.")?;
             let reader = BufReader::<&[u8]>::new(genesis_bytes);
             process_car(reader, cs).await?
         }
@@ -72,7 +73,7 @@ pub async fn initialize_genesis<BS>(
 where
     BS: BlockStore + Send + Sync + 'static,
 {
-    let genesis_bytes = &state_manager.chain_config.genesis_bytes;
+    let genesis_bytes = state_manager.chain_config.genesis_bytes();
     let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
     let network_name = get_network_name_from_genesis(&ts, state_manager).await?;
     Ok((ts, network_name))

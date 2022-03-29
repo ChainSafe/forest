@@ -204,8 +204,6 @@ pub struct ChainConfig {
     pub name: String,
     pub bootstrap_peers: Vec<String>,
     pub block_delay_secs: u64,
-    #[serde(skip_serializing)]
-    pub genesis_bytes: Vec<u8>,
     pub version_schedule: Vec<UpgradeInfo>,
     pub height_infos: Vec<HeightInfo>,
 }
@@ -217,7 +215,6 @@ impl ChainConfig {
             name: "calibnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
-            genesis_bytes: DEFAULT_GENESIS.to_vec(),
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
         }
@@ -277,6 +274,20 @@ impl ChainConfig {
             .map(|info| info.epoch)
             .unwrap()
     }
+
+    pub fn genesis_bytes(&self) -> Option<&[u8]> {
+        match self.name.as_ref() {
+            "mainnet" => {
+                use mainnet::DEFAULT_GENESIS;
+                Some(DEFAULT_GENESIS)
+            }
+            "calibnet" => {
+                use calibnet::DEFAULT_GENESIS;
+                Some(DEFAULT_GENESIS)
+            }
+            _ => None,
+        }
+    }
 }
 
 impl Default for ChainConfig {
@@ -286,7 +297,6 @@ impl Default for ChainConfig {
             name: "mainnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
-            genesis_bytes: DEFAULT_GENESIS.to_vec(),
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
         }
