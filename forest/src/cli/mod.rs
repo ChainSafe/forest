@@ -176,17 +176,6 @@ impl CliOpts {
             cfg.chain = ChainConfig::calibnet();
         }
 
-        if cfg.network.bootstrap_peers.is_empty() {
-            // override bootstrap peers
-            let bootstrap_peers = cfg
-                .chain
-                .bootstrap_peers
-                .iter()
-                .map(|node| node.parse().unwrap())
-                .collect();
-            cfg.network.bootstrap_peers = bootstrap_peers;
-        }
-
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
         }

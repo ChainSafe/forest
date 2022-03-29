@@ -6,7 +6,7 @@ use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
-use forest_libp2p::{get_keypair, Libp2pService};
+use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, SectorSizeOpt};
@@ -168,6 +168,25 @@ pub(super) async fn start(config: Config) {
     get_params_default(SectorSizeOpt::Keys, false)
         .await
         .unwrap();
+
+    // Override bootstrap peers
+    let config = if config.network.bootstrap_peers.is_empty() {
+        let bootstrap_peers = config
+            .chain
+            .bootstrap_peers
+            .iter()
+            .map(|node| node.parse().unwrap())
+            .collect();
+        Config {
+            network: Libp2pConfig {
+                bootstrap_peers,
+                ..config.network
+            },
+            ..config
+        }
+    } else {
+        config
+    };
 
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
