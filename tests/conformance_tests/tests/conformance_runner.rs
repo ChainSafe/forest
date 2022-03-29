@@ -16,7 +16,7 @@ use fil_types::TOTAL_FILECOIN;
 use flate2::read::GzDecoder;
 use forest_message::{MessageReceipt, UnsignedMessage};
 use futures::AsyncRead;
-use interpreter::{ApplyRet, Backend};
+use interpreter::ApplyRet;
 use num_bigint::{BigInt, ToBigInt};
 use paramfetch::{get_params_default, SectorSizeOpt};
 use regex::Regex;
