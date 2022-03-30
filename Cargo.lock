@@ -3015,7 +3015,6 @@ dependencies = [
  "forest_crypto",
  "forest_db",
  "forest_encoding",
- "forest_ipld",
  "forest_runtime",
  "forest_vm",
  "fvm_shared",
@@ -3079,7 +3078,6 @@ dependencies = [
  "fvm_shared",
  "lazy_static",
  "leb128",
- "log",
  "num-derive",
  "num-traits",
  "once_cell",
@@ -3092,7 +3090,6 @@ name = "forest_bigint"
 version = "0.1.4"
 dependencies = [
  "cs_serde_bytes",
- "libipld-core",
  "num-bigint 0.4.3",
  "num-integer",
  "serde",
@@ -3165,9 +3162,7 @@ name = "forest_cid"
 version = "0.3.0"
 dependencies = [
  "cid",
- "cs_serde_bytes",
  "forest_json_utils",
- "fvm_shared",
  "generic-array 0.14.5",
  "integer-encoding 3.0.3",
  "multibase 0.9.1",
@@ -3217,7 +3212,6 @@ version = "0.2.2"
 dependencies = [
  "blake2b_simd 1.0.0",
  "cs_serde_bytes",
- "forest_cid",
  "fvm_shared",
  "serde",
  "serde_ipld_dagcbor",
@@ -3242,11 +3236,9 @@ dependencies = [
  "async-std",
  "async-trait",
  "forest_cid",
- "forest_db",
  "forest_encoding",
  "fvm_shared",
  "indexmap",
- "ipld_blockstore",
  "libipld-core",
  "multibase 0.9.1",
  "serde",
@@ -4344,8 +4336,6 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_hash_utils",
- "forest_ipld",
- "hex",
  "ipld_blockstore",
  "libipld-core",
  "once_cell",
@@ -7446,16 +7436,12 @@ version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "bls-signatures",
- "fil_types",
- "forest_address",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
  "forest_message",
- "forest_vm",
  "hex",
- "num-traits",
  "serde",
  "serde_json",
 ]
@@ -8292,7 +8278,6 @@ checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 name = "test_utils"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "base64 0.13.0",
  "chain",
  "forest_address",
@@ -8303,7 +8288,6 @@ dependencies = [
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
- "ipld_blockstore",
 ]
 
 [[package]]
