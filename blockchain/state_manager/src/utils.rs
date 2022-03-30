@@ -267,14 +267,19 @@ where
     }
 
     /// Lists all miners that exist in the power actor state at given [Tipset].
-    pub fn list_miner_actors<V>(&self, tipset: &Tipset) -> Result<Vec<Address>, Error>
+    pub fn list_miner_actors<V>(&self, tipset: &Tipset) -> anyhow::Result<Vec<Address>, Error>
     where
         V: ProofVerifier,
     {
         let actor = self
             .get_actor(actor::power::ADDRESS, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let power_actor_state = transform(power::State::load(self.blockstore(), &actor))?;
+        let power_actor_state = power::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(list miner actors) failed to load miner actor state: {}",
+                err
+            ))
+        })?;
 
         Ok(power_actor_state.list_all_miners(self.blockstore())?)
     }
