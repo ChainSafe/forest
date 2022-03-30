@@ -74,10 +74,6 @@ pub struct MarketBalance {
     locked: BigInt,
 }
 
-fn transform<T>(result: anyhow::Result<T>) -> Result<T, Box<dyn StdError>> {
-    result.map_err(|e| e.into())
-}
-
 /// State manager handles all interactions with the internal Filecoin actors state.
 /// This encapsulates the [ChainStore] functionality, which only handles chain data, to
 /// allow for interactions with the underlying state of the chain. The state manager not only
@@ -803,7 +799,12 @@ where
         let actor = self
             .get_actor(&address, lbst)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let miner_state = transform(miner::State::load(self.blockstore(), &actor))?;
+        let miner_state = miner::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "failed to load minor actor state: {}",
+                err
+            ))
+        })?;
 
         let buf = address.marshal_cbor()?;
         let prand = chain_rand::draw_randomness(
