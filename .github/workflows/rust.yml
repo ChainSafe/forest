@@ -60,12 +60,7 @@ jobs:
     env:
       GITHUB_CONTEXT: ${{ toJson(github) }}
     steps:
-      - name: Checkout Main
-        uses: actions/checkout@v3
-        with:
-          submodules: true
-          ref: main
-      - name: Checkout Commit
+      - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
@@ -80,6 +75,7 @@ jobs:
       - run: git --no-pager diff --name-only main...${{ github.event.pull_request.head.sha }}
       - name: Check for Rust changes
         run: |
+          git fetch -pa
           echo "::set-output name=files::$(git --no-pager diff --name-only main...${{ github.event.pull_request.head.sha }} | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')"
         id: rust-diff
   codecov:
