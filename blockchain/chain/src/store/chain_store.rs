@@ -52,10 +52,6 @@ const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
 
-fn transform<T>(result: anyhow::Result<T>) -> Result<T, Box<dyn StdError>> {
-    result.map_err(|e| e.into())
-}
-
 /// Enum for pubsub channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
@@ -410,7 +406,7 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk(&self, key: &TipsetKeys) -> Result<StateTree<'_, DB>, Error> {
+    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<'_, DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(&*self.db, ts.parent_state())
             .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
@@ -428,14 +424,14 @@ where
         &self,
         address: &Address,
         tsk: &TipsetKeys,
-    ) -> Result<miner::State, Error> {
+    ) -> anyhow::Result<miner::State> {
         let state = self.parent_state_tsk(tsk).await?;
         let actor = state
             .get_actor(address)
             .map_err(|_| Error::Other("Failure getting actor".to_string()))?
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
-        Ok(transform(miner::State::load(self.blockstore(), &actor))?)
+        Ok(miner::State::load(self.blockstore(), &actor)?)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.

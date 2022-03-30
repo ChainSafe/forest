@@ -6921,6 +6921,7 @@ name = "rpc"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "auth",
  "base64 0.13.0",

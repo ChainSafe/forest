@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 # Public
+anyhow = "1.0"
 async-std = { version = "1.9", features = ["attributes"] }
 base64 = "0.13"
 bls-signatures = { version = "0.11", default-features = false, features = ["blst"] }
