@@ -146,14 +146,19 @@ where
         address: &Address,
         sector_number: SectorNumber,
         tipset: &Tipset,
-    ) -> Result<Option<SectorOnChainInfo>, Error>
+    ) -> anyhow::Result<Option<SectorOnChainInfo>, Error>
     where
         V: ProofVerifier,
     {
         let actor = self
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = transform(miner::State::load(self.blockstore(), &actor))?;
+        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(miner sector info) failed to load miner actor state: {}",
+                err
+            ))
+        })?;
         mas.get_sector(self.blockstore(), sector_number)
             .map_err(|err| Error::State(format!("(get sset) failed to get actor state: {:}", err)))
     }
