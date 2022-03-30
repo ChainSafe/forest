@@ -3,8 +3,8 @@
 Forest v0.2.2 alpha is a service release improving performance and stability.
 
 Notable updates:
-* Forest now supports Calibnet: cargo build --features calibnet
-* FVM is available both native and as external crate.
+* Forest now supports Calibnet: `make calibnet`
+* FVM is available both native and as external crate: [ref-fvm](https://github.com/filecoin-project/ref-fvm)
 * Reading config from a default config location unless a file is specified.
 * Improved logging and display of synchronization progress.
 * Defaulting to Rust Edition 2021 from now on.
