@@ -60,7 +60,12 @@ jobs:
     env:
       GITHUB_CONTEXT: ${{ toJson(github) }}
     steps:
-      - name: Checkout Sources
+      - name: Checkout Main
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          ref: main
+      - name: Checkout Commit
         uses: actions/checkout@v3
         with:
           submodules: true
