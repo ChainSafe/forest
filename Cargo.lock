@@ -1349,6 +1349,7 @@ name = "commcid"
 version = "0.1.1"
 dependencies = [
  "forest_cid",
+ "multihash 0.16.1",
  "rand 0.8.5",
 ]
 
@@ -2101,9 +2102,9 @@ dependencies = [
 
 [[package]]
 name = "dirs"
-version = "3.0.2"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
+checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
 dependencies = [
  "dirs-sys",
 ]
@@ -2614,9 +2615,6 @@ dependencies = [
 [[package]]
 name = "fil_clock"
 version = "0.1.0"
-dependencies = [
- "time 0.3.7",
-]
 
 [[package]]
 name = "fil_logger"
@@ -8802,7 +8800,7 @@ checksum = "7cf7d77f457ef8dfa11e4cd5933c5ddb5dc52a94664071951219a97710f0a32b"
 name = "utils"
 version = "0.1.0"
 dependencies = [
- "dirs 3.0.2",
+ "dirs 4.0.0",
  "libc",
  "log",
  "serde",

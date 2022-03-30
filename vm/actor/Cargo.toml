@@ -24,7 +24,6 @@ lazy_static = "1.4"
 ipld_blockstore = "0.1"
 ipld_hamt = { path = "../../ipld/hamt" }
 ipld_amt = { path = "../../ipld/amt", features = ["go-interop"]}
-forest_ipld = "0.1"
 unsigned-varint = "0.7"
 integer-encoding = { version = "3.0", default-features = false }
 crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
