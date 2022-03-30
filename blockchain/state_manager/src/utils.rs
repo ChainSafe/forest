@@ -279,15 +279,20 @@ where
         &self,
         state: &Cid,
         miner_addr: &Address,
-    ) -> Result<Address, Error> {
+    ) -> anyhow::Result<Address, Error> {
         let st = StateTree::new_from_root(self.blockstore(), state)?;
         let actor = st
             .get_actor(miner_addr)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = transform(miner::State::load(self.blockstore(), &actor))?;
+        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(get miner worker raw) failed to load miner actor state: {}",
+                err
+            ))
+        })?;
         let info = mas.info(self.blockstore()).map_err(|err| {
             Error::State(format!(
-                "(get miner worker raw) failed to load miner actor get info: {:}",
+                "(get miner worker raw) failed to load miner actor get info: {}",
                 err
             ))
         })?;
