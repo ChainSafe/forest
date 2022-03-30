@@ -5,13 +5,13 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-fvm_shared = "0.2.0"
+fvm_shared = "0.2"
 cid = { package = "forest_cid", version = "0.3", features = ["cbor"] }
-forest_encoding = "0.2.1"
+forest_encoding = "0.2"
 blockstore = { package = "ipld_blockstore", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
-futures = "0.3.5"
+futures = "0.3"
 integer-encoding = { version = "3.0", features = ["futures_async"] }
 
 [dev-dependencies]

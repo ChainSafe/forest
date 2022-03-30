@@ -21,36 +21,36 @@ libp2p = { version = "0.40.0-rc.1", default-features = false, features = [
     "request-response",
     "websocket",
 ] }
-multihash = { version = "0.16.1", default-features = false, features = [
+multihash = { version = "0.16", default-features = false, features = [
     "std",
     "multihash-impl",
     "identity",
     "sha2",
 ] }
-futures = "0.3.5"
-futures-util = "0.3.5"
-asynchronous-codec = "0.6.0"
-log = "0.4.8"
+futures = "0.3"
+futures-util = "0.3"
+asynchronous-codec = "0.6"
+log = "0.4"
 async-std = "1.9"
 serde = { version = "1.0", features = ["derive"] }
 forest_blocks = { path = "../../blockchain/blocks" }
 forest_message = "0.7"
-forest_encoding = "0.2.1"
+forest_encoding = "0.2"
 forest_cid = { version = "0.3" }
 bytes = "1.0"
-fnv = "1.0.6"
-smallvec = "1.1.0"
+fnv = "1.0"
+smallvec = "1.1"
 chain = { path = "../../blockchain/chain" }
 clock = { package = "fil_clock", path = "../clock" }
 db = { package = "forest_db", version = "0.1" }
 forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
-tiny-cid = "0.2.0"
+tiny-cid = "0.2"
 ipld_blockstore = "0.1"
 async-trait = "0.1"
 lazy_static = "1.4"
-git-version = "0.3.4"
+git-version = "0.3"
 serde_ipld_dagcbor = "0.1.0"
 
 [dev-dependencies]

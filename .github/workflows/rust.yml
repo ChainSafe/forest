@@ -124,7 +124,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        rv: [1.58.1, stable]
+        rv: [1.58.1, stable, beta, nightly]
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1

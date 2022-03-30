@@ -3,6 +3,7 @@
 
 use async_std::sync::RwLock;
 use git_version::git_version;
+use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
