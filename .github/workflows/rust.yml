@@ -60,10 +60,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - run: |
-          git diff main...${{ github.event.pull_request.head.sha }}
+          git diff origin/main...${{ github.event.pull_request.head.sha }}
 
   codecov:
     name: Cover
