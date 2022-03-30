@@ -26,7 +26,7 @@ jobs:
           access_token: ${{ github.token }}
       - name: Check for Rust changes
         run: |
-          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')""
+          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')"
         id: rust-diff
       - name: Install Dependencies
         run: |
@@ -61,7 +61,7 @@ jobs:
           access_token: ${{ github.token }}
       - name: Check for Rust changes
         run: |
-          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')""
+          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')"
         id: rust-diff
       - name: Install Dependencies
         run: |
@@ -144,7 +144,7 @@ jobs:
           access_token: ${{ github.token }}
       - name: Check for Rust changes
         run: |
-          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')""
+          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')"
         id: rust-diff
       - name: Install Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
