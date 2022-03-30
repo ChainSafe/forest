@@ -3,7 +3,7 @@
 
 use super::beacon_entries::BeaconEntry;
 use ahash::AHashMap;
-use anyhow::anyhow;
+use anyhow::Context;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
@@ -100,7 +100,7 @@ where
             .rev()
             .find(|upgrade| epoch >= upgrade.height)
             .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
-            .ok_or_else(|| anyhow!("Invalid beacon schedule, no valid beacon"))
+            .context("Invalid beacon schedule, no valid beacon")
     }
 }
 
