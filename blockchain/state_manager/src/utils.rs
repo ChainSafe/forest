@@ -123,14 +123,19 @@ where
         tipset: &Tipset,
         address: &Address,
         filter: Option<&BitField>,
-    ) -> Result<Vec<SectorOnChainInfo>, Error>
+    ) -> anyhow::Result<Vec<SectorOnChainInfo>, Error>
     where
         V: ProofVerifier,
     {
         let actor = self
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = transform(miner::State::load(self.blockstore(), &actor))?;
+        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(get miner sector set) failed to load miner actor state: {}",
+                err
+            ))
+        })?;
 
         Ok(mas.load_sectors(self.blockstore(), filter)?)
     }
