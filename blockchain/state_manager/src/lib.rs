@@ -801,7 +801,7 @@ where
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let miner_state = miner::State::load(self.blockstore(), &actor).map_err(|err| {
             Error::State(format!(
-                "failed to load minor actor state: {}",
+                "failed to load miner actor state: {}",
                 err
             ))
         })?;

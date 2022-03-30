@@ -21,10 +21,6 @@ use serde::Serialize;
 use state_tree::StateTree;
 use std::error::Error as StdError;
 
-fn transform<T>(result: anyhow::Result<T>) -> Result<T, Box<dyn StdError>> {
-    result.map_err(|e| e.into())
-}
-
 impl<DB> StateManager<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -45,7 +41,12 @@ where
         let actor = self
             .get_actor(miner_address, *st)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = transform(miner::State::load(self.blockstore(), &actor))?;
+        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "failed to load miner actor state: {}",
+                err
+            ))
+        })?;
 
         let proving_sectors = {
             let mut proving_sectors = BitField::new();
@@ -205,7 +206,12 @@ where
         let actor = self
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = transform(miner::State::load(self.blockstore(), &actor))?;
+        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "failed to load miner actor state: {}",
+                err
+            ))
+        })?;
         mas.info(self.blockstore())
     }
 
@@ -225,7 +231,12 @@ where
         let actor = self
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = transform(miner::State::load(self.blockstore(), &actor))?;
+        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "failed to load miner actor state: {}",
+                err
+            ))
+        })?;
 
         mas.for_each_deadline(store, |_, deadline| {
             deadline.for_each(store, |_, partition: miner::Partition| {
