@@ -24,6 +24,10 @@ jobs:
         uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
+      - name: Check for Rust changes
+        run: |
+          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')""
+        id: rust-diff
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -42,8 +46,10 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
+        if: steps.rust-diff.outputs.files != 0
       - name: Make Test-All
         run: make test-all
+        if: steps.rust-diff.outputs.files != 0
 
   codecov:
     name: Cover
@@ -53,6 +59,10 @@ jobs:
         uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
+      - name: Check for Rust changes
+        run: |
+          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')""
+        id: rust-diff
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -73,8 +83,10 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
+        if: steps.rust-diff.outputs.files != 0
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
+        if: steps.rust-diff.outputs.files != 0
 
   lint:
     name: Lint
@@ -130,6 +142,10 @@ jobs:
         uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
+      - name: Check for Rust changes
+        run: |
+          echo "::set-output name=files::$(git --no-pager diff --name-only main...$GITHUB_SHA | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')""
+        id: rust-diff
       - name: Install Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
         run: |
@@ -150,3 +166,4 @@ jobs:
         with:
           command: build
           args: --profile dev
+        if: steps.rust-diff.outputs.files != 0
