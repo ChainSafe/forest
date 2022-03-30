@@ -59,7 +59,7 @@ jobs:
     env:
       GITHUB_CONTEXT: ${{ toJson(github) }}
     steps:
-      run: echo "$GITHUB_CONTEXT"
+      - run: echo "$GITHUB_CONTEXT"
 
   codecov:
     name: Cover
