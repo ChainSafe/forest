@@ -1,9 +1,9 @@
 ## Forest v0.2.2 _alpha_ (2022-03-30)
 
-Forest v0.2.2 alpha is a service release improving performance and stability.
+Forest v0.2.2 alpha is a service release improving performance and stability. This release supports Filecoin network version 14.
 
 Notable updates:
-* Forest now supports Calibnet: `make calibnet`
+* Forest now supports Calibnet: `make calibnet` (nv14)
 * FVM is available both native and as external crate: [ref-fvm](https://github.com/filecoin-project/ref-fvm)
 * Reading config from a default config location unless a file is specified.
 * Improved logging and display of synchronization progress.
