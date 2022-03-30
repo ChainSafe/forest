@@ -219,12 +219,12 @@ where
     }
 
     /// Returns the network name from the init actor state.
-    pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
+    pub fn get_network_name(&self, st: &Cid) -> anyhow::Result<String> {
         let init_act = self
             .get_actor(actor::init::ADDRESS, *st)?
             .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
 
-        let state = transform(init::State::load(self.blockstore(), &init_act))?;
+        let state = init::State::load(self.blockstore(), &init_act)?;
         Ok(state.into_network_name())
     }
 
