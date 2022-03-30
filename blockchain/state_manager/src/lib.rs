@@ -229,25 +229,35 @@ where
     }
 
     /// Returns true if miner has been slashed or is considered invalid.
-    pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
+    pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
             .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = transform(power::State::load(self.blockstore(), &actor))?;
+        let spas = power::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(is miner slashed) failed to load power actor state: {}",
+                err
+            ))
+        })?;
 
         Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
     }
 
     /// Returns raw work address of a miner given the state root.
-    pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> Result<Address, Error> {
+    pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> anyhow::Result<Address, Error> {
         let state = StateTree::new_from_root(self.blockstore(), state_cid)?;
 
         let act = state
             .get_actor(addr)?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let ms = transform(miner::State::load(self.blockstore(), &act))?;
+        let ms = miner::State::load(self.blockstore(), &act).map_err(|err| {
+            Error::State(format!(
+                "(get miner work addr) failed to load miner actor state: {}",
+                err
+            ))
+        })?;
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
@@ -261,12 +271,17 @@ where
         &self,
         state_cid: &Cid,
         addr: Option<&Address>,
-    ) -> Result<Option<(power::Claim, power::Claim)>, Error> {
+    ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
             .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = transform(power::State::load(self.blockstore(), &actor))?;
+        let spas = power::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(get power) failed to load power actor state: {}",
+                err
+            ))
+        })?;
 
         let t_pow = spas.total_power();
 
