@@ -29,9 +29,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -60,6 +61,10 @@ jobs:
       GITHUB_CONTEXT: ${{ toJson(github) }}
     steps:
       - run: echo "$GITHUB_CONTEXT"
+      - run: echo ${{ github.sha }}
+      - run: echo ${{ github.event.pull_request.head.sha }}
+      - run: echo ${{ github.event.after }}
+      - run: echo ${{ github.event.before  }}
 
   codecov:
     name: Cover
@@ -74,9 +79,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Check for Rust changes
         run: |
           echo "::set-output name=files::$(git --no-pager diff --name-only main...${{ github.event.pull_request.head.sha }} | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')"
@@ -103,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -124,7 +130,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -158,7 +164,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Check for Rust changes
         run: |
           echo "::set-output name=files::$(git --no-pager diff --name-only main...${{ github.event.pull_request.head.sha }} | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')"
