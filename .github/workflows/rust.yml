@@ -53,6 +53,14 @@ jobs:
         run: make test-all
         if: steps.rust-diff.outputs.files != 0
 
+  dumb:
+    name: Dumb
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_CONTEXT: ${{ toJson(github) }}
+    steps:
+      run: echo "$GITHUB_CONTEXT"
+
   codecov:
     name: Cover
     runs-on: buildjet-16vcpu-ubuntu-2004
