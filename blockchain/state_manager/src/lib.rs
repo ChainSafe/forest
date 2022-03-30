@@ -694,7 +694,7 @@ where
         address: &Address,
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
-    ) -> Result<bool, Error> {
+    ) -> anyhow::Result<bool, Error> {
         let hmp = self.miner_has_min_power(address, lookback_tipset)?;
         let version = get_network_version_default(base_tipset.epoch());
 
@@ -710,13 +710,23 @@ where
             .get_actor(actor::power::ADDRESS, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let power_state = transform(power::State::load(self.blockstore(), &actor))?;
+        let power_state = power::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(eligible to mine) failed to load power actor state: {}",
+                err
+            ))
+        })?;
 
         let actor = self
             .get_actor(address, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let miner_state = transform(miner::State::load(self.blockstore(), &actor))?;
+        let miner_state = miner::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(eligible to mine) failed to load miner actor state: {}",
+                err
+            ))
+        })?;
 
         // Non-empty power claim.
         let claim = power_state
@@ -1238,12 +1248,17 @@ where
     }
 
     /// Retrieves market balance in escrow and locked tables.
-    pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
+    pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
             .get_actor(actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let market_state = transform(market::State::load(self.blockstore(), &actor))?;
+        let market_state = market::State::load(self.blockstore(), &actor).map_err(|err| {
+            Error::State(format!(
+                "(market balance) failed to load market actor state: {}",
+                err
+            ))
+        })?;
 
         let new_addr = self
             .lookup_id(addr, ts)?
