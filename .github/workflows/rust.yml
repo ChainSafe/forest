@@ -65,6 +65,7 @@ jobs:
       - run: echo ${{ github.event.pull_request.head.sha }}
       - run: echo ${{ github.event.after }}
       - run: echo ${{ github.event.before  }}
+      - run: git --version
 
   codecov:
     name: Cover
