@@ -245,7 +245,11 @@ where
     }
 
     /// Returns raw work address of a miner given the state root.
-    pub fn get_miner_work_addr(&self, state_cid: &Cid, addr: &Address) -> anyhow::Result<Address, Error> {
+    pub fn get_miner_work_addr(
+        &self,
+        state_cid: &Cid,
+        addr: &Address,
+    ) -> anyhow::Result<Address, Error> {
         let state = StateTree::new_from_root(self.blockstore(), state_cid)?;
 
         let act = state
@@ -1263,7 +1267,11 @@ where
     }
 
     /// Retrieves market balance in escrow and locked tables.
-    pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> anyhow::Result<MarketBalance, Error> {
+    pub fn market_balance(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
             .get_actor(actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
