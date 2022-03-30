@@ -28,7 +28,7 @@ use byte_unit::Byte;
 use directories::ProjectDirs;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
-use log::{info, warn, error};
+use log::{error, info, warn};
 use num_bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
