@@ -799,12 +799,8 @@ where
         let actor = self
             .get_actor(&address, lbst)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let miner_state = miner::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "failed to load miner actor state: {}",
-                err
-            ))
-        })?;
+        let miner_state = miner::State::load(self.blockstore(), &actor)
+            .map_err(|err| Error::State(format!("failed to load miner actor state: {}", err)))?;
 
         let buf = address.marshal_cbor()?;
         let prand = chain_rand::draw_randomness(

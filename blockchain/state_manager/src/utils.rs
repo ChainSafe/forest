@@ -41,12 +41,8 @@ where
         let actor = self
             .get_actor(miner_address, *st)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "failed to load miner actor state: {}",
-                err
-            ))
-        })?;
+        let mas = miner::State::load(self.blockstore(), &actor)
+            .map_err(|err| Error::State(format!("failed to load miner actor state: {}", err)))?;
 
         let proving_sectors = {
             let mut proving_sectors = BitField::new();
@@ -206,12 +202,8 @@ where
         let actor = self
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "failed to load miner actor state: {}",
-                err
-            ))
-        })?;
+        let mas = miner::State::load(self.blockstore(), &actor)
+            .map_err(|err| Error::State(format!("failed to load miner actor state: {}", err)))?;
         mas.info(self.blockstore())
     }
 
@@ -231,12 +223,8 @@ where
         let actor = self
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "failed to load miner actor state: {}",
-                err
-            ))
-        })?;
+        let mas = miner::State::load(self.blockstore(), &actor)
+            .map_err(|err| Error::State(format!("failed to load miner actor state: {}", err)))?;
 
         mas.for_each_deadline(store, |_, deadline| {
             deadline.for_each(store, |_, partition: miner::Partition| {
