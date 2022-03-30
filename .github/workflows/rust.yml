@@ -62,8 +62,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: true
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - run: |
+          git fetch -pa
           git --no-pager diff --name-only main...${{ github.event.pull_request.head.sha }}
       - name: Check for Rust changes
         run: |
