@@ -45,6 +45,7 @@ jobs:
         id: rust-diff
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
+        if: steps.rust-diff.outputs.files != 0
       - name: Cargo Check
         uses: actions-rs/cargo@v1
         with:
@@ -53,20 +54,6 @@ jobs:
       - name: Make Test-All
         run: make test-all
         if: steps.rust-diff.outputs.files != 0
-
-  diff:
-    name: Diff
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - run: |
-          git --no-pager diff --name-only origin/main...${{ github.event.pull_request.head.sha }}
-      - run: |
-          echo "::set-output name=files::$(git --no-pager diff --name-only origin/main...${{ github.event.pull_request.head.sha }} | egrep '(.toml)|(.lock)|(.rs)$' | wc -l | tr -d ' ')"
-        id: rust-diff
-      - run: echo ${{ steps.rust-diff.outputs.files }}
 
   codecov:
     name: Cover
@@ -97,6 +84,7 @@ jobs:
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
+        if: steps.rust-diff.outputs.files != 0
       - name: Run Tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
@@ -181,6 +169,7 @@ jobs:
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
+        if: steps.rust-diff.outputs.files != 0
       - name: Cargo Build
         uses: actions-rs/cargo@v1
         with:
