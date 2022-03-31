@@ -196,7 +196,7 @@ where
                             }
                         },
                         Err(e) => {
-                            warn!("Failed chain_exchange request to peer {:?}: {}", p, e);
+                            debug!("Failed chain_exchange request to peer {:?}: {}", p, e);
                             continue;
                         }
                     }
