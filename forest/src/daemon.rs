@@ -19,7 +19,7 @@ use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
 use db::rocks::RocksDb;
@@ -78,7 +78,7 @@ pub(super) async fn start(config: Config) {
                 std::io::stdout().flush().unwrap();
 
                 if passphrase != read_password().unwrap() {
-                    warn!("Passphrases do not match. Please retry.");
+                    error!("Passphrases do not match. Please retry.");
                     continue;
                 }
             }
@@ -91,7 +91,7 @@ pub(super) async fn start(config: Config) {
             match key_store_init_result {
                 Ok(ks) => break ks,
                 Err(_) => {
-                    warn!("Incorrect passphrase entered. Please try again.")
+                    error!("Incorrect passphrase entered. Please try again.")
                 }
             };
         }
