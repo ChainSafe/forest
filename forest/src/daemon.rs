@@ -125,10 +125,11 @@ pub(super) async fn start(config: Config) {
 
     // Initialize database (RocksDb will be default if both features enabled)
     #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(format!(
-        "{}/{}/{}",
-        config.data_dir, &config.chain.name, "/sled"
-    ))
+    let db = db::sled::SledDb::open(
+        PathBuf::from(&config.data_dir)
+            .join(&config.chain.name)
+            .join("sled"),
+    )
     .expect("Opening SledDB must succeed");
 
     #[cfg(feature = "rocksdb")]
