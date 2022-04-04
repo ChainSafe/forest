@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::load_state;
+use crate::load_actor_state;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use vm::ActorState;
@@ -26,15 +26,6 @@ impl State {
     where
         BS: BlockStore,
     {
-        load_state!(
-            store,
-            actor,
-            (actorv6::MULTISIG_ACTOR_CODE_ID, State::V6),
-            (actorv5::MULTISIG_ACTOR_CODE_ID, State::V5),
-            (actorv4::MULTISIG_ACTOR_CODE_ID, State::V4),
-            (actorv3::MULTISIG_ACTOR_CODE_ID, State::V3),
-            (actorv2::MULTISIG_ACTOR_CODE_ID, State::V2),
-            (actorv0::MULTISIG_ACTOR_CODE_ID, State::V0)
-        )
+        load_actor_state!(store, actor, MULTISIG_ACTOR_CODE_ID)
     }
 }

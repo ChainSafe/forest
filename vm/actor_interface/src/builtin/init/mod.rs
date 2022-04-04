@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::load_state;
+use crate::load_actor_state;
 use address::Address;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
@@ -31,16 +31,7 @@ impl State {
     where
         BS: BlockStore,
     {
-        load_state!(
-            store,
-            actor,
-            (actorv6::INIT_ACTOR_CODE_ID, State::V6),
-            (actorv5::INIT_ACTOR_CODE_ID, State::V5),
-            (actorv4::INIT_ACTOR_CODE_ID, State::V4),
-            (actorv3::INIT_ACTOR_CODE_ID, State::V3),
-            (actorv2::INIT_ACTOR_CODE_ID, State::V2),
-            (actorv0::INIT_ACTOR_CODE_ID, State::V0)
-        )
+        load_actor_state!(store, actor, INIT_ACTOR_CODE_ID)
     }
 
     /// Allocates a new ID address and stores a mapping of the argument address to it.

@@ -26,16 +26,45 @@ pub static BURNT_FUNDS_ACTOR_ADDR: &actorv0::BURNT_FUNDS_ACTOR_ADDR =
 pub static RESERVE_ADDRESS: &actorv0::RESERVE_ADDRESS = &actorv0::RESERVE_ADDRESS;
 
 #[macro_export]
-macro_rules! load_state {
-    ($store:expr, $actor:expr, $(($code:expr, $func:expr)), +) => {
-        $(if $actor.code == *$code {
+macro_rules! load_actor_state {
+    ($store:expr, $actor:expr, $id:ident) => {
+        if $actor.code == *actorv6::$id {
             use anyhow::Context;
             $store
                 .get2(&$actor.state)?
                 .context("Actor state doesn't exist in store")
-                .map($func)
-        } else)+
-        {
+                .map(State::V6)
+        } else if $actor.code == *actorv5::$id {
+            use anyhow::Context;
+            $store
+                .get2(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V5)
+        } else if $actor.code == *actorv4::$id {
+            use anyhow::Context;
+            $store
+                .get2(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V4)
+        } else if $actor.code == *actorv3::$id {
+            use anyhow::Context;
+            $store
+                .get2(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V3)
+        } else if $actor.code == *actorv2::$id {
+            use anyhow::Context;
+            $store
+                .get2(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V2)
+        } else if $actor.code == *actorv0::$id {
+            use anyhow::Context;
+            $store
+                .get2(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V0)
+        } else {
             anyhow::bail!("Unknown actor code {}", $actor.code)
         }
     }

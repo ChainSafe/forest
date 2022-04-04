@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::load_state;
+use crate::load_actor_state;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -35,16 +35,7 @@ impl State {
     where
         BS: BlockStore,
     {
-        load_state!(
-            store,
-            actor,
-            (actorv6::MARKET_ACTOR_CODE_ID, State::V6),
-            (actorv5::MARKET_ACTOR_CODE_ID, State::V5),
-            (actorv4::MARKET_ACTOR_CODE_ID, State::V4),
-            (actorv3::MARKET_ACTOR_CODE_ID, State::V3),
-            (actorv2::MARKET_ACTOR_CODE_ID, State::V2),
-            (actorv0::MARKET_ACTOR_CODE_ID, State::V0)
-        )
+        load_actor_state!(store, actor, MARKET_ACTOR_CODE_ID)
     }
 
     /// Loads escrow table

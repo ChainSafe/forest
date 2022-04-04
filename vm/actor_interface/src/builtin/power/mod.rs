@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{load_state, FilterEstimate};
+use crate::{load_actor_state, FilterEstimate};
 use address::Address;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
@@ -45,16 +45,7 @@ impl State {
     where
         BS: BlockStore,
     {
-        load_state!(
-            store,
-            actor,
-            (actorv6::POWER_ACTOR_CODE_ID, State::V6),
-            (actorv5::POWER_ACTOR_CODE_ID, State::V5),
-            (actorv4::POWER_ACTOR_CODE_ID, State::V4),
-            (actorv3::POWER_ACTOR_CODE_ID, State::V3),
-            (actorv2::POWER_ACTOR_CODE_ID, State::V2),
-            (actorv0::POWER_ACTOR_CODE_ID, State::V0)
-        )
+        load_actor_state!(store, actor, POWER_ACTOR_CODE_ID)
     }
 
     /// Consume state to return just total quality adj power
