@@ -28,7 +28,7 @@ use byte_unit::Byte;
 use directories::ProjectDirs;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
-use log::{info, warn};
+use log::{error, info, warn};
 use num_bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
@@ -219,7 +219,7 @@ impl CliOpts {
 fn find_default_config() -> Option<Config> {
     if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
         info!(
-            "FOREST_CONFIG_PATH is set! Using configuration at {}",
+            "FOREST_CONFIG_PATH detected, using configuration at {}",
             config_file
         );
         let path = PathBuf::from(config_file);
@@ -232,12 +232,12 @@ fn find_default_config() -> Option<Config> {
         let mut config_dir = dir.config_dir().to_path_buf();
         config_dir.push("config.toml");
         if config_dir.exists() {
-            info!("Found config file at {}", config_dir.display());
+            info!("Found a config file at {}", config_dir.display());
             return read_config_or_none(config_dir);
         }
     }
 
-    warn!("No configuration found! Using default");
+    warn!("No configurations found, using defaults.");
 
     None
 }
@@ -255,7 +255,7 @@ fn read_config_or_none(path: PathBuf) -> Option<Config> {
         Ok(cfg) => Some(cfg),
         Err(e) => {
             warn!(
-                "Error reading configuration, opting to default. Error was {} ",
+                "Error reading configuration file, opting to defaults. Error was {} ",
                 e
             );
             None
@@ -272,7 +272,7 @@ pub async fn block_until_sigint() {
     ctrlc::set_handler(move || {
         let prev = running.fetch_add(1, Ordering::SeqCst);
         if prev == 0 {
-            println!("Got interrupt, shutting down...");
+            warn!("Got interrupt, shutting down...");
             // Send sig int in channel to blocking task
             if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
                 ctrlc_send.send(()).expect("Error sending ctrl-c message");
@@ -294,11 +294,11 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
             message,
             data: _,
         } => {
-            println!("JSON RPC Error: Code: {} Message: {}", code, message);
+            error!("JSON RPC Error: Code: {} Message: {}", code, message);
             process::exit(code as i32);
         }
         JsonRpcError::Provided { code, message } => {
-            println!("JSON RPC Error: Code: {} Message: {}", code, message);
+            error!("JSON RPC Error: Code: {} Message: {}", code, message);
             process::exit(code as i32);
         }
     }
@@ -319,7 +319,7 @@ pub(super) fn to_size_string(bi: &BigInt) -> String {
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid params
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
-    println!("Error: {}", msg);
+    error!("Error: {}", msg);
     std::process::exit(code);
 }
 
