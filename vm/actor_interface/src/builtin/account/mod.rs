@@ -19,7 +19,7 @@ pub enum State {
     V3(actorv3::account::State),
     V4(actorv4::account::State),
     V5(actorv5::account::State),
-    V6(actorv5::account::State),
+    V6(actorv6::account::State),
 }
 
 impl State {
