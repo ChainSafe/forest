@@ -67,7 +67,7 @@ macro_rules! load_actor_state {
         } else {
             anyhow::bail!("Unknown actor code {}", $actor.code)
         }
-    }
+    };
 }
 
 /// Returns true if the code belongs to a builtin actor.
