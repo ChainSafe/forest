@@ -134,7 +134,12 @@ where
             ))
         })?;
 
-        Ok(mas.load_sectors(self.blockstore(), filter)?)
+        mas.load_sectors(self.blockstore(), filter).map_err(|err| {
+            Error::State(format!(
+                "(get miner sector set) failed to load sectors: {}",
+                err
+            ))
+        })
     }
 
     /// Returns miner's sector info for a given index.
@@ -191,11 +196,7 @@ where
     }
 
     /// Returns miner info at the given [Tipset]'s state.
-    pub fn get_miner_info<V>(
-        &self,
-        tipset: &Tipset,
-        address: &Address,
-    ) -> anyhow::Result<MinerInfo>
+    pub fn get_miner_info<V>(&self, tipset: &Tipset, address: &Address) -> anyhow::Result<MinerInfo>
     where
         V: ProofVerifier,
     {
