@@ -1,4 +1,4 @@
-## Forest v0.2.2 _alpha_ (2022-03-30)
+## Forest v0.2.2 _alpha_ (2022-04-06)
 
 Forest v0.2.2 alpha is a service release improving performance and stability. This release supports Filecoin network version 14.
 
@@ -10,6 +10,11 @@ Notable updates:
 * Defaulting to Rust Edition 2021 from now on.
 
 All changes:
+* Log: don't override default filters (#1504) by @jdjaustin in [#1530](https://github.com/ChainSafe/forest/pull/1530)
+* Crates: bump wasmtime by @q9f in [#1526](https://github.com/ChainSafe/forest/pull/1526)
+* Ci: add wasm target to release script by @q9f in [#1524](https://github.com/ChainSafe/forest/pull/1524)
+* Ci: add codecov target threshold tolerance of 1% by @q9f in [#1525](https://github.com/ChainSafe/forest/pull/1525)
+* Node: demote noisy warnings to debug by @q9f in [#1518](https://github.com/ChainSafe/forest/pull/1518)
 * Workaround fix for prometheus endpoint by @LesnyRumcajs in [#1516](https://github.com/ChainSafe/forest/pull/1516)
 * Fixed bug label for bug template by @LesnyRumcajs in [#1514](https://github.com/ChainSafe/forest/pull/1514)
 * Crates: purge unused dependencies by @q9f in [#1509](https://github.com/ChainSafe/forest/pull/1509)
