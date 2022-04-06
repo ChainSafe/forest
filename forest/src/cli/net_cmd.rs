@@ -115,7 +115,7 @@ impl NetCommands {
             }
             Self::Disconnect { id } => match net_disconnect((id.to_owned(),)).await {
                 Ok(_) => {
-                    todo!();
+                    println!("disconnect {}: success", id);
                 }
                 Err(e) => handle_rpc_err(e),
             },
