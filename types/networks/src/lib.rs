@@ -20,63 +20,63 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
 const UPGRADE_INFOS: [UpgradeInfo; 15] = [
     UpgradeInfo {
         height: Height::Breeze,
-        version: 1,
+        version: NetworkVersion::V1,
     },
     UpgradeInfo {
         height: Height::Smoke,
-        version: 2,
+        version: NetworkVersion::V2,
     },
     UpgradeInfo {
         height: Height::Ignition,
-        version: 3,
+        version: NetworkVersion::V3,
     },
     UpgradeInfo {
         height: Height::ActorsV2,
-        version: 4,
+        version: NetworkVersion::V4,
     },
     UpgradeInfo {
         height: Height::Tape,
-        version: 5,
+        version: NetworkVersion::V5,
     },
     UpgradeInfo {
         height: Height::Kumquat,
-        version: 6,
+        version: NetworkVersion::V6,
     },
     UpgradeInfo {
         height: Height::Calico,
-        version: 7,
+        version: NetworkVersion::V7,
     },
     UpgradeInfo {
         height: Height::Persian,
-        version: 8,
+        version: NetworkVersion::V8,
     },
     UpgradeInfo {
         height: Height::Orange,
-        version: 9,
+        version: NetworkVersion::V9,
     },
     UpgradeInfo {
         height: Height::Trust,
-        version: 10,
+        version: NetworkVersion::V10,
     },
     UpgradeInfo {
         height: Height::Norwegian,
-        version: 11,
+        version: NetworkVersion::V11,
     },
     UpgradeInfo {
         height: Height::Turbo,
-        version: 12,
+        version: NetworkVersion::V12,
     },
     UpgradeInfo {
         height: Height::Hyperdrive,
-        version: 13,
+        version: NetworkVersion::V13,
     },
     UpgradeInfo {
         height: Height::Chocolate,
-        version: 14,
+        version: NetworkVersion::V14,
     },
     UpgradeInfo {
         height: Height::OhSnap,
-        version: 15,
+        version: NetworkVersion::V15,
     },
 ];
 
@@ -179,10 +179,12 @@ impl Default for Height {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct UpgradeInfo {
     pub height: Height,
-    pub version: u32,
+    #[serde(default = "default_network_version")]
+    #[serde(with = "de_network_version")]
+    pub version: NetworkVersion,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -300,5 +302,49 @@ impl Default for ChainConfig {
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
         }
+    }
+}
+
+pub fn default_network_version() -> NetworkVersion {
+    NetworkVersion::V15
+}
+
+pub mod de_network_version {
+    use fil_types::NetworkVersion;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let version: &str = Deserialize::deserialize(deserializer)?;
+        let version = version.to_lowercase();
+
+        match version.as_str() {
+            "v0" => Ok(NetworkVersion::V0),
+            "v1" => Ok(NetworkVersion::V1),
+            "v2" => Ok(NetworkVersion::V2),
+            "v3" => Ok(NetworkVersion::V3),
+            "v4" => Ok(NetworkVersion::V4),
+            "v5" => Ok(NetworkVersion::V5),
+            "v6" => Ok(NetworkVersion::V6),
+            "v7" => Ok(NetworkVersion::V7),
+            "v8" => Ok(NetworkVersion::V8),
+            "v9" => Ok(NetworkVersion::V9),
+            "v10" => Ok(NetworkVersion::V10),
+            "v11" => Ok(NetworkVersion::V11),
+            "v12" => Ok(NetworkVersion::V12),
+            "v13" => Ok(NetworkVersion::V13),
+            "v14" => Ok(NetworkVersion::V14),
+            "v15" => Ok(NetworkVersion::V15),
+            _ => Ok(NetworkVersion::V15),
+        }
+    }
+
+    pub fn serialize<S>(m: &NetworkVersion, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
     }
 }
