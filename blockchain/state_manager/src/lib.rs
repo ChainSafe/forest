@@ -1317,13 +1317,27 @@ where
         let out = MarketBalance {
             escrow: {
                 market_state
-                    .escrow_table(self.blockstore())?
-                    .get(&new_addr)?
+                    .escrow_table(self.blockstore())
+                    .map_err(|err| {
+                        Error::State(format!(
+                            "(market balance) failed to load balance table: {}",
+                            err
+                        ))
+                    })?
+                    .get(&new_addr)
+                    .map_err(|err| Error::State(format!("(market balance) get failed: {}", err)))?
             },
             locked: {
                 market_state
-                    .locked_table(self.blockstore())?
-                    .get(&new_addr)?
+                    .locked_table(self.blockstore())
+                    .map_err(|err| {
+                        Error::State(format!(
+                            "(market balance) failed to load balance table: {}",
+                            err
+                        ))
+                    })?
+                    .get(&new_addr)
+                    .map_err(|err| Error::State(format!("(market balance) get failed: {}", err)))?
             },
         };
 

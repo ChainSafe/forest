@@ -39,131 +39,110 @@ impl State {
     }
 
     /// Loads escrow table
-    pub fn escrow_table<'bs, BS>(
-        &self,
-        store: &'bs BS,
-    ) -> Result<BalanceTable<'bs, BS>, Box<dyn Error>>
+    pub fn escrow_table<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => {
-                Ok(actorv0::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V0)?)
-            }
-            State::V2(st) => {
-                Ok(actorv2::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V2)?)
-            }
-            State::V3(st) => {
-                Ok(actorv3::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V3)?)
-            }
-            State::V4(st) => {
-                Ok(actorv4::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V4)?)
-            }
-            State::V5(st) => {
-                Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V5)?)
-            }
-            State::V6(st) => {
-                Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V6)?)
-            }
+            State::V0(st) => actorv0::BalanceTable::from_root(store, &st.escrow_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V0),
+            State::V2(st) => actorv2::BalanceTable::from_root(store, &st.escrow_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V2),
+            State::V3(st) => actorv3::BalanceTable::from_root(store, &st.escrow_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V3),
+            State::V4(st) => actorv4::BalanceTable::from_root(store, &st.escrow_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V4),
+            State::V5(st) => actorv5::BalanceTable::from_root(store, &st.escrow_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V5),
+            State::V6(st) => actorv6::BalanceTable::from_root(store, &st.escrow_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V6),
         }
     }
 
     /// Loads locked funds table
-    pub fn locked_table<'bs, BS>(
-        &self,
-        store: &'bs BS,
-    ) -> Result<BalanceTable<'bs, BS>, Box<dyn Error>>
+    pub fn locked_table<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => {
-                Ok(actorv0::BalanceTable::from_root(store, &st.locked_table)
-                    .map(BalanceTable::V0)?)
-            }
-            State::V2(st) => {
-                Ok(actorv2::BalanceTable::from_root(store, &st.locked_table)
-                    .map(BalanceTable::V2)?)
-            }
-            State::V3(st) => {
-                Ok(actorv3::BalanceTable::from_root(store, &st.locked_table)
-                    .map(BalanceTable::V3)?)
-            }
-            State::V4(st) => {
-                Ok(actorv4::BalanceTable::from_root(store, &st.locked_table)
-                    .map(BalanceTable::V4)?)
-            }
-            State::V5(st) => {
-                Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V5)?)
-            }
-            State::V6(st) => {
-                Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V6)?)
-            }
+            State::V0(st) => actorv0::BalanceTable::from_root(store, &st.locked_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V0),
+            State::V2(st) => actorv2::BalanceTable::from_root(store, &st.locked_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V2),
+            State::V3(st) => actorv3::BalanceTable::from_root(store, &st.locked_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V3),
+            State::V4(st) => actorv4::BalanceTable::from_root(store, &st.locked_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V4),
+            State::V5(st) => actorv5::BalanceTable::from_root(store, &st.locked_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V5),
+            State::V6(st) => actorv6::BalanceTable::from_root(store, &st.locked_table)
+                .map_err(|e| anyhow::anyhow!("can't init balance table: {}", e))
+                .map(BalanceTable::V6),
         }
     }
 
     /// Deal proposals
-    pub fn proposals<'bs, BS>(
-        &self,
-        store: &'bs BS,
-    ) -> Result<DealProposals<'bs, BS>, Box<dyn Error>>
+    pub fn proposals<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<DealProposals<'bs, BS>>
     where
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => Ok(
-                actorv0::market::DealArray::load(&st.proposals, store).map(DealProposals::V0)?
-            ),
-            State::V2(st) => Ok(
-                actorv2::market::DealArray::load(&st.proposals, store).map(DealProposals::V2)?
-            ),
-            State::V3(st) => Ok(
-                actorv3::market::DealArray::load(&st.proposals, store).map(DealProposals::V3)?
-            ),
-            State::V4(st) => Ok(
-                actorv4::market::DealArray::load(&st.proposals, store).map(DealProposals::V4)?
-            ),
-            State::V5(st) => Ok(
-                actorv5::market::DealArray::load(&st.proposals, store).map(DealProposals::V5)?
-            ),
-            State::V6(st) => Ok(
-                actorv6::market::DealArray::load(&st.proposals, store).map(DealProposals::V6)?
-            ),
+            State::V0(st) => actorv0::market::DealArray::load(&st.proposals, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal array: {}", e))
+                .map(DealProposals::V0),
+            State::V2(st) => actorv2::market::DealArray::load(&st.proposals, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal array: {}", e))
+                .map(DealProposals::V2),
+            State::V3(st) => actorv3::market::DealArray::load(&st.proposals, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal array: {}", e))
+                .map(DealProposals::V3),
+            State::V4(st) => actorv4::market::DealArray::load(&st.proposals, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal array: {}", e))
+                .map(DealProposals::V4),
+            State::V5(st) => actorv5::market::DealArray::load(&st.proposals, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal array: {}", e))
+                .map(DealProposals::V5),
+            State::V6(st) => actorv6::market::DealArray::load(&st.proposals, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal array: {}", e))
+                .map(DealProposals::V6),
         }
     }
 
     /// Deal proposal meta data.
-    pub fn states<'bs, BS>(&self, store: &'bs BS) -> Result<DealStates<'bs, BS>, Box<dyn Error>>
+    pub fn states<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<DealStates<'bs, BS>>
     where
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => {
-                Ok(actorv0::market::DealMetaArray::load(&st.states, store).map(DealStates::V0)?)
-            }
-            State::V2(st) => {
-                Ok(actorv2::market::DealMetaArray::load(&st.states, store).map(DealStates::V2)?)
-            }
-            State::V3(st) => {
-                Ok(actorv3::market::DealMetaArray::load(&st.states, store).map(DealStates::V3)?)
-            }
-            State::V4(st) => {
-                Ok(actorv4::market::DealMetaArray::load(&st.states, store).map(DealStates::V4)?)
-            }
-            State::V5(st) => {
-                Ok(actorv5::market::DealMetaArray::load(&st.states, store).map(DealStates::V5)?)
-            }
-            State::V6(st) => {
-                Ok(actorv6::market::DealMetaArray::load(&st.states, store).map(DealStates::V6)?)
-            }
+            State::V0(st) => actorv0::market::DealMetaArray::load(&st.states, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal meta array: {}", e))
+                .map(DealStates::V0),
+            State::V2(st) => actorv2::market::DealMetaArray::load(&st.states, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal meta array: {}", e))
+                .map(DealStates::V2),
+            State::V3(st) => actorv3::market::DealMetaArray::load(&st.states, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal meta array: {}", e))
+                .map(DealStates::V3),
+            State::V4(st) => actorv4::market::DealMetaArray::load(&st.states, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal meta array: {}", e))
+                .map(DealStates::V4),
+            State::V5(st) => actorv5::market::DealMetaArray::load(&st.states, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal meta array: {}", e))
+                .map(DealStates::V5),
+            State::V6(st) => actorv6::market::DealMetaArray::load(&st.states, store)
+                .map_err(|e| anyhow::anyhow!("can't load deal meta array: {}", e))
+                .map(DealStates::V6),
         }
     }
 
@@ -188,7 +167,7 @@ impl State {
         miner_addr: &Address,
         sector_expiry: ChainEpoch,
         curr_epoch: ChainEpoch,
-    ) -> Result<(BigInt, BigInt), Box<dyn Error>>
+    ) -> anyhow::Result<(BigInt, BigInt)>
     where
         BS: BlockStore,
     {
@@ -247,6 +226,7 @@ impl State {
             )
             .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
         }
+        .map_err(|e| anyhow::anyhow!("can't validate deals: {}", e))
     }
 }
 
@@ -271,8 +251,8 @@ pub enum DealProposals<'a, BS> {
 impl<BS> DealProposals<'_, BS> {
     pub fn for_each(
         &self,
-        mut f: impl FnMut(u64, DealProposal) -> Result<(), Box<dyn Error>>,
-    ) -> Result<(), Box<dyn Error>>
+        mut f: impl FnMut(u64, DealProposal) -> anyhow::Result<(), Box<dyn Error>>,
+    ) -> anyhow::Result<()>
     where
         BS: BlockStore,
     {
@@ -296,6 +276,7 @@ impl<BS> DealProposals<'_, BS> {
                 dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
             }
         }
+        .map_err(|e| anyhow::anyhow!("can't apply function: {}", e))
     }
 }
 
@@ -443,15 +424,41 @@ impl<BS> DealStates<'_, BS>
 where
     BS: BlockStore,
 {
-    pub fn get(&self, key: u64) -> Result<Option<DealState>, Box<dyn Error>> {
-        match self {
-            DealStates::V0(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
-            DealStates::V2(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
-            DealStates::V3(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            DealStates::V4(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            DealStates::V5(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            DealStates::V6(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-        }
+    pub fn get(&self, key: u64) -> anyhow::Result<Option<DealState>> {
+        let ds = match self {
+            DealStates::V0(bt) => bt
+                .get(key)
+                .map_err(|e| anyhow::anyhow!("get failed: {}", e))?
+                .cloned()
+                .map(From::from),
+            DealStates::V2(bt) => bt
+                .get(key)
+                .map_err(|e| anyhow::anyhow!("get failed: {}", e))?
+                .cloned()
+                .map(From::from),
+            DealStates::V3(bt) => bt
+                .get(key as usize)
+                .map_err(|e| anyhow::anyhow!("get failed: {}", e))?
+                .cloned()
+                .map(From::from),
+            DealStates::V4(bt) => bt
+                .get(key as usize)
+                .map_err(|e| anyhow::anyhow!("get failed: {}", e))?
+                .cloned()
+                .map(From::from),
+            DealStates::V5(bt) => bt
+                .get(key as usize)
+                .map_err(|e| anyhow::anyhow!("get failed: {}", e))?
+                .cloned()
+                .map(From::from),
+            DealStates::V6(bt) => bt
+                .get(key as usize)
+                .map_err(|e| anyhow::anyhow!("get failed: {}", e))?
+                .cloned()
+                .map(From::from),
+        };
+
+        Ok(ds)
     }
 }
 
@@ -527,7 +534,7 @@ impl<BS> BalanceTable<'_, BS>
 where
     BS: BlockStore,
 {
-    pub fn get(&self, key: &Address) -> Result<TokenAmount, Box<dyn Error>> {
+    pub fn get(&self, key: &Address) -> anyhow::Result<TokenAmount> {
         match self {
             BalanceTable::V0(bt) => bt.get(key),
             BalanceTable::V2(bt) => bt.get(key),
@@ -536,5 +543,6 @@ where
             BalanceTable::V5(bt) => bt.get(key),
             BalanceTable::V6(bt) => bt.get(key),
         }
+        .map_err(|e| anyhow::anyhow!("get failed: {}", e))
     }
 }
