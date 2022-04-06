@@ -195,7 +195,7 @@ where
         &self,
         tipset: &Tipset,
         address: &Address,
-    ) -> Result<MinerInfo, Box<dyn StdError>>
+    ) -> anyhow::Result<MinerInfo>
     where
         V: ProofVerifier,
     {
@@ -204,7 +204,13 @@ where
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)
             .map_err(|err| Error::State(format!("failed to load miner actor state: {}", err)))?;
-        mas.info(self.blockstore())
+        let info = mas.info(self.blockstore()).map_err(|err| {
+            Error::State(format!(
+                "(get miner info) failed to load miner actor get info: {}",
+                err
+            ))
+        })?;
+        Ok(info)
     }
 
     fn for_each_deadline_partition<V, F>(

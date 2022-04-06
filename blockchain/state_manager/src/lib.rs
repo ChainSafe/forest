@@ -787,7 +787,13 @@ where
         }
 
         // No active consensus faults.
-        if base_tipset.epoch() <= miner_state.info(self.blockstore())?.consensus_fault_elapsed {
+        let info = miner_state.info(self.blockstore()).map_err(|err| {
+            Error::State(format!(
+                "(eligible to mine) failed to load miner actor get info: {}",
+                err
+            ))
+        })?;
+        if base_tipset.epoch() <= info.consensus_fault_elapsed {
             return Ok(false);
         }
 

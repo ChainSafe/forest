@@ -43,10 +43,12 @@ impl State {
         load_actor_state!(store, actor, MINER_ACTOR_CODE_ID)
     }
 
-    pub fn info<BS: BlockStore>(&self, store: &BS) -> Result<MinerInfo, Box<dyn Error>> {
+    pub fn info<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
             State::V0(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -62,14 +64,18 @@ impl State {
                         .unwrap_or(-1),
                     peer_id,
                     multiaddrs: info.multi_address,
-                    window_post_proof_type: info.seal_proof_type.registered_window_post_proof()?,
+                    window_post_proof_type: info.seal_proof_type
+                        .registered_window_post_proof()
+                        .map_err(|e| anyhow::anyhow!("can't load registered post proof: {}", e))?,
                     sector_size: info.sector_size,
                     window_post_partition_sectors: info.window_post_partition_sectors,
                     consensus_fault_elapsed: -1,
                 })
             }
             State::V2(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -85,14 +91,18 @@ impl State {
                         .unwrap_or(-1),
                     peer_id,
                     multiaddrs: info.multi_address,
-                    window_post_proof_type: info.seal_proof_type.registered_window_post_proof()?,
+                    window_post_proof_type: info.seal_proof_type
+                        .registered_window_post_proof()
+                        .map_err(|e| anyhow::anyhow!("can't load registered post proof: {}", e))?,
                     sector_size: info.sector_size,
                     window_post_partition_sectors: info.window_post_partition_sectors,
                     consensus_fault_elapsed: info.consensus_fault_elapsed,
                 })
             }
             State::V3(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -115,7 +125,9 @@ impl State {
                 })
             }
             State::V4(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -138,7 +150,9 @@ impl State {
                 })
             }
             State::V5(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -161,7 +175,9 @@ impl State {
                 })
             }
             State::V6(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
