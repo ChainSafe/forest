@@ -7,7 +7,6 @@ use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use vm::{ActorState, TokenAmount};
 
 /// Power actor address.
@@ -107,77 +106,131 @@ impl State {
         &self,
         s: &BS,
         miner: &Address,
-    ) -> Result<Option<Claim>, Box<dyn Error>> {
+    ) -> anyhow::Result<Option<Claim>> {
         match self {
-            State::V0(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
-            State::V2(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
-            State::V3(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
-            State::V4(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
-            State::V5(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
-            State::V6(st) => Ok(st.miner_power(s, miner)?.map(From::from)),
+            State::V0(st) => {
+                let claim = st
+                    .miner_power(s, miner)
+                    .map_err(|e| anyhow::anyhow!("can't load power: {}", e))?
+                    .map(From::from);
+                Ok(claim)
+            }
+            State::V2(st) => {
+                let claim = st
+                    .miner_power(s, miner)
+                    .map_err(|e| anyhow::anyhow!("can't load power: {}", e))?
+                    .map(From::from);
+                Ok(claim)
+            }
+            State::V3(st) => {
+                let claim = st
+                    .miner_power(s, miner)
+                    .map_err(|e| anyhow::anyhow!("can't load power: {}", e))?
+                    .map(From::from);
+                Ok(claim)
+            }
+            State::V4(st) => {
+                let claim = st
+                    .miner_power(s, miner)
+                    .map_err(|e| anyhow::anyhow!("can't load power: {}", e))?
+                    .map(From::from);
+                Ok(claim)
+            }
+            State::V5(st) => {
+                let claim = st
+                    .miner_power(s, miner)
+                    .map_err(|e| anyhow::anyhow!("can't load power: {}", e))?
+                    .map(From::from);
+                Ok(claim)
+            }
+            State::V6(st) => {
+                let claim = st
+                    .miner_power(s, miner)
+                    .map_err(|e| anyhow::anyhow!("can't load power: {}", e))?
+                    .map(From::from);
+                Ok(claim)
+            }
         }
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn list_all_miners<BS: BlockStore>(&self, s: &BS) -> Result<Vec<Address>, Box<dyn Error>> {
+    pub fn list_all_miners<BS: BlockStore>(&self, s: &BS) -> anyhow::Result<Vec<Address>> {
         match self {
             State::V0(st) => {
-                let claims = actorv0::make_map_with_root(&st.claims, s)?;
+                let claims = actorv0::make_map_with_root(&st.claims, s)
+                    .map_err(|e| anyhow::anyhow!("can't load claims: {}", e))?;
                 let mut miners = Vec::new();
-                claims.for_each(|k, _: &actorv0::power::Claim| {
-                    miners.push(Address::from_bytes(&k.0)?);
-                    Ok(())
-                })?;
+                claims
+                    .for_each(|k, _: &actorv0::power::Claim| {
+                        miners.push(Address::from_bytes(&k.0)?);
+                        Ok(())
+                    })
+                    .map_err(|e| anyhow::anyhow!("can't create address: {}", e))?;
 
                 Ok(miners)
             }
             State::V2(st) => {
-                let claims = actorv2::make_map_with_root(&st.claims, s)?;
+                let claims = actorv2::make_map_with_root(&st.claims, s)
+                    .map_err(|e| anyhow::anyhow!("can't load claims: {}", e))?;
                 let mut miners = Vec::new();
-                claims.for_each(|k, _: &actorv2::power::Claim| {
-                    miners.push(Address::from_bytes(&k.0)?);
-                    Ok(())
-                })?;
+                claims
+                    .for_each(|k, _: &actorv2::power::Claim| {
+                        miners.push(Address::from_bytes(&k.0)?);
+                        Ok(())
+                    })
+                    .map_err(|e| anyhow::anyhow!("can't create address: {}", e))?;
 
                 Ok(miners)
             }
             State::V3(st) => {
-                let claims = actorv3::make_map_with_root(&st.claims, s)?;
+                let claims = actorv3::make_map_with_root(&st.claims, s)
+                    .map_err(|e| anyhow::anyhow!("can't load claims: {}", e))?;
                 let mut miners = Vec::new();
-                claims.for_each(|k, _: &actorv3::power::Claim| {
-                    miners.push(Address::from_bytes(&k.0)?);
-                    Ok(())
-                })?;
+                claims
+                    .for_each(|k, _: &actorv3::power::Claim| {
+                        miners.push(Address::from_bytes(&k.0)?);
+                        Ok(())
+                    })
+                    .map_err(|e| anyhow::anyhow!("can't create address: {}", e))?;
 
                 Ok(miners)
             }
             State::V4(st) => {
-                let claims = actorv4::make_map_with_root(&st.claims, s)?;
+                let claims = actorv4::make_map_with_root(&st.claims, s)
+                    .map_err(|e| anyhow::anyhow!("can't load claims: {}", e))?;
                 let mut miners = Vec::new();
-                claims.for_each(|k, _: &actorv3::power::Claim| {
-                    miners.push(Address::from_bytes(&k.0)?);
-                    Ok(())
-                })?;
+                claims
+                    .for_each(|k, _: &actorv4::power::Claim| {
+                        miners.push(Address::from_bytes(&k.0)?);
+                        Ok(())
+                    })
+                    .map_err(|e| anyhow::anyhow!("can't create address: {}", e))?;
 
                 Ok(miners)
             }
             State::V5(st) => {
-                let claims = actorv5::make_map_with_root(&st.claims, s)?;
+                let claims = actorv5::make_map_with_root(&st.claims, s)
+                    .map_err(|e| anyhow::anyhow!("can't load claims: {}", e))?;
                 let mut miners = Vec::new();
-                claims.for_each(|k, _: &actorv3::power::Claim| {
-                    miners.push(Address::from_bytes(&k.0)?);
-                    Ok(())
-                })?;
+                claims
+                    .for_each(|k, _: &actorv5::power::Claim| {
+                        miners.push(Address::from_bytes(&k.0)?);
+                        Ok(())
+                    })
+                    .map_err(|e| anyhow::anyhow!("can't create address: {}", e))?;
 
                 Ok(miners)
             }
             State::V6(st) => {
-                let claims = actorv6::make_map_with_root(&st.claims, s)?;
+                let claims = actorv6::make_map_with_root(&st.claims, s)
+                    .map_err(|e| anyhow::anyhow!("can't load claims: {}", e))?;
                 let mut miners = Vec::new();
-                claims.for_each(|k, _: &actorv3::power::Claim| {
-                    miners.push(Address::from_bytes(&k.0)?);
-                    Ok(())
-                })?;
+                claims
+                    .for_each(|k, _: &actorv6::power::Claim| {
+                        miners.push(Address::from_bytes(&k.0)?);
+                        Ok(())
+                    })
+                    .map_err(|e| anyhow::anyhow!("can't create address: {}", e))?;
 
                 Ok(miners)
             }
@@ -189,7 +242,7 @@ impl State {
         &self,
         s: &BS,
         miner: &Address,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> anyhow::Result<bool> {
         match self {
             State::V0(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
             State::V2(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
@@ -198,6 +251,7 @@ impl State {
             State::V5(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
             State::V6(st) => st.miner_nominal_power_meets_consensus_minimum(s, miner),
         }
+        .map_err(|e| anyhow::anyhow!("can't check power actor state: {}", e))
     }
 
     /// Returns this_epoch_qa_power_smoothed from the state.

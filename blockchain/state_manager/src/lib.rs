@@ -237,7 +237,15 @@ where
             ))
         })?;
 
-        Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
+        Ok(spas
+            .miner_power(self.blockstore(), addr)
+            .map_err(|err| {
+                Error::State(format!(
+                    "(is miner slashed) failed to load miner power: {}",
+                    err
+                ))
+            })?
+            .is_none())
     }
 
     /// Returns raw work address of a miner given the state root.
@@ -287,11 +295,20 @@ where
 
         if let Some(maddr) = addr {
             let m_pow = spas
-                .miner_power(self.blockstore(), maddr)?
+                .miner_power(self.blockstore(), maddr)
+                .map_err(|err| {
+                    Error::State(format!("(get power) failed to load miner power: {}", err))
+                })?
                 .ok_or_else(|| Error::State(format!("Miner for address {} not found", maddr)))?;
 
-            let min_pow =
-                spas.miner_nominal_power_meets_consensus_minimum(self.blockstore(), maddr)?;
+            let min_pow = spas
+                .miner_nominal_power_meets_consensus_minimum(self.blockstore(), maddr)
+                .map_err(|err| {
+                    Error::State(format!(
+                        "(get power) failed to check power actor state: {}",
+                        err
+                    ))
+                })?;
             if min_pow {
                 return Ok(Some((m_pow, t_pow)));
             }
@@ -710,7 +727,14 @@ where
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
     ) -> anyhow::Result<bool, Error> {
-        let hmp = self.miner_has_min_power(address, lookback_tipset)?;
+        let hmp = self
+            .miner_has_min_power(address, lookback_tipset)
+            .map_err(|err| {
+                Error::State(format!(
+                    "(eligible to mine) failed to check power actor state: {}",
+                    err
+                ))
+            })?;
         let version = get_network_version_default(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
@@ -745,7 +769,13 @@ where
 
         // Non-empty power claim.
         let claim = power_state
-            .miner_power(self.blockstore(), address)?
+            .miner_power(self.blockstore(), address)
+            .map_err(|err| {
+                Error::State(format!(
+                    "(eligible to mine) failed to load miner power: {}",
+                    err
+                ))
+            })?
             .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
         if claim.quality_adj_power <= BigInt::zero() {
             return Ok(false);
@@ -1326,11 +1356,7 @@ where
     }
 
     /// Checks power actor state for if miner meets consensus minimum requirements.
-    pub fn miner_has_min_power(
-        &self,
-        addr: &Address,
-        ts: &Tipset,
-    ) -> Result<bool, Box<dyn StdError>> {
+    pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> anyhow::Result<bool> {
         let actor = self
             .get_actor(actor::power::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;

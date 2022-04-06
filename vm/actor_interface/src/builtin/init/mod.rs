@@ -5,7 +5,6 @@ use crate::load_actor_state;
 use address::Address;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use std::error::Error;
 use vm::ActorState;
 
 /// Init actor address.
@@ -40,14 +39,26 @@ impl State {
         &mut self,
         store: &BS,
         addr: &Address,
-    ) -> Result<Address, Box<dyn Error>> {
+    ) -> anyhow::Result<Address> {
         match self {
-            State::V0(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V2(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V3(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V4(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V5(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V6(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            State::V0(st) => st
+                .map_address_to_new_id(store, addr)
+                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
+            State::V2(st) => st
+                .map_address_to_new_id(store, addr)
+                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
+            State::V3(st) => st
+                .map_address_to_new_id(store, addr)
+                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
+            State::V4(st) => st
+                .map_address_to_new_id(store, addr)
+                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
+            State::V5(st) => st
+                .map_address_to_new_id(store, addr)
+                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
+            State::V6(st) => st
+                .map_address_to_new_id(store, addr)
+                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
         }
     }
 
@@ -65,7 +76,7 @@ impl State {
         &self,
         store: &BS,
         addr: &Address,
-    ) -> Result<Option<Address>, Box<dyn Error>> {
+    ) -> anyhow::Result<Option<Address>> {
         match self {
             State::V0(st) => st.resolve_address(store, addr),
             State::V2(st) => st.resolve_address(store, addr),
@@ -74,6 +85,7 @@ impl State {
             State::V5(st) => st.resolve_address(store, addr),
             State::V6(st) => st.resolve_address(store, addr),
         }
+        .map_err(|e| anyhow::anyhow!("unresolved address: {}", e))
     }
 
     pub fn into_network_name(self) -> String {

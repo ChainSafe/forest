@@ -290,7 +290,16 @@ where
             ))
         })?;
 
-        Ok(power_actor_state.list_all_miners(self.blockstore())?)
+        let miners = power_actor_state
+            .list_all_miners(self.blockstore())
+            .map_err(|err| {
+                Error::State(format!(
+                    "(list miner actors) failed to list all miners: {}",
+                    err
+                ))
+            })?;
+
+        Ok(miners)
     }
 
     /// Gets miner's worker address from state.
