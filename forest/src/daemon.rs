@@ -19,17 +19,19 @@ use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
+use db::rocks::RocksDb;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
     // Set the Address network prefix
-    #[cfg(feature = "testnet")]
+    #[cfg(any(feature = "testnet"))]
     address::NETWORK_DEFAULT
         .set(address::Network::Testnet)
         .unwrap();
@@ -70,15 +72,13 @@ pub(super) async fn start(config: Config) {
 
             let passphrase = read_password().expect("Error reading passphrase");
 
-            let mut data_dir = PathBuf::from(&config.data_dir);
-            data_dir.push(ENCRYPTED_KEYSTORE_NAME);
-
+            let data_dir = PathBuf::from(&config.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
                 print!("Confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
 
                 if passphrase != read_password().unwrap() {
-                    println!("Passphrases do not match. Please retry.");
+                    error!("Passphrases do not match. Please retry.");
                     continue;
                 }
             }
@@ -91,7 +91,7 @@ pub(super) async fn start(config: Config) {
             match key_store_init_result {
                 Ok(ks) => break ks,
                 Err(_) => {
-                    log::error!("Incorrect passphrase entered. Please try again.")
+                    error!("Incorrect passphrase entered. Please try again.")
                 }
             };
         }
@@ -106,10 +106,22 @@ pub(super) async fn start(config: Config) {
             .unwrap();
     }
 
+    // Start Prometheus server port
+    let prometheus_server_task = task::spawn(metrics::init_prometheus(
+        (format!("127.0.0.1:{}", config.metrics_port))
+            .parse()
+            .unwrap(),
+        PathBuf::from(&config.data_dir)
+            .join("db")
+            .into_os_string()
+            .into_string()
+            .expect("Failed converting the path to db"),
+    ));
+
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
     let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
-    println!("Admin token: {}", token);
+    info!("Admin token: {}", token);
 
     let keystore = Arc::new(RwLock::new(ks));
 
@@ -119,7 +131,7 @@ pub(super) async fn start(config: Config) {
         .expect("Opening SledDB must succeed");
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(format!("{}/{}", config.data_dir.clone(), "db"))
+    let db = db::rocks::RocksDb::open(PathBuf::from(&config.data_dir).join("db"), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
@@ -144,13 +156,9 @@ pub(super) async fn start(config: Config) {
         .await
         .unwrap();
 
-    let validate_height = if config.snapshot { None } else { Some(0) };
-    // Sync from snapshot
-    if let Some(path) = &config.snapshot_path {
-        import_chain::<FullVerifier, _>(&state_manager, path, validate_height, config.skip_load)
-            .await
-            .unwrap();
-    }
+    info!("Using network :: {}", network_name);
+
+    sync_from_snapshot(&config, &state_manager).await;
 
     // Fetch and ensure verification keys are downloaded
     get_params_default(SectorSizeOpt::Keys, false)
@@ -207,7 +215,7 @@ pub(super) async fn start(config: Config) {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
-            info!("JSON RPC Endpoint at {}", &rpc_listen);
+            info!("JSON-RPC endpoint started at {}", &rpc_listen);
             start_rpc::<_, _, FullVerifier>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),
@@ -226,17 +234,9 @@ pub(super) async fn start(config: Config) {
             .await
         }))
     } else {
-        debug!("RPC disabled");
+        debug!("RPC disabled.");
         None
     };
-
-    // Start Prometheus server port
-    let prometheus_server_task = task::spawn(metrics::init_prometheus(
-        (format!("127.0.0.1:{}", config.metrics_port))
-            .parse()
-            .unwrap(),
-        format!("{}/{}", config.data_dir.clone(), "db"),
-    ));
 
     // Block until ctrl-c is hit
     block_until_sigint().await;
@@ -254,7 +254,18 @@ pub(super) async fn start(config: Config) {
     }
     keystore_write.await;
 
-    info!("Forest finish shutdown");
+    info!("Forest finish shutdown.");
+}
+
+async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
+    if let Some(path) = &config.snapshot_path {
+        let stopwatch = time::Instant::now();
+        let validate_height = if config.snapshot { None } else { Some(0) };
+        import_chain::<FullVerifier, _>(state_manager, path, validate_height, config.skip_load)
+            .await
+            .expect("Failed miserably while importing chain from snapshot");
+        debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+    }
 }
 
 #[cfg(test)]
@@ -280,19 +291,22 @@ mod test {
             .await
             .expect("Failed to import chain");
     }
-    #[async_std::test]
-    async fn import_chain_from_file() {
-        let db = Arc::new(MemoryDB::default());
-        let cs = Arc::new(ChainStore::new(db));
-        let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .timestamp(7777)
-            .build()
-            .unwrap();
-        cs.set_genesis(&genesis_header).unwrap();
-        let sm = Arc::new(StateManager::new(cs).await.unwrap());
-        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0), false)
-            .await
-            .expect("Failed to import chain");
-    }
+
+    // FIXME: This car file refers to actors that are not available in FVM yet.
+    //        See issue: https://github.com/ChainSafe/forest/issues/1452
+    // #[async_std::test]
+    // async fn import_chain_from_file() {
+    //     let db = Arc::new(MemoryDB::default());
+    //     let cs = Arc::new(ChainStore::new(db));
+    //     let genesis_header = BlockHeader::builder()
+    //         .miner_address(Address::new_id(0))
+    //         .timestamp(7777)
+    //         .build()
+    //         .unwrap();
+    //     cs.set_genesis(&genesis_header).unwrap();
+    //     let sm = Arc::new(StateManager::new(cs).await.unwrap());
+    //     import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0), false)
+    //         .await
+    //         .expect("Failed to import chain");
+    // }
 }

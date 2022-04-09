@@ -3,6 +3,7 @@
 
 use super::beacon_entries::BeaconEntry;
 use ahash::AHashMap;
+use anyhow::anyhow;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
@@ -92,18 +93,14 @@ where
         Ok(out)
     }
 
-    pub fn beacon_for_epoch(
-        &self,
-        epoch: ChainEpoch,
-    ) -> Result<(ChainEpoch, &T), Box<dyn error::Error>> {
+    pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &T)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
-        Ok(self
-            .0
+        self.0
             .iter()
             .rev()
             .find(|upgrade| epoch >= upgrade.height)
             .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
-            .ok_or("Invalid beacon schedule, no valid beacon")?)
+            .ok_or_else(|| anyhow!("Invalid beacon schedule, no valid beacon"))
     }
 }
 

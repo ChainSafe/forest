@@ -1,18 +1,18 @@
 [package]
-name = "forest_cid"
+name        = "forest_cid"
 description = "A Cid library used in Forest for the Filecoin protocol"
-license = "MIT OR Apache-2.0"
-version = "0.3.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
-repository = "https://github.com/ChainSafe/forest"
+license     = "MIT OR Apache-2.0"
+version     = "0.3.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>"]
+edition     = "2021"
+repository  = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
 features = ["cbor", "json"]
 
 [dependencies]
-cid = { version = "0.6", default-features = false, features = ["std"] }
-multihash = { version = "0.13", default-features = false, features = [
+cid = { version = "0.8", default-features = false, features = ["std"] }
+multihash = { version = "0.16", default-features = false, features = [
     "std",
     "blake2b",
     "derive",
@@ -21,14 +21,13 @@ multihash = { version = "0.13", default-features = false, features = [
 multibase = "0.9.0"
 integer-encoding = { version = "3.0", default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
-serde_cbor = { version = "0.11", features = ["tags"], optional = true }
-serde_bytes = { version = "0.11", optional = true }
 forest_json_utils = { path = "../../utils/json_utils", optional = true, version = "0.1" }
 generic-array = "0.14"
 
 [dev-dependencies]
 serde_json = "1.0"
+serde_ipld_dagcbor = "0.1"
 
 [features]
-cbor = ["serde", "serde_bytes", "serde_cbor"]
+cbor = ["serde"]
 json = ["serde", "forest_json_utils"]

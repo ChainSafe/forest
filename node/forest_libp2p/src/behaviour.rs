@@ -357,10 +357,10 @@ impl NetworkBehaviourEventProcess<RequestResponseEvent<ChainExchangeRequest, Cha
                     // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
                         if tx.send(Ok(response)).is_err() {
-                            warn!("RPCResponse receive timed out")
+                            debug!("RPCResponse receive timed out")
                         }
                     } else {
-                        warn!("RPCResponse receive failed: channel not found");
+                        debug!("RPCResponse receive failed: channel not found");
                     };
                 }
             },

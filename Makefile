@@ -70,6 +70,9 @@ interopnet:
 devnet:
 	cargo build  --manifest-path=forest/Cargo.toml --no-default-features --features "devnet, rocksdb"
 
+calibnet:
+	cargo build --release --manifest-path=forest/Cargo.toml --no-default-features --features "calibnet, rocksdb"
+
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
 
@@ -91,16 +94,20 @@ test-vectors: pull-serialization-tests run-vectors
 test:
 	cargo test --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	# FIXME: https://github.com/ChainSafe/forest/issues/1444
+	#cargo test -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	# FIXME: https://github.com/ChainSafe/forest/issues/1444
+	#cargo test -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 
 test-release:
 	cargo test --release --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test --release -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	# FIXME: https://github.com/ChainSafe/forest/issues/1444
+	#cargo test --release -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test --release -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	# FIXME: https://github.com/ChainSafe/forest/issues/1444
+	#cargo test --release -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 
 smoke-test:
 	./scripts/smoke_test.sh

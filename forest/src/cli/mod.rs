@@ -4,6 +4,7 @@
 mod auth_cmd;
 mod chain_cmd;
 mod config;
+mod config_cmd;
 mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
@@ -24,8 +25,10 @@ pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
+use directories::ProjectDirs;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
+use log::{error, info, warn};
 use num_bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
@@ -38,6 +41,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
 
+use crate::cli::config_cmd::ConfigCommands;
 use blocks::tipset_json::TipsetJson;
 use cid::Cid;
 use utils::{read_file_to_string, read_toml};
@@ -90,6 +94,9 @@ pub enum Subcommand {
 
     #[structopt(name = "state", about = "Interact with and query filecoin chain state")]
     State(StateCommands),
+
+    #[structopt(name = "config", about = "Manage node configuration")]
+    Config(ConfigCommands),
 }
 
 /// CLI options
@@ -153,17 +160,7 @@ impl CliOpts {
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => {
-                // Check ENV VAR for config file
-                if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
-                    // Read from config file
-                    let toml = read_file_to_string(&PathBuf::from(&config_file))?;
-                    // Parse and return the configuration file
-                    read_toml(&toml)?
-                } else {
-                    Config::default()
-                }
-            }
+            None => find_default_config().unwrap_or_default(),
         };
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
@@ -172,7 +169,7 @@ impl CliOpts {
             cfg.enable_rpc = true;
             cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
 
-            if cfg.rpc_token.is_some() {
+            if self.token.is_some() {
                 cfg.rpc_token = self.token.to_owned();
             }
         } else {
@@ -219,8 +216,55 @@ impl CliOpts {
     }
 }
 
+fn find_default_config() -> Option<Config> {
+    if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
+        info!(
+            "FOREST_CONFIG_PATH detected, using configuration at {}",
+            config_file
+        );
+        let path = PathBuf::from(config_file);
+        if path.exists() {
+            return read_config_or_none(path);
+        }
+    };
+
+    if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
+        let mut config_dir = dir.config_dir().to_path_buf();
+        config_dir.push("config.toml");
+        if config_dir.exists() {
+            info!("Found a config file at {}", config_dir.display());
+            return read_config_or_none(config_dir);
+        }
+    }
+
+    warn!("No configurations found, using defaults.");
+
+    None
+}
+
+fn read_config_or_none(path: PathBuf) -> Option<Config> {
+    let toml = match read_file_to_string(&path) {
+        Ok(t) => t,
+        Err(e) => {
+            warn!("An error occured while reading configuration file at {}. Resorting to default configuration. Error was {}", path.display(), e);
+            return None;
+        }
+    };
+
+    match read_toml(&toml) {
+        Ok(cfg) => Some(cfg),
+        Err(e) => {
+            warn!(
+                "Error reading configuration file, opting to defaults. Error was {} ",
+                e
+            );
+            None
+        }
+    }
+}
+
 /// Blocks current thread until ctrl-c is received
-pub(super) async fn block_until_sigint() {
+pub async fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
     let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
 
@@ -228,7 +272,7 @@ pub(super) async fn block_until_sigint() {
     ctrlc::set_handler(move || {
         let prev = running.fetch_add(1, Ordering::SeqCst);
         if prev == 0 {
-            println!("Got interrupt, shutting down...");
+            warn!("Got interrupt, shutting down...");
             // Send sig int in channel to blocking task
             if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
                 ctrlc_send.send(()).expect("Error sending ctrl-c message");
@@ -250,11 +294,11 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
             message,
             data: _,
         } => {
-            println!("JSON RPC Error: Code: {} Message: {}", code, message);
+            error!("JSON RPC Error: Code: {} Message: {}", code, message);
             process::exit(code as i32);
         }
         JsonRpcError::Provided { code, message } => {
-            println!("JSON RPC Error: Code: {} Message: {}", code, message);
+            error!("JSON RPC Error: Code: {} Message: {}", code, message);
             process::exit(code as i32);
         }
     }
@@ -275,7 +319,7 @@ pub(super) fn to_size_string(bi: &BigInt) -> String {
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid params
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
-    println!("Error: {}", msg);
+    error!("Error: {}", msg);
     std::process::exit(code);
 }
 

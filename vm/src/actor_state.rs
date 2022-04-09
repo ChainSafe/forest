@@ -6,6 +6,7 @@ use cid::Cid;
 use encoding::tuple::*;
 use num_bigint::bigint_ser;
 
+// use fvm::state_tree::ActorState;
 /// State of all actor implementations.
 #[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct ActorState {
@@ -18,6 +19,23 @@ pub struct ActorState {
     /// Tokens available to the actor.
     #[serde(with = "bigint_ser")]
     pub balance: TokenAmount,
+}
+
+impl From<fvm::state_tree::ActorState> for ActorState {
+    fn from(actor: fvm::state_tree::ActorState) -> Self {
+        let fvm::state_tree::ActorState {
+            code,
+            state,
+            sequence,
+            balance,
+        } = actor;
+        ActorState {
+            code,
+            state,
+            sequence,
+            balance,
+        }
+    }
 }
 
 impl ActorState {

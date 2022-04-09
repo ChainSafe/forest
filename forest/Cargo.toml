@@ -7,6 +7,7 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
+fvm = "0.2"
 address = { package = "forest_address", version = "0.3" }
 base64 = "0.13"
 forest_libp2p = { path = "../node/forest_libp2p" }
@@ -52,17 +53,24 @@ genesis = { path = "../utils/genesis" }
 paramfetch = { path = "../utils/paramfetch" }
 encoding = { package = "forest_encoding", version = "0.2" }
 networks = { path = "../types/networks" }
-rpassword = "5.0"
+rpassword = "6.0"
 rayon = "1.5"
 prometheus = { version = "0.13", features = ["process"] }
 ticker = "0.1"
 byte-unit = "4.0"
 rug = "1.13"
+toml = "0.5"
+directories = "4.0.1"
 
 [dependencies.jsonrpc-v2]
 version = "0.10"
 features = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
+
+[dev-dependencies]
+assert_cmd = "2"
+rand = "0.8"
+tempfile = "3"
 
 [features]
 default = ["rocksdb", "networks/mainnet"]
@@ -70,6 +78,7 @@ rocksdb = ["db/rocksdb", "ipld_blockstore/rocksdb"]
 sled = ["db/sled", "ipld_blockstore/sled"]
 devnet = ["actor/devnet", "networks/devnet", "testnet"]
 interopnet = ["actor/interopnet", "networks/interopnet", "testnet"]
+calibnet = ["networks/calibnet", "actor/calibnet", "testnet"]
 insecure_post = ["chain_sync/insecure_post"]
 testnet = []
 release = []

@@ -4,7 +4,7 @@
 #![cfg(feature = "cbor")]
 
 use forest_cid::{Cid, Code::Blake2b256};
-use serde_cbor::{from_slice, to_vec};
+use serde_ipld_dagcbor::{from_slice, to_vec};
 
 #[test]
 fn vector_cid_serialize_round() {

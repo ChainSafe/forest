@@ -120,8 +120,7 @@ pub mod json {
 mod tests {
     use crate::bigint_ser::{deserialize, serialize};
     use num_bigint::{BigInt, Sign};
-    use serde_cbor::de::Deserializer;
-    use serde_cbor::ser::Serializer;
+    use serde_ipld_dagcbor::{Deserializer, Serializer};
 
     #[test]
     fn serialize_bigint_test() {

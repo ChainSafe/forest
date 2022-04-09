@@ -61,6 +61,35 @@ pub struct UnsignedMessage {
     pub gas_premium: TokenAmount,
 }
 
+impl From<&UnsignedMessage> for fvm_shared::message::Message {
+    fn from(msg: &UnsignedMessage) -> Self {
+        let UnsignedMessage {
+            version,
+            from,
+            to,
+            sequence,
+            value,
+            method_num,
+            params,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+        } = msg.clone();
+        fvm_shared::message::Message {
+            version,
+            from,
+            to,
+            sequence,
+            value,
+            method_num,
+            params,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+        }
+    }
+}
+
 impl UnsignedMessage {
     pub fn builder() -> MessageBuilder {
         MessageBuilder::default()

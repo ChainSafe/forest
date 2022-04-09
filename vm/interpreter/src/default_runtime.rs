@@ -5,9 +5,9 @@ use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
 use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{
-    account, actorv0,
-    actorv2::{self, ActorDowncast},
-    actorv3, actorv4, actorv5, actorv6, ActorVersion,
+    account, actorv0, actorv2, actorv3, actorv4, actorv5,
+    actorv6::{self, ActorDowncast},
+    ActorVersion,
 };
 use address::{Address, Protocol};
 use blocks::BlockHeader;
@@ -21,10 +21,10 @@ use fil_types::{
 use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
 use forest_encoding::{blake2b_256, to_vec, Cbor};
 use ipld_blockstore::BlockStore;
-use log::debug;
+use log::{debug, info};
 use message::{Message, UnsignedMessage};
 use num_bigint::BigInt;
-use num_traits::Zero;
+use num_traits::{Signed, Zero};
 use rayon::prelude::*;
 use runtime::{
     compute_unsealed_sector_cid, ActorCode, ConsensusFault, ConsensusFaultType, MessageInfo,
@@ -433,6 +433,7 @@ where
                 msg.from(),
                 msg.to(),
                 msg.value(),
+                new_rt.network_version(),
             )
             .map_err(|e| e.wrap("failed to transfer funds"))?;
         }
@@ -653,12 +654,10 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
-                .get_chain_randomness_v2(personalization, rand_epoch, entropy)
+                .get_chain_randomness(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
-            self.rand
-                .get_chain_randomness_v1(personalization, rand_epoch, entropy)
-                .map_err(|e| e.downcast_fatal("could not get randomness"))?
+            panic!("FVM doesn't support older networks")
         };
 
         Ok(Randomness(r.to_vec()))
@@ -670,18 +669,15 @@ where
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<Randomness, ActorError> {
+        #[allow(clippy::if_same_then_else)]
         let r = if rand_epoch >= networks::UPGRADE_ACTORS_V6_HEIGHT {
             self.rand
-                .get_beacon_randomness_v3(personalization, rand_epoch, entropy)
+                .get_beacon_randomness(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
-            self.rand
-                .get_beacon_randomness_v2(personalization, rand_epoch, entropy)
-                .map_err(|e| e.downcast_fatal("could not get randomness"))?
+            panic!("FVM doesn't support older networks")
         } else {
-            self.rand
-                .get_beacon_randomness_v1(personalization, rand_epoch, entropy)
-                .map_err(|e| e.downcast_fatal("could not get randomness"))?
+            panic!("FVM doesn't support older networks")
         };
         Ok(Randomness(r.to_vec()))
     }
@@ -823,7 +819,7 @@ where
         let support = ActorVersion::from(self.network_version());
         if version != support {
             let msg = format!(
-                "actor {} is a version {} actor; chain only supports actor version {} at height {} and nver {}",
+                "actor {} is a version {} actor; chain only supports actor version {} at height {} and nver {:?}",
                 &code_id, version, support, self.curr_epoch(), self.network_version()
             );
             return Err(actor_error!(SysErrIllegalArgument; "Cannot create actor: {}", msg));
@@ -878,8 +874,14 @@ where
                 }
             }
             // Transfer the executing actor's balance to the beneficiary
-            transfer(*self.state.borrow_mut(), &receiver, beneficiary, &balance)
-                .map_err(|e| e.wrap("failed to transfer balance to beneficiary actor"))?;
+            transfer(
+                *self.state.borrow_mut(),
+                &receiver,
+                beneficiary,
+                &balance,
+                self.version,
+            )
+            .map_err(|e| e.wrap("failed to transfer balance to beneficiary actor"))?;
         }
 
         // Delete the executing actor
@@ -1135,37 +1137,88 @@ fn transfer<BS: BlockStore>(
     from: &Address,
     to: &Address,
     value: &TokenAmount,
+    _version: NetworkVersion,
 ) -> Result<(), ActorError> {
-    if from == to {
-        return Ok(());
-    }
+    let (to_id, mut f) = if false
+    /* version >= NetworkVersion::V15 */
+    {
+        // FIXME: nv15
+        if value.is_negative() {
+            return Err(actor_error!(SysErrForbidden;
+                    "attempted to transfer negative transfer value {}", value));
+        }
 
-    let from_id = state
-        .lookup_id(from)
-        .map_err(|e| e.downcast_fatal("failed to lookup from id for address"))?
-        .ok_or_else(|| actor_error!(fatal("Failed to lookup from id for address {}", from)))?;
-    let to_id = state
-        .lookup_id(to)
-        .map_err(|e| e.downcast_fatal("failed to lookup to id for address"))?
-        .ok_or_else(|| actor_error!(fatal("Failed to lookup to id for address {}", to)))?;
+        let from_id = state
+            .lookup_id(from)
+            .map_err(|e| e.downcast_fatal("failed to lookup from id for address"))?
+            .ok_or_else(|| actor_error!(fatal("Failed to lookup from id for address {}", from)))?;
 
-    if from_id == to_id {
-        return Ok(());
-    }
+        let f = state
+            .get_actor(&from_id)
+            .map_err(|e| e.downcast_fatal("failed to get actor"))?
+            .ok_or_else(|| {
+                actor_error!(fatal(
+                    "sender actor does not exist in state during transfer"
+                ))
+            })?;
 
-    if value < &0.into() {
-        return Err(actor_error!(SysErrForbidden;
-                "attempted to transfer negative transfer value {}", value));
-    }
+        if &f.balance < value {
+            return Err(actor_error!(SysErrInsufficientFunds;
+                    "transfer failed, insufficient balance in sender actor: {}", &f.balance));
+        }
 
-    let mut f = state
-        .get_actor(&from_id)
-        .map_err(|e| e.downcast_fatal("failed to get actor"))?
-        .ok_or_else(|| {
-            actor_error!(fatal(
-                "sender actor does not exist in state during transfer"
-            ))
-        })?;
+        if from == to {
+            info!("sending to same address {}: noop", from);
+            return Ok(());
+        }
+
+        let to_id = state
+            .lookup_id(to)
+            .map_err(|e| e.downcast_fatal("failed to lookup to id for address"))?
+            .ok_or_else(|| actor_error!(fatal("Failed to lookup to id for address {}", to)))?;
+
+        if from_id == to_id {
+            info!("sending to same actor ID {}: noop", from_id);
+            return Ok(());
+        }
+
+        (to_id, f)
+    } else {
+        if from == to {
+            return Ok(());
+        }
+
+        let from_id = state
+            .lookup_id(from)
+            .map_err(|e| e.downcast_fatal("failed to lookup from id for address"))?
+            .ok_or_else(|| actor_error!(fatal("Failed to lookup from id for address {}", from)))?;
+
+        let to_id = state
+            .lookup_id(to)
+            .map_err(|e| e.downcast_fatal("failed to lookup to id for address"))?
+            .ok_or_else(|| actor_error!(fatal("Failed to lookup to id for address {}", to)))?;
+
+        if from_id == to_id {
+            return Ok(());
+        }
+
+        if value.is_negative() {
+            return Err(actor_error!(SysErrForbidden;
+                    "attempted to transfer negative transfer value {}", value));
+        }
+
+        let f = state
+            .get_actor(&from_id)
+            .map_err(|e| e.downcast_fatal("failed to get actor"))?
+            .ok_or_else(|| {
+                actor_error!(fatal(
+                    "sender actor does not exist in state during transfer"
+                ))
+            })?;
+
+        (to_id, f)
+    };
+
     let mut t = state
         .get_actor(&to_id)
         .map_err(|e| e.downcast_fatal("failed to get actor: {}"))?
@@ -1184,6 +1237,7 @@ fn transfer<BS: BlockStore>(
     state
         .set_actor(from, f)
         .map_err(|e| e.downcast_fatal("failed to set from actor"))?;
+
     state
         .set_actor(to, t)
         .map_err(|e| e.downcast_fatal("failed to set to actor"))?;

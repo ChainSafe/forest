@@ -10,9 +10,9 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.3"
-arbitrary = { version = "0.4", features = ["derive"] }
-ahash = "0.6"
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1.1", features = ["derive"] }
+ahash = "0.7"
 db = { package = "forest_db", version = "0.1" }
 
 [dependencies.ipld_amt]
