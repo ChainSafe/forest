@@ -306,12 +306,12 @@ impl Default for ChainConfig {
 }
 
 pub fn default_network_version() -> NetworkVersion {
-    NetworkVersion::V15
+    NetworkVersion::V1
 }
 
 pub mod de_network_version {
     use fil_types::NetworkVersion;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
     where
@@ -337,7 +337,10 @@ pub mod de_network_version {
             "v13" => Ok(NetworkVersion::V13),
             "v14" => Ok(NetworkVersion::V14),
             "v15" => Ok(NetworkVersion::V15),
-            _ => Ok(NetworkVersion::V15),
+            _ => Err(de::Error::custom(&format!(
+                "Invalid network version: {}",
+                version
+            ))),
         }
     }
 
