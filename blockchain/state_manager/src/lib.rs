@@ -284,21 +284,13 @@ where
             .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = power::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "(get power) failed to load power actor state: {}",
-                err
-            ))
-        })?;
+        let spas = power::State::load(self.blockstore(), &actor)?;
 
         let t_pow = spas.total_power();
 
         if let Some(maddr) = addr {
             let m_pow = spas
-                .miner_power(self.blockstore(), maddr)
-                .map_err(|err| {
-                    Error::State(format!("(get power) failed to load miner power: {}", err))
-                })?
+                .miner_power(self.blockstore(), maddr)?
                 .ok_or_else(|| Error::State(format!("Miner for address {} not found", maddr)))?;
 
             let min_pow = spas
