@@ -311,7 +311,7 @@ pub fn default_network_version() -> NetworkVersion {
 
 pub mod de_network_version {
     use fil_types::NetworkVersion;
-    use serde::{Deserialize, Deserializer, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
     where
@@ -341,10 +341,31 @@ pub mod de_network_version {
         }
     }
 
-    pub fn serialize<S>(m: &NetworkVersion, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(n: &NetworkVersion, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        todo!()
+        n.to_owned().serialize(serializer)
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+
+    #[test]
+    pub fn test_serialize_upgrade_info() {
+        let input = r#"
+            height = "Breeze"
+            version = "V1"
+        "#;
+        let actual: UpgradeInfo = toml::from_str(input).unwrap();
+
+        let expected = UpgradeInfo {
+            height: Height::Breeze,
+            version: NetworkVersion::V1,
+        };
+
+        assert_eq!(actual, expected);
     }
 }
