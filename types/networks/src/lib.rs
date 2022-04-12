@@ -356,12 +356,49 @@ pub mod de_network_version {
 pub mod test {
     use super::*;
 
+    fn remove_whitespace(s: &mut String) {
+        s.retain(|c| !c.is_whitespace());
+    }
+
     #[test]
     pub fn test_serialize_upgrade_info() {
         let input = r#"
             height = "Breeze"
             version = "V1"
         "#;
+        let actual: UpgradeInfo = toml::from_str(input).unwrap();
+
+        let expected = UpgradeInfo {
+            height: Height::Breeze,
+            version: NetworkVersion::V1,
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    pub fn test_deserialize_upgrade_info() {
+        let input = UpgradeInfo {
+            height: Height::Breeze,
+            version: NetworkVersion::V1,
+        };
+
+        let mut actual: String = toml::to_string(&input).unwrap();
+
+        let expected = r#"
+            height = "Breeze"
+            version = "V1"
+        "#;
+
+        assert_eq!(
+            remove_whitespace(&mut actual),
+            remove_whitespace(&mut expected.to_string())
+        );
+    }
+
+    #[test]
+    pub fn test_default_network_version_serailization() {
+        let input = r#" height = "Breeze" "#;
         let actual: UpgradeInfo = toml::from_str(input).unwrap();
 
         let expected = UpgradeInfo {
