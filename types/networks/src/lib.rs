@@ -238,14 +238,11 @@ impl ChainConfig {
             .map(|info| info.height)
             .unwrap_or(Height::Breeze);
 
-        let version = self
-            .version_schedule
+        self.version_schedule
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.version)
-            .unwrap();
-
-        NetworkVersion::try_from(version).unwrap()
+            .unwrap()
     }
 
     pub async fn get_beacon_schedule(
