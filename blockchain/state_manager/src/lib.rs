@@ -230,22 +230,9 @@ where
             .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let spas = power::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "(is miner slashed) failed to load power actor state: {}",
-                err
-            ))
-        })?;
+        let spas = power::State::load(self.blockstore(), &actor)?;
 
-        Ok(spas
-            .miner_power(self.blockstore(), addr)
-            .map_err(|err| {
-                Error::State(format!(
-                    "(is miner slashed) failed to load miner power: {}",
-                    err
-                ))
-            })?
-            .is_none())
+        Ok(spas.miner_power(self.blockstore(), addr)?.is_none())
     }
 
     /// Returns raw work address of a miner given the state root.
@@ -260,17 +247,11 @@ where
             .get_actor(addr)?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let ms = miner::State::load(self.blockstore(), &act).map_err(|err| {
-            Error::State(format!(
-                "(get miner work addr) failed to load miner actor state: {}",
-                err
-            ))
-        })?;
+        let ms = miner::State::load(self.blockstore(), &act)?;
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
-        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())
-            .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
+        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
         Ok(addr)
     }
 
@@ -293,14 +274,8 @@ where
                 .miner_power(self.blockstore(), maddr)?
                 .ok_or_else(|| Error::State(format!("Miner for address {} not found", maddr)))?;
 
-            let min_pow = spas
-                .miner_nominal_power_meets_consensus_minimum(self.blockstore(), maddr)
-                .map_err(|err| {
-                    Error::State(format!(
-                        "(get power) failed to check power actor state: {}",
-                        err
-                    ))
-                })?;
+            let min_pow =
+                spas.miner_nominal_power_meets_consensus_minimum(self.blockstore(), maddr)?;
             if min_pow {
                 return Ok(Some((m_pow, t_pow)));
             }
@@ -719,14 +694,7 @@ where
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
     ) -> anyhow::Result<bool, Error> {
-        let hmp = self
-            .miner_has_min_power(address, lookback_tipset)
-            .map_err(|err| {
-                Error::State(format!(
-                    "(eligible to mine) failed to check power actor state: {}",
-                    err
-                ))
-            })?;
+        let hmp = self.miner_has_min_power(address, lookback_tipset)?;
         let version = get_network_version_default(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
@@ -1274,12 +1242,7 @@ where
             .get_actor(actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let market_state = market::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "(market balance) failed to load market actor state: {}",
-                err
-            ))
-        })?;
+        let market_state = market::State::load(self.blockstore(), &actor)?;
 
         let new_addr = self
             .lookup_id(addr, ts)?
@@ -1288,27 +1251,13 @@ where
         let out = MarketBalance {
             escrow: {
                 market_state
-                    .escrow_table(self.blockstore())
-                    .map_err(|err| {
-                        Error::State(format!(
-                            "(market balance) failed to load balance table: {}",
-                            err
-                        ))
-                    })?
-                    .get(&new_addr)
-                    .map_err(|err| Error::State(format!("(market balance) get failed: {}", err)))?
+                    .escrow_table(self.blockstore())?
+                    .get(&new_addr)?
             },
             locked: {
                 market_state
-                    .locked_table(self.blockstore())
-                    .map_err(|err| {
-                        Error::State(format!(
-                            "(market balance) failed to load balance table: {}",
-                            err
-                        ))
-                    })?
-                    .get(&new_addr)
-                    .map_err(|err| Error::State(format!("(market balance) get failed: {}", err)))?
+                    .locked_table(self.blockstore())?
+                    .get(&new_addr)?
             },
         };
 
