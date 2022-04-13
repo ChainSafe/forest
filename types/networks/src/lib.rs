@@ -345,7 +345,27 @@ pub mod de_network_version {
     where
         S: Serializer,
     {
-        n.to_owned().serialize(serializer)
+        let version_string = match n {
+            NetworkVersion::V0 => "V0",
+            NetworkVersion::V1 => "V1",
+            NetworkVersion::V2 => "V2",
+            NetworkVersion::V3 => "V3",
+            NetworkVersion::V4 => "V4",
+            NetworkVersion::V5 => "V5",
+            NetworkVersion::V6 => "V6",
+            NetworkVersion::V7 => "V7",
+            NetworkVersion::V8 => "V8",
+            NetworkVersion::V9 => "V9",
+            NetworkVersion::V10 => "V10",
+            NetworkVersion::V11 => "V11",
+            NetworkVersion::V12 => "V12",
+            NetworkVersion::V13 => "V13",
+            NetworkVersion::V14 => "V14",
+            NetworkVersion::V15 => "V15",
+        }
+        .to_string();
+
+        version_string.serialize(serializer)
     }
 }
 
@@ -353,8 +373,8 @@ pub mod de_network_version {
 pub mod test {
     use super::*;
 
-    fn remove_whitespace(s: &mut String) {
-        s.retain(|c| !c.is_whitespace());
+    fn remove_whitespace(s: String) -> String {
+        s.chars().filter(|c| !c.is_whitespace()).collect()
     }
 
     #[test]
@@ -380,7 +400,7 @@ pub mod test {
             version: NetworkVersion::V1,
         };
 
-        let mut actual: String = toml::to_string(&input).unwrap();
+        let actual = toml::to_string(&input).unwrap();
 
         let expected = r#"
             height = "Breeze"
@@ -388,13 +408,13 @@ pub mod test {
         "#;
 
         assert_eq!(
-            remove_whitespace(&mut actual),
-            remove_whitespace(&mut expected.to_string())
+            remove_whitespace(actual),
+            remove_whitespace(expected.to_string())
         );
     }
 
     #[test]
-    pub fn test_default_network_version_serailization() {
+    pub fn test_default_network_version_serialization() {
         let input = r#" height = "Breeze" "#;
         let actual: UpgradeInfo = toml::from_str(input).unwrap();
 
