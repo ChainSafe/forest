@@ -431,7 +431,7 @@ where
             .map_err(|_| Error::Other("Failure getting actor".to_string()))?
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
-        Ok(miner::State::load(self.blockstore(), &actor)?)
+        miner::State::load(self.blockstore(), &actor)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
