@@ -65,7 +65,7 @@ macro_rules! load_actor_state {
                 .context("Actor state doesn't exist in store")
                 .map(State::V0)
         } else {
-            anyhow::bail!("Unknown actor code {}", $actor.code)
+            Err(anyhow::anyhow!("Unknown actor code {}", $actor.code))
         }
     };
 }
