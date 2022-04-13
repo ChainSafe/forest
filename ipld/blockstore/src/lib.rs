@@ -37,7 +37,7 @@ pub trait BlockStore: Store {
         Ok(self.read(cid.to_bytes())?)
     }
 
-    fn get_bytes2(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+    fn get_bytes_anyhow(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Ok(self.read(cid.to_bytes())?)
     }
 
@@ -52,11 +52,11 @@ pub trait BlockStore: Store {
         }
     }
 
-    fn get2<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
+    fn get_anyhow<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
     where
         T: DeserializeOwned,
     {
-        match self.get_bytes2(cid)? {
+        match self.get_bytes_anyhow(cid)? {
             Some(bz) => Ok(Some(from_slice(&bz)?)),
             None => Ok(None),
         }
