@@ -741,33 +741,17 @@ where
             .get_actor(actor::power::ADDRESS, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let power_state = power::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "(eligible to mine) failed to load power actor state: {}",
-                err
-            ))
-        })?;
+        let power_state = power::State::load(self.blockstore(), &actor)?;
 
         let actor = self
             .get_actor(address, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
-        let miner_state = miner::State::load(self.blockstore(), &actor).map_err(|err| {
-            Error::State(format!(
-                "(eligible to mine) failed to load miner actor state: {}",
-                err
-            ))
-        })?;
+        let miner_state = miner::State::load(self.blockstore(), &actor)?;
 
         // Non-empty power claim.
         let claim = power_state
-            .miner_power(self.blockstore(), address)
-            .map_err(|err| {
-                Error::State(format!(
-                    "(eligible to mine) failed to load miner power: {}",
-                    err
-                ))
-            })?
+            .miner_power(self.blockstore(), address)?
             .ok_or_else(|| Error::Other("Could not get claim".to_string()))?;
         if claim.quality_adj_power <= BigInt::zero() {
             return Ok(false);
@@ -779,12 +763,7 @@ where
         }
 
         // No active consensus faults.
-        let info = miner_state.info(self.blockstore()).map_err(|err| {
-            Error::State(format!(
-                "(eligible to mine) failed to load miner actor get info: {}",
-                err
-            ))
-        })?;
+        let info = miner_state.info(self.blockstore())?;
         if base_tipset.epoch() <= info.consensus_fault_elapsed {
             return Ok(false);
         }
@@ -827,8 +806,7 @@ where
         let actor = self
             .get_actor(&address, lbst)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let miner_state = miner::State::load(self.blockstore(), &actor)
-            .map_err(|err| Error::State(format!("failed to load miner actor state: {}", err)))?;
+        let miner_state = miner::State::load(self.blockstore(), &actor)?;
 
         let buf = address.marshal_cbor()?;
         let prand = chain_rand::draw_randomness(
@@ -909,13 +887,9 @@ where
                     .cids()
                     .get(0)
                     .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
-                let parent: BlockHeader = self
-                    .blockstore()
-                    .get(parent_cid)
-                    .map_err(|e| Error::Other(e.to_string()))?
-                    .ok_or_else(|| {
-                        format!("Could not find parent block with cid {}", parent_cid)
-                    })?;
+                let parent: BlockHeader = self.blockstore().get(parent_cid)?.ok_or_else(|| {
+                    format!("Could not find parent block with cid {}", parent_cid)
+                })?;
                 parent.epoch()
             } else {
                 Default::default()
@@ -936,7 +910,7 @@ where
             let epoch = first_block.epoch();
             let ts_cloned = tipset.clone();
             task::spawn_blocking(move || {
-                sm.apply_blocks::<_, V, _>(
+                Ok(sm.apply_blocks::<_, V, _>(
                     parent_epoch,
                     &sr,
                     &blocks,
@@ -945,8 +919,7 @@ where
                     base_fee,
                     callback,
                     &ts_cloned,
-                )
-                .map_err(|e| Error::Other(e.to_string()))
+                )?)
             })
             .await
         })
