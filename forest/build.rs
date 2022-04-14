@@ -26,6 +26,17 @@ const NETWORK: &str = if cfg!(feature = "devnet") {
     "mainnet"
 };
 
+#[derive(Deserialize, Serialize)]
+struct ForestVersion {
+    current_commit: GitCommit,
+}
+
+#[derive(Deserialize, Serialize)]
+struct GitCommit {
+    hash: String,
+    short: String,
+}
+
 fn main() {
     println!("cargo:rustc-env=CURRENT_COMMIT={}", current_commit());
     // expose environment variable FOREST_VERSON at build time
@@ -38,7 +49,7 @@ fn current_commit() -> String {
         .map_err(|e| {
             Error::new(
                 ErrorKind::NotFound,
-                format!("Current Commmit: git command failed with Error: '{}'", e),
+                format!("Current Commmit: git command failed with Error: '{:?}'", e),
             )
         })
         .unwrap()
@@ -63,7 +74,7 @@ fn version() -> String {
 //Commmand fails when Git is not installed on Build Host
 fn try_git_version() -> Result<String, Error> {
     //let git_cmd = git_version!()?;
-    let git_cmd = Command::new("git")
+    let git_cmd_rs = Command::new("git")
         .args(&["rev-parse", "--short", "HEAD"])
         .output()
         .map_err(|e| {
@@ -71,21 +82,11 @@ fn try_git_version() -> Result<String, Error> {
                 ErrorKind::NotFound,
                 format!("Git Commmand: command failed with Error: '{:?}'", e),
             )
-        }).unwrap();
-    println!("git cmd res: '{:?}'", git_cmd);
+        })?;
+    println!("git cmd res: '{:?}'", git_cmd_rs);
     //Ok(git_cmd)
-    String::from_utf8(git_cmd.stdout).map_err(|e| Error::new(ErrorKind::Other, format!("{}", e)))
-}
-
-#[derive(Deserialize, Serialize)]
-struct ForestVersion {
-    commit: CurrentCommit,
-}
-
-#[derive(Deserialize, Serialize)]
-struct CurrentCommit {
-    hash: String,
-    short: String,
+    String::from_utf8(git_cmd_rs.stdout)
+        .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
 }
 
 fn try_git_toml(e: Error) -> Result<String, Error> {
@@ -94,7 +95,10 @@ fn try_git_toml(e: Error) -> Result<String, Error> {
         .map_err(|e| {
             Error::new(
                 ErrorKind::NotFound,
-                format!("Build Directory: find directory failed with Error: '{}'", e),
+                format!(
+                    "Build Directory: find directory failed with Error: '{:?}'",
+                    e
+                ),
             )
         })
         .unwrap();
@@ -115,17 +119,27 @@ fn try_git_toml(e: Error) -> Result<String, Error> {
                     Error::new(
                         ErrorKind::NotFound,
                         format!(
-                            "file: '{:?}': read file failed with Error: '{}'",
+                            "Commit File '{:?}': read file failed with Error: '{:?}'",
                             commit_file.as_path(),
                             e
                         ),
                     )
                 })
                 .unwrap();
-            let commit_value: ForestVersion = toml::from_str(&commit_toml)?;
+            let commit_value: ForestVersion = toml::from_str(&commit_toml).map_err(|e| {
+                Error::new(
+                    ErrorKind::Other,
+                    format!(
+                        "Commit File '{:?}': parse file failed with Error: '{:?}'",
+                        commit_file.file_name(),
+                        e
+                    ),
+                )
+            })?;
 
-            Ok(commit_value.commit.short)
-        } else {  //Serialized Commit File does not exist
+            Ok(commit_value.current_commit.short)
+        } else {
+            //Serialized Commit File does not exist
             Err(Error::new(
                 ErrorKind::NotFound,
                 format!(
@@ -135,7 +149,8 @@ fn try_git_toml(e: Error) -> Result<String, Error> {
                 ),
             ))
         }
-    } else {  //Parent Directory cannot be found
+    } else {
+        //Parent Directory cannot be found
         Err(Error::new(
             ErrorKind::NotFound,
             format!(

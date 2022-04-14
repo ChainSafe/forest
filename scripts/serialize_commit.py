@@ -85,8 +85,8 @@ if commit_hash != '':
     # ------------------------
     # Serialize Git Commit
 
-    forest_commit = {'FOREST_VERSION': {'CURRENT_COMMIT': {
-        'hash': commit_hash, 'short': commit_hash_short}}}
+    forest_commit = {'current_commit': {
+        'hash': commit_hash, 'short': commit_hash_short}}
 
     if module_debug:
         print("script '{}' - Forest Commit:\n{}".format(module_file, str(forest_commit)))
