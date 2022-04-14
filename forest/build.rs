@@ -78,15 +78,38 @@ fn try_git_version() -> Result<String, Error> {
         .args(&["rev-parse", "--short", "HEAD"])
         .output()
         .map_err(|e| {
+            //Command Launch failed
             Error::new(
                 ErrorKind::NotFound,
                 format!("Git Commmand: command failed with Error: '{:?}'", e),
             )
         })?;
-    println!("git cmd res: '{:?}'", git_cmd_rs);
+    println!("Git Commmand: result: '{:?}'", git_cmd_rs);
+
     //Ok(git_cmd)
-    String::from_utf8(git_cmd_rs.stdout)
-        .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
+    if git_cmd_rs.status.success() {
+        String::from_utf8(git_cmd_rs.stdout)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("{:?}", e)))
+    } else {
+        //Git Command failed
+        //Building an Error Struct from the Exit Status and Error Message
+        let mut error_message = String::from_utf8_lossy(&git_cmd_rs.stderr).into_owned();
+        let error_code = match git_cmd_rs.status.code() {
+            Some(i) => i,
+            None => {
+                //Missing Exit Status means an abnormal termination
+                error_message.push_str("; Command was terminated abnormally.");
+                -1
+            }
+        };
+        Err(Error::new(
+            ErrorKind::NotFound,
+            format!(
+                "Git Commmand: command failed with Error [{}]: '{}'",
+                error_code, error_message
+            ),
+        ))
+    }
 }
 
 fn try_git_toml(e: Error) -> Result<String, Error> {
