@@ -13,6 +13,9 @@ jobs:
     
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:        
+      - name: Install Python Dependencies
+        run: sudo apt-get update && sudo apt-get install python3-pygit2 python3-toml
+
       - name: Docker Engine Status
         run: |
           sudo systemctl status docker -l
