@@ -1,3 +1,59 @@
+## Forest v0.2.2 _alpha_ (2022-04-06)
+
+Forest v0.2.2 alpha is a service release improving performance and stability. This release supports Filecoin network version 14.
+
+Notable updates:
+* Forest now supports Calibnet: `make calibnet` (nv14)
+* FVM is available both native and as external crate: [ref-fvm](https://github.com/filecoin-project/ref-fvm)
+* Reading config from a default config location unless a file is specified.
+* Improved logging and display of synchronization progress.
+* Defaulting to Rust Edition 2021 from now on.
+
+All changes:
+* Log: don't override default filters (#1504) by @jdjaustin in [#1530](https://github.com/ChainSafe/forest/pull/1530)
+* Crates: bump wasmtime by @q9f in [#1526](https://github.com/ChainSafe/forest/pull/1526)
+* Ci: add wasm target to release script by @q9f in [#1524](https://github.com/ChainSafe/forest/pull/1524)
+* Ci: add codecov target threshold tolerance of 1% by @q9f in [#1525](https://github.com/ChainSafe/forest/pull/1525)
+* Node: demote noisy warnings to debug by @q9f in [#1518](https://github.com/ChainSafe/forest/pull/1518)
+* Workaround fix for prometheus endpoint by @LesnyRumcajs in [#1516](https://github.com/ChainSafe/forest/pull/1516)
+* Fixed bug label for bug template by @LesnyRumcajs in [#1514](https://github.com/ChainSafe/forest/pull/1514)
+* Crates: purge unused dependencies by @q9f in [#1509](https://github.com/ChainSafe/forest/pull/1509)
+* Github: update code owners by @q9f in [#1507](https://github.com/ChainSafe/forest/pull/1507)
+* Ci: enable rustc version trinity for builds by @q9f in [#1506](https://github.com/ChainSafe/forest/pull/1506)
+* Crates: bump dependencies by @q9f in [#1503](https://github.com/ChainSafe/forest/pull/1503)
+* Re-use some code from ref-fvm by @LesnyRumcajs in [#1500](https://github.com/ChainSafe/forest/pull/1500)
+* Connor/default config location by @connormullett in [#1494](https://github.com/ChainSafe/forest/pull/1494)
+* Deps: simplify os dependencies by @q9f in [#1496](https://github.com/ChainSafe/forest/pull/1496)
+* Use exports from ref-fvm by @LesnyRumcajs in [#1495](https://github.com/ChainSafe/forest/pull/1495)
+* Start the prometheus server before loading snapshots. by @lemmih in [#1484](https://github.com/ChainSafe/forest/pull/1484)
+* Config dump with tests by @LesnyRumcajs in [#1485](https://github.com/ChainSafe/forest/pull/1485)
+* Use the v6 version of the actor's bundle. by @lemmih in [#1474](https://github.com/ChainSafe/forest/pull/1474)
+* Exposed more rocksdb options, increased max files by @LesnyRumcajs in [#1481](https://github.com/ChainSafe/forest/pull/1481)
+* Parametrize current rocksdb settings by @LesnyRumcajs in [#1479](https://github.com/ChainSafe/forest/pull/1479)
+* Use progress bars when downloading headers and scanning the blockchain. by @lemmih in [#1480](https://github.com/ChainSafe/forest/pull/1480)
+* Night job scripts by @LesnyRumcajs in [#1475](https://github.com/ChainSafe/forest/pull/1475)
+* Add more metrics of syncing by @LesnyRumcajs in [#1467](https://github.com/ChainSafe/forest/pull/1467)
+* Limit RocksDB to 200 open files. by @lemmih in [#1468](https://github.com/ChainSafe/forest/pull/1468)
+* Ci: Include conformance tests in code coverage results by @lemmih in [#1470](https://github.com/ChainSafe/forest/pull/1470)
+* Show a progressbar when downloading tipset headers. by @lemmih in [#1469](https://github.com/ChainSafe/forest/pull/1469)
+* Add 'fvm' backend in parallel to our native backend. by @lemmih in [#1403](https://github.com/ChainSafe/forest/pull/1403)
+* Update regex to v1.5.5 (from 1.5.4) to avoid performance vulnerability. by @lemmih in [#1472](https://github.com/ChainSafe/forest/pull/1472)
+* Ci: Allow codecov policies to fail. by @lemmih in [#1471](https://github.com/ChainSafe/forest/pull/1471)
+* Improve docker-compose for monitoring stack by @LesnyRumcajs in [#1461](https://github.com/ChainSafe/forest/pull/1461)
+* Revert "Enforce max length when serializing/deserializing arrays" by @lemmih in [#1462](https://github.com/ChainSafe/forest/pull/1462)
+* Introduce serde_generic_array by @clearloop in [#1434](https://github.com/ChainSafe/forest/pull/1434)
+* Fixed new clippy warnings by @LesnyRumcajs in [#1449](https://github.com/ChainSafe/forest/pull/1449)
+* Improve license check script by @LesnyRumcajs in [#1443](https://github.com/ChainSafe/forest/pull/1443)
+* Elmattic/actors review f26 by @elmattic in [#1340](https://github.com/ChainSafe/forest/pull/1340)
+* Calibnet Support by @connormullett in [#1370](https://github.com/ChainSafe/forest/pull/1370)
+* Blockchain/sync: demote chain exchange warning to debug message by @q9f in [#1439](https://github.com/ChainSafe/forest/pull/1439)
+* Fix clippy fiascoes introduced in #1437 by @LesnyRumcajs in [#1438](https://github.com/ChainSafe/forest/pull/1438)
+* Fix signature verification fiasco by @LesnyRumcajs in [#1437](https://github.com/ChainSafe/forest/pull/1437)
+* Clippy for tests by @LesnyRumcajs in [#1436](https://github.com/ChainSafe/forest/pull/1436)
+* Rustc: switch to rust edition 2021 by @q9f in [#1429](https://github.com/ChainSafe/forest/pull/1429)
+* Forest: bump version to 0.2.2 by @q9f in [#1428](https://github.com/ChainSafe/forest/pull/1428)
+* Move from chrono to time crate by @LesnyRumcajs in [#1426](https://github.com/ChainSafe/forest/pull/1426)
+
 ## Forest v0.2.1 _alpha_ (2022-02-14)
 
 Forest v0.2.1 alpha is a service release improving performance and stability.
