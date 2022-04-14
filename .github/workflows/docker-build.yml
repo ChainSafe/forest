@@ -31,7 +31,7 @@ jobs:
       - name: Build Container Image with Docker
         run: |
           echo "Git: 'CURRENT_COMMIT' serializing ..."
-          ./serialize_commit.py --debug
+          scripts/serialize_commit.py --debug
           echo "Docker: Image building ..."
           docker build -t forest -f ./Dockerfile .
           echo "Docker: Images listing ..."
