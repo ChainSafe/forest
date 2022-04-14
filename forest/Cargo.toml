@@ -72,6 +72,12 @@ assert_cmd = "2"
 rand = "0.8"
 tempfile = "3"
 
+[build-dependencies]
+#git-version = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_derive = "1.0.106"
+toml = "0.5"
+
 [features]
 default = ["rocksdb", "networks/mainnet"]
 rocksdb = ["db/rocksdb", "ipld_blockstore/rocksdb"]

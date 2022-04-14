@@ -11,6 +11,7 @@ import toml
 
 module_file = ''
 module_path = os.path.abspath(__file__)
+main_dir = ''
 work_dir = ''
 commit_file = 'config_forest_commit.toml'
 
@@ -22,6 +23,13 @@ if slash_pos != -1:
     module_file = module_path[slash_pos + 1: len(module_path)]
 else:
     module_file = module_path
+
+if work_dir != '':
+    slash_pos = work_dir.rfind('/', 0, -1)
+    if slash_pos != -1:
+        main_dir = work_dir[0: slash_pos + 1]
+    else:
+        main_dir = work_dir
 
 
 # ------------------------
@@ -59,7 +67,7 @@ try:
     # ------------------------
     # Execute the Git Command
 
-    repo = Repository(work_dir + '.git')
+    repo = Repository(main_dir + '.git')
 
     commit_hash = str(repo.revparse_single(commit_reference).id)
     commit_hash_short = commit_hash[0: 8]
@@ -78,13 +86,13 @@ if commit_hash != '':
     # Serialize Git Commit
 
     forest_commit = {'FOREST_VERSION': {'CURRENT_COMMIT': {
-        commit_reference: {'hash': commit_hash, 'short': commit_hash_short}}}}
+        'hash': commit_hash, 'short': commit_hash_short}}}
 
     if module_debug:
         print("script '{}' - Forest Commit:\n{}".format(module_file, str(forest_commit)))
 
     try:
-        with open(work_dir + commit_file, 'w') as f:
+        with open(main_dir + commit_file, 'w') as f:
             forest_commit_str = toml.dump(forest_commit, f)
 
         if module_debug:
