@@ -6,11 +6,6 @@ description = "Filecoin implementation in Rust. This command will start the daem
 edition = "2021"
 build = "build.rs"
 
-[lib]
-name = "forest"
-path = "src/lib.rs"
-
-
 [dependencies]
 fvm = "0.2"
 address = { package = "forest_address", version = "0.3" }

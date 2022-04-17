@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//use forest_git_utils::current_commit;
 // Import Git Reference from Git or serialized file
 use forest_git_utils::CURRENT_COMMIT;
 use std::env;
