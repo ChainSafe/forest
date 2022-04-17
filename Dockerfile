@@ -42,8 +42,7 @@ RUN cargo install --path forest
 FROM debian:buster-slim
 
 # Install binary dependencies
-RUN apt-get update
-RUN apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev
+RUN apt-get update && apt-get install -y libssl1.1 openssl
 
 # Copy over binaries from the build-env
 COPY --from=build-env /usr/local/cargo/bin/forest /usr/local/bin/forest
