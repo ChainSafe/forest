@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use serde_derive::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Error, ErrorKind};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use toml;
 
@@ -11,12 +11,12 @@ lazy_static! {
     pub static ref CURRENT_COMMIT: String = current_commit();
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct ForestVersion {
     current_commit: GitCommit,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct GitCommit {
     hash: String,
     short: String,
@@ -82,72 +82,179 @@ fn try_git_version() -> Result<String, Error> {
 
 fn try_git_toml(e: Error) -> Result<String, Error> {
     println!("Try recover from Error: '{}'", e);
-    let build_dir = std::env::current_dir()
+
+    let commit_file = try_find_file(&Path::new("config_forest_commit.toml"))?;
+    let commit_value = try_commit_from_path(&commit_file)?;
+
+    Ok(commit_value.current_commit.short)
+}
+
+fn try_find_file(file: &Path) -> Result<PathBuf, Error> {
+    let work_dir = std::env::current_dir()
         .map_err(|e| {
             Error::new(
                 ErrorKind::NotFound,
                 format!(
-                    "Build Directory: find directory failed with Error: '{:?}'",
+                    "Working Directory: find directory failed with Error: '{:?}'",
                     e
                 ),
             )
         })
         .unwrap();
-    println!("Build Directory: '{}'", build_dir.display());
+    println!("Working Directory: '{}'", work_dir.display());
 
-    if let Some(d) = build_dir.parent() {
-        let project_dir = PathBuf::from(d);
+    let mut search_dir: Option<&Path> = Some(Path::new(work_dir.as_path()));
+    let mut find_file: Option<PathBuf> = None;
 
-        println!("Project Directory: '{}'", project_dir.display());
+    while search_dir.is_some() && find_file.is_none() {
+        if let Some(d) = search_dir {
+            println!("Search Directory: '{}'", d.display());
 
-        let mut commit_file = PathBuf::from(&project_dir);
+            let mut search_file = PathBuf::from(d);
 
-        commit_file.push("config_forest_commit.toml");
+            search_file.push(file);
 
-        if commit_file.exists() {
-            let commit_toml = fs::read_to_string(commit_file.as_path())
-                .map_err(|e| {
-                    Error::new(
-                        ErrorKind::NotFound,
-                        format!(
-                            "Commit File '{:?}': read file failed with Error: '{:?}'",
-                            commit_file.as_path(),
-                            e
-                        ),
-                    )
-                })
-                .unwrap();
-            let commit_value: ForestVersion = toml::from_str(&commit_toml).map_err(|e| {
-                Error::new(
-                    ErrorKind::Other,
-                    format!(
-                        "Commit File '{:?}': parse file failed with Error: '{:?}'",
-                        commit_file.file_name(),
-                        e
-                    ),
-                )
-            })?;
+            if search_file.exists() {
+                find_file = Some(search_file);
+            } else {
+                // Continue searching in Parent Directory
+                search_dir = d.parent();
+            }
+        } //if let Some(d) = search_dir
+    } //while search_dir.is_some() && find_file.is_none()
 
-            Ok(commit_value.current_commit.short)
-        } else {
-            //Serialized Commit File does not exist
-            Err(Error::new(
-                ErrorKind::NotFound,
-                format!(
-                    "Project Directory '{}' - Commit File: '{:?}': file does not exist!",
-                    project_dir.display(),
-                    commit_file.file_name()
-                ),
-            ))
-        }
+    if let Some(f) = find_file {
+        Ok(f)
     } else {
-        //Parent Directory cannot be found
+        //Serialized Commit File does not exist
         Err(Error::new(
             ErrorKind::NotFound,
             format!(
-                "Project Directory: build directory '{}' does not have a parent",
-                build_dir.display()
+                "Working Directory '{}' - Commit File: '{:?}': file does not exist in any parent directory!",
+                work_dir.display(),
+                file.file_name()
             ),
         ))
+    } //if let Some(f) = find_file
+}
+
+fn try_commit_from_path(file: &Path) -> Result<ForestVersion, Error> {
+    let commit_toml = fs::read_to_string(file)
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!(
+                    "Commit File '{:?}': read file failed with Error: '{:?}'",
+                    file, e
+                ),
+            )
+        })
+        .unwrap();
+    let commit_value: ForestVersion = toml::from_str(&commit_toml).map_err(|e| {
+        Error::new(
+            ErrorKind::Other,
+            format!(
+                "Commit File '{:?}': parse file failed with Error: '{:?}'",
+                file.file_name(),
+                e
+            ),
+        )
+    })?;
+
+    Ok(commit_value)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::Path;
+    use toml;
+
+    use super::*;
+
+    #[test]
+    fn test_find_file() {
+        let test_file = Path::new("git_utils_test.txt");
+
+        assert!(File::create(&test_file).is_ok());
+
+        let find_result = try_find_file(&test_file);
+
+        println!("Test Find File: '{:?}'", find_result);
+
+        assert!(find_result.is_ok());
+
+        let find_file = find_result.unwrap();
+
+        assert_eq!(find_file.file_name(), test_file.file_name());
+
+        assert!(fs::remove_file(&test_file).is_ok());
+    }
+
+    #[test]
+    fn test_file_not_found() {
+        let test_file = Path::new("no_file.txt");
+
+        let find_result = try_find_file(&test_file);
+
+        println!("Test Not-Found Error: '{:?}'", find_result);
+
+        assert!(find_result.is_err());
+    }
+
+    #[test]
+    fn test_deserialize_commit() {
+        let test_file = Path::new("git_utils_test.toml");
+        let test_commit = ForestVersion {
+            current_commit: GitCommit {
+                hash: String::from("git_commit_hash"),
+                short: String::from("git_commit_short"),
+            },
+        };
+
+        let mut file = File::create(&test_file).unwrap();
+        let test_toml = toml::to_string(&test_commit).unwrap();
+
+        assert!(file.write_all(test_toml.as_bytes()).is_ok());
+
+        let commit_result = try_commit_from_path(&test_file);
+
+        println!("Test Deserialize: '{:?}'", commit_result);
+
+        assert!(commit_result.is_ok());
+
+        assert_eq!(
+            commit_result.unwrap().current_commit.short,
+            "git_commit_short"
+        );
+
+        assert!(fs::remove_file(&test_file).is_ok());
+    }
+
+    #[test]
+    fn test_git_toml() {
+        let test_file = Path::new("config_forest_commit.toml");
+        let test_commit = ForestVersion {
+            current_commit: GitCommit {
+                hash: String::from("git_commit_hash"),
+                short: String::from("git_commit_short"),
+            },
+        };
+
+        let mut file = File::create(&test_file).unwrap();
+        let test_toml = toml::to_string(&test_commit).unwrap();
+
+        assert!(file.write_all(test_toml.as_bytes()).is_ok());
+
+        let commit_result = try_git_toml(Error::new(ErrorKind::Other, "Mock Git Error"));
+
+        println!("Test Deserialize: '{:?}'", commit_result);
+
+        assert!(commit_result.is_ok());
+
+        assert_eq!(commit_result.unwrap(), "git_commit_short");
+
+        assert!(fs::remove_file(&test_file).is_ok());
     }
 }
