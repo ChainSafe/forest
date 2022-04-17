@@ -40,6 +40,7 @@ members = [
     "utils/bitfield",
     "utils/commcid",
     "utils/genesis",
+    "utils/git_utils",
     "utils/hash_utils",
     "utils/json_utils",
     "utils/net_utils",
@@ -61,6 +62,7 @@ forest_bitfield   = { path = "./utils/bitfield" }
 forest_cid        = { path = "./ipld/cid" }
 forest_ipld       = { path = "./ipld" }
 forest_encoding   = { path = "./encoding" }
+forest_git_utils  = { path = "./utils/git_utils" }
 forest_hash_utils = { path = "./utils/hash_utils" }
 forest_json_utils = { path = "./utils/json_utils" }
 commcid           = { path = "./utils/commcid" }

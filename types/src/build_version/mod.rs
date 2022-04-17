@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::sync::RwLock;
-use git_version::git_version;
 use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use serde::Serialize;
+pub use forest_git_utils::CURRENT_COMMIT;
 const BUILD_VERSION: &str = "0.10.2";
 
 // masks
@@ -22,7 +22,6 @@ const MINER_API_VERSION: Version = new_version(0, 15, 0);
 const WORKER_API_VERSION: Version = new_version(0, 15, 0);
 
 lazy_static! {
-    pub static ref CURRENT_COMMIT: &'static str = env!("CURRENT_COMMIT");
     pub static ref BUILD_TYPE: RwLock<BuildType> = RwLock::new(BuildType::BuildDefault);
     pub static ref RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
 }
