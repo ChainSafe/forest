@@ -1,3 +1,6 @@
+// Copyright 2019-2022 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 //use git_version::git_version;
 use lazy_static::lazy_static;
 use serde_derive::{Deserialize, Serialize};

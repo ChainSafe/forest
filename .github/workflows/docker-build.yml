@@ -42,11 +42,27 @@ jobs:
           docker image inspect forest
           echo "Docker: Service 'forest' Version:"
           docker run -i forest forest --version
+        
+      # Build Container Images
+      - name: Start 'forest' Service as Docker Container
+        run: |
+          work_dir=$(pwd)
+          mkdir -p test_dir/{.keys temp} 
+          echo -e "test&secret" test_dir/.keys/passphrase.txt          
           echo "Docker: Service 'forest' starting ..."
-          docker run -d forest
+          con_id=`docker run -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -v $work_dir/test_dir/.keys/:/root/.forest/:Z -v $work_dir/test_dir/temp/:/var/tmp/:Z -i forest forest < test_dir/.keys/passphrase.txt`
+          echo -e "Docker: Service 'forest' ID:\n$con_id"
+          echo "Docker: Service 'forest' Log:"
+          docker logs $con_id
           
       # Check Container Health Exit the test when Containers are failed
       - name: Check Container Health
         run: |
-          constat=`docker ps 2>&1` 
-          echo -e "Container Status Complete:\n$constat" 
+          con_stat=`docker ps 2>&1` 
+          echo -e "Container Status Complete:\n$con_stat" 
+          
+      # Check Operativity with the CLI Functionality
+      - name: Check Operativity with CLI
+        run: |
+          con_id=`docker ps | grep -i forest | awk '{print $1}'`
+          docker exec -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -t $con_id forest auth api-info -p admin < test_dir/.keys/passphrase.txt
