@@ -8,7 +8,6 @@ use std::fs;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use toml;
 
 lazy_static! {
     pub static ref CURRENT_COMMIT: String = current_commit();
@@ -86,7 +85,7 @@ fn try_git_version() -> Result<String, Error> {
 fn try_git_toml(e: Error) -> Result<String, Error> {
     println!("Try recover from Error: '{}'", e);
 
-    let commit_file = try_find_file(&Path::new("config_forest_commit.toml"))?;
+    let commit_file = try_find_file(Path::new("config_forest_commit.toml"))?;
     let commit_value = try_commit_from_path(&commit_file)?;
 
     Ok(commit_value.current_commit.short)
@@ -172,7 +171,6 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use std::path::Path;
-    use toml;
 
     use super::*;
 
@@ -182,7 +180,7 @@ mod tests {
 
         assert!(File::create(&test_file).is_ok());
 
-        let find_result = try_find_file(&test_file);
+        let find_result = try_find_file(test_file);
 
         println!("Test Find File: '{:?}'", find_result);
 
@@ -199,7 +197,7 @@ mod tests {
     fn test_file_not_found() {
         let test_file = Path::new("no_file.txt");
 
-        let find_result = try_find_file(&test_file);
+        let find_result = try_find_file(test_file);
 
         println!("Test Not-Found Error: '{:?}'", find_result);
 
@@ -221,7 +219,7 @@ mod tests {
 
         assert!(file.write_all(test_toml.as_bytes()).is_ok());
 
-        let commit_result = try_commit_from_path(&test_file);
+        let commit_result = try_commit_from_path(test_file);
 
         println!("Test Deserialize: '{:?}'", commit_result);
 
