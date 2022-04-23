@@ -6,8 +6,8 @@ use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use serde::Serialize;
 pub use forest_git_utils::CURRENT_COMMIT;
+use serde::Serialize;
 const BUILD_VERSION: &str = "0.10.2";
 
 // masks
