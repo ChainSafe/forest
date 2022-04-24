@@ -48,10 +48,9 @@ jobs:
         run: |
           work_dir=$(pwd)
           mkdir -p test_dir/.keys test_dir/temp 
-          echo -e "test&secret" test_dir/.keys/passphrase.txt    
           ls -lah -R test_dir/ 
           echo "Docker: Service 'forest' starting ..."
-          con_id=`docker run -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -v $work_dir/test_dir/.keys/:/root/.forest/:Z -v $work_dir/test_dir/temp/:/var/tmp/:Z -t forest forest < /root/.forest/passphrase.txt`
+          con_id=`docker run -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -v $work_dir/test_dir/.keys/:/root/.forest/:Z -v $work_dir/test_dir/temp/:/var/tmp/:Z -t forest forest--encrypt-keystore false`
           echo -e "Docker: Service 'forest' ID:\n$con_id"
           echo "Docker: Service 'forest' Log:"
           docker logs $con_id
@@ -66,4 +65,4 @@ jobs:
       - name: Check Operativity with CLI
         run: |
           con_id=`docker ps | grep -i forest | awk '{print $1}'`
-          docker exec -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -t $con_id forest auth api-info -p admin < test_dir/.keys/passphrase.txt
+          docker exec -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -t $con_id forest --encrypt-keystore false auth api-info -p admin
