@@ -99,6 +99,10 @@ if commit_hash != '':
             print(
                 "script '{}' - Forest Commit:\n{}".format(module_file, forest_commit_str))
 
+        if not module_quiet:
+            print("script '{}' - Commit File '{}': File saved.".format(
+                module_file, commit_file))
+
     except Exception as e:
         if not module_quiet:
             print("script '{}' - Commit File '{}': Save File failed!".format(
@@ -107,6 +111,10 @@ if commit_hash != '':
                 module_file, str(e)), file=sys.stderr)
 
         module_rs = 1
+
+
+if module_debug:
+    print("script '{}': Script finished with [{}]".format(module_file, module_rs))
 
 
 sys.exit(module_rs)
