@@ -33,14 +33,23 @@ jobs:
       - name: Build Container Image with Docker
         run: |
           echo "Git: 'CURRENT_COMMIT' serializing ..."
-          scripts/serialize_commit.py --debug
+          scripts/serialize_commit.py --debug          
           echo "Docker: Image building ..."
           docker build -t forest -f ./Dockerfile .
           echo "Docker: Images listing ..."
           docker image ls
           docker image inspect forest
+          
+      # Check Service Version
+      - name: Check 'forest' Service Version
+        run: |
           echo "Docker: Service 'forest' Version:"
-          docker run -i forest forest --version
+          forest_version=`docker run -i forest forest --version`
+          echo "$forest_version"
+          forest_commit=`echo "$forest_version" | cut -d/ -f4`
+          serialize_commit=`cat config_forest_commit.toml | grep -ioE 'short = "[^"]+"' | cut -d'"' -f2`
+          echo -e "Git: 'CURRENT_COMMIT' serialized:\n$serialize_commit"          
+          if [ "$forest_commit" != "$serialize_commit" ]; then echo "Git: 'CURRENT_COMMIT' is missing!" ; exit 1 ; fi ;
         
       # Start the Service Container
       - name: Start 'forest' Service as Docker Container
