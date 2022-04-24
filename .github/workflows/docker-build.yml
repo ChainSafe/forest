@@ -11,7 +11,6 @@ jobs:
     # The type of runner that the job will run on
     runs-on: ubuntu-20.04
     
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:        
       - name: Install Python Dependencies
         run: sudo apt-get update && sudo apt-get install python3-pygit2 python3-toml
@@ -43,23 +42,24 @@ jobs:
           echo "Docker: Service 'forest' Version:"
           docker run -i forest forest --version
         
-      # Build Container Images
+      # Start the Service Container
       - name: Start 'forest' Service as Docker Container
         run: |
           work_dir=$(pwd)
           mkdir -p test_dir/.keys test_dir/temp 
           ls -lah -R test_dir/ 
           echo "Docker: Service 'forest' starting ..."
-          con_id=`docker run -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -v $work_dir/test_dir/.keys/:/root/.forest/:Z -v $work_dir/test_dir/temp/:/var/tmp/:Z -t forest forest --encrypt-keystore false`
-          echo -e "Docker: Service 'forest' ID:\n$con_id"
-          echo "Docker: Service 'forest' Log:"
-          docker logs $con_id
+          docker run -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -v $work_dir/test_dir/.keys/:/root/.forest/:Z -v $work_dir/test_dir/temp/:/var/tmp/:Z -dt forest forest --encrypt-keystore false
           
       # Check Container Health
       - name: Check Container Health
         run: |
           con_stat=`docker ps 2>&1` 
           echo -e "Container Status Complete:\n$con_stat" 
+          con_id=`echo "$con_stat" | grep -i forest | awk '{print $1}'`
+          echo -e "Docker: Service 'forest' ID:\n$con_id"
+          echo "Docker: Service 'forest' Log:"
+          docker logs $con_id
           
       # Check Operativity with the CLI Functionality
       - name: Check Operativity with CLI
