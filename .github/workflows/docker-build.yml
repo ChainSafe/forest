@@ -50,12 +50,12 @@ jobs:
           mkdir -p test_dir/.keys test_dir/temp 
           ls -lah -R test_dir/ 
           echo "Docker: Service 'forest' starting ..."
-          con_id=`docker run -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -v $work_dir/test_dir/.keys/:/root/.forest/:Z -v $work_dir/test_dir/temp/:/var/tmp/:Z -t forest forest--encrypt-keystore false`
+          con_id=`docker run -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -v $work_dir/test_dir/.keys/:/root/.forest/:Z -v $work_dir/test_dir/temp/:/var/tmp/:Z -t forest forest --encrypt-keystore false`
           echo -e "Docker: Service 'forest' ID:\n$con_id"
           echo "Docker: Service 'forest' Log:"
           docker logs $con_id
           
-      # Check Container Health Exit the test when Containers are failed
+      # Check Container Health
       - name: Check Container Health
         run: |
           con_stat=`docker ps 2>&1` 
@@ -66,3 +66,9 @@ jobs:
         run: |
           con_id=`docker ps | grep -i forest | awk '{print $1}'`
           docker exec -e FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/1234/http" -t $con_id forest --encrypt-keystore false auth api-info -p admin
+        
+      # Stop the Service Container
+      - name: Stop 'forest' Service Container
+        run: |
+          con_id=`docker ps | grep -i forest | awk '{print $1}'`
+          docker stop $con_id
