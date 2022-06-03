@@ -9,6 +9,7 @@ repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 cid = { package = "forest_cid", version = "0.3" }
+multihash = "0.16"
 
 [dev-dependencies]
 rand = "0.8"

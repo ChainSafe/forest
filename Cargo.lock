@@ -1366,6 +1366,7 @@ name = "commcid"
 version = "0.1.1"
 dependencies = [
  "forest_cid",
+ "multihash 0.16.2",
  "rand 0.8.5",
 ]
 
@@ -2144,9 +2145,9 @@ dependencies = [
 
 [[package]]
 name = "dirs"
-version = "3.0.2"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
+checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
 dependencies = [
  "dirs-sys",
 ]
@@ -2942,9 +2943,6 @@ dependencies = [
 [[package]]
 name = "fil_clock"
 version = "0.1.0"
-dependencies = [
- "time 0.3.9",
-]
 
 [[package]]
 name = "fil_logger"
@@ -3348,7 +3346,6 @@ dependencies = [
  "forest_crypto",
  "forest_db",
  "forest_encoding",
- "forest_ipld",
  "forest_runtime",
  "forest_vm",
  "fvm_shared 0.2.2",
@@ -3412,7 +3409,6 @@ dependencies = [
  "fvm_shared 0.2.2",
  "lazy_static",
  "leb128",
- "log",
  "num-derive",
  "num-traits",
  "once_cell",
@@ -3425,7 +3421,6 @@ name = "forest_bigint"
 version = "0.1.4"
 dependencies = [
  "cs_serde_bytes",
- "libipld-core",
  "num-bigint 0.4.3",
  "num-integer",
  "serde",
@@ -3499,9 +3494,7 @@ name = "forest_cid"
 version = "0.3.0"
 dependencies = [
  "cid",
- "cs_serde_bytes",
  "forest_json_utils",
- "fvm_shared 0.2.2",
  "generic-array 0.14.5",
  "integer-encoding 3.0.3",
  "multibase 0.9.1",
@@ -3551,7 +3544,6 @@ version = "0.2.2"
 dependencies = [
  "blake2b_simd 1.0.0",
  "cs_serde_bytes",
- "forest_cid",
  "fvm_shared 0.2.2",
  "serde",
  "serde_ipld_dagcbor 0.1.2",
@@ -3576,11 +3568,9 @@ dependencies = [
  "async-std",
  "async-trait",
  "forest_cid",
- "forest_db",
  "forest_encoding",
  "fvm_shared 0.2.2",
  "indexmap",
- "ipld_blockstore",
  "libipld-core",
  "multibase 0.9.1",
  "serde",
@@ -4825,8 +4815,6 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_hash_utils",
- "forest_ipld",
- "hex",
  "ipld_blockstore",
  "libipld-core",
  "once_cell",
@@ -6045,7 +6033,7 @@ dependencies = [
  "async-std",
  "fs_extra",
  "log",
- "prometheus 0.13.1",
+ "prometheus 0.12.0",
  "thiserror",
  "tide",
 ]
@@ -7958,16 +7946,12 @@ version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "bls-signatures",
- "fil_types",
- "forest_address",
  "forest_blocks",
  "forest_cid",
  "forest_crypto",
  "forest_encoding",
  "forest_message",
- "forest_vm",
  "hex",
- "num-traits",
  "serde",
  "serde_json",
 ]
@@ -8808,7 +8792,6 @@ checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 name = "test_utils"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "base64 0.13.0",
  "chain",
  "forest_address",
@@ -8819,7 +8802,6 @@ dependencies = [
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
- "ipld_blockstore",
 ]
 
 [[package]]
@@ -9330,7 +9312,7 @@ checksum = "5190c9442dcdaf0ddd50f37420417d219ae5261bbf5db120d0f9bab996c9cba1"
 name = "utils"
 version = "0.1.0"
 dependencies = [
- "dirs 3.0.2",
+ "dirs 4.0.0",
  "libc",
  "log",
  "serde",
