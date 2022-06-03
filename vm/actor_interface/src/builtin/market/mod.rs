@@ -111,7 +111,7 @@ impl State {
                 Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
                     .map(BalanceTable::V6)?)
             }
-            State::V7(st) => todo!(),
+            State::V7(_st) => todo!(),
         }
     }
 
@@ -148,7 +148,7 @@ impl State {
                 Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
                     .map(BalanceTable::V6)?)
             }
-            State::V7(st) => {
+            State::V7(_st) => {
                 todo!()
             }
         }
@@ -181,7 +181,7 @@ impl State {
             State::V6(st) => Ok(
                 actorv6::market::DealArray::load(&st.proposals, store).map(DealProposals::V6)?
             ),
-            State::V7(st) => todo!(),
+            State::V7(_st) => todo!(),
         }
     }
 
@@ -209,7 +209,7 @@ impl State {
             State::V6(st) => {
                 Ok(actorv6::market::DealMetaArray::load(&st.states, store).map(DealStates::V6)?)
             }
-            State::V7(st) => {
+            State::V7(_st) => {
                 todo!()
             }
         }

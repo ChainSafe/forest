@@ -232,7 +232,7 @@ impl State {
 
                 Ok(miners)
             }
-            State::V7(st) => {
+            State::V7(_st) => {
                 todo!()
             }
         }

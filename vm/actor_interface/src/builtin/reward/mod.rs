@@ -142,7 +142,7 @@ impl State {
                 },
                 sector_weight,
             ),
-            State::V7(st) => todo!(),
+            State::V7(_st) => todo!(),
         }
     }
 
@@ -214,7 +214,7 @@ impl State {
                 },
                 circ_supply,
             ),
-            State::V7(st) => todo!(),
+            State::V7(_st) => todo!(),
         }
     }
 }

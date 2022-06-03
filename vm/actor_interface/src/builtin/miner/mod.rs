@@ -318,10 +318,10 @@ impl State {
                 .load_deadlines(store)?
                 .load_deadline(store, idx as usize)
                 .map(Deadline::V6)?),
-            State::V7(st) => todo!(), /*Ok(st
-                                      .load_deadlines(store)?
-                                      .load_deadline(store, idx as usize)
-                                      .map(Deadline::V6)?),*/
+            State::V7(_st) => todo!(), /*Ok(st
+                                       .load_deadlines(store)?
+                                       .load_deadline(store, idx as usize)
+                                       .map(Deadline::V6)?),*/
         }
     }
 
@@ -480,7 +480,7 @@ impl State {
             State::V6(st) => Ok(st
                 .get_precommitted_sector(store, sector_num)?
                 .map(From::from)),
-            State::V7(st) => todo!(),
+            State::V7(_st) => todo!(),
         }
     }
 
@@ -497,7 +497,7 @@ impl State {
             State::V4(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
             State::V5(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
             State::V6(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-            State::V7(st) => todo!(),
+            State::V7(_st) => todo!(),
         }
     }
 
@@ -510,7 +510,7 @@ impl State {
             State::V4(st) => st.deadline_info(epoch),
             State::V5(st) => st.deadline_info(epoch),
             State::V6(st) => st.deadline_info(epoch),
-            State::V7(st) => todo!(),
+            State::V7(_st) => todo!(),
         }
     }
 
@@ -536,7 +536,9 @@ impl State {
             State::V4(_) => actorv4::miner::WPOST_PERIOD_DEADLINES,
             State::V5(_) => actorv5::miner::WPOST_PERIOD_DEADLINES,
             State::V6(_) => actorv6::miner::WPOST_PERIOD_DEADLINES,
-            State::V7(_) => fil_actors_runtime_v7::runtime::Policy::default().wpost_period_deadlines,
+            State::V7(_) => {
+                fil_actors_runtime_v7::runtime::Policy::default().wpost_period_deadlines
+            }
         }
     }
 }
@@ -657,7 +659,7 @@ impl Deadline {
             Deadline::V4(dl) => &dl.partitions_posted,
             Deadline::V5(dl) => &dl.partitions_posted,
             Deadline::V6(dl) => &dl.partitions_posted,
-            Deadline::V7(dl) => todo!(), // &dl.partitions_posted.into(),
+            Deadline::V7(_dl) => todo!(), // &dl.partitions_posted.into(),
         }
     }
 }
@@ -682,7 +684,7 @@ impl Partition<'_> {
             Partition::V4(dl) => &dl.sectors,
             Partition::V5(dl) => &dl.sectors,
             Partition::V6(dl) => &dl.sectors,
-            Partition::V7(dl) => todo!(),
+            Partition::V7(_dl) => todo!(),
         }
     }
     pub fn faulty_sectors(&self) -> &BitField {
@@ -693,7 +695,7 @@ impl Partition<'_> {
             Partition::V4(dl) => &dl.faults,
             Partition::V5(dl) => &dl.faults,
             Partition::V6(dl) => &dl.faults,
-            Partition::V7(dl) => todo!(),
+            Partition::V7(_dl) => todo!(),
         }
     }
     pub fn recovering_sectors(&self) -> &BitField {
@@ -704,7 +706,7 @@ impl Partition<'_> {
             Partition::V4(dl) => &dl.recoveries,
             Partition::V5(dl) => &dl.recoveries,
             Partition::V6(dl) => &dl.recoveries,
-            Partition::V7(dl) => todo!(),
+            Partition::V7(_dl) => todo!(),
         }
     }
     pub fn live_sectors(&self) -> BitField {
