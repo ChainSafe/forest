@@ -372,6 +372,7 @@ pub mod de_network_version {
 #[cfg(test)]
 pub mod test {
     use super::*;
+    use toml::de;
 
     fn remove_whitespace(s: String) -> String {
         s.chars().filter(|c| !c.is_whitespace()).collect()
@@ -424,5 +425,12 @@ pub mod test {
         };
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    pub fn test_fails_if_network_version_is_invalid() {
+        let input = r#" height = "Cthulhu" "#;
+        let actual: Result<UpgradeInfo, de::Error> = toml::from_str(input);
+        assert!(actual.is_err())
     }
 }
