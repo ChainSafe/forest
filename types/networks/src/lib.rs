@@ -242,7 +242,7 @@ impl ChainConfig {
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.version)
-            .unwrap()
+            .expect("A network version should exist even if not specified in the config (a default exists).")
     }
 
     pub async fn get_beacon_schedule(
