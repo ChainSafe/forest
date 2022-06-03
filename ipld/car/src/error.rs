@@ -29,3 +29,9 @@ impl From<cid::multihash::Error> for Error {
         Error::ParsingError(err.to_string())
     }
 }
+
+impl From<forest_encoding::error::Error> for Error {
+    fn from(err: forest_encoding::error::Error) -> Error {
+        Error::Cbor(err)
+    }
+}

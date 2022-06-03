@@ -28,7 +28,7 @@ use std::sync::Arc;
 #[cfg(feature = "rocksdb")]
 use db::rocks::{RocksDb, WriteBatch};
 
-use fvm_shared::blockstore::Blockstore;
+use fvm_ipld_blockstore::Blockstore;
 
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
 pub trait BlockStore: Store {
