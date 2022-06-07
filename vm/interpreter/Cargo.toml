@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 async-std = "1.9"
+forest_actor = { package = "forest_actor", path = "../actor" }
 actors-v6 = { package = "fil_builtin_actors_bundle", version = "6.1.0" }
 actors-v7 = { package = "fil_builtin_actors_bundle", version = "7.5.1" }
 wasmtime = { version = "0.35", default-features = false }

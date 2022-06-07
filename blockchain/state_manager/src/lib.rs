@@ -16,6 +16,7 @@ use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use blockstore::BlockStore;
+use blockstore::FvmStore;
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -27,6 +28,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::machine::{MultiEngine, NetworkConfig};
+use fvm::state_tree::StateTree as FvmStateTree;
 use interpreter::{
     resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, LookbackStateGetter, Rand, VM,
 };
@@ -140,8 +142,11 @@ where
 
     /// Gets actor from given [Cid], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
+        let state =
+            FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         Ok(state.get_actor(addr)?)
+        // let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
+        // Ok(state.get_actor(addr)?)
     }
 
     /// Returns the cloned [Arc] of the state manager's [BlockStore].
@@ -219,12 +224,12 @@ where
 
     /// Returns the network name from the init actor state.
     pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
-        let init_act = self
-            .get_actor(actor::init::ADDRESS, *st)?
-            .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
-
-        let state = init::State::load(self.blockstore(), &init_act)?;
-        Ok(state.into_network_name())
+        Ok("cannot get name".into())
+        // let init_act = self
+        //     .get_actor(actor::init::ADDRESS, *st)?
+        //     .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
+        // let state = init::State::load(self.blockstore(), &init_act)?;
+        // Ok(state.into_network_name())
     }
 
     /// Returns true if miner has been slashed or is considered invalid.
@@ -240,6 +245,9 @@ where
 
     /// Returns raw work address of a miner given the state root.
     pub fn get_miner_work_addr(&self, state_cid: Cid, addr: &Address) -> Result<Address, Error> {
+        // let state =
+        //     FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
+        // Ok(state.get_actor(addr)?)
         let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
 
         let act = state

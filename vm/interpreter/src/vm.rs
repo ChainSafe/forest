@@ -580,7 +580,7 @@ where
         // Deduct gas cost and increment sequence
         self.state
             .mutate_actor(msg.from(), |act| {
-                act.deduct_funds(&gas_cost)?;
+                act.deduct_funds(&gas_cost).map_err(|e| e.to_string())?;
                 act.sequence += 1;
                 Ok(())
             })

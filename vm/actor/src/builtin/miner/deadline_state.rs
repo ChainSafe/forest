@@ -49,7 +49,7 @@ impl Deadlines {
     ) -> Result<Deadline, Box<dyn StdError>> {
         if deadline_idx >= WPOST_PERIOD_DEADLINES as usize {
             return Err(Box::new(actor_error!(
-                ErrIllegalArgument,
+                USR_ILLEGAL_ARGUMENT,
                 "invalid deadline {}",
                 deadline_idx
             )));
@@ -57,7 +57,7 @@ impl Deadlines {
 
         Ok(store.get(&self.due[deadline_idx])?.ok_or_else(|| {
             Box::new(actor_error!(
-                ErrIllegalState,
+                USR_ILLEGAL_STATE,
                 "failed to lookup deadline {}",
                 deadline_idx
             ))
@@ -240,11 +240,11 @@ impl Deadline {
             .get(partition_idx)
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::ErrIllegalState,
+                    ExitCode::USR_ILLEGAL_STATE,
                     format!("failed to lookup partition {}", partition_idx),
                 )
             })?
-            .ok_or_else(|| actor_error!(ErrNotFound, "no partition {}", partition_idx))?;
+            .ok_or_else(|| actor_error!(USR_NOT_FOUND, "no partition {}", partition_idx))?;
 
         Ok(partition.clone())
     }
@@ -260,11 +260,13 @@ impl Deadline {
             .get(partition_idx)
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::ErrIllegalState,
+                    ExitCode::USR_ILLEGAL_STATE,
                     format!("failed to lookup partition snapshot {}", partition_idx),
                 )
             })?
-            .ok_or_else(|| actor_error!(ErrNotFound, "no partition snapshot {}", partition_idx))?;
+            .ok_or_else(|| {
+                actor_error!(USR_NOT_FOUND, "no partition snapshot {}", partition_idx)
+            })?;
 
         Ok(partition.clone())
     }
@@ -562,7 +564,7 @@ impl Deadline {
                     e.downcast_wrap(format!("failed to load partition {}", partition_idx))
                 })?
                 .ok_or_else(
-                    || actor_error!(ErrNotFound; "failed to find partition {}", partition_idx),
+                    || actor_error!(USR_NOT_FOUND; "failed to find partition {}", partition_idx),
                 )?
                 .clone();
 
@@ -630,7 +632,7 @@ impl Deadline {
         let to_remove_set: HashSet<_> = to_remove
             .bounded_iter(partition_count as usize)
             .map_err(
-                |e| actor_error!(ErrIllegalArgument; "failed to expand partitions into map: {}", e),
+                |e| actor_error!(USR_ILLEGAL_ARGUMENT; "failed to expand partitions into map: {}", e),
             )?
             .collect();
 
@@ -641,7 +643,7 @@ impl Deadline {
 
         if let Some(partition_idx) = to_remove_set.iter().find(|&&i| i >= partition_count) {
             return Err(
-                actor_error!(ErrIllegalArgument; "partition index {} out of range [0, {})", partition_idx, partition_count).into()
+                actor_error!(USR_ILLEGAL_ARGUMENT; "partition index {} out of range [0, {})", partition_idx, partition_count).into()
             );
         }
 
@@ -671,7 +673,7 @@ impl Deadline {
                 let has_no_faults = partition.faults.is_empty();
                 if !has_no_faults {
                     return Err(actor_error!(
-                        ErrIllegalArgument,
+                        USR_ILLEGAL_ARGUMENT,
                         "cannot remove partition {}: has faults",
                         partition_idx
                     )
@@ -682,7 +684,7 @@ impl Deadline {
                 let all_proven = partition.unproven.is_empty();
                 if !all_proven {
                     return Err(actor_error!(
-                        ErrIllegalArgument,
+                        USR_ILLEGAL_ARGUMENT,
                         "cannot remove partition {}: has unproven sectors",
                         partition_idx
                     )
@@ -751,11 +753,11 @@ impl Deadline {
                 .get(partition_idx)
                 .map_err(|e| {
                     e.downcast_default(
-                        ExitCode::ErrIllegalState,
+                        ExitCode::USR_ILLEGAL_STATE,
                         format!("failed to load partition {}", partition_idx),
                     )
                 })?
-                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?
+                .ok_or_else(|| actor_error!(USR_NOT_FOUND; "no such partition {}", partition_idx))?
                 .clone();
 
             let (new_faults, partition_power_delta, partition_new_faulty_power) = partition
@@ -782,14 +784,17 @@ impl Deadline {
 
             partitions.set(partition_idx, partition).map_err(|e| {
                 e.downcast_default(
-                    ExitCode::ErrIllegalState,
+                    ExitCode::USR_ILLEGAL_STATE,
                     format!("failed to store partition {}", partition_idx),
                 )
             })?;
         }
 
         self.partitions = partitions.flush().map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "failed to store partitions root")
+            e.downcast_default(
+                ExitCode::USR_ILLEGAL_STATE,
+                "failed to store partitions root",
+            )
         })?;
 
         self.add_expiration_partitions(
@@ -800,7 +805,7 @@ impl Deadline {
         )
         .map_err(|e| {
             e.downcast_default(
-                ExitCode::ErrIllegalState,
+                ExitCode::USR_ILLEGAL_STATE,
                 "failed to update expirations for partitions with faults",
             )
         })?;
@@ -822,11 +827,11 @@ impl Deadline {
                 .get(partition_idx)
                 .map_err(|e| {
                     e.downcast_default(
-                        ExitCode::ErrIllegalState,
+                        ExitCode::USR_ILLEGAL_STATE,
                         format!("failed to load partition {}", partition_idx),
                     )
                 })?
-                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", partition_idx))?
+                .ok_or_else(|| actor_error!(USR_NOT_FOUND; "no such partition {}", partition_idx))?
                 .clone();
 
             partition
@@ -835,7 +840,7 @@ impl Deadline {
 
             partitions.set(partition_idx, partition).map_err(|e| {
                 e.downcast_default(
-                    ExitCode::ErrIllegalState,
+                    ExitCode::USR_ILLEGAL_STATE,
                     format!("failed to update partition {}", partition_idx),
                 )
             })?;
@@ -844,7 +849,10 @@ impl Deadline {
         // Power is not regained until the deadline end, when the recovery is confirmed.
 
         self.partitions = partitions.flush().map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "failed to store partitions root")
+            e.downcast_default(
+                ExitCode::USR_ILLEGAL_STATE,
+                "failed to store partitions root",
+            )
         })?;
 
         Ok(())
@@ -860,7 +868,7 @@ impl Deadline {
         fault_expiration_epoch: ChainEpoch,
     ) -> Result<(PowerPair, PowerPair), ActorError> {
         let mut partitions = self.partitions_amt(store).map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "failed to load partitions")
+            e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to load partitions")
         })?;
 
         let mut detected_any = false;
@@ -878,11 +886,11 @@ impl Deadline {
                 .get(partition_idx)
                 .map_err(|e| {
                     e.downcast_default(
-                        ExitCode::ErrIllegalState,
+                        ExitCode::USR_ILLEGAL_STATE,
                         format!("failed to load partition {}", partition_idx),
                     )
                 })?
-                .ok_or_else(|| actor_error!(ErrIllegalState; "no partition {}", partition_idx))?
+                .ok_or_else(|| actor_error!(USR_ILLEGAL_STATE; "no partition {}", partition_idx))?
                 .clone();
 
             // If we have no recovering power/sectors, and all power is faulty, skip
@@ -900,7 +908,7 @@ impl Deadline {
                 .record_missed_post(store, fault_expiration_epoch, quant)
                 .map_err(|e| {
                     e.downcast_default(
-                        ExitCode::ErrIllegalState,
+                        ExitCode::USR_ILLEGAL_STATE,
                         format!(
                             "failed to record missed PoSt for partition {}",
                             partition_idx
@@ -918,7 +926,7 @@ impl Deadline {
             // Save new partition state.
             partitions.set(partition_idx, partition).map_err(|e| {
                 e.downcast_default(
-                    ExitCode::ErrIllegalState,
+                    ExitCode::USR_ILLEGAL_STATE,
                     format!("failed to update partition {}", partition_idx),
                 )
             })?;
@@ -932,7 +940,7 @@ impl Deadline {
         // Save modified deadline state.
         if detected_any {
             self.partitions = partitions.flush().map_err(|e| {
-                e.downcast_default(ExitCode::ErrIllegalState, "failed to store partitions")
+                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to store partitions")
             })?;
         }
 
@@ -944,7 +952,7 @@ impl Deadline {
         )
         .map_err(|e| {
             e.downcast_default(
-                ExitCode::ErrIllegalState,
+                ExitCode::USR_ILLEGAL_STATE,
                 "failed to update deadline expiration queue",
             )
         })?;
@@ -960,7 +968,7 @@ impl Deadline {
         .flush()
         .map_err(|e| {
             e.downcast_default(
-                ExitCode::ErrIllegalState,
+                ExitCode::USR_ILLEGAL_STATE,
                 "failed to clear pending proofs array",
             )
         })?;
@@ -1105,7 +1113,7 @@ impl Deadline {
         let num_partitions = partition_indexes.len();
         if num_partitions != post_partitions.len() {
             return Err(Box::new(actor_error!(
-                ErrIllegalArgument,
+                USR_ILLEGAL_ARGUMENT,
                 "duplicate partitions proven"
             )));
         }
@@ -1115,7 +1123,7 @@ impl Deadline {
         let already_proven = &self.partitions_posted & &partition_indexes;
         if !already_proven.is_empty() {
             return Err(Box::new(actor_error!(
-                ErrIllegalArgument,
+                USR_ILLEGAL_ARGUMENT,
                 "parition already proven: {:?}",
                 already_proven
             )));
@@ -1136,7 +1144,7 @@ impl Deadline {
             let mut partition = partitions
                 .get(post.index)
                 .map_err(|e| e.downcast_wrap(format!("failed to load partition {}", post.index)))?
-                .ok_or_else(|| actor_error!(ErrNotFound; "no such partition {}", post.index))?
+                .ok_or_else(|| actor_error!(USR_NOT_FOUND; "no such partition {}", post.index))?
                 .clone();
 
             // Process new faults and accumulate new faulty power.
@@ -1185,7 +1193,7 @@ impl Deadline {
             // This will be rolled back if the method aborts with a failed proof.
             partitions.set(post.index, partition).map_err(|e| {
                 e.downcast_default(
-                    ExitCode::ErrIllegalState,
+                    ExitCode::USR_ILLEGAL_STATE,
                     format!("failed to update partition {}", post.index),
                 )
             })?;
@@ -1203,7 +1211,7 @@ impl Deadline {
         self.add_expiration_partitions(store, fault_expiration, &rescheduled_partitions, quant)
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::ErrIllegalState,
+                    ExitCode::USR_ILLEGAL_STATE,
                     "failed to update expirations for partitions with faults",
                 )
             })?;
@@ -1213,7 +1221,7 @@ impl Deadline {
         self.faulty_power += &new_faulty_power_total;
 
         self.partitions = partitions.flush().map_err(|e| {
-            e.downcast_default(ExitCode::ErrIllegalState, "failed to persist partitions")
+            e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to persist partitions")
         })?;
 
         // Collect all sectors, faults, and recoveries for proof verification.
@@ -1275,7 +1283,7 @@ impl Deadline {
         let post = proof_arr
             .delete(idx as usize)
             .map_err(|e| e.downcast_wrap(format!("failed to retrieve proof {}", idx)))?
-            .ok_or_else(|| actor_error!(ErrIllegalArgument, "proof {} not found", idx))?;
+            .ok_or_else(|| actor_error!(USR_ILLEGAL_ARGUMENT, "proof {} not found", idx))?;
 
         let root = proof_arr
             .flush()

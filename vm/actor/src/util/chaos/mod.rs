@@ -60,7 +60,7 @@ impl Actor {
         } else {
             Ok(SendReturn {
                 return_value: result.unwrap(),
-                code: ExitCode::Ok,
+                code: ExitCode::OK,
             })
         }
     }
@@ -164,7 +164,7 @@ impl Actor {
                 Ok(())
             }),
 
-            _ => Err(actor_error!(ErrIllegalArgument; "Invalid mutate state command given" )),
+            _ => Err(actor_error!(USR_ILLEGAL_ARGUMENT; "Invalid mutate state command given" )),
         }
     }
 
@@ -246,7 +246,7 @@ impl ActorCode for Actor {
                 Ok(Serialized::serialize(inspect)?)
             }
 
-            None => Err(actor_error!(SysErrInvalidMethod; "Invalid method")),
+            None => Err(actor_error!(SYS_INVALID_METHOD; "Invalid method")),
         }
     }
 }

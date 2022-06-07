@@ -58,7 +58,7 @@ impl Actor {
             Ok(())
         } else {
             Err(actor_error!(
-                ErrIllegalArgument,
+                USR_ILLEGAL_ARGUMENT,
                 "argument should not be nil"
             ))
         }
@@ -86,21 +86,21 @@ impl Actor {
         let prior_balance = rt.current_balance()?;
         if params.penalty.sign() == Sign::Minus {
             return Err(actor_error!(
-                ErrIllegalArgument,
+                USR_ILLEGAL_ARGUMENT,
                 "negative penalty {}",
                 params.penalty
             ));
         }
         if params.gas_reward.sign() == Sign::Minus {
             return Err(actor_error!(
-                ErrIllegalArgument,
+                USR_ILLEGAL_ARGUMENT,
                 "negative gas reward {}",
                 params.gas_reward
             ));
         }
         if prior_balance < params.gas_reward {
             return Err(actor_error!(
-                ErrIllegalState,
+                USR_ILLEGAL_STATE,
                 "actor current balance {} insufficient to pay gas reward {}",
                 prior_balance,
                 params.gas_reward
@@ -108,7 +108,7 @@ impl Actor {
         }
         if params.win_count <= 0 {
             return Err(actor_error!(
-                ErrIllegalArgument,
+                USR_ILLEGAL_ARGUMENT,
                 "invalid win count {}",
                 params.win_count
             ));
@@ -116,7 +116,7 @@ impl Actor {
 
         let miner_addr = rt
             .resolve_address(&params.miner)?
-            .ok_or_else(|| actor_error!(ErrNotFound, "failed to resolve given owner address"))?;
+            .ok_or_else(|| actor_error!(USR_NOT_FOUND, "failed to resolve given owner address"))?;
 
         let penalty: TokenAmount = &params.penalty * PENALTY_MULTIPLIER;
 
@@ -135,7 +135,7 @@ impl Actor {
                 block_reward = &total_reward - &params.gas_reward;
                 if block_reward.is_negative() {
                     return Err(actor_error!(
-                        ErrIllegalState,
+                        USR_ILLEGAL_STATE,
                         "programming error, block reward {} below zero",
                         block_reward
                     ));
@@ -149,7 +149,7 @@ impl Actor {
         // * as they treat panics as an exit code. Revisit this.
         if total_reward > prior_balance {
             return Err(actor_error!(
-                ErrIllegalState,
+                USR_ILLEGAL_STATE,
                 "reward {} exceeds balance {}",
                 total_reward,
                 prior_balance
@@ -219,7 +219,7 @@ impl Actor {
     {
         rt.validate_immediate_caller_is(std::iter::once(&*STORAGE_POWER_ACTOR_ADDR))?;
         let curr_realized_power = curr_realized_power
-            .ok_or_else(|| actor_error!(ErrIllegalArgument, "argument cannot be None"))?;
+            .ok_or_else(|| actor_error!(USR_ILLEGAL_ARGUMENT, "argument cannot be None"))?;
 
         rt.transaction(|st: &mut State, rt| {
             let prev = st.epoch;
@@ -267,7 +267,7 @@ impl ActorCode for Actor {
                 Self::update_network_kpi(rt, param.map(|v| v.0))?;
                 Ok(Serialized::default())
             }
-            None => Err(actor_error!(SysErrInvalidMethod, "Invalid method")),
+            None => Err(actor_error!(SYS_INVALID_METHOD, "Invalid method")),
         }
     }
 }
