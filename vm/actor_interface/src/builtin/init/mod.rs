@@ -10,21 +10,22 @@ use std::error::Error;
 use vm::ActorState;
 
 /// Init actor address.
-pub static ADDRESS: &actorv3::INIT_ACTOR_ADDR = &actorv3::INIT_ACTOR_ADDR;
+pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR =
+    &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR;
 
 /// Init actor method.
-pub type Method = actorv3::init::Method;
+pub type Method = fil_actor_init_v7::Method;
 
 /// Init actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V0(actorv0::init::State),
-    V2(actorv2::init::State),
-    V3(actorv3::init::State),
-    V4(actorv4::init::State),
-    V5(actorv5::init::State),
-    V6(actorv6::init::State),
+    // V0(actorv0::init::State),
+    // V2(actorv2::init::State),
+    // V3(actorv3::init::State),
+    // V4(actorv4::init::State),
+    // V5(actorv5::init::State),
+    // V6(actorv6::init::State),
     V7(fil_actor_init_v7::State),
 }
 
@@ -33,37 +34,38 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::INIT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V0)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::INIT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V2)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv3::INIT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V3)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv4::INIT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V4)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv5::INIT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V5)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv6::INIT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V6)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
+        // if actor.code == *actorv0::INIT_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V0)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv2::INIT_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V2)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv3::INIT_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V3)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv4::INIT_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V4)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv5::INIT_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V5)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv6::INIT_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V6)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else
+        if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
             Ok(store
                 .get(&actor.state)?
                 .map(State::V7)
@@ -81,12 +83,12 @@ impl State {
         addr: &Address,
     ) -> Result<Address, Box<dyn Error>> {
         match self {
-            State::V0(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V2(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V3(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V4(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V5(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            State::V6(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            // State::V0(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            // State::V2(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            // State::V3(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            // State::V4(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            // State::V5(st) => Ok(st.map_address_to_new_id(store, addr)?),
+            // State::V6(st) => Ok(st.map_address_to_new_id(store, addr)?),
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 Ok(Address::new_id(st.map_address_to_new_id(&fvm_store, addr)?))
@@ -110,12 +112,12 @@ impl State {
         addr: &Address,
     ) -> Result<Option<Address>, Box<dyn Error>> {
         match self {
-            State::V0(st) => st.resolve_address(store, addr),
-            State::V2(st) => st.resolve_address(store, addr),
-            State::V3(st) => st.resolve_address(store, addr),
-            State::V4(st) => st.resolve_address(store, addr),
-            State::V5(st) => st.resolve_address(store, addr),
-            State::V6(st) => st.resolve_address(store, addr),
+            // State::V0(st) => st.resolve_address(store, addr),
+            // State::V2(st) => st.resolve_address(store, addr),
+            // State::V3(st) => st.resolve_address(store, addr),
+            // State::V4(st) => st.resolve_address(store, addr),
+            // State::V5(st) => st.resolve_address(store, addr),
+            // State::V6(st) => st.resolve_address(store, addr),
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 Ok(st.resolve_address(&fvm_store, addr).expect("FIXME"))
@@ -125,12 +127,12 @@ impl State {
 
     pub fn into_network_name(self) -> String {
         match self {
-            State::V0(st) => st.network_name,
-            State::V2(st) => st.network_name,
-            State::V3(st) => st.network_name,
-            State::V4(st) => st.network_name,
-            State::V5(st) => st.network_name,
-            State::V6(st) => st.network_name,
+            // State::V0(st) => st.network_name,
+            // State::V2(st) => st.network_name,
+            // State::V3(st) => st.network_name,
+            // State::V4(st) => st.network_name,
+            // State::V5(st) => st.network_name,
+            // State::V6(st) => st.network_name,
             State::V7(st) => st.network_name,
         }
     }

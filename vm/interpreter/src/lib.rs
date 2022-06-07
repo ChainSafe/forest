@@ -4,6 +4,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+mod actor_downcast;
 mod default_runtime;
 mod fvm;
 mod gas_block_store;

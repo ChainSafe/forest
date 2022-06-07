@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::account;
-use actor::market;
-use actor::miner;
-use actor::power;
+// use actor::account;
+// use actor::market;
+// use actor::miner;
+// use actor::power;
 use address::Address;
 use blockstore::resolve::resolve_cids_recursive;
 use blockstore::BlockStore;
@@ -118,17 +118,17 @@ fn pp_actor_state(
 
     buffer += &format!("{:?}\n", state);
 
-    if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
-        buffer += &format!("{:?}", miner_state);
-    } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
-        buffer += &format!("{:?}", account_state);
-    } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
-        buffer += &format!("{:?}", state);
-    } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
-        buffer += &format!("{:?}", state);
-    } else {
-        buffer += &serde_json::to_string_pretty(&resolved)?;
-    }
+    // if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
+    //     buffer += &format!("{:?}", miner_state);
+    // } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
+    //     buffer += &format!("{:?}", account_state);
+    // } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
+    //     buffer += &format!("{:?}", state);
+    // } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
+    //     buffer += &format!("{:?}", state);
+    // } else {
+    buffer += &serde_json::to_string_pretty(&resolved)?;
+    // }
     Ok(buffer)
 }
 

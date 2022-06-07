@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::*;
-use actorv0::multisig as msig0;
 use address::Address;
 use blockstore::BlockStore;
 use chain::*;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::{FILECOIN_PRECISION, FIL_RESERVED};
+use fil_types::FILECOIN_PRECISION;
 use interpreter::CircSupplyCalc;
 use networks::{
     UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_CALICO_HEIGHT, UPGRADE_IGNITION_HEIGHT,
@@ -79,9 +78,9 @@ impl GenesisInfo {
 /// to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
-    genesis: OnceCell<Vec<msig0::State>>,
-    ignition: OnceCell<Vec<msig0::State>>,
-    calico: OnceCell<Vec<msig0::State>>,
+    // genesis: OnceCell<Vec<msig0::State>>,
+    // ignition: OnceCell<Vec<msig0::State>>,
+    // calico: OnceCell<Vec<msig0::State>>,
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -90,27 +89,28 @@ impl CircSupplyCalc for GenesisInfo {
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
+        unimplemented!()
         // TODO investigate a better way to handle initializing the genesis actors rather than
         // on first circ supply call. This is currently necessary because it is how Lotus does it
         // but it's not ideal to have the side effect from the VM to modify the genesis info
         // of the state manager. This isn't terrible because it's just caching to avoid
         // recalculating using the store, and it avoids computing until circ_supply is called.
-        self.vesting
-            .genesis
-            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
-                self.init(state_tree.store())?;
-                Ok(setup_genesis_vesting_schedule())
-            })?;
+        // self.vesting
+        //     .genesis
+        //     .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+        //         self.init(state_tree.store())?;
+        //         Ok(setup_genesis_vesting_schedule())
+        //     })?;
 
-        self.vesting
-            .ignition
-            .get_or_init(setup_ignition_vesting_schedule);
+        // self.vesting
+        //     .ignition
+        //     .get_or_init(setup_ignition_vesting_schedule);
 
-        self.vesting
-            .calico
-            .get_or_init(setup_calico_vesting_schedule);
+        // self.vesting
+        //     .calico
+        //     .get_or_init(setup_calico_vesting_schedule);
 
-        get_circulating_supply(self, height, state_tree)
+        // get_circulating_supply(self, height, state_tree)
     }
 
     fn get_fil_vested<DB: BlockStore>(
@@ -118,22 +118,23 @@ impl CircSupplyCalc for GenesisInfo {
         height: ChainEpoch,
         store: &DB,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
-        self.vesting
-            .genesis
-            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
-                self.init(store)?;
-                Ok(setup_genesis_vesting_schedule())
-            })?;
+        unimplemented!()
+        // self.vesting
+        //     .genesis
+        //     .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+        //         self.init(store)?;
+        //         Ok(setup_genesis_vesting_schedule())
+        //     })?;
 
-        self.vesting
-            .ignition
-            .get_or_init(setup_ignition_vesting_schedule);
+        // self.vesting
+        //     .ignition
+        //     .get_or_init(setup_ignition_vesting_schedule);
 
-        self.vesting
-            .calico
-            .get_or_init(setup_calico_vesting_schedule);
+        // self.vesting
+        //     .calico
+        //     .get_or_init(setup_calico_vesting_schedule);
 
-        Ok(get_fil_vested(self, height))
+        // Ok(get_fil_vested(self, height))
     }
 }
 
@@ -231,10 +232,11 @@ fn get_fil_power_locked<DB: BlockStore>(
 fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let reserve_actor = get_actor_state(state_tree, RESERVE_ADDRESS)?;
+    unimplemented!()
+    // let reserve_actor = get_actor_state(state_tree, RESERVE_ADDRESS)?;
 
-    // If money enters the reserve actor, this could lead to a negative term
-    Ok(&*FIL_RESERVED - reserve_actor.balance)
+    // // If money enters the reserve actor, this could lead to a negative term
+    // Ok(&*FIL_RESERVED - reserve_actor.balance)
 }
 
 fn get_fil_locked<DB: BlockStore>(
@@ -275,63 +277,63 @@ fn get_circulating_supply<'a, DB: BlockStore>(
     Ok(fil_circulating)
 }
 
-fn setup_genesis_vesting_schedule() -> Vec<msig0::State> {
-    PRE_CALICO_VESTING
-        .iter()
-        .map(|(unlock_duration, initial_balance)| {
-            msig0::State {
-                signers: vec![],
-                num_approvals_threshold: 0,
-                next_tx_id: msig0::TxnID(0),
-                initial_balance: initial_balance.clone(),
-                start_epoch: ChainEpoch::default(),
-                unlock_duration: *unlock_duration,
-                // Default Cid is ok here because this field is never read
-                pending_txs: Cid::default(),
-            }
-        })
-        .collect()
-}
+// fn setup_genesis_vesting_schedule() -> Vec<msig0::State> {
+//     PRE_CALICO_VESTING
+//         .iter()
+//         .map(|(unlock_duration, initial_balance)| {
+//             msig0::State {
+//                 signers: vec![],
+//                 num_approvals_threshold: 0,
+//                 next_tx_id: msig0::TxnID(0),
+//                 initial_balance: initial_balance.clone(),
+//                 start_epoch: ChainEpoch::default(),
+//                 unlock_duration: *unlock_duration,
+//                 // Default Cid is ok here because this field is never read
+//                 pending_txs: Cid::default(),
+//             }
+//         })
+//         .collect()
+// }
 
-fn setup_ignition_vesting_schedule() -> Vec<msig0::State> {
-    PRE_CALICO_VESTING
-        .iter()
-        .map(|(unlock_duration, initial_balance)| {
-            msig0::State {
-                signers: vec![],
-                num_approvals_threshold: 0,
-                next_tx_id: msig0::TxnID(0),
+// fn setup_ignition_vesting_schedule() -> Vec<msig0::State> {
+//     PRE_CALICO_VESTING
+//         .iter()
+//         .map(|(unlock_duration, initial_balance)| {
+//             msig0::State {
+//                 signers: vec![],
+//                 num_approvals_threshold: 0,
+//                 next_tx_id: msig0::TxnID(0),
 
-                // In the pre-ignition logic, this value was incorrectly set in Fil, not attoFil,
-                // an off-by-10^18 error
-                initial_balance: initial_balance * FILECOIN_PRECISION,
+//                 // In the pre-ignition logic, this value was incorrectly set in Fil, not attoFil,
+//                 // an off-by-10^18 error
+//                 initial_balance: initial_balance * FILECOIN_PRECISION,
 
-                // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic
-                // of the Ignition upgrade itself.
-                start_epoch: UPGRADE_LIFTOFF_HEIGHT,
+//                 // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic
+//                 // of the Ignition upgrade itself.
+//                 start_epoch: UPGRADE_LIFTOFF_HEIGHT,
 
-                unlock_duration: *unlock_duration,
-                // Default Cid is ok here because this field is never read
-                pending_txs: Cid::default(),
-            }
-        })
-        .collect()
-}
+//                 unlock_duration: *unlock_duration,
+//                 // Default Cid is ok here because this field is never read
+//                 pending_txs: Cid::default(),
+//             }
+//         })
+//         .collect()
+// }
 
-fn setup_calico_vesting_schedule() -> Vec<msig0::State> {
-    CALICO_VESTING
-        .iter()
-        .map(|(unlock_duration, initial_balance)| {
-            msig0::State {
-                signers: vec![],
-                num_approvals_threshold: 0,
-                next_tx_id: msig0::TxnID(0),
-                initial_balance: initial_balance * FILECOIN_PRECISION,
-                start_epoch: UPGRADE_LIFTOFF_HEIGHT,
-                unlock_duration: *unlock_duration,
-                // Default Cid is ok here because this field is never read
-                pending_txs: Cid::default(),
-            }
-        })
-        .collect()
-}
+// fn setup_calico_vesting_schedule() -> Vec<msig0::State> {
+//     CALICO_VESTING
+//         .iter()
+//         .map(|(unlock_duration, initial_balance)| {
+//             msig0::State {
+//                 signers: vec![],
+//                 num_approvals_threshold: 0,
+//                 next_tx_id: msig0::TxnID(0),
+//                 initial_balance: initial_balance * FILECOIN_PRECISION,
+//                 start_epoch: UPGRADE_LIFTOFF_HEIGHT,
+//                 unlock_duration: *unlock_duration,
+//                 // Default Cid is ok here because this field is never read
+//                 pending_txs: Cid::default(),
+//             }
+//         })
+//         .collect()
+// }

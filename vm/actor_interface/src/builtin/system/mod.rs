@@ -7,21 +7,22 @@ use std::error::Error;
 use vm::ActorState;
 
 /// System actor address.
-pub static ADDRESS: &actorv3::SYSTEM_ACTOR_ADDR = &actorv3::SYSTEM_ACTOR_ADDR;
+pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::SYSTEM_ACTOR_ADDR =
+    &fil_actors_runtime_v7::builtin::singletons::SYSTEM_ACTOR_ADDR;
 
 /// System actor method.
-pub type Method = actorv3::system::Method;
+pub type Method = fil_actor_system_v7::Method;
 
 /// System actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V0(actorv0::system::State),
-    V2(actorv2::system::State),
-    V3(actorv3::system::State),
-    V4(actorv4::system::State),
-    V5(actorv5::system::State),
-    V6(actorv6::system::State),
+    // V0(actorv0::system::State),
+    // V2(actorv2::system::State),
+    // V3(actorv3::system::State),
+    // V4(actorv4::system::State),
+    // V5(actorv5::system::State),
+    // V6(actorv6::system::State),
 }
 
 impl State {
@@ -29,38 +30,38 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V0)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V2)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv3::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V3)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv4::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V4)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv5::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V5)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv6::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V6)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else {
-            Err(format!("Unknown system actor code {}", actor.code).into())
-        }
+        // if actor.code == *actorv0::SYSTEM_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V0)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv2::SYSTEM_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V2)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv3::SYSTEM_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V3)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv4::SYSTEM_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V4)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv5::SYSTEM_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V5)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv6::SYSTEM_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V6)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else {
+        Err(format!("Unknown system actor code {}", actor.code).into())
+        // }
     }
 }

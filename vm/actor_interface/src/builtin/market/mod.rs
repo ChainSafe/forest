@@ -9,25 +9,26 @@ use fil_types::PaddedPieceSize;
 use ipld_blockstore::BlockStore;
 use num_bigint::{bigint_ser, BigInt};
 use serde::Serialize;
-use std::error::Error;
+use std::{error::Error, marker::PhantomData};
 use vm::{ActorState, TokenAmount};
 
 /// Market actor address.
-pub static ADDRESS: &actorv4::STORAGE_MARKET_ACTOR_ADDR = &actorv4::STORAGE_MARKET_ACTOR_ADDR;
+pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR =
+    &fil_actors_runtime_v7::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
 
 /// Market actor method.
-pub type Method = actorv4::market::Method;
+pub type Method = fil_actor_market_v7::Method;
 
 /// Market actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V0(actorv0::market::State),
-    V2(actorv2::market::State),
-    V3(actorv3::market::State),
-    V4(actorv4::market::State),
-    V5(actorv5::market::State),
-    V6(actorv6::market::State),
+    // V0(actorv0::market::State),
+    // V2(actorv2::market::State),
+    // V3(actorv3::market::State),
+    // V4(actorv4::market::State),
+    // V5(actorv5::market::State),
+    // V6(actorv6::market::State),
     V7(fil_actor_market_v7::State),
 }
 
@@ -36,37 +37,38 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V0)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V2)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv3::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V3)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv4::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V4)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv5::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V5)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv6::MARKET_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V6)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code
+        // if actor.code == *actorv0::MARKET_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V0)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv2::MARKET_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V2)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv3::MARKET_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V3)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv4::MARKET_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V4)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv5::MARKET_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V5)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else if actor.code == *actorv6::MARKET_ACTOR_CODE_ID {
+        //     Ok(store
+        //         .get(&actor.state)?
+        //         .map(State::V6)
+        //         .ok_or("Actor state doesn't exist in store")?)
+        // } else
+        if actor.code
             == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagemarket"))
         {
             Ok(store
@@ -87,30 +89,30 @@ impl State {
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => {
-                Ok(actorv0::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V0)?)
-            }
-            State::V2(st) => {
-                Ok(actorv2::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V2)?)
-            }
-            State::V3(st) => {
-                Ok(actorv3::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V3)?)
-            }
-            State::V4(st) => {
-                Ok(actorv4::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V4)?)
-            }
-            State::V5(st) => {
-                Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V5)?)
-            }
-            State::V6(st) => {
-                Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V6)?)
-            }
+            // State::V0(st) => {
+            //     Ok(actorv0::BalanceTable::from_root(store, &st.escrow_table)
+            //         .map(BalanceTable::V0)?)
+            // }
+            // State::V2(st) => {
+            //     Ok(actorv2::BalanceTable::from_root(store, &st.escrow_table)
+            //         .map(BalanceTable::V2)?)
+            // }
+            // State::V3(st) => {
+            //     Ok(actorv3::BalanceTable::from_root(store, &st.escrow_table)
+            //         .map(BalanceTable::V3)?)
+            // }
+            // State::V4(st) => {
+            //     Ok(actorv4::BalanceTable::from_root(store, &st.escrow_table)
+            //         .map(BalanceTable::V4)?)
+            // }
+            // State::V5(st) => {
+            //     Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
+            //         .map(BalanceTable::V5)?)
+            // }
+            // State::V6(st) => {
+            //     Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
+            //         .map(BalanceTable::V6)?)
+            // }
             State::V7(_st) => todo!(),
         }
     }
@@ -124,30 +126,30 @@ impl State {
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => {
-                Ok(actorv0::BalanceTable::from_root(store, &st.locked_table)
-                    .map(BalanceTable::V0)?)
-            }
-            State::V2(st) => {
-                Ok(actorv2::BalanceTable::from_root(store, &st.locked_table)
-                    .map(BalanceTable::V2)?)
-            }
-            State::V3(st) => {
-                Ok(actorv3::BalanceTable::from_root(store, &st.locked_table)
-                    .map(BalanceTable::V3)?)
-            }
-            State::V4(st) => {
-                Ok(actorv4::BalanceTable::from_root(store, &st.locked_table)
-                    .map(BalanceTable::V4)?)
-            }
-            State::V5(st) => {
-                Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V5)?)
-            }
-            State::V6(st) => {
-                Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
-                    .map(BalanceTable::V6)?)
-            }
+            // State::V0(st) => {
+            //     Ok(actorv0::BalanceTable::from_root(store, &st.locked_table)
+            //         .map(BalanceTable::V0)?)
+            // }
+            // State::V2(st) => {
+            //     Ok(actorv2::BalanceTable::from_root(store, &st.locked_table)
+            //         .map(BalanceTable::V2)?)
+            // }
+            // State::V3(st) => {
+            //     Ok(actorv3::BalanceTable::from_root(store, &st.locked_table)
+            //         .map(BalanceTable::V3)?)
+            // }
+            // State::V4(st) => {
+            //     Ok(actorv4::BalanceTable::from_root(store, &st.locked_table)
+            //         .map(BalanceTable::V4)?)
+            // }
+            // State::V5(st) => {
+            //     Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
+            //         .map(BalanceTable::V5)?)
+            // }
+            // State::V6(st) => {
+            //     Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
+            //         .map(BalanceTable::V6)?)
+            // }
             State::V7(_st) => {
                 todo!()
             }
@@ -163,24 +165,24 @@ impl State {
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => Ok(
-                actorv0::market::DealArray::load(&st.proposals, store).map(DealProposals::V0)?
-            ),
-            State::V2(st) => Ok(
-                actorv2::market::DealArray::load(&st.proposals, store).map(DealProposals::V2)?
-            ),
-            State::V3(st) => Ok(
-                actorv3::market::DealArray::load(&st.proposals, store).map(DealProposals::V3)?
-            ),
-            State::V4(st) => Ok(
-                actorv4::market::DealArray::load(&st.proposals, store).map(DealProposals::V4)?
-            ),
-            State::V5(st) => Ok(
-                actorv5::market::DealArray::load(&st.proposals, store).map(DealProposals::V5)?
-            ),
-            State::V6(st) => Ok(
-                actorv6::market::DealArray::load(&st.proposals, store).map(DealProposals::V6)?
-            ),
+            // State::V0(st) => Ok(
+            //     actorv0::market::DealArray::load(&st.proposals, store).map(DealProposals::V0)?
+            // ),
+            // State::V2(st) => Ok(
+            //     actorv2::market::DealArray::load(&st.proposals, store).map(DealProposals::V2)?
+            // ),
+            // State::V3(st) => Ok(
+            //     actorv3::market::DealArray::load(&st.proposals, store).map(DealProposals::V3)?
+            // ),
+            // State::V4(st) => Ok(
+            //     actorv4::market::DealArray::load(&st.proposals, store).map(DealProposals::V4)?
+            // ),
+            // State::V5(st) => Ok(
+            //     actorv5::market::DealArray::load(&st.proposals, store).map(DealProposals::V5)?
+            // ),
+            // State::V6(st) => Ok(
+            //     actorv6::market::DealArray::load(&st.proposals, store).map(DealProposals::V6)?
+            // ),
             State::V7(_st) => todo!(),
         }
     }
@@ -191,24 +193,24 @@ impl State {
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => {
-                Ok(actorv0::market::DealMetaArray::load(&st.states, store).map(DealStates::V0)?)
-            }
-            State::V2(st) => {
-                Ok(actorv2::market::DealMetaArray::load(&st.states, store).map(DealStates::V2)?)
-            }
-            State::V3(st) => {
-                Ok(actorv3::market::DealMetaArray::load(&st.states, store).map(DealStates::V3)?)
-            }
-            State::V4(st) => {
-                Ok(actorv4::market::DealMetaArray::load(&st.states, store).map(DealStates::V4)?)
-            }
-            State::V5(st) => {
-                Ok(actorv5::market::DealMetaArray::load(&st.states, store).map(DealStates::V5)?)
-            }
-            State::V6(st) => {
-                Ok(actorv6::market::DealMetaArray::load(&st.states, store).map(DealStates::V6)?)
-            }
+            // State::V0(st) => {
+            //     Ok(actorv0::market::DealMetaArray::load(&st.states, store).map(DealStates::V0)?)
+            // }
+            // State::V2(st) => {
+            //     Ok(actorv2::market::DealMetaArray::load(&st.states, store).map(DealStates::V2)?)
+            // }
+            // State::V3(st) => {
+            //     Ok(actorv3::market::DealMetaArray::load(&st.states, store).map(DealStates::V3)?)
+            // }
+            // State::V4(st) => {
+            //     Ok(actorv4::market::DealMetaArray::load(&st.states, store).map(DealStates::V4)?)
+            // }
+            // State::V5(st) => {
+            //     Ok(actorv5::market::DealMetaArray::load(&st.states, store).map(DealStates::V5)?)
+            // }
+            // State::V6(st) => {
+            //     Ok(actorv6::market::DealMetaArray::load(&st.states, store).map(DealStates::V6)?)
+            // }
             State::V7(_st) => {
                 todo!()
             }
@@ -218,12 +220,12 @@ impl State {
     /// Consume state to return just total funds locked
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V0(st) => st.total_locked(),
-            State::V2(st) => st.total_locked(),
-            State::V3(st) => st.total_locked(),
-            State::V4(st) => st.total_locked(),
-            State::V5(st) => st.total_locked(),
-            State::V6(st) => st.total_locked(),
+            // State::V0(st) => st.total_locked(),
+            // State::V2(st) => st.total_locked(),
+            // State::V3(st) => st.total_locked(),
+            // State::V4(st) => st.total_locked(),
+            // State::V5(st) => st.total_locked(),
+            // State::V6(st) => st.total_locked(),
             State::V7(st) => st.total_locked(),
         }
     }
@@ -242,59 +244,59 @@ impl State {
         BS: BlockStore,
     {
         match self {
-            State::V0(st) => actorv0::market::validate_deals_for_activation(
-                st,
-                store,
-                deal_ids,
-                miner_addr,
-                sector_expiry,
-                curr_epoch,
-            ),
-            State::V2(st) => actorv2::market::validate_deals_for_activation(
-                st,
-                store,
-                deal_ids,
-                miner_addr,
-                sector_expiry,
-                curr_epoch,
-            )
-            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
-            State::V3(st) => actorv3::market::validate_deals_for_activation(
-                st,
-                store,
-                deal_ids,
-                miner_addr,
-                sector_expiry,
-                curr_epoch,
-            )
-            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
-            State::V4(st) => actorv4::market::validate_deals_for_activation(
-                st,
-                store,
-                deal_ids,
-                miner_addr,
-                sector_expiry,
-                curr_epoch,
-            )
-            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
-            State::V5(st) => actorv5::market::validate_deals_for_activation(
-                st,
-                store,
-                deal_ids,
-                miner_addr,
-                sector_expiry,
-                curr_epoch,
-            )
-            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
-            State::V6(st) => actorv6::market::validate_deals_for_activation(
-                st,
-                store,
-                deal_ids,
-                miner_addr,
-                sector_expiry,
-                curr_epoch,
-            )
-            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
+            // State::V0(st) => actorv0::market::validate_deals_for_activation(
+            //     st,
+            //     store,
+            //     deal_ids,
+            //     miner_addr,
+            //     sector_expiry,
+            //     curr_epoch,
+            // ),
+            // State::V2(st) => actorv2::market::validate_deals_for_activation(
+            //     st,
+            //     store,
+            //     deal_ids,
+            //     miner_addr,
+            //     sector_expiry,
+            //     curr_epoch,
+            // )
+            // .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
+            // State::V3(st) => actorv3::market::validate_deals_for_activation(
+            //     st,
+            //     store,
+            //     deal_ids,
+            //     miner_addr,
+            //     sector_expiry,
+            //     curr_epoch,
+            // )
+            // .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
+            // State::V4(st) => actorv4::market::validate_deals_for_activation(
+            //     st,
+            //     store,
+            //     deal_ids,
+            //     miner_addr,
+            //     sector_expiry,
+            //     curr_epoch,
+            // )
+            // .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
+            // State::V5(st) => actorv5::market::validate_deals_for_activation(
+            //     st,
+            //     store,
+            //     deal_ids,
+            //     miner_addr,
+            //     sector_expiry,
+            //     curr_epoch,
+            // )
+            // .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
+            // State::V6(st) => actorv6::market::validate_deals_for_activation(
+            //     st,
+            //     store,
+            //     deal_ids,
+            //     miner_addr,
+            //     sector_expiry,
+            //     curr_epoch,
+            // )
+            // .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 Ok(fil_actor_market_v7::validate_deals_for_activation(
@@ -308,26 +310,29 @@ impl State {
                 .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
                 .expect("FIXME"))
             }
+            _ => unimplemented!(),
         }
     }
 }
 
 pub enum BalanceTable<'a, BS> {
-    V0(actorv0::BalanceTable<'a, BS>),
-    V2(actorv2::BalanceTable<'a, BS>),
-    V3(actorv3::BalanceTable<'a, BS>),
-    V4(actorv4::BalanceTable<'a, BS>),
-    V5(actorv5::BalanceTable<'a, BS>),
-    V6(actorv6::BalanceTable<'a, BS>),
+    // V0(actorv0::BalanceTable<'a, BS>),
+    // V2(actorv2::BalanceTable<'a, BS>),
+    // V3(actorv3::BalanceTable<'a, BS>),
+    // V4(actorv4::BalanceTable<'a, BS>),
+    // V5(actorv5::BalanceTable<'a, BS>),
+    // V6(actorv6::BalanceTable<'a, BS>),
+    UnusedBalanceTable(PhantomData<&'a BS>),
 }
 
 pub enum DealProposals<'a, BS> {
-    V0(actorv0::market::DealArray<'a, BS>),
-    V2(actorv2::market::DealArray<'a, BS>),
-    V3(actorv3::market::DealArray<'a, BS>),
-    V4(actorv4::market::DealArray<'a, BS>),
-    V5(actorv5::market::DealArray<'a, BS>),
-    V6(actorv6::market::DealArray<'a, BS>),
+    // V0(actorv0::market::DealArray<'a, BS>),
+    // V2(actorv2::market::DealArray<'a, BS>),
+    // V3(actorv3::market::DealArray<'a, BS>),
+    // V4(actorv4::market::DealArray<'a, BS>),
+    // V5(actorv5::market::DealArray<'a, BS>),
+    // V6(actorv6::market::DealArray<'a, BS>),
+    UnusedDealProposal(PhantomData<&'a BS>),
 }
 
 impl<BS> DealProposals<'_, BS> {
@@ -339,24 +344,25 @@ impl<BS> DealProposals<'_, BS> {
         BS: BlockStore,
     {
         match self {
-            DealProposals::V0(dp) => {
-                dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
-            }
-            DealProposals::V2(dp) => {
-                dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
-            }
-            DealProposals::V3(dp) => {
-                dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-            }
-            DealProposals::V4(dp) => {
-                dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-            }
-            DealProposals::V5(dp) => {
-                dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-            }
-            DealProposals::V6(dp) => {
-                dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-            }
+            // DealProposals::V0(dp) => {
+            //     dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
+            // }
+            // DealProposals::V2(dp) => {
+            //     dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
+            // }
+            // DealProposals::V3(dp) => {
+            //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+            // }
+            // DealProposals::V4(dp) => {
+            //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+            // }
+            // DealProposals::V5(dp) => {
+            //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+            // }
+            // DealProposals::V6(dp) => {
+            //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+            // }
+            _ => unimplemented!(),
         }
     }
 }
@@ -384,121 +390,122 @@ pub struct DealProposal {
     pub client_collateral: TokenAmount,
 }
 
-impl From<actorv0::market::DealProposal> for DealProposal {
-    fn from(d: actorv0::market::DealProposal) -> Self {
-        Self {
-            piece_cid: d.piece_cid,
-            piece_size: d.piece_size,
-            verified_deal: d.verified_deal,
-            client: d.client,
-            provider: d.client,
-            label: d.label,
-            start_epoch: d.start_epoch,
-            end_epoch: d.end_epoch,
-            storage_price_per_epoch: d.storage_price_per_epoch,
-            provider_collateral: d.provider_collateral,
-            client_collateral: d.client_collateral,
-        }
-    }
-}
+// impl From<actorv0::market::DealProposal> for DealProposal {
+//     fn from(d: actorv0::market::DealProposal) -> Self {
+//         Self {
+//             piece_cid: d.piece_cid,
+//             piece_size: d.piece_size,
+//             verified_deal: d.verified_deal,
+//             client: d.client,
+//             provider: d.client,
+//             label: d.label,
+//             start_epoch: d.start_epoch,
+//             end_epoch: d.end_epoch,
+//             storage_price_per_epoch: d.storage_price_per_epoch,
+//             provider_collateral: d.provider_collateral,
+//             client_collateral: d.client_collateral,
+//         }
+//     }
+// }
 
-impl From<actorv2::market::DealProposal> for DealProposal {
-    fn from(d: actorv2::market::DealProposal) -> Self {
-        Self {
-            piece_cid: d.piece_cid,
-            piece_size: d.piece_size,
-            verified_deal: d.verified_deal,
-            client: d.client,
-            provider: d.client,
-            label: d.label,
-            start_epoch: d.start_epoch,
-            end_epoch: d.end_epoch,
-            storage_price_per_epoch: d.storage_price_per_epoch,
-            provider_collateral: d.provider_collateral,
-            client_collateral: d.client_collateral,
-        }
-    }
-}
+// impl From<actorv2::market::DealProposal> for DealProposal {
+//     fn from(d: actorv2::market::DealProposal) -> Self {
+//         Self {
+//             piece_cid: d.piece_cid,
+//             piece_size: d.piece_size,
+//             verified_deal: d.verified_deal,
+//             client: d.client,
+//             provider: d.client,
+//             label: d.label,
+//             start_epoch: d.start_epoch,
+//             end_epoch: d.end_epoch,
+//             storage_price_per_epoch: d.storage_price_per_epoch,
+//             provider_collateral: d.provider_collateral,
+//             client_collateral: d.client_collateral,
+//         }
+//     }
+// }
 
-impl From<actorv3::market::DealProposal> for DealProposal {
-    fn from(d: actorv3::market::DealProposal) -> Self {
-        Self {
-            piece_cid: d.piece_cid,
-            piece_size: d.piece_size,
-            verified_deal: d.verified_deal,
-            client: d.client,
-            provider: d.client,
-            label: d.label,
-            start_epoch: d.start_epoch,
-            end_epoch: d.end_epoch,
-            storage_price_per_epoch: d.storage_price_per_epoch,
-            provider_collateral: d.provider_collateral,
-            client_collateral: d.client_collateral,
-        }
-    }
-}
+// impl From<actorv3::market::DealProposal> for DealProposal {
+//     fn from(d: actorv3::market::DealProposal) -> Self {
+//         Self {
+//             piece_cid: d.piece_cid,
+//             piece_size: d.piece_size,
+//             verified_deal: d.verified_deal,
+//             client: d.client,
+//             provider: d.client,
+//             label: d.label,
+//             start_epoch: d.start_epoch,
+//             end_epoch: d.end_epoch,
+//             storage_price_per_epoch: d.storage_price_per_epoch,
+//             provider_collateral: d.provider_collateral,
+//             client_collateral: d.client_collateral,
+//         }
+//     }
+// }
 
-impl From<actorv4::market::DealProposal> for DealProposal {
-    fn from(d: actorv4::market::DealProposal) -> Self {
-        Self {
-            piece_cid: d.piece_cid,
-            piece_size: d.piece_size,
-            verified_deal: d.verified_deal,
-            client: d.client,
-            provider: d.client,
-            label: d.label,
-            start_epoch: d.start_epoch,
-            end_epoch: d.end_epoch,
-            storage_price_per_epoch: d.storage_price_per_epoch,
-            provider_collateral: d.provider_collateral,
-            client_collateral: d.client_collateral,
-        }
-    }
-}
+// impl From<actorv4::market::DealProposal> for DealProposal {
+//     fn from(d: actorv4::market::DealProposal) -> Self {
+//         Self {
+//             piece_cid: d.piece_cid,
+//             piece_size: d.piece_size,
+//             verified_deal: d.verified_deal,
+//             client: d.client,
+//             provider: d.client,
+//             label: d.label,
+//             start_epoch: d.start_epoch,
+//             end_epoch: d.end_epoch,
+//             storage_price_per_epoch: d.storage_price_per_epoch,
+//             provider_collateral: d.provider_collateral,
+//             client_collateral: d.client_collateral,
+//         }
+//     }
+// }
 
-impl From<actorv5::market::DealProposal> for DealProposal {
-    fn from(d: actorv5::market::DealProposal) -> Self {
-        Self {
-            piece_cid: d.piece_cid,
-            piece_size: d.piece_size,
-            verified_deal: d.verified_deal,
-            client: d.client,
-            provider: d.client,
-            label: d.label,
-            start_epoch: d.start_epoch,
-            end_epoch: d.end_epoch,
-            storage_price_per_epoch: d.storage_price_per_epoch,
-            provider_collateral: d.provider_collateral,
-            client_collateral: d.client_collateral,
-        }
-    }
-}
+// impl From<actorv5::market::DealProposal> for DealProposal {
+//     fn from(d: actorv5::market::DealProposal) -> Self {
+//         Self {
+//             piece_cid: d.piece_cid,
+//             piece_size: d.piece_size,
+//             verified_deal: d.verified_deal,
+//             client: d.client,
+//             provider: d.client,
+//             label: d.label,
+//             start_epoch: d.start_epoch,
+//             end_epoch: d.end_epoch,
+//             storage_price_per_epoch: d.storage_price_per_epoch,
+//             provider_collateral: d.provider_collateral,
+//             client_collateral: d.client_collateral,
+//         }
+//     }
+// }
 
-impl From<actorv6::market::DealProposal> for DealProposal {
-    fn from(d: actorv6::market::DealProposal) -> Self {
-        Self {
-            piece_cid: d.piece_cid,
-            piece_size: d.piece_size,
-            verified_deal: d.verified_deal,
-            client: d.client,
-            provider: d.client,
-            label: d.label,
-            start_epoch: d.start_epoch,
-            end_epoch: d.end_epoch,
-            storage_price_per_epoch: d.storage_price_per_epoch,
-            provider_collateral: d.provider_collateral,
-            client_collateral: d.client_collateral,
-        }
-    }
-}
+// impl From<actorv6::market::DealProposal> for DealProposal {
+//     fn from(d: actorv6::market::DealProposal) -> Self {
+//         Self {
+//             piece_cid: d.piece_cid,
+//             piece_size: d.piece_size,
+//             verified_deal: d.verified_deal,
+//             client: d.client,
+//             provider: d.client,
+//             label: d.label,
+//             start_epoch: d.start_epoch,
+//             end_epoch: d.end_epoch,
+//             storage_price_per_epoch: d.storage_price_per_epoch,
+//             provider_collateral: d.provider_collateral,
+//             client_collateral: d.client_collateral,
+//         }
+//     }
+// }
 
 pub enum DealStates<'a, BS> {
-    V0(actorv0::market::DealMetaArray<'a, BS>),
-    V2(actorv2::market::DealMetaArray<'a, BS>),
-    V3(actorv3::market::DealMetaArray<'a, BS>),
-    V4(actorv4::market::DealMetaArray<'a, BS>),
-    V5(actorv5::market::DealMetaArray<'a, BS>),
-    V6(actorv6::market::DealMetaArray<'a, BS>),
+    // V0(actorv0::market::DealMetaArray<'a, BS>),
+    // V2(actorv2::market::DealMetaArray<'a, BS>),
+    // V3(actorv3::market::DealMetaArray<'a, BS>),
+    // V4(actorv4::market::DealMetaArray<'a, BS>),
+    // V5(actorv5::market::DealMetaArray<'a, BS>),
+    // V6(actorv6::market::DealMetaArray<'a, BS>),
+    DealStates(PhantomData<&'a BS>),
 }
 
 impl<BS> DealStates<'_, BS>
@@ -507,12 +514,13 @@ where
 {
     pub fn get(&self, key: u64) -> Result<Option<DealState>, Box<dyn Error>> {
         match self {
-            DealStates::V0(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
-            DealStates::V2(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
-            DealStates::V3(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            DealStates::V4(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            DealStates::V5(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            DealStates::V6(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+            // DealStates::V0(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
+            // DealStates::V2(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
+            // DealStates::V3(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+            // DealStates::V4(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+            // DealStates::V5(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+            // DealStates::V6(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+            _ => unimplemented!(),
         }
     }
 }
@@ -525,65 +533,65 @@ pub struct DealState {
     pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
 }
 
-impl From<actorv0::market::DealState> for DealState {
-    fn from(d: actorv0::market::DealState) -> Self {
-        Self {
-            sector_start_epoch: d.sector_start_epoch,
-            last_updated_epoch: d.last_updated_epoch,
-            slash_epoch: d.slash_epoch,
-        }
-    }
-}
+// impl From<actorv0::market::DealState> for DealState {
+//     fn from(d: actorv0::market::DealState) -> Self {
+//         Self {
+//             sector_start_epoch: d.sector_start_epoch,
+//             last_updated_epoch: d.last_updated_epoch,
+//             slash_epoch: d.slash_epoch,
+//         }
+//     }
+// }
 
-impl From<actorv2::market::DealState> for DealState {
-    fn from(d: actorv2::market::DealState) -> Self {
-        Self {
-            sector_start_epoch: d.sector_start_epoch,
-            last_updated_epoch: d.last_updated_epoch,
-            slash_epoch: d.slash_epoch,
-        }
-    }
-}
+// impl From<actorv2::market::DealState> for DealState {
+//     fn from(d: actorv2::market::DealState) -> Self {
+//         Self {
+//             sector_start_epoch: d.sector_start_epoch,
+//             last_updated_epoch: d.last_updated_epoch,
+//             slash_epoch: d.slash_epoch,
+//         }
+//     }
+// }
 
-impl From<actorv3::market::DealState> for DealState {
-    fn from(d: actorv3::market::DealState) -> Self {
-        Self {
-            sector_start_epoch: d.sector_start_epoch,
-            last_updated_epoch: d.last_updated_epoch,
-            slash_epoch: d.slash_epoch,
-        }
-    }
-}
+// impl From<actorv3::market::DealState> for DealState {
+//     fn from(d: actorv3::market::DealState) -> Self {
+//         Self {
+//             sector_start_epoch: d.sector_start_epoch,
+//             last_updated_epoch: d.last_updated_epoch,
+//             slash_epoch: d.slash_epoch,
+//         }
+//     }
+// }
 
-impl From<actorv4::market::DealState> for DealState {
-    fn from(d: actorv4::market::DealState) -> Self {
-        Self {
-            sector_start_epoch: d.sector_start_epoch,
-            last_updated_epoch: d.last_updated_epoch,
-            slash_epoch: d.slash_epoch,
-        }
-    }
-}
+// impl From<actorv4::market::DealState> for DealState {
+//     fn from(d: actorv4::market::DealState) -> Self {
+//         Self {
+//             sector_start_epoch: d.sector_start_epoch,
+//             last_updated_epoch: d.last_updated_epoch,
+//             slash_epoch: d.slash_epoch,
+//         }
+//     }
+// }
 
-impl From<actorv5::market::DealState> for DealState {
-    fn from(d: actorv5::market::DealState) -> Self {
-        Self {
-            sector_start_epoch: d.sector_start_epoch,
-            last_updated_epoch: d.last_updated_epoch,
-            slash_epoch: d.slash_epoch,
-        }
-    }
-}
+// impl From<actorv5::market::DealState> for DealState {
+//     fn from(d: actorv5::market::DealState) -> Self {
+//         Self {
+//             sector_start_epoch: d.sector_start_epoch,
+//             last_updated_epoch: d.last_updated_epoch,
+//             slash_epoch: d.slash_epoch,
+//         }
+//     }
+// }
 
-impl From<actorv6::market::DealState> for DealState {
-    fn from(d: actorv6::market::DealState) -> Self {
-        Self {
-            sector_start_epoch: d.sector_start_epoch,
-            last_updated_epoch: d.last_updated_epoch,
-            slash_epoch: d.slash_epoch,
-        }
-    }
-}
+// impl From<actorv6::market::DealState> for DealState {
+//     fn from(d: actorv6::market::DealState) -> Self {
+//         Self {
+//             sector_start_epoch: d.sector_start_epoch,
+//             last_updated_epoch: d.last_updated_epoch,
+//             slash_epoch: d.slash_epoch,
+//         }
+//     }
+// }
 
 impl<BS> BalanceTable<'_, BS>
 where
@@ -591,12 +599,13 @@ where
 {
     pub fn get(&self, key: &Address) -> Result<TokenAmount, Box<dyn Error>> {
         match self {
-            BalanceTable::V0(bt) => bt.get(key),
-            BalanceTable::V2(bt) => bt.get(key),
-            BalanceTable::V3(bt) => bt.get(key),
-            BalanceTable::V4(bt) => bt.get(key),
-            BalanceTable::V5(bt) => bt.get(key),
-            BalanceTable::V6(bt) => bt.get(key),
+            // BalanceTable::V0(bt) => bt.get(key),
+            // BalanceTable::V2(bt) => bt.get(key),
+            // BalanceTable::V3(bt) => bt.get(key),
+            // BalanceTable::V4(bt) => bt.get(key),
+            // BalanceTable::V5(bt) => bt.get(key),
+            // BalanceTable::V6(bt) => bt.get(key),
+            _ => unimplemented!(),
         }
     }
 }

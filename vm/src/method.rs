@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared::encoding::RawBytes;
+use fvm_ipld_encoding::RawBytes;
 
 /// Method number indicator for calling actor methods.
 pub type MethodNum = u64;

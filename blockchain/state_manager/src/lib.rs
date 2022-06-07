@@ -11,7 +11,7 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use actor::*;
-use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
+use address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
@@ -21,6 +21,7 @@ use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
+use fil_actors_runtime::runtime::Policy;
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
@@ -644,7 +645,7 @@ where
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
-            CHAIN_FINALITY
+            Policy::default().chain_finality // FIXME: Use correct policy
         };
 
         if round > lb {
@@ -1200,7 +1201,7 @@ where
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
         match kaddr.into_payload() {
-            Payload::BLS(BLSPublicKey(key)) => Ok(key),
+            Payload::BLS(key) => Ok(key),
             _ => Err(Error::State(
                 "Address must be BLS address to load bls public key".to_owned(),
             )),
