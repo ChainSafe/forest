@@ -148,52 +148,53 @@ fn get_actor_state<DB: BlockStore>(
 }
 
 fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
-    let mut return_value = TokenAmount::default();
+    unimplemented!()
+    // let mut return_value = TokenAmount::default();
 
-    let pre_ignition = genesis_info
-        .vesting
-        .genesis
-        .get()
-        .expect("Pre ignition should be initialized");
-    let post_ignition = genesis_info
-        .vesting
-        .ignition
-        .get()
-        .expect("Post ignition should be initialized");
-    let calico_vesting = genesis_info
-        .vesting
-        .calico
-        .get()
-        .expect("calico vesting should be initialized");
+    // let pre_ignition = genesis_info
+    //     .vesting
+    //     .genesis
+    //     .get()
+    //     .expect("Pre ignition should be initialized");
+    // let post_ignition = genesis_info
+    //     .vesting
+    //     .ignition
+    //     .get()
+    //     .expect("Post ignition should be initialized");
+    // let calico_vesting = genesis_info
+    //     .vesting
+    //     .calico
+    //     .get()
+    //     .expect("calico vesting should be initialized");
 
-    if height <= UPGRADE_IGNITION_HEIGHT {
-        for actor in pre_ignition {
-            return_value += &actor.initial_balance - actor.amount_locked(height);
-        }
-    } else if height <= UPGRADE_CALICO_HEIGHT {
-        for actor in post_ignition {
-            return_value +=
-                &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
-        }
-    } else {
-        for actor in calico_vesting {
-            return_value +=
-                &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
-        }
-    }
+    // if height <= UPGRADE_IGNITION_HEIGHT {
+    //     for actor in pre_ignition {
+    //         return_value += &actor.initial_balance - actor.amount_locked(height);
+    //     }
+    // } else if height <= UPGRADE_CALICO_HEIGHT {
+    //     for actor in post_ignition {
+    //         return_value +=
+    //             &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
+    //     }
+    // } else {
+    //     for actor in calico_vesting {
+    //         return_value +=
+    //             &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
+    //     }
+    // }
 
-    if height <= UPGRADE_ACTORS_V2_HEIGHT {
-        return_value += genesis_info
-            .genesis_pledge
-            .get()
-            .expect("Genesis info should be initialized")
-            + genesis_info
-                .genesis_market_funds
-                .get()
-                .expect("Genesis info should be initialized");
-    }
+    // if height <= UPGRADE_ACTORS_V2_HEIGHT {
+    //     return_value += genesis_info
+    //         .genesis_pledge
+    //         .get()
+    //         .expect("Genesis info should be initialized")
+    //         + genesis_info
+    //             .genesis_market_funds
+    //             .get()
+    //             .expect("Genesis info should be initialized");
+    // }
 
-    return_value
+    // return_value
 }
 
 fn get_fil_mined<DB: BlockStore>(

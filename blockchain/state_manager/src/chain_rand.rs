@@ -50,7 +50,7 @@ where
     pub async fn get_chain_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
@@ -84,7 +84,7 @@ where
     pub async fn get_chain_randomness_v1(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -96,7 +96,7 @@ where
     pub async fn get_chain_randomness_v2(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -108,7 +108,7 @@ where
     pub async fn get_beacon_randomness_v1(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -120,7 +120,7 @@ where
     pub async fn get_beacon_randomness_v2(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -132,7 +132,7 @@ where
     pub async fn get_beacon_randomness_v3(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -151,7 +151,7 @@ where
     pub async fn get_beacon_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
@@ -219,7 +219,7 @@ where
 {
     fn get_chain_randomness(
         &self,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -228,7 +228,7 @@ where
 
     fn get_beacon_randomness(
         &self,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -239,7 +239,7 @@ where
 /// Computes a pseudorandom 32 byte Vec.
 pub fn draw_randomness(
     rbase: &[u8],
-    pers: DomainSeparationTag,
+    pers: i64,
     round: ChainEpoch,
     entropy: &[u8],
 ) -> anyhow::Result<[u8; 32]> {

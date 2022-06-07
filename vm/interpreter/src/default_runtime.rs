@@ -653,7 +653,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
-                .get_chain_randomness(personalization, rand_epoch, entropy)
+                .get_chain_randomness(personalization as i64, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
             panic!("FVM doesn't support older networks")
@@ -671,7 +671,7 @@ where
         #[allow(clippy::if_same_then_else)]
         let r = if rand_epoch >= networks::UPGRADE_ACTORS_V6_HEIGHT {
             self.rand
-                .get_beacon_randomness(personalization, rand_epoch, entropy)
+                .get_beacon_randomness(personalization as i64, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             panic!("FVM doesn't support older networks")

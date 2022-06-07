@@ -237,7 +237,7 @@ impl<DB: BlockStore> NetworkOps for ForestKernel<DB> {
 impl<DB: BlockStore> RandomnessOps for ForestKernel<DB> {
     fn get_randomness_from_tickets(
         &mut self,
-        personalization: DomainSeparationTag,
+        personalization: i64,
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; RANDOMNESS_LENGTH]> {
@@ -247,7 +247,7 @@ impl<DB: BlockStore> RandomnessOps for ForestKernel<DB> {
 
     fn get_randomness_from_beacon(
         &mut self,
-        personalization: DomainSeparationTag,
+        personalization: i64,
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; RANDOMNESS_LENGTH]> {

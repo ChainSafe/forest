@@ -26,6 +26,7 @@ use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo,
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
+use fvm::machine::{MultiEngine, NetworkConfig};
 use interpreter::{
     resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, LookbackStateGetter, Rand, VM,
 };
@@ -89,7 +90,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
-    engine: fvm::machine::Engine,
+    engine: fvm::machine::MultiEngine,
 }
 
 impl<DB> StateManager<DB>
@@ -106,7 +107,7 @@ where
             publisher: None,
             genesis_info: GenesisInfo::default(),
             beacon,
-            engine: fvm::machine::Engine::default(),
+            engine: fvm::machine::MultiEngine::new(),
         })
     }
 
@@ -124,7 +125,7 @@ where
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::default(),
             beacon,
-            engine: fvm::machine::Engine::default(),
+            engine: fvm::machine::MultiEngine::new(),
         })
     }
 
@@ -163,7 +164,7 @@ where
     pub async fn get_beacon_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -196,6 +197,7 @@ where
                     .get_beacon_randomness_v1(blocks, pers, round, entropy)
                     .await
             }
+            _ => panic!("Unsupported network version"),
         }
     }
 
@@ -204,7 +206,7 @@ where
     pub async fn get_chain_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
@@ -327,7 +329,9 @@ where
                 self.genesis_info.clone(),
                 None,
                 &lb_wrapper,
-                self.engine.clone(),
+                self.engine
+                    .get(&NetworkConfig::new(get_network_version_default(epoch)))
+                    .unwrap(),
             )
         };
 
@@ -469,7 +473,9 @@ where
                 self.genesis_info.clone(),
                 None,
                 &lb_wrapper,
-                self.engine.clone(),
+                self.engine
+                    .get(&NetworkConfig::new(get_network_version_default(bheight)))
+                    .unwrap(),
             )?;
 
             if msg.gas_limit() == 0 {
@@ -565,7 +571,11 @@ where
             self.genesis_info.clone(),
             None,
             &lb_wrapper,
-            self.engine.clone(),
+            self.engine
+                .get(&NetworkConfig::new(get_network_version_default(
+                    ts.epoch() + 1,
+                )))
+                .unwrap(),
         )?;
 
         for msg in prior_messages {
@@ -775,7 +785,7 @@ where
         let buf = address.marshal_cbor()?;
         let prand = chain_rand::draw_randomness(
             rbase.data(),
-            DomainSeparationTag::WinningPoStChallengeSeed,
+            DomainSeparationTag::WinningPoStChallengeSeed as i64,
             round,
             &buf,
         )?;
