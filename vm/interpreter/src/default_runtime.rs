@@ -5,6 +5,7 @@ use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
 use super::{CircSupplyCalc, LookbackStateGetter, Rand};
 use actor::{account, ActorVersion};
+use actorv6::ActorDowncast;
 use address::{Address, Protocol};
 use blocks::BlockHeader;
 use byteorder::{BigEndian, WriteBytesExt};
@@ -16,7 +17,6 @@ use fil_types::{
     verifier::ProofVerifier, DefaultNetworkParams, NetworkParams, NetworkVersion, Randomness,
 };
 use fil_types::{PieceInfo, RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo};
-use forest_actor::ActorDowncast;
 use forest_encoding::{blake2b_256, to_vec, Cbor};
 use ipld_blockstore::BlockStore;
 use log::{debug, info};

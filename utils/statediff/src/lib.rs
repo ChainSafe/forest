@@ -170,22 +170,22 @@ pub fn print_state_diff<BS>(
 where
     BS: BlockStore,
 {
-    if let Err(e) = try_print_actor_states(bs, root, expected_root, depth) {
-        println!(
-            "Could not resolve actor states: {}\nUsing default resolution:",
-            e
-        );
-        let expected = resolve_cids_recursive(bs, expected_root, depth)?;
-        let actual = resolve_cids_recursive(bs, root, depth)?;
+    // if let Err(e) = try_print_actor_states(bs, root, expected_root, depth) {
+    //     println!(
+    //         "Could not resolve actor states: {}\nUsing default resolution:",
+    //         e
+    //     );
+    //     let expected = resolve_cids_recursive(bs, expected_root, depth)?;
+    //     let actual = resolve_cids_recursive(bs, root, depth)?;
 
-        let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
-        let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
+    //     let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
+    //     let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
 
-        let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
-        let stdout = stdout();
-        let mut handle = stdout.lock();
-        print_diffs(&mut handle, &diffs)?
-    }
+    //     let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
+    //     let stdout = stdout();
+    //     let mut handle = stdout.lock();
+    //     print_diffs(&mut handle, &diffs)?
+    // }
 
     Ok(())
 }
