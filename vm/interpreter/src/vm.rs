@@ -136,7 +136,7 @@ where
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
-        // let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
+        let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
         // let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();
 
         // Load the builtin actors bundles into the blockstore.
@@ -147,9 +147,11 @@ where
             .get(&network_version)
             .unwrap_or_else(|| panic!("no builtin actors index for nv {}", network_version));
 
-        let context = NetworkConfig::new(network_version)
+        let mut context = NetworkConfig::new(network_version)
             .override_actors(builtin_actors)
             .for_epoch(epoch, root);
+        context.set_base_fee(base_fee.clone());
+        context.set_circulating_supply(circ_supply);
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
                 &engine,

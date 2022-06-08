@@ -47,7 +47,7 @@ where
             // ActorVersion::V4 => Ok(Map::V4(actorv4::make_map_with_root(cid, store)?)),
             // ActorVersion::V5 => Ok(Map::V5(actorv5::make_map_with_root(cid, store)?)),
             ActorVersion::V6 => Ok(Map::V6(actorv6::make_map_with_root(cid, store)?)),
-            _ => unimplemented!(),
+            _ => panic!("unsupported actor version: {}", version),
         }
     }
 

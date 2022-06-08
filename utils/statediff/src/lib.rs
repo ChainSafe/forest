@@ -3,7 +3,7 @@
 
 // use actor::account;
 // use actor::market;
-// use actor::miner;
+use actor::miner;
 // use actor::power;
 use address::Address;
 use blockstore::resolve::resolve_cids_recursive;
@@ -118,17 +118,17 @@ fn pp_actor_state(
 
     buffer += &format!("{:?}\n", state);
 
-    // if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
-    //     buffer += &format!("{:?}", miner_state);
+    if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
+        buffer += &format!("{:?}", miner_state);
     // } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
     //     buffer += &format!("{:?}", account_state);
     // } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
     //     buffer += &format!("{:?}", state);
     // } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
     //     buffer += &format!("{:?}", state);
-    // } else {
-    buffer += &serde_json::to_string_pretty(&resolved)?;
-    // }
+    } else {
+        buffer += &serde_json::to_string_pretty(&resolved)?;
+    }
     Ok(buffer)
 }
 
@@ -170,22 +170,26 @@ pub fn print_state_diff<BS>(
 where
     BS: BlockStore,
 {
-    // if let Err(e) = try_print_actor_states(bs, root, expected_root, depth) {
-    //     println!(
-    //         "Could not resolve actor states: {}\nUsing default resolution:",
-    //         e
-    //     );
-    //     let expected = resolve_cids_recursive(bs, expected_root, depth)?;
-    //     let actual = resolve_cids_recursive(bs, root, depth)?;
+    eprintln!(
+        "StateDiff:\n  Expected: {}\n  Root: {}",
+        expected_root, root
+    );
+    if let Err(e) = try_print_actor_states(bs, root, expected_root, depth) {
+        println!(
+            "Could not resolve actor states: {}\nUsing default resolution:",
+            e
+        );
+        let expected = resolve_cids_recursive(bs, expected_root, depth)?;
+        let actual = resolve_cids_recursive(bs, root, depth)?;
 
-    //     let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
-    //     let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
+        let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
+        let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
 
-    //     let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
-    //     let stdout = stdout();
-    //     let mut handle = stdout.lock();
-    //     print_diffs(&mut handle, &diffs)?
-    // }
+        let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
+        let stdout = stdout();
+        let mut handle = stdout.lock();
+        print_diffs(&mut handle, &diffs)?
+    }
 
     Ok(())
 }
