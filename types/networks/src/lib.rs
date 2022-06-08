@@ -20,63 +20,63 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
 const UPGRADE_INFOS: [UpgradeInfo; 15] = [
     UpgradeInfo {
         height: Height::Breeze,
-        version: 1,
+        version: NetworkVersion::V1,
     },
     UpgradeInfo {
         height: Height::Smoke,
-        version: 2,
+        version: NetworkVersion::V2,
     },
     UpgradeInfo {
         height: Height::Ignition,
-        version: 3,
+        version: NetworkVersion::V3,
     },
     UpgradeInfo {
         height: Height::ActorsV2,
-        version: 4,
+        version: NetworkVersion::V4,
     },
     UpgradeInfo {
         height: Height::Tape,
-        version: 5,
+        version: NetworkVersion::V5,
     },
     UpgradeInfo {
         height: Height::Kumquat,
-        version: 6,
+        version: NetworkVersion::V6,
     },
     UpgradeInfo {
         height: Height::Calico,
-        version: 7,
+        version: NetworkVersion::V7,
     },
     UpgradeInfo {
         height: Height::Persian,
-        version: 8,
+        version: NetworkVersion::V8,
     },
     UpgradeInfo {
         height: Height::Orange,
-        version: 9,
+        version: NetworkVersion::V9,
     },
     UpgradeInfo {
         height: Height::Trust,
-        version: 10,
+        version: NetworkVersion::V10,
     },
     UpgradeInfo {
         height: Height::Norwegian,
-        version: 11,
+        version: NetworkVersion::V11,
     },
     UpgradeInfo {
         height: Height::Turbo,
-        version: 12,
+        version: NetworkVersion::V12,
     },
     UpgradeInfo {
         height: Height::Hyperdrive,
-        version: 13,
+        version: NetworkVersion::V13,
     },
     UpgradeInfo {
         height: Height::Chocolate,
-        version: 14,
+        version: NetworkVersion::V14,
     },
     UpgradeInfo {
         height: Height::OhSnap,
-        version: 15,
+        version: NetworkVersion::V15,
     },
 ];
 
@@ -179,10 +179,12 @@ impl Default for Height {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct UpgradeInfo {
     pub height: Height,
-    pub version: u32,
+    #[serde(default = "default_network_version")]
+    #[serde(with = "de_network_version")]
+    pub version: NetworkVersion,
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -236,14 +238,11 @@ impl ChainConfig {
             .map(|info| info.height)
             .unwrap_or(Height::Breeze);
 
-        let version = self
-            .version_schedule
+        self.version_schedule
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.version)
-            .unwrap();
-
-        NetworkVersion::try_from(version).unwrap()
+            .expect("A network version should exist even if not specified in the config (a default exists).")
     }
 
     pub async fn get_beacon_schedule(
@@ -300,5 +299,138 @@ impl Default for ChainConfig {
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
         }
+    }
+}
+
+pub fn default_network_version() -> NetworkVersion {
+    NetworkVersion::V1
+}
+
+pub mod de_network_version {
+    use fil_types::NetworkVersion;
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let version: &str = Deserialize::deserialize(deserializer)?;
+        let version = version.to_lowercase();
+
+        match version.as_str() {
+            "v0" => Ok(NetworkVersion::V0),
+            "v1" => Ok(NetworkVersion::V1),
+            "v2" => Ok(NetworkVersion::V2),
+            "v3" => Ok(NetworkVersion::V3),
+            "v4" => Ok(NetworkVersion::V4),
+            "v5" => Ok(NetworkVersion::V5),
+            "v6" => Ok(NetworkVersion::V6),
+            "v7" => Ok(NetworkVersion::V7),
+            "v8" => Ok(NetworkVersion::V8),
+            "v9" => Ok(NetworkVersion::V9),
+            "v10" => Ok(NetworkVersion::V10),
+            "v11" => Ok(NetworkVersion::V11),
+            "v12" => Ok(NetworkVersion::V12),
+            "v13" => Ok(NetworkVersion::V13),
+            "v14" => Ok(NetworkVersion::V14),
+            "v15" => Ok(NetworkVersion::V15),
+            _ => Err(de::Error::custom(&format!(
+                "Invalid network version: {}",
+                version
+            ))),
+        }
+    }
+
+    pub fn serialize<S>(n: &NetworkVersion, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let version_string = match n {
+            NetworkVersion::V0 => "V0",
+            NetworkVersion::V1 => "V1",
+            NetworkVersion::V2 => "V2",
+            NetworkVersion::V3 => "V3",
+            NetworkVersion::V4 => "V4",
+            NetworkVersion::V5 => "V5",
+            NetworkVersion::V6 => "V6",
+            NetworkVersion::V7 => "V7",
+            NetworkVersion::V8 => "V8",
+            NetworkVersion::V9 => "V9",
+            NetworkVersion::V10 => "V10",
+            NetworkVersion::V11 => "V11",
+            NetworkVersion::V12 => "V12",
+            NetworkVersion::V13 => "V13",
+            NetworkVersion::V14 => "V14",
+            NetworkVersion::V15 => "V15",
+        }
+        .to_string();
+
+        version_string.serialize(serializer)
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use toml::de;
+
+    fn remove_whitespace(s: String) -> String {
+        s.chars().filter(|c| !c.is_whitespace()).collect()
+    }
+
+    #[test]
+    pub fn test_serialize_upgrade_info() {
+        let input = r#"
+            height = "Breeze"
+            version = "V1"
+        "#;
+        let actual: UpgradeInfo = toml::from_str(input).unwrap();
+
+        let expected = UpgradeInfo {
+            height: Height::Breeze,
+            version: NetworkVersion::V1,
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    pub fn test_deserialize_upgrade_info() {
+        let input = UpgradeInfo {
+            height: Height::Breeze,
+            version: NetworkVersion::V1,
+        };
+
+        let actual = toml::to_string(&input).unwrap();
+
+        let expected = r#"
+            height = "Breeze"
+            version = "V1"
+        "#;
+
+        assert_eq!(
+            remove_whitespace(actual),
+            remove_whitespace(expected.to_string())
+        );
+    }
+
+    #[test]
+    pub fn test_default_network_version_serialization() {
+        let input = r#" height = "Breeze" "#;
+        let actual: UpgradeInfo = toml::from_str(input).unwrap();
+
+        let expected = UpgradeInfo {
+            height: Height::Breeze,
+            version: NetworkVersion::V1,
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    pub fn test_fails_if_network_version_is_invalid() {
+        let input = r#" height = "Cthulhu" "#;
+        let actual: Result<UpgradeInfo, de::Error> = toml::from_str(input);
+        assert!(actual.is_err())
     }
 }
