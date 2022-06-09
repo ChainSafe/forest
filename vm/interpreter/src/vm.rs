@@ -16,10 +16,14 @@ use fil_types::{
 };
 use forest_car::load_car;
 use forest_encoding::Cbor;
+use fvm::executor::ApplyFailure;
 use fvm::machine::MachineContext;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
+use fvm::trace::ExecutionTrace;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::bigint::Sign;
+use fvm_shared::receipt::Receipt;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
@@ -152,6 +156,7 @@ where
             .for_epoch(epoch, root);
         context.set_base_fee(base_fee.clone());
         context.set_circulating_supply(circ_supply);
+        context.enable_tracing();
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
             fvm::machine::DefaultMachine::new(
                 &engine,
@@ -395,6 +400,7 @@ where
         ret.msg_receipt.gas_used = 0;
         ret.miner_tip = num_bigint::BigInt::zero();
         ret.penalty = num_bigint::BigInt::zero();
+        // eprintln!("apply_implicit_message_fvm: {:?}", ret.exec_trace);
         Ok(ret.into())
     }
 
@@ -412,8 +418,7 @@ where
                 gas_used: 0,
             },
             act_error: act_err,
-            penalty: BigInt::zero(),
-            miner_tip: BigInt::zero(),
+            ..ApplyRet::default()
         }
     }
 
@@ -476,6 +481,7 @@ where
                 raw_length,
             )
             .map_err(|e| format!("{:?}", e))?;
+        // eprintln!("apply_message_fvm: {:?}", fvm_ret.exec_trace);
         Ok(fvm_ret.into())
     }
 
@@ -499,6 +505,7 @@ where
                     "Out of gas ({} > {})", cost_total, msg.gas_limit())),
                 penalty: &self.base_fee * cost_total,
                 miner_tip: BigInt::zero(),
+                ..ApplyRet::default()
             });
         }
 
@@ -516,6 +523,7 @@ where
                     penalty: miner_penalty_amount,
                     act_error: Some(vm::actor_error!(SYS_SENDER_INVALID; "Sender invalid")),
                     miner_tip: 0.into(),
+                    ..ApplyRet::default()
                 });
             }
             Err(e) => {
@@ -529,6 +537,7 @@ where
                     penalty: miner_penalty_amount,
                     act_error: Some(vm::actor_error!(SYS_SENDER_INVALID; "Sender invalid")),
                     miner_tip: 0.into(),
+                    ..ApplyRet::default()
                 });
             }
         };
@@ -547,6 +556,7 @@ where
                     vm::actor_error!(SYS_SENDER_INVALID; "send not from account actor"),
                 ),
                 miner_tip: 0.into(),
+                ..ApplyRet::default()
             });
         };
 
@@ -562,6 +572,7 @@ where
                 act_error: Some(vm::actor_error!(SYS_SENDER_STATE_INVALID;
                     "actor sequence invalid: {} != {}", msg.sequence(), from_act.sequence)),
                 miner_tip: 0.into(),
+                ..ApplyRet::default()
             });
         };
 
@@ -578,6 +589,7 @@ where
                 act_error: Some(vm::actor_error!(SYS_SENDER_STATE_INVALID;
                     "actor balance less than needed: {} < {}", from_act.balance, gas_cost)),
                 miner_tip: 0.into(),
+                ..ApplyRet::default()
             });
         };
 
@@ -712,6 +724,7 @@ where
                 penalty: miner_penalty,
                 act_error: act_err,
                 miner_tip,
+                ..ApplyRet::default()
             })
         };
 
@@ -901,6 +914,39 @@ pub struct ApplyRet {
     pub penalty: BigInt,
     /// Tip given to miner from message.
     pub miner_tip: BigInt,
+
+    // Gas stuffs
+    pub base_fee_burn: TokenAmount,
+    pub over_estimation_burn: TokenAmount,
+    pub refund: TokenAmount,
+    pub gas_refund: i64,
+    pub gas_burned: i64,
+
+    // /// Additional failure information for debugging, if any.
+    // pub failure_info: Option<ApplyFailure>,
+    /// Execution trace information, for debugging.
+    pub exec_trace: ExecutionTrace,
+}
+
+impl Default for ApplyRet {
+    fn default() -> ApplyRet {
+        ApplyRet {
+            msg_receipt: Receipt {
+                exit_code: ExitCode::OK,
+                return_data: RawBytes::default(),
+                gas_used: 0,
+            },
+            act_error: None,
+            penalty: BigInt::zero(),
+            miner_tip: BigInt::zero(),
+            base_fee_burn: TokenAmount::from(0),
+            over_estimation_burn: TokenAmount::from(0),
+            refund: TokenAmount::from(0),
+            gas_refund: 0,
+            gas_burned: 0,
+            exec_trace: vec![],
+        }
+    }
 }
 
 impl PartialEq for ApplyRet {
@@ -921,6 +967,12 @@ impl From<fvm::executor::ApplyRet> for ApplyRet {
             penalty,
             miner_tip,
             failure_info,
+            base_fee_burn,
+            over_estimation_burn,
+            refund,
+            gas_refund,
+            gas_burned,
+            exec_trace,
             ..
         } = ret;
         ApplyRet {
@@ -928,6 +980,12 @@ impl From<fvm::executor::ApplyRet> for ApplyRet {
             act_error: failure_info.map(ActorError::from),
             penalty,
             miner_tip,
+            base_fee_burn,
+            over_estimation_burn,
+            refund,
+            gas_refund,
+            gas_burned,
+            exec_trace,
         }
     }
 }
