@@ -309,8 +309,7 @@ impl State {
                 )
                 .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
                 .expect("FIXME"))
-            }
-            // _ => unimplemented!(),
+            } // _ => unimplemented!(),
         }
     }
 }

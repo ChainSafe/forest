@@ -25,8 +25,7 @@ use num_bigint::BigInt;
 use num_traits::{Signed, Zero};
 use rayon::prelude::*;
 use runtime::{
-    compute_unsealed_sector_cid, ConsensusFault, ConsensusFaultType, MessageInfo,
-    Runtime, Syscalls,
+    compute_unsealed_sector_cid, ConsensusFault, ConsensusFaultType, MessageInfo, Runtime, Syscalls,
 };
 use state_tree::StateTree;
 use std::cell::RefCell;
