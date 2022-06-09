@@ -481,6 +481,26 @@ where
                 raw_length,
             )
             .map_err(|e| format!("{:?}", e))?;
+        if unsigned.method_num == 26 && unsigned.to() == &Address::new_id(1846857) {
+            // ProveCommitAggregate
+            // eprintln!(
+            //     "Found a ProveCommitAggregate message to: {} {}",
+            //     unsigned.to(),
+            //     unsigned.to() == &Address::new_id(1846857)
+            // );
+            // dbg!(raw_length);
+            // dbg!(&unsigned.gas_limit);
+            // dbg!(&unsigned.gas_fee_cap);
+            // dbg!(&unsigned.gas_premium);
+            // dbg!(&self.base_fee);
+            // dbg!(&fvm_ret.penalty);
+            // dbg!(&fvm_ret.miner_tip);
+            // dbg!(&fvm_ret.base_fee_burn);
+            // dbg!(&fvm_ret.over_estimation_burn);
+            // dbg!(&fvm_ret.refund);
+            // dbg!(&fvm_ret.gas_refund);
+            // dbg!(&fvm_ret.gas_burned);
+        }
         // eprintln!("apply_message_fvm: {:?}", fvm_ret.exec_trace);
         Ok(fvm_ret.into())
     }

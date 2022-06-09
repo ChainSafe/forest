@@ -168,19 +168,24 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 
     if height <= UPGRADE_IGNITION_HEIGHT {
         for actor in pre_ignition {
-            return_value += &actor.initial_balance - actor.amount_locked(height);
+            return_value += &actor.initial_balance - v0_amount_locked(actor, height);
         }
     } else if height <= UPGRADE_CALICO_HEIGHT {
         for actor in post_ignition {
             return_value +=
-                &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
+                &actor.initial_balance - v0_amount_locked(actor, height - actor.start_epoch);
         }
     } else {
         for actor in calico_vesting {
+            // dbg!(&actor.initial_balance);
+            // dbg!(&actor.unlock_duration);
+            // dbg!(actor.start_epoch);
+            // dbg!(actor.amount_locked(height - actor.start_epoch));
             return_value +=
-                &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
+                &actor.initial_balance - v0_amount_locked(actor, height - actor.start_epoch);
         }
     }
+    // dbg!(&return_value);
 
     if height <= UPGRADE_ACTORS_V2_HEIGHT {
         return_value += genesis_info
@@ -192,6 +197,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
                 .get()
                 .expect("Genesis info should be initialized");
     }
+    // dbg!(&return_value);
 
     return_value
 }
@@ -270,9 +276,17 @@ fn get_circulating_supply<'a, DB: BlockStore>(
         TokenAmount::default()
     };
     let fil_circulating = BigInt::max(
-        &fil_vested + &fil_mined + fil_reserve_distributed - &fil_burnt - &fil_locked,
+        &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
         TokenAmount::default(),
     );
+
+    // dbg!(height);
+    // dbg!(&fil_vested);
+    // dbg!(&fil_mined);
+    // dbg!(&fil_burnt);
+    // dbg!(&fil_locked);
+    // dbg!(&fil_reserve_distributed);
+    // dbg!(&fil_circulating);
 
     Ok(fil_circulating)
 }
@@ -336,4 +350,21 @@ fn setup_calico_vesting_schedule() -> Vec<msig0::State> {
             }
         })
         .collect()
+}
+
+/// Returns amount locked in multisig contract
+fn v0_amount_locked(st: &msig0::State, elapsed_epoch: ChainEpoch) -> TokenAmount {
+    use num_bigint::Integer;
+
+    if elapsed_epoch >= st.unlock_duration {
+        return TokenAmount::from(0);
+    }
+    if elapsed_epoch < 0 {
+        return st.initial_balance.clone();
+    }
+    // Division truncation is broken here: https://github.com/filecoin-project/specs-actors/issues/1131
+    let unit_locked: TokenAmount = st
+        .initial_balance
+        .div_floor(&TokenAmount::from(st.unlock_duration));
+    unit_locked * (st.unlock_duration - elapsed_epoch)
 }
