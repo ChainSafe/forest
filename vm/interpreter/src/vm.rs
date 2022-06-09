@@ -16,8 +16,6 @@ use fil_types::{
 };
 use forest_car::load_car;
 use forest_encoding::Cbor;
-use fvm::executor::ApplyFailure;
-use fvm::machine::MachineContext;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
 use fvm::trace::ExecutionTrace;

@@ -57,7 +57,7 @@ pub(crate) struct GenesisInfo {
 }
 
 impl GenesisInfo {
-    fn init<DB: BlockStore>(&self, bs: &DB) -> Result<(), Box<dyn StdError>> {
+    fn init<DB: BlockStore>(&self, _bs: &DB) -> Result<(), Box<dyn StdError>> {
         // let genesis_block =
         //     genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
 
@@ -115,8 +115,8 @@ impl CircSupplyCalc for GenesisInfo {
 
     fn get_fil_vested<DB: BlockStore>(
         &self,
-        height: ChainEpoch,
-        store: &DB,
+        _height: ChainEpoch,
+        _store: &DB,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
         unimplemented!()
         // self.vesting
@@ -238,11 +238,11 @@ fn get_fil_power_locked<DB: BlockStore>(
 fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let FIL_RESERVED: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
+    let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
     let reserve_actor = get_actor_state(state_tree, RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
-    Ok(FIL_RESERVED - reserve_actor.balance)
+    Ok(fil_reserved - reserve_actor.balance)
 }
 
 fn get_fil_locked<DB: BlockStore>(

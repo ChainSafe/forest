@@ -3,7 +3,6 @@
 use super::ForestMachine;
 use cid::Cid;
 use clock::ChainEpoch;
-use crypto::DomainSeparationTag;
 use fvm::call_manager::*;
 use fvm::gas::{Gas, PriceList};
 use fvm::kernel::BlockRegistry;
@@ -14,7 +13,7 @@ use fvm::kernel::{
 };
 use fvm_shared::address::Address;
 use fvm_shared::consensus::ConsensusFault;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::crypto::signature::SignatureType;
 use fvm_shared::piece::PieceInfo;
 use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sector::*;

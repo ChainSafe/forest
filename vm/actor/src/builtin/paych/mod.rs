@@ -20,8 +20,8 @@ use vm::{
 };
 
 // TODO rename to actor exit code to be used ambiguously (requires new releases)
-// use vm::ExitCode::ErrTooManyProveCommits as ErrChannelStateUpdateAfterSettled;
-const ErrChannelStateUpdateAfterSettled: ExitCode = ExitCode::SYS_ASSERTION_FAILED;
+// use vm::ExitCode::ErrTooManyProveCommits as ERR_CHANNEL_STATE_UPDATE_AFTER_SETTLED;
+const ERR_CHANNEL_STATE_UPDATE_AFTER_SETTLED: ExitCode = ExitCode::SYS_ASSERTION_FAILED;
 
 // * Updated to specs-actors commit: f47f461b0588e9f0c20c999f6f129c85d669a7aa (v3.0.2)
 
@@ -119,7 +119,7 @@ impl Actor {
 
         if st.settling_at != 0 && rt.curr_epoch() >= st.settling_at {
             return Err(ActorError::new(
-                ErrChannelStateUpdateAfterSettled,
+                ERR_CHANNEL_STATE_UPDATE_AFTER_SETTLED,
                 "no vouchers can be processed after settling at epoch".to_string(),
             ));
         }

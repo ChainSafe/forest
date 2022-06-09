@@ -90,8 +90,8 @@ impl State {
 
     pub fn pre_commit_deposit_for_power(
         &self,
-        network_qa_power: FilterEstimate,
-        sector_weight: &StoragePower,
+        _network_qa_power: FilterEstimate,
+        _sector_weight: &StoragePower,
     ) -> TokenAmount {
         match self {
             // State::V0(st) => actorv0::miner::pre_commit_deposit_for_power(
@@ -148,10 +148,10 @@ impl State {
 
     pub fn initial_pledge_for_power(
         &self,
-        sector_weight: &StoragePower,
+        _sector_weight: &StoragePower,
         _network_total_pledge: &TokenAmount,
-        network_qa_power: FilterEstimate,
-        circ_supply: &TokenAmount,
+        _network_qa_power: FilterEstimate,
+        _circ_supply: &TokenAmount,
     ) -> TokenAmount {
         match self {
             // State::V0(st) => actorv0::miner::initial_pledge_for_power(

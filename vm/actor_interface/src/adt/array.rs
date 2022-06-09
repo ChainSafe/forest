@@ -22,7 +22,7 @@ where
     V: Serialize + DeserializeOwned,
     BS: BlockStore,
 {
-    pub fn new(store: &'a BS, version: ActorVersion) -> Self {
+    pub fn new(_store: &'a BS, version: ActorVersion) -> Self {
         match version {
             // ActorVersion::V0 => Array::V0(actorv0::ipld_amt::Amt::new(store)),
             // ActorVersion::V2 => Array::V2(actorv2::ipld_amt::Amt::new(store)),
@@ -35,7 +35,7 @@ where
     }
 
     /// Load map with root
-    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, Box<dyn Error>> {
+    pub fn load(_cid: &Cid, _store: &'a BS, version: ActorVersion) -> Result<Self, Box<dyn Error>> {
         match version {
             // ActorVersion::V0 => Ok(Array::V0(actorv0::ipld_amt::Amt::load(cid, store)?)),
             // ActorVersion::V2 => Ok(Array::V2(actorv2::ipld_amt::Amt::load(cid, store)?)),
@@ -60,7 +60,7 @@ where
     }
 
     /// Get value at index of `Array`
-    pub fn get(&self, i: u64) -> Result<Option<&V>, Box<dyn Error>> {
+    pub fn get(&self, _i: u64) -> Result<Option<&V>, Box<dyn Error>> {
         match self {
             // Array::V0(m) => Ok(m.get(i)?),
             // Array::V2(m) => Ok(m.get(i)?),
@@ -72,7 +72,7 @@ where
     }
 
     /// Set value at index
-    pub fn set(&mut self, i: u64, val: V) -> Result<(), Box<dyn Error>> {
+    pub fn set(&mut self, _i: u64, _val: V) -> Result<(), Box<dyn Error>> {
         match self {
             // Array::V0(m) => Ok(m.set(i, val)?),
             // Array::V2(m) => Ok(m.set(i, val)?),
@@ -84,7 +84,7 @@ where
     }
 
     /// Delete item from `Array` at index
-    pub fn delete(&mut self, i: u64) -> Result<bool, Box<dyn Error>> {
+    pub fn delete(&mut self, _i: u64) -> Result<bool, Box<dyn Error>> {
         match self {
             // Array::V0(m) => Ok(m.delete(i)?),
             // Array::V2(m) => Ok(m.delete(i)?),
@@ -108,7 +108,7 @@ where
     }
 
     /// Iterates over each value in the `Array` and runs a function on the values.
-    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
+    pub fn for_each<F>(&self, _f: F) -> Result<(), Box<dyn Error>>
     where
         F: FnMut(u64, &V) -> Result<(), Box<dyn Error>>,
     {

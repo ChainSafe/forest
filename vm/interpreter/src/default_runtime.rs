@@ -25,7 +25,7 @@ use num_bigint::BigInt;
 use num_traits::{Signed, Zero};
 use rayon::prelude::*;
 use runtime::{
-    compute_unsealed_sector_cid, ActorCode, ConsensusFault, ConsensusFaultType, MessageInfo,
+    compute_unsealed_sector_cid, ConsensusFault, ConsensusFaultType, MessageInfo,
     Runtime, Syscalls,
 };
 use state_tree::StateTree;
@@ -443,16 +443,17 @@ where
     }
 
     /// Calls actor code with method and parameters.
+    #[allow(unreachable_code)]
     fn invoke(
         &mut self,
-        code: Cid,
-        method_num: MethodNum,
-        params: &Serialized,
-        to: &Address,
+        _code: Cid,
+        _method_num: MethodNum,
+        _params: &Serialized,
+        _to: &Address,
     ) -> Result<Serialized, ActorError> {
         let actor_version = actor::ActorVersion::from(self.network_version());
 
-        let ret = if let Some(ret) = {
+        let _ret = if let Some(_ret) = {
             match actor_version {
                 // ActorVersion::V0 => actorv0::invoke_code(&code, self, method_num, params),
                 // ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
@@ -463,7 +464,7 @@ where
                 _ => unimplemented!(),
             }
         } {
-            ret
+            _ret
         }
         // else if code == *actorv2::CHAOS_ACTOR_CODE_ID && self.registered_actors.contains(&code) {
         //     actorv2::chaos::Actor::invoke_method(self, method_num, params)
@@ -472,8 +473,8 @@ where
             Err(actor_error!(
                 SYS_INVALID_RECEIVER,
                 "no code for actor at address {} with code {}",
-                to,
-                code
+                _to,
+                _code
             ))
         }?;
 
@@ -482,7 +483,7 @@ where
                 actor_error!(SYS_ASSERTION_FAILED; "Caller must be validated during method execution"),
             )
         } else {
-            Ok(ret)
+            Ok(_ret)
         }
     }
 
@@ -1279,6 +1280,7 @@ fn make_actor(addr: &Address, version: ActorVersion) -> Result<ActorState, Actor
     }
 }
 
+#[allow(unreachable_code)]
 fn new_account_actor(version: ActorVersion) -> ActorState {
     ActorState {
         code: match version {

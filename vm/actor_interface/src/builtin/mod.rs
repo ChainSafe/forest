@@ -31,7 +31,7 @@ pub static BURNT_FUNDS_ACTOR_ADDR: &singletons::BURNT_FUNDS_ACTOR_ADDR =
 pub static RESERVE_ADDRESS: &singletons::RESERVE_ADDRESS = &singletons::RESERVE_ADDRESS;
 
 /// Returns true if the code belongs to a builtin actor.
-pub fn is_builtin_actor(code: &Cid) -> bool {
+pub fn is_builtin_actor(_code: &Cid) -> bool {
     unimplemented!()
     // actorv0::is_builtin_actor(code)
     //     || actorv2::is_builtin_actor(code)
@@ -53,7 +53,7 @@ pub fn is_account_actor(code: &Cid) -> bool {
 }
 
 /// Returns true if the code belongs to a singleton actor.
-pub fn is_singleton_actor(code: &Cid) -> bool {
+pub fn is_singleton_actor(_code: &Cid) -> bool {
     unimplemented!()
     // actorv0::is_singleton_actor(code)
     //     || actorv2::is_singleton_actor(code)
@@ -64,7 +64,7 @@ pub fn is_singleton_actor(code: &Cid) -> bool {
 }
 
 /// Returns true if the code belongs to a miner actor.
-pub fn is_miner_actor(code: &Cid) -> bool {
+pub fn is_miner_actor(_code: &Cid) -> bool {
     unimplemented!()
     // code == &*actorv0::MINER_ACTOR_CODE_ID
     //     || code == &*actorv2::MINER_ACTOR_CODE_ID
@@ -75,7 +75,7 @@ pub fn is_miner_actor(code: &Cid) -> bool {
 }
 
 /// Returns an actor's version or None if it was not a builtin
-pub fn actor_version(code: &Cid) -> Option<ActorVersion> {
+pub fn actor_version(_code: &Cid) -> Option<ActorVersion> {
     None
     // if actorv6::is_builtin_actor(code) {
     //     Some(ActorVersion::V6)

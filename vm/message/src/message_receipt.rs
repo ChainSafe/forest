@@ -12,7 +12,6 @@ pub type MessageReceipt = Receipt;
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use num_traits::cast::FromPrimitive;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.

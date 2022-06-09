@@ -26,7 +26,7 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(_store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
     where
         BS: BlockStore,
     {

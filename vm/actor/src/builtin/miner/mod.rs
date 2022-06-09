@@ -92,8 +92,8 @@ use vm::{
 // The following errors are particular cases of illegal state.
 // They're not expected to ever happen, but if they do, distinguished codes can help us
 // diagnose the problem.
-// use ExitCode::ErrPlaceholder as ErrBalanceInvariantBroken;
-const ErrBalanceInvariantBroken: ExitCode = ExitCode::SYS_ASSERTION_FAILED;
+// use ExitCode::ErrPlaceholder as ERR_BALANCE_INVARIANT_BROKEN;
+const ERR_BALANCE_INVARIANT_BROKEN: ExitCode = ExitCode::SYS_ASSERTION_FAILED;
 
 // * Updated to specs-actors commit: 17d3c602059e5c48407fb3c34343da87e6ea6586 (v0.9.12)
 
@@ -672,7 +672,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -876,7 +876,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -1105,7 +1105,7 @@ impl Actor {
         st.check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -1391,7 +1391,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariant broken: {}", e),
                 )
             })?;
@@ -2048,7 +2048,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariant broken: {}", e),
                 )
             })?;
@@ -2338,7 +2338,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -2646,7 +2646,7 @@ impl Actor {
         st.check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -2758,7 +2758,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -2864,7 +2864,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -2908,7 +2908,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -2961,7 +2961,7 @@ impl Actor {
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariants broken: {}", e),
                 )
             })?;
@@ -4358,7 +4358,7 @@ where
             .check_balance_invariants(&rt.current_balance()?)
             .map_err(|e| {
                 ActorError::new(
-                    ErrBalanceInvariantBroken,
+                    ERR_BALANCE_INVARIANT_BROKEN,
                     format!("balance invariant broken: {}", e),
                 )
             })?;

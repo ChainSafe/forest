@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::Rand;
 use clock::ChainEpoch;
-use crypto::DomainSeparationTag;
 use fvm::externs::Consensus;
 use fvm::externs::Externs;
 use fvm_shared::consensus::ConsensusFault;

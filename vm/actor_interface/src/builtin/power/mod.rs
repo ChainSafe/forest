@@ -172,7 +172,7 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn list_all_miners<BS: BlockStore>(&self, s: &BS) -> Result<Vec<Address>, Box<dyn Error>> {
+    pub fn list_all_miners<BS: BlockStore>(&self, _s: &BS) -> Result<Vec<Address>, Box<dyn Error>> {
         match self {
             // State::V0(st) => {
             //     let claims = actorv0::make_map_with_root(&st.claims, s)?;

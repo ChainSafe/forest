@@ -27,7 +27,7 @@ use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo,
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
-use fvm::machine::{MultiEngine, NetworkConfig};
+use fvm::machine::NetworkConfig;
 use fvm::state_tree::StateTree as FvmStateTree;
 use interpreter::{
     resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, LookbackStateGetter, Rand, VM,
@@ -223,7 +223,7 @@ where
     }
 
     /// Returns the network name from the init actor state.
-    pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
+    pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
         Ok("cannot get name".into())
         // let init_act = self
         //     .get_actor(actor::init::ADDRESS, *st)?

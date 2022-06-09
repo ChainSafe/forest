@@ -235,6 +235,7 @@ struct MigrationJobOutput {
     actor_state: ActorState,
 }
 
+#[allow(dead_code)]
 fn nil_migrator<BS: BlockStore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {

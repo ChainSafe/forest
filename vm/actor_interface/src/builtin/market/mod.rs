@@ -83,7 +83,7 @@ impl State {
     /// Loads escrow table
     pub fn escrow_table<'bs, BS>(
         &self,
-        store: &'bs BS,
+        _store: &'bs BS,
     ) -> Result<BalanceTable<'bs, BS>, Box<dyn Error>>
     where
         BS: BlockStore,
@@ -120,7 +120,7 @@ impl State {
     /// Loads locked funds table
     pub fn locked_table<'bs, BS>(
         &self,
-        store: &'bs BS,
+        _store: &'bs BS,
     ) -> Result<BalanceTable<'bs, BS>, Box<dyn Error>>
     where
         BS: BlockStore,
@@ -159,7 +159,7 @@ impl State {
     /// Deal proposals
     pub fn proposals<'bs, BS>(
         &self,
-        store: &'bs BS,
+        _store: &'bs BS,
     ) -> Result<DealProposals<'bs, BS>, Box<dyn Error>>
     where
         BS: BlockStore,
@@ -188,7 +188,7 @@ impl State {
     }
 
     /// Deal proposal meta data.
-    pub fn states<'bs, BS>(&self, store: &'bs BS) -> Result<DealStates<'bs, BS>, Box<dyn Error>>
+    pub fn states<'bs, BS>(&self, _store: &'bs BS) -> Result<DealStates<'bs, BS>, Box<dyn Error>>
     where
         BS: BlockStore,
     {
@@ -310,7 +310,7 @@ impl State {
                 .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
                 .expect("FIXME"))
             }
-            _ => unimplemented!(),
+            // _ => unimplemented!(),
         }
     }
 }
@@ -338,7 +338,7 @@ pub enum DealProposals<'a, BS> {
 impl<BS> DealProposals<'_, BS> {
     pub fn for_each(
         &self,
-        mut f: impl FnMut(u64, DealProposal) -> Result<(), Box<dyn Error>>,
+        _f: impl FnMut(u64, DealProposal) -> Result<(), Box<dyn Error>>,
     ) -> Result<(), Box<dyn Error>>
     where
         BS: BlockStore,
@@ -512,7 +512,7 @@ impl<BS> DealStates<'_, BS>
 where
     BS: BlockStore,
 {
-    pub fn get(&self, key: u64) -> Result<Option<DealState>, Box<dyn Error>> {
+    pub fn get(&self, _key: u64) -> Result<Option<DealState>, Box<dyn Error>> {
         match self {
             // DealStates::V0(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
             // DealStates::V2(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
@@ -597,7 +597,7 @@ impl<BS> BalanceTable<'_, BS>
 where
     BS: BlockStore,
 {
-    pub fn get(&self, key: &Address) -> Result<TokenAmount, Box<dyn Error>> {
+    pub fn get(&self, _key: &Address) -> Result<TokenAmount, Box<dyn Error>> {
         match self {
             // BalanceTable::V0(bt) => bt.get(key),
             // BalanceTable::V2(bt) => bt.get(key),

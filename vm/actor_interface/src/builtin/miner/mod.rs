@@ -289,8 +289,8 @@ impl State {
     /// Loads deadline at index for a miner's state
     pub fn load_deadline<BS: BlockStore>(
         &self,
-        store: &BS,
-        idx: u64,
+        _store: &BS,
+        _idx: u64,
     ) -> Result<Deadline, Box<dyn Error>> {
         match self {
             // State::V0(st) => Ok(st
@@ -457,8 +457,8 @@ impl State {
     /// Gets pre committed on chain info
     pub fn get_precommitted_sector<BS: BlockStore>(
         &self,
-        store: &BS,
-        sector_num: SectorNumber,
+        _store: &BS,
+        _sector_num: SectorNumber,
     ) -> Result<Option<SectorPreCommitOnChainInfo>, Box<dyn Error>> {
         match self {
             // State::V0(st) => Ok(st
@@ -486,8 +486,8 @@ impl State {
     /// Loads a specific sector number
     pub fn get_sector<BS: BlockStore>(
         &self,
-        store: &BS,
-        sector_num: u64,
+        _store: &BS,
+        _sector_num: u64,
     ) -> Result<Option<SectorOnChainInfo>, Box<dyn Error>> {
         match self {
             // State::V0(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
@@ -501,7 +501,7 @@ impl State {
     }
 
     /// Loads deadline at index for a miner's state
-    pub fn deadline_info(&self, epoch: ChainEpoch) -> DeadlineInfo {
+    pub fn deadline_info(&self, _epoch: ChainEpoch) -> DeadlineInfo {
         match self {
             // State::V0(st) => st.deadline_info(epoch),
             // State::V2(st) => st.deadline_info(epoch),
