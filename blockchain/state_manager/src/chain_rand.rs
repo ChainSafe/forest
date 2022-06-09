@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::{anyhow, bail};
+use anyhow::{bail, Context};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use blake2b_simd::Params;
@@ -71,7 +71,7 @@ where
         draw_randomness(
             rand_ts
                 .min_ticket()
-                .ok_or_else(|| anyhow!("No ticket exists for block"))?
+                .context("No ticket exists for block")?
                 .vrfproof
                 .as_bytes(),
             pers,

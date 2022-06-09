@@ -25,6 +25,51 @@ pub static BURNT_FUNDS_ACTOR_ADDR: &actorv0::BURNT_FUNDS_ACTOR_ADDR =
     &actorv0::BURNT_FUNDS_ACTOR_ADDR;
 pub static RESERVE_ADDRESS: &actorv0::RESERVE_ADDRESS = &actorv0::RESERVE_ADDRESS;
 
+#[macro_export]
+macro_rules! load_actor_state {
+    ($store:expr, $actor:expr, $id:ident) => {
+        if $actor.code == *actorv6::$id {
+            use anyhow::Context;
+            $store
+                .get_anyhow(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V6)
+        } else if $actor.code == *actorv5::$id {
+            use anyhow::Context;
+            $store
+                .get_anyhow(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V5)
+        } else if $actor.code == *actorv4::$id {
+            use anyhow::Context;
+            $store
+                .get_anyhow(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V4)
+        } else if $actor.code == *actorv3::$id {
+            use anyhow::Context;
+            $store
+                .get_anyhow(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V3)
+        } else if $actor.code == *actorv2::$id {
+            use anyhow::Context;
+            $store
+                .get_anyhow(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V2)
+        } else if $actor.code == *actorv0::$id {
+            use anyhow::Context;
+            $store
+                .get_anyhow(&$actor.state)?
+                .context("Actor state doesn't exist in store")
+                .map(State::V0)
+        } else {
+            Err(anyhow::anyhow!("Unknown actor code {}", $actor.code))
+        }
+    };
+}
+
 /// Returns true if the code belongs to a builtin actor.
 pub fn is_builtin_actor(code: &Cid) -> bool {
     actorv0::is_builtin_actor(code)

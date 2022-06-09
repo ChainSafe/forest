@@ -6,6 +6,7 @@ version = 3
 name = "actor_interface"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "fil_clock",
  "fil_types",
  "forest_actor 0.1.7",
@@ -1120,6 +1121,7 @@ name = "chain"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "beacon",
  "blake2b_simd 0.5.11",
@@ -7000,6 +7002,7 @@ name = "rpc"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "auth",
  "base64 0.13.0",

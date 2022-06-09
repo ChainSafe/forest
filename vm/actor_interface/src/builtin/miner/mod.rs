@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::load_actor_state;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -35,49 +36,19 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::MINER_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V0)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::MINER_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V2)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv3::MINER_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V3)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv4::MINER_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V4)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv5::MINER_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V5)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv6::MINER_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V6)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
-        }
+        load_actor_state!(store, actor, MINER_ACTOR_CODE_ID)
     }
 
-    pub fn info<BS: BlockStore>(&self, store: &BS) -> Result<MinerInfo, Box<dyn Error>> {
+    pub fn info<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
             State::V0(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -93,14 +64,19 @@ impl State {
                         .unwrap_or(-1),
                     peer_id,
                     multiaddrs: info.multi_address,
-                    window_post_proof_type: info.seal_proof_type.registered_window_post_proof()?,
+                    window_post_proof_type: info
+                        .seal_proof_type
+                        .registered_window_post_proof()
+                        .map_err(|e| anyhow::anyhow!("can't load registered post proof: {}", e))?,
                     sector_size: info.sector_size,
                     window_post_partition_sectors: info.window_post_partition_sectors,
                     consensus_fault_elapsed: -1,
                 })
             }
             State::V2(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -116,14 +92,19 @@ impl State {
                         .unwrap_or(-1),
                     peer_id,
                     multiaddrs: info.multi_address,
-                    window_post_proof_type: info.seal_proof_type.registered_window_post_proof()?,
+                    window_post_proof_type: info
+                        .seal_proof_type
+                        .registered_window_post_proof()
+                        .map_err(|e| anyhow::anyhow!("can't load registered post proof: {}", e))?,
                     sector_size: info.sector_size,
                     window_post_partition_sectors: info.window_post_partition_sectors,
                     consensus_fault_elapsed: info.consensus_fault_elapsed,
                 })
             }
             State::V3(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -146,7 +127,9 @@ impl State {
                 })
             }
             State::V4(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -169,7 +152,9 @@ impl State {
                 })
             }
             State::V5(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -192,7 +177,9 @@ impl State {
                 })
             }
             State::V6(st) => {
-                let info = st.get_info(store)?;
+                let info = st
+                    .get_info(store)
+                    .map_err(|e| anyhow::anyhow!("can't get info: {}", e))?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -222,7 +209,7 @@ impl State {
         &self,
         store: &BS,
         mut f: impl FnMut(u64, Deadline) -> Result<(), Box<dyn Error>>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> anyhow::Result<()> {
         match self {
             State::V0(st) => st
                 .load_deadlines(store)?
@@ -243,39 +230,42 @@ impl State {
                 .load_deadlines(store)?
                 .for_each(store, |idx, dl| f(idx as u64, Deadline::V5(dl))),
         }
+        .map_err(|e| anyhow::anyhow!("can't apply function: {}", e))
     }
 
     /// Loads deadline at index for a miner's state
-    pub fn load_deadline<BS: BlockStore>(
-        &self,
-        store: &BS,
-        idx: u64,
-    ) -> Result<Deadline, Box<dyn Error>> {
+    pub fn load_deadline<BS: BlockStore>(&self, store: &BS, idx: u64) -> anyhow::Result<Deadline> {
         match self {
-            State::V0(st) => Ok(st
+            State::V0(st) => st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
-                .map(Deadline::V0)?),
-            State::V2(st) => Ok(st
+                .map_err(|e| anyhow::anyhow!("can't load deadline: {}", e))
+                .map(Deadline::V0),
+            State::V2(st) => st
                 .load_deadlines(store)?
                 .load_deadline(store, idx)
-                .map(Deadline::V2)?),
-            State::V3(st) => Ok(st
+                .map_err(|e| anyhow::anyhow!("can't load deadline: {}", e))
+                .map(Deadline::V2),
+            State::V3(st) => st
                 .load_deadlines(store)?
                 .load_deadline(store, idx as usize)
-                .map(Deadline::V3)?),
-            State::V4(st) => Ok(st
+                .map_err(|e| anyhow::anyhow!("can't load deadline: {}", e))
+                .map(Deadline::V3),
+            State::V4(st) => st
                 .load_deadlines(store)?
                 .load_deadline(store, idx as usize)
-                .map(Deadline::V4)?),
-            State::V5(st) => Ok(st
+                .map_err(|e| anyhow::anyhow!("can't load deadline: {}", e))
+                .map(Deadline::V4),
+            State::V5(st) => st
                 .load_deadlines(store)?
                 .load_deadline(store, idx as usize)
-                .map(Deadline::V5)?),
-            State::V6(st) => Ok(st
+                .map_err(|e| anyhow::anyhow!("can't load deadline: {}", e))
+                .map(Deadline::V5),
+            State::V6(st) => st
                 .load_deadlines(store)?
                 .load_deadline(store, idx as usize)
-                .map(Deadline::V5)?),
+                .map_err(|e| anyhow::anyhow!("can't load deadline: {}", e))
+                .map(Deadline::V5),
         }
     }
 
@@ -284,107 +274,137 @@ impl State {
         &self,
         store: &BS,
         sectors: Option<&BitField>,
-    ) -> Result<Vec<SectorOnChainInfo>, Box<dyn Error>> {
+    ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
         match self {
             State::V0(st) => {
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(store, sectors)?
+                        .load_sector_infos(store, sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sector infos: {}", e))?
                         .into_iter()
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = actorv0::miner::Sectors::load(store, &st.sectors)?;
+                    let sectors = actorv0::miner::Sectors::load(store, &st.sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sectors: {}", e))?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
+                    sectors
+                        .amt
+                        .for_each(|_, info| {
+                            infos.push(SectorOnChainInfo::from(info.clone()));
+                            Ok(())
+                        })
+                        .map_err(|e| anyhow::anyhow!("can't push sector: {}", e))?;
                     Ok(infos)
                 }
             }
             State::V2(st) => {
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(store, sectors)?
+                        .load_sector_infos(store, sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sector infos: {}", e))?
                         .into_iter()
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = actorv2::miner::Sectors::load(store, &st.sectors)?;
+                    let sectors = actorv2::miner::Sectors::load(store, &st.sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sectors: {}", e))?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
+                    sectors
+                        .amt
+                        .for_each(|_, info| {
+                            infos.push(SectorOnChainInfo::from(info.clone()));
+                            Ok(())
+                        })
+                        .map_err(|e| anyhow::anyhow!("can't push sector: {}", e))?;
                     Ok(infos)
                 }
             }
             State::V3(st) => {
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(store, sectors)?
+                        .load_sector_infos(store, sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sector infos: {}", e))?
                         .into_iter()
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = actorv3::miner::Sectors::load(store, &st.sectors)?;
+                    let sectors = actorv3::miner::Sectors::load(store, &st.sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sectors: {}", e))?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
+                    sectors
+                        .amt
+                        .for_each(|_, info| {
+                            infos.push(SectorOnChainInfo::from(info.clone()));
+                            Ok(())
+                        })
+                        .map_err(|e| anyhow::anyhow!("can't push sector: {}", e))?;
                     Ok(infos)
                 }
             }
             State::V4(st) => {
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(store, sectors)?
+                        .load_sector_infos(store, sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sector infos: {}", e))?
                         .into_iter()
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = actorv4::miner::Sectors::load(store, &st.sectors)?;
+                    let sectors = actorv4::miner::Sectors::load(store, &st.sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sectors: {}", e))?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
+                    sectors
+                        .amt
+                        .for_each(|_, info| {
+                            infos.push(SectorOnChainInfo::from(info.clone()));
+                            Ok(())
+                        })
+                        .map_err(|e| anyhow::anyhow!("can't push sector: {}", e))?;
                     Ok(infos)
                 }
             }
             State::V5(st) => {
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(store, sectors)?
+                        .load_sector_infos(store, sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sector infos: {}", e))?
                         .into_iter()
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = actorv5::miner::Sectors::load(store, &st.sectors)?;
+                    let sectors = actorv5::miner::Sectors::load(store, &st.sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sectors: {}", e))?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
+                    sectors
+                        .amt
+                        .for_each(|_, info| {
+                            infos.push(SectorOnChainInfo::from(info.clone()));
+                            Ok(())
+                        })
+                        .map_err(|e| anyhow::anyhow!("can't push sector: {}", e))?;
                     Ok(infos)
                 }
             }
             State::V6(st) => {
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(store, sectors)?
+                        .load_sector_infos(store, sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sector infos: {}", e))?
                         .into_iter()
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = actorv6::miner::Sectors::load(store, &st.sectors)?;
+                    let sectors = actorv6::miner::Sectors::load(store, &st.sectors)
+                        .map_err(|e| anyhow::anyhow!("can't load sectors: {}", e))?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
-                    sectors.amt.for_each(|_, info| {
-                        infos.push(SectorOnChainInfo::from(info.clone()));
-                        Ok(())
-                    })?;
+                    sectors
+                        .amt
+                        .for_each(|_, info| {
+                            infos.push(SectorOnChainInfo::from(info.clone()));
+                            Ok(())
+                        })
+                        .map_err(|e| anyhow::anyhow!("can't push sector: {}", e))?;
                     Ok(infos)
                 }
             }
@@ -396,25 +416,31 @@ impl State {
         &self,
         store: &BS,
         sector_num: SectorNumber,
-    ) -> Result<Option<SectorPreCommitOnChainInfo>, Box<dyn Error>> {
+    ) -> anyhow::Result<Option<SectorPreCommitOnChainInfo>> {
         match self {
             State::V0(st) => Ok(st
-                .get_precommitted_sector(store, sector_num)?
+                .get_precommitted_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get precommited sector {}", e))?
                 .map(From::from)),
             State::V2(st) => Ok(st
-                .get_precommitted_sector(store, sector_num)?
+                .get_precommitted_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get precommited sector {}", e))?
                 .map(From::from)),
             State::V3(st) => Ok(st
-                .get_precommitted_sector(store, sector_num)?
+                .get_precommitted_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get precommited sector {}", e))?
                 .map(From::from)),
             State::V4(st) => Ok(st
-                .get_precommitted_sector(store, sector_num)?
+                .get_precommitted_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get precommited sector {}", e))?
                 .map(From::from)),
             State::V5(st) => Ok(st
-                .get_precommitted_sector(store, sector_num)?
+                .get_precommitted_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get precommited sector {}", e))?
                 .map(From::from)),
             State::V6(st) => Ok(st
-                .get_precommitted_sector(store, sector_num)?
+                .get_precommitted_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get precommited sector {}", e))?
                 .map(From::from)),
         }
     }
@@ -424,14 +450,32 @@ impl State {
         &self,
         store: &BS,
         sector_num: u64,
-    ) -> Result<Option<SectorOnChainInfo>, Box<dyn Error>> {
+    ) -> anyhow::Result<Option<SectorOnChainInfo>> {
         match self {
-            State::V0(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-            State::V2(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-            State::V3(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-            State::V4(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-            State::V5(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-            State::V6(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
+            State::V0(st) => Ok(st
+                .get_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get sector {}", e))?
+                .map(From::from)),
+            State::V2(st) => Ok(st
+                .get_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get sector {}", e))?
+                .map(From::from)),
+            State::V3(st) => Ok(st
+                .get_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get sector {}", e))?
+                .map(From::from)),
+            State::V4(st) => Ok(st
+                .get_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get sector {}", e))?
+                .map(From::from)),
+            State::V5(st) => Ok(st
+                .get_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get sector {}", e))?
+                .map(From::from)),
+            State::V6(st) => Ok(st
+                .get_sector(store, sector_num)
+                .map_err(|e| anyhow::anyhow!("can't get sector {}", e))?
+                .map(From::from)),
         }
     }
 
@@ -527,7 +571,7 @@ impl Deadline {
         &self,
         store: &BS,
         mut f: impl FnMut(u64, Partition) -> Result<(), Box<dyn Error>>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> anyhow::Result<()> {
         match self {
             Deadline::V0(dl) => dl.for_each(store, |idx, part| {
                 f(idx, Partition::V0(Cow::Borrowed(part)))
@@ -548,19 +592,29 @@ impl Deadline {
                 f(idx as u64, Partition::V6(Cow::Borrowed(part)))
             }),
         }
+        .map_err(|e| anyhow::anyhow!("can't apply function: {}", e))
     }
 
-    pub fn disputable_proof_count<BS: BlockStore>(
-        &self,
-        store: &BS,
-    ) -> Result<usize, Box<dyn Error>> {
+    pub fn disputable_proof_count<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<usize> {
         Ok(match self {
             // Field did not exist in v0 or v2
             Deadline::V0(_) | Deadline::V2(_) => 0,
-            Deadline::V3(dl) => dl.optimistic_proofs_snapshot_amt(store)?.count(),
-            Deadline::V4(dl) => dl.optimistic_proofs_snapshot_amt(store)?.count(),
-            Deadline::V5(dl) => dl.optimistic_proofs_snapshot_amt(store)?.count(),
-            Deadline::V6(dl) => dl.optimistic_proofs_snapshot_amt(store)?.count(),
+            Deadline::V3(dl) => dl
+                .optimistic_proofs_snapshot_amt(store)
+                .map_err(|e| anyhow::anyhow!("can't get snapshot amt {}", e))?
+                .count(),
+            Deadline::V4(dl) => dl
+                .optimistic_proofs_snapshot_amt(store)
+                .map_err(|e| anyhow::anyhow!("can't get snapshot amt {}", e))?
+                .count(),
+            Deadline::V5(dl) => dl
+                .optimistic_proofs_snapshot_amt(store)
+                .map_err(|e| anyhow::anyhow!("can't get snapshot amt {}", e))?
+                .count(),
+            Deadline::V6(dl) => dl
+                .optimistic_proofs_snapshot_amt(store)
+                .map_err(|e| anyhow::anyhow!("can't get snapshot amt {}", e))?
+                .count(),
         })
     }
 
