@@ -45,3 +45,9 @@ impl From<Box<dyn StdError>> for Error {
         Error::Other(e.to_string())
     }
 }
+
+impl From<fvm::kernel::ExecutionError> for Error {
+    fn from(e: fvm::kernel::ExecutionError) -> Self {
+        Error::Other(e.to_string())
+    }
+}

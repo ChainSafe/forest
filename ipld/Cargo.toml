@@ -1,35 +1,36 @@
 [package]
-name = "forest_ipld"
+name        = "forest_ipld"
 description = "Interplanetary linked data types and implementation"
-version = "0.1.1"
-license = "MIT OR Apache-2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
-repository = "https://github.com/ChainSafe/forest"
+version     = "0.1.1"
+license     = "MIT OR Apache-2.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>"]
+edition     = "2021"
+repository  = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
 features = ["json"]
 
 [dependencies]
-fvm_shared = { version = "0.2", default-features = false }
-libipld-core = { version = "0.13", features = ["serde-codec"] }
-encoding = { package = "forest_encoding", version = "0.2" }
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "1.0"
-multibase = { version = "0.9", optional = true }
-async-trait = "0.1"
-async-recursion = "1.0"
-indexmap = { version = "1.8", features = ["serde-1"] }
+fvm_shared        = { version = "0.7.1", default-features = false }
+fvm_ipld_encoding = "0.2"
+libipld-core      = { version = "0.13", features = ["serde-codec"] }
+encoding          = { package = "forest_encoding", version = "0.2" }
+serde             = { version = "1.0", features = ["derive"] }
+thiserror         = "1.0"
+multibase         = { version = "0.9", optional = true }
+async-trait       = "0.1"
+async-recursion   = "1.0"
+indexmap          = { version = "1.8", features = ["serde-1"] }
 
 [dependencies.cid]
-package = "forest_cid"
+package  = "forest_cid"
 features = ["cbor", "json"]
-version = "0.3"
+version  = "0.3"
 
 [features]
-json = ["multibase"]
+json            = ["multibase"]
 submodule_tests = ["json"]
 
 [dev-dependencies]
 serde_json = "1.0"
-async-std = { version = "1.9", features = ["attributes"] }
+async-std  = { version = "1.9", features = ["attributes"] }

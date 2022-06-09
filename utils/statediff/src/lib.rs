@@ -170,6 +170,10 @@ pub fn print_state_diff<BS>(
 where
     BS: BlockStore,
 {
+    eprintln!(
+        "StateDiff:\n  Expected: {}\n  Root: {}",
+        expected_root, root
+    );
     if let Err(e) = try_print_actor_states(bs, root, expected_root, depth) {
         println!(
             "Could not resolve actor states: {}\nUsing default resolution:",

@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::error::Error as StdError;
 
 use cid::Cid;
-use fvm_shared::encoding::from_slice;
+use fvm_ipld_encoding::from_slice;
 
 use crate::Ipld;
 

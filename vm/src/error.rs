@@ -24,7 +24,7 @@ impl From<fvm::executor::ApplyFailure> for ActorError {
     fn from(ret: fvm::executor::ApplyFailure) -> Self {
         ActorError {
             fatal: true,
-            exit_code: ExitCode::Ok,
+            exit_code: ExitCode::OK,
             msg: ret.to_string(),
             recovered: false,
         }
@@ -44,7 +44,7 @@ impl ActorError {
     pub fn new_fatal(msg: String) -> Self {
         Self {
             fatal: true,
-            exit_code: ExitCode::ErrPlaceholder,
+            exit_code: ExitCode::USR_UNSPECIFIED,
             msg,
             recovered: false,
         }
@@ -74,9 +74,9 @@ impl ActorError {
         self.exit_code
     }
 
-    /// Returns true when the exit code is `Ok`.
+    /// Returns true when the exit code is `OK`.
     pub fn is_ok(&self) -> bool {
-        self.exit_code == ExitCode::Ok
+        self.exit_code == ExitCode::OK
     }
 
     /// Error message of the actor error.
@@ -95,7 +95,7 @@ impl From<EncodingError> for ActorError {
     fn from(e: EncodingError) -> Self {
         Self {
             fatal: false,
-            exit_code: ExitCode::ErrSerialization,
+            exit_code: ExitCode::USR_SERIALIZATION,
             msg: e.to_string(),
             recovered: false,
         }
@@ -106,7 +106,7 @@ impl From<CborError> for ActorError {
     fn from(e: CborError) -> Self {
         Self {
             fatal: false,
-            exit_code: ExitCode::ErrSerialization,
+            exit_code: ExitCode::USR_SERIALIZATION,
             msg: e.to_string(),
             recovered: false,
         }

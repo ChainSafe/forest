@@ -1,34 +1,35 @@
 [package]
-name = "forest_crypto"
+name        = "forest_crypto"
 description = "Filecoin crypto utilities for use in Forest"
-license = "MIT OR Apache-2.0"
-version = "0.5.2"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
-repository = "https://github.com/ChainSafe/forest"
+license     = "MIT OR Apache-2.0"
+version     = "0.5.2"
+authors     = ["ChainSafe Systems <info@chainsafe.io>"]
+edition     = "2021"
+repository  = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
 features = ["json"]
 
 [dependencies]
-anyhow = "1.0"
-fvm_shared = { version = "0.2", default-features = false }
-address = { package = "forest_address", version = "0.3" }
-encoding = { package = "forest_encoding", version = "0.2" }
-libsecp256k1 = "0.7"
-bls-signatures = { version = "0.11", default-features = false }
-serde = { version = "1.0", features = ["derive"] }
-num-traits = "0.2"
-num-derive = "0.3"
-thiserror = "1.0"
-base64 = { version = "0.13", optional = true }
+anyhow             = "1.0"
+fvm_shared         = { version = "*", default-features = false }
+fil_actors_runtime = "=7.5.1"
+address            = { package = "forest_address", version = "0.3" }
+encoding           = { package = "forest_encoding", version = "0.2" }
+libsecp256k1       = "0.7"
+bls-signatures     = { version = "0.11", default-features = false }
+serde              = { version = "1.0", features = ["derive"] }
+num-traits         = "0.2"
+num-derive         = "0.3"
+thiserror          = "1.0"
+base64             = { version = "0.13", optional = true }
 
 [dev-dependencies]
-rand = "0.8"
+rand        = "0.8"
 rand_chacha = "0.3"
 
 [features]
 default = ["blst"]
-json = ["base64"]
-blst = ["bls-signatures/blst", "fvm_shared/blst"]
+json    = ["base64"]
+blst    = ["bls-signatures/blst", "fvm_shared/blst"]
 pairing = ["bls-signatures/pairing", "fvm_shared/pairing"]

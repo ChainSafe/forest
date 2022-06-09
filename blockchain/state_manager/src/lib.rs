@@ -11,20 +11,24 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use actor::*;
-use address::{Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN};
+use address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use blockstore::BlockStore;
+use blockstore::FvmStore;
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
+use fil_actors_runtime::runtime::Policy;
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
+use fvm::machine::NetworkConfig;
+use fvm::state_tree::StateTree as FvmStateTree;
 use interpreter::{
     resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, LookbackStateGetter, Rand, VM,
 };
@@ -88,7 +92,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
-    engine: fvm::machine::Engine,
+    engine: fvm::machine::MultiEngine,
 }
 
 impl<DB> StateManager<DB>
@@ -105,7 +109,7 @@ where
             publisher: None,
             genesis_info: GenesisInfo::default(),
             beacon,
-            engine: fvm::machine::Engine::default(),
+            engine: fvm::machine::MultiEngine::new(),
         })
     }
 
@@ -123,7 +127,7 @@ where
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::default(),
             beacon,
-            engine: fvm::machine::Engine::default(),
+            engine: fvm::machine::MultiEngine::new(),
         })
     }
 
@@ -138,8 +142,11 @@ where
 
     /// Gets actor from given [Cid], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
+        let state =
+            FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         Ok(state.get_actor(addr)?)
+        // let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
+        // Ok(state.get_actor(addr)?)
     }
 
     /// Returns the cloned [Arc] of the state manager's [BlockStore].
@@ -162,7 +169,7 @@ where
     pub async fn get_beacon_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -195,6 +202,7 @@ where
                     .get_beacon_randomness_v1(blocks, pers, round, entropy)
                     .await
             }
+            _ => panic!("Unsupported network version"),
         }
     }
 
@@ -203,7 +211,7 @@ where
     pub async fn get_chain_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
@@ -215,13 +223,13 @@ where
     }
 
     /// Returns the network name from the init actor state.
-    pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
-        let init_act = self
-            .get_actor(actor::init::ADDRESS, *st)?
-            .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
-
-        let state = init::State::load(self.blockstore(), &init_act)?;
-        Ok(state.into_network_name())
+    pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
+        Ok("cannot get name".into())
+        // let init_act = self
+        //     .get_actor(actor::init::ADDRESS, *st)?
+        //     .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
+        // let state = init::State::load(self.blockstore(), &init_act)?;
+        // Ok(state.into_network_name())
     }
 
     /// Returns true if miner has been slashed or is considered invalid.
@@ -237,6 +245,9 @@ where
 
     /// Returns raw work address of a miner given the state root.
     pub fn get_miner_work_addr(&self, state_cid: Cid, addr: &Address) -> Result<Address, Error> {
+        // let state =
+        //     FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
+        // Ok(state.get_actor(addr)?)
         let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
 
         let act = state
@@ -326,7 +337,9 @@ where
                 self.genesis_info.clone(),
                 None,
                 &lb_wrapper,
-                self.engine.clone(),
+                self.engine
+                    .get(&NetworkConfig::new(get_network_version_default(epoch)))
+                    .unwrap(),
             )
         };
 
@@ -468,7 +481,9 @@ where
                 self.genesis_info.clone(),
                 None,
                 &lb_wrapper,
-                self.engine.clone(),
+                self.engine
+                    .get(&NetworkConfig::new(get_network_version_default(bheight)))
+                    .unwrap(),
             )?;
 
             if msg.gas_limit() == 0 {
@@ -564,7 +579,11 @@ where
             self.genesis_info.clone(),
             None,
             &lb_wrapper,
-            self.engine.clone(),
+            self.engine
+                .get(&NetworkConfig::new(get_network_version_default(
+                    ts.epoch() + 1,
+                )))
+                .unwrap(),
         )?;
 
         for msg in prior_messages {
@@ -644,7 +663,7 @@ where
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
-            CHAIN_FINALITY
+            Policy::default().chain_finality // FIXME: Use correct policy
         };
 
         if round > lb {
@@ -774,7 +793,7 @@ where
         let buf = address.marshal_cbor()?;
         let prand = chain_rand::draw_randomness(
             rbase.data(),
-            DomainSeparationTag::WinningPoStChallengeSeed,
+            DomainSeparationTag::WinningPoStChallengeSeed as i64,
             round,
             &buf,
         )?;
@@ -1200,7 +1219,7 @@ where
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
         match kaddr.into_payload() {
-            Payload::BLS(BLSPublicKey(key)) => Ok(key),
+            Payload::BLS(key) => Ok(key),
             _ => Err(Error::State(
                 "Address must be BLS address to load bls public key".to_owned(),
             )),

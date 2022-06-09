@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use actor::{actorv3::ActorState, is_miner_actor};
+use actor::is_miner_actor;
 use address::{json::AddressJson, Address};
 use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use rpc_client::{
@@ -11,6 +11,7 @@ use rpc_client::{
     state_miner_power,
 };
 use structopt::StructOpt;
+use vm::ActorState;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
 

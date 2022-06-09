@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::Rand;
 use clock::ChainEpoch;
-use crypto::DomainSeparationTag;
 use fvm::externs::Consensus;
 use fvm::externs::Externs;
 use fvm_shared::consensus::ConsensusFault;
@@ -24,7 +23,7 @@ impl Externs for ForestExterns {}
 impl Rand for ForestExterns {
     fn get_chain_randomness(
         &self,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -33,7 +32,7 @@ impl Rand for ForestExterns {
 
     fn get_beacon_randomness(
         &self,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {

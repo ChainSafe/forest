@@ -229,7 +229,7 @@ where
         .await?;
     match res.msg_rct {
         Some(rct) => {
-            if rct.exit_code as u64 != 0 {
+            if rct.exit_code.value() != 0 {
                 return Ok(-1);
             }
             // TODO: Figure out why we always under estimate the gas calculation so we dont need to add 200000
