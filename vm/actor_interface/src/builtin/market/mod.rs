@@ -342,27 +342,28 @@ impl<BS> DealProposals<'_, BS> {
     where
         BS: BlockStore,
     {
-        match self {
-            // DealProposals::V0(dp) => {
-            //     dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
-            // }
-            // DealProposals::V2(dp) => {
-            //     dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
-            // }
-            // DealProposals::V3(dp) => {
-            //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-            // }
-            // DealProposals::V4(dp) => {
-            //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-            // }
-            // DealProposals::V5(dp) => {
-            //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-            // }
-            // DealProposals::V6(dp) => {
-            //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-            // }
-            _ => unimplemented!(),
-        }
+        unimplemented!()
+        // match self {
+        //     // DealProposals::V0(dp) => {
+        //     //     dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
+        //     // }
+        //     // DealProposals::V2(dp) => {
+        //     //     dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
+        //     // }
+        //     // DealProposals::V3(dp) => {
+        //     //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+        //     // }
+        //     // DealProposals::V4(dp) => {
+        //     //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+        //     // }
+        //     // DealProposals::V5(dp) => {
+        //     //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+        //     // }
+        //     // DealProposals::V6(dp) => {
+        //     //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
+        //     // }
+        //     _ => unimplemented!(),
+        // }
     }
 }
 
@@ -512,15 +513,16 @@ where
     BS: BlockStore,
 {
     pub fn get(&self, _key: u64) -> Result<Option<DealState>, Box<dyn Error>> {
-        match self {
-            // DealStates::V0(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
-            // DealStates::V2(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
-            // DealStates::V3(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            // DealStates::V4(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            // DealStates::V5(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            // DealStates::V6(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-            _ => unimplemented!(),
-        }
+        unimplemented!()
+        // match self {
+        //     // DealStates::V0(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
+        //     // DealStates::V2(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
+        //     // DealStates::V3(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+        //     // DealStates::V4(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+        //     // DealStates::V5(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+        //     // DealStates::V6(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
+        //     _ => unimplemented!(),
+        // }
     }
 }
 
@@ -597,14 +599,15 @@ where
     BS: BlockStore,
 {
     pub fn get(&self, _key: &Address) -> Result<TokenAmount, Box<dyn Error>> {
-        match self {
-            // BalanceTable::V0(bt) => bt.get(key),
-            // BalanceTable::V2(bt) => bt.get(key),
-            // BalanceTable::V3(bt) => bt.get(key),
-            // BalanceTable::V4(bt) => bt.get(key),
-            // BalanceTable::V5(bt) => bt.get(key),
-            // BalanceTable::V6(bt) => bt.get(key),
-            _ => unimplemented!(),
-        }
+        unimplemented!()
+        // match self {
+        //     // BalanceTable::V0(bt) => bt.get(key),
+        //     // BalanceTable::V2(bt) => bt.get(key),
+        //     // BalanceTable::V3(bt) => bt.get(key),
+        //     // BalanceTable::V4(bt) => bt.get(key),
+        //     // BalanceTable::V5(bt) => bt.get(key),
+        //     // BalanceTable::V6(bt) => bt.get(key),
+        //     _ => unimplemented!(),
+        // }
     }
 }

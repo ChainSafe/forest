@@ -854,7 +854,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
         // has at least one element
         let oldest_parent = parent_tipsets.last().unwrap();
         let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
-        pb.set((work_to_be_done - total_size).abs() as u64);
+        pb.set((work_to_be_done - total_size).unsigned_abs());
         validate_tipset_against_cache(
             bad_block_cache.clone(),
             oldest_parent.parents(),

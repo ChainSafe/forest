@@ -15,11 +15,13 @@ use ipld::json::{IpldJson, IpldJsonRef};
 use ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
+use vm::ActorState;
+
 use std::collections::HashMap;
 use std::error::Error as StdError;
+use std::fmt::Write as FmtWrite;
 use std::io::stdout;
 use std::io::Write;
-use vm::ActorState;
 
 #[derive(Serialize, Deserialize)]
 struct ActorStateResolved {
@@ -116,16 +118,16 @@ fn pp_actor_state(
     let ipld = &resolved.state.0;
     let mut buffer = String::new();
 
-    buffer += &format!("{:?}\n", state);
+    writeln!(&mut buffer, "{:?}", state)?;
 
     if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
-        buffer += &format!("{:?}", miner_state);
+        write!(&mut buffer, "{:?}", miner_state)?;
     } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
-        buffer += &format!("{:?}", account_state);
+        write!(&mut buffer, "{:?}", account_state)?;
     } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
-        buffer += &format!("{:?}", state);
+        write!(&mut buffer, "{:?}", state)?;
     } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
-        buffer += &format!("{:?}", state);
+        write!(&mut buffer, "{:?}", state)?;
     } else {
         buffer += &serde_json::to_string_pretty(&resolved)?;
     }

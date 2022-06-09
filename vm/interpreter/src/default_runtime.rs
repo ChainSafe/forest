@@ -443,6 +443,7 @@ where
 
     /// Calls actor code with method and parameters.
     #[allow(unreachable_code)]
+    #[allow(clippy::suspicious_else_formatting)]
     fn invoke(
         &mut self,
         _code: Cid,
@@ -450,18 +451,19 @@ where
         _params: &Serialized,
         _to: &Address,
     ) -> Result<Serialized, ActorError> {
-        let actor_version = actor::ActorVersion::from(self.network_version());
+        let _actor_version = actor::ActorVersion::from(self.network_version());
 
         let _ret = if let Some(_ret) = {
-            match actor_version {
-                // ActorVersion::V0 => actorv0::invoke_code(&code, self, method_num, params),
-                // ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
-                // ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
-                // ActorVersion::V4 => actorv4::invoke_code(&code, self, method_num, params),
-                // ActorVersion::V5 => actorv5::invoke_code(&code, self, method_num, params),
-                // ActorVersion::V6 => actorv6::invoke_code(&code, self, method_num, params),
-                _ => unimplemented!(),
-            }
+            unimplemented!()
+            // match actor_version {
+            //     // ActorVersion::V0 => actorv0::invoke_code(&code, self, method_num, params),
+            //     // ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
+            //     // ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
+            //     // ActorVersion::V4 => actorv4::invoke_code(&code, self, method_num, params),
+            //     // ActorVersion::V5 => actorv5::invoke_code(&code, self, method_num, params),
+            //     // ActorVersion::V6 => actorv6::invoke_code(&code, self, method_num, params),
+            //     _ => unimplemented!(),
+            // }
         } {
             _ret
         }
@@ -1280,17 +1282,18 @@ fn make_actor(addr: &Address, version: ActorVersion) -> Result<ActorState, Actor
 }
 
 #[allow(unreachable_code)]
-fn new_account_actor(version: ActorVersion) -> ActorState {
+fn new_account_actor(_version: ActorVersion) -> ActorState {
     ActorState {
-        code: match version {
-            // ActorVersion::V0 => *actorv0::ACCOUNT_ACTOR_CODE_ID,
-            // ActorVersion::V2 => *actorv2::ACCOUNT_ACTOR_CODE_ID,
-            // ActorVersion::V3 => *actorv3::ACCOUNT_ACTOR_CODE_ID,
-            // ActorVersion::V4 => *actorv4::ACCOUNT_ACTOR_CODE_ID,
-            // ActorVersion::V5 => *actorv5::ACCOUNT_ACTOR_CODE_ID,
-            // ActorVersion::V6 => *actorv6::ACCOUNT_ACTOR_CODE_ID,
-            _ => unimplemented!(),
-        },
+        code: unimplemented!(),
+        // code: match version {
+        //     // ActorVersion::V0 => *actorv0::ACCOUNT_ACTOR_CODE_ID,
+        //     // ActorVersion::V2 => *actorv2::ACCOUNT_ACTOR_CODE_ID,
+        //     // ActorVersion::V3 => *actorv3::ACCOUNT_ACTOR_CODE_ID,
+        //     // ActorVersion::V4 => *actorv4::ACCOUNT_ACTOR_CODE_ID,
+        //     // ActorVersion::V5 => *actorv5::ACCOUNT_ACTOR_CODE_ID,
+        //     // ActorVersion::V6 => *actorv6::ACCOUNT_ACTOR_CODE_ID,
+        //     _ => unimplemented!(),
+        // },
         balance: TokenAmount::from(0),
         state: *EMPTY_ARR_CID,
         sequence: 0,
