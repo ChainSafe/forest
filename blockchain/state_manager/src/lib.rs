@@ -371,11 +371,6 @@ where
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
-        eprintln!(
-            "Flushed root: {}, {:?}",
-            state_root,
-            db.exists(state_root.to_bytes())
-        );
 
         // FIXME: Buffering disabled while debugging. Investigate if the buffer improves performance.
         //        See issue: https://github.com/ChainSafe/forest/issues/1451
@@ -1330,7 +1325,6 @@ where
     ) -> Result<(), Box<dyn StdError>> {
         let mut ts_chain = Vec::<Arc<Tipset>>::new();
         while ts.epoch() != height {
-            info!("Scanning backwards... {}/{}", height, ts.epoch());
             let next = self.cs.tipset_from_keys(ts.parents()).await?;
             ts_chain.push(std::mem::replace(&mut ts, next));
         }
