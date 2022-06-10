@@ -46,7 +46,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
         &self,
         miner_addr: &Address,
         height: ChainEpoch,
-    ) -> anyhow::Result<Address> {
+    ) -> anyhow::Result<(Address, i64)> {
         if height < self.epoch - Policy::default().chain_finality {
             bail!(
                 "cannot get worker key (current epoch: {}, height: {})",
@@ -68,11 +68,12 @@ impl<DB: BlockStore> ForestExterns<DB> {
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
-        let worker_addr = self.worker_key_at_lookback(bh.miner_address(), bh.epoch())?;
+        let (worker_addr, gas_used) =
+            self.worker_key_at_lookback(bh.miner_address(), bh.epoch())?;
 
         bh.check_block_signature(&worker_addr)?;
 
-        Ok(0)
+        Ok(gas_used)
     }
 }
 
