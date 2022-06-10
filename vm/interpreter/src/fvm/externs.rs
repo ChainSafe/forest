@@ -13,6 +13,7 @@ use address::Address;
 use blocks::BlockHeader;
 use forest_encoding::Cbor;
 use state_tree::StateTree;
+use crate::resolve_to_key_addr;
 
 use anyhow::bail;
 use std::sync::Arc;
@@ -64,7 +65,19 @@ impl<DB: BlockStore> ForestExterns<DB> {
             .map_err(|e| anyhow::anyhow!("{}", e))?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
-        unimplemented!()
+        let ms = actor::miner::State::load(&*self.db, &actor)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+        let worker = ms.info(&*self.db)
+            .map_err(|e| anyhow::anyhow!("{}", e))?.worker;
+
+        let state = StateTree::new_from_root(&*self.db, &self.root)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+        let addr = resolve_to_key_addr(&state, &*self.db, &worker)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+        Ok((addr, 0))
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
