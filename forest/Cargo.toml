@@ -1,84 +1,85 @@
 [package]
-name = "forest"
-version = "0.2.2"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
+name        = "forest"
+version     = "0.2.2"
+authors     = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This command will start the daemon process."
-edition = "2021"
-build = "build.rs"
+edition     = "2021"
+build       = "build.rs"
 
 [dependencies]
-fvm = "0.2"
-address = { package = "forest_address", version = "0.3" }
-base64 = "0.13"
-forest_libp2p = { path = "../node/forest_libp2p" }
-utils = { path = "../node/utils" }
-db = { package = "forest_db", version = "0.1" }
-libp2p = { version = "0.41", default-features = false, features = ["identify"] }
-futures = "0.3"
-log = "0.4"
-async-log = "2.0"
-async-std = { version = "1.9", features = ["attributes", "tokio1"] }
-serde = { version = "1.0", features = ["derive"] }
+fvm               = "0.8"
+address           = { package = "forest_address", version = "0.3" }
+base64            = "0.13"
+forest_libp2p     = { path = "../node/forest_libp2p" }
+utils             = { path = "../node/utils" }
+db                = { package = "forest_db", version = "0.1" }
+libp2p            = { version = "0.41", default-features = false, features = ["identify"] }
+futures           = "0.3"
+log               = "0.4"
+async-log         = "2.0"
+async-std         = { version = "1.9", features = ["attributes", "tokio1"] }
+serde             = { version = "1.0", features = ["derive"] }
 pretty_env_logger = "0.4"
-ctrlc = "3.1"
-chain_sync = { path = "../blockchain/chain_sync" }
-state_manager = { path = "../blockchain/state_manager" }
-cid = { package = "forest_cid", version = "0.3", features = ["json"] }
-multibase = "0.9"
-forest_car = { path = "../ipld/car" }
-forest_crypto = { version = "0.5", features = ["json"] }
-tokio = { version = "1.0", features = ["sync"] }
-num-bigint = { path = "../utils/bigint", package = "forest_bigint" }
-num-rational = "0.4"
-blocks = { package = "forest_blocks", path = "../blockchain/blocks" }
-ipld_blockstore = "0.1"
-chain = { path = "../blockchain/chain" }
-structopt = { version = "0.3" }
-beacon = { path = "../blockchain/beacon" }
-hex = "0.4"
-rpc = { path = "../node/rpc" }
-rpc_client = { package = "rpc-client", path = "../node/rpc-client" }
-rpc-api = { path = "../node/rpc-api", version = "0.1" }
-fil_types = "0.2"
-serde_json = "1.0"
-message = { package = "forest_message", version = "0.7", features = ["blst"] }
-message_pool = { package = "message_pool", path = "../blockchain/message_pool" }
-wallet = { package = "key_management", path = "../key_management" }
-uuid = { version = "0.8", features = ["v4"] }
-auth = { path = "../utils/auth" }
-net_utils = { path = "../utils/net_utils" }
-metrics = { path = "../utils/metrics" }
-actor = { package = "actor_interface", path = "../vm/actor_interface" }
-genesis = { path = "../utils/genesis" }
-paramfetch = { path = "../utils/paramfetch" }
-encoding = { package = "forest_encoding", version = "0.2" }
-networks = { path = "../types/networks" }
-rpassword = "6.0"
-rayon = "1.5"
-prometheus = { version = "0.13", features = ["process"] }
-ticker = "0.1"
-byte-unit = "4.0"
-rug = "1.13"
-toml = "0.5"
-directories = "4.0.1"
+ctrlc             = "3.1"
+chain_sync        = { path = "../blockchain/chain_sync" }
+state_manager     = { path = "../blockchain/state_manager" }
+cid               = { package = "forest_cid", version = "0.3", features = ["json"] }
+multibase         = "0.9"
+forest_car        = { path = "../ipld/car" }
+forest_crypto     = { version = "0.5", features = ["json"] }
+vm                = { package = "forest_vm", version = "0.3" }
+tokio             = { version = "1.0", features = ["sync"] }
+num-bigint        = { path = "../utils/bigint", package = "forest_bigint" }
+num-rational      = "0.4"
+blocks            = { package = "forest_blocks", path = "../blockchain/blocks" }
+ipld_blockstore   = "0.1"
+chain             = { path = "../blockchain/chain" }
+structopt         = { version = "0.3" }
+beacon            = { path = "../blockchain/beacon" }
+hex               = "0.4"
+rpc               = { path = "../node/rpc" }
+rpc_client        = { package = "rpc-client", path = "../node/rpc-client" }
+rpc-api           = { path = "../node/rpc-api", version = "0.1" }
+fil_types         = "0.2"
+serde_json        = "1.0"
+message           = { package = "forest_message", version = "0.7", features = ["blst"] }
+message_pool      = { package = "message_pool", path = "../blockchain/message_pool" }
+wallet            = { package = "key_management", path = "../key_management" }
+uuid              = { version = "0.8", features = ["v4"] }
+auth              = { path = "../utils/auth" }
+net_utils         = { path = "../utils/net_utils" }
+metrics           = { path = "../utils/metrics" }
+actor             = { package = "actor_interface", path = "../vm/actor_interface" }
+genesis           = { path = "../utils/genesis" }
+paramfetch        = { path = "../utils/paramfetch" }
+encoding          = { package = "forest_encoding", version = "0.2" }
+networks          = { path = "../types/networks" }
+rpassword         = "6.0"
+rayon             = "1.5"
+prometheus        = { version = "0.13", features = ["process"] }
+ticker            = "0.1"
+byte-unit         = "4.0"
+rug               = "1.13"
+toml              = "0.5"
+directories       = "4.0.1"
 
 [dependencies.jsonrpc-v2]
-version = "0.10"
-features = ["easy-errors", "macros", "bytes-v05"]
+version          = "0.10"
+features         = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
 
 [dev-dependencies]
 assert_cmd = "2"
-rand = "0.8"
-tempfile = "3"
+rand       = "0.8"
+tempfile   = "3"
 
 [features]
-default = ["rocksdb", "networks/mainnet"]
-rocksdb = ["db/rocksdb", "ipld_blockstore/rocksdb"]
-sled = ["db/sled", "ipld_blockstore/sled"]
-devnet = ["actor/devnet", "networks/devnet", "testnet"]
-interopnet = ["actor/interopnet", "networks/interopnet", "testnet"]
-calibnet = ["networks/calibnet", "actor/calibnet", "testnet"]
+default       = ["rocksdb", "networks/mainnet"]
+rocksdb       = ["db/rocksdb", "ipld_blockstore/rocksdb"]
+sled          = ["db/sled", "ipld_blockstore/sled"]
+devnet        = ["actor/devnet", "networks/devnet", "testnet"]
+interopnet    = ["actor/interopnet", "networks/interopnet", "testnet"]
+calibnet      = ["networks/calibnet", "actor/calibnet", "testnet"]
 insecure_post = ["chain_sync/insecure_post"]
-testnet = []
-release = []
+testnet       = []
+release       = []

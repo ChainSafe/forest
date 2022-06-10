@@ -5,9 +5,12 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1"
+forest_ipld = { version = "0.1" }
 pbr = "1.0.3"
 anyhow = "1.0"
-fvm_shared = { version = "0.2", default-features = false }
+fvm_shared = { version = "0.7.1", default-features = false }
+fvm_ipld_encoding = "0.2"
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
 amt = { package = "ipld_amt", version = "0.2" }
@@ -65,4 +68,4 @@ hex = "0.4"
 
 [features]
 insecure_post = []
-default = ["statediff"]
+default       = ["statediff"]

@@ -107,6 +107,12 @@ pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = 1231620;
 #[cfg(feature = "conformance")]
 pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = -16;
 
+/// V15 network update
+#[cfg(feature = "mainnet")]
+pub const UPGRADE_ACTORS_V7_HEIGHT: ChainEpoch = 1594680;
+#[cfg(feature = "conformance")]
+pub const UPGRADE_ACTORS_V7_HEIGHT: ChainEpoch = -17;
+
 pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
 
 /// Current network version for the network

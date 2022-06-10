@@ -15,7 +15,7 @@ use async_std::sync::Arc;
 use rayon::ThreadPoolBuildError;
 use std::collections::{HashMap, HashSet};
 
-pub mod nv12;
+// pub mod nv12;
 
 pub const ACTORS_COUNT: usize = 11;
 
@@ -235,6 +235,7 @@ struct MigrationJobOutput {
     actor_state: ActorState,
 }
 
+#[allow(dead_code)]
 fn nil_migrator<BS: BlockStore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {

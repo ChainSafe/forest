@@ -1,34 +1,45 @@
 [package]
-name = "actor_interface"
+name    = "actor_interface"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-actorv0 = { package = "forest_actor", version = "0.1" }
-actorv2 = { package = "forest_actor", version = "1.0" }
-actorv3 = { package = "forest_actor", version = "2.0" }
-actorv4 = { package = "forest_actor", version = "3.0" }
-actorv5 = { package = "forest_actor", version = "4.0" }
+#actorv0 = { package = "forest_actor", version = "0.1" }
+#actorv2 = { package = "forest_actor", version = "1.0" }
+#actorv3 = { package = "forest_actor", version = "2.0" }
+#actorv4 = { package = "forest_actor", version = "3.0" }
+#actorv5 = { package = "forest_actor", version = "4.0" }
 actorv6 = { package = "forest_actor", path = "../actor" }
 
-anyhow = "1.0"
-fvm_shared = { version = "0.2", default-features = false }
-fil_types = "0.2"
-vm = { package = "forest_vm", version = "0.3.1" }
-ipld_blockstore = "0.1"
-address = { package = "forest_address", version = "0.3" }
-serde = { version = "1.0", features = ["derive"] }
-cid = { package = "forest_cid", version = "0.3", features = ["json"] }
-clock = { package = "fil_clock", version = "0.1" }
-encoding = { package = "forest_encoding", version = "0.2" }
-libp2p = { version = "0.40.0-rc.1", default-features = false }
-forest_bitfield = "0.1"
-num-bigint = { version = "0.1", package = "forest_bigint", features = ["json"] }
+fil_actor_miner_v7    = { package = "fil_actor_miner", version = "=7.5.1" }
+fil_actor_cron_v7     = { package = "fil_actor_cron", version = "=7.5.1" }
+fil_actor_account_v7  = { package = "fil_actor_account", version = "=7.5.1" }
+fil_actor_reward_v7   = { package = "fil_actor_reward", version = "=7.5.1" }
+fil_actor_market_v7   = { package = "fil_actor_market", version = "=7.5.1" }
+fil_actor_power_v7    = { package = "fil_actor_power", version = "=7.5.1" }
+fil_actor_system_v7   = { package = "fil_actor_system", version = "=7.5.1" }
+fil_actor_init_v7     = { package = "fil_actor_init", version = "=7.5.1" }
+fil_actor_multisig_v7 = { package = "fil_actor_multisig", version = "=7.5.1" }
+fil_actors_runtime_v7 = { package = "fil_actors_runtime", version = "=7.5.1" }
+
+anyhow            = "1.0"
+fvm_shared        = { version = "0.7.1", default-features = false }
+fil_types         = "0.2"
+vm                = { package = "forest_vm", version = "0.3.1" }
+ipld_blockstore   = "0.1"
+address           = { package = "forest_address", version = "0.3" }
+serde             = { version = "1.0", features = ["derive"] }
+cid               = { package = "forest_cid", version = "0.3", features = ["json"] }
+clock             = { package = "fil_clock", version = "0.1" }
+encoding          = { package = "forest_encoding", version = "0.2" }
+libp2p            = { version = "0.40.0-rc.1", default-features = false }
+forest_bitfield   = "0.1"
+num-bigint        = { version = "0.1", package = "forest_bigint", features = ["json"] }
 forest_hash_utils = "0.1"
 forest_json_utils = "0.1"
 
 [features]
-devnet = ["actorv0/devnet", "actorv2/devnet", "actorv3/devnet"]
-interopnet = ["actorv0/interopnet", "actorv2/interopnet", "actorv3/interopnet"]
-calibnet = ["actorv6/calibnet"]
+devnet     = []
+interopnet = []
+calibnet   = []

@@ -31,7 +31,7 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
             Ok(sector_numbers) => sector_numbers,
             Err(e) => {
                 return Err(actor_error!(
-                    ErrIllegalArgument,
+                    USR_ILLEGAL_ARGUMENT,
                     "failed to load sectors: {}",
                     e
                 ))
@@ -45,12 +45,14 @@ impl<'db, BS: BlockStore> Sectors<'db, BS> {
                 .get(sector_number)
                 .map_err(|e| {
                     e.downcast_default(
-                        ExitCode::ErrIllegalState,
+                        ExitCode::USR_ILLEGAL_STATE,
                         format!("failed to load sector {}", sector_number),
                     )
                 })?
                 .cloned()
-                .ok_or_else(|| actor_error!(ErrNotFound; "sector not found: {}", sector_number))?;
+                .ok_or_else(
+                    || actor_error!(USR_NOT_FOUND; "sector not found: {}", sector_number),
+                )?;
             sector_infos.push(sector_on_chain);
         }
         Ok(sector_infos)

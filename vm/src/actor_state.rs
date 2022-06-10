@@ -1,67 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::TokenAmount;
-use cid::Cid;
-use encoding::tuple::*;
-use num_bigint::bigint_ser;
-
-// use fvm::state_tree::ActorState;
-/// State of all actor implementations.
-#[derive(PartialEq, Eq, Clone, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct ActorState {
-    /// Link to code for the actor.
-    pub code: Cid,
-    /// Link to the state of the actor.
-    pub state: Cid,
-    /// Sequence of the actor.
-    pub sequence: u64,
-    /// Tokens available to the actor.
-    #[serde(with = "bigint_ser")]
-    pub balance: TokenAmount,
-}
-
-impl From<fvm::state_tree::ActorState> for ActorState {
-    fn from(actor: fvm::state_tree::ActorState) -> Self {
-        let fvm::state_tree::ActorState {
-            code,
-            state,
-            sequence,
-            balance,
-        } = actor;
-        ActorState {
-            code,
-            state,
-            sequence,
-            balance,
-        }
-    }
-}
-
-impl ActorState {
-    /// Constructor for actor state
-    pub fn new(code: Cid, state: Cid, balance: TokenAmount, sequence: u64) -> Self {
-        Self {
-            code,
-            state,
-            sequence,
-            balance,
-        }
-    }
-    /// Safely deducts funds from an Actor
-    pub fn deduct_funds(&mut self, amt: &TokenAmount) -> Result<(), String> {
-        if &self.balance < amt {
-            return Err("Not enough funds".to_owned());
-        }
-        self.balance -= amt;
-
-        Ok(())
-    }
-    /// Deposits funds to an Actor
-    pub fn deposit_funds(&mut self, amt: &TokenAmount) {
-        self.balance += amt;
-    }
-}
+pub use fvm::state_tree::ActorState;
 
 #[cfg(feature = "json")]
 pub mod json {

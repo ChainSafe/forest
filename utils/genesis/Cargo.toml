@@ -1,5 +1,5 @@
 [package]
-name = "genesis"
+name    = "genesis"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -9,16 +9,16 @@ testing = []
 
 [dependencies]
 ipld_blockstore = "0.1"
-async-std = "1.9"
-log = "0.4"
-forest_car = { path = "../../ipld/car" }
-state_manager = { path = "../../blockchain/state_manager" }
-cid = { package = "forest_cid", version = "0.3" }
-blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
-chain = { path = "../../blockchain/chain" }
-fil_types = "0.2"
-encoding = { package = "forest_encoding", version = "0.2" }
-net_utils = { path = "../net_utils" }
-url = "2.1"
-futures = "0.3"
-networks = { path = "../../types/networks" }
+async-std       = "1.9"
+log             = "0.4"
+forest_car      = { path = "../../ipld/car" }
+state_manager   = { path = "../../blockchain/state_manager" }
+cid             = { package = "forest_cid", version = "0.3" }
+blocks          = { package = "forest_blocks", path = "../../blockchain/blocks" }
+chain           = { path = "../../blockchain/chain" }
+fil_types       = "0.2"
+encoding        = { package = "forest_encoding", version = "0.2" }
+net_utils       = { path = "../net_utils" }
+url             = "2.1"
+futures         = "0.3"
+networks        = { path = "../../types/networks" }

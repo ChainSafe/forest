@@ -8,12 +8,12 @@ mod policy;
 pub use self::adt::*;
 pub use self::builtin::*;
 pub use self::policy::*;
-pub use actorv0;
-pub use actorv2;
-pub use actorv3;
-pub use actorv4;
-pub use actorv5;
-pub use actorv6;
+// pub use actorv0;
+// pub use actorv2;
+// pub use actorv3;
+// pub use actorv4;
+// pub use actorv5;
+// pub use actorv6;
 use fil_types::{NetworkVersion, StateTreeVersion};
 use std::fmt::{self, Display, Formatter};
 
@@ -57,6 +57,7 @@ impl From<NetworkVersion> for ActorVersion {
             NetworkVersion::V13 => ActorVersion::V5,
             NetworkVersion::V14 => ActorVersion::V6,
             NetworkVersion::V15 => panic!("nv15 not supported by native backend"),
+            _ => panic!("nv16+ not supported by native backend"),
         }
     }
 }

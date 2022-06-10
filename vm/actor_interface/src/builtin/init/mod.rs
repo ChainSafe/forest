@@ -1,28 +1,33 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::load_actor_state;
 use address::Address;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use vm::ActorState;
 
+use anyhow::Context;
+
 /// Init actor address.
-pub static ADDRESS: &actorv3::INIT_ACTOR_ADDR = &actorv3::INIT_ACTOR_ADDR;
+pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR =
+    &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR;
 
 /// Init actor method.
-pub type Method = actorv3::init::Method;
+pub type Method = fil_actor_init_v7::Method;
 
 /// Init actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V0(actorv0::init::State),
-    V2(actorv2::init::State),
-    V3(actorv3::init::State),
-    V4(actorv4::init::State),
-    V5(actorv5::init::State),
-    V6(actorv6::init::State),
+    // V0(actorv0::init::State),
+    // V2(actorv2::init::State),
+    // V3(actorv3::init::State),
+    // V4(actorv4::init::State),
+    // V5(actorv5::init::State),
+    // V6(actorv6::init::State),
+    V7(fil_actor_init_v7::State),
 }
 
 impl State {
@@ -30,7 +35,14 @@ impl State {
     where
         BS: BlockStore,
     {
-        load_actor_state!(store, actor, INIT_ACTOR_CODE_ID)
+        if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
+            Ok(store
+                .get_anyhow(&actor.state)?
+                .map(State::V7)
+                .context("Actor state doesn't exist in store")?)
+        } else {
+            Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
+        }
     }
 
     /// Allocates a new ID address and stores a mapping of the argument address to it.
@@ -41,24 +53,10 @@ impl State {
         addr: &Address,
     ) -> anyhow::Result<Address> {
         match self {
-            State::V0(st) => st
-                .map_address_to_new_id(store, addr)
-                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
-            State::V2(st) => st
-                .map_address_to_new_id(store, addr)
-                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
-            State::V3(st) => st
-                .map_address_to_new_id(store, addr)
-                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
-            State::V4(st) => st
-                .map_address_to_new_id(store, addr)
-                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
-            State::V5(st) => st
-                .map_address_to_new_id(store, addr)
-                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
-            State::V6(st) => st
-                .map_address_to_new_id(store, addr)
-                .map_err(|e| anyhow::anyhow!("can't map address: {}", e)),
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                Ok(Address::new_id(st.map_address_to_new_id(&fvm_store, addr)?))
+            }
         }
     }
 
@@ -78,24 +76,28 @@ impl State {
         addr: &Address,
     ) -> anyhow::Result<Option<Address>> {
         match self {
-            State::V0(st) => st.resolve_address(store, addr),
-            State::V2(st) => st.resolve_address(store, addr),
-            State::V3(st) => st.resolve_address(store, addr),
-            State::V4(st) => st.resolve_address(store, addr),
-            State::V5(st) => st.resolve_address(store, addr),
-            State::V6(st) => st.resolve_address(store, addr),
+            // State::V0(st) => st.resolve_address(store, addr),
+            // State::V2(st) => st.resolve_address(store, addr),
+            // State::V3(st) => st.resolve_address(store, addr),
+            // State::V4(st) => st.resolve_address(store, addr),
+            // State::V5(st) => st.resolve_address(store, addr),
+            // State::V6(st) => st.resolve_address(store, addr),
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                Ok(st.resolve_address(&fvm_store, addr).expect("FIXME"))
+            }
         }
-        .map_err(|e| anyhow::anyhow!("unresolved address: {}", e))
     }
 
     pub fn into_network_name(self) -> String {
         match self {
-            State::V0(st) => st.network_name,
-            State::V2(st) => st.network_name,
-            State::V3(st) => st.network_name,
-            State::V4(st) => st.network_name,
-            State::V5(st) => st.network_name,
-            State::V6(st) => st.network_name,
+            // State::V0(st) => st.network_name,
+            // State::V2(st) => st.network_name,
+            // State::V3(st) => st.network_name,
+            // State::V4(st) => st.network_name,
+            // State::V5(st) => st.network_name,
+            // State::V6(st) => st.network_name,
+            State::V7(st) => st.network_name,
         }
     }
 }

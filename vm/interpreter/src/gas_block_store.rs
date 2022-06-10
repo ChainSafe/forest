@@ -31,6 +31,13 @@ where
         self.store.get(cid)
     }
 
+    fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_ipld_get())?;
+        self.store.get_bytes(cid)
+    }
+
     fn get_anyhow<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
     where
         T: DeserializeOwned,
@@ -50,6 +57,13 @@ where
             .borrow_mut()
             .charge_gas(self.price_list.on_ipld_put(bytes.len()))?;
 
+        self.store.put_raw(bytes, code)
+    }
+
+    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_ipld_put(bytes.len()))?;
         self.store.put_raw(bytes, code)
     }
 }

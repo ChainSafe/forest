@@ -12,8 +12,8 @@ use data_encoding_macro::{internal_new_encoding, new_encoding};
 use once_cell::sync::OnceCell;
 
 pub use fvm_shared::address::{
-    checksum, validate_checksum, Address, BLSPublicKey, Payload, Protocol, BLS_PUB_LEN,
-    CHECKSUM_HASH_LEN, PAYLOAD_HASH_LEN, SECP_PUB_LEN,
+    checksum, validate_checksum, Address, Payload, Protocol, BLS_PUB_LEN, CHECKSUM_HASH_LEN,
+    PAYLOAD_HASH_LEN, SECP_PUB_LEN,
 };
 
 // TODO pull network from config (probably)

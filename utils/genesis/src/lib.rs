@@ -157,7 +157,7 @@ where
     sm.chain_store().set_heaviest_tipset(ts.clone()).await?;
 
     if let Some(height) = validate_height {
-        info!("Validating imported chain");
+        info!("Validating imported chain from height: {}", height);
         sm.validate_chain::<V>(ts.clone(), height).await?;
     }
 

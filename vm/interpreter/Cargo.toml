@@ -1,19 +1,25 @@
 [package]
-name = "interpreter"
+name    = "interpreter"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
 async-std = "1.9"
-actors-v6 = { package = "fil_builtin_actors_bundle", version = "6.0" }
+actorv6 = { package = "forest_actor", path = "../actor" }
+actors-v6 = { package = "fil_builtin_actors_bundle", version = "6.1.0" }
+actors-v7 = { package = "fil_builtin_actors_bundle", version = "7.5.1" }
 wasmtime = { version = "0.35", default-features = false }
 anyhow = "1.0"
-fvm = { version = "0.2", features = [] }
-fvm_shared = { version = "0.2", default-features = false }
+fvm = { version = "0.8", features = [] }
+fvm_shared = { version = "0.7.1", default-features = false }
+fvm_ipld_encoding = "0.2"
+fil_actors_runtime = "=7.5.1"
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../actor_interface" }
-message = { package = "forest_message", default_features = false, version = "0.7", features = ["blst"] }
+message = { package = "forest_message", default_features = false, version = "0.7", features = [
+    "blst",
+] }
 runtime = { package = "forest_runtime", version = "0.2" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
 clock = { package = "fil_clock", path = "../../node/clock" }
@@ -23,7 +29,9 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 forest_encoding = "0.2"
 forest_car = { path = "../../ipld/car" }
 cid = { package = "forest_cid", version = "0.3" }
-crypto = { package = "forest_crypto", default_features = false, version = "0.5", features = ["blst"] }
+crypto = { package = "forest_crypto", default_features = false, version = "0.5", features = [
+    "blst",
+] }
 num-traits = "0.2"
 byteorder = "1.3"
 state_tree = { path = "../state_tree" }
@@ -39,7 +47,7 @@ state_migration = { path = "../state_migration" }
 statediff = { path = "../../utils/statediff" }
 
 [dev-dependencies]
-ipld_hamt = "1.0"
+ipld_hamt   = "1.0"
 interpreter = { path = "../interpreter/" }
 
 [features]

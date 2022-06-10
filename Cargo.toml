@@ -67,10 +67,6 @@ commcid           = { path = "./utils/commcid" }
 forest_vm         = { path = "./vm" }
 forest_runtime    = { path = "./vm/runtime" }
 forest_message    = { path = "./vm/message" }
-fvm               = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "master" }
-fvm_shared        = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "master" }
-# FIXME: Switch to serde_ipld_dagcbor-0.1.2 once it has been released
-serde_ipld_dagcbor = { git = "https://github.com/Stebalien/cbor/", branch = "fix/truncate-error" }
 
 [profile.dev]
 debug = 0
