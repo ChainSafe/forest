@@ -79,10 +79,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
 
         let ms = actor::miner::State::load(&gbs, &actor).map_err(|e| anyhow::anyhow!("{}", e))?;
 
-        let worker = ms
-            .info(&*self.db)
-            .map_err(|e| anyhow::anyhow!("{}", e))?
-            .worker;
+        let worker = ms.info(&gbs).map_err(|e| anyhow::anyhow!("{}", e))?.worker;
 
         let state = StateTree::new_from_root(self.db.as_ref(), &self.root)
             .map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -230,9 +227,6 @@ impl<DB: BlockStore> Consensus for ForestExterns<DB> {
         total_gas += self.verify_block_signature(&bh_1)?;
         total_gas += self.verify_block_signature(&bh_2)?;
 
-        Ok((
-            cf,
-            total_gas + price_list_by_epoch(self.epoch).ipld_get_base * 2,
-        ))
+        Ok((cf, total_gas))
     }
 }
