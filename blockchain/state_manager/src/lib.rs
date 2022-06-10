@@ -233,7 +233,7 @@ where
     }
 
     /// Returns true if miner has been slashed or is considered invalid.
-    pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> Result<bool, Error> {
+    pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
             .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -244,7 +244,7 @@ where
     }
 
     /// Returns raw work address of a miner given the state root.
-    pub fn get_miner_work_addr(&self, state_cid: Cid, addr: &Address) -> Result<Address, Error> {
+    pub fn get_miner_work_addr(&self, state_cid: Cid, addr: &Address) -> anyhow::Result<Address, Error> {
         // let state =
         //     FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         // Ok(state.get_actor(addr)?)
@@ -258,8 +258,7 @@ where
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
-        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())
-            .map_err(|e| Error::Other(format!("Failed to resolve key address; error: {}", e)))?;
+        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
         Ok(addr)
     }
 
@@ -268,7 +267,7 @@ where
         &self,
         state_cid: &Cid,
         addr: Option<&Address>,
-    ) -> Result<Option<(power::Claim, power::Claim)>, Error> {
+    ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
             .get_actor(actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -708,7 +707,7 @@ where
         address: &Address,
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
-    ) -> Result<bool, Error> {
+    ) -> anyhow::Result<bool, Error> {
         let hmp = self.miner_has_min_power(address, lookback_tipset)?;
         let version = get_network_version_default(base_tipset.epoch());
 
@@ -746,7 +745,8 @@ where
         }
 
         // No active consensus faults.
-        if base_tipset.epoch() <= miner_state.info(self.blockstore())?.consensus_fault_elapsed {
+        let info = miner_state.info(self.blockstore())?;
+        if base_tipset.epoch() <= info.consensus_fault_elapsed {
             return Ok(false);
         }
 
@@ -871,11 +871,8 @@ where
                     .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
                 let parent: BlockHeader = self
                     .blockstore()
-                    .get(parent_cid)
-                    .map_err(|e| Error::Other(e.to_string()))?
-                    .ok_or_else(|| {
-                        format!("Could not find parent block with cid {}", parent_cid)
-                    })?;
+                    .get(parent_cid)?
+                    .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
                 parent.epoch()
             } else {
                 Default::default()
@@ -896,7 +893,7 @@ where
             let epoch = first_block.epoch();
             let ts_cloned = tipset.clone();
             task::spawn_blocking(move || {
-                sm.apply_blocks::<_, V, _>(
+                Ok(sm.apply_blocks::<_, V, _>(
                     parent_epoch,
                     &sr,
                     &blocks,
@@ -905,8 +902,7 @@ where
                     base_fee,
                     callback,
                     &ts_cloned,
-                )
-                .map_err(|e| Error::Other(e.to_string()))
+                )?)
             })
             .await
         })
@@ -1252,7 +1248,11 @@ where
     }
 
     /// Retrieves market balance in escrow and locked tables.
-    pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
+    pub fn market_balance(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
             .get_actor(actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -1305,11 +1305,7 @@ where
     }
 
     /// Checks power actor state for if miner meets consensus minimum requirements.
-    pub fn miner_has_min_power(
-        &self,
-        addr: &Address,
-        ts: &Tipset,
-    ) -> Result<bool, Box<dyn StdError>> {
+    pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> anyhow::Result<bool> {
         let actor = self
             .get_actor(actor::power::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -1382,7 +1378,7 @@ where
     }
 
     /// Return the state of Market Actor.
-    pub fn get_market_state(&self, ts: &Tipset) -> Result<market::State, Error> {
+    pub fn get_market_state(&self, ts: &Tipset) -> anyhow::Result<market::State> {
         let actor = self
             .get_actor(actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| {

@@ -23,6 +23,7 @@ fil_actor_init_v7     = { package = "fil_actor_init", version = "=7.5.1" }
 fil_actor_multisig_v7 = { package = "fil_actor_multisig", version = "=7.5.1" }
 fil_actors_runtime_v7 = { package = "fil_actors_runtime", version = "=7.5.1" }
 
+anyhow            = "1.0"
 fvm_shared        = { version = "0.7.1", default-features = false }
 fil_types         = "0.2"
 vm                = { package = "forest_vm", version = "0.3.1" }
@@ -35,6 +36,21 @@ encoding          = { package = "forest_encoding", version = "0.2" }
 libp2p            = { version = "0.40.0-rc.1", default-features = false }
 forest_bitfield   = "0.1"
 num-bigint        = { version = "0.1", package = "forest_bigint", features = ["json"] }
+# =======
+# anyhow = "1.0"
+# fvm_shared = { version = "0.2", default-features = false }
+# fil_types = "0.2"
+# vm = { package = "forest_vm", version = "0.3.1" }
+# ipld_blockstore = "0.1"
+# address = { package = "forest_address", version = "0.3" }
+# serde = { version = "1.0", features = ["derive"] }
+# cid = { package = "forest_cid", version = "0.3", features = ["json"] }
+# clock = { package = "fil_clock", version = "0.1" }
+# encoding = { package = "forest_encoding", version = "0.2" }
+# libp2p = { version = "0.40.0-rc.1", default-features = false }
+# forest_bitfield = "0.1"
+# num-bigint = { version = "0.1", package = "forest_bigint", features = ["json"] }
+# >>>>>>> main
 forest_hash_utils = "0.1"
 forest_json_utils = "0.1"
 

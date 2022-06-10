@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 pbr = "1.0.3"
 blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 db = { package = "forest_db", version = "0.1" }

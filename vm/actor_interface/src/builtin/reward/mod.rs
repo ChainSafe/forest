@@ -1,13 +1,14 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::FilterEstimate;
 use cid::multihash::MultihashDigest;
+use crate::{load_actor_state, FilterEstimate};
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use std::error::Error;
 use vm::{ActorState, TokenAmount};
+
+use anyhow::Context;
 
 /// Reward actor address.
 pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::REWARD_ACTOR_ADDR =
@@ -30,48 +31,17 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        // if actor.code == *actorv0::REWARD_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V0)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv2::REWARD_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V2)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv3::REWARD_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V3)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv4::REWARD_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V4)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv5::REWARD_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V5)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv6::REWARD_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V6)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else
         if actor.code == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/reward")) {
             Ok(store
-                .get(&actor.state)?
+                .get_anyhow(&actor.state)?
                 .map(State::V7)
-                .ok_or("Actor state doesn't exist in store")?)
+                .context("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown reward actor code {}", actor.code).into())
+            Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
         }
     }
 

@@ -1,13 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::load_actor_state;
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use std::error::Error;
 use vm::ActorState;
+
+use anyhow::Context;
 
 /// Init actor address.
 pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR =
@@ -30,48 +32,17 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        // if actor.code == *actorv0::INIT_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V0)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv2::INIT_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V2)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv3::INIT_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V3)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv4::INIT_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V4)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv5::INIT_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V5)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv6::INIT_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V6)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else
         if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
             Ok(store
-                .get(&actor.state)?
+                .get_anyhow(&actor.state)?
                 .map(State::V7)
-                .ok_or("Actor state doesn't exist in store")?)
+                .context("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown init actor code {}", actor.code).into())
+            Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
         }
     }
 
@@ -81,14 +52,8 @@ impl State {
         &mut self,
         store: &BS,
         addr: &Address,
-    ) -> Result<Address, Box<dyn Error>> {
+    ) -> anyhow::Result<Address> {
         match self {
-            // State::V0(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            // State::V2(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            // State::V3(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            // State::V4(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            // State::V5(st) => Ok(st.map_address_to_new_id(store, addr)?),
-            // State::V6(st) => Ok(st.map_address_to_new_id(store, addr)?),
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 Ok(Address::new_id(st.map_address_to_new_id(&fvm_store, addr)?))
@@ -110,7 +75,7 @@ impl State {
         &self,
         store: &BS,
         addr: &Address,
-    ) -> Result<Option<Address>, Box<dyn Error>> {
+    ) -> anyhow::Result<Option<Address>> {
         match self {
             // State::V0(st) => st.resolve_address(store, addr),
             // State::V2(st) => st.resolve_address(store, addr),

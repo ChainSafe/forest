@@ -38,6 +38,16 @@ where
         self.store.get_bytes(cid)
     }
 
+    fn get_anyhow<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
+    where
+        T: DeserializeOwned,
+    {
+        self.gas
+            .borrow_mut()
+            .charge_gas(self.price_list.on_ipld_get())?;
+        self.store.get_anyhow(cid)
+    }
+
     fn put<S>(&self, obj: &S, code: Code) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,

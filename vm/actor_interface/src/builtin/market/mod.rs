@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::load_actor_state;
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
@@ -11,6 +12,8 @@ use num_bigint::{bigint_ser, BigInt};
 use serde::Serialize;
 use std::{error::Error, marker::PhantomData};
 use vm::{ActorState, TokenAmount};
+
+use anyhow::Context;
 
 /// Market actor address.
 pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR =
@@ -33,188 +36,52 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        // if actor.code == *actorv0::MARKET_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V0)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv2::MARKET_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V2)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv3::MARKET_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V3)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv4::MARKET_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V4)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv5::MARKET_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V5)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else if actor.code == *actorv6::MARKET_ACTOR_CODE_ID {
-        //     Ok(store
-        //         .get(&actor.state)?
-        //         .map(State::V6)
-        //         .ok_or("Actor state doesn't exist in store")?)
-        // } else
         if actor.code
             == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagemarket"))
         {
             Ok(store
-                .get(&actor.state)?
+                .get_anyhow(&actor.state)?
                 .map(State::V7)
-                .ok_or("Actor state doesn't exist in store")?)
+                .context("Actor state doesn't exist in store")?)
         } else {
-            Err(format!("Unknown market actor code {}", actor.code).into())
+            Err(anyhow::anyhow!("Unknown market actor code {}", actor.code))
         }
     }
 
     /// Loads escrow table
-    pub fn escrow_table<'bs, BS>(
-        &self,
-        _store: &'bs BS,
-    ) -> Result<BalanceTable<'bs, BS>, Box<dyn Error>>
+    pub fn escrow_table<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where
         BS: BlockStore,
     {
-        match self {
-            // State::V0(st) => {
-            //     Ok(actorv0::BalanceTable::from_root(store, &st.escrow_table)
-            //         .map(BalanceTable::V0)?)
-            // }
-            // State::V2(st) => {
-            //     Ok(actorv2::BalanceTable::from_root(store, &st.escrow_table)
-            //         .map(BalanceTable::V2)?)
-            // }
-            // State::V3(st) => {
-            //     Ok(actorv3::BalanceTable::from_root(store, &st.escrow_table)
-            //         .map(BalanceTable::V3)?)
-            // }
-            // State::V4(st) => {
-            //     Ok(actorv4::BalanceTable::from_root(store, &st.escrow_table)
-            //         .map(BalanceTable::V4)?)
-            // }
-            // State::V5(st) => {
-            //     Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
-            //         .map(BalanceTable::V5)?)
-            // }
-            // State::V6(st) => {
-            //     Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
-            //         .map(BalanceTable::V6)?)
-            // }
-            State::V7(_st) => todo!(),
-        }
+        unimplemented!()
     }
 
     /// Loads locked funds table
-    pub fn locked_table<'bs, BS>(
-        &self,
-        _store: &'bs BS,
-    ) -> Result<BalanceTable<'bs, BS>, Box<dyn Error>>
+    pub fn locked_table<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where
         BS: BlockStore,
     {
-        match self {
-            // State::V0(st) => {
-            //     Ok(actorv0::BalanceTable::from_root(store, &st.locked_table)
-            //         .map(BalanceTable::V0)?)
-            // }
-            // State::V2(st) => {
-            //     Ok(actorv2::BalanceTable::from_root(store, &st.locked_table)
-            //         .map(BalanceTable::V2)?)
-            // }
-            // State::V3(st) => {
-            //     Ok(actorv3::BalanceTable::from_root(store, &st.locked_table)
-            //         .map(BalanceTable::V3)?)
-            // }
-            // State::V4(st) => {
-            //     Ok(actorv4::BalanceTable::from_root(store, &st.locked_table)
-            //         .map(BalanceTable::V4)?)
-            // }
-            // State::V5(st) => {
-            //     Ok(actorv5::BalanceTable::from_root(store, &st.escrow_table)
-            //         .map(BalanceTable::V5)?)
-            // }
-            // State::V6(st) => {
-            //     Ok(actorv6::BalanceTable::from_root(store, &st.escrow_table)
-            //         .map(BalanceTable::V6)?)
-            // }
-            State::V7(_st) => {
-                todo!()
-            }
-        }
+        unimplemented!()
     }
 
     /// Deal proposals
-    pub fn proposals<'bs, BS>(
-        &self,
-        _store: &'bs BS,
-    ) -> Result<DealProposals<'bs, BS>, Box<dyn Error>>
+    pub fn proposals<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<DealProposals<'bs, BS>>
     where
         BS: BlockStore,
     {
-        match self {
-            // State::V0(st) => Ok(
-            //     actorv0::market::DealArray::load(&st.proposals, store).map(DealProposals::V0)?
-            // ),
-            // State::V2(st) => Ok(
-            //     actorv2::market::DealArray::load(&st.proposals, store).map(DealProposals::V2)?
-            // ),
-            // State::V3(st) => Ok(
-            //     actorv3::market::DealArray::load(&st.proposals, store).map(DealProposals::V3)?
-            // ),
-            // State::V4(st) => Ok(
-            //     actorv4::market::DealArray::load(&st.proposals, store).map(DealProposals::V4)?
-            // ),
-            // State::V5(st) => Ok(
-            //     actorv5::market::DealArray::load(&st.proposals, store).map(DealProposals::V5)?
-            // ),
-            // State::V6(st) => Ok(
-            //     actorv6::market::DealArray::load(&st.proposals, store).map(DealProposals::V6)?
-            // ),
-            State::V7(_st) => todo!(),
-        }
+        unimplemented!()
     }
 
     /// Deal proposal meta data.
-    pub fn states<'bs, BS>(&self, _store: &'bs BS) -> Result<DealStates<'bs, BS>, Box<dyn Error>>
+    pub fn states<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<DealStates<'bs, BS>>
     where
         BS: BlockStore,
     {
-        match self {
-            // State::V0(st) => {
-            //     Ok(actorv0::market::DealMetaArray::load(&st.states, store).map(DealStates::V0)?)
-            // }
-            // State::V2(st) => {
-            //     Ok(actorv2::market::DealMetaArray::load(&st.states, store).map(DealStates::V2)?)
-            // }
-            // State::V3(st) => {
-            //     Ok(actorv3::market::DealMetaArray::load(&st.states, store).map(DealStates::V3)?)
-            // }
-            // State::V4(st) => {
-            //     Ok(actorv4::market::DealMetaArray::load(&st.states, store).map(DealStates::V4)?)
-            // }
-            // State::V5(st) => {
-            //     Ok(actorv5::market::DealMetaArray::load(&st.states, store).map(DealStates::V5)?)
-            // }
-            // State::V6(st) => {
-            //     Ok(actorv6::market::DealMetaArray::load(&st.states, store).map(DealStates::V6)?)
-            // }
-            State::V7(_st) => {
-                todo!()
-            }
-        }
+        unimplemented!()
     }
 
     /// Consume state to return just total funds locked
@@ -239,7 +106,7 @@ impl State {
         miner_addr: &Address,
         sector_expiry: ChainEpoch,
         curr_epoch: ChainEpoch,
-    ) -> Result<(BigInt, BigInt), Box<dyn Error>>
+    ) -> anyhow::Result<(BigInt, BigInt)>
     where
         BS: BlockStore,
     {
@@ -337,33 +204,12 @@ pub enum DealProposals<'a, BS> {
 impl<BS> DealProposals<'_, BS> {
     pub fn for_each(
         &self,
-        _f: impl FnMut(u64, DealProposal) -> Result<(), Box<dyn Error>>,
-    ) -> Result<(), Box<dyn Error>>
+        _f: impl FnMut(u64, DealProposal) -> anyhow::Result<(), Box<dyn Error>>,
+    ) -> anyhow::Result<()>
     where
         BS: BlockStore,
     {
         unimplemented!()
-        // match self {
-        //     // DealProposals::V0(dp) => {
-        //     //     dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
-        //     // }
-        //     // DealProposals::V2(dp) => {
-        //     //     dp.for_each(|idx, proposal| f(idx, DealProposal::from(proposal.clone())))
-        //     // }
-        //     // DealProposals::V3(dp) => {
-        //     //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-        //     // }
-        //     // DealProposals::V4(dp) => {
-        //     //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-        //     // }
-        //     // DealProposals::V5(dp) => {
-        //     //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-        //     // }
-        //     // DealProposals::V6(dp) => {
-        //     //     dp.for_each(|idx, proposal| f(idx as u64, DealProposal::from(proposal.clone())))
-        //     // }
-        //     _ => unimplemented!(),
-        // }
     }
 }
 
@@ -512,17 +358,8 @@ impl<BS> DealStates<'_, BS>
 where
     BS: BlockStore,
 {
-    pub fn get(&self, _key: u64) -> Result<Option<DealState>, Box<dyn Error>> {
+    pub fn get(&self, _key: u64) -> anyhow::Result<Option<DealState>> {
         unimplemented!()
-        // match self {
-        //     // DealStates::V0(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
-        //     // DealStates::V2(bt) => Ok(bt.get(key)?.cloned().map(From::from)),
-        //     // DealStates::V3(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-        //     // DealStates::V4(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-        //     // DealStates::V5(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-        //     // DealStates::V6(bt) => Ok(bt.get(key as usize)?.cloned().map(From::from)),
-        //     _ => unimplemented!(),
-        // }
     }
 }
 
@@ -598,16 +435,7 @@ impl<BS> BalanceTable<'_, BS>
 where
     BS: BlockStore,
 {
-    pub fn get(&self, _key: &Address) -> Result<TokenAmount, Box<dyn Error>> {
+    pub fn get(&self, _key: &Address) -> anyhow::Result<TokenAmount> {
         unimplemented!()
-        // match self {
-        //     // BalanceTable::V0(bt) => bt.get(key),
-        //     // BalanceTable::V2(bt) => bt.get(key),
-        //     // BalanceTable::V3(bt) => bt.get(key),
-        //     // BalanceTable::V4(bt) => bt.get(key),
-        //     // BalanceTable::V5(bt) => bt.get(key),
-        //     // BalanceTable::V6(bt) => bt.get(key),
-        //     _ => unimplemented!(),
-        // }
     }
 }

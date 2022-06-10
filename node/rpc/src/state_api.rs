@@ -97,7 +97,7 @@ pub(crate) async fn state_miner_deadlines<
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerDeadlinesParams>,
-) -> Result<StateMinerDeadlinesResult, JsonRpcError> {
+) -> anyhow::Result<StateMinerDeadlinesResult, JsonRpcError> {
     let (actor, key) = params;
     let actor = actor.into();
     let mas = data
@@ -303,7 +303,7 @@ pub(crate) async fn state_miner_partitions<
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerPartitionsParams>,
-) -> Result<StateMinerPartitionsResult, JsonRpcError> {
+) -> anyhow::Result<StateMinerPartitionsResult, JsonRpcError> {
     let (actor, dl_idx, key) = params;
     let actor = actor.into();
     let db = data.state_manager.chain_store().db.as_ref();

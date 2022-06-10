@@ -37,12 +37,26 @@ pub trait BlockStore: Store {
         Ok(self.read(cid.to_bytes())?)
     }
 
+    fn get_bytes_anyhow(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(self.read(cid.to_bytes())?)
+    }
+
     /// Get typed object from block store by Cid.
     fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Box<dyn StdError>>
     where
         T: DeserializeOwned,
     {
         match self.get_bytes(cid)? {
+            Some(bz) => Ok(Some(from_slice(&bz)?)),
+            None => Ok(None),
+        }
+    }
+
+    fn get_anyhow<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
+    where
+        T: DeserializeOwned,
+    {
+        match self.get_bytes_anyhow(cid)? {
             Some(bz) => Ok(Some(from_slice(&bz)?)),
             None => Ok(None),
         }

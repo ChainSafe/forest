@@ -33,6 +33,11 @@ impl From<String> for Error {
         Error::Other(e)
     }
 }
+impl From<anyhow::Error> for Error {
+    fn from(e: anyhow::Error) -> Self {
+        Error::Other(e.to_string())
+    }
+}
 
 impl From<encoding::error::Error> for Error {
     fn from(e: encoding::error::Error) -> Self {
