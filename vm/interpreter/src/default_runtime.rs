@@ -80,7 +80,7 @@ impl MessageInfo for VMMsg {
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DefaultNetworkParams> {
     version: NetworkVersion,
-    state: Rc<RefCell<&'vm mut StateTree<'db, BS>>>,
+    state: Rc<RefCell<StateTree<'db, BS>>>,
     store: Rc<GasBlockStore<'db, BS>>,
     gas_tracker: Rc<RefCell<GasTracker>>,
     vm_msg: VMMsg,
@@ -118,7 +118,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         version: NetworkVersion,
-        state: &'vm mut StateTree<'db, BS>,
+        state: Rc<RefCell<StateTree<'db, BS>>>,
         store: &'db BS,
         gas_used: i64,
         base_fee: TokenAmount,
@@ -142,6 +142,7 @@ where
         };
 
         let caller_id = state
+            .borrow()
             .lookup_id(message.from())
             .map_err(|e| e.downcast_fatal("failed to lookup id"))?
             .ok_or_else(|| actor_error!(SYS_INVALID_RECEIVER, "resolve msg from address failed"))?;
@@ -150,6 +151,7 @@ where
             *message.to()
         } else {
             state
+                .borrow()
                 .lookup_id(message.to())
                 .map_err(|e| e.downcast_fatal("failed to lookup id"))?
                 // * Go implementation changes this to undef address. To avoid using optional
@@ -165,7 +167,7 @@ where
 
         Ok(DefaultRuntime {
             version,
-            state: Rc::new(RefCell::new(state)),
+            state,
             store: Rc::new(gas_block_store),
             gas_tracker,
             vm_msg,
@@ -424,7 +426,7 @@ where
 
         if !msg.value().is_zero() {
             transfer(
-                *new_rt.state.borrow_mut(),
+                &mut *new_rt.state.borrow_mut(),
                 msg.from(),
                 msg.to(),
                 msg.value(),
@@ -878,7 +880,7 @@ where
             }
             // Transfer the executing actor's balance to the beneficiary
             transfer(
-                *self.state.borrow_mut(),
+                &mut *self.state.borrow_mut(),
                 &receiver,
                 beneficiary,
                 &balance,
@@ -896,7 +898,7 @@ where
 
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         self.circ_supply_calc
-            .get_supply(self.epoch, *self.state.borrow())
+            .get_supply(self.epoch, &*self.state.borrow())
             .map_err(|e| actor_error!(USR_ILLEGAL_STATE, "failed to get total circ supply: {}", e))
     }
 
