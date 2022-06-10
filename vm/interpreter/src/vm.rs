@@ -165,6 +165,7 @@ where
                 FvmStore::new(store_arc.clone()),
                 ForestExterns::new(
                     rand.clone(),
+                    epoch,
                     root,
                     lb_state.chain_epoch_root(),
                     store_arc.clone(),
