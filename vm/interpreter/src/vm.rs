@@ -4,8 +4,7 @@
 use super::Rand;
 use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
 use crate::Backend;
-use crate::{price_list_by_epoch, DefaultRuntime, GasCharge};
-use actor::{cron, miner, reward, system, AwardBlockRewardParams, BURNT_FUNDS_ACTOR_ADDR};
+use actor::{cron, reward, system, AwardBlockRewardParams};
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -20,14 +19,12 @@ use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
 use fvm::trace::ExecutionTrace;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::bigint::Sign;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
-use log::debug;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::{UPGRADE_ACTORS_V4_HEIGHT, UPGRADE_CLAUS_HEIGHT};
+use networks::UPGRADE_ACTORS_V4_HEIGHT;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -40,8 +37,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 use vm::{ActorError, ExitCode, Serialized, TokenAmount};
 
-const GAS_OVERUSE_NUM: i64 = 11;
-const GAS_OVERUSE_DENOM: i64 = 10;
+// const GAS_OVERUSE_NUM: i64 = 11;
+// const GAS_OVERUSE_DENOM: i64 = 10;
 
 /// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
@@ -86,16 +83,16 @@ pub struct VM<
     V = FullVerifier,
     P = DefaultNetworkParams,
 > {
-    state: Rc<RefCell<StateTree<'db, DB>>>,
-    store: &'db DB,
-    epoch: ChainEpoch,
-    rand: &'r R,
-    base_fee: BigInt,
+    _state: Rc<RefCell<StateTree<'db, DB>>>,
+    _store: &'db DB,
+    _epoch: ChainEpoch,
+    _rand: &'r R,
+    _base_fee: BigInt,
     registered_actors: HashSet<Cid>,
-    network_version: NetworkVersion,
-    circ_supply_calc: C,
+    _network_version: NetworkVersion,
+    _circ_supply_calc: C,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
-    lb_state: &'r LB,
+    _lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
 }
@@ -178,16 +175,16 @@ where
                 circ_supply: override_circ_supply,
             });
         Ok(VM {
-            network_version,
-            state: Rc::new(RefCell::new(state)),
-            store,
-            epoch,
-            rand,
-            base_fee,
+            _network_version: network_version,
+            _state: Rc::new(RefCell::new(state)),
+            _store: store,
+            _epoch: epoch,
+            _rand: rand,
+            _base_fee: base_fee,
             registered_actors,
             fvm_executor: exec,
-            circ_supply_calc,
-            lb_state,
+            _circ_supply_calc: circ_supply_calc,
+            _lb_state: lb_state,
             verifier: PhantomData,
             params: PhantomData,
         })
@@ -857,82 +854,82 @@ where
 //     Ok(new_state)
 // }
 
-#[derive(Clone, Default)]
-struct GasOutputs {
-    base_fee_burn: TokenAmount,
-    over_estimation_burn: TokenAmount,
-    miner_penalty: TokenAmount,
-    miner_tip: TokenAmount,
-    refund: TokenAmount,
+// #[derive(Clone, Default)]
+// struct GasOutputs {
+//     base_fee_burn: TokenAmount,
+//     over_estimation_burn: TokenAmount,
+//     miner_penalty: TokenAmount,
+//     miner_tip: TokenAmount,
+//     refund: TokenAmount,
 
-    gas_refund: i64,
-    gas_burned: i64,
-}
+//     gas_refund: i64,
+//     gas_burned: i64,
+// }
 
-fn compute_gas_outputs(
-    gas_used: i64,
-    gas_limit: i64,
-    base_fee: &TokenAmount,
-    fee_cap: &TokenAmount,
-    gas_premium: TokenAmount,
-    charge_network_fee: bool,
-) -> GasOutputs {
-    let mut base_fee_to_pay = base_fee;
-    let mut out = GasOutputs::default();
+// fn compute_gas_outputs(
+//     gas_used: i64,
+//     gas_limit: i64,
+//     base_fee: &TokenAmount,
+//     fee_cap: &TokenAmount,
+//     gas_premium: TokenAmount,
+//     charge_network_fee: bool,
+// ) -> GasOutputs {
+//     let mut base_fee_to_pay = base_fee;
+//     let mut out = GasOutputs::default();
 
-    if base_fee > fee_cap {
-        base_fee_to_pay = fee_cap;
-        out.miner_penalty = (base_fee - fee_cap) * gas_used
-    }
+//     if base_fee > fee_cap {
+//         base_fee_to_pay = fee_cap;
+//         out.miner_penalty = (base_fee - fee_cap) * gas_used
+//     }
 
-    // If charge network fee is disabled just skip computing the base fee burn.
-    // This is part of the temporary fix with Claus fork.
-    if charge_network_fee {
-        out.base_fee_burn = base_fee_to_pay * gas_used;
-    }
+//     // If charge network fee is disabled just skip computing the base fee burn.
+//     // This is part of the temporary fix with Claus fork.
+//     if charge_network_fee {
+//         out.base_fee_burn = base_fee_to_pay * gas_used;
+//     }
 
-    let mut miner_tip = gas_premium;
-    if &(base_fee_to_pay + &miner_tip) > fee_cap {
-        miner_tip = fee_cap - base_fee_to_pay;
-    }
-    out.miner_tip = &miner_tip * gas_limit;
+//     let mut miner_tip = gas_premium;
+//     if &(base_fee_to_pay + &miner_tip) > fee_cap {
+//         miner_tip = fee_cap - base_fee_to_pay;
+//     }
+//     out.miner_tip = &miner_tip * gas_limit;
 
-    let (out_gas_refund, out_gas_burned) = compute_gas_overestimation_burn(gas_used, gas_limit);
-    out.gas_refund = out_gas_refund;
-    out.gas_burned = out_gas_burned;
+//     let (out_gas_refund, out_gas_burned) = compute_gas_overestimation_burn(gas_used, gas_limit);
+//     out.gas_refund = out_gas_refund;
+//     out.gas_burned = out_gas_burned;
 
-    if out.gas_burned != 0 {
-        out.over_estimation_burn = base_fee_to_pay * out.gas_burned;
-        out.miner_penalty += (base_fee - base_fee_to_pay) * out.gas_burned;
-    }
-    let required_funds = fee_cap * gas_limit;
-    let refund = required_funds - &out.base_fee_burn - &out.miner_tip - &out.over_estimation_burn;
-    out.refund = refund;
+//     if out.gas_burned != 0 {
+//         out.over_estimation_burn = base_fee_to_pay * out.gas_burned;
+//         out.miner_penalty += (base_fee - base_fee_to_pay) * out.gas_burned;
+//     }
+//     let required_funds = fee_cap * gas_limit;
+//     let refund = required_funds - &out.base_fee_burn - &out.miner_tip - &out.over_estimation_burn;
+//     out.refund = refund;
 
-    out
-}
+//     out
+// }
 
-fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {
-    if gas_used == 0 {
-        return (0, gas_limit);
-    }
+// fn compute_gas_overestimation_burn(gas_used: i64, gas_limit: i64) -> (i64, i64) {
+//     if gas_used == 0 {
+//         return (0, gas_limit);
+//     }
 
-    let mut over = gas_limit - (GAS_OVERUSE_NUM * gas_used) / GAS_OVERUSE_DENOM;
-    if over < 0 {
-        return (gas_limit - gas_used, 0);
-    }
+//     let mut over = gas_limit - (GAS_OVERUSE_NUM * gas_used) / GAS_OVERUSE_DENOM;
+//     if over < 0 {
+//         return (gas_limit - gas_used, 0);
+//     }
 
-    if over > gas_used {
-        over = gas_used;
-    }
+//     if over > gas_used {
+//         over = gas_used;
+//     }
 
-    let mut gas_to_burn: BigInt = (gas_limit - gas_used).into();
-    gas_to_burn *= over;
-    gas_to_burn /= gas_used;
+//     let mut gas_to_burn: BigInt = (gas_limit - gas_used).into();
+//     gas_to_burn *= over;
+//     gas_to_burn /= gas_used;
 
-    let gas_to_burn = i64::try_from(gas_to_burn).unwrap();
-    (gas_limit - gas_used - gas_to_burn, gas_to_burn)
-}
+//     let gas_to_burn = i64::try_from(gas_to_burn).unwrap();
+//     (gas_limit - gas_used - gas_to_burn, gas_to_burn)
+// }
 
 /// Apply message return data.
 #[derive(Clone, Debug)]
