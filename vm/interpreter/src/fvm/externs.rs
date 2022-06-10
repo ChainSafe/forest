@@ -36,6 +36,18 @@ impl<DB: BlockStore> ForestExterns<DB> {
             db,
         }
     }
+
+    fn worker_key_at_lookback(&self, height: ChainEpoch) -> anyhow::Result<Address> {
+        unimplemented!()
+    }
+
+    fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<()> {
+        let worker_addr = self.worker_key_at_lookback(bh.epoch())?;
+
+        bh.check_block_signature(&worker_addr)?;
+
+        Ok(())
+    }
 }
 
 impl<DB: BlockStore> Externs for ForestExterns<DB> {}
@@ -58,18 +70,6 @@ impl<DB> Rand for ForestExterns<DB> {
     ) -> anyhow::Result<[u8; 32]> {
         self.rand.get_beacon_randomness(pers, round, entropy)
     }
-}
-
-fn worker_key_at_lookback(height: ChainEpoch) -> anyhow::Result<Address> {
-    unimplemented!()
-}
-
-fn verify_block_signature(bh: &BlockHeader) -> anyhow::Result<()> {
-    let worker_addr = worker_key_at_lookback(bh.epoch())?;
-
-    bh.check_block_signature(&worker_addr)?;
-
-    Ok(())
 }
 
 impl<DB: BlockStore> Consensus for ForestExterns<DB> {
@@ -170,8 +170,8 @@ impl<DB: BlockStore> Consensus for ForestExterns<DB> {
             // check blocks are properly signed by their respective miner
             // note we do not need to check extra's: it is a parent to block b
             // which itself is signed, so it was willingly included by the miner
-            verify_block_signature(&bh_1)?;
-            verify_block_signature(&bh_2)?;
+            self.verify_block_signature(&bh_1)?;
+            self.verify_block_signature(&bh_2)?;
         }
         Ok((cf, total_gas))
     }
