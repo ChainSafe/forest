@@ -26,6 +26,9 @@ impl State {
     where
         BS: BlockStore,
     {
-        Err(anyhow::anyhow!("Unknown multisig actor code {}", actor.code))
+        Err(anyhow::anyhow!(
+            "Unknown multisig actor code {}",
+            actor.code
+        ))
     }
 }

@@ -244,7 +244,11 @@ where
     }
 
     /// Returns raw work address of a miner given the state root.
-    pub fn get_miner_work_addr(&self, state_cid: Cid, addr: &Address) -> anyhow::Result<Address, Error> {
+    pub fn get_miner_work_addr(
+        &self,
+        state_cid: Cid,
+        addr: &Address,
+    ) -> anyhow::Result<Address, Error> {
         // let state =
         //     FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         // Ok(state.get_actor(addr)?)

@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::MultihashDigest;
 use crate::{load_actor_state, FilterEstimate};
+use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
