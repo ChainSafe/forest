@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::load_actor_state;
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
@@ -53,7 +52,7 @@ impl State {
     }
 
     /// Loads escrow table
-    pub fn escrow_table<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
+    pub fn escrow_table<'bs, BS>(&self, _store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where
         BS: BlockStore,
     {
@@ -61,7 +60,7 @@ impl State {
     }
 
     /// Loads locked funds table
-    pub fn locked_table<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
+    pub fn locked_table<'bs, BS>(&self, _store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where
         BS: BlockStore,
     {
@@ -69,7 +68,7 @@ impl State {
     }
 
     /// Deal proposals
-    pub fn proposals<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<DealProposals<'bs, BS>>
+    pub fn proposals<'bs, BS>(&self, _store: &'bs BS) -> anyhow::Result<DealProposals<'bs, BS>>
     where
         BS: BlockStore,
     {
@@ -77,7 +76,7 @@ impl State {
     }
 
     /// Deal proposal meta data.
-    pub fn states<'bs, BS>(&self, store: &'bs BS) -> anyhow::Result<DealStates<'bs, BS>>
+    pub fn states<'bs, BS>(&self, _store: &'bs BS) -> anyhow::Result<DealStates<'bs, BS>>
     where
         BS: BlockStore,
     {

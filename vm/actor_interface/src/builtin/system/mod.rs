@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::load_actor_state;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use vm::ActorState;
@@ -26,7 +25,7 @@ pub enum State {
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
+    pub fn load<BS>(_store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {

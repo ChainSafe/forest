@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{load_actor_state, FilterEstimate};
+use crate::FilterEstimate;
 use address::Address;
 use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
@@ -136,7 +136,7 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn list_all_miners<BS: BlockStore>(&self, s: &BS) -> anyhow::Result<Vec<Address>> {
+    pub fn list_all_miners<BS: BlockStore>(&self, _s: &BS) -> anyhow::Result<Vec<Address>> {
         unimplemented!()
     }
 
