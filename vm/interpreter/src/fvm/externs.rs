@@ -11,6 +11,7 @@ use ipld_blockstore::BlockStore;
 use address::Address;
 use blocks::BlockHeader;
 use forest_encoding::Cbor;
+use state_tree::StateTree;
 
 use anyhow::bail;
 use std::sync::Arc;
@@ -40,12 +41,20 @@ impl<DB: BlockStore> ForestExterns<DB> {
         }
     }
 
-    fn worker_key_at_lookback(&self, height: ChainEpoch) -> anyhow::Result<Address> {
+    fn worker_key_at_lookback(&self, miner_addr: &Address, height: ChainEpoch) -> anyhow::Result<Address> {
+        let prev_root = (self.lookback)(height);
+        let lb_state = StateTree::new_from_root(&*self.db, &prev_root).map_err(|e| anyhow::anyhow!("{}", e))?;
+
+        let actor = lb_state
+            .get_actor(miner_addr)
+            .map_err(|e| anyhow::anyhow!("{}", e))?
+            .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
+
         unimplemented!()
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<()> {
-        let worker_addr = self.worker_key_at_lookback(bh.epoch())?;
+        let worker_addr = self.worker_key_at_lookback(bh.miner_address(), bh.epoch())?;
 
         bh.check_block_signature(&worker_addr)?;
 
