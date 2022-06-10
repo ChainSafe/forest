@@ -6,6 +6,7 @@ use fvm::externs::Consensus;
 use fvm::externs::Externs;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 
+use address::Address;
 use blocks::BlockHeader;
 use forest_encoding::Cbor;
 
@@ -45,8 +46,16 @@ impl Rand for ForestExterns {
     }
 }
 
-fn verify_block_signature(_bh: &BlockHeader) -> anyhow::Result<()> {
+fn worker_key_at_lookback(height: ChainEpoch) -> anyhow::Result<Address> {
     unimplemented!()
+}
+
+fn verify_block_signature(bh: &BlockHeader) -> anyhow::Result<()> {
+    let worker_addr = worker_key_at_lookback(bh.epoch())?;
+
+    bh.check_block_signature(&worker_addr)?;
+
+    Ok(())
 }
 
 impl Consensus for ForestExterns {
