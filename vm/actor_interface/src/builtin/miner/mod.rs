@@ -136,7 +136,26 @@ impl State {
         store: &BS,
         sectors: Option<&BitField>,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
-        todo!()
+        match self {
+            State::V7(st) => {
+                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(&fvm_store, &sectors.clone().into())?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = fil_actor_miner_v7::Sectors::load(&fvm_store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(SectorOnChainInfo::from(info.clone()));
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
+        }
     }
 
     /// Gets pre committed on chain info
