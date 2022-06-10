@@ -29,7 +29,6 @@ impl State {
     where
         BS: BlockStore,
     {
-        //Err(format!("Unknown system actor code {}", actor.code))
         Err(anyhow::anyhow!("Unknown system actor code {}", actor.code))
     }
 }
