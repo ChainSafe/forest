@@ -492,8 +492,8 @@ where
                 raw_length,
             )
             .map_err(|e| format!("{:?}", e))?;
-        if unsigned.method_num == 26 && unsigned.to() == &Address::new_id(1846857) {
-            // ProveCommitAggregate
+        if unsigned.method_num == 15 && unsigned.to() == &Address::new_id(39515) {
+            // ReportConsensusFault
             // eprintln!(
             //     "Found a ProveCommitAggregate message to: {} {}",
             //     unsigned.to(),
