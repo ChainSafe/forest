@@ -218,7 +218,7 @@ impl<DB: BlockStore> Consensus for ForestExterns<DB> {
         };
 
         // (3) return if no consensus fault
-        if cf.is_some() {
+        if cf.is_none() {
             return Ok((cf, total_gas));
         }
 
