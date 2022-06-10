@@ -1438,7 +1438,7 @@ where
             let (_, st) =
                 task::block_on(sm.get_lookback_tipset_for_round::<V>(tipset.clone(), round))
                     .unwrap();
-            return st;
+            st
         })
     }
 }
