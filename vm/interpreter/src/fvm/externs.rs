@@ -6,6 +6,7 @@ use clock::ChainEpoch;
 use fvm::externs::Consensus;
 use fvm::externs::Externs;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
+use ipld_blockstore::BlockStore;
 
 use address::Address;
 use blocks::BlockHeader;
@@ -21,7 +22,7 @@ pub struct ForestExterns<DB> {
     db: Arc<DB>,
 }
 
-impl<DB> ForestExterns<DB> {
+impl<DB: BlockStore> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         root: Cid,
@@ -37,7 +38,7 @@ impl<DB> ForestExterns<DB> {
     }
 }
 
-impl<DB> Externs for ForestExterns<DB> {}
+impl<DB: BlockStore> Externs for ForestExterns<DB> {}
 
 impl<DB> Rand for ForestExterns<DB> {
     fn get_chain_randomness(
@@ -71,7 +72,7 @@ fn verify_block_signature(bh: &BlockHeader) -> anyhow::Result<()> {
     Ok(())
 }
 
-impl<DB> Consensus for ForestExterns<DB> {
+impl<DB: BlockStore> Consensus for ForestExterns<DB> {
     fn verify_consensus_fault(
         &self,
         h1: &[u8],
