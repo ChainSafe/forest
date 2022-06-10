@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::Rand;
+use cid::Cid;
 use clock::ChainEpoch;
 use fvm::externs::Consensus;
 use fvm::externs::Externs;
@@ -11,22 +12,34 @@ use blocks::BlockHeader;
 use forest_encoding::Cbor;
 
 use anyhow::bail;
+use std::sync::Arc;
 
-pub struct ForestExterns {
+pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
+    root: Cid,
+    lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
+    db: Arc<DB>,
 }
 
-impl ForestExterns {
-    pub fn new(rand: impl Rand + 'static) -> Self {
+impl<DB> ForestExterns<DB> {
+    pub fn new(
+        rand: impl Rand + 'static,
+        root: Cid,
+        lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
+        db: Arc<DB>,
+    ) -> Self {
         ForestExterns {
             rand: Box::new(rand),
+            root,
+            lookback,
+            db,
         }
     }
 }
 
-impl Externs for ForestExterns {}
+impl<DB> Externs for ForestExterns<DB> {}
 
-impl Rand for ForestExterns {
+impl<DB> Rand for ForestExterns<DB> {
     fn get_chain_randomness(
         &self,
         pers: i64,
@@ -58,7 +71,7 @@ fn verify_block_signature(bh: &BlockHeader) -> anyhow::Result<()> {
     Ok(())
 }
 
-impl Consensus for ForestExterns {
+impl<DB> Consensus for ForestExterns<DB> {
     fn verify_consensus_fault(
         &self,
         h1: &[u8],

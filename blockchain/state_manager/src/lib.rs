@@ -1430,4 +1430,15 @@ where
 
         StateTree::new_from_root(self.store, &st)
     }
+
+    fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
+        let sm = self.sm.clone();
+        let tipset = self.tipset.clone();
+        Box::new(move |round| {
+            let (_, st) =
+                task::block_on(sm.get_lookback_tipset_for_round::<V>(tipset.clone(), round))
+                    .unwrap();
+            return st;
+        })
+    }
 }

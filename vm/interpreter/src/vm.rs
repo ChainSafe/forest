@@ -71,6 +71,7 @@ pub trait CircSupplyCalc: Clone + 'static {
 pub trait LookbackStateGetter<'db, DB> {
     /// Returns a state tree from the given epoch.
     fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, Box<dyn StdError>>;
+    fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
@@ -157,12 +158,17 @@ where
         context.set_base_fee(base_fee.clone());
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
-        let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> =
+        let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> =
             fvm::machine::DefaultMachine::new(
                 &engine,
                 &context,
-                FvmStore::new(store_arc),
-                ForestExterns::new(rand.clone()),
+                FvmStore::new(store_arc.clone()),
+                ForestExterns::new(
+                    rand.clone(),
+                    root,
+                    lb_state.chain_epoch_root(),
+                    store_arc.clone(),
+                ),
             )
             .unwrap();
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
@@ -381,13 +387,14 @@ where
     pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
         match crate::Backend::get_backend_choice() {
             Backend::FVM => self.apply_implicit_message_fvm(msg),
-            Backend::Native => Ok(self.apply_implicit_message_native(msg)),
-            Backend::Both => {
-                let fvm_ret = self.apply_implicit_message_fvm(msg)?;
-                let native_ret = self.apply_implicit_message_native(msg);
-                assert_eq!(native_ret, fvm_ret);
-                Ok(native_ret)
-            }
+            _ => panic!("Native backend not supported"),
+            // Backend::Native => Ok(self.apply_implicit_message_native(msg)),
+            // Backend::Both => {
+            //     let fvm_ret = self.apply_implicit_message_fvm(msg)?;
+            //     let native_ret = self.apply_implicit_message_native(msg);
+            //     assert_eq!(native_ret, fvm_ret);
+            //     Ok(native_ret)
+            // }
         }
     }
 
@@ -406,23 +413,23 @@ where
         Ok(ret.into())
     }
 
-    pub fn apply_implicit_message_native(&mut self, msg: &UnsignedMessage) -> ApplyRet {
-        let (return_data, _, act_err) = self.send(msg, None);
+    // pub fn apply_implicit_message_native(&mut self, msg: &UnsignedMessage) -> ApplyRet {
+    //     let (return_data, _, act_err) = self.send(msg, None);
 
-        ApplyRet {
-            msg_receipt: MessageReceipt {
-                return_data,
-                exit_code: if let Some(err) = &act_err {
-                    err.exit_code()
-                } else {
-                    ExitCode::OK
-                },
-                gas_used: 0,
-            },
-            act_error: act_err,
-            ..ApplyRet::default()
-        }
-    }
+    //     ApplyRet {
+    //         msg_receipt: MessageReceipt {
+    //             return_data,
+    //             exit_code: if let Some(err) = &act_err {
+    //                 err.exit_code()
+    //             } else {
+    //                 ExitCode::OK
+    //             },
+    //             gas_used: 0,
+    //         },
+    //         act_error: act_err,
+    //         ..ApplyRet::default()
+    //     }
+    // }
 
     /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
@@ -756,43 +763,43 @@ where
     //     res
     // }
 
-    /// Instantiates a new Runtime, and calls vm_send to do the execution.
-    #[allow(clippy::type_complexity)]
-    fn send(
-        &mut self,
-        msg: &UnsignedMessage,
-        gas_cost: Option<GasCharge>,
-    ) -> (
-        Serialized,
-        Option<DefaultRuntime<'db, '_, DB, R, C, LB, V, P>>,
-        Option<ActorError>,
-    ) {
-        let res = DefaultRuntime::new(
-            self.network_version,
-            self.state.clone(),
-            self.store,
-            0,
-            self.base_fee.clone(),
-            msg,
-            self.epoch,
-            *msg.from(),
-            msg.sequence(),
-            0,
-            0,
-            self.rand,
-            &self.registered_actors,
-            &self.circ_supply_calc,
-            self.lb_state,
-        );
+    // /// Instantiates a new Runtime, and calls vm_send to do the execution.
+    // #[allow(clippy::type_complexity)]
+    // fn send(
+    //     &mut self,
+    //     msg: &UnsignedMessage,
+    //     gas_cost: Option<GasCharge>,
+    // ) -> (
+    //     Serialized,
+    //     Option<DefaultRuntime<'db, '_, DB, R, C, LB, V, P>>,
+    //     Option<ActorError>,
+    // ) {
+    //     let res = DefaultRuntime::new(
+    //         self.network_version,
+    //         self.state.clone(),
+    //         self.store,
+    //         0,
+    //         self.base_fee.clone(),
+    //         msg,
+    //         self.epoch,
+    //         *msg.from(),
+    //         msg.sequence(),
+    //         0,
+    //         0,
+    //         self.rand,
+    //         &self.registered_actors,
+    //         &self.circ_supply_calc,
+    //         self.lb_state,
+    //     );
 
-        match res {
-            Ok(rt) => match rt.send(msg, gas_cost) {
-                Ok(ser) => (ser, Some(rt), None),
-                Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
-            },
-            Err(e) => (Serialized::default(), None, Some(e)),
-        }
-    }
+    //     match res {
+    //         Ok(rt) => match rt.send(msg, gas_cost) {
+    //             Ok(ser) => (ser, Some(rt), None),
+    //             Err(actor_err) => (Serialized::default(), Some(rt), Some(actor_err)),
+    //         },
+    //         Err(e) => (Serialized::default(), None, Some(e)),
+    //     }
+    // }
 
     // fn should_burn(
     //     &self,

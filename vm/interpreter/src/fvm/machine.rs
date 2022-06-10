@@ -10,14 +10,14 @@ use ipld_blockstore::FvmStore;
 use vm::TokenAmount;
 
 pub struct ForestMachine<DB: 'static> {
-    pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns>,
+    pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>>,
     pub circ_supply: Option<TokenAmount>,
 }
 
 impl<DB: BlockStore> Machine for ForestMachine<DB> {
     type Blockstore =
-        <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> as Machine>::Blockstore;
-    type Externs = ForestExterns;
+        <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> as Machine>::Blockstore;
+    type Externs = ForestExterns<DB>;
 
     fn engine(&self) -> &fvm::machine::Engine {
         self.machine.engine()
