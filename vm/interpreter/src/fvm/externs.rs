@@ -67,12 +67,12 @@ impl<DB: BlockStore> ForestExterns<DB> {
         unimplemented!()
     }
 
-    fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<()> {
+    fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
         let worker_addr = self.worker_key_at_lookback(bh.miner_address(), bh.epoch())?;
 
         bh.check_block_signature(&worker_addr)?;
 
-        Ok(())
+        Ok(0)
     }
 }
 
@@ -105,7 +105,7 @@ impl<DB: BlockStore> Consensus for ForestExterns<DB> {
         h2: &[u8],
         extra: &[u8],
     ) -> anyhow::Result<(Option<ConsensusFault>, i64)> {
-        let total_gas: i64 = 0;
+        let mut total_gas: i64 = 0;
 
         // Note that block syntax is not validated. Any validly signed block will be accepted pursuant to the below conditions.
         // Whether or not it could ever have been accepted in a chain is not checked/does not matter here.
@@ -191,14 +191,17 @@ impl<DB: BlockStore> Consensus for ForestExterns<DB> {
 
         // (3) return if no consensus fault
         if cf.is_some() {
-            // (4) expensive final checks
-
-            // check blocks are properly signed by their respective miner
-            // note we do not need to check extra's: it is a parent to block b
-            // which itself is signed, so it was willingly included by the miner
-            self.verify_block_signature(&bh_1)?;
-            self.verify_block_signature(&bh_2)?;
+            return Ok((cf, total_gas));
         }
+
+        // (4) expensive final checks
+
+        // check blocks are properly signed by their respective miner
+        // note we do not need to check extra's: it is a parent to block b
+        // which itself is signed, so it was willingly included by the miner
+        total_gas += self.verify_block_signature(&bh_1)?;
+        total_gas += self.verify_block_signature(&bh_2)?;
+
         Ok((cf, total_gas))
     }
 }
