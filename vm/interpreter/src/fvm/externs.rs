@@ -3,6 +3,7 @@
 use crate::Rand;
 use cid::Cid;
 use clock::ChainEpoch;
+use fil_actors_runtime::runtime::Policy;
 use fvm::externs::Consensus;
 use fvm::externs::Externs;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
@@ -41,9 +42,22 @@ impl<DB: BlockStore> ForestExterns<DB> {
         }
     }
 
-    fn worker_key_at_lookback(&self, miner_addr: &Address, height: ChainEpoch) -> anyhow::Result<Address> {
+    fn worker_key_at_lookback(
+        &self,
+        miner_addr: &Address,
+        height: ChainEpoch,
+    ) -> anyhow::Result<Address> {
+        if height < self.epoch - Policy::default().chain_finality {
+            bail!(
+                "cannot get worker key (current epoch: {}, height: {})",
+                self.epoch,
+                height
+            );
+        }
+
         let prev_root = (self.lookback)(height);
-        let lb_state = StateTree::new_from_root(&*self.db, &prev_root).map_err(|e| anyhow::anyhow!("{}", e))?;
+        let lb_state = StateTree::new_from_root(&*self.db, &prev_root)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let actor = lb_state
             .get_actor(miner_addr)
