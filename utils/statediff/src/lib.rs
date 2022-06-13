@@ -1,10 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::account;
-use actor::market;
 use actor::miner;
-use actor::power;
 use address::Address;
 use blockstore::resolve::resolve_cids_recursive;
 use blockstore::BlockStore;
@@ -15,13 +12,11 @@ use ipld::json::{IpldJson, IpldJsonRef};
 use ipld::Ipld;
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
-use vm::ActorState;
-
 use std::collections::HashMap;
 use std::error::Error as StdError;
-use std::fmt::Write as FmtWrite;
 use std::io::stdout;
 use std::io::Write;
+use vm::ActorState;
 
 #[derive(Serialize, Deserialize)]
 struct ActorStateResolved {
@@ -83,7 +78,7 @@ fn try_print_actor_states<BS: BlockStore>(
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
-                let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, ",");
+                let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, "\n");
                 let stdout = stdout();
                 let mut handle = stdout.lock();
                 writeln!(handle, "Address {} changed: ", addr)?;
@@ -91,7 +86,7 @@ fn try_print_actor_states<BS: BlockStore>(
             }
         } else {
             // Added actor, print out the json format actor state.
-            println!("{}", format!("+ Address {}:\n{}", addr, calc_pp).green());
+            println!("{}", format!("+ Address {}:\n{}", addr, calc_pp).green())
         }
 
         Ok(())
@@ -118,16 +113,10 @@ fn pp_actor_state(
     let ipld = &resolved.state.0;
     let mut buffer = String::new();
 
-    writeln!(&mut buffer, "{:?}", state)?;
+    buffer += &format!("{:#?}\n", state);
 
     if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", miner_state)?;
-    } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", account_state)?;
-    } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", state)?;
-    } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", state)?;
+        buffer += &format!("{:#?}", miner_state);
     } else {
         buffer += &serde_json::to_string_pretty(&resolved)?;
     }
@@ -172,10 +161,6 @@ pub fn print_state_diff<BS>(
 where
     BS: BlockStore,
 {
-    eprintln!(
-        "StateDiff:\n  Expected: {}\n  Root: {}",
-        expected_root, root
-    );
     if let Err(e) = try_print_actor_states(bs, root, expected_root, depth) {
         println!(
             "Could not resolve actor states: {}\nUsing default resolution:",

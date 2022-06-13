@@ -122,8 +122,6 @@ pub struct CliOpts {
     pub kademlia: Option<bool>,
     #[structopt(long, help = "Allow MDNS (default = false)")]
     pub mdns: Option<bool>,
-    #[structopt(long, help = "Validate snapshot at given EPOCH")]
-    pub height: Option<i64>,
     #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
     pub import_snapshot: Option<String>,
     #[structopt(long, help = "Import a chain from a local CAR file or url")]
@@ -191,7 +189,6 @@ impl CliOpts {
                 cfg.snapshot_path = Some(snapshot_path.to_owned());
                 cfg.snapshot = false;
             }
-            cfg.snapshot_height = self.height;
 
             cfg.skip_load = self.skip_load;
         }

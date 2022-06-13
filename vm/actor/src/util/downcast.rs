@@ -123,7 +123,7 @@ fn downcast_util(error: Box<dyn StdError>) -> Result<ActorError, Box<dyn StdErro
     let error = match error.downcast::<EncodingError>() {
         Ok(enc_error) => {
             return Ok(ActorError::new(
-                ExitCode::USR_SERIALIZATION,
+                ExitCode::ErrSerialization,
                 enc_error.to_string(),
             ))
         }
@@ -135,7 +135,7 @@ fn downcast_util(error: Box<dyn StdError>) -> Result<ActorError, Box<dyn StdErro
     let error = match error.downcast::<CborError>() {
         Ok(enc_error) => {
             return Ok(ActorError::new(
-                ExitCode::USR_SERIALIZATION,
+                ExitCode::ErrSerialization,
                 enc_error.to_string(),
             ))
         }

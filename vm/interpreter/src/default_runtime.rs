@@ -4,15 +4,17 @@
 use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
 use super::{CircSupplyCalc, LookbackStateGetter, Rand};
-use actor::{account, ActorVersion};
-use actorv6::ActorDowncast;
+use actor::{
+    account, actorv0, actorv2, actorv3, actorv4, actorv5,
+    actorv6::{self, ActorDowncast},
+    ActorVersion,
+};
 use address::{Address, Protocol};
 use blocks::BlockHeader;
 use byteorder::{BigEndian, WriteBytesExt};
 use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
-use fil_actors_runtime::runtime::Policy;
 use fil_types::{
     verifier::ProofVerifier, DefaultNetworkParams, NetworkParams, NetworkVersion, Randomness,
 };
@@ -25,7 +27,8 @@ use num_bigint::BigInt;
 use num_traits::{Signed, Zero};
 use rayon::prelude::*;
 use runtime::{
-    compute_unsealed_sector_cid, ConsensusFault, ConsensusFaultType, MessageInfo, Runtime, Syscalls,
+    compute_unsealed_sector_cid, ActorCode, ConsensusFault, ConsensusFaultType, MessageInfo,
+    Runtime, Syscalls,
 };
 use state_tree::StateTree;
 use std::cell::RefCell;
@@ -80,7 +83,7 @@ impl MessageInfo for VMMsg {
 /// Implementation of the Runtime trait.
 pub struct DefaultRuntime<'db, 'vm, BS, R, C, LB, V, P = DefaultNetworkParams> {
     version: NetworkVersion,
-    state: Rc<RefCell<StateTree<'db, BS>>>,
+    state: Rc<RefCell<&'vm mut StateTree<'db, BS>>>,
     store: Rc<GasBlockStore<'db, BS>>,
     gas_tracker: Rc<RefCell<GasTracker>>,
     vm_msg: VMMsg,
@@ -118,7 +121,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         version: NetworkVersion,
-        state: Rc<RefCell<StateTree<'db, BS>>>,
+        state: &'vm mut StateTree<'db, BS>,
         store: &'db BS,
         gas_used: i64,
         base_fee: TokenAmount,
@@ -142,16 +145,16 @@ where
         };
 
         let caller_id = state
-            .borrow()
             .lookup_id(message.from())
             .map_err(|e| e.downcast_fatal("failed to lookup id"))?
-            .ok_or_else(|| actor_error!(SYS_INVALID_RECEIVER, "resolve msg from address failed"))?;
+            .ok_or_else(|| {
+                actor_error!(SysErrInvalidReceiver, "resolve msg from address failed")
+            })?;
 
         let receiver = if version <= NetworkVersion::V3 {
             *message.to()
         } else {
             state
-                .borrow()
                 .lookup_id(message.to())
                 .map_err(|e| e.downcast_fatal("failed to lookup id"))?
                 // * Go implementation changes this to undef address. To avoid using optional
@@ -167,7 +170,7 @@ where
 
         Ok(DefaultRuntime {
             version,
-            state,
+            state: Rc::new(RefCell::new(state)),
             store: Rc::new(gas_block_store),
             gas_tracker,
             vm_msg,
@@ -247,7 +250,7 @@ where
 
     fn abort_if_already_validated(&mut self) -> Result<(), ActorError> {
         if self.caller_validated {
-            Err(actor_error!(SYS_ASSERTION_FAILED;
+            Err(actor_error!(SysErrIllegalActor;
                     "Method must validate caller identity exactly once"))
         } else {
             self.caller_validated = true;
@@ -347,14 +350,14 @@ where
         // * Since We reuse the runtime, all of these things need to happen on each call
         if self.depth + 1 > MAX_CALL_DEPTH && self.network_version() >= NetworkVersion::V6 {
             return Err(actor_error!(recovered(
-                USR_FORBIDDEN,
+                SysErrForbidden,
                 "message execution exceeds call depth"
             )));
         }
 
         let caller = self.resolve_address(msg.from())?.ok_or_else(|| {
             actor_error!(
-                SYS_INVALID_RECEIVER,
+                SysErrInvalidReceiver,
                 "resolving from address in internal send failed"
             )
         })?;
@@ -426,7 +429,7 @@ where
 
         if !msg.value().is_zero() {
             transfer(
-                &mut *new_rt.state.borrow_mut(),
+                *new_rt.state.borrow_mut(),
                 msg.from(),
                 msg.to(),
                 msg.value(),
@@ -444,49 +447,43 @@ where
     }
 
     /// Calls actor code with method and parameters.
-    #[allow(unreachable_code)]
-    #[allow(clippy::suspicious_else_formatting)]
     fn invoke(
         &mut self,
-        _code: Cid,
-        _method_num: MethodNum,
-        _params: &Serialized,
-        _to: &Address,
+        code: Cid,
+        method_num: MethodNum,
+        params: &Serialized,
+        to: &Address,
     ) -> Result<Serialized, ActorError> {
-        let _actor_version = actor::ActorVersion::from(self.network_version());
+        let actor_version = actor::ActorVersion::from(self.network_version());
 
-        let _ret = if let Some(_ret) = {
-            unimplemented!()
-            // match actor_version {
-            //     // ActorVersion::V0 => actorv0::invoke_code(&code, self, method_num, params),
-            //     // ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
-            //     // ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
-            //     // ActorVersion::V4 => actorv4::invoke_code(&code, self, method_num, params),
-            //     // ActorVersion::V5 => actorv5::invoke_code(&code, self, method_num, params),
-            //     // ActorVersion::V6 => actorv6::invoke_code(&code, self, method_num, params),
-            //     _ => unimplemented!(),
-            // }
+        let ret = if let Some(ret) = {
+            match actor_version {
+                ActorVersion::V0 => actorv0::invoke_code(&code, self, method_num, params),
+                ActorVersion::V2 => actorv2::invoke_code(&code, self, method_num, params),
+                ActorVersion::V3 => actorv3::invoke_code(&code, self, method_num, params),
+                ActorVersion::V4 => actorv4::invoke_code(&code, self, method_num, params),
+                ActorVersion::V5 => actorv5::invoke_code(&code, self, method_num, params),
+                ActorVersion::V6 => actorv6::invoke_code(&code, self, method_num, params),
+            }
         } {
-            _ret
-        }
-        // else if code == *actorv2::CHAOS_ACTOR_CODE_ID && self.registered_actors.contains(&code) {
-        //     actorv2::chaos::Actor::invoke_method(self, method_num, params)
-        // }
-        else {
+            ret
+        } else if code == *actorv2::CHAOS_ACTOR_CODE_ID && self.registered_actors.contains(&code) {
+            actorv2::chaos::Actor::invoke_method(self, method_num, params)
+        } else {
             Err(actor_error!(
-                SYS_INVALID_RECEIVER,
+                SysErrIllegalActor,
                 "no code for actor at address {} with code {}",
-                _to,
-                _code
+                to,
+                code
             ))
         }?;
 
         if !self.caller_validated {
             Err(
-                actor_error!(SYS_ASSERTION_FAILED; "Caller must be validated during method execution"),
+                actor_error!(SysErrIllegalActor; "Caller must be validated during method execution"),
             )
         } else {
-            Ok(_ret)
+            Ok(ret)
         }
     }
 
@@ -499,7 +496,7 @@ where
 
         if addr.is_bls_zero_address() && self.network_version() >= NetworkVersion::V10 {
             return Err(
-                actor_error!(USR_ILLEGAL_ARGUMENT; "cannot create the bls zero address actor"),
+                actor_error!(ErrIllegalArgument; "cannot create the bls zero address actor"),
             );
         }
 
@@ -551,7 +548,7 @@ where
 
     fn worker_key_at_lookback(&self, height: ChainEpoch) -> Result<Address, Box<dyn StdError>> {
         if self.network_version() >= NetworkVersion::V7
-            && height < self.epoch - Policy::default().chain_finality
+            && height < self.epoch - actor::CHAIN_FINALITY
         {
             return Err(format!(
                 "cannot get worker key (current epoch: {}, height: {})",
@@ -606,7 +603,7 @@ where
 
         // Check if theres is at least one match
         if !addresses.into_iter().any(|a| a == imm) {
-            return Err(actor_error!(USR_FORBIDDEN;
+            return Err(actor_error!(SysErrForbidden;
                 "caller {} is not one of supported", self.message().caller()
             ));
         }
@@ -623,7 +620,7 @@ where
             .get_actor_code_cid(self.message().caller())?
             .ok_or_else(|| actor_error!(fatal("failed to lookup code cid for caller")))?;
         if !types.into_iter().any(|c| *c == caller_cid) {
-            return Err(actor_error!(USR_FORBIDDEN;
+            return Err(actor_error!(SysErrForbidden;
                     "caller cid type {} not one of supported", caller_cid));
         }
         Ok(())
@@ -657,7 +654,7 @@ where
     ) -> Result<Randomness, ActorError> {
         let r = if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             self.rand
-                .get_chain_randomness(personalization as i64, rand_epoch, entropy)
+                .get_chain_randomness(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else {
             panic!("FVM doesn't support older networks")
@@ -675,7 +672,7 @@ where
         #[allow(clippy::if_same_then_else)]
         let r = if rand_epoch >= networks::UPGRADE_ACTORS_V6_HEIGHT {
             self.rand
-                .get_beacon_randomness(personalization as i64, rand_epoch, entropy)
+                .get_beacon_randomness(personalization, rand_epoch, entropy)
                 .map_err(|e| e.downcast_fatal("could not get randomness"))?
         } else if rand_epoch > networks::UPGRADE_HYPERDRIVE_HEIGHT {
             panic!("FVM doesn't support older networks")
@@ -698,12 +695,12 @@ where
             .get_actor(self.message().receiver())
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::USR_ILLEGAL_ARGUMENT,
+                    ExitCode::SysErrIllegalArgument,
                     "failed to get actor for Readonly state",
                 )
             })?
             .ok_or_else(
-                || actor_error!(USR_ILLEGAL_ARGUMENT; "Actor readonly state does not exist"),
+                || actor_error!(SysErrIllegalArgument; "Actor readonly state does not exist"),
             )?;
 
         self.get(&actor.state)?.ok_or_else(|| {
@@ -726,12 +723,12 @@ where
             .get_actor(self.message().receiver())
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::SYS_ASSERTION_FAILED,
+                    ExitCode::SysErrIllegalActor,
                     "failed to get actor for transaction",
                 )
             })?
             .ok_or_else(|| {
-                actor_error!(SYS_ASSERTION_FAILED;
+                actor_error!(SysErrIllegalActor;
                 "actor state for transaction doesn't exist")
             })?;
 
@@ -768,7 +765,7 @@ where
     ) -> Result<Serialized, ActorError> {
         if !self.allow_internal {
             return Err(actor_error!(recovered(
-                SYS_ASSERTION_FAILED,
+                SysErrIllegalActor,
                 "runtime.send() is not allowed"
             )));
         }
@@ -813,7 +810,7 @@ where
         // * if diff with `SysErrIllegalArgument` check here
         if !actor::is_builtin_actor(&code_id) {
             return Err(
-                actor_error!(USR_ILLEGAL_ARGUMENT; "Can only create built-in actors. code={}", code_id),
+                actor_error!(SysErrIllegalArgument; "Can only create built-in actors. code={}", code_id),
             );
         }
 
@@ -825,16 +822,16 @@ where
                 "actor {} is a version {} actor; chain only supports actor version {} at height {} and nver {:?}",
                 &code_id, version, support, self.curr_epoch(), self.network_version()
             );
-            return Err(actor_error!(USR_ILLEGAL_ARGUMENT; "Cannot create actor: {}", msg));
+            return Err(actor_error!(SysErrIllegalArgument; "Cannot create actor: {}", msg));
         }
 
         if actor::is_singleton_actor(&code_id) {
-            return Err(actor_error!(USR_ILLEGAL_ARGUMENT;
+            return Err(actor_error!(SysErrIllegalArgument;
                     "Can only have one instance of singleton actors."));
         }
 
         if let Ok(Some(_)) = self.state.borrow().get_actor(address) {
-            return Err(actor_error!(USR_ILLEGAL_ARGUMENT; "Actor address already exists"));
+            return Err(actor_error!(SysErrIllegalArgument; "Actor address already exists"));
         }
 
         let gas_charge = self.price_list.on_create_actor();
@@ -861,26 +858,24 @@ where
             .borrow()
             .get_actor(&receiver)
             .map_err(|e| e.downcast_fatal(format!("failed to get actor {}", receiver)))?
-            .ok_or_else(
-                || actor_error!(SYS_ASSERTION_FAILED; "failed to load actor in delete actor"),
-            )
+            .ok_or_else(|| actor_error!(SysErrIllegalActor; "failed to load actor in delete actor"))
             .map(|act| act.balance)?;
         if balance != 0.into() {
             if self.version >= NetworkVersion::V7 {
                 let beneficiary_id = self.resolve_address(beneficiary)?.ok_or_else(|| {
-                    actor_error!(USR_ILLEGAL_ARGUMENT, "beneficiary doesn't exist")
+                    actor_error!(SysErrIllegalArgument, "beneficiary doesn't exist")
                 })?;
 
                 if &beneficiary_id == self.message().receiver() {
                     return Err(actor_error!(
-                        USR_ILLEGAL_ARGUMENT,
+                        SysErrIllegalArgument,
                         "benefactor cannot be beneficiary"
                     ));
                 }
             }
             // Transfer the executing actor's balance to the beneficiary
             transfer(
-                &mut *self.state.borrow_mut(),
+                *self.state.borrow_mut(),
                 &receiver,
                 beneficiary,
                 &balance,
@@ -898,8 +893,8 @@ where
 
     fn total_fil_circ_supply(&self) -> Result<TokenAmount, ActorError> {
         self.circ_supply_calc
-            .get_supply(self.epoch, &*self.state.borrow())
-            .map_err(|e| actor_error!(USR_ILLEGAL_STATE, "failed to get total circ supply: {}", e))
+            .get_supply(self.epoch, *self.state.borrow())
+            .map_err(|e| actor_error!(ErrIllegalState, "failed to get total circ supply: {}", e))
     }
 
     fn charge_gas(&mut self, name: &'static str, compute: i64) -> Result<(), ActorError> {
@@ -1149,7 +1144,7 @@ fn transfer<BS: BlockStore>(
     {
         // FIXME: nv15
         if value.is_negative() {
-            return Err(actor_error!(USR_FORBIDDEN;
+            return Err(actor_error!(SysErrForbidden;
                     "attempted to transfer negative transfer value {}", value));
         }
 
@@ -1168,7 +1163,7 @@ fn transfer<BS: BlockStore>(
             })?;
 
         if &f.balance < value {
-            return Err(actor_error!(USR_INSUFFICIENT_FUNDS;
+            return Err(actor_error!(SysErrInsufficientFunds;
                     "transfer failed, insufficient balance in sender actor: {}", &f.balance));
         }
 
@@ -1208,7 +1203,7 @@ fn transfer<BS: BlockStore>(
         }
 
         if value.is_negative() {
-            return Err(actor_error!(USR_FORBIDDEN;
+            return Err(actor_error!(SysErrForbidden;
                     "attempted to transfer negative transfer value {}", value));
         }
 
@@ -1234,7 +1229,7 @@ fn transfer<BS: BlockStore>(
         })?;
 
     f.deduct_funds(value).map_err(|e| {
-        actor_error!(USR_INSUFFICIENT_FUNDS;
+        actor_error!(SysErrInsufficientFunds;
         "transfer failed when deducting funds ({}): {}", value, e)
     })?;
     t.deposit_funds(value);
@@ -1278,24 +1273,23 @@ where
 fn make_actor(addr: &Address, version: ActorVersion) -> Result<ActorState, ActorError> {
     match addr.protocol() {
         Protocol::BLS | Protocol::Secp256k1 => Ok(new_account_actor(version)),
-        Protocol::ID => Err(actor_error!(SYS_INVALID_RECEIVER; "no actor with given id: {}", addr)),
-        Protocol::Actor => Err(actor_error!(SYS_INVALID_RECEIVER; "no such actor: {}", addr)),
+        Protocol::ID => {
+            Err(actor_error!(SysErrInvalidReceiver; "no actor with given id: {}", addr))
+        }
+        Protocol::Actor => Err(actor_error!(SysErrInvalidReceiver; "no such actor: {}", addr)),
     }
 }
 
-#[allow(unreachable_code)]
-fn new_account_actor(_version: ActorVersion) -> ActorState {
+fn new_account_actor(version: ActorVersion) -> ActorState {
     ActorState {
-        code: unimplemented!(),
-        // code: match version {
-        //     // ActorVersion::V0 => *actorv0::ACCOUNT_ACTOR_CODE_ID,
-        //     // ActorVersion::V2 => *actorv2::ACCOUNT_ACTOR_CODE_ID,
-        //     // ActorVersion::V3 => *actorv3::ACCOUNT_ACTOR_CODE_ID,
-        //     // ActorVersion::V4 => *actorv4::ACCOUNT_ACTOR_CODE_ID,
-        //     // ActorVersion::V5 => *actorv5::ACCOUNT_ACTOR_CODE_ID,
-        //     // ActorVersion::V6 => *actorv6::ACCOUNT_ACTOR_CODE_ID,
-        //     _ => unimplemented!(),
-        // },
+        code: match version {
+            ActorVersion::V0 => *actorv0::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V2 => *actorv2::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V3 => *actorv3::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V4 => *actorv4::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V5 => *actorv5::ACCOUNT_ACTOR_CODE_ID,
+            ActorVersion::V6 => *actorv6::ACCOUNT_ACTOR_CODE_ID,
+        },
         balance: TokenAmount::from(0),
         state: *EMPTY_ARR_CID,
         sequence: 0,

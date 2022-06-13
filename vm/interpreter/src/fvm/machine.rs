@@ -4,23 +4,28 @@ use crate::fvm::externs::ForestExterns;
 use cid::Cid;
 use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
+use fvm::Config;
 use fvm_shared::ActorID;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use vm::TokenAmount;
 
 pub struct ForestMachine<DB: 'static> {
-    pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>>,
+    pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns>,
     pub circ_supply: Option<TokenAmount>,
 }
 
 impl<DB: BlockStore> Machine for ForestMachine<DB> {
     type Blockstore =
-        <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> as Machine>::Blockstore;
-    type Externs = ForestExterns<DB>;
+        <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns> as Machine>::Blockstore;
+    type Externs = ForestExterns;
 
     fn engine(&self) -> &fvm::machine::Engine {
         self.machine.engine()
+    }
+
+    fn config(&self) -> &Config {
+        self.machine.config()
     }
 
     fn blockstore(&self) -> &Self::Blockstore {
@@ -64,11 +69,11 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         self.machine.transfer(from, to, value)
     }
 
-    fn flush(&mut self) -> fvm::kernel::Result<Cid> {
-        self.machine.flush()
+    fn consume(self) -> Self::Blockstore {
+        self.machine.consume()
     }
 
-    fn into_store(self) -> Self::Blockstore {
-        self.machine.into_store()
+    fn flush(&mut self) -> fvm::kernel::Result<Cid> {
+        self.machine.flush()
     }
 }

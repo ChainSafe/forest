@@ -151,7 +151,7 @@ pub trait Runtime<BS: BlockStore>: Syscalls {
         params.deserialize().map_err(|e| {
             if self.network_version() < NetworkVersion::V7 {
                 ActorError::new(
-                    ExitCode::SYS_SENDER_INVALID,
+                    ExitCode::SysErrSenderInvalid,
                     format!("failed to decode parameters: {}", e),
                 )
             } else {

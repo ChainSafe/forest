@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn serialize_through_other() {
-        #[derive(Debug, PartialEq, Eq, Default)]
+        #[derive(Debug, PartialEq, Default)]
         struct TestOther(String);
         impl From<u8> for TestOther {
             fn from(i: u8) -> Self {

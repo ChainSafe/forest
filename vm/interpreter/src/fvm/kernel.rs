@@ -3,17 +3,15 @@
 use super::ForestMachine;
 use cid::Cid;
 use clock::ChainEpoch;
+use crypto::DomainSeparationTag;
 use fvm::call_manager::*;
-use fvm::gas::{Gas, PriceList};
-use fvm::kernel::BlockRegistry;
 use fvm::kernel::Result;
 use fvm::kernel::{
     BlockId, BlockStat, DebugOps, GasOps, MessageOps, NetworkOps, RandomnessOps, SelfOps, SendOps,
-    SendResult,
 };
 use fvm_shared::address::Address;
 use fvm_shared::consensus::ConsensusFault;
-use fvm_shared::crypto::signature::SignatureType;
+use fvm_shared::crypto::signature::Signature;
 use fvm_shared::piece::PieceInfo;
 use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sector::*;
@@ -29,16 +27,18 @@ pub struct ForestKernel<DB: BlockStore + 'static>(
 impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
     type CallManager = fvm::call_manager::DefaultCallManager<ForestMachine<DB>>;
 
-    fn into_inner(self) -> (Self::CallManager, BlockRegistry) {
-        self.0.into_inner()
+    fn take(self) -> Self::CallManager
+    where
+        Self: Sized,
+    {
+        self.0.take()
     }
 
     fn new(
         mgr: Self::CallManager,
-        blocks: BlockRegistry,
-        caller: ActorID,
-        actor_id: ActorID,
-        method: MethodNum,
+        from: fvm_shared::ActorID,
+        to: fvm_shared::ActorID,
+        method: fvm_shared::MethodNum,
         value_received: TokenAmount,
     ) -> Self
     where
@@ -46,7 +46,7 @@ impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
     {
         let circ_supply = mgr.machine().circ_supply.clone();
         ForestKernel(
-            fvm::DefaultKernel::new(mgr, blocks, caller, actor_id, method, value_received),
+            fvm::DefaultKernel::new(mgr, from, to, method, value_received),
             circ_supply,
         )
     }
@@ -56,8 +56,8 @@ impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
         self.0.resolve_address(address)
     }
 
-    fn get_actor_code_cid(&self, id: ActorID) -> fvm::kernel::Result<Option<Cid>> {
-        self.0.get_actor_code_cid(id)
+    fn get_actor_code_cid(&self, addr: &Address) -> fvm::kernel::Result<Option<Cid>> {
+        self.0.get_actor_code_cid(addr)
     }
 
     fn new_actor_address(&mut self) -> fvm::kernel::Result<Address> {
@@ -68,15 +68,18 @@ impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
         self.0.create_actor(code_id, actor_id)
     }
 
-    fn get_builtin_actor_type(&self, code_cid: &Cid) -> Option<fvm_shared::actor::builtin::Type> {
-        self.0.get_builtin_actor_type(code_cid)
+    fn resolve_builtin_actor_type(
+        &self,
+        code_cid: &Cid,
+    ) -> Option<fvm_shared::actor::builtin::Type> {
+        self.0.resolve_builtin_actor_type(code_cid)
     }
 
     fn get_code_cid_for_type(&self, typ: fvm_shared::actor::builtin::Type) -> Result<Cid> {
         self.0.get_code_cid_for_type(typ)
     }
 }
-impl<DB: BlockStore> fvm::kernel::IpldBlockOps for ForestKernel<DB> {
+impl<DB: BlockStore> fvm::kernel::BlockOps for ForestKernel<DB> {
     fn block_open(&mut self, cid: &Cid) -> fvm::kernel::Result<(BlockId, BlockStat)> {
         self.0.block_open(cid)
     }
@@ -94,12 +97,16 @@ impl<DB: BlockStore> fvm::kernel::IpldBlockOps for ForestKernel<DB> {
         self.0.block_link(id, hash_fun, hash_len)
     }
 
-    fn block_read(&mut self, id: BlockId, offset: u32, buf: &mut [u8]) -> fvm::kernel::Result<i32> {
+    fn block_read(&self, id: BlockId, offset: u32, buf: &mut [u8]) -> fvm::kernel::Result<u32> {
         self.0.block_read(id, offset, buf)
     }
 
-    fn block_stat(&mut self, id: BlockId) -> fvm::kernel::Result<BlockStat> {
+    fn block_stat(&self, id: BlockId) -> fvm::kernel::Result<BlockStat> {
         self.0.block_stat(id)
+    }
+
+    fn block_get(&self, id: BlockId) -> fvm::kernel::Result<(u64, Vec<u8>)> {
+        self.0.block_get(id)
     }
 }
 impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
@@ -112,8 +119,8 @@ impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
 }
 impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     // forwarded
-    fn hash(&mut self, code: u64, data: &[u8]) -> Result<[u8; 32]> {
-        self.0.hash(code, data)
+    fn hash_blake2b(&mut self, data: &[u8]) -> Result<[u8; 32]> {
+        self.0.hash_blake2b(data)
     }
 
     // forwarded
@@ -128,13 +135,11 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
     // forwarded
     fn verify_signature(
         &mut self,
-        sig_type: SignatureType,
-        signature: &[u8],
+        signature: &Signature,
         signer: &Address,
         plaintext: &[u8],
     ) -> Result<bool> {
-        self.0
-            .verify_signature(sig_type, signature, signer, plaintext)
+        self.0.verify_signature(signature, signer, plaintext)
     }
 
     // forwarded
@@ -182,25 +187,8 @@ impl<DB: BlockStore> DebugOps for ForestKernel<DB> {
     }
 }
 impl<DB: BlockStore> GasOps for ForestKernel<DB> {
-    /// Returns the gas used by the transaction so far.
-    fn gas_used(&self) -> Gas {
-        self.0.gas_used()
-    }
-
-    /// Returns the remaining gas for the transaction.
-    fn gas_available(&self) -> Gas {
-        self.0.gas_available()
-    }
-
-    /// ChargeGas charges specified amount of `gas` for execution.
-    /// `name` provides information about gas charging point.
-    fn charge_gas(&mut self, name: &str, compute: Gas) -> Result<()> {
+    fn charge_gas(&mut self, name: &str, compute: i64) -> Result<()> {
         self.0.charge_gas(name, compute)
-    }
-
-    /// Returns the currently active gas price list.
-    fn price_list(&self) -> &PriceList {
-        self.0.price_list()
     }
 }
 impl<DB: BlockStore> MessageOps for ForestKernel<DB> {
@@ -235,8 +223,8 @@ impl<DB: BlockStore> NetworkOps for ForestKernel<DB> {
 }
 impl<DB: BlockStore> RandomnessOps for ForestKernel<DB> {
     fn get_randomness_from_tickets(
-        &mut self,
-        personalization: i64,
+        &self,
+        personalization: DomainSeparationTag,
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; RANDOMNESS_LENGTH]> {
@@ -245,8 +233,8 @@ impl<DB: BlockStore> RandomnessOps for ForestKernel<DB> {
     }
 
     fn get_randomness_from_beacon(
-        &mut self,
-        personalization: i64,
+        &self,
+        personalization: DomainSeparationTag,
         rand_epoch: ChainEpoch,
         entropy: &[u8],
     ) -> Result<[u8; RANDOMNESS_LENGTH]> {
@@ -276,9 +264,9 @@ impl<DB: BlockStore> SendOps for ForestKernel<DB> {
         &mut self,
         recipient: &Address,
         method: u64,
-        params: BlockId,
+        params: &fvm_shared::encoding::RawBytes,
         value: &TokenAmount,
-    ) -> Result<SendResult> {
+    ) -> Result<InvocationResult> {
         self.0.send(recipient, method, params, value)
     }
 }

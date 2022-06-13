@@ -218,7 +218,7 @@ impl Partition {
         quant: QuantSpec,
     ) -> Result<(BitField, PowerPair, PowerPair), Box<dyn StdError>> {
         validate_partition_contains_sectors(self, sector_numbers)
-            .map_err(|e| actor_error!(USR_ILLEGAL_ARGUMENT; "failed fault declaration: {}", e))?;
+            .map_err(|e| actor_error!(ErrIllegalArgument; "failed fault declaration: {}", e))?;
 
         let sector_numbers = sector_numbers
             .validate()
@@ -316,7 +316,7 @@ impl Partition {
     ) -> Result<(), Box<dyn StdError>> {
         // Check that the declared sectors are actually assigned to the partition.
         validate_partition_contains_sectors(self, sector_numbers)
-            .map_err(|e| actor_error!(USR_ILLEGAL_ARGUMENT; "failed fault declaration: {}", e))?;
+            .map_err(|e| actor_error!(ErrIllegalArgument; "failed fault declaration: {}", e))?;
 
         let sector_numbers = sector_numbers
             .validate()
@@ -487,16 +487,14 @@ impl Partition {
         let live_sectors = self.live_sectors();
         let sector_numbers = sector_numbers.validate().map_err(|e| {
             actor_error!(
-                USR_ILLEGAL_ARGUMENT,
+                ErrIllegalArgument,
                 "failed to validate terminating sectors: {}",
                 e
             )
         })?;
 
         if !live_sectors.contains_all(sector_numbers) {
-            return Err(
-                actor_error!(USR_ILLEGAL_ARGUMENT, "can only terminate live sectors").into(),
-            );
+            return Err(actor_error!(ErrIllegalArgument, "can only terminate live sectors").into());
         }
 
         let sector_infos = sectors.load_sector(sector_numbers)?;
@@ -730,7 +728,7 @@ impl Partition {
     ) -> Result<(PowerPair, PowerPair, PowerPair, bool), Box<dyn StdError>> {
         let skipped = skipped.validate().map_err(|e| {
             actor_error!(
-                USR_ILLEGAL_ARGUMENT,
+                ErrIllegalArgument,
                 "failed to validate skipped sectors: {}",
                 e
             )
@@ -748,7 +746,7 @@ impl Partition {
         // Check that the declared sectors are actually in the partition.
         if !self.sectors.contains_all(skipped) {
             return Err(actor_error!(
-                USR_ILLEGAL_ARGUMENT,
+                ErrIllegalArgument,
                 "skipped faults contains sectors outside partition"
             )
             .into());
@@ -778,7 +776,7 @@ impl Partition {
                 quant,
             )
             .map_err(|e| {
-                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to add skipped faults")
+                e.downcast_default(ExitCode::ErrIllegalState, "failed to add skipped faults")
             })?;
 
         // Remove faulty recoveries
