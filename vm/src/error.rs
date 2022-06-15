@@ -151,12 +151,12 @@ mod tests {
     #[test]
     fn error_macro_generation() {
         assert_eq!(
-            actor_error!(SysErrSenderInvalid; "test"),
-            ActorError::new(ExitCode::SysErrSenderInvalid, "test".to_owned())
+            actor_error!(SYS_SENDER_INVALID; "test"),
+            ActorError::new(ExitCode::SYS_SENDER_INVALID, "test".to_owned())
         );
         assert_eq!(
-            actor_error!(SysErrSenderInvalid; "test {}, {}", 8, 10),
-            ActorError::new(ExitCode::SysErrSenderInvalid, format!("test {}, {}", 8, 10))
+            actor_error!(SYS_SENDER_INVALID; "test {}, {}", 8, 10),
+            ActorError::new(ExitCode::SYS_SENDER_INVALID, format!("test {}, {}", 8, 10))
         );
         assert_eq!(
             actor_error!(fatal("test {}, {}", 8, 10)),
