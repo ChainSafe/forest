@@ -3430,6 +3430,7 @@ dependencies = [
 name = "forest_libp2p"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-std",
  "async-trait",
  "asynchronous-codec",
@@ -4541,6 +4542,7 @@ dependencies = [
 name = "ipld_hamt"
 version = "2.0.0"
 dependencies = [
+ "anyhow",
  "byteorder 1.4.3",
  "criterion",
  "cs_serde_bytes",
@@ -5972,6 +5974,7 @@ dependencies = [
 name = "networks"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "beacon",
  "fil_clock",
  "fil_types",
@@ -7247,6 +7250,7 @@ name = "rpc-api"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "beacon",
  "chain",

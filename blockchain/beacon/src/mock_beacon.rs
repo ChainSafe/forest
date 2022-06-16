@@ -5,8 +5,8 @@ use crate::{Beacon, BeaconEntry};
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use encoding::blake2b_256;
-use std::error::Error;
 use std::time::Duration;
+use anyhow::Error;
 
 /// Mock beacon used for testing. Deterministic based on an interval.
 pub struct MockBeacon {
@@ -34,12 +34,12 @@ impl Beacon for MockBeacon {
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<bool, Error> {
         let oe = Self::entry_for_index(prev.round());
         Ok(oe.data() == curr.data())
     }
 
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn Error>> {
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, Error> {
         Ok(Self::entry_for_index(round))
     }
 

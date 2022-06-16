@@ -199,7 +199,7 @@ where
 
         mas.for_each_deadline(store, |_, deadline| {
             deadline.for_each(store, |_, partition: miner::Partition| {
-                cb(&partition)?;
+                cb(&partition).unwrap();
                 Ok(())
             })?;
             Ok(())

@@ -39,14 +39,14 @@ where
     }
 
     /// Load map with root
-    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, Box<dyn Error>> {
+    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
         match version {
             // ActorVersion::V0 => Ok(Map::V0(actorv0::make_map_with_root(cid, store)?)),
             // ActorVersion::V2 => Ok(Map::V2(actorv2::make_map_with_root(cid, store)?)),
             // ActorVersion::V3 => Ok(Map::V3(actorv3::make_map_with_root(cid, store)?)),
             // ActorVersion::V4 => Ok(Map::V4(actorv4::make_map_with_root(cid, store)?)),
             // ActorVersion::V5 => Ok(Map::V5(actorv5::make_map_with_root(cid, store)?)),
-            ActorVersion::V6 => Ok(Map::V6(actorv6::make_map_with_root(cid, store)?)),
+            ActorVersion::V6 => Ok(Map::V6(actorv6::make_map_with_root(cid, store).unwrap())),
             _ => panic!("unsupported actor version: {}", version),
         }
     }
@@ -65,7 +65,7 @@ where
     }
 
     /// Inserts a key-value pair into the `Map`.
-    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), Box<dyn Error>> {
+    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), anyhow::Error> {
         match self {
             // Map::V0(m) => Ok(m.set(key, value)?),
             // Map::V2(m) => Ok(m.set(key, value)?),
@@ -82,7 +82,7 @@ where
             //     Ok(())
             // }
             Map::V6(m) => {
-                m.set(key, value)?;
+                m.set(key, value).unwrap();
                 Ok(())
             }
             _ => unimplemented!(),
@@ -90,7 +90,7 @@ where
     }
 
     /// Returns a reference to the value corresponding to the key.
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, Box<dyn Error>>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, anyhow::Error>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -102,13 +102,13 @@ where
             // Map::V3(m) => Ok(m.get(k)?),
             // Map::V4(m) => Ok(m.get(k)?),
             // Map::V5(m) => Ok(m.get(k)?),
-            Map::V6(m) => Ok(m.get(k)?),
+            Map::V6(m) => Ok(m.get(k).unwrap()),
             _ => unimplemented!(),
         }
     }
 
     /// Returns `true` if a value exists for the given key in the `Map`.
-    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, Box<dyn Error>>
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, anyhow::Error>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -119,14 +119,14 @@ where
             // Map::V3(m) => Ok(m.contains_key(k)?),
             // Map::V4(m) => Ok(m.contains_key(k)?),
             // Map::V5(m) => Ok(m.contains_key(k)?),
-            Map::V6(m) => Ok(m.contains_key(k)?),
+            Map::V6(m) => Ok(m.contains_key(k).unwrap()),
             _ => unimplemented!(),
         }
     }
 
     /// Removes a key from the `Map`, returning the value at the key if the key
     /// was previously in the `Map`.
-    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, Box<dyn Error>>
+    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, anyhow::Error>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -137,20 +137,20 @@ where
             // Map::V3(m) => Ok(m.delete(k)?),
             // Map::V4(m) => Ok(m.delete(k)?),
             // Map::V5(m) => Ok(m.delete(k)?),
-            Map::V6(m) => Ok(m.delete(k)?),
+            Map::V6(m) => Ok(m.delete(k).unwrap()),
             _ => unimplemented!(),
         }
     }
 
     /// Flush root and return Cid for `Map`
-    pub fn flush(&mut self) -> Result<Cid, Box<dyn Error>> {
+    pub fn flush(&mut self) -> Result<Cid, anyhow::Error> {
         match self {
             // Map::V0(m) => Ok(m.flush()?),
             // Map::V2(m) => Ok(m.flush()?),
             // Map::V3(m) => Ok(m.flush()?),
             // Map::V4(m) => Ok(m.flush()?),
             // Map::V5(m) => Ok(m.flush()?),
-            Map::V6(m) => Ok(m.flush()?),
+            Map::V6(m) => Ok(m.flush().unwrap()),
             _ => unimplemented!(),
         }
     }

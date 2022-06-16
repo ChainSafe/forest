@@ -12,7 +12,8 @@ use clock::ChainEpoch;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::borrow::Cow;
-use std::error;
+//use std::error;
+use anyhow::Error;
 use std::sync::Arc;
 
 /// Enviromental Variable to ignore Drand. Lotus parallel is LOTUS_IGNORE_DRAND
@@ -57,7 +58,7 @@ where
         epoch: ChainEpoch,
         parent_epoch: ChainEpoch,
         prev: &BeaconEntry,
-    ) -> Result<Vec<BeaconEntry>, Box<dyn error::Error>> {
+    ) -> Result<Vec<BeaconEntry>, Error> {
         let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
         let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
         if cb_epoch != pb_epoch {
@@ -121,11 +122,11 @@ where
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
-    ) -> Result<bool, Box<dyn error::Error>>;
+    ) -> Result<bool, Error>;
 
     /// Returns a BeaconEntry given a round. It fetches the BeaconEntry from a Drand node over GRPC
     /// In the future, we will cache values, and support streaming.
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>>;
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, Error>;
 
     /// Returns the most recent beacon round for the given Filecoin chain epoch.
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
@@ -176,7 +177,7 @@ impl DrandBeacon {
         genesis_ts: u64,
         interval: u64,
         config: &DrandConfig<'_>,
-    ) -> Result<Self, Box<dyn error::Error>> {
+    ) -> Result<Self, Error> {
         if genesis_ts == 0 {
             panic!("Genesis timestamp cannot be 0")
         }
@@ -186,7 +187,7 @@ impl DrandBeacon {
         if cfg!(debug_assertions) {
             let remote_chain_info: ChainInfo = surf::get(&format!("{}/info", &config.server))
                 .recv_json()
-                .await?;
+                .await.unwrap();
             debug_assert!(&remote_chain_info == chain_info);
         }
 
@@ -210,7 +211,7 @@ impl Beacon for DrandBeacon {
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
-    ) -> Result<bool, Box<dyn error::Error>> {
+    ) -> Result<bool, Error> {
         // TODO: Handle Genesis better
         if prev.round() == 0 {
             return Ok(true);
@@ -237,13 +238,13 @@ impl Beacon for DrandBeacon {
         Ok(sig_match)
     }
 
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>> {
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, Error> {
         let cached: Option<BeaconEntry> = self.local_cache.read().await.get(&round).cloned();
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {
                 let url = format!("{}/public/{}", self.url, round);
-                let resp: BeaconEntryJson = surf::get(&url).recv_json().await?;
+                let resp: BeaconEntryJson = surf::get(&url).recv_json().await.unwrap();
                 Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
             }
         }
