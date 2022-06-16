@@ -7,7 +7,7 @@ extern crate lazy_static;
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use clock::ChainEpoch;
 use fil_types::NetworkVersion;
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 mod drand;
 
 #[cfg(all(
@@ -196,7 +196,7 @@ pub fn get_network_version_default(epoch: ChainEpoch) -> NetworkVersion {
 /// Constructs a drand beacon schedule based on the build config.
 pub async fn beacon_schedule_default(
     genesis_ts: u64,
-) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
+) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
     let mut points = BeaconSchedule(Vec::with_capacity(DRAND_SCHEDULE.len()));
     for dc in DRAND_SCHEDULE.iter() {
         points.0.push(BeaconPoint {

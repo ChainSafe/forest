@@ -8,6 +8,7 @@ edition = "2021"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
+anyhow = "1.0"
 forest_encoding = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 libipld-core = { version = "0.13", features = ["serde-codec"] }
