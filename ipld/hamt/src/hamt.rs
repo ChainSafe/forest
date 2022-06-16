@@ -302,4 +302,13 @@ where
     {
         self.root.for_each(self.store, &mut f)
     }
+
+    #[inline]
+    pub fn map_for_each<F>(&self, mut f: F) -> Result<(), anyhow::Error>
+    where
+        V: DeserializeOwned,
+        F: FnMut(&K, &V) -> Result<(), anyhow::Error>,
+    {
+        self.root.map_for_each(self.store, &mut f)
+    }
 }

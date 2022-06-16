@@ -8,7 +8,6 @@ use forest_hash_utils::{BytesKey, Hash};
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
-use std::error::Error;
 use std::marker::PhantomData;
 
 pub enum Map<'a, BS, V> {
@@ -156,10 +155,10 @@ where
     }
 
     /// Iterates over each KV in the `Map` and runs a function on the values.
-    pub fn for_each<F>(&self, f: F) -> Result<(), Box<dyn Error>>
+    pub fn map_for_each<F>(&self, f: F) -> Result<(), anyhow::Error>
     where
         V: DeserializeOwned,
-        F: FnMut(&BytesKey, &V) -> Result<(), Box<dyn Error>>,
+        F: FnMut(&BytesKey, &V) -> Result<(), anyhow::Error>,
     {
         match self {
             // Map::V0(m) => m.for_each(f),
@@ -167,7 +166,7 @@ where
             // Map::V3(m) => m.for_each(f),
             // Map::V4(m) => m.for_each(f),
             // Map::V5(m) => m.for_each(f),
-            Map::V6(m) => m.for_each(f),
+            Map::V6(m) => m.map_for_each(f),
             _ => unimplemented!(),
         }
     }

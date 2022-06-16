@@ -8069,6 +8069,7 @@ name = "state_tree"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "fil_types",
  "forest_address",
