@@ -9,7 +9,6 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmRefStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
-use std::error::Error;
 use std::marker::PhantomData;
 
 pub enum Map<'a, BS, V> {
@@ -180,10 +179,11 @@ where
     }
 
     /// Iterates over each KV in the `Map` and runs a function on the values.
+    pub fn map_for_each<F>(&self, f: F) -> Result<(), anyhow::Error>
     pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
     where
         V: DeserializeOwned,
-        F: FnMut(&BytesKey, &V) -> Result<(), Box<dyn Error>>,
+        F: FnMut(&BytesKey, &V) -> Result<(), anyhow::Error>,
     {
         match self {
             // Map::V0(m) => m.for_each(f),

@@ -78,11 +78,11 @@ fn try_print_actor_states<BS: BlockStore>(
     let state_tree = StateTree::new_from_root(bs, root)?;
 
     state_tree.for_each(|addr: Address, actor: &ActorState| {
-        let calc_pp = pp_actor_state(bs, actor, depth)?;
+        let calc_pp = pp_actor_state(bs, actor, depth).unwrap();
 
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
-                let expected_pp = pp_actor_state(bs, &other, depth)?;
+                let expected_pp = pp_actor_state(bs, &other, depth).unwrap();
                 let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, ",");
                 let stdout = stdout();
                 let mut handle = stdout.lock();
