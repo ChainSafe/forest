@@ -17,11 +17,11 @@ pub type Method = fil_actor_system_v7::Method;
 #[serde(untagged)]
 pub enum State {
     // V0(actorv0::system::State),
-    // V2(actorv2::system::State),
-    // V3(actorv3::system::State),
-    // V4(actorv4::system::State),
-    // V5(actorv5::system::State),
-    // V6(actorv6::system::State),
+// V2(actorv2::system::State),
+// V3(actorv3::system::State),
+// V4(actorv4::system::State),
+// V5(actorv5::system::State),
+// V6(actorv6::system::State),
 }
 
 impl State {

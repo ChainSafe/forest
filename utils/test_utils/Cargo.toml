@@ -8,6 +8,7 @@ edition = "2021"
 features = ["test_constructors"]
 
 [dependencies]
+anyhow = "1.0"
 address = { package = "forest_address", version = "0.3" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks/", optional = true }
 cid = { package = "forest_cid", version = "0.3", optional = true }

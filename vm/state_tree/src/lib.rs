@@ -430,7 +430,8 @@ where
         F: FnMut(Address, &ActorState) -> Result<(), anyhow::Error>,
         S: BlockStore,
     {
-        self.hamt.map_for_each(|k, v| f(Address::from_bytes(&k.0)?, v))
+        self.hamt
+            .map_for_each(|k, v| f(Address::from_bytes(&k.0)?, v))
     }
 }
 
