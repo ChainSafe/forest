@@ -47,7 +47,7 @@ where
     }
 
     /// Load map with root
-    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, Box<dyn Error>> {
+    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
         match version {
             // ActorVersion::V0 => Ok(Map::V0(actorv0::make_map_with_root(cid, store)?)),
             // ActorVersion::V2 => Ok(Map::V2(actorv2::make_map_with_root(cid, store)?)),
@@ -81,7 +81,7 @@ where
     }
 
     /// Inserts a key-value pair into the `Map`.
-    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), Box<dyn Error>> {
+    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), anyhow::Error> {
         match self {
             // Map::V0(m) => Ok(m.set(key, value)?),
             // Map::V2(m) => Ok(m.set(key, value)?),
@@ -110,7 +110,7 @@ where
     }
 
     /// Returns a reference to the value corresponding to the key.
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, Box<dyn Error>>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, anyhow::Error>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -129,7 +129,7 @@ where
     }
 
     /// Returns `true` if a value exists for the given key in the `Map`.
-    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, Box<dyn Error>>
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, anyhow::Error>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -148,7 +148,7 @@ where
 
     /// Removes a key from the `Map`, returning the value at the key if the key
     /// was previously in the `Map`.
-    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, Box<dyn Error>>
+    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, anyhow::Error>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -166,7 +166,7 @@ where
     }
 
     /// Flush root and return Cid for `Map`
-    pub fn flush(&mut self) -> Result<Cid, Box<dyn Error>> {
+    pub fn flush(&mut self) -> Result<Cid, anyhow::Error> {
         match self {
             // Map::V0(m) => Ok(m.flush()?),
             // Map::V2(m) => Ok(m.flush()?),
