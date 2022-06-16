@@ -170,6 +170,43 @@ where
         Ok(())
     }
 
+    pub(crate) fn map_for_each<S, F>(&self, store: &S, f: &mut F) -> Result<(), anyhow::Error>
+    where
+        F: FnMut(&K, &V) -> Result<(), anyhow::Error>,
+        S: BlockStore,
+    {
+        for p in &self.pointers {
+            match p {
+                Pointer::Link { cid, cache } => {
+                    if let Some(cached_node) = cache.get() {
+                        cached_node.map_for_each(store, f)?
+                    } else {
+                        let node = if let Some(node) = store.get(cid).unwrap() {
+                            node
+                        } else {
+                            #[cfg(not(feature = "ignore-dead-links"))]
+                            return Err(anyhow::Error::msg(cid.to_string()));
+
+                            #[cfg(feature = "ignore-dead-links")]
+                            continue;
+                        };
+
+                        // Ignore error intentionally, the cache value will always be the same
+                        let cache_node = cache.get_or_init(|| node);
+                        cache_node.map_for_each(store, f)?
+                    }
+                }
+                Pointer::Dirty(n) => n.map_for_each(store, f)?,
+                Pointer::Values(kvs) => {
+                    for kv in kvs {
+                        f(kv.0.borrow(), kv.1.borrow())?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Search for a key.
     fn search<Q: ?Sized, S: BlockStore>(
         &self,

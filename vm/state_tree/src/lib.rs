@@ -425,12 +425,12 @@ where
         }
     }
 
-    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), anyhow::Error>
     where
-        F: FnMut(Address, &ActorState) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(Address, &ActorState) -> Result<(), anyhow::Error>,
         S: BlockStore,
     {
-        self.hamt.for_each(|k, v| f(Address::from_bytes(&k.0)?, v))
+        self.hamt.map_for_each(|k, v| f(Address::from_bytes(&k.0)?, v))
     }
 }
 
