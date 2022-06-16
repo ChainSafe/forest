@@ -128,11 +128,7 @@ where
     Self: Sized,
 {
     /// Verify a new beacon entry against the most recent one before it.
-    async fn verify_entry(
-        &self,
-        curr: &BeaconEntry,
-        prev: &BeaconEntry,
-    ) -> Result<bool, Error>;
+    async fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, Error>;
 
     /// Returns a BeaconEntry given a round. It fetches the BeaconEntry from a Drand node over GRPC
     /// In the future, we will cache values, and support streaming.
@@ -197,7 +193,8 @@ impl DrandBeacon {
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
             let remote_chain_info: ChainInfo = surf::get(&format!("{}/info", &config.server))
                 .recv_json()
-                .await.unwrap();
+                .await
+                .unwrap();
             debug_assert!(&remote_chain_info == chain_info);
         }
 
@@ -217,11 +214,7 @@ impl DrandBeacon {
 
 #[async_trait]
 impl Beacon for DrandBeacon {
-    async fn verify_entry(
-        &self,
-        curr: &BeaconEntry,
-        prev: &BeaconEntry,
-    ) -> Result<bool, Error> {
+    async fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, Error> {
         // TODO: Handle Genesis better
         if prev.round() == 0 {
             return Ok(true);

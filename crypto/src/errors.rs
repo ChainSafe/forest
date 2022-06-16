@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Error as AddressError;
+use anyhow::Error as AnyhowError;
 use encoding::Error as EncodingError;
 use libsecp256k1::Error as SecpError;
-use anyhow::Error as AnyhowError;
 use thiserror::Error;
 
 /// Crypto error

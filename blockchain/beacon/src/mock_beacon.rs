@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{Beacon, BeaconEntry};
+use anyhow::Error;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use encoding::blake2b_256;
 use std::time::Duration;
-use anyhow::Error;
 
 /// Mock beacon used for testing. Deterministic based on an interval.
 pub struct MockBeacon {
@@ -30,11 +30,7 @@ impl MockBeacon {
 
 #[async_trait]
 impl Beacon for MockBeacon {
-    async fn verify_entry(
-        &self,
-        curr: &BeaconEntry,
-        prev: &BeaconEntry,
-    ) -> Result<bool, Error> {
+    async fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, Error> {
         let oe = Self::entry_for_index(prev.round());
         Ok(oe.data() == curr.data())
     }
