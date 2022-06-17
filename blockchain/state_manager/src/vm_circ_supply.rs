@@ -21,30 +21,38 @@ use std::error::Error as StdError;
 use vm::{ActorState, TokenAmount};
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
+const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
+    (183 * actor::EPOCHS_IN_DAY, 82_717_041),
+    (EPOCHS_IN_YEAR, 22_421_712),
+    (2 * EPOCHS_IN_YEAR, 7_223_364),
+    (3 * EPOCHS_IN_YEAR, 87_637_883),
+    (6 * EPOCHS_IN_YEAR, 400_000_000),
+];
+const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
+    (0, 10_632_000),
+    (183 * actor::EPOCHS_IN_DAY, 19_015_887 + 32_787_700),
+    (EPOCHS_IN_YEAR, 22_421_712 + 9_400_000),
+    (2 * EPOCHS_IN_YEAR, 7_223_364),
+    (3 * EPOCHS_IN_YEAR, 87_637_883 + 898_958),
+    (6 * EPOCHS_IN_YEAR, 100_000_000 + 300_000_000 + 9_805_053),
+];
 
-lazy_static! {
-    static ref PRE_CALICO_VESTING: [(ChainEpoch, TokenAmount); 5] = [
-        (183 * actor::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
-        (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712)),
-        (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
-        (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883)),
-        (6 * EPOCHS_IN_YEAR, TokenAmount::from(400_000_000)),
-    ];
-    static ref CALICO_VESTING: [(ChainEpoch, TokenAmount); 6] = [
-        (0, TokenAmount::from(10_632_000)),
-        (
-            183 * actor::EPOCHS_IN_DAY,
-            TokenAmount::from(19_015_887 + 32_787_700)
-        ),
-        (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712 + 9_400_000)),
-        (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
-        (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883 + 898_958)),
-        (
-            6 * EPOCHS_IN_YEAR,
-            TokenAmount::from(100_000_000 + 300_000_000 + 9_805_053)
-        ),
-    ];
-}
+// lazy_static! {
+//     static ref CALICO_VESTING: [(ChainEpoch, TokenAmount); 6] = [
+//         (0, TokenAmount::from(10_632_000)),
+//         (
+//             183 * actor::EPOCHS_IN_DAY,
+//             TokenAmount::from(19_015_887 + 32_787_700)
+//         ),
+//         (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712 + 9_400_000)),
+//         (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
+//         (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883 + 898_958)),
+//         (
+//             6 * EPOCHS_IN_YEAR,
+//             TokenAmount::from(100_000_000 + 300_000_000 + 9_805_053)
+//         ),
+//     ];
+// }
 
 /// Genesis information used when calculating circulating supply.
 #[derive(Default, Clone)]
@@ -299,7 +307,7 @@ fn setup_genesis_vesting_schedule() -> Vec<msig0::State> {
                 signers: vec![],
                 num_approvals_threshold: 0,
                 next_tx_id: msig0::TxnID(0),
-                initial_balance: initial_balance.clone(),
+                initial_balance: TokenAmount::from(*initial_balance),
                 start_epoch: ChainEpoch::default(),
                 unlock_duration: *unlock_duration,
                 // Default Cid is ok here because this field is never read
@@ -320,7 +328,7 @@ fn setup_ignition_vesting_schedule() -> Vec<msig0::State> {
 
                 // In the pre-ignition logic, this value was incorrectly set in Fil, not attoFil,
                 // an off-by-10^18 error
-                initial_balance: initial_balance * FILECOIN_PRECISION,
+                initial_balance: TokenAmount::from(*initial_balance) * FILECOIN_PRECISION,
 
                 // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic
                 // of the Ignition upgrade itself.
@@ -342,7 +350,7 @@ fn setup_calico_vesting_schedule() -> Vec<msig0::State> {
                 signers: vec![],
                 num_approvals_threshold: 0,
                 next_tx_id: msig0::TxnID(0),
-                initial_balance: initial_balance * FILECOIN_PRECISION,
+                initial_balance: TokenAmount::from(*initial_balance) * FILECOIN_PRECISION,
                 start_epoch: UPGRADE_LIFTOFF_HEIGHT,
                 unlock_duration: *unlock_duration,
                 // Default Cid is ok here because this field is never read
