@@ -19,7 +19,7 @@ use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
 use db::rocks::RocksDb;
@@ -76,7 +76,7 @@ pub(super) async fn start(config: Config) {
                 std::io::stdout().flush().unwrap();
 
                 if passphrase != read_password().unwrap() {
-                    println!("Passphrases do not match. Please retry.");
+                    error!("Passphrases do not match. Please retry.");
                     continue;
                 }
             }
@@ -89,7 +89,7 @@ pub(super) async fn start(config: Config) {
             match key_store_init_result {
                 Ok(ks) => break ks,
                 Err(_) => {
-                    log::error!("Incorrect passphrase entered. Please try again.")
+                    error!("Incorrect passphrase entered. Please try again.")
                 }
             };
         }
@@ -119,7 +119,7 @@ pub(super) async fn start(config: Config) {
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
     let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
-    println!("Admin token: {}", token);
+    info!("Admin token: {}", token);
 
     let keystore = Arc::new(RwLock::new(ks));
 
@@ -248,7 +248,7 @@ pub(super) async fn start(config: Config) {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
-            info!("JSON RPC Endpoint at {}", &rpc_listen);
+            info!("JSON-RPC endpoint started at {}", &rpc_listen);
             start_rpc::<_, _, FullVerifier>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),
@@ -267,7 +267,7 @@ pub(super) async fn start(config: Config) {
             .await
         }))
     } else {
-        debug!("RPC disabled");
+        debug!("RPC disabled.");
         None
     };
 
@@ -287,13 +287,17 @@ pub(super) async fn start(config: Config) {
     }
     keystore_write.await;
 
-    info!("Forest finish shutdown");
+    info!("Forest finish shutdown.");
 }
 
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
     if let Some(path) = &config.snapshot_path {
         let stopwatch = time::Instant::now();
-        let validate_height = if config.snapshot { None } else { Some(0) };
+        let validate_height = if config.snapshot {
+            config.snapshot_height
+        } else {
+            Some(0)
+        };
         import_chain::<FullVerifier, _>(state_manager, path, validate_height, config.skip_load)
             .await
             .expect("Failed miserably while importing chain from snapshot");

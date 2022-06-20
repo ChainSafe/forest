@@ -272,7 +272,7 @@ where
                 match network.hello_request(peer_id, request).await {
                     Ok(response) => response,
                     Err(e) => {
-                        error!("{}", e);
+                        debug!("Hello request failed: {}", e);
                         return;
                     }
                 };
@@ -382,7 +382,7 @@ where
                 {
                     Ok(tipset) => tipset,
                     Err(why) => {
-                        error!("Querying full tipset failed: {}", why);
+                        debug!("Querying full tipset failed: {}", why);
                         return Err(why);
                     }
                 };
@@ -500,7 +500,7 @@ where
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
-                        error!("Receiving event from p2p event stream failed: {}", why);
+                        debug!("Receiving event from p2p event stream failed: {}", why);
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
@@ -617,7 +617,7 @@ where
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
-                        error!("Receiving event from p2p event stream failed: {}", why);
+                        debug!("Receiving event from p2p event stream failed: {}", why);
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
@@ -709,7 +709,7 @@ where
                 // If a tipset has been provided, pass it to the tipset processor
                 if let Some(tipset) = tipset_opt {
                     if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
-                        error!("Sending tipset to TipsetProcessor failed: {}", why);
+                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
                         return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                     };
                 }
@@ -717,7 +717,7 @@ where
                     let event = match p2p_messages.recv().await {
                         Ok(event) => event,
                         Err(why) => {
-                            error!("Receiving event from p2p event stream failed: {}", why);
+                            debug!("Receiving event from p2p event stream failed: {}", why);
                             return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                         }
                     };
@@ -756,7 +756,7 @@ where
                     }
 
                     if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
-                        error!("Sending tipset to TipsetProcessor failed: {}", why);
+                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
                         return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                     };
                 }

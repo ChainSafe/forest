@@ -171,6 +171,7 @@ pub enum Height {
     Hyperdrive,
     Chocolate,
     OhSnap,
+    Skyr,
 }
 
 impl Default for Height {
@@ -334,6 +335,7 @@ pub mod de_network_version {
             "v13" => Ok(NetworkVersion::V13),
             "v14" => Ok(NetworkVersion::V14),
             "v15" => Ok(NetworkVersion::V15),
+            "v16" => Ok(NetworkVersion::V16),
             _ => Err(de::Error::custom(&format!(
                 "Invalid network version: {}",
                 version
@@ -341,11 +343,11 @@ pub mod de_network_version {
         }
     }
 
-    pub fn serialize<S>(n: &NetworkVersion, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(nv: &NetworkVersion, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let version_string = match n {
+        let version_string = match nv {
             NetworkVersion::V0 => "V0",
             NetworkVersion::V1 => "V1",
             NetworkVersion::V2 => "V2",
@@ -362,6 +364,8 @@ pub mod de_network_version {
             NetworkVersion::V13 => "V13",
             NetworkVersion::V14 => "V14",
             NetworkVersion::V15 => "V15",
+            NetworkVersion::V16 => "V16",
+            _ => unimplemented!(),
         }
         .to_string();
 

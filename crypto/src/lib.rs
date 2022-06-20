@@ -11,4 +11,4 @@ pub use self::signature::*;
 pub use self::signer::*;
 pub use self::vrf::*;
 
-pub use fvm_shared::crypto::randomness::DomainSeparationTag;
+pub use fil_actors_runtime::runtime::DomainSeparationTag;

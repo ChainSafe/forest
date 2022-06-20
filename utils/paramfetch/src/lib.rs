@@ -11,7 +11,7 @@ use async_std::{
 use blake2b_simd::{Hash, State as Blake2b};
 use core::time::Duration;
 use fil_types::SectorSize;
-use log::{info, warn};
+use log::{debug, warn};
 use net_utils::FetchProgress;
 use pbr::{MultiBar, Units};
 use serde::{Deserialize, Serialize};
@@ -155,7 +155,7 @@ async fn fetch_params(
     multi_bar: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), Box<dyn StdError>> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
-    info!("Fetching {:?} from {}", path, gw);
+    debug!("Fetching {:?} from {}", path, gw);
 
     let file = File::create(path).await?;
     let mut writer = BufWriter::new(file);
@@ -198,7 +198,7 @@ async fn fetch_params(
 
 async fn check_file(path: Arc<Path>, info: Arc<ParameterData>) -> Result<(), io::Error> {
     if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
-        warn!("Assuming parameter files are okay. DO NOT USE IN PRODUCTION");
+        warn!("Assuming parameter files are okay. Do not use in production!");
         return Ok(());
     }
 
@@ -215,7 +215,7 @@ async fn check_file(path: Arc<Path>, info: Arc<ParameterData>) -> Result<(), io:
     let str_sum = hash.to_hex();
     let str_sum = &str_sum[..32];
     if str_sum == info.digest {
-        info!("Parameter file {:?} is ok", path);
+        debug!("Parameter file {:?} is ok", path);
         Ok(())
     } else {
         Err(io::Error::new(

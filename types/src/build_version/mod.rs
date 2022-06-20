@@ -3,6 +3,7 @@
 
 use async_std::sync::RwLock;
 use git_version::git_version;
+use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -50,7 +51,7 @@ pub enum BuildType {
 }
 
 /// The type of node that is running.
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, Debug)]
 #[repr(u64)]
 pub enum NodeType {
     Unknown = 0,
@@ -61,7 +62,7 @@ pub enum NodeType {
 
 impl Display for NodeType {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self)
+        write!(f, "{:?}", self)
     }
 }
 

@@ -28,7 +28,7 @@ impl GasTracker {
 
         if self.gas_used > self.gas_available - to_use {
             self.gas_used = self.gas_available;
-            Err(actor_error!(SysErrOutOfGas;
+            Err(actor_error!(SYS_OUT_OF_GAS;
                     "not enough gas (used={}) (available={})",
                to_use, self.gas_available
             ))

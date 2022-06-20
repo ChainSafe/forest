@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::*;
-use actorv0::multisig as msig0;
 use address::Address;
 use blockstore::BlockStore;
 use chain::*;
 use cid::Cid;
 use clock::ChainEpoch;
-use fil_types::{FILECOIN_PRECISION, FIL_RESERVED};
+use fil_types::FILECOIN_PRECISION;
+use forest_actor::multisig as msig0;
 use interpreter::CircSupplyCalc;
 use networks::{ChainConfig, Height};
 use num_bigint::BigInt;
@@ -73,19 +73,20 @@ impl GenesisInfo {
             ..GenesisInfo::default()
         }
     }
-    fn init<DB: BlockStore>(&self, bs: &DB) -> Result<(), Box<dyn StdError>> {
-        let genesis_block =
-            genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
 
-        // Parent state of genesis tipset is tipset state
-        let st = genesis_block.state_root();
+    fn init<DB: BlockStore>(&self, _bs: &DB) -> Result<(), Box<dyn StdError>> {
+        // let genesis_block =
+        //     genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
 
-        let state_tree = StateTree::new_from_root(bs, st)?;
+        // // Parent state of genesis tipset is tipset state
+        // let st = genesis_block.state_root();
 
-        let _ = self
-            .genesis_market_funds
-            .set(get_fil_market_locked(&state_tree)?);
-        let _ = self.genesis_pledge.set(get_fil_power_locked(&state_tree)?);
+        // let state_tree = StateTree::new_from_root(bs, st)?;
+
+        // let _ = self
+        //     .genesis_market_funds
+        //     .set(get_fil_market_locked(&state_tree)?);
+        // let _ = self.genesis_pledge.set(get_fil_power_locked(&state_tree)?);
 
         Ok(())
     }
@@ -131,25 +132,26 @@ impl CircSupplyCalc for GenesisInfo {
 
     fn get_fil_vested<DB: BlockStore>(
         &self,
-        height: ChainEpoch,
-        store: &DB,
+        _height: ChainEpoch,
+        _store: &DB,
     ) -> Result<TokenAmount, Box<dyn StdError>> {
-        self.vesting
-            .genesis
-            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
-                self.init(store)?;
-                Ok(setup_genesis_vesting_schedule())
-            })?;
+        unimplemented!()
+        // self.vesting
+        //     .genesis
+        //     .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+        //         self.init(store)?;
+        //         Ok(setup_genesis_vesting_schedule())
+        //     })?;
 
-        self.vesting
-            .ignition
-            .get_or_init(|| setup_ignition_vesting_schedule(self.liftoff_height));
+        // self.vesting
+        //     .ignition
+        //     .get_or_init(setup_ignition_vesting_schedule);
 
-        self.vesting
-            .calico
-            .get_or_init(|| setup_calico_vesting_schedule(self.liftoff_height));
+        // self.vesting
+        //     .calico
+        //     .get_or_init(setup_calico_vesting_schedule);
 
-        Ok(get_fil_vested(self, height))
+        // Ok(get_fil_vested(self, height))
     }
 }
 
@@ -183,19 +185,24 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 
     if height <= genesis_info.ignition_height {
         for actor in pre_ignition {
-            return_value += &actor.initial_balance - actor.amount_locked(height);
+            return_value += &actor.initial_balance - v0_amount_locked(actor, height);
         }
     } else if height <= genesis_info.calico_height {
         for actor in post_ignition {
             return_value +=
-                &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
+                &actor.initial_balance - v0_amount_locked(actor, height - actor.start_epoch);
         }
     } else {
         for actor in calico_vesting {
+            // dbg!(&actor.initial_balance);
+            // dbg!(&actor.unlock_duration);
+            // dbg!(actor.start_epoch);
+            // dbg!(actor.amount_locked(height - actor.start_epoch));
             return_value +=
-                &actor.initial_balance - actor.amount_locked(height - actor.start_epoch);
+                &actor.initial_balance - v0_amount_locked(actor, height - actor.start_epoch);
         }
     }
+    // dbg!(&return_value);
 
     if height <= genesis_info.actors_v2_height {
         return_value += genesis_info
@@ -207,6 +214,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
                 .get()
                 .expect("Genesis info should be initialized");
     }
+    // dbg!(&return_value);
 
     return_value
 }
@@ -247,10 +255,11 @@ fn get_fil_power_locked<DB: BlockStore>(
 fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
+    let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
     let reserve_actor = get_actor_state(state_tree, RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
-    Ok(&*FIL_RESERVED - reserve_actor.balance)
+    Ok(fil_reserved - reserve_actor.balance)
 }
 
 fn get_fil_locked<DB: BlockStore>(
@@ -284,9 +293,17 @@ fn get_circulating_supply<'a, DB: BlockStore>(
         TokenAmount::default()
     };
     let fil_circulating = BigInt::max(
-        &fil_vested + &fil_mined + fil_reserve_distributed - &fil_burnt - &fil_locked,
+        &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
         TokenAmount::default(),
     );
+
+    // dbg!(height);
+    // dbg!(&fil_vested);
+    // dbg!(&fil_mined);
+    // dbg!(&fil_burnt);
+    // dbg!(&fil_locked);
+    // dbg!(&fil_reserve_distributed);
+    // dbg!(&fil_circulating);
 
     Ok(fil_circulating)
 }
@@ -350,4 +367,21 @@ fn setup_calico_vesting_schedule(liftoff_height: ChainEpoch) -> Vec<msig0::State
             }
         })
         .collect()
+}
+
+/// Returns amount locked in multisig contract
+fn v0_amount_locked(st: &msig0::State, elapsed_epoch: ChainEpoch) -> TokenAmount {
+    use num_bigint::Integer;
+
+    if elapsed_epoch >= st.unlock_duration {
+        return TokenAmount::from(0);
+    }
+    if elapsed_epoch < 0 {
+        return st.initial_balance.clone();
+    }
+    // Division truncation is broken here: https://github.com/filecoin-project/specs-actors/issues/1131
+    let unit_locked: TokenAmount = st
+        .initial_balance
+        .div_floor(&TokenAmount::from(st.unlock_duration));
+    unit_locked * (st.unlock_duration - elapsed_epoch)
 }

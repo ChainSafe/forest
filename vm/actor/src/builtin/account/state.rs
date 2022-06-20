@@ -5,7 +5,7 @@ use address::Address;
 use encoding::{tuple::*, Cbor};
 
 /// State includes the address for the actor
-#[derive(Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     pub address: Address,
 }

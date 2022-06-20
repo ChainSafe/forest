@@ -17,19 +17,25 @@ jobs:
           - os: macos-latest
             file: forest-${{ github.ref_name }}-macos-amd64.zip
     steps:
+      - name: Apt Dependencies
+        if: startsWith(matrix.os, 'Ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+      - name: Homebrew Utils
+        if: startsWith(matrix.os, 'macOS')
+        run: |
+          brew install --verbose coreutils
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
-      - name: Homebrew Utils
-        run: |
-          brew install --verbose coreutils
-        if: startsWith(matrix.os, 'macOS')
       - name: Cargo Build
         uses: actions-rs/cargo@v1
         with:

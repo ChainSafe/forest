@@ -119,7 +119,7 @@ where
         tipset: &Tipset,
         address: &Address,
         filter: Option<&BitField>,
-    ) -> Result<Vec<SectorOnChainInfo>, Error>
+    ) -> anyhow::Result<Vec<SectorOnChainInfo>, Error>
     where
         V: ProofVerifier,
     {
@@ -137,7 +137,7 @@ where
         address: &Address,
         sector_number: SectorNumber,
         tipset: &Tipset,
-    ) -> Result<Option<SectorOnChainInfo>, Error>
+    ) -> anyhow::Result<Option<SectorOnChainInfo>, Error>
     where
         V: ProofVerifier,
     {
@@ -145,8 +145,7 @@ where
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
-        mas.get_sector(self.blockstore(), sector_number)
-            .map_err(|err| Error::State(format!("(get sset) failed to get actor state: {:}", err)))
+        Ok(mas.get_sector(self.blockstore(), sector_number)?)
     }
 
     /// Returns the precommitted sector info for a miner's sector.
@@ -155,7 +154,7 @@ where
         address: &Address,
         sector_number: &SectorNumber,
         tipset: &Tipset,
-    ) -> Result<SectorPreCommitOnChainInfo, Error>
+    ) -> anyhow::Result<SectorPreCommitOnChainInfo, Error>
     where
         V: ProofVerifier,
     {
@@ -163,23 +162,12 @@ where
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
-        let precommit_info = mas
-            .get_precommitted_sector(self.blockstore(), *sector_number)
-            .map_err(|err| {
-                Error::Other(format!(
-                    "(precommit info) failed to load miner actor state: %{:}",
-                    err
-                ))
-            })?;
+        let precommit_info = mas.get_precommitted_sector(self.blockstore(), *sector_number)?;
         precommit_info.ok_or_else(|| Error::Other("precommit not found".to_string()))
     }
 
     /// Returns miner info at the given [Tipset]'s state.
-    pub fn get_miner_info<V>(
-        &self,
-        tipset: &Tipset,
-        address: &Address,
-    ) -> Result<MinerInfo, Box<dyn StdError>>
+    pub fn get_miner_info<V>(&self, tipset: &Tipset, address: &Address) -> anyhow::Result<MinerInfo>
     where
         V: ProofVerifier,
     {
@@ -187,7 +175,8 @@ where
             .get_actor(address, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
-        mas.info(self.blockstore())
+        let info = mas.info(self.blockstore())?;
+        Ok(info)
     }
 
     fn for_each_deadline_partition<V, F>(
@@ -258,7 +247,7 @@ where
     }
 
     /// Lists all miners that exist in the power actor state at given [Tipset].
-    pub fn list_miner_actors<V>(&self, tipset: &Tipset) -> Result<Vec<Address>, Error>
+    pub fn list_miner_actors<V>(&self, tipset: &Tipset) -> anyhow::Result<Vec<Address>, Error>
     where
         V: ProofVerifier,
     {
@@ -267,7 +256,9 @@ where
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let power_actor_state = power::State::load(self.blockstore(), &actor)?;
 
-        Ok(power_actor_state.list_all_miners(self.blockstore())?)
+        let miners = power_actor_state.list_all_miners(self.blockstore())?;
+
+        Ok(miners)
     }
 
     /// Gets miner's worker address from state.
@@ -275,24 +266,14 @@ where
         &self,
         state: &Cid,
         miner_addr: &Address,
-    ) -> Result<Address, Error> {
+    ) -> anyhow::Result<Address, Error> {
         let st = StateTree::new_from_root(self.blockstore(), state)?;
         let actor = st
             .get_actor(miner_addr)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
-        let info = mas.info(self.blockstore()).map_err(|err| {
-            Error::State(format!(
-                "(get miner worker raw) failed to load miner actor get info: {:}",
-                err
-            ))
-        })?;
-        resolve_to_key_addr(&st, self.blockstore(), &info.worker()).map_err(|e| {
-            Error::State(format!(
-                "(get miner worker raw) failed to resolve key addr: {}",
-                e
-            ))
-        })
+        let info = mas.info(self.blockstore())?;
+        Ok(resolve_to_key_addr(&st, self.blockstore(), &info.worker())?)
     }
 }
 

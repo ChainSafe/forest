@@ -6,7 +6,7 @@ use crate::network::EPOCHS_IN_HOUR;
 use address::Address;
 use clock::ChainEpoch;
 use crypto::Signature;
-use encoding::{error::Error, serde_bytes, to_vec, tuple::*};
+use encoding::{serde_bytes, to_vec, tuple::*, Error};
 use num_bigint::{bigint_ser, BigInt};
 use vm::{MethodNum, Serialized};
 
