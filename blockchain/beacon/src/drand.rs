@@ -35,7 +35,7 @@ impl DrandPublic {
 
 /// Type of the Drand network. In general only Mainnet and its chain information
 /// should be considered stable.
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum DrandNetwork {
     Mainnet,
     Incentinet,
@@ -141,7 +141,7 @@ where
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
 }
 
-#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Default)]
+#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
 /// Contains all the info about a Drand beacon chain.
 /// API reference: https://drand.love/developer/http-api/#info
 /// note: groupHash does not exist in docs currently, but is returned.

@@ -28,7 +28,7 @@ pub const PIECE_CID_PREFIX: Prefix = Prefix {
 /// minimal deals that last for a long time.
 /// Note: ClientCollateralPerEpoch may not be needed and removed pending future confirmation.
 /// There will be a Minimum value for both client and provider deal collateral.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct DealProposal {
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
@@ -77,7 +77,7 @@ impl DealProposal {
 }
 
 /// ClientDealProposal is a DealProposal signed by a client
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct ClientDealProposal {
     pub proposal: DealProposal,
     pub client_signature: Signature,
@@ -85,7 +85,7 @@ pub struct ClientDealProposal {
 
 impl Cbor for ClientDealProposal {}
 
-#[derive(Clone, Debug, PartialEq, Copy, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, Serialize_tuple, Deserialize_tuple)]
 pub struct DealState {
     pub sector_start_epoch: ChainEpoch, // -1 if not yet included in proven sector
     pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated

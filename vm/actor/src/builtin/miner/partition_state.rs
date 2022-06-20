@@ -379,7 +379,7 @@ impl Partition {
         let sector_numbers = sector_numbers.validate()?;
 
         // Ensure these sectors actually belong to this partition.
-        let present = &*sector_numbers & &self.sectors;
+        let present = sector_numbers & &self.sectors;
 
         // Filter out terminated sectors.
         let live = &present - &self.terminated;
@@ -762,7 +762,7 @@ impl Partition {
         let retracted_recovery_power = power_for_sectors(sector_size, &retracted_recovery_sectors);
 
         // Ignore skipped faults that are already faults or terminated.
-        let new_faults = &(&*skipped - &self.terminated) - &self.faults;
+        let new_faults = &(skipped - &self.terminated) - &self.faults;
         let new_fault_sectors = sectors
             .load_sector(&new_faults)
             .map_err(|e| e.wrap("failed to load sectors"))?;

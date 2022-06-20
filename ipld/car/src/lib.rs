@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use util::{ld_read, ld_write, read_node};
 
 /// CAR file header
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarHeader {
     pub roots: Vec<Cid>,
     pub version: u64,

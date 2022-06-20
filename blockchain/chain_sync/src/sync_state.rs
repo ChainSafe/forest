@@ -9,7 +9,7 @@ use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
 /// Current state of the ChainSyncer using the ChainExchange protocol.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum SyncStage {
     /// Idle state.
     Idle,

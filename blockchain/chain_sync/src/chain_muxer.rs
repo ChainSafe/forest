@@ -67,7 +67,7 @@ pub enum ChainMuxerError {
 }
 
 /// Struct that defines syncing configuration options
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
